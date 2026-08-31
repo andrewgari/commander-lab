@@ -115,7 +115,8 @@ def sync_inventory():
                         "modifier": card.get("modifier", "Normal"),
                         "categories": categories,
                         "uid": card.get("card", {}).get("uid", ""),
-                        "alt_name": card.get("card", {}).get("displayName") or ""
+                        "alt_name": card.get("card", {}).get("displayName") or "",
+                        "price": card.get("prices", {}).get("tcgfoil", 0.0) if card.get("modifier") == "Foil" and card.get("prices", {}).get("tcgfoil") else card.get("prices", {}).get("tcg", 0.0)
                     })
 
     # Clear old inventory and set new

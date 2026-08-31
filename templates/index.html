@@ -55,8 +55,10 @@
     <table>
         <thead>
             <tr>
+                <th style="width: 100px;">Type</th>
                 <th>Card Name</th>
                 <th>Deck</th>
+                <th>Price</th>
             </tr>
         </thead>
         <tbody id="inventoryList">
@@ -174,7 +176,12 @@
                     displayName += ` <span style="color:#888; font-size: 0.85em;">(${card.alt_name})</span>`;
                 }
                 
-                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${displayName}</td><td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>`;
+                const priceStr = card.price ? '$' + parseFloat(card.price).toFixed(2) : 'N/A';
+                
+                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span></td>
+                                <td>${displayName}</td>
+                                <td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>
+                                <td style="color: #87d37c;">${priceStr}</td>`;
                 tbody.appendChild(tr);
                 
                 const trDetails = document.createElement('tr');
@@ -185,7 +192,7 @@
                 const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
                 
                 trDetails.innerHTML = `
-                    <td colspan="2" style="padding: 0; border: none;">
+                    <td colspan="4" style="padding: 0; border: none;">
                         <div class="details-container">
                             <div class="details-image">
                                 ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
@@ -196,6 +203,7 @@
                                 <p><strong>Type:</strong> ${card.type}</p>
                                 <p style="display: flex; align-items: center;"><strong>Color:</strong> ${createColorPips(card.color)}</p>
                                 <p><strong>Categories:</strong> ${cats}</p>
+                                <p><strong>TCG Price:</strong> <span style="color: #87d37c;">${priceStr}</span></p>
                             </div>
                         </div>
                     </td>
