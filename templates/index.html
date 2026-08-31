@@ -27,17 +27,20 @@
         .color-G { border-left: 3px solid #a3c095; }
         .color-C { border-left: 3px solid #cccccc; }
         .color-M { border-left: 3px solid #d4af37; } /* Gold/Multi */
+        .pill { display: inline-flex; align-items: center; background: #3a3a3a; border: 1px solid #555; border-radius: 16px; padding: 0.2rem 0.6rem; font-size: 0.85rem; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+        .pill-close { margin-left: 0.4rem; cursor: pointer; color: #aaa; font-weight: bold; }
+        .pill-close:hover { color: white; }
+        .search-container { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
     </style>
 </head>
 <body>
     <h1>Commander Inventory</h1>
-    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+    <div class="search-container">
         <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()" style="flex: 1; margin-bottom: 0;">
-        <select id="deckFilter" multiple size="3" onchange="fetchInventory()" style="flex: 1; background: #2a2a2a; border: 1px solid #444; color: white; padding: 0.5rem;">
-            <!-- Decks will be populated here -->
-        </select>
+        <input type="text" id="deckInput" list="deckList" placeholder="Add deck filter..." style="flex: 1; margin-bottom: 0;">
+        <datalist id="deckList"></datalist>
     </div>
-    <div style="margin-bottom: 1rem; font-size: 0.85rem; color: #aaa;">Hold Ctrl/Cmd to select multiple decks. Leave unselected to view total inventory.</div>
+    <div id="deckPills" style="min-height: 2rem;"></div>
     
     <table>
         <thead>
@@ -52,22 +55,60 @@
     </table>
 
     <script>
+        let allDecks = [];
+        let selectedDecks = [];
+
         async function loadDecks() {
             const res = await fetch(`/api/decks`);
             const data = await res.json();
-            const select = document.getElementById('deckFilter');
+            allDecks = data.decks;
+            const datalist = document.getElementById('deckList');
             data.decks.forEach(deck => {
                 const option = document.createElement('option');
                 option.value = deck;
-                option.textContent = deck;
-                select.appendChild(option);
+                datalist.appendChild(option);
+            });
+        }
+
+        document.getElementById('deckInput').addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (allDecks.includes(val)) {
+                if (!selectedDecks.includes(val)) {
+                    selectedDecks.push(val);
+                    renderPills();
+                    fetchInventory();
+                }
+                e.target.value = '';
+            }
+        });
+
+        function renderPills() {
+            const container = document.getElementById('deckPills');
+            container.innerHTML = '';
+            selectedDecks.forEach(deck => {
+                const pill = document.createElement('div');
+                pill.className = 'pill';
+                
+                const text = document.createElement('span');
+                text.textContent = deck;
+                pill.appendChild(text);
+                
+                const close = document.createElement('span');
+                close.className = 'pill-close';
+                close.innerHTML = '&times;';
+                close.onclick = () => {
+                    selectedDecks = selectedDecks.filter(d => d !== deck);
+                    renderPills();
+                    fetchInventory();
+                };
+                pill.appendChild(close);
+                
+                container.appendChild(pill);
             });
         }
 
         async function fetchInventory() {
             const query = document.getElementById('searchInput').value;
-            const select = document.getElementById('deckFilter');
-            const selectedDecks = Array.from(select.selectedOptions).map(opt => opt.value);
             
             const params = new URLSearchParams();
             if (query) params.append('query', query);
