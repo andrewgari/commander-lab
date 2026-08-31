@@ -11,6 +11,20 @@
         th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #333; }
         th { background: #1e1e1e; }
         .badge { display: inline-block; background: #3a3a3a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid #555; }
+        .type-icon { font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 3px; background: #222; border: 1px solid #444; margin-right: 0.5rem; display: inline-block; min-width: 4rem; text-align: center; font-weight: bold; }
+        
+        .type-Creature { color: #87d37c; }
+        .type-Artifact { color: #a9a9a9; }
+        .type-Enchantment { color: #f4c084; }
+        .type-Instant, .type-Sorcery { color: #ef7b7b; }
+        .type-Planeswalker { color: #ab90db; }
+        .type-Land { color: #b18c64; }
+        .color-W { border-left: 3px solid #f8f6d8; }
+        .color-U { border-left: 3px solid #c1d7e9; }
+        .color-B { border-left: 3px solid #000000; }
+        .color-R { border-left: 3px solid #e49977; }
+        .color-G { border-left: 3px solid #a3c095; }
+        .color-C { border-left: 3px solid #cccccc; }
     </style>
 </head>
 <body>
@@ -65,7 +79,8 @@
             
             data.inventory.forEach(card => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${card.name}</td><td><span class="badge">${card.deck}</span></td>`;
+                const primaryColor = card.color ? card.color[0] : 'C'; // simple color logic for multi-color
+                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${card.deck}</span></td>`;
                 tbody.appendChild(tr);
             });
         }

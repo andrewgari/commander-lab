@@ -66,14 +66,35 @@ def sync_inventory():
             
             if has_tag:
                 # We ignore printing, so we use the card's oracle name
-                card_name = card.get("card", {}).get("oracleCard", {}).get("name")
+                oracle_card = card.get("card", {}).get("oracleCard", {})
+                card_name = oracle_card.get("name")
                 if not card_name:
                     continue
+                    
+                colors = oracle_card.get("colors", [])
+                color_identity = oracle_card.get("colorIdentity", [])
+                card_types = oracle_card.get("types", [])
+                
+                # Format a display type (e.g. "Creature", "Artifact", "Land")
+                display_type = card_types[0] if card_types else "Unknown"
+                
+                # Create a concise color code string like "UB" or "C" for colorless
+                if not colors:
+                    color_code = "C"
+                else:
+                    # Map colors to letters W,U,B,R,G
+                    color_map = {"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}
+                    color_code = "".join([color_map.get(c, "") for c in colors])
                     
                 quantity = card.get("quantity", 1)
                 
                 if card_name not in inventory:
-                    inventory[card_name] = {"total": 0, "decks": {}}
+                    inventory[card_name] = {
+                        "total": 0, 
+                        "decks": {},
+                        "type": display_type,
+                        "color": color_code
+                    }
                 
                 inventory[card_name]["total"] += quantity
                 inventory[card_name]["decks"][deck_name] = inventory[card_name]["decks"].get(deck_name, 0) + quantity
