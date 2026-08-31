@@ -38,7 +38,7 @@
         .pip-R { background-color: #e49977; }
         .pip-G { background-color: #a3c095; }
         .pip-C { background-color: #cccccc; }
-        .badge-color-container { display: inline-flex; margin-right: 6px; }
+        .badge-color-container { display: inline-flex; margin-left: 6px; }
     </style>
 </head>
 <body>
@@ -144,7 +144,7 @@
                 const tr = document.createElement('tr');
                 const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C'); // 'M' for multicolored
                 const deckColorString = deckColorMap[card.deck] || 'C';
-                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${createColorPips(deckColorString)}${card.deck}</span></td>`;
+                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>`;
                 tbody.appendChild(tr);
             });
         }
