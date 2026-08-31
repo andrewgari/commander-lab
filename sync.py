@@ -39,11 +39,13 @@ def sync_inventory():
     decks = data.get("results", [])
     print(f"Found {len(decks)} total decks.")
     
-    inventory_counts = {}
+    inventory = {}
+    deck_names = []
     
     for deck in decks:
         deck_id = deck["id"]
         deck_name = deck["name"]
+        deck_names.append(deck_name)
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
         
         deck_res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/")
@@ -70,10 +72,11 @@ def sync_inventory():
                     
                 quantity = card.get("quantity", 1)
                 
-                if card_name in inventory_counts:
-                    inventory_counts[card_name] += quantity
-                else:
-                    inventory_counts[card_name] = quantity
+                if card_name not in inventory:
+                    inventory[card_name] = {"total": 0, "decks": {}}
+                
+                inventory[card_name]["total"] += quantity
+                inventory[card_name]["decks"][deck_name] = inventory[card_name]["decks"].get(deck_name, 0) + quantity
 
     # Clear old inventory and set new
     print("Updating Redis inventory...")
@@ -82,10 +85,14 @@ def sync_inventory():
     if old_keys:
         r.delete(*old_keys)
         
-    for name, qty in inventory_counts.items():
-        r.set(f"card:{name}", qty)
+    for name, data in inventory.items():
+        import json
+        r.set(f"card:{name}", json.dumps(data))
         
-    print(f"Sync complete! {len(inventory_counts)} unique cards saved to inventory.")
+    import json
+    r.set("decks", json.dumps(sorted(deck_names)))
+        
+    print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 
 if __name__ == "__main__":
     sync_inventory()

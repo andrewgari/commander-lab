@@ -14,7 +14,13 @@
 </head>
 <body>
     <h1>Commander Inventory</h1>
-    <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()">
+    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()" style="flex: 1; margin-bottom: 0;">
+        <select id="deckFilter" multiple size="3" onchange="fetchInventory()" style="flex: 1; background: #2a2a2a; border: 1px solid #444; color: white; padding: 0.5rem;">
+            <!-- Decks will be populated here -->
+        </select>
+    </div>
+    <div style="margin-bottom: 1rem; font-size: 0.85rem; color: #aaa;">Hold Ctrl/Cmd to select multiple decks. Leave unselected to view total inventory.</div>
     
     <table>
         <thead>
@@ -29,9 +35,28 @@
     </table>
 
     <script>
+        async function loadDecks() {
+            const res = await fetch(`/api/decks`);
+            const data = await res.json();
+            const select = document.getElementById('deckFilter');
+            data.decks.forEach(deck => {
+                const option = document.createElement('option');
+                option.value = deck;
+                option.textContent = deck;
+                select.appendChild(option);
+            });
+        }
+
         async function fetchInventory() {
             const query = document.getElementById('searchInput').value;
-            const res = await fetch(`/api/inventory?query=${encodeURIComponent(query)}`);
+            const select = document.getElementById('deckFilter');
+            const selectedDecks = Array.from(select.selectedOptions).map(opt => opt.value);
+            
+            const params = new URLSearchParams();
+            if (query) params.append('query', query);
+            if (selectedDecks.length > 0) params.append('deck', selectedDecks.join(','));
+            
+            const res = await fetch(`/api/inventory?${params.toString()}`);
             const data = await res.json();
             
             const tbody = document.getElementById('inventoryList');
@@ -45,7 +70,7 @@
         }
         
         // Initial load
-        fetchInventory();
+        loadDecks().then(fetchInventory);
     </script>
 </body>
 </html>

@@ -14,17 +14,43 @@ r = redis.from_url(redis_url, decode_responses=True)
 async def index():
     return FileResponse("templates/index.html")
 
+@app.get("/api/decks")
+async def get_decks():
+    decks_json = r.get("decks")
+    decks = json.loads(decks_json) if decks_json else []
+    return {"decks": decks}
+
 @app.get("/api/inventory")
-async def get_inventory(query: str = ""):
+async def get_inventory(query: str = "", deck: str = ""):
     # Fetch all keys (card names)
     keys = r.keys("card:*")
     inventory = []
     
+    # Check if a specific deck was filtered
+    target_decks = [d.strip() for d in deck.split(",")] if deck else []
+    
     for key in keys:
         card_name = key.replace("card:", "")
         if query.lower() in card_name.lower():
-            quantity = r.get(key)
-            inventory.append({"name": card_name, "quantity": int(quantity)})
+            val = r.get(key)
+            if not val: continue
+            
+            try:
+                card_data = json.loads(val)
+                total = card_data.get("total", 0)
+                card_decks = card_data.get("decks", {})
+            except:
+                # Fallback for old data format
+                total = int(val)
+                card_decks = {}
+                
+            if target_decks:
+                # If filtering by deck, sum quantities from the selected decks
+                deck_qty = sum(card_decks.get(d, 0) for d in target_decks)
+                if deck_qty > 0:
+                    inventory.append({"name": card_name, "quantity": deck_qty})
+            else:
+                inventory.append({"name": card_name, "quantity": total})
             
     # Sort alphabetically
     inventory.sort(key=lambda x: x["name"])
