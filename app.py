@@ -56,7 +56,8 @@ async def get_inventory(query: str = "", deck: str = ""):
                         "categories": copy.get("categories", []),
                         "uid": copy.get("uid", ""),
                         "alt_name": copy.get("alt_name", ""),
-                        "price": copy.get("price", 0.0)
+                        "price": copy.get("price", 0.0),
+                        "is_commander": copy.get("is_commander", False)
                     })
             
     # Sort alphabetically by card name, then deck name

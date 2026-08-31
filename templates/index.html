@@ -55,6 +55,7 @@
     <table>
         <thead>
             <tr>
+                <th style="width: 50px;">CMD</th>
                 <th style="width: 100px;">Type</th>
                 <th>Card Name</th>
                 <th>Color Identity</th>
@@ -178,8 +179,10 @@
                 }
                 
                 const priceStr = card.price ? '$' + parseFloat(card.price).toFixed(2) : 'N/A';
+                const cmdIcon = card.is_commander ? '👑' : '';
                 
-                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span></td>
+                tr.innerHTML = `<td style="text-align: center; color: #ffd700; font-size: 1.2rem;">${cmdIcon}</td>
+                                <td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span></td>
                                 <td>${displayName}</td>
                                 <td>${createColorPips(card.color)}</td>
                                 <td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>
@@ -194,7 +197,7 @@
                 const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
                 
                 trDetails.innerHTML = `
-                    <td colspan="5" style="padding: 0; border: none;">
+                    <td colspan="6" style="padding: 0; border: none;">
                         <div class="details-container">
                             <div class="details-image">
                                 ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}

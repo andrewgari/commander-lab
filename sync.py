@@ -87,8 +87,7 @@ def sync_inventory():
                 # Format a display type (e.g. "Creature", "Artifact", "Land")
                 categories = card.get("categories") or []
                 display_type = card_types[0] if card_types else "Unknown"
-                if "Commander" in categories:
-                    display_type = "Commander"
+                is_commander = "Commander" in categories
                 
                 # Use Scryfall's color identity
                 if not color_identity:
@@ -116,7 +115,8 @@ def sync_inventory():
                         "categories": categories,
                         "uid": card.get("card", {}).get("uid", ""),
                         "alt_name": card.get("card", {}).get("displayName") or "",
-                        "price": card.get("prices", {}).get("tcgfoil", 0.0) if card.get("modifier") == "Foil" and card.get("prices", {}).get("tcgfoil") else card.get("prices", {}).get("tcg", 0.0)
+                        "price": card.get("prices", {}).get("tcgfoil", 0.0) if card.get("modifier") == "Foil" and card.get("prices", {}).get("tcgfoil") else card.get("prices", {}).get("tcg", 0.0),
+                        "is_commander": is_commander
                     })
 
     # Clear old inventory and set new
