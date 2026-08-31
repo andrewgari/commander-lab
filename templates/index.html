@@ -33,6 +33,7 @@
         .search-container { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
         .mana-pip { width: 14px; height: 14px; vertical-align: middle; margin-left: 3px; }
         .badge-color-container { display: inline-flex; align-items: center; margin-left: 4px; }
+        .details-info .badge-color-container { margin-left: 0; }
         
         .clickable-row { cursor: pointer; }
         .clickable-row:hover { background: #1c1c1c; }
@@ -193,7 +194,7 @@
                                 <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
                                 <p><strong>Printing:</strong> ${card.modifier}</p>
                                 <p><strong>Type:</strong> ${card.type}</p>
-                                <p><strong>Color:</strong> ${card.color || 'Colorless'}</p>
+                                <p style="display: flex; align-items: center;"><strong>Color:</strong> ${createColorPips(card.color)}</p>
                                 <p><strong>Categories:</strong> ${cats}</p>
                             </div>
                         </div>
