@@ -31,6 +31,14 @@
         .pill-close { margin-left: 0.4rem; cursor: pointer; color: #aaa; font-weight: bold; }
         .pill-close:hover { color: white; }
         .search-container { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+        .pip { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 2px; border: 1px solid rgba(0,0,0,0.5); vertical-align: middle; }
+        .pip-W { background-color: #f8f6d8; }
+        .pip-U { background-color: #c1d7e9; }
+        .pip-B { background-color: #333333; }
+        .pip-R { background-color: #e49977; }
+        .pip-G { background-color: #a3c095; }
+        .pip-C { background-color: #cccccc; }
+        .badge-color-container { display: inline-flex; margin-right: 6px; }
     </style>
 </head>
 <body>
@@ -58,16 +66,28 @@
         let allDecks = [];
         let selectedDecks = [];
 
+        let deckColorMap = {};
+
         async function loadDecks() {
             const res = await fetch(`/api/decks`);
             const data = await res.json();
-            allDecks = data.decks;
             const datalist = document.getElementById('deckList');
             data.decks.forEach(deck => {
+                allDecks.push(deck.name);
+                deckColorMap[deck.name] = deck.color;
                 const option = document.createElement('option');
-                option.value = deck;
+                option.value = deck.name;
                 datalist.appendChild(option);
             });
+        }
+
+        function createColorPips(colorString) {
+            if (!colorString || colorString === 'C') return '<span class="pip pip-C"></span>';
+            let pips = '';
+            for (let i = 0; i < colorString.length; i++) {
+                pips += `<span class="pip pip-${colorString[i]}"></span>`;
+            }
+            return `<span class="badge-color-container">${pips}</span>`;
         }
 
         document.getElementById('deckInput').addEventListener('input', (e) => {
@@ -123,7 +143,8 @@
             data.inventory.forEach(card => {
                 const tr = document.createElement('tr');
                 const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C'); // 'M' for multicolored
-                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${card.deck}</span></td>`;
+                const deckColorString = deckColorMap[card.deck] || 'C';
+                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${createColorPips(deckColorString)}${card.deck}</span></td>`;
                 tbody.appendChild(tr);
             });
         }

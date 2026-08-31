@@ -45,7 +45,17 @@ def sync_inventory():
     for deck in decks:
         deck_id = deck["id"]
         deck_name = deck["name"]
-        deck_names.append(deck_name)
+        deck_colors = deck.get("colors", {})
+        
+        # Calculate deck's color identity code
+        color_code = ""
+        for c in ["W", "U", "B", "R", "G"]:
+            if deck_colors.get(c, 0) > 0:
+                color_code += c
+        if not color_code:
+            color_code = "C"
+            
+        deck_names.append({"name": deck_name, "color": color_code})
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
         
         deck_res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/")
@@ -113,7 +123,7 @@ def sync_inventory():
         r.set(f"card:{name}", json.dumps(data))
         
     import json
-    r.set("decks", json.dumps(sorted(deck_names)))
+    r.set("decks", json.dumps(sorted(deck_names, key=lambda d: d["name"])))
         
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 
