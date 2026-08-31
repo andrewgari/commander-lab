@@ -44,14 +44,16 @@ async def get_inventory(query: str = "", deck: str = ""):
                 total = int(val)
                 card_decks = {}
                 
-            if target_decks:
-                # If filtering by deck, sum quantities from the selected decks
-                deck_qty = sum(card_decks.get(d, 0) for d in target_decks)
-                if deck_qty > 0:
-                    inventory.append({"name": card_name, "quantity": deck_qty})
+            if not card_decks and total > 0:
+                # Fallback if no deck data but total exists
+                for _ in range(total):
+                    inventory.append({"name": card_name, "deck": "Unknown Deck"})
             else:
-                inventory.append({"name": card_name, "quantity": total})
+                for deck_name, qty in card_decks.items():
+                    if not target_decks or deck_name in target_decks:
+                        for _ in range(qty):
+                            inventory.append({"name": card_name, "deck": deck_name})
             
-    # Sort alphabetically
-    inventory.sort(key=lambda x: x["name"])
+    # Sort alphabetically by card name, then deck name
+    inventory.sort(key=lambda x: (x["name"], x["deck"]))
     return {"inventory": inventory}

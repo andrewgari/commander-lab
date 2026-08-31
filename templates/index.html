@@ -10,6 +10,7 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #333; }
         th { background: #1e1e1e; }
+        .badge { display: inline-block; background: #3a3a3a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid #555; }
     </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
         <thead>
             <tr>
                 <th>Card Name</th>
-                <th>Quantity</th>
+                <th>Deck</th>
             </tr>
         </thead>
         <tbody id="inventoryList">
@@ -64,7 +65,7 @@
             
             data.inventory.forEach(card => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${card.name}</td><td>${card.quantity}</td>`;
+                tr.innerHTML = `<td>${card.name}</td><td><span class="badge">${card.deck}</span></td>`;
                 tbody.appendChild(tr);
             });
         }
