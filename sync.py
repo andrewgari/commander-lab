@@ -102,14 +102,21 @@ def sync_inventory():
                 
                 if card_name not in inventory:
                     inventory[card_name] = {
-                        "total": 0, 
-                        "decks": {},
                         "type": display_type,
-                        "color": color_code
+                        "color": color_code,
+                        "copies": []
                     }
                 
-                inventory[card_name]["total"] += quantity
-                inventory[card_name]["decks"][deck_name] = inventory[card_name]["decks"].get(deck_name, 0) + quantity
+                for _ in range(quantity):
+                    inventory[card_name]["copies"].append({
+                        "deck": deck_name,
+                        "set": card.get("card", {}).get("edition", {}).get("editioncode", "").upper(),
+                        "set_name": card.get("card", {}).get("edition", {}).get("editionname", ""),
+                        "modifier": card.get("modifier", "Normal"),
+                        "categories": categories,
+                        "uid": card.get("card", {}).get("uid", ""),
+                        "alt_name": card.get("card", {}).get("displayName") or ""
+                    })
 
     # Clear old inventory and set new
     print("Updating Redis inventory...")

@@ -37,36 +37,26 @@ async def get_inventory(query: str = "", deck: str = ""):
             
             try:
                 card_data = json.loads(val)
-                total = card_data.get("total", 0)
-                card_decks = card_data.get("decks", {})
                 card_type = card_data.get("type", "Unknown")
                 card_color = card_data.get("color", "C")
+                card_copies = card_data.get("copies", [])
             except:
-                # Fallback for old data format
-                total = int(val)
-                card_decks = {}
-                card_type = "Unknown"
-                card_color = "C"
+                continue
                 
-            if not card_decks and total > 0:
-                # Fallback if no deck data but total exists
-                for _ in range(total):
+            for copy in card_copies:
+                if not target_decks or copy.get("deck") in target_decks:
                     inventory.append({
-                        "name": card_name, 
-                        "deck": "Unknown Deck",
+                        "name": card_name,
+                        "deck": copy.get("deck", "Unknown Deck"),
                         "type": card_type,
-                        "color": card_color
+                        "color": card_color,
+                        "set": copy.get("set", ""),
+                        "set_name": copy.get("set_name", ""),
+                        "modifier": copy.get("modifier", "Normal"),
+                        "categories": copy.get("categories", []),
+                        "uid": copy.get("uid", ""),
+                        "alt_name": copy.get("alt_name", "")
                     })
-            else:
-                for deck_name, qty in card_decks.items():
-                    if not target_decks or deck_name in target_decks:
-                        for _ in range(qty):
-                            inventory.append({
-                                "name": card_name, 
-                                "deck": deck_name,
-                                "type": card_type,
-                                "color": card_color
-                            })
             
     # Sort alphabetically by card name, then deck name
     inventory.sort(key=lambda x: (x["name"], x["deck"]))

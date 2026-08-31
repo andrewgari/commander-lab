@@ -39,6 +39,13 @@
         .pip-G { background-color: #a3c095; }
         .pip-C { background-color: #cccccc; }
         .badge-color-container { display: inline-flex; margin-left: 6px; }
+        
+        .clickable-row { cursor: pointer; }
+        .clickable-row:hover { background: #1c1c1c; }
+        .details-container { display: flex; gap: 1.5rem; padding: 1rem; background: #0a0a0a; border-bottom: 1px solid #222; box-shadow: inset 0 3px 6px rgba(0,0,0,0.3); }
+        .details-image img { max-width: 220px; border-radius: 4.75% / 3.5%; }
+        .details-info p { margin: 0.4rem 0; font-size: 0.9rem; color: #ccc; }
+        .details-info strong { color: #fff; width: 100px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -127,6 +134,22 @@
             });
         }
 
+        let currentlyOpen = null;
+        window.toggleDetails = function(index) {
+            if (currentlyOpen !== null && currentlyOpen !== index) {
+                const oldRow = document.getElementById(`details-${currentlyOpen}`);
+                if (oldRow) oldRow.style.display = 'none';
+            }
+            const row = document.getElementById(`details-${index}`);
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                currentlyOpen = index;
+            } else {
+                row.style.display = 'none';
+                currentlyOpen = null;
+            }
+        };
+
         async function fetchInventory() {
             const query = document.getElementById('searchInput').value;
             
@@ -139,13 +162,48 @@
             
             const tbody = document.getElementById('inventoryList');
             tbody.innerHTML = '';
+            currentlyOpen = null; // reset open rows on fresh fetch
             
-            data.inventory.forEach(card => {
+            data.inventory.forEach((card, index) => {
                 const tr = document.createElement('tr');
+                tr.className = 'clickable-row';
+                tr.onclick = () => toggleDetails(index);
+                
                 const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C'); // 'M' for multicolored
                 const deckColorString = deckColorMap[card.deck] || 'C';
-                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>`;
+                
+                let displayName = card.name;
+                if (card.alt_name && card.alt_name !== card.name) {
+                    displayName += ` <span style="color:#888; font-size: 0.85em;">(${card.alt_name})</span>`;
+                }
+                
+                tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${displayName}</td><td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>`;
                 tbody.appendChild(tr);
+                
+                const trDetails = document.createElement('tr');
+                trDetails.id = `details-${index}`;
+                trDetails.style.display = 'none';
+                
+                const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+                const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
+                
+                trDetails.innerHTML = `
+                    <td colspan="2" style="padding: 0; border: none;">
+                        <div class="details-container">
+                            <div class="details-image">
+                                ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
+                            </div>
+                            <div class="details-info">
+                                <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
+                                <p><strong>Printing:</strong> ${card.modifier}</p>
+                                <p><strong>Type:</strong> ${card.type}</p>
+                                <p><strong>Color:</strong> ${card.color || 'Colorless'}</p>
+                                <p><strong>Categories:</strong> ${cats}</p>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(trDetails);
             });
         }
         
