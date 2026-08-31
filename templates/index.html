@@ -31,14 +31,8 @@
         .pill-close { margin-left: 0.4rem; cursor: pointer; color: #aaa; font-weight: bold; }
         .pill-close:hover { color: white; }
         .search-container { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
-        .pip { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 2px; border: 1px solid rgba(0,0,0,0.5); vertical-align: middle; }
-        .pip-W { background-color: #f8f6d8; }
-        .pip-U { background-color: #c1d7e9; }
-        .pip-B { background-color: #333333; }
-        .pip-R { background-color: #e49977; }
-        .pip-G { background-color: #a3c095; }
-        .pip-C { background-color: #cccccc; }
-        .badge-color-container { display: inline-flex; margin-left: 6px; }
+        .mana-pip { width: 14px; height: 14px; vertical-align: middle; margin-left: 3px; }
+        .badge-color-container { display: inline-flex; align-items: center; margin-left: 4px; }
         
         .clickable-row { cursor: pointer; }
         .clickable-row:hover { background: #1c1c1c; }
@@ -89,10 +83,12 @@
         }
 
         function createColorPips(colorString) {
-            if (!colorString || colorString === 'C') return '<span class="pip pip-C"></span>';
+            if (!colorString || colorString === 'C') {
+                return `<span class="badge-color-container"><img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C"></span>`;
+            }
             let pips = '';
             for (let i = 0; i < colorString.length; i++) {
-                pips += `<span class="pip pip-${colorString[i]}"></span>`;
+                pips += `<img src="https://svgs.scryfall.io/card-symbols/${colorString[i]}.svg" class="mana-pip" alt="${colorString[i]}">`;
             }
             return `<span class="badge-color-container">${pips}</span>`;
         }
