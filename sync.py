@@ -71,20 +71,22 @@ def sync_inventory():
                 if not card_name:
                     continue
                     
-                colors = oracle_card.get("colors", [])
                 color_identity = oracle_card.get("colorIdentity", [])
                 card_types = oracle_card.get("types", [])
                 
                 # Format a display type (e.g. "Creature", "Artifact", "Land")
+                categories = card.get("categories") or []
                 display_type = card_types[0] if card_types else "Unknown"
+                if "Commander" in categories:
+                    display_type = "Commander"
                 
-                # Create a concise color code string like "UB" or "C" for colorless
-                if not colors:
+                # Use Scryfall's color identity
+                if not color_identity:
                     color_code = "C"
                 else:
                     # Map colors to letters W,U,B,R,G
                     color_map = {"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}
-                    color_code = "".join([color_map.get(c, "") for c in colors])
+                    color_code = "".join([color_map.get(c, "") for c in color_identity])
                     
                 quantity = card.get("quantity", 1)
                 

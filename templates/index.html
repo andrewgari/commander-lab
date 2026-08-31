@@ -13,6 +13,7 @@
         .badge { display: inline-block; background: #3a3a3a; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid #555; }
         .type-icon { font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 3px; background: #222; border: 1px solid #444; margin-right: 0.5rem; display: inline-block; min-width: 4rem; text-align: center; font-weight: bold; }
         
+        .type-Commander { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
         .type-Creature { color: #87d37c; }
         .type-Artifact { color: #a9a9a9; }
         .type-Enchantment { color: #f4c084; }
@@ -25,6 +26,7 @@
         .color-R { border-left: 3px solid #e49977; }
         .color-G { border-left: 3px solid #a3c095; }
         .color-C { border-left: 3px solid #cccccc; }
+        .color-M { border-left: 3px solid #d4af37; } /* Gold/Multi */
     </style>
 </head>
 <body>
@@ -79,7 +81,7 @@
             
             data.inventory.forEach(card => {
                 const tr = document.createElement('tr');
-                const primaryColor = card.color ? card.color[0] : 'C'; // simple color logic for multi-color
+                const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C'); // 'M' for multicolored
                 tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span> ${card.name}</td><td><span class="badge">${card.deck}</span></td>`;
                 tbody.appendChild(tr);
             });
