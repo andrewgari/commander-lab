@@ -49,6 +49,32 @@
         <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()" style="flex: 1; margin-bottom: 0;">
         <input type="text" id="deckInput" list="deckList" placeholder="Add deck filter..." style="flex: 1; margin-bottom: 0;">
         <datalist id="deckList"></datalist>
+        <select id="typeFilter" onchange="fetchInventory()" style="background: #2a2a2a; border: 1px solid #444; color: white; padding: 0.5rem; border-radius: 4px;">
+            <option value="">All Types</option>
+            <option value="Commander">Commander</option>
+            <option value="Creature">Creature</option>
+            <option value="Artifact">Artifact</option>
+            <option value="Enchantment">Enchantment</option>
+            <option value="Planeswalker">Planeswalker</option>
+            <option value="Instant">Instant</option>
+            <option value="Sorcery">Sorcery</option>
+            <option value="Land">Land</option>
+        </select>
+        <select id="colorFilter" onchange="fetchInventory()" style="background: #2a2a2a; border: 1px solid #444; color: white; padding: 0.5rem; border-radius: 4px;">
+            <option value="">All Colors</option>
+            <option value="W">White</option>
+            <option value="U">Blue</option>
+            <option value="B">Black</option>
+            <option value="R">Red</option>
+            <option value="G">Green</option>
+            <option value="C">Colorless</option>
+        </select>
+        <select id="sortOrder" onchange="fetchInventory()" style="background: #2a2a2a; border: 1px solid #444; color: white; padding: 0.5rem; border-radius: 4px;">
+            <option value="default">Default (Type > Color > CMC > Name)</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="price_desc">Price (High to Low)</option>
+            <option value="cmc_desc">CMC (High to Low)</option>
+        </select>
     </div>
     <div id="deckPills" style="min-height: 2rem;"></div>
     
@@ -161,11 +187,47 @@
             const res = await fetch(`/api/inventory?${params.toString()}`);
             const data = await res.json();
             
+            let inv = data.inventory;
+
+            // Apply frontend filters
+            const typeF = document.getElementById('typeFilter').value;
+            const colorF = document.getElementById('colorFilter').value;
+            
+            if (typeF) {
+                inv = inv.filter(c => c.type && c.type.includes(typeF));
+            }
+            if (colorF) {
+                inv = inv.filter(c => {
+                    if (colorF === 'C') return !c.color || c.color === 'C';
+                    return c.color && c.color.includes(colorF);
+                });
+            }
+
+            // Apply frontend sort
+            const sortOrder = document.getElementById('sortOrder').value;
+            inv.sort((a, b) => {
+                if (sortOrder === 'default') {
+                    if (a.type !== b.type) return (a.type || '').localeCompare(b.type || '');
+                    const aCol = a.color || 'C';
+                    const bCol = b.color || 'C';
+                    if (aCol !== bCol) return aCol.localeCompare(bCol);
+                    if (a.cmc !== b.cmc) return (b.cmc || 0) - (a.cmc || 0); // descending
+                    return (a.name || '').localeCompare(b.name || '');
+                } else if (sortOrder === 'name') {
+                    return (a.name || '').localeCompare(b.name || '');
+                } else if (sortOrder === 'price_desc') {
+                    return (b.price || 0) - (a.price || 0);
+                } else if (sortOrder === 'cmc_desc') {
+                    return (b.cmc || 0) - (a.cmc || 0);
+                }
+                return 0;
+            });
+            
             const tbody = document.getElementById('inventoryList');
             tbody.innerHTML = '';
             currentlyOpen = null; // reset open rows on fresh fetch
             
-            data.inventory.forEach((card, index) => {
+            inv.forEach((card, index) => {
                 const tr = document.createElement('tr');
                 tr.className = 'clickable-row';
                 tr.onclick = () => toggleDetails(index);
