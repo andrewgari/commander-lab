@@ -57,6 +57,7 @@
             <tr>
                 <th style="width: 100px;">Type</th>
                 <th>Card Name</th>
+                <th>Color Identity</th>
                 <th>Deck</th>
                 <th>Price</th>
             </tr>
@@ -180,6 +181,7 @@
                 
                 tr.innerHTML = `<td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span></td>
                                 <td>${displayName}</td>
+                                <td>${createColorPips(card.color)}</td>
                                 <td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>
                                 <td style="color: #87d37c;">${priceStr}</td>`;
                 tbody.appendChild(tr);
@@ -192,7 +194,7 @@
                 const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
                 
                 trDetails.innerHTML = `
-                    <td colspan="4" style="padding: 0; border: none;">
+                    <td colspan="5" style="padding: 0; border: none;">
                         <div class="details-container">
                             <div class="details-image">
                                 ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
