@@ -55,7 +55,8 @@ def sync_inventory():
         if not color_code:
             color_code = "C"
             
-        deck_names.append({"name": deck_name, "color": color_code})
+        deck_obj = {"name": deck_name, "color": color_code, "commanders": []}
+        deck_names.append(deck_obj)
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
         
         deck_res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/")
@@ -63,6 +64,14 @@ def sync_inventory():
         deck_data = deck_res.json()
         
         cards = deck_data.get("cards", [])
+        
+        for card in cards:
+            categories = card.get("categories") or []
+            if "Commander" in categories:
+                cname = card.get("card", {}).get("oracleCard", {}).get("name")
+                if cname:
+                    deck_obj["commanders"].append(cname)
+                    
         for card in cards:
             # Check if mainboard
             # Archidekt uses categories. Usually 'Commander' or 'Mainboard' or custom categories.

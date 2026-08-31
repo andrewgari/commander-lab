@@ -99,6 +99,7 @@
         let selectedDecks = [];
 
         let deckColorMap = {};
+        let deckCommanderMap = {};
 
         async function loadDecks() {
             const res = await fetch(`/api/decks`);
@@ -107,6 +108,7 @@
             data.decks.forEach(deck => {
                 allDecks.push(deck.name);
                 deckColorMap[deck.name] = deck.color;
+                deckCommanderMap[deck.name] = deck.commanders && deck.commanders.length > 0 ? deck.commanders.join(' & ') : 'None';
                 const option = document.createElement('option');
                 option.value = deck.name;
                 datalist.appendChild(option);
@@ -279,6 +281,9 @@
                                 <p style="display: flex; align-items: center;"><strong>Color:</strong> ${createColorPips(card.color)}</p>
                                 <p><strong>Categories:</strong> ${cats}</p>
                                 <p><strong>TCG Price:</strong> <span style="color: #87d37c;">${priceStr}</span></p>
+                                <hr style="border-color: #333; margin: 0.8rem 0;">
+                                <p style="display: flex; align-items: center;"><strong>Deck:</strong> ${card.deck} ${createColorPips(deckColorString)}</p>
+                                <p><strong>Commander(s):</strong> ${deckCommanderMap[card.deck]}</p>
                             </div>
                         </div>
                     </td>
