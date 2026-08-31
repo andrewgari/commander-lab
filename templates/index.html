@@ -194,7 +194,11 @@
             const colorF = document.getElementById('colorFilter').value;
             
             if (typeF) {
-                inv = inv.filter(c => c.type && c.type.includes(typeF));
+                if (typeF === 'Commander') {
+                    inv = inv.filter(c => c.is_commander);
+                } else {
+                    inv = inv.filter(c => c.type && c.type.includes(typeF));
+                }
             }
             if (colorF) {
                 inv = inv.filter(c => {
@@ -207,6 +211,10 @@
             const sortOrder = document.getElementById('sortOrder').value;
             inv.sort((a, b) => {
                 if (sortOrder === 'default') {
+                    // Group Commanders at the very top
+                    if (a.is_commander && !b.is_commander) return -1;
+                    if (!a.is_commander && b.is_commander) return 1;
+                    
                     if (a.type !== b.type) return (a.type || '').localeCompare(b.type || '');
                     const aCol = a.color || 'C';
                     const bCol = b.color || 'C';
