@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commander Inventory</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; background: #121212; color: #e0e0e0; }
+        input { width: 100%; padding: 0.5rem; margin-bottom: 1rem; background: #2a2a2a; border: 1px solid #444; color: white; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #1e1e1e; }
+    </style>
+</head>
+<body>
+    <h1>Commander Inventory</h1>
+    <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()">
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Card Name</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody id="inventoryList">
+            <!-- Cards will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        async function fetchInventory() {
+            const query = document.getElementById('searchInput').value;
+            const res = await fetch(`/api/inventory?query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            
+            const tbody = document.getElementById('inventoryList');
+            tbody.innerHTML = '';
+            
+            data.inventory.forEach(card => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${card.name}</td><td>${card.quantity}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // Initial load
+        fetchInventory();
+    </script>
+</body>
+</html>
