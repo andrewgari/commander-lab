@@ -55,10 +55,10 @@
     <table>
         <thead>
             <tr>
-                <th style="width: 50px;">CMD</th>
-                <th style="width: 100px;">Type</th>
                 <th>Card Name</th>
+                <th style="width: 100px;">Type</th>
                 <th>Color Identity</th>
+                <th style="width: 50px;">CMC</th>
                 <th>Deck</th>
                 <th>Price</th>
             </tr>
@@ -179,13 +179,13 @@
                 }
                 
                 const priceStr = card.price ? '$' + parseFloat(card.price).toFixed(2) : 'N/A';
-                const cmdIcon = card.is_commander ? '👑' : '';
+                const cmdIcon = card.is_commander ? ' <span style="color: #ffd700;" title="Commander">👑</span>' : '';
                 
-                tr.innerHTML = `<td style="text-align: center; color: #ffd700; font-size: 1.2rem;">${cmdIcon}</td>
+                tr.innerHTML = `<td>${displayName}</td>
                                 <td><span class="type-icon type-${card.type} color-${primaryColor}">${card.type}</span></td>
-                                <td>${displayName}</td>
                                 <td>${createColorPips(card.color)}</td>
-                                <td><span class="badge">${card.deck}${createColorPips(deckColorString)}</span></td>
+                                <td>${card.cmc !== undefined ? card.cmc : ''}</td>
+                                <td><span class="badge">${card.deck}${createColorPips(deckColorString)}${cmdIcon}</span></td>
                                 <td style="color: #87d37c;">${priceStr}</td>`;
                 tbody.appendChild(tr);
                 

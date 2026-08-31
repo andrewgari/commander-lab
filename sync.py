@@ -88,6 +88,7 @@ def sync_inventory():
                 categories = card.get("categories") or []
                 display_type = card_types[0] if card_types else "Unknown"
                 is_commander = "Commander" in categories
+                cmc = oracle_card.get("cmc", 0)
                 
                 # Use Scryfall's color identity
                 if not color_identity:
@@ -116,7 +117,8 @@ def sync_inventory():
                         "uid": card.get("card", {}).get("uid", ""),
                         "alt_name": card.get("card", {}).get("displayName") or "",
                         "price": card.get("prices", {}).get("tcgfoil", 0.0) if card.get("modifier") == "Foil" and card.get("prices", {}).get("tcgfoil") else card.get("prices", {}).get("tcg", 0.0),
-                        "is_commander": is_commander
+                        "is_commander": is_commander,
+                        "cmc": cmc
                     })
 
     # Clear old inventory and set new
