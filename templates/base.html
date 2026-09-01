@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Commander Lab{% endblock %}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap');
+        
+        :root {
+            --bg-color: #000000;
+            --nav-bg: #0a0a0a;
+            --text-main: #d1d5db;
+            --text-muted: #6b7280;
+            --text-heading: #ffffff;
+            --border: #1f2937;
+            --accent: #3b82f6;
+            --accent-hover: #60a5fa;
+            --row-hover: #0a1120;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            -webkit-font-smoothing: antialiased; 
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            background: var(--nav-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .brand {
+            padding: 1.5rem;
+            font-family: 'EB Garamond', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            border-bottom: 1px solid var(--border);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-items {
+            padding: 1rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1.5rem;
+            color: var(--text-main);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-item:hover {
+            background: var(--row-hover);
+            color: var(--accent-hover);
+        }
+
+        .nav-item.active {
+            background: #172554;
+            color: #93c5fd;
+            border-right: 3px solid var(--accent);
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.8;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 2rem;
+            max-width: 1200px;
+        }
+
+        h1 { font-weight: 500; font-size: 1.75rem; margin-top: 0; margin-bottom: 1.5rem; color: var(--text-heading); letter-spacing: -0.02em; }
+        
+        /* Common UI Elements */
+        input, select { 
+            padding: 0.6rem 0.75rem; 
+            background: var(--nav-bg); 
+            border: 1px solid var(--border); 
+            color: #f3f4f6; 
+            font-size: 0.875rem; 
+            font-family: inherit; 
+            outline: none; 
+            border-radius: 4px; 
+            transition: border-color 0.15s; 
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <a href="/" class="brand">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            Cmdr Lab
+        </a>
+        <div class="nav-items">
+            <a href="/decks" class="nav-item {% if request.url.path == '/decks' or request.url.path == '/' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Commander Decks
+            </a>
+            <a href="/inventory" class="nav-item {% if request.url.path == '/inventory' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                Inventory
+            </a>
+            <a href="/tags" class="nav-item {% if request.url.path == '/tags' %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                Tag Management
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

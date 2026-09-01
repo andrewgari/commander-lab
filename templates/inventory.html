@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .search-container input, .search-container select { margin-bottom: 0; flex: 1; }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td { padding: 0.75rem 0.5rem; text-align: left; }
+    th { color: #6b7280; font-weight: 500; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; position: sticky; top: 0; background: var(--bg-color); z-index: 10; }
+    
+    .clickable-row { cursor: pointer; border-bottom: 1px solid #111827; transition: background-color 0.15s; }
+    .clickable-row:hover { background: var(--row-hover); }
+    
+    .type-icon { font-size: 0.8rem; font-weight: 500; }
+    .type-Commander { color: #fbbf24; }
+    .type-Creature { color: #a3e635; }
+    .type-Artifact { color: #9ca3af; }
+    .type-Enchantment { color: #fcd34d; }
+    .type-Instant, .type-Sorcery { color: #f87171; }
+    .type-Planeswalker { color: #c084fc; }
+    .type-Land { color: #d97706; }
+    
+    .mtg-font { font-family: 'EB Garamond', serif; font-size: 1.1rem; font-weight: 600; color: var(--text-heading); letter-spacing: 0.02em; }
+    
+    .badge { display: inline-flex; align-items: center; background: #172554; color: #93c5fd; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; border: 1px solid #1e3a8a; }
+    
+    .pill { display: inline-flex; align-items: center; background: #172554; border: 1px solid #1e3a8a; border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.8rem; color: #bfdbfe; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+    .pill-close { margin-left: 0.5rem; cursor: pointer; color: #60a5fa; }
+    .pill-close:hover { color: #ffffff; }
+    
+    .mana-pip { width: 14px; height: 14px; vertical-align: middle; margin-left: 2px; }
+    .badge-color-container { display: inline-flex; align-items: center; margin-left: 4px; }
+    .details-info .badge-color-container { margin-left: 0; }
+    
+    .details-container { display: flex; gap: 2rem; padding: 1.5rem; background: #030712; border-bottom: 1px solid #111827; }
+    .details-image img { max-width: 220px; border-radius: 4.75% / 3.5%; }
+    .details-info p { margin: 0.4rem 0; font-size: 0.875rem; color: #9ca3af; }
+    .details-info strong { color: #e5e7eb; width: 100px; display: inline-block; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Inventory</h1>
+<div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchInventory()">
+    <input type="text" id="deckInput" list="deckList" placeholder="Add deck filter...">
+    <datalist id="deckList"></datalist>
+    <select id="typeFilter" onchange="fetchInventory()">
+        <option value="">All Types</option>
+        <option value="Commander">Commander</option>
+        <option value="Creature">Creature</option>
+        <option value="Artifact">Artifact</option>
+        <option value="Enchantment">Enchantment</option>
+        <option value="Planeswalker">Planeswalker</option>
+        <option value="Instant">Instant</option>
+        <option value="Sorcery">Sorcery</option>
+        <option value="Land">Land</option>
+    </select>
+    <select id="colorFilter" onchange="fetchInventory()">
+        <option value="">All Colors</option>
+        <option value="W">White</option>
+        <option value="U">Blue</option>
+        <option value="B">Black</option>
+        <option value="R">Red</option>
+        <option value="G">Green</option>
+        <option value="C">Colorless</option>
+    </select>
+    <select id="sortOrder" onchange="fetchInventory()">
+        <option value="default">Default (Type > Color > CMC > Name)</option>
+        <option value="name">Name (A-Z)</option>
+        <option value="price_desc">Price (High to Low)</option>
+        <option value="cmc_desc">CMC (High to Low)</option>
+    </select>
+    <select id="statusFilter" onchange="fetchInventory()">
+        <option value="">All Statuses</option>
+        <option value="have">Have</option>
+        <option value="possible">Possible</option>
+        <option value="pending">Pending</option>
+    </select>
+</div>
+<div id="deckPills" style="min-height: 2rem;"></div>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 40px; text-align: center;">Color</th>
+            <th>Card Name</th>
+            <th style="width: 100px;">Type</th>
+            <th>Color Identity</th>
+            <th style="width: 50px;">CMC</th>
+            <th>Deck</th>
+            <th style="text-align: right;">Price</th>
+        </tr>
+    </thead>
+    <tbody id="inventoryList">
+        <!-- Cards will be populated here -->
+    </tbody>
+</table>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allDecks = [];
+    let selectedDecks = [];
+
+    let deckColorMap = {};
+    let deckCommanderMap = {};
+
+    async function loadDecks() {
+        const res = await fetch(`/api/decks`);
+        const data = await res.json();
+        const datalist = document.getElementById('deckList');
+        data.decks.forEach(deck => {
+            allDecks.push(deck.name);
+            deckColorMap[deck.name] = deck.color;
+            deckCommanderMap[deck.name] = deck.commanders && deck.commanders.length > 0 ? deck.commanders.join(' & ') : 'None';
+            const option = document.createElement('option');
+            option.value = deck.name;
+            datalist.appendChild(option);
+        });
+    }
+
+    function createColorPips(colorString) {
+        if (!colorString || colorString === 'C') {
+            return `<span class="badge-color-container"><img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C"></span>`;
+        }
+        let pips = '';
+        for (let i = 0; i < colorString.length; i++) {
+            pips += `<img src="https://svgs.scryfall.io/card-symbols/${colorString[i]}.svg" class="mana-pip" alt="${colorString[i]}">`;
+        }
+        return `<span class="badge-color-container">${pips}</span>`;
+    }
+
+    document.getElementById('deckInput').addEventListener('input', (e) => {
+        const val = e.target.value;
+        if (allDecks.includes(val)) {
+            if (!selectedDecks.includes(val)) {
+                selectedDecks.push(val);
+                renderPills();
+                fetchInventory();
+            }
+            e.target.value = '';
+        }
+    });
+
+    function renderPills() {
+        const container = document.getElementById('deckPills');
+        container.innerHTML = '';
+        selectedDecks.forEach(deck => {
+            const pill = document.createElement('div');
+            pill.className = 'pill';
+            
+            const text = document.createElement('span');
+            text.textContent = deck;
+            pill.appendChild(text);
+            
+            const close = document.createElement('span');
+            close.className = 'pill-close';
+            close.innerHTML = '&times;';
+            close.onclick = () => {
+                selectedDecks = selectedDecks.filter(d => d !== deck);
+                renderPills();
+                fetchInventory();
+            };
+            pill.appendChild(close);
+            
+            container.appendChild(pill);
+        });
+    }
+
+    let currentlyOpen = null;
+    window.toggleDetails = function(index) {
+        if (currentlyOpen !== null && currentlyOpen !== index) {
+            const oldRow = document.getElementById(`details-${currentlyOpen}`);
+            if (oldRow) oldRow.style.display = 'none';
+        }
+        const row = document.getElementById(`details-${index}`);
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+            currentlyOpen = index;
+        } else {
+            row.style.display = 'none';
+            currentlyOpen = null;
+        }
+    };
+
+    async function fetchInventory() {
+        const query = document.getElementById('searchInput').value;
+        
+        const params = new URLSearchParams();
+        if (query) params.append('query', query);
+        if (selectedDecks.length > 0) {
+            selectedDecks.forEach(d => params.append('deck', d));
+        }
+        
+        const res = await fetch(`/api/inventory?${params.toString()}`);
+        const data = await res.json();
+        
+        let inv = data.inventory;
+
+        // Apply frontend filters
+        const typeF = document.getElementById('typeFilter').value;
+        const colorF = document.getElementById('colorFilter').value;
+        const statusF = document.getElementById('statusFilter').value;
+        
+        if (typeF) {
+            if (typeF === 'Commander') {
+                inv = inv.filter(c => c.is_commander);
+            } else {
+                inv = inv.filter(c => c.type && c.type.includes(typeF));
+            }
+        }
+        if (colorF) {
+            inv = inv.filter(c => {
+                if (colorF === 'C') return !c.color || c.color === 'C';
+                return c.color && c.color.includes(colorF);
+            });
+        }
+        if (statusF) {
+            inv = inv.filter(c => c.status === statusF);
+        }
+
+        // Apply frontend sort
+        const sortOrder = document.getElementById('sortOrder').value;
+        inv.sort((a, b) => {
+            if (sortOrder === 'default') {
+                if (a.is_commander && !b.is_commander) return -1;
+                if (!a.is_commander && b.is_commander) return 1;
+                
+                if (a.type !== b.type) return (a.type || '').localeCompare(b.type || '');
+                const aCol = a.color || 'C';
+                const bCol = b.color || 'C';
+                if (aCol !== bCol) return aCol.localeCompare(bCol);
+                if (a.cmc !== b.cmc) return (b.cmc || 0) - (a.cmc || 0); // descending
+                return (a.name || '').localeCompare(b.name || '');
+            } else if (sortOrder === 'name') {
+                return (a.name || '').localeCompare(b.name || '');
+            } else if (sortOrder === 'price_desc') {
+                return (b.price || 0) - (a.price || 0);
+            } else if (sortOrder === 'cmc_desc') {
+                return (b.cmc || 0) - (a.cmc || 0);
+            }
+            return 0;
+        });
+        
+        const tbody = document.getElementById('inventoryList');
+        tbody.innerHTML = '';
+        currentlyOpen = null; // reset open rows on fresh fetch
+        
+        inv.forEach((card, index) => {
+            const tr = document.createElement('tr');
+            tr.className = 'clickable-row';
+            tr.onclick = () => toggleDetails(index);
+            
+            const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C');
+            const deckColorString = deckColorMap[card.deck] || 'C';
+            
+            let displayName = card.name;
+            if (card.alt_name && card.alt_name !== card.name) {
+                displayName += ` <span style="color:#6b7280; font-size: 0.85em; font-family: 'Inter', sans-serif;">(${card.alt_name})</span>`;
+            }
+            
+            const priceStr = card.price ? '$' + parseFloat(card.price).toFixed(2) : 'N/A';
+            
+            const singlePip = card.color && card.color.length > 1 ? 
+                `<span class="mana-pip" style="display:inline-block; border-radius:50%; background: linear-gradient(135deg, #fcd34d, #d97706); border: 1px solid #111;" title="Multicolor"></span>` : 
+                (card.color && card.color.length === 1 && card.color[0] !== 'C' ? 
+                    `<img src="https://svgs.scryfall.io/card-symbols/${card.color[0]}.svg" class="mana-pip" alt="${card.color[0]}">` : 
+                    `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`);
+            
+            let typeDisplay = card.type;
+            let typeColorClass = card.type;
+            if (card.is_commander) {
+                typeColorClass = 'Commander';
+                const superTypes = card.super_types ? card.super_types.join(' ') : '';
+                let baseType = `${superTypes} ${card.type}`.trim();
+                
+                const deckCmdrs = deckCommanderMap[card.deck] ? deckCommanderMap[card.deck].split(' & ') : [];
+                let isPartner = false;
+                
+                if (deckCmdrs.length > 1) {
+                    isPartner = true;
+                } else {
+                    const oracleText = (card.oracle_text || '').toLowerCase();
+                    if (oracleText.includes('partner') || oracleText.includes('choose a background') || oracleText.includes('friends forever') || oracleText.includes("doctor's companion")) {
+                        isPartner = true;
+                    }
+                }
+                
+                const isPlaneswalker = card.type.includes('Planeswalker') || (card.super_types && card.super_types.includes('Planeswalker'));
+                const isNonCreatureArtifact = card.type.includes('Artifact') && card.categories && !card.categories.includes('Creature');
+                const crownSvg = (fill, stroke = 'none', strokeWidth = '0') => `<svg viewBox="0 0 24 24" width="14" height="14" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" style="vertical-align: -0.15em; overflow: visible;"><path d="M2 19h20v2H2v-2zm1.6-4.9l1.8-8.2L9 10l3-8 3 8 3.6-4.1 1.8 8.2H3.6z"/></svg>`;
+                
+                let crownIcons = '';
+                if (isPlaneswalker) {
+                    crownIcons = `<span style="margin-right: 4px;" title="Planeswalker Commander">${crownSvg('#7dd3fc')}</span>`;
+                } else if (isNonCreatureArtifact) {
+                    crownIcons = `<span style="margin-right: 4px;" title="Artifact/Vehicle Commander">${crownSvg('#000000', '#ffffff', '1.5')}</span>`;
+                } else if (isPartner) {
+                    crownIcons = `<span style="margin-right: 6px; display: inline-flex; gap: 2px;" title="Partner Commanders">${crownSvg('#fbbf24')}${crownSvg('#cbd5e1')}</span>`;
+                } else {
+                    crownIcons = `<span style="margin-right: 4px;" title="Commander">${crownSvg('#fbbf24')}</span>`;
+                }
+                
+                typeDisplay = `${crownIcons}${baseType}`;
+            }
+            
+            let primaryTagBadge = card.primary_tag ? `<span class="badge" style="margin-left: 6px;">${card.primary_tag}</span>` : '';
+            let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
+            
+            tr.innerHTML = `<td style="text-align: center;">${singlePip}</td>
+                            <td class="mtg-font">${displayName} ${primaryTagBadge} ${coreTagBadge}</td>
+                            <td><span class="type-icon type-${typeColorClass}">${typeDisplay}</span></td>
+                            <td>${createColorPips(card.color)}</td>
+                            <td>${card.cmc !== undefined ? card.cmc : ''}</td>
+                            <td><a href="/deck/${encodeURIComponent(card.deck)}" style="color: inherit; text-decoration: none;">${card.deck}</a> <span class="badge-color-container">${createColorPips(deckColorString)}</span></td>
+                            <td style="color: #84cc16; text-align: right; font-weight: 500;">${priceStr}</td>`;
+            tbody.appendChild(tr);
+            
+            const trDetails = document.createElement('tr');
+            trDetails.id = `details-${index}`;
+            trDetails.style.display = 'none';
+            
+            const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+            const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
+            const primaryTag = card.primary_tag ? `<span class="badge" style="margin-left: 6px;">${card.primary_tag}</span>` : '';
+            
+            let activatedAbilities = [];
+            let triggeredAbilities = [];
+            if (card.oracle_text) {
+                const lines = card.oracle_text.split('\n');
+                for (const line of lines) {
+                    if (line.includes(':') && !line.startsWith('Mana ')) {
+                        activatedAbilities.push(line);
+                    } else if (line.match(/^(When|Whenever|At) /)) {
+                        triggeredAbilities.push(line);
+                    }
+                }
+            }
+            
+            trDetails.innerHTML = `
+                <td colspan="7" style="padding: 0; border: none;">
+                    <div class="details-container">
+                        <div class="details-image">
+                            ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
+                        </div>
+                        <div class="details-info">
+                            <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
+                            <p><strong>Type:</strong> ${card.type}</p>
+                            ${card.sub_types && card.sub_types.length > 0 ? `<p><strong>Subtype:</strong> ${card.sub_types.join(', ')}</p>` : ''}
+                            ${card.keywords && card.keywords.length > 0 ? `<p><strong>Keywords:</strong> ${card.keywords.join(', ')}</p>` : ''}
+                            ${activatedAbilities.length > 0 ? `<p><strong>Activated Abilities:</strong><br>${activatedAbilities.map(a => `- ${a}`).join('<br>')}</p>` : ''}
+                            ${triggeredAbilities.length > 0 ? `<p><strong>Triggered Abilities:</strong><br>${triggeredAbilities.map(a => `- ${a}`).join('<br>')}</p>` : ''}
+                            <p style="display: flex; align-items: center; margin-top: 8px;"><strong>Color:</strong> ${createColorPips(card.color)}</p>
+                            <p><strong>Categories:</strong> ${cats}</p>
+                            <p><strong>Primary Tag:</strong> ${card.primary_tag || 'None'} ${primaryTag}</p>
+                            <p><strong>Physical Status:</strong> <span style="text-transform: uppercase; color: ${card.status === 'have' ? '#34d399' : (card.status === 'pending' ? '#60a5fa' : '#fbbf24')};">${card.status || 'have'}</span></p>
+                            <p><strong>TCG Price:</strong> <span style="color: #84cc16;">${priceStr}</span></p>
+                            <hr style="border-color: #333; margin: 0.8rem 0;">
+                            <p style="display: flex; align-items: center;"><strong>Deck:</strong> <a href="/deck/${encodeURIComponent(card.deck)}" style="color: var(--accent); text-decoration: none;">${card.deck}</a> &nbsp;${createColorPips(deckColorString)}</p>
+                            <p><strong>Commander(s):</strong> ${deckCommanderMap[card.deck]}</p>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(trDetails);
+        });
+    }
+    
+    loadDecks().then(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const deckParam = urlParams.get('deck');
+        if (deckParam) {
+            // Need to handle if allDecks is loaded, which it is because loadDecks finished
+            if (allDecks.includes(deckParam) && !selectedDecks.includes(deckParam)) {
+                selectedDecks.push(deckParam);
+                renderPills();
+            }
+        }
+        fetchInventory();
+    });
+</script>
+{% endblock %}

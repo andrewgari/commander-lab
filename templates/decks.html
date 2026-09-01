@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Commander Decks | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .folder-toggle { display: flex; align-items: center; gap: 0.5rem; }
+    .folder-toggle input { cursor: pointer; }
+    
+    .folder-section { margin-bottom: 3rem; }
+    .folder-header { 
+        display: flex; 
+        align-items: center; 
+        gap: 0.75rem;
+        padding-bottom: 0.5rem; 
+        border-bottom: 1px solid var(--border); 
+        margin-bottom: 1.5rem;
+        cursor: pointer;
+    }
+    
+    .folder-title {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-heading);
+    }
+    
+    .folder-count {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    
+    .deck-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .deck-card {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .deck-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent);
+    }
+    
+    .deck-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .commander-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--border);
+        background: #222;
+        flex-shrink: 0;
+        position: relative;
+    }
+    
+    .deck-name {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin: 0;
+        line-height: 1.2;
+    }
+    
+    .deck-status {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 0.4rem;
+    }
+    
+    .status-physical { background: transparent; color: #4ade80; border: 1px solid #4ade80; border-radius: 4px; }
+    .status-virtual { background: #1e3a8a; color: #dbeafe; border: 1px solid #1e40af; }
+    .status-retired { background: #7f1d1d; color: #fee2e2; border: 1px solid #991b1b; }
+    .status-test { background: #713f12; color: #fef3c7; border: 1px solid #854d0e; }
+    
+    .deck-commanders {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        flex-grow: 1;
+    }
+    
+    .mana-pip { width: 16px; height: 16px; vertical-align: middle; margin-right: 2px; }
+    .deck-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+    }
+    
+    .deck-actions a {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .deck-actions a:hover {
+        text-decoration: underline;
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: #030712; /* Matches the details-container background in inventory */
+        border: 1px solid #111827;
+        border-radius: 12px;
+        padding: 1.5rem;
+        max-width: 900px;
+        width: 90%;
+        position: relative;
+        display: flex;
+        gap: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.5rem;
+        transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+        color: var(--text-heading);
+    }
+
+    .modal-images-container {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: nowrap;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .modal-image {
+        max-width: 220px; /* Matching the inventory details image size */
+        border-radius: 4.75% / 3.5%;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-info p {
+        margin: 0.4rem 0;
+        font-size: 0.875rem;
+        color: #9ca3af;
+    }
+
+    .modal-info strong {
+        color: #e5e7eb;
+        width: 100px;
+        display: inline-block;
+        font-weight: 500;
+    }
+
+    .modal-deck-name {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin: 0 0 0.5rem 0;
+    }
+
+    .modal-commander {
+        color: var(--accent);
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    .modal-buttons {
+        margin-top: auto;
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: all 0.2s;
+    }
+
+    .btn:hover {
+        background: var(--row-hover);
+        border-color: var(--accent);
+    }
+
+    .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="controls">
+    <h1>Commander Decks</h1>
+    <div class="folder-toggle">
+        <input type="checkbox" id="showAllFolders" onchange="renderDecks()">
+        <label for="showAllFolders">Show all decks</label>
+    </div>
+</div>
+
+<div id="decksContainer">
+    <!-- Folders and decks will be rendered here -->
+</div>
+
+<!-- Deck Details Modal -->
+<div id="deckModal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div id="modalImagesContainer" class="modal-images-container">
+            <!-- Commander images inserted here -->
+        </div>
+        <div class="modal-info">
+            <h2 id="modalDeckName" class="modal-deck-name"></h2>
+            <div id="modalCommander" class="modal-commander"></div>
+            
+            <p style="display: flex; align-items: center;"><strong>Color:</strong> <span id="modalColors"></span></p>
+            <p><strong>Folder:</strong> <span id="modalFolderName"></span></p>
+            
+            <div style="margin-top: 1rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+                <strong>Status:</strong>
+                <select id="modalDeckStatus" onchange="updateDeckStatus(this.value)" style="width: auto; min-width: 120px; padding: 0.4rem;">
+                    <option value="physical">Physical</option>
+                    <option value="virtual">Virtual</option>
+                    <option value="retired">Retired</option>
+                    <option value="test">Test</option>
+                </select>
+            </div>
+            
+            <hr style="border-color: #333; margin: 0.8rem 0; width: 100%;">
+            
+            <div id="modalLinksContainer" style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+                <!-- Links dynamically populated here -->
+            </div>
+            
+            <div class="modal-buttons" style="margin-top: auto; border-top: 1px solid #111827; padding-top: 1rem;">
+                <button class="btn btn-primary" onclick="syncDeck()">Sync</button>
+                <button class="btn" onclick="reviewDeck()">Review</button>
+                <button class="btn" onclick="tradeDeck()">Trade</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allDecks = [];
+    
+    async function loadDecks() {
+        const res = await fetch(`/api/decks`);
+        const data = await res.json();
+        allDecks = data.decks;
+        renderDecks();
+    }
+    
+    function createColorPips(colorString) {
+        if (!colorString || colorString === 'C') {
+            return `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`;
+        }
+        let pips = '';
+        for (let i = 0; i < colorString.length; i++) {
+            pips += `<img src="https://svgs.scryfall.io/card-symbols/${colorString[i]}.svg" class="mana-pip" alt="${colorString[i]}">`;
+        }
+        return pips;
+    }
+    
+    function toggleFolder(folderName) {
+        const grid = document.getElementById(`grid-${folderName.replace(/\s+/g, '-')}`);
+        if (grid.style.display === 'none') {
+            grid.style.display = 'grid';
+        } else {
+            grid.style.display = 'none';
+        }
+    }
+    
+    let currentDeckIndex = -1;
+    // Inject configured providers from backend
+    const enabledProviders = {{ providers | tojson }};
+
+    function getEdhrecSlug(name) {
+        return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+    }
+
+    function openDeckModal(deckIndex) {
+        currentDeckIndex = deckIndex;
+        const deck = allDecks[deckIndex];
+        
+        document.getElementById('modalDeckName').innerHTML = `<a href="/deck/${encodeURIComponent(deck.name)}" style="color: inherit; text-decoration: none;">${deck.name}</a>`;
+        document.getElementById('modalCommander').textContent = deck.commanders ? deck.commanders.join(' & ') : 'No commanders';
+        document.getElementById('modalColors').innerHTML = createColorPips(deck.color);
+        document.getElementById('modalFolderName').textContent = deck.folder || 'Uncategorized';
+        
+        const statusSelect = document.getElementById('modalDeckStatus');
+        statusSelect.value = deck.status || 'test';
+        
+        // Build Links
+        const linksContainer = document.getElementById('modalLinksContainer');
+        let linksHtml = `<a href="/inventory?deck=${encodeURIComponent(deck.name)}" class="btn">View Inventory</a>`;
+        
+        // EDHREC link (using first commander or combined)
+        if (deck.commanders && deck.commanders.length > 0) {
+            const edhrecSlug = deck.commanders.map(c => getEdhrecSlug(c)).join('-');
+            linksHtml += `<a href="https://edhrec.com/commanders/${edhrecSlug}" target="_blank" class="btn" style="display: flex; align-items: center; gap: 0.25rem;">
+                EDHREC
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>`;
+        }
+
+        // Configured Providers
+        enabledProviders.forEach(provider => {
+            if (provider === 'archidekt' && deck.id) {
+                linksHtml += `<a href="https://archidekt.com/decks/${deck.id}" target="_blank" class="btn" style="display: flex; align-items: center; gap: 0.25rem;">
+                    Archidekt
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>`;
+            }
+            if (provider === 'commandersalt' && deck.id) {
+                const archUrl = encodeURIComponent(`https://archidekt.com/decks/${deck.id}`);
+                linksHtml += `<a href="https://commandersalt.com/details/deck/${archUrl}" target="_blank" class="btn" style="display: flex; align-items: center; gap: 0.25rem;">
+                    Commander Salt
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>`;
+            }
+            if (provider === 'moxfield') {
+                if (deck.moxfield_id) {
+                    linksHtml += `<a href="https://moxfield.com/decks/${deck.moxfield_id}" target="_blank" class="btn" style="display: flex; align-items: center; gap: 0.25rem;">
+                        Moxfield
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>`;
+                } else {
+                    linksHtml += `<button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;" title="Sync to generate Moxfield link">Moxfield (Unsynced)</button>`;
+                }
+            }
+        });
+        
+        linksContainer.innerHTML = linksHtml;
+        
+        const imagesContainer = document.getElementById('modalImagesContainer');
+        imagesContainer.innerHTML = '';
+        
+        if (deck.commander_uids && deck.commander_uids.length > 0) {
+            deck.commander_uids.forEach(uid => {
+                imagesContainer.innerHTML += `<img class="modal-image" src="https://api.scryfall.com/cards/${uid}?format=image" alt="Commander Image">`;
+            });
+        } else if (deck.commanders && deck.commanders.length > 0) {
+            deck.commanders.forEach(cname => {
+                imagesContainer.innerHTML += `<img class="modal-image" src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image" alt="Commander Image">`;
+            });
+        }
+        
+        const modalContent = document.querySelector('.modal-content');
+        if ((deck.commander_uids && deck.commander_uids.length > 1) || (deck.commanders && deck.commanders.length > 1)) {
+            modalContent.style.maxWidth = '850px';
+            modalContent.style.flexDirection = 'column'; // Stack the layout if it gets too crowded
+        } else {
+            modalContent.style.maxWidth = '600px';
+            modalContent.style.flexDirection = 'row';
+        }
+        
+        document.getElementById('deckModal').style.display = 'flex';
+    }
+
+    function closeModal(event) {
+        if (!event || event.target.classList.contains('modal-overlay') || !event.target.closest('.modal-content')) {
+            document.getElementById('deckModal').style.display = 'none';
+        }
+    }
+    
+    async function updateDeckStatus(newStatus) {
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        deck.status = newStatus;
+        
+        try {
+            const res = await fetch(`/api/decks/${deck.id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            const data = await res.json();
+            if (data.success) {
+                renderDecks();
+            }
+        } catch (err) {
+            console.error("Failed to update status", err);
+        }
+    }
+    
+    function syncDeck() {
+        console.log("Sync clicked");
+    }
+    
+    function reviewDeck() {
+        console.log("Review clicked");
+    }
+    
+    function tradeDeck() {
+        console.log("Trade clicked");
+    }
+
+    function renderDecks() {
+        const container = document.getElementById('decksContainer');
+        const showAll = document.getElementById('showAllFolders').checked;
+        
+        // Group decks by status
+        const statuses = {};
+        allDecks.forEach(deck => {
+            const status = deck.status || 'test';
+            if (!statuses[status]) statuses[status] = [];
+            statuses[status].push(deck);
+        });
+        
+        container.innerHTML = '';
+        
+        // Sort status names (Physical first, then Virtual, Test, Retired)
+        const order = { 'physical': 1, 'virtual': 2, 'test': 3, 'retired': 4 };
+        const sortedStatuses = Object.keys(statuses).sort((a, b) => {
+            return (order[a] || 99) - (order[b] || 99);
+        });
+        
+        sortedStatuses.forEach(statusName => {
+            const isPhysical = statusName === 'physical';
+            
+            // Skip non-physical folders if toggle is off
+            if (!showAll && !isPhysical) return;
+            
+            // Further filter by UI if needed in future
+            const decks = statuses[statusName];
+            const safeId = statusName.replace(/[^a-zA-Z0-9]/g, '-');
+            
+            // Capitalize for display
+            const displayTitle = statusName.charAt(0).toUpperCase() + statusName.slice(1) + ' Decks';
+            
+            const section = document.createElement('div');
+            section.className = 'folder-section';
+            
+            const cmdrsFormat = (commanders) => {
+                if (!commanders || commanders.length === 0) return 'No commanders set';
+                return commanders.join(' & ');
+            };
+            
+            let gridHtml = decks.map(deck => {
+                let iconsHtml = '';
+                
+                if (deck.commander_uids && deck.commander_uids.length > 0) {
+                    deck.commander_uids.forEach((uid, i) => {
+                        const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
+                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
+                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
+                    });
+                } else if (deck.commanders && deck.commanders.length > 0) {
+                    deck.commanders.forEach((cname, i) => {
+                        const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
+                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
+                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
+                    });
+                } else {
+                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
+                }
+                
+                const globalIndex = allDecks.indexOf(deck);
+                
+                return `
+                <div class="deck-card" onclick="openDeckModal(${globalIndex})">
+                    <div class="deck-header">
+                        <div style="display: flex; align-items: center; position: relative;">
+                            ${iconsHtml}
+                        </div>
+                        <div>
+                            <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
+                            <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
+                            <span class="deck-status status-${deck.status || 'virtual'}">${deck.status || 'Virtual'}</span>
+                        </div>
+                    </div>
+                    <div class="deck-footer">
+                        <div>${createColorPips(deck.color)}</div>
+                        <div class="deck-actions">
+                            <a href="/inventory?deck=${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()">View Inventory &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            
+            let headerHtml = '';
+            if (statusName !== 'physical') {
+                headerHtml = `
+                <div class="folder-header" onclick="toggleFolder('${safeId}')">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <span class="folder-title">${displayTitle}</span>
+                    <span class="folder-count">${decks.length}</span>
+                </div>
+                `;
+            }
+            
+            section.innerHTML = `
+                ${headerHtml}
+                <div class="deck-grid" id="grid-${safeId}">
+                    ${gridHtml}
+                </div>
+            `;
+            
+            container.appendChild(section);
+        });
+        
+        if (sortedStatuses.length === 0 || (sortedStatuses.filter(f => f === 'physical').length === 0 && !showAll)) {
+            container.innerHTML = '<p style="color: var(--text-muted);">No decks found matching the current filters.</p>';
+        }
+    }
+    
+    // Auto load on start
+    loadDecks();
+</script>
+{% endblock %}

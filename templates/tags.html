@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}Tag Management | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .search-container input, .search-container select { margin-bottom: 0; flex: 1; }
+    
+    .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: var(--nav-bg);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    
+    .tag-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #172554;
+        color: #93c5fd;
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid #1e3a8a;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .tag-badge:hover {
+        background: #1e3a8a;
+        border-color: #3b82f6;
+        color: #bfdbfe;
+    }
+    
+    .tag-badge.selected {
+        background: #1e40af;
+        border-color: #3b82f6;
+        color: #ffffff;
+    }
+    
+    .tag-badge.core {
+        border-color: #f59e0b;
+        color: #fcd34d;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td { padding: 0.75rem 0.5rem; text-align: left; }
+    th { 
+        color: #6b7280; 
+        font-weight: 500; 
+        border-bottom: 1px solid #1f2937; 
+        padding-bottom: 0.5rem; 
+        text-transform: uppercase; 
+        font-size: 0.75rem; 
+        letter-spacing: 0.05em; 
+        position: sticky; 
+        top: 0; 
+        background: var(--bg-color); 
+        z-index: 10; 
+    }
+    
+    .clickable-row { 
+        cursor: pointer; 
+        border-bottom: 1px solid #111827; 
+        transition: background-color 0.15s; 
+    }
+    .clickable-row:hover { background: var(--row-hover); }
+    
+    .mtg-font { 
+        font-family: 'EB Garamond', serif; 
+        font-size: 1.1rem; 
+        font-weight: 600; 
+        color: var(--text-heading); 
+        letter-spacing: 0.02em; 
+    }
+    
+    .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+    
+    .card-tag {
+        display: inline-flex;
+        align-items: center;
+        background: #172554;
+        color: #93c5fd;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border: 1px solid #1e3a8a;
+    }
+    
+    .card-tag-confidence {
+        margin-left: 0.3rem;
+        color: #6b7280;
+        font-size: 0.7rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: all 0.2s;
+        margin-left: 0.5rem;
+    }
+    
+    .btn:hover {
+        background: var(--row-hover);
+        border-color: var(--accent);
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .tag-editor {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #030712;
+        border-radius: 8px;
+        border: 1px solid #1f2937;
+    }
+    
+    .tag-editor.active {
+        display: block;
+    }
+    
+    .tag-input-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .deck-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+    }
+    
+    .deck-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Tag Management</h1>
+
+<p style="color: #9ca3af; margin-bottom: 1.5rem;">
+    Lab Tags are your source of truth. Edit them here, then sync to Archidekt when ready.<br>
+    <strong>Right-click</strong> a tag in the cloud below to toggle its status as a <span style="color: #fcd34d;">Core Archetype Tag</span>.
+</p>
+
+<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+    <button class="btn btn-primary" onclick="syncAllDecks()">Sync All Decks to Archidekt</button>
+    <button class="btn" onclick="syncSelectedDecks()">Sync Selected Decks</button>
+</div>
+
+<div class="tag-cloud" id="tagCloud">
+    <!-- Tags will be populated here -->
+</div>
+
+<div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchCards()">
+    <select id="tagFilter" onchange="fetchCards()">
+        <option value="">All Tags</option>
+        <!-- Will be populated dynamically -->
+    </select>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Card Name</th>
+            <th>Tags</th>
+            <th>Decks</th>
+            <th style="width: 100px;">Actions</th>
+        </tr>
+    </thead>
+    <tbody id="cardList">
+        <!-- Cards will be populated here -->
+    </tbody>
+</table>
+
+<div id="tagEditor" class="tag-editor">
+    <h3 style="margin-top: 0;">Edit Lab Tags for <span id="editCardName"></span></h3>
+    
+    <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
+        Lab tags apply to this card across all decks. Sync to Archidekt when ready.
+    </p>
+    
+    <div class="tag-input-row">
+        <input type="text" id="newTagInput" placeholder="Enter tag name..." list="allTagsList">
+        <datalist id="allTagsList"></datalist>
+        <button class="btn" onclick="addTag()">Add Tag</button>
+    </div>
+    
+    <div id="currentTags" style="margin-top: 1.5rem;">
+        <h4 style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 0.75rem;">Current Tags:</h4>
+        <div id="currentTagsList" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <!-- Current tags will be shown here -->
+        </div>
+    </div>
+    
+    <button class="btn" onclick="closeEditor()" style="margin-top: 1rem;">Close</button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allTags = [];
+    let allCards = {};
+    let currentEditCard = null;
+    let allDecks = [];
+    
+    async function loadTags() {
+        const res = await fetch('/api/tags');
+        const data = await res.json();
+        allTags = data.tags;
+        
+        const coreRes = await fetch('/api/tags/core');
+        const coreData = await coreRes.json();
+        const coreTags = coreData.core_tags || [];
+        
+        // Populate tag cloud
+        const cloud = document.getElementById('tagCloud');
+        cloud.innerHTML = '';
+        allTags.forEach(tag => {
+            const isCore = coreTags.includes(tag);
+            const badge = document.createElement('span');
+            badge.className = isCore ? 'tag-badge core' : 'tag-badge';
+            badge.textContent = tag;
+            
+            // Allow right click to toggle core status
+            badge.oncontextmenu = async (e) => {
+                e.preventDefault();
+                await fetch('/api/tags/core', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({tag: tag, action: isCore ? 'remove' : 'add'})
+                });
+                loadTags(); // reload to reflect core color
+            };
+            
+            badge.onclick = () => filterByTag(tag);
+            cloud.appendChild(badge);
+        });
+        
+        // Populate filter dropdown
+        const filter = document.getElementById('tagFilter');
+        filter.innerHTML = '<option value="">All Tags</option>';
+        allTags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            opt.textContent = tag;
+            filter.appendChild(opt);
+        });
+        
+        // Populate datalist for autocomplete
+        const datalist = document.getElementById('allTagsList');
+        datalist.innerHTML = '';
+        allTags.forEach(tag => {
+            const opt = document.createElement('option');
+            opt.value = tag;
+            datalist.appendChild(opt);
+        });
+    }
+    
+    async function loadDecks() {
+        const res = await fetch('/api/decks');
+        const data = await res.json();
+        allDecks = data.decks;
+    }
+    
+    function filterByTag(tag) {
+        const filter = document.getElementById('tagFilter');
+        filter.value = tag;
+        fetchCards();
+    }
+    
+    async function fetchCards() {
+        const query = document.getElementById('searchInput').value;
+        const tagFilter = document.getElementById('tagFilter').value;
+        
+        // Get core tags globally first
+        const coreRes = await fetch('/api/tags/core');
+        const coreData = await coreRes.json();
+        const coreTags = coreData.core_tags || [];
+        
+        // Get inventory with all decks
+        const res = await fetch('/api/inventory');
+        const data = await res.json();
+        
+        // Group by card name
+        const cardMap = {};
+        data.inventory.forEach(copy => {
+            if (!cardMap[copy.name]) {
+                cardMap[copy.name] = {
+                    name: copy.name,
+                    decks: new Set(),
+                    tags: new Set(),
+                    copies: [],
+                    is_core: false
+                };
+            }
+            cardMap[copy.name].decks.add(copy.deck);
+            copy.categories.forEach(cat => {
+                cardMap[copy.name].tags.add(cat);
+                if (coreTags.includes(cat)) {
+                    cardMap[copy.name].is_core = true;
+                }
+            });
+            cardMap[copy.name].copies.push(copy);
+        });
+        
+        allCards = cardMap;
+        
+        // Filter cards
+        let cards = Object.values(cardMap).filter(card => {
+            if (query && !card.name.toLowerCase().includes(query.toLowerCase())) {
+                return false;
+            }
+            return true;
+        });
+        
+        cards.sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Render table
+        const tbody = document.getElementById('cardList');
+        tbody.innerHTML = '';
+        
+        for (const card of cards) {
+            // Get tag stats
+            const tagRes = await fetch(`/api/card/${encodeURIComponent(card.name)}/tags`);
+            const tagData = await tagRes.json();
+            
+            // Filter by tag if needed
+            if (tagFilter && !tagData.lab_tags.includes(tagFilter)) {
+                continue;
+            }
+            
+            const tr = document.createElement('tr');
+            tr.className = 'clickable-row';
+            
+            let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
+            
+            // Show Lab tags (our source of truth)
+            const labTagsHtml = tagData.lab_tags.map(t => 
+                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t}</span>`
+            ).join('');
+            
+            // Show Archidekt tags for reference (grayed out)
+            const archidektTagsHtml = tagData.archidekt_tags.slice(0, 3).map(t => 
+                `<span class="card-tag" style="opacity: 0.5;">${t.tag} <span style="font-size: 0.7rem;">(${t.count}/${t.total_decks})</span></span>`
+            ).join('');
+            
+            const allTagsHtml = labTagsHtml + (archidektTagsHtml ? '<br>' + archidektTagsHtml : '');
+            
+            tr.innerHTML = `
+                <td class="mtg-font">${card.name} ${coreTagBadge}</td>
+                <td><div class="card-tags">${allTagsHtml || '<span style="color: #6b7280;">No tags</span>'}</div></td>
+                <td>${card.decks.size} decks</td>
+                <td><button class="btn btn-sm" onclick="openEditor('${card.name.replace(/'/g, "\\'")}')">Edit</button></td>
+            `;
+            
+            tbody.appendChild(tr);
+        }
+    }
+    
+    function openEditor(cardName) {
+        currentEditCard = cardName;
+        document.getElementById('editCardName').textContent = cardName;
+        
+        // Load current tags
+        loadCurrentTags(cardName);
+        
+        document.getElementById('tagEditor').classList.add('active');
+    }
+    
+    async function loadCurrentTags(cardName) {
+        const res = await fetch(`/api/card/${encodeURIComponent(cardName)}/tags`);
+        const data = await res.json();
+        
+        const container = document.getElementById('currentTagsList');
+        container.innerHTML = '';
+        
+        // Show Lab tags (editable)
+        data.lab_tags.forEach(t => {
+            const badge = document.createElement('span');
+            badge.className = 'tag-badge';
+            badge.style.background = '#1e40af';
+            badge.style.borderColor = '#3b82f6';
+            badge.innerHTML = `${t}`;
+            badge.onclick = () => removeTag(t);
+            badge.style.cursor = 'pointer';
+            badge.title = 'Click to remove';
+            container.appendChild(badge);
+        });
+        
+        // Show Archidekt reference tags (read-only)
+        if (data.archidekt_tags && data.archidekt_tags.length > 0) {
+            const divider = document.createElement('div');
+            divider.style.width = '100%';
+            divider.style.margin = '0.75rem 0';
+            divider.style.borderTop = '1px solid #374151';
+            container.appendChild(divider);
+            
+            const label = document.createElement('div');
+            label.style.fontSize = '0.8rem';
+            label.style.color = '#6b7280';
+            label.style.marginBottom = '0.5rem';
+            label.textContent = 'Archidekt tags (reference only):';
+            container.appendChild(label);
+            
+            data.archidekt_tags.slice(0, 5).forEach(t => {
+                const badge = document.createElement('span');
+                badge.className = 'tag-badge';
+                badge.style.opacity = '0.6';
+                badge.innerHTML = `${t.tag} <span style="margin-left: 0.5rem; color: #6b7280;">${t.count}/${t.total_decks}</span>`;
+                container.appendChild(badge);
+            });
+        }
+    }
+    
+    async function syncAllDecks() {
+        if (!confirm('Sync ALL decks to Archidekt? This will overwrite all Archidekt tags with Lab tags.')) {
+            return;
+        }
+        
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = 'Syncing...';
+        
+        try {
+            const res = await fetch('/api/sync-tags', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ decks: [] })
+            });
+            
+            const result = await res.json();
+            
+            if (result.error) {
+                alert(`Error: ${result.error}`);
+            } else {
+                alert(`Synced ${result.synced_decks}/${result.total_decks} decks successfully!`);
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sync All Decks to Archidekt';
+        }
+    }
+    
+    async function syncSelectedDecks() {
+        const decks = prompt('Enter deck names separated by commas:');
+        if (!decks) return;
+        
+        const deckList = decks.split(',').map(d => d.trim()).filter(d => d);
+        
+        if (!confirm(`Sync ${deckList.length} deck(s) to Archidekt?`)) {
+            return;
+        }
+        
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = 'Syncing...';
+        
+        try {
+            const res = await fetch('/api/sync-tags', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ decks: deckList })
+            });
+            
+            const result = await res.json();
+            
+            if (result.error) {
+                alert(`Error: ${result.error}`);
+            } else {
+                let message = `Synced ${result.synced_decks}/${result.total_decks} decks successfully!\n\n`;
+                result.results.forEach(r => {
+                    if (r.success) {
+                        message += `✓ ${r.deck_name}: ${r.updated_count} cards updated\n`;
+                    } else {
+                        message += `✗ ${r.deck_name}: ${r.error}\n`;
+                    }
+                });
+                alert(message);
+            }
+        } catch (e) {
+            alert(`Error: ${e.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sync Selected Decks';
+        }
+    }
+    
+    async function addTag() {
+        const tagInput = document.getElementById('newTagInput');
+        const tag = tagInput.value.trim();
+        
+        if (!tag) return;
+        
+        const res = await fetch(`/api/card/${encodeURIComponent(currentEditCard)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'add',
+                tag: tag
+            })
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+            tagInput.value = '';
+            loadCurrentTags(currentEditCard);
+            loadTags();
+            fetchCards();
+        }
+    }
+    
+    async function removeTag(tag) {
+        if (!confirm(`Remove tag "${tag}" from ${currentEditCard}?`)) return;
+        
+        const res = await fetch(`/api/card/${encodeURIComponent(currentEditCard)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'remove',
+                tag: tag
+            })
+        });
+        
+        const result = await res.json();
+        
+        if (result.success) {
+            loadCurrentTags(currentEditCard);
+            loadTags();
+            fetchCards();
+        }
+    }
+    
+    function closeEditor() {
+        document.getElementById('tagEditor').classList.remove('active');
+        currentEditCard = null;
+    }
+    
+    // Initialize
+    Promise.all([loadTags(), loadDecks()]).then(() => {
+        fetchCards();
+    });
+</script>
+{% endblock %}

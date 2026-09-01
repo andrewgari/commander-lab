@@ -1,0 +1,746 @@
+{% extends "base.html" %}
+
+{% block title %}{{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .deck-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .deck-top-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .deck-header-main {
+        display: flex;
+        gap: 2rem;
+        align-items: flex-start;
+        justify-content: flex-start;
+        width: 100%;
+    }
+    
+    .deck-header-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .commander-showcase {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    .commander-avatar {
+        width: 280px;
+        aspect-ratio: 2.5 / 3.5;
+        border-radius: 4.75% / 3.5%;
+        overflow: hidden;
+        border: 3px solid var(--accent);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    
+    .commander-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .archetype-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        padding: 1rem;
+        border-radius: 8px;
+        min-width: 250px;
+    }
+    
+    .deck-primer {
+        background: #030712;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+        color: #e5e7eb;
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+    }
+    
+    .deck-primer h3 {
+        font-family: 'EB Garamond', serif;
+        color: var(--text-heading);
+        margin-top: 0;
+        border-bottom: 1px solid #1f2937;
+        padding-bottom: 0.5rem;
+    }
+    
+    .deck-title {
+        font-family: 'EB Garamond', serif;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .deck-description {
+        color: var(--text-muted);
+        line-height: 1.6;
+        font-size: 0.95rem;
+        max-width: 800px;
+    }
+    
+    .mana-pip { width: 20px; height: 20px; vertical-align: middle; margin-right: 2px; }
+    .color-identity { display: flex; align-items: center; gap: 4px; }
+    
+    .category-section {
+        margin-bottom: 3rem;
+    }
+    
+    .category-title {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .card-item {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    
+    .card-item:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent);
+    }
+    
+    .card-image-container {
+        width: 100%;
+        aspect-ratio: 2.5 / 3.5;
+        border-radius: 4.75% / 3.5%;
+        overflow: hidden;
+        background: #222;
+    }
+    
+    .card-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .card-info {
+        font-size: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .card-name {
+        font-weight: 500;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .footer-controls {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 2rem;
+    }
+    
+    .links-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn:hover {
+        background: var(--row-hover);
+        border-color: var(--accent);
+    }
+
+    .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+    }
+    
+    /* Reuse modal styles */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: #030712;
+        border: 1px solid #111827;
+        border-radius: 12px;
+        padding: 1.5rem;
+        max-width: 900px;
+        width: 90%;
+        position: relative;
+        display: flex;
+        gap: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.5rem;
+        transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+        color: var(--text-heading);
+    }
+
+    .modal-image {
+        max-width: 280px;
+        border-radius: 4.75% / 3.5%;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-info p { margin: 0.4rem 0; font-size: 0.875rem; color: #9ca3af; }
+    .modal-info strong { color: #e5e7eb; width: 100px; display: inline-block; font-weight: 500; }
+    .modal-deck-name { font-family: 'EB Garamond', serif; font-size: 1.75rem; font-weight: 600; color: var(--text-heading); margin: 0 0 0.5rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="deck-header">
+    <div class="deck-header-main">
+        <div class="commander-showcase" id="commanderShowcase">
+            <!-- Rendered dynamically -->
+        </div>
+        <div class="deck-header-info">
+            <div class="archetype-container" style="margin-bottom: 1.5rem; max-width: 400px;">
+                <div><strong>Main Archetype:</strong> <span id="mainArchetype" class="badge" style="background: #1e3a8a; color: #93c5fd;">Midrange / Value</span></div>
+                <div><strong>Sub-Archetypes:</strong> <span id="subArchetypes"><span class="badge" style="margin-right: 4px;">Synergy</span><span class="badge">Toolbox</span></span></div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Folder: <span id="deckFolder">-</span> | Status: <span id="deckStatus">-</span></div>
+            </div>
+            <div>
+                <h1 class="deck-title">
+                    <span id="deckTitle">{{ deck_name }}</span>
+                    <span id="deckColors" class="color-identity"></span>
+                </h1>
+                <div id="deckDescription" class="deck-description"></div>
+            </div>
+            
+            <div class="deck-primer" style="margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0; border: none; padding: 0;">Deck Primer (Obsidian Grade)</h3>
+                    <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="togglePrimerEdit()" id="primerEditBtn">Edit</button>
+                </div>
+                <div id="primerView">
+                    <p><strong>Overview:</strong> This deck leverages synergistic interactions and robust card advantage loops to control the tempo of the game before executing its primary win condition.</p>
+                    <p><strong>Strategy & Game Plan:</strong></p>
+                    <ul>
+                        <li><strong>Early Game (Turn 1-3):</strong> Focus on ramp, establishing early mana rocks or mana dorks, and setting up card advantage engines.</li>
+                        <li><strong>Mid Game (Turn 4-7):</strong> Deploy key pieces, leverage interaction to disrupt opponents, and protect board state.</li>
+                        <li><strong>Late Game:</strong> Assemble combo pieces or overwhelm opponents through superior board presence and resilient recursive loops.</li>
+                    </ul>
+                    <p><strong>Mulligan Guide:</strong> Look for at least 2-3 lands, early ramp (e.g., Sol Ring, Farseek), and a low-to-mid tier interaction piece.</p>
+                </div>
+                <div id="primerEdit" style="display: none;">
+                    <textarea id="primerTextarea" style="width: 100%; height: 200px; background: #111827; color: #fff; border: 1px solid #374151; border-radius: 4px; padding: 0.5rem; font-family: monospace; font-size: 0.85rem;"></textarea>
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="btn" style="padding: 0.25rem 0.75rem;" onclick="togglePrimerEdit()">Cancel</button>
+                        <button class="btn btn-primary" style="padding: 0.25rem 0.75rem;" onclick="savePrimer()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="decklistContainer">
+    <!-- Categories will be rendered here -->
+</div>
+
+<div class="footer-controls">
+    <div class="links-container" id="footerLinks">
+        <!-- Links dynamically generated -->
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn btn-primary" onclick="syncDeck()">Sync to External</button>
+        <button class="btn" onclick="reviewDeck()">Review</button>
+    </div>
+</div>
+
+<!-- Card Details Modal -->
+<div id="cardModal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div>
+            <img id="modalCardImage" class="modal-image" src="" alt="Card Image">
+        </div>
+        <div class="modal-info" id="modalCardInfo">
+            <!-- Card details populated here -->
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const deckNameStr = {{ deck_name | tojson }};
+    const enabledProviders = {{ providers | tojson }};
+    let currentDeck = null;
+    let inventoryCards = [];
+    
+    function createColorPips(colorString) {
+        if (!colorString || colorString === 'C') {
+            return `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`;
+        }
+        let pips = '';
+        for (let i = 0; i < colorString.length; i++) {
+            pips += `<img src="https://svgs.scryfall.io/card-symbols/${colorString[i]}.svg" class="mana-pip" alt="${colorString[i]}">`;
+        }
+        return pips;
+    }
+    
+    function getEdhrecSlug(name) {
+        return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+    }
+
+    async function loadDeckData() {
+        try {
+            // Fetch deck metadata
+        const deckRes = await fetch('/api/decks');
+        const deckData = await deckRes.json();
+        currentDeck = deckData.decks.find(d => d.name === deckNameStr);
+        
+        // Fetch cards first so we have commander UIDs and categories
+        const invRes = await fetch(`/api/inventory?deck=${encodeURIComponent(deckNameStr)}`);
+        const invData = await invRes.json();
+        inventoryCards = invData.inventory;
+
+        if (currentDeck) {
+            document.getElementById('deckColors').innerHTML = createColorPips(currentDeck.color);
+            document.getElementById('deckFolder').textContent = currentDeck.folder || 'Loose Decks';
+            document.getElementById('deckStatus').textContent = (currentDeck.status || 'physical').toUpperCase();
+            
+            // Render decorative commander showcase at the top
+            const commanders = inventoryCards.filter(c => c.is_commander);
+            let cmdrHtml = '';
+            if (commanders.length > 0) {
+                commanders.forEach(cmdr => {
+                    const imgUrl = cmdr.uid ? `https://api.scryfall.com/cards/${cmdr.uid}?format=image` : '';
+                    cmdrHtml += `
+                        <div class="commander-avatar" title="${cmdr.name}">
+                            ${imgUrl ? `<img src="${imgUrl}" alt="${cmdr.name}">` : '<div style="height:100%; display:flex; align-items:center; justify-content:center; color:#666; font-size:0.7rem;">Commander</div>'}
+                        </div>
+                    `;
+                });
+            } else if (currentDeck.commanders && currentDeck.commanders.length > 0) {
+                cmdrHtml = `<div style="color: var(--text-muted); font-size: 0.9rem;">Commanders: ${currentDeck.commanders.join(', ')}</div>`;
+            } else {
+                cmdrHtml = `<div style="color: var(--text-muted); font-size: 0.9rem;">No Commander specified</div>`;
+            }
+            document.getElementById('commanderShowcase').innerHTML = cmdrHtml;
+
+            // Extract archetypes from cards or categories
+            let catCounts = {};
+            inventoryCards.forEach(c => {
+                if (c.categories) {
+                    c.categories.forEach(cat => {
+                        if (!["Commander", "Sideboard", "Maybeboard"].includes(cat)) {
+                            catCounts[cat] = (catCounts[cat] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            const sortedCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
+            if (sortedCats.length > 0) {
+                document.getElementById('mainArchetype').textContent = sortedCats[0][0];
+                if (sortedCats.length > 1) {
+                    document.getElementById('subArchetypes').innerHTML = sortedCats.slice(1, 4).map(sc => `<span class="badge" style="margin-right: 4px; margin-bottom: 2px;">${sc[0]}</span>`).join('');
+                } else {
+                    document.getElementById('subArchetypes').textContent = 'None';
+                }
+            }
+
+            if (currentDeck.description) {
+                try {
+                    let parsed = JSON.parse(currentDeck.description);
+                    if (parsed.ops) {
+                        let descText = '';
+                        parsed.ops.forEach(op => {
+                            if (typeof op.insert === 'string') {
+                                descText += op.insert;
+                            }
+                        });
+                        document.getElementById('deckDescription').textContent = descText;
+                    } else {
+                        document.getElementById('deckDescription').textContent = currentDeck.description;
+                    }
+                } catch (e) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = currentDeck.description;
+                    document.getElementById('deckDescription').textContent = tempDiv.textContent || tempDiv.innerText;
+                }
+            }
+            buildFooterLinks(currentDeck);
+        }
+        
+        renderCards();
+    } catch (e) {
+        console.error("Error loading deck data:", e);
+    }
+}
+    
+    let isEditingPrimer = false;
+    function togglePrimerEdit() {
+        isEditingPrimer = !isEditingPrimer;
+        const viewEl = document.getElementById('primerView');
+        const editEl = document.getElementById('primerEdit');
+        const btnEl = document.getElementById('primerEditBtn');
+        
+        if (isEditingPrimer) {
+            // Load current HTML content into textarea (or simple text representation)
+            document.getElementById('primerTextarea').value = viewEl.innerHTML.trim();
+            viewEl.style.display = 'none';
+            editEl.style.display = 'block';
+            btnEl.textContent = 'Cancel';
+        } else {
+            viewEl.style.display = 'block';
+            editEl.style.display = 'none';
+            btnEl.textContent = 'Edit';
+        }
+    }
+
+    function savePrimer() {
+        const val = document.getElementById('primerTextarea').value;
+        document.getElementById('primerView').innerHTML = val;
+        togglePrimerEdit();
+    }
+
+    function buildFooterLinks(deck) {
+        const container = document.getElementById('footerLinks');
+        let html = '';
+        
+        if (deck.commanders && deck.commanders.length > 0) {
+            const edhrecSlug = deck.commanders.map(c => getEdhrecSlug(c)).join('-');
+            html += `<a href="https://edhrec.com/commanders/${edhrecSlug}" target="_blank" class="btn">
+                EDHREC
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>`;
+        }
+        
+        enabledProviders.forEach(provider => {
+            if (provider === 'archidekt' && deck.id) {
+                html += `<a href="https://archidekt.com/decks/${deck.id}" target="_blank" class="btn">
+                    Archidekt
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>`;
+            }
+            if (provider === 'commandersalt' && deck.id) {
+                const archUrl = encodeURIComponent(`https://archidekt.com/decks/${deck.id}`);
+                html += `<a href="https://commandersalt.com/details/deck/${archUrl}" target="_blank" class="btn">
+                    Commander Salt
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>`;
+            }
+            if (provider === 'moxfield') {
+                if (deck.moxfield_id) {
+                    html += `<a href="https://moxfield.com/decks/${deck.moxfield_id}" target="_blank" class="btn">
+                        Moxfield
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>`;
+                } else {
+                    html += `<button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;" title="Sync to generate Moxfield link">Moxfield (Unsynced)</button>`;
+                }
+            }
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function groupCards(cards) {
+        const groups = {
+            "Commanders": [],
+            "Creatures": [],
+            "Artifacts": [],
+            "Enchantments": [],
+            "Planeswalkers": [],
+            "Instants": [],
+            "Sorceries": [],
+            "Lands": [],
+            "Other": []
+        };
+        
+        cards.forEach(card => {
+            if (card.is_commander) {
+                groups["Commanders"].push(card);
+            } else if (card.type && card.type.includes("Creature")) {
+                groups["Creatures"].push(card);
+            } else if (card.type && card.type.includes("Artifact")) {
+                groups["Artifacts"].push(card);
+            } else if (card.type && card.type.includes("Enchantment")) {
+                groups["Enchantments"].push(card);
+            } else if (card.type && card.type.includes("Planeswalker")) {
+                groups["Planeswalkers"].push(card);
+            } else if (card.type && card.type.includes("Instant")) {
+                groups["Instants"].push(card);
+            } else if (card.type && card.type.includes("Sorcery")) {
+                groups["Sorceries"].push(card);
+            } else if (card.type && card.type.includes("Land")) {
+                groups["Lands"].push(card);
+            } else {
+                groups["Other"].push(card);
+            }
+        });
+        
+        // Sort each group
+        for (let g in groups) {
+            groups[g].sort((a, b) => {
+                if (a.cmc !== b.cmc) return (a.cmc || 0) - (b.cmc || 0);
+                return a.name.localeCompare(b.name);
+            });
+        }
+        
+        return groups;
+    }
+    
+    function renderCards() {
+        const container = document.getElementById('decklistContainer');
+        const groups = groupCards(inventoryCards);
+        console.log("Groups calculated:", groups);
+        let html = '';
+        
+        const renderOrder = [
+            "Commanders", "Creatures", "Planeswalkers", "Artifacts", 
+            "Enchantments", "Instants", "Sorceries", "Lands", "Other"
+        ];
+        
+        renderOrder.forEach(category => {
+            const list = groups[category];
+            if (!list || list.length === 0) return;
+            
+            html += `
+                <div class="category-section">
+                    <h2 class="category-title">
+                        <span>${category}</span>
+                        <span style="color: var(--text-muted); font-size: 1rem;">${list.length}</span>
+                    </h2>
+                    <div class="card-grid">
+            `;
+            
+            list.forEach(card => {
+                const globalIndex = inventoryCards.indexOf(card);
+                const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+                
+                let primaryTagBadge = card.primary_tag ? `<span class="badge" style="margin-left: 6px;">${card.primary_tag}</span>` : '';
+                let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
+            
+                html += `
+                    <div class="card-item" onclick="openCardModal(${globalIndex})">
+                        <div class="card-image-container">
+                            ${imgUrl ? `<img src="${imgUrl}" class="card-image" loading="lazy" alt="${card.name}">` : '<div style="height:100%; display:flex; align-items:center; justify-content:center; color:#666;">No Image</div>'}
+                        </div>
+                        <div class="card-info">
+                            <span class="card-name">${card.name} ${coreTagBadge}</span>
+                            <span style="color: var(--text-muted);">${card.cmc !== undefined && card.cmc > 0 && (!card.type || !card.type.includes("Land")) ? card.cmc : ''}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div></div>`;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function openCardModal(index) {
+        const card = inventoryCards[index];
+        const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+        
+        document.getElementById('modalCardImage').src = imgUrl;
+        
+        const priceStr = card.price ? '$' + parseFloat(card.price).toFixed(2) : 'N/A';
+        
+        let abilitiesHtml = '';
+        if (card.oracle_text) {
+            const lines = card.oracle_text.split('\n');
+            lines.forEach(line => {
+                abilitiesHtml += `<p style="color: #e5e7eb; font-family: 'Inter', sans-serif;">${line}</p>`;
+            });
+        }
+        
+        // Fetch current tags
+        fetch(`/api/card/${encodeURIComponent(card.name)}/tags`)
+            .then(r => r.json())
+            .then(tagData => {
+                let tagsHtml = '';
+                if (tagData.lab_tags && tagData.lab_tags.length > 0) {
+                    tagsHtml = tagData.lab_tags.map(t => 
+                        `<span class="pill">${t} <span class="pill-close" onclick="removeModalTag('${card.name.replace(/'/g, "\\'")}', '${t.replace(/'/g, "\\'")}')">&times;</span></span>`
+                    ).join('');
+                } else {
+                    tagsHtml = '<span style="color: #6b7280; font-size: 0.85rem;">No tags</span>';
+                }
+                document.getElementById('modalTagsContainer').innerHTML = tagsHtml;
+            });
+        
+        document.getElementById('modalCardInfo').innerHTML = `
+            <h2 class="modal-deck-name">${card.name}</h2>
+            <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
+            <p><strong>Type:</strong> ${card.type}</p>
+            ${card.sub_types && card.sub_types.length > 0 ? `<p><strong>Subtype:</strong> ${card.sub_types.join(', ')}</p>` : ''}
+            <div style="margin: 1rem 0; padding: 1rem; background: #000; border-radius: 6px; border: 1px solid #1f2937;">
+                ${abilitiesHtml}
+            </div>
+            <div>
+                <strong>Tags:</strong>
+                <div id="modalTagsContainer" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0;">
+                    Loading tags...
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" id="modalNewTagInput" placeholder="Add tag..." style="flex: 1;">
+                    <button class="btn btn-primary" onclick="addModalTag('${card.name.replace(/'/g, "\\'")}')">Add</button>
+                </div>
+            </div>
+            <p style="margin-top: 1rem;"><strong>TCG Price:</strong> <span style="color: #84cc16;">${priceStr}</span></p>
+        `;
+        
+        document.getElementById('cardModal').style.display = 'flex';
+    }
+    
+    async function addModalTag(cardName) {
+        const input = document.getElementById('modalNewTagInput');
+        const tag = input.value.trim();
+        if (!tag) return;
+        
+        await fetch(`/api/card/${encodeURIComponent(cardName)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: tag, action: 'add'})
+        });
+        
+        // Ensure local list also syncs to see the badge on close
+        const idx = inventoryCards.findIndex(c => c.name === cardName);
+        if (idx !== -1) {
+            if (!inventoryCards[idx].categories) inventoryCards[idx].categories = [];
+            if (!inventoryCards[idx].categories.includes(tag)) inventoryCards[idx].categories.push(tag);
+            openCardModal(idx);
+        }
+    }
+    
+    async function removeModalTag(cardName, tag) {
+        await fetch(`/api/card/${encodeURIComponent(cardName)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: tag, action: 'remove'})
+        });
+        
+        // Ensure local list also syncs to see the badge on close
+        const idx = inventoryCards.findIndex(c => c.name === cardName);
+        if (idx !== -1) {
+            if (inventoryCards[idx].categories) {
+                inventoryCards[idx].categories = inventoryCards[idx].categories.filter(t => t !== tag);
+            }
+            openCardModal(idx);
+        }
+    }
+    
+    function closeModal(event) {
+        if (!event || event.target.classList.contains('modal-overlay') || !event.target.closest('.modal-content')) {
+            document.getElementById('cardModal').style.display = 'none';
+        }
+    }
+    
+    function syncDeck() {
+        console.log("Sync deck to external triggered");
+    }
+    
+    function reviewDeck() {
+        console.log("Review deck triggered");
+    }
+    
+    // Start
+    loadDeckData();
+</script>
+{% endblock %}
