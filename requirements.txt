@@ -4,3 +4,4 @@ redis
 requests
 jinja2
 python-dotenv
+httpx
