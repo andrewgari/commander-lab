@@ -1,7 +1,10 @@
-.PHONY: build up down logs sync restart
+.PHONY: build up down logs sync restart deploy
 
 build:
 	docker compose build
+
+deploy:
+	./scripts/deploy_tower.sh
 
 up:
 	docker compose up -d
