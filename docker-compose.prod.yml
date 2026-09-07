@@ -1,0 +1,32 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: commander-lab-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    labels:
+      net.unraid.docker.managed: compose-manager
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: commander-lab-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
+      - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
+      - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}
+    depends_on:
+      - redis
+    command: uvicorn app:app --host 0.0.0.0 --port 8000
+    labels:
+      net.unraid.docker.managed: compose-manager
+      net.unraid.docker.webui: "http://[IP]:8000"
+
+volumes:
+  redis_data:
