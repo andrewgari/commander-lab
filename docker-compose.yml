@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    networks:
+      - internal
 
   app:
     image: commander-lab:${TAG:-latest}
@@ -23,6 +25,12 @@ services:
     depends_on:
       - redis
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
 
 volumes:
   redis_data:
