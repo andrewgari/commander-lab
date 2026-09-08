@@ -43,6 +43,23 @@ async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
     return templates.TemplateResponse(request=request, name="deck.html", context={"providers": providers, "deck_name": deck_name})
 
+@app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
+async def deck_manage_view(request: Request, deck_name: str):
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+
+    /deck/{deck_name} (the read-only view) keys off the deck's display
+    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
+    and sibling manage endpoints all key off registry_id. Resolve name ->
+    registry_id here so the template only ever has to call the registry_id
+    APIs, matching how the rest of the manage API surface works.
+    """
+    decks = registry.list_decks(r)
+    deck = next((d for d in decks if d.get("name") == deck_name), None)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    deck_id = registry.registry_id_of(deck)
+    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
+
 @app.get("/api/decks")
 async def get_decks():
     decks_json = r.get("decks")

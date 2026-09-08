@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Manage {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .manage-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .manage-header h1 { margin-bottom: 0.25rem; }
+
+    .manage-subtitle { color: var(--text-muted); font-size: 0.9rem; }
+
+    .search-container { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; position: relative; }
+    .search-container input { flex: 1; margin-bottom: 0; }
+
+    .add-card-dropdown {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 320px;
+        overflow-y: auto;
+        background: #0a0a0a;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        z-index: 20;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+
+    .add-card-dropdown.active { display: block; }
+
+    .add-card-result {
+        padding: 0.6rem 0.85rem;
+        cursor: pointer;
+        border-bottom: 1px solid #111827;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.875rem;
+    }
+
+    .add-card-result:hover { background: var(--row-hover); }
+    .add-card-result:last-child { border-bottom: none; }
+    .add-card-result-meta { color: var(--text-muted); font-size: 0.75rem; }
+
+    .add-card-empty { padding: 0.85rem; color: var(--text-muted); font-size: 0.85rem; }
+
+    .category-section { margin-bottom: 2.5rem; }
+
+    .category-title {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-row-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .manage-card-row {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .manage-card-name {
+        font-family: 'EB Garamond', serif;
+        font-weight: 600;
+        color: var(--text-heading);
+        min-width: 220px;
+        flex: 1;
+    }
+
+    .manage-card-type {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        min-width: 140px;
+    }
+
+    /* Reuse tag-chip look from tags.html */
+    .card-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; flex: 2; min-width: 260px; }
+
+    .card-tag {
+        display: inline-flex;
+        align-items: center;
+        background: #172554;
+        color: #93c5fd;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border: 1px solid #1e3a8a;
+        gap: 0.3rem;
+    }
+
+    .card-tag.override {
+        background: #3f2d0a;
+        color: #fcd34d;
+        border-color: #92400e;
+    }
+
+    .card-tag-remove {
+        cursor: pointer;
+        opacity: 0.7;
+        font-weight: 700;
+    }
+
+    .card-tag-remove:hover { opacity: 1; }
+
+    .add-tag-inline {
+        display: flex;
+        gap: 0.3rem;
+        align-items: center;
+    }
+
+    .add-tag-inline input {
+        width: 110px;
+        padding: 0.2rem 0.4rem;
+        font-size: 0.75rem;
+    }
+
+    .add-tag-inline select {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+
+    .btn {
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition: all 0.2s;
+    }
+
+    .btn:hover { background: var(--row-hover); border-color: var(--accent); }
+
+    .btn-danger { border-color: #7f1d1d; color: #fca5a5; }
+    .btn-danger:hover { background: #1f0a0a; border-color: #ef4444; }
+
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+
+    .empty-state {
+        color: var(--text-muted);
+        padding: 2rem;
+        text-align: center;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+    }
+
+    .instance-picker-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .instance-picker-overlay.active { display: flex; }
+
+    .instance-picker-content {
+        background: #030712;
+        border: 1px solid #111827;
+        border-radius: 12px;
+        padding: 1.5rem;
+        min-width: 320px;
+    }
+
+    .instance-picker-content h3 { margin-top: 0; font-family: 'EB Garamond', serif; }
+
+    .instance-option {
+        padding: 0.6rem 0.85rem;
+        margin: 0.4rem 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .instance-option:hover { background: var(--row-hover); border-color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="manage-header">
+    <div>
+        <h1>Manage: {{ deck_name }}</h1>
+        <div class="manage-subtitle">
+            Cards grouped by effective category (Deck Category override &gt; Lab Tag &gt; Uncategorized).
+        </div>
+    </div>
+    <a class="btn" href="/deck/{{ deck_name | urlencode }}">&larr; Back to Deck</a>
+</div>
+
+<div class="search-container">
+    <input type="text" id="addCardInput" placeholder="Search cards to add to this deck..." autocomplete="off">
+    <div id="addCardDropdown" class="add-card-dropdown"></div>
+</div>
+
+<div id="manageContainer">
+    <!-- Category sections rendered here -->
+</div>
+
+<div id="instancePickerOverlay" class="instance-picker-overlay">
+    <div class="instance-picker-content">
+        <h3>Remove which copy?</h3>
+        <div id="instancePickerList"></div>
+        <button class="btn" onclick="closeInstancePicker()" style="margin-top: 0.75rem;">Cancel</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const deckIdStr = {{ deck_id | tojson }};
+    const deckNameStr = {{ deck_name | tojson }};
+    let manageCards = [];
+    let searchDebounce = null;
+
+    async function loadManageData() {
+        const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/manage`);
+        if (!res.ok) {
+            document.getElementById('manageContainer').innerHTML =
+                '<div class="empty-state">Deck not found.</div>';
+            return;
+        }
+        const data = await res.json();
+        manageCards = data.cards || [];
+        renderManageCards();
+    }
+
+    function groupByEffectiveCategory(cards) {
+        const groups = {};
+        cards.forEach(card => {
+            const key = card.effective_category || 'Uncategorized';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(card);
+        });
+        return groups;
+    }
+
+    function renderManageCards() {
+        const container = document.getElementById('manageContainer');
+
+        if (manageCards.length === 0) {
+            container.innerHTML = '<div class="empty-state">No cards bound to this deck yet. Use the search box above to add some.</div>';
+            return;
+        }
+
+        const groups = groupByEffectiveCategory(manageCards);
+        const categoryNames = Object.keys(groups).sort((a, b) => {
+            if (a === 'Uncategorized') return 1;
+            if (b === 'Uncategorized') return -1;
+            return a.localeCompare(b);
+        });
+
+        let html = '';
+        categoryNames.forEach(category => {
+            const list = groups[category].sort((a, b) => a.card_name.localeCompare(b.card_name));
+            html += `
+                <div class="category-section">
+                    <h2 class="category-title">
+                        <span>${category}</span>
+                        <span style="color: var(--text-muted); font-size: 1rem;">${list.length}</span>
+                    </h2>
+                    <div class="card-row-grid">
+                        ${list.map(renderCardRow).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function renderCardRow(card) {
+        const labTagChips = (card.lab_tags || []).map(t => `
+            <span class="card-tag">
+                ${escapeHtml(t)}
+                <span class="card-tag-remove" onclick="removeLabTag('${escapeAttr(card.card_name)}', '${escapeAttr(t)}')" title="Remove global Lab Tag">&times;</span>
+            </span>
+        `).join('');
+
+        const overrideChips = (card.deck_categories || []).map(t => `
+            <span class="card-tag override">
+                ${escapeHtml(t)}
+                <span class="card-tag-remove" onclick="removeDeckOverride('${escapeAttr(card.card_name)}', '${escapeAttr(t)}')" title="Remove deck-specific override">&times;</span>
+            </span>
+        `).join('');
+
+        return `
+            <div class="manage-card-row" data-instance-id="${card.instance_id}" data-card-name="${escapeAttr(card.card_name)}">
+                <div class="manage-card-name">${escapeHtml(card.card_name)}</div>
+                <div class="manage-card-type">${escapeHtml(card.type || 'Unknown')}${card.cmc ? ' &middot; CMC ' + card.cmc : ''}</div>
+                <div class="card-tags">
+                    ${labTagChips}
+                    ${overrideChips}
+                    <span class="add-tag-inline">
+                        <input type="text" placeholder="tag" onkeydown="if(event.key==='Enter') addLabTag('${escapeAttr(card.card_name)}', this)">
+                        <select onchange="if(this.value){ addDeckOverride('${escapeAttr(card.card_name)}', this.value); this.value=''; }">
+                            <option value="">+ override</option>
+                            <option value="__custom__">Custom override...</option>
+                        </select>
+                    </span>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="removeCard('${escapeAttr(card.card_name)}')">Remove</button>
+            </div>
+        `;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return String(str == null ? '' : str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    async function addLabTag(cardName, inputEl) {
+        const tag = inputEl.value.trim();
+        if (!tag) return;
+        await fetch(`/api/card/${encodeURIComponent(cardName)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: tag, action: 'add'})
+        });
+        inputEl.value = '';
+        await loadManageData();
+    }
+
+    async function removeLabTag(cardName, tag) {
+        await fetch(`/api/card/${encodeURIComponent(cardName)}/tags`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tag: tag, action: 'remove'})
+        });
+        await loadManageData();
+    }
+
+    async function addDeckOverride(cardName, value) {
+        let tag = value;
+        if (value === '__custom__') {
+            tag = prompt('Deck-specific override tag for ' + cardName + ':');
+            if (!tag) return;
+        }
+        await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/categories`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({card_name: cardName, tag: tag, action: 'add'})
+        });
+        await loadManageData();
+    }
+
+    async function removeDeckOverride(cardName, tag) {
+        await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/categories`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({card_name: cardName, tag: tag, action: 'remove'})
+        });
+        await loadManageData();
+    }
+
+    // --- Add card search ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('addCardInput');
+        input.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            const q = input.value.trim();
+            if (!q) {
+                closeAddDropdown();
+                return;
+            }
+            searchDebounce = setTimeout(() => runCardSearch(q), 200);
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) closeAddDropdown();
+        });
+    });
+
+    async function runCardSearch(q) {
+        const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderAddDropdown(data.results || []);
+    }
+
+    function renderAddDropdown(results) {
+        const dropdown = document.getElementById('addCardDropdown');
+        if (results.length === 0) {
+            dropdown.innerHTML = '<div class="add-card-empty">No matching cards in card_meta.</div>';
+        } else {
+            dropdown.innerHTML = results.map(c => `
+                <div class="add-card-result" onclick="addCardToDeck('${escapeAttr(c.name)}')">
+                    <span>${escapeHtml(c.name)}</span>
+                    <span class="add-card-result-meta">${escapeHtml(c.type || '')}${c.cmc ? ' &middot; CMC ' + c.cmc : ''}</span>
+                </div>
+            `).join('');
+        }
+        dropdown.classList.add('active');
+    }
+
+    function closeAddDropdown() {
+        document.getElementById('addCardDropdown').classList.remove('active');
+    }
+
+    async function addCardToDeck(cardName) {
+        const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/cards`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({card_name: cardName})
+        });
+        const result = await res.json();
+        if (!result.success) {
+            alert('Error adding card: ' + (result.error || 'unknown error'));
+            return;
+        }
+        document.getElementById('addCardInput').value = '';
+        closeAddDropdown();
+        await loadManageData();
+    }
+
+    // --- Remove card (with instance picker for duplicates) ---
+    let pendingRemoveCardName = null;
+
+    function removeCard(cardName) {
+        const instances = manageCards.filter(c => c.card_name === cardName);
+        if (instances.length === 0) return;
+        if (instances.length === 1) {
+            doRemoveInstance(instances[0].instance_id);
+            return;
+        }
+        pendingRemoveCardName = cardName;
+        openInstancePicker(cardName, instances);
+    }
+
+    function openInstancePicker(cardName, instances) {
+        const list = document.getElementById('instancePickerList');
+        list.innerHTML = instances.map(inst => `
+            <div class="instance-option" onclick="doRemoveInstance('${escapeAttr(inst.instance_id)}')">
+                <span>${escapeHtml(cardName)}</span>
+                <span class="add-card-result-meta">instance ${escapeHtml(inst.instance_id)}</span>
+            </div>
+        `).join('');
+        document.getElementById('instancePickerOverlay').classList.add('active');
+    }
+
+    function closeInstancePicker() {
+        document.getElementById('instancePickerOverlay').classList.remove('active');
+        pendingRemoveCardName = null;
+    }
+
+    async function doRemoveInstance(instanceId) {
+        closeInstancePicker();
+        const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/cards/${encodeURIComponent(instanceId)}`, {
+            method: 'DELETE'
+        });
+        const result = await res.json();
+        if (!result.success) {
+            alert('Error removing card: ' + (result.error || 'unknown error'));
+            return;
+        }
+        await loadManageData();
+    }
+
+    // Start
+    loadManageData();
+</script>
+{% endblock %}

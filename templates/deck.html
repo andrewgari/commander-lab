@@ -341,6 +341,7 @@
         <!-- Links dynamically generated -->
     </div>
     <div style="display: flex; gap: 0.75rem;">
+        <a class="btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
         <button class="btn btn-primary" onclick="syncDeck()">Sync to External</button>
         <button class="btn" onclick="reviewDeck()">Review</button>
     </div>
