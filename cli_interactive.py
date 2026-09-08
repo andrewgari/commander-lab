@@ -14,7 +14,7 @@ Entry point: run(r, input_fn=input, print_fn=print) -> int (exit code)
 input lists instead of a real terminal.
 """
 import sys
-from typing import Callable, List, Optional
+from typing import Callable, List
 
 import instances as instance_store
 import registry
@@ -22,7 +22,10 @@ from instances import InstanceError
 
 
 class Cancelled(Exception):
-    """Raised internally when the user aborts a prompt (blank / 'q' / Ctrl-D)."""
+    """Raised internally when the user aborts a prompt via 'q'/'quit'/'exit'
+    or EOF (Ctrl-D). Blank input does NOT abort the flow — prompts that
+    require a value (see _prompt_nonblank) re-prompt on blank input instead.
+    """
 
 
 def _prompt(input_fn: Callable[[str], str], prompt: str) -> str:
@@ -50,8 +53,11 @@ def _search_card(r, print_fn, needle: str) -> List[dict]:
     needle_lc = needle.strip().lower()
     exact = [i for i in all_in_collection if i["card_name"].strip().lower() == needle_lc]
     if exact:
+        print_fn(f"Found {len(exact)} exact match(es) for {needle!r}.")
         return exact
-    return [i for i in all_in_collection if needle_lc in i["card_name"].strip().lower()]
+    matches = [i for i in all_in_collection if needle_lc in i["card_name"].strip().lower()]
+    print_fn(f"Found {len(matches)} substring match(es) for {needle!r}.")
+    return matches
 
 
 def _format_instance_row(idx: int, inst: dict) -> str:
@@ -160,8 +166,9 @@ def run(r, input_fn: Callable[[str], str] = input, print_fn: Callable[[str], Non
         try:
             deck = _choose_deck(r, input_fn, print_fn)
         except Cancelled:
-            print_fn("No decks available." if not registry.list_decks(r) else "Cancelled.")
-            return 2 if not registry.list_decks(r) else 1
+            decks = registry.list_decks(r)
+            print_fn("No decks available." if not decks else "Cancelled.")
+            return 2 if not decks else 1
 
         if not _confirm(input_fn, print_fn, instance, deck):
             print_fn("Cancelled.")
