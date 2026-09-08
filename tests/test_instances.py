@@ -235,6 +235,58 @@ class TestInstanceRegistry(unittest.TestCase):
         with self.assertRaises(InstanceError):
             instance_store.transition_status(self.r, iid, "in_deck", deck_id="archidekt:2", deck_name="Deck B")
 
+    def test_ensure_wishlist_instances_creates_placeholders_for_new_cards(self):
+        created = instance_store.ensure_wishlist_instances(
+            self.r,
+            "archidekt:1",
+            [{"name": "Sol Ring", "quantity": 1}, {"name": "Arcane Signet", "quantity": 1}],
+        )
+        self.assertEqual(len(created), 2)
+        for inst in created:
+            self.assertEqual(inst["ownership_status"], "not_owned")
+            self.assertEqual(inst["considered_for_deck"], "archidekt:1")
+
+        sol_ring_instances = instance_store.list_instances(self.r, card_name="Sol Ring")
+        self.assertEqual(len(sol_ring_instances), 1)
+
+    def test_ensure_wishlist_instances_skips_cards_with_existing_instances(self):
+        # Already owned elsewhere — must not get a second (wishlist) instance.
+        instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_collection")
+        created = instance_store.ensure_wishlist_instances(
+            self.r, "archidekt:1", [{"name": "Sol Ring", "quantity": 1}]
+        )
+        self.assertEqual(created, [])
+        self.assertEqual(len(instance_store.list_instances(self.r, card_name="Sol Ring")), 1)
+
+    def test_ensure_wishlist_instances_is_idempotent_on_reimport(self):
+        instance_store.ensure_wishlist_instances(self.r, "archidekt:1", [{"name": "Sol Ring", "quantity": 1}])
+        # Re-import should create zero additional instances.
+        created_again = instance_store.ensure_wishlist_instances(
+            self.r, "archidekt:1", [{"name": "Sol Ring", "quantity": 1}]
+        )
+        self.assertEqual(created_again, [])
+        self.assertEqual(len(instance_store.list_instances(self.r, card_name="Sol Ring")), 1)
+
+    def test_auto_bind_physical_promotes_wishlist_placeholder_instead_of_duplicating(self):
+        # A prior digital/testing import created a not_owned placeholder.
+        instance_store.ensure_wishlist_instances(self.r, "archidekt:1", [{"name": "Sol Ring", "quantity": 1}])
+        placeholder = instance_store.list_instances(self.r, card_name="Sol Ring")[0]
+        self.assertEqual(placeholder["ownership_status"], "not_owned")
+
+        report = instance_store.auto_bind_physical(
+            self.r,
+            deck_registry_id="archidekt:1",
+            deck_name="Deck A",
+            decklist=[{"name": "Sol Ring", "quantity": 1}],
+        )
+        self.assertEqual(report["cards"]["Sol Ring"], {"bound": 1, "created": 0})
+
+        all_instances = instance_store.list_instances(self.r, card_name="Sol Ring")
+        self.assertEqual(len(all_instances), 1)
+        self.assertEqual(all_instances[0]["id"], placeholder["id"])
+        self.assertEqual(all_instances[0]["ownership_status"], "in_deck")
+        self.assertEqual(all_instances[0]["deck_id"], "archidekt:1")
+
 
 if __name__ == "__main__":
     unittest.main()

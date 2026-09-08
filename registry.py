@@ -120,7 +120,35 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
 
     _save_decks(r, decks)
     r.set(f"deck_status:{deck_id}", status)
-    return decks[existing_idx] if existing_idx is not None else decks[-1]
+
+    result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
+    instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+
+    return result_deck
+
+
+def add_card_to_decklist(r, registry_id: str, card_name: str) -> dict:
+    """Append `card_name` (quantity 1) to a deck's local decklist if it isn't
+    already present. Used by the manual add-card path (POST
+    /api/decks/{id}/cards) — layers manual adds on top of a synced decklist
+    without duplicating an existing entry. Returns the updated deck dict.
+    """
+    decks = _load_decks(r)
+    target = None
+    for d in decks:
+        if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id:
+            target = d
+            break
+    if not target:
+        raise ValueError(f"deck not found: {registry_id}")
+
+    cards = target.setdefault("cards", [])
+    already_present = any(c.get("name") == card_name for c in cards)
+    if not already_present:
+        cards.append({"name": card_name, "quantity": 1})
+        _save_decks(r, decks)
+
+    return target
 
 
 def set_status(r, registry_id: str, new_status: str) -> dict:

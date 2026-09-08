@@ -325,13 +325,52 @@ def card_rollup(r, card_name: str) -> dict:
     }
 
 
+def ensure_wishlist_instances(r, registry_id: "DeckId", decklist: list) -> list:
+    """Called on every deck import/re-import (any lifecycle status), from
+    registry.upsert_deck. For every card in `decklist` (list of
+    {"name", "quantity"}) that currently has ZERO instances of any
+    ownership_status, create exactly one `not_owned` instance with
+    `considered_for_deck=registry_id` so the card shows up in /inventory as
+    a wishlist placeholder immediately.
+
+    Cards that already have at least one instance (owned, in-mail, or
+    already considered for another deck) are left completely untouched —
+    this only fills gaps and is safe to call on every re-import: an
+    already-owned deck's cards all have instances already, so re-running
+    this creates nothing new.
+
+    Returns the list of newly created placeholder instance records.
+    """
+    created = []
+    for line in decklist:
+        card_name = line.get("name")
+        quantity = line.get("quantity", 1)
+        if not card_name or quantity <= 0:
+            continue
+
+        if list_instances(r, card_name=card_name):
+            continue
+
+        new_inst = create_instance(
+            r,
+            card_name=card_name,
+            ownership_status="not_owned",
+            considered_for_deck=str(registry_id),
+        )
+        created.append(new_inst)
+
+    return created
+
+
 def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list) -> dict:
     """Called when a deck transitions to status="physical". For every card in
     `decklist` (list of {"name", "quantity"}), ensure exactly `quantity`
     instances are bound in_deck to this deck: reuse existing in_collection
-    copies of that card first, then create new in_collection->in_deck
-    instances for any shortfall. Never removes/moves instances that already
-    belong to a different deck.
+    copies of that card first, then promote existing `not_owned` placeholder
+    instances of that card (e.g. ones created by `ensure_wishlist_instances`
+    on an earlier digital/testing import) by name match, then create new
+    in_collection->in_deck instances for any remaining shortfall. Never
+    removes/moves instances that already belong to a different deck.
 
     `deck_registry_id` is stored as the instance's deck_id — for
     Archidekt-native decks this is the same int id decks have always used;
@@ -367,6 +406,21 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
             for inst in available:
                 if bound_count >= quantity:
                     break
+                transition_status(r, inst["id"], "in_deck", deck_id=deck_registry_id, deck_name=deck_name)
+                bound_count += 1
+
+        if bound_count < quantity:
+            # Promote not_owned wishlist placeholders (e.g. created by
+            # ensure_wishlist_instances on an earlier digital/testing
+            # import) instead of leaving them dangling and creating a
+            # brand-new duplicate instance.
+            placeholders = [
+                inst for inst in list_instances(r, card_name=card_name, ownership_status="not_owned")
+            ]
+            for inst in placeholders:
+                if bound_count >= quantity:
+                    break
+                transition_status(r, inst["id"], "in_collection")
                 transition_status(r, inst["id"], "in_deck", deck_id=deck_registry_id, deck_name=deck_name)
                 bound_count += 1
 
