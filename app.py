@@ -5,6 +5,7 @@ import redis
 import os
 import json
 import time
+import html
 from typing import List, Optional
 
 import instances as instance_store
@@ -56,7 +57,13 @@ async def deck_manage_view(request: Request, deck_name: str):
     decks = registry.list_decks(r)
     deck = next((d for d in decks if d.get("name") == deck_name), None)
     if not deck:
-        return JSONResponse({"error": "Deck not found"}, status_code=404)
+        return HTMLResponse(
+            "<html><head><title>Deck Not Found</title></head>"
+            "<body><h1>Deck Not Found</h1>"
+            "<p>No deck named &quot;{}&quot; could be found.</p>"
+            "</body></html>".format(html.escape(deck_name)),
+            status_code=404,
+        )
     deck_id = registry.registry_id_of(deck)
     return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
 

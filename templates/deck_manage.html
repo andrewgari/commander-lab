@@ -290,7 +290,7 @@
             html += `
                 <div class="category-section">
                     <h2 class="category-title">
-                        <span>${category}</span>
+                        <span>${escapeHtml(category)}</span>
                         <span style="color: var(--text-muted); font-size: 1rem;">${list.length}</span>
                     </h2>
                     <div class="card-row-grid">
@@ -321,7 +321,7 @@
         return `
             <div class="manage-card-row" data-instance-id="${card.instance_id}" data-card-name="${escapeAttr(card.card_name)}">
                 <div class="manage-card-name">${escapeHtml(card.card_name)}</div>
-                <div class="manage-card-type">${escapeHtml(card.type || 'Unknown')}${card.cmc ? ' &middot; CMC ' + card.cmc : ''}</div>
+                <div class="manage-card-type">${escapeHtml(card.type || 'Unknown')}${card.cmc != null ? ' &middot; CMC ' + escapeHtml(card.cmc) : ''}</div>
                 <div class="card-tags">
                     ${labTagChips}
                     ${overrideChips}
@@ -410,9 +410,29 @@
     });
 
     async function runCardSearch(q) {
-        const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        renderAddDropdown(data.results || []);
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/search?q=${encodeURIComponent(q)}`);
+            if (!res.ok) {
+                renderAddDropdownError('Search failed (' + res.status + '). Please try again.');
+                return;
+            }
+            let data;
+            try {
+                data = await res.json();
+            } catch (parseErr) {
+                renderAddDropdownError('Search returned an unexpected response. Please try again.');
+                return;
+            }
+            renderAddDropdown(data.results || []);
+        } catch (err) {
+            renderAddDropdownError('Search failed. Please check your connection and try again.');
+        }
+    }
+
+    function renderAddDropdownError(message) {
+        const dropdown = document.getElementById('addCardDropdown');
+        dropdown.innerHTML = `<div class="add-card-empty">${escapeHtml(message)}</div>`;
+        dropdown.classList.add('active');
     }
 
     function renderAddDropdown(results) {
@@ -423,7 +443,7 @@
             dropdown.innerHTML = results.map(c => `
                 <div class="add-card-result" onclick="addCardToDeck('${escapeAttr(c.name)}')">
                     <span>${escapeHtml(c.name)}</span>
-                    <span class="add-card-result-meta">${escapeHtml(c.type || '')}${c.cmc ? ' &middot; CMC ' + c.cmc : ''}</span>
+                    <span class="add-card-result-meta">${escapeHtml(c.type || '')}${c.cmc != null ? ' &middot; CMC ' + escapeHtml(c.cmc) : ''}</span>
                 </div>
             `).join('');
         }
