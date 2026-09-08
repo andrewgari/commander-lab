@@ -1,8 +1,8 @@
 """
 End-to-end integration tests for the deck manage flow (categories, add-card,
 remove-card) driven through the real FastAPI routes, real registry.py /
-instances.py logic, and a real fakeredis backend (no mocks) — as opposed to
-tests/test_routes.py, tests/test_remove_card_from_deck.py, and
+instances.py logic, and an in-memory fake Redis backend (no mocks) — as
+opposed to tests/test_routes.py, tests/test_remove_card_from_deck.py, and
 tests/test_deck_categories.py, which exercise the same endpoints but stub out
 registry/instance_store so they don't prove the pieces actually persist
 correctly together.
@@ -20,14 +20,13 @@ Covers (per task spec):
     bound to a deck, DELETE against a specific instance_id only ever
     touches that instance, not its sibling
 
-Run: pytest tests/test_deck_manage_integration.py -q
+Run: python -m unittest discover -s tests
 """
 import json
 import os
 import sys
 import unittest
 
-import fakeredis
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,12 +36,75 @@ import registry
 import instances as instance_store
 
 
+class FakeRedis:
+    """Minimal in-memory stand-in for the redis calls app.py / registry.py /
+    instances.py make, mirroring the FakeRedis in tests/test_instances.py so
+    the whole suite uses one consistent in-repo fake instead of the external
+    fakeredis package."""
+
+    def __init__(self):
+        self.store = {}
+        self.sets = {}
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def set(self, key, value):
+        self.store[key] = value
+
+    def delete(self, *keys):
+        for k in keys:
+            self.store.pop(k, None)
+
+    def sadd(self, key, member):
+        self.sets.setdefault(key, set()).add(member)
+
+    def srem(self, key, member):
+        self.sets.get(key, set()).discard(member)
+
+    def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    def sinter(self, *keys):
+        sets = [self.sets.get(k, set()) for k in keys]
+        if not sets:
+            return set()
+        result = sets[0]
+        for s in sets[1:]:
+            result = result & s
+        return result
+
+    def keys(self, pattern):
+        prefix = pattern.rstrip("*")
+        return [k for k in self.store if k.startswith(prefix)]
+
+    def pipeline(self):
+        return FakePipeline(self)
+
+
+class FakePipeline:
+    def __init__(self, parent):
+        self.parent = parent
+        self.ops = []
+
+    def __getattr__(self, name):
+        def call(*args, **kwargs):
+            self.ops.append((name, args, kwargs))
+            return self
+        return call
+
+    def execute(self):
+        for name, args, kwargs in self.ops:
+            getattr(self.parent, name)(*args, **kwargs)
+        self.ops = []
+
+
 class DeckManageIntegrationTestCase(unittest.TestCase):
-    """Base: swaps app.r for a fresh fakeredis instance per test and seeds
+    """Base: swaps app.r for a fresh in-memory FakeRedis per test and seeds
     one deck via registry.upsert_deck (the real deck-creation path)."""
 
     def setUp(self):
-        self.fake_r = fakeredis.FakeRedis(decode_responses=True)
+        self.fake_r = FakeRedis()
         self._orig_r = app_module.r
         app_module.r = self.fake_r
         self.client = TestClient(app_module.app)
