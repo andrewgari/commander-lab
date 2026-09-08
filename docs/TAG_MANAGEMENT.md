@@ -25,7 +25,11 @@ Visit `/tags` to:
 - Search and filter cards by tag
 - See tag confidence for each card (e.g., "Ramp 8/10")
 - Add or remove tags from cards
-- Choose which decks to apply tags to
+
+Lab Tags are card-level and global: a tag added to a card applies to that
+card everywhere it appears, across all your decks. The `/tags` page has no
+per-deck selection controls — there is no way to scope a tag to only some
+decks.
 
 ## Setup
 
@@ -68,8 +72,7 @@ uvicorn app:app --reload
 1. **View/Edit Tags**: Visit http://localhost:8000/tags
 2. **Tag a Card**: 
    - Click "Edit" on any card
-   - Add or remove tags
-   - Choose which decks to apply to
+   - Add or remove tags (applies globally to that card, not per-deck)
 
 ### Re-sync from Archidekt
 
