@@ -11,6 +11,15 @@ STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
 
 _ID_RE = re.compile(r"archidekt\.com/decks/(\d+)")
 
+_COLOR_NAME_TO_LETTER = {
+    "White": "W",
+    "Blue": "U",
+    "Black": "B",
+    "Red": "R",
+    "Green": "G",
+}
+_WUBRG_ORDER = "WUBRG"
+
 
 def parse_identifier(identifier: str) -> str:
     """Accept a bare numeric id or a full archidekt.com/decks/{id}/... URL."""
@@ -29,16 +38,19 @@ def fetch_deck(identifier: str) -> dict:
     res.raise_for_status()
     data = res.json()
 
-    colors_map = data.get("colors", {}) or {}
-    color_code = "".join(c for c in ["W", "U", "B", "R", "G"] if colors_map.get(c, 0) > 0) or "C"
-
     commanders, commander_uids, cards = [], [], []
+    color_letters = set()
     for card in data.get("cards", []):
         categories = card.get("categories") or []
         oracle = card.get("card", {}).get("oracleCard", {})
         name = oracle.get("name")
         if not name:
             continue
+
+        for color_name in oracle.get("colorIdentity") or []:
+            letter = _COLOR_NAME_TO_LETTER.get(color_name)
+            if letter:
+                color_letters.add(letter)
 
         if "Commander" in categories:
             commanders.append(name)
@@ -50,6 +62,8 @@ def fetch_deck(identifier: str) -> dict:
             continue
 
         cards.append({"name": name, "quantity": card.get("quantity", 1)})
+
+    color_code = "".join(c for c in _WUBRG_ORDER if c in color_letters) or "C"
 
     return {
         "source": "archidekt",
