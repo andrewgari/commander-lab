@@ -18,7 +18,6 @@ Run: python tests/test_deck_wishlist_integration.py
 """
 import os
 import sys
-import json
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -89,7 +88,7 @@ class FakePipeline:
         self.ops = []
 
 
-def _normalized_deck(source_id="101", name="Krenko Goblins", status_hint=None, cards=None):
+def _normalized_deck(source_id="101", name="Krenko Goblins", cards=None):
     """Build a normalized provider payload matching providers/__init__.py's
     NORMALIZED_DECK_SHAPE, as passed to registry.upsert_deck."""
     return {
@@ -194,7 +193,8 @@ class TestPromotionBindsPlaceholdersWithoutDuplicating(unittest.TestCase):
         # A card already in_collection (unrelated to this deck's import) must be
         # picked up as the physical bind source in preference to leaving a
         # not_owned placeholder behind, and must not be duplicated either.
-        instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_collection")
+        owned = instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_collection")
+        owned_id = owned["id"]
         # Two Sol Ring instances now exist: the wishlist placeholder from setUp's
         # import, and this manually-owned one.
         self.assertEqual(len(instance_store.list_instances(self.r, card_name="Sol Ring")), 2)
@@ -207,6 +207,13 @@ class TestPromotionBindsPlaceholdersWithoutDuplicating(unittest.TestCase):
         self.assertEqual(len(sol_ring_instances), 2)
         in_deck = [i for i in sol_ring_instances if i["ownership_status"] == "in_deck"]
         self.assertEqual(len(in_deck), 1)
+        # The already-owned instance specifically must be the one promoted,
+        # not the wishlist placeholder from setUp's import.
+        self.assertEqual(
+            in_deck[0]["id"], owned_id,
+            "expected the pre-existing owned Sol Ring instance to be bound in_deck, "
+            "not the wishlist placeholder",
+        )
 
 
 class TestReimportCreatesZeroNewInstances(unittest.TestCase):
