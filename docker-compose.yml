@@ -14,9 +14,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: commander-lab-app
+    pull_policy: build
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8010:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
