@@ -641,10 +641,16 @@ async def list_instances(
     status: Optional[str] = None,
     deck_id: Optional[str] = None,
     set: Optional[str] = None,
+    q: Optional[str] = None,
 ):
-    """List/filter instances by card name, ownership status, deck, or set."""
+    """List/filter instances by card name, ownership status, deck, or set.
+
+    `q` is a free-text search (case-insensitive substring match against card
+    name, set name, deck name, and notes) for the inventory search box —
+    separate from the exact-match `card` filter.
+    """
     records = instance_store.list_instances(
-        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set
+        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set, q=q
     )
     return {"instances": records, "count": len(records)}
 
