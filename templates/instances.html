@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block title %}Card Instances | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-bar input[type="text"] {
+        flex: 1;
+        min-width: 200px;
+        max-width: 400px;
+    }
+    .filter-bar select {
+        min-width: 150px;
+    }
+    
+    .stats-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .stat-card {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        min-width: 120px;
+    }
+    .stat-card .label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+    }
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--text-heading);
+    }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th, td { padding: 0.75rem 0.5rem; text-align: left; }
+    th {
+        color: #6b7280;
+        font-weight: 500;
+        border-bottom: 1px solid #1f2937;
+        padding-bottom: 0.5rem;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        position: sticky;
+        top: 0;
+        background: var(--bg-color);
+        z-index: 10;
+    }
+    
+    .clickable-row {
+        cursor: pointer;
+        border-bottom: 1px solid #111827;
+        transition: background-color 0.15s;
+    }
+    .clickable-row:hover { background: var(--row-hover); }
+    
+    .mtg-font {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        letter-spacing: 0.02em;
+    }
+    
+    /* Ownership status badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .status-not_owned {
+        background: #1c1917;
+        color: #a8a29e;
+        border: 1px solid #44403c;
+    }
+    .status-in_mail {
+        background: #172554;
+        color: #93c5fd;
+        border: 1px solid #1e3a8a;
+    }
+    .status-in_collection {
+        background: #14532d;
+        color: #86efac;
+        border: 1px solid #166534;
+    }
+    .status-in_deck {
+        background: #4c1d95;
+        color: #c4b5fd;
+        border: 1px solid #6d28d9;
+    }
+    
+    .deck-link {
+        color: var(--accent);
+        text-decoration: none;
+    }
+    .deck-link:hover { text-decoration: underline; }
+    
+    .set-code {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        background: #111;
+        padding: 0.1rem 0.4rem;
+        border-radius: 3px;
+    }
+    
+    .condition-badge {
+        font-size: 0.7rem;
+        font-weight: 500;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        background: #1f2937;
+        color: #9ca3af;
+    }
+    .condition-NM { color: #86efac; }
+    .condition-LP { color: #fde047; }
+    .condition-MP { color: #fb923c; }
+    .condition-HP { color: #f87171; }
+    .condition-DMG { color: #ef4444; }
+    
+    .finish-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+    }
+    .finish-foil {
+        background: linear-gradient(135deg, #fcd34d 0%, #a78bfa 50%, #22d3ee 100%);
+        color: #000;
+        font-weight: 600;
+    }
+    .finish-etched {
+        background: #374151;
+        color: #d1d5db;
+        border: 1px solid #6b7280;
+    }
+    
+    .details-container {
+        display: flex;
+        gap: 2rem;
+        padding: 1.5rem;
+        background: #030712;
+        border-bottom: 1px solid #111827;
+    }
+    .details-image img {
+        max-width: 220px;
+        border-radius: 4.75% / 3.5%;
+    }
+    .details-info p {
+        margin: 0.4rem 0;
+        font-size: 0.875rem;
+        color: #9ca3af;
+    }
+    .details-info strong {
+        color: #e5e7eb;
+        width: 120px;
+        display: inline-block;
+        font-weight: 500;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+    .empty-state h3 {
+        color: var(--text-heading);
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Card Instances</h1>
+
+<div class="stats-row" id="statsRow">
+    <div class="stat-card">
+        <div class="label">Total</div>
+        <div class="value" id="statTotal">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Owned</div>
+        <div class="value" id="statOwned">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">In Decks</div>
+        <div class="value" id="statInDeck">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">In Collection</div>
+        <div class="value" id="statInCollection">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">In Mail</div>
+        <div class="value" id="statInMail">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Wishlist</div>
+        <div class="value" id="statNotOwned">-</div>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Search cards, decks, sets, notes..." onkeyup="debouncedFetch()">
+    <select id="statusFilter" onchange="fetchInstances()">
+        <option value="">All Statuses</option>
+        <option value="in_deck">In Deck</option>
+        <option value="in_collection">In Collection</option>
+        <option value="in_mail">In Mail</option>
+        <option value="not_owned">Wishlist (Not Owned)</option>
+    </select>
+    <select id="sortOrder" onchange="fetchInstances()">
+        <option value="card_name">Card Name (A-Z)</option>
+        <option value="deck_name">Deck Name</option>
+        <option value="status">Status</option>
+        <option value="updated">Recently Updated</option>
+        <option value="set">Set</option>
+    </select>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Card Name</th>
+            <th>Status</th>
+            <th>Deck</th>
+            <th>Set</th>
+            <th>Condition</th>
+            <th>Finish</th>
+            <th style="width: 80px;">Updated</th>
+        </tr>
+    </thead>
+    <tbody id="instanceList">
+        <!-- Instances populated by JS -->
+    </tbody>
+</table>
+<div id="emptyState" class="empty-state" style="display: none;">
+    <h3>No instances found</h3>
+    <p>Try adjusting your search or filters</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allInstances = [];
+    let fetchTimeout = null;
+    let currentlyOpen = null;
+
+    function debouncedFetch() {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchInstances, 300);
+    }
+
+    async function fetchInstances() {
+        const query = document.getElementById('searchInput').value.trim();
+        const status = document.getElementById('statusFilter').value;
+        
+        const params = new URLSearchParams();
+        if (query) params.append('q', query);
+        if (status) params.append('status', status);
+        
+        try {
+            const res = await fetch(`/api/instances?${params.toString()}`);
+            const data = await res.json();
+            allInstances = data.instances || [];
+            updateStats(allInstances);
+            renderInstances(allInstances);
+        } catch (err) {
+            console.error('Failed to fetch instances:', err);
+        }
+    }
+
+    function updateStats(instances) {
+        const counts = {
+            total: instances.length,
+            in_deck: 0,
+            in_collection: 0,
+            in_mail: 0,
+            not_owned: 0
+        };
+        
+        instances.forEach(inst => {
+            const status = inst.ownership_status;
+            if (counts.hasOwnProperty(status)) {
+                counts[status]++;
+            }
+        });
+        
+        document.getElementById('statTotal').textContent = counts.total;
+        document.getElementById('statInDeck').textContent = counts.in_deck;
+        document.getElementById('statInCollection').textContent = counts.in_collection;
+        document.getElementById('statInMail').textContent = counts.in_mail;
+        document.getElementById('statNotOwned').textContent = counts.not_owned;
+        document.getElementById('statOwned').textContent = counts.in_deck + counts.in_collection + counts.in_mail;
+    }
+
+    function sortInstances(instances) {
+        const sortOrder = document.getElementById('sortOrder').value;
+        const sorted = [...instances];
+        
+        sorted.sort((a, b) => {
+            switch (sortOrder) {
+                case 'card_name':
+                    return (a.card_name || '').localeCompare(b.card_name || '');
+                case 'deck_name':
+                    return (a.deck_name || '').localeCompare(b.deck_name || '');
+                case 'status':
+                    const statusOrder = { in_deck: 0, in_collection: 1, in_mail: 2, not_owned: 3 };
+                    const aOrder = statusOrder[a.ownership_status] !== undefined ? statusOrder[a.ownership_status] : 99;
+                    const bOrder = statusOrder[b.ownership_status] !== undefined ? statusOrder[b.ownership_status] : 99;
+                    return aOrder - bOrder;
+                case 'updated':
+                    return (b.updated_at || '').localeCompare(a.updated_at || '');
+                case 'set':
+                    return (a.set_name || a.set || '').localeCompare(b.set_name || b.set || '');
+                default:
+                    return 0;
+            }
+        });
+        
+        return sorted;
+    }
+
+    function formatDate(isoString) {
+        if (!isoString) return '-';
+        try {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays}d ago`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } catch {
+            return '-';
+        }
+    }
+
+    // Escape HTML to prevent XSS from user-provided fields
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getStatusLabel(status) {
+        const labels = {
+            not_owned: 'Wishlist',
+            in_mail: 'In Mail',
+            in_collection: 'Collection',
+            in_deck: 'In Deck'
+        };
+        return labels[status] || status;
+    }
+
+    window.toggleDetails = function(index) {
+        if (currentlyOpen !== null && currentlyOpen !== index) {
+            const oldRow = document.getElementById(`details-${currentlyOpen}`);
+            if (oldRow) oldRow.style.display = 'none';
+        }
+        const row = document.getElementById(`details-${index}`);
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+            currentlyOpen = index;
+        } else {
+            row.style.display = 'none';
+            currentlyOpen = null;
+        }
+    };
+
+    function renderInstances(instances) {
+        const tbody = document.getElementById('instanceList');
+        const emptyState = document.getElementById('emptyState');
+        
+        const sorted = sortInstances(instances);
+        
+        tbody.innerHTML = '';
+        currentlyOpen = null;
+        
+        if (sorted.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+        emptyState.style.display = 'none';
+        
+        sorted.forEach((inst, index) => {
+            const tr = document.createElement('tr');
+            tr.className = 'clickable-row';
+            tr.onclick = () => toggleDetails(index);
+            
+            const finishBadge = inst.finish === 'foil' 
+                ? '<span class="finish-badge finish-foil">Foil</span>'
+                : inst.finish === 'etched'
+                    ? '<span class="finish-badge finish-etched">Etched</span>'
+                    : '';
+            
+            const deckLink = inst.deck_name 
+                ? `<a href="/deck/${encodeURIComponent(inst.deck_name)}" class="deck-link" onclick="event.stopPropagation()">${escapeHtml(inst.deck_name)}</a>`
+                : (inst.considered_for_deck ? `<span style="color: var(--text-muted); font-style: italic;">Considering: ${escapeHtml(inst.considered_for_deck)}</span>` : '-');
+            
+            const setDisplay = inst.set 
+                ? `<span class="set-code">${escapeHtml(inst.set.toUpperCase())}</span> ${escapeHtml(inst.set_name || '')}`
+                : '-';
+            
+            tr.innerHTML = `
+                <td class="mtg-font">${escapeHtml(inst.card_name) || 'Unknown'}</td>
+                <td><span class="status-badge status-${inst.ownership_status}">${getStatusLabel(inst.ownership_status)}</span></td>
+                <td>${deckLink}</td>
+                <td>${setDisplay}</td>
+                <td><span class="condition-badge condition-${inst.condition}">${inst.condition || '-'}</span></td>
+                <td>${finishBadge || '-'}</td>
+                <td style="color: var(--text-muted); font-size: 0.8rem;">${formatDate(inst.updated_at)}</td>
+            `;
+            tbody.appendChild(tr);
+            
+            // Detail row
+            const trDetails = document.createElement('tr');
+            trDetails.id = `details-${index}`;
+            trDetails.style.display = 'none';
+            
+            const historyHtml = (inst.history || []).map(h => 
+                `<li style="margin: 0.25rem 0; font-size: 0.8rem; color: var(--text-muted);">
+                    <span class="status-badge status-${h.status}" style="font-size: 0.6rem;">${getStatusLabel(h.status)}</span>
+                    <span style="margin-left: 0.5rem;">${formatDate(h.at)}</span>
+                </li>`
+            ).join('');
+            
+            trDetails.innerHTML = `
+                <td colspan="7" style="padding: 0; border: none;">
+                    <div class="details-container">
+                        <div class="details-info" style="flex: 1;">
+                            <p><strong>Instance ID:</strong> <code style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(inst.id)}</code></p>
+                            <p><strong>Card:</strong> ${escapeHtml(inst.card_name)}</p>
+                            <p><strong>Set:</strong> ${escapeHtml(inst.set_name || inst.set || 'Unknown')} ${inst.collector_number ? `#${escapeHtml(inst.collector_number)}` : ''}</p>
+                            <p><strong>Condition:</strong> ${escapeHtml(inst.condition || 'NM')}</p>
+                            <p><strong>Finish:</strong> ${escapeHtml(inst.finish || 'nonfoil')}</p>
+                            <p><strong>Language:</strong> ${escapeHtml(inst.language || 'EN')}</p>
+                            ${inst.price_paid ? `<p><strong>Price Paid:</strong> $${parseFloat(inst.price_paid).toFixed(2)}</p>` : ''}
+                            ${inst.source ? `<p><strong>Source:</strong> ${escapeHtml(inst.source)}</p>` : ''}
+                            ${inst.notes ? `<p><strong>Notes:</strong> ${escapeHtml(inst.notes)}</p>` : ''}
+                            <hr style="border-color: #333; margin: 1rem 0;">
+                            <p><strong>Status History:</strong></p>
+                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">${historyHtml || '<li style="color: var(--text-muted);">No history</li>'}</ul>
+                            <p style="margin-top: 1rem;"><strong>Created:</strong> ${formatDate(inst.created_at)}</p>
+                            <p><strong>Updated:</strong> ${formatDate(inst.updated_at)}</p>
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(trDetails);
+        });
+    }
+
+    // Handle URL params for deep linking BEFORE initial fetch
+    const urlParams = new URLSearchParams(window.location.search);
+    const statusParam = urlParams.get('status');
+    const qParam = urlParams.get('q');
+    if (statusParam) {
+        document.getElementById('statusFilter').value = statusParam;
+    }
+    if (qParam) {
+        document.getElementById('searchInput').value = qParam;
+    }
+
+    // Initialize - now after URL params are applied
+    fetchInstances();
+</script>
+{% endblock %}

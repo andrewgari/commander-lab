@@ -29,6 +29,11 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/tags")
         self.assertEqual(response.status_code, 200)
 
+    def test_instances_route(self):
+        response = self.client.get("/instances")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+
     def test_deck_view_route(self):
         response = self.client.get("/deck/TestDeck")
         self.assertEqual(response.status_code, 200)
