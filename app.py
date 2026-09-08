@@ -7,6 +7,11 @@ import json
 import time
 from typing import List, Optional
 
+import instances as instance_store
+from instances import InstanceError
+import registry
+from providers import fetch_deck, ProviderError
+
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
@@ -45,20 +50,44 @@ async def get_decks():
     return {"decks": decks}
 
 @app.post("/api/decks/{deck_id}/status")
-async def update_deck_status(deck_id: int, request: Request):
+async def update_deck_status(deck_id: str, request: Request):
+    """Update a deck's lifecycle status: physical | digital | retired | testing.
+    Flipping to "physical" auto-binds one Instance per decklist card (see
+    instances.auto_bind_physical); the report is returned so the UI can show
+    what got created vs. reused.
+    """
     data = await request.json()
     status = data.get("status")
-    if status in ["physical", "virtual", "retired", "test"]:
-        r.set(f"deck_status:{deck_id}", status)
-        decks_json = r.get("decks")
-        if decks_json:
-            decks = json.loads(decks_json)
-            for d in decks:
-                if d.get("id") == deck_id:
-                    d["status"] = status
-            r.set("decks", json.dumps(decks))
-        return {"success": True, "status": status}
-    return {"success": False, "error": "Invalid status"}
+    if status not in registry.VALID_STATUSES:
+        return {"success": False, "error": f"invalid status, must be one of {sorted(registry.VALID_STATUSES)}"}
+    try:
+        result = registry.set_status(r, deck_id, status)
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
+    return {"success": True, "status": status, "auto_bind": result["auto_bind"]}
+
+
+@app.post("/api/import")
+async def import_deck(request: Request):
+    """Import a single deck from Archidekt or Moxfield by URL/id and add it
+    to the deck registry (default lifecycle status: "testing"). Re-importing
+    an already-registered deck refreshes its cardlist/metadata in place and
+    preserves its current status.
+    """
+    data = await request.json()
+    provider = data.get("provider", "")
+    identifier = data.get("url") or data.get("id") or ""
+    if not identifier:
+        return {"success": False, "error": "url or id is required"}
+    try:
+        normalized = fetch_deck(provider, identifier)
+    except ProviderError as e:
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        return {"success": False, "error": f"fetch failed: {e}"}
+
+    deck = registry.upsert_deck(r, normalized, default_status="testing")
+    return {"success": True, "deck": deck}
 
 @app.get("/api/inventory")
 async def get_inventory(query: str = "", deck: Optional[List[str]] = Query(None)):
@@ -363,3 +392,111 @@ def sync_deck_tags_to_archidekt(deck_id, deck_name, lab_tags, session_id, csrf_t
         "success": True,
         "updated_count": updated_count
     }
+
+
+# ---------------------------------------------------------------------------
+# Card Instance Registry — ownership source of truth (see docs/CARD_DATABASE.md)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/instances")
+async def create_instance(request: Request):
+    """Create a new unique card instance (in_mail, in_collection, in_deck, or not_owned)."""
+    data = await request.json()
+    try:
+        record = instance_store.create_instance(
+            r,
+            card_name=data.get("card_name"),
+            ownership_status=data.get("ownership_status", "not_owned"),
+            set=data.get("set", ""),
+            set_name=data.get("set_name", ""),
+            collector_number=data.get("collector_number", ""),
+            finish=data.get("finish", "nonfoil"),
+            condition=data.get("condition", "NM"),
+            language=data.get("language", "EN"),
+            deck_id=data.get("deck_id"),
+            deck_name=data.get("deck_name", ""),
+            considered_for_deck=data.get("considered_for_deck"),
+            price_paid=data.get("price_paid", 0.0),
+            source=data.get("source", ""),
+            date_ordered=data.get("date_ordered", ""),
+            date_acquired=data.get("date_acquired", ""),
+            archidekt_uid=data.get("archidekt_uid", ""),
+            notes=data.get("notes", ""),
+        )
+        return {"success": True, "instance": record}
+    except InstanceError as e:
+        return {"success": False, "error": str(e)}, 400
+
+
+@app.get("/api/instances")
+async def list_instances(
+    card: Optional[str] = None,
+    status: Optional[str] = None,
+    deck_id: Optional[str] = None,
+    set: Optional[str] = None,
+):
+    """List/filter instances by card name, ownership status, deck, or set."""
+    records = instance_store.list_instances(
+        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set
+    )
+    return {"instances": records, "count": len(records)}
+
+
+@app.get("/api/instances/{instance_id}")
+async def get_instance(instance_id: str):
+    record = instance_store.get_instance(r, instance_id)
+    if not record:
+        return {"error": "Instance not found"}, 404
+    return {"instance": record}
+
+
+@app.patch("/api/instances/{instance_id}")
+async def update_instance(instance_id: str, request: Request):
+    """Update instance fields, or transition ownership_status/deck assignment.
+
+    Body may include `ownership_status` (+ optional `deck_id`/`deck_name` when
+    moving to in_deck) to transition state, and/or any editable detail fields
+    (set, condition, finish, price_paid, source, notes, etc).
+    """
+    data = await request.json()
+    try:
+        record = None
+        if "ownership_status" in data:
+            record = instance_store.transition_status(
+                r,
+                instance_id,
+                new_status=data["ownership_status"],
+                deck_id=data.get("deck_id"),
+                deck_name=data.get("deck_name", ""),
+            )
+
+        detail_fields = {
+            k: v for k, v in data.items()
+            if k not in {"ownership_status", "deck_id", "deck_name"}
+        }
+        if detail_fields:
+            record = instance_store.update_instance_fields(r, instance_id, **detail_fields)
+
+        if record is None:
+            record = instance_store.get_instance(r, instance_id)
+            if not record:
+                return {"error": "Instance not found"}, 404
+
+        return {"success": True, "instance": record}
+    except InstanceError as e:
+        return {"success": False, "error": str(e)}, 400
+
+
+@app.delete("/api/instances/{instance_id}")
+async def delete_instance(instance_id: str):
+    deleted = instance_store.delete_instance(r, instance_id)
+    if not deleted:
+        return {"error": "Instance not found"}, 404
+    return {"success": True}
+
+
+@app.get("/api/cards/{card_name}/instances")
+async def get_card_instances(card_name: str):
+    """Ownership rollup for a card: counts by status and per-deck breakdown."""
+    return instance_store.card_rollup(r, card_name)
+
