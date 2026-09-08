@@ -172,7 +172,9 @@ def transition_status(
     if not _allow_physical_lock_bypass and current == "in_deck" and record.get("deck_id"):
         import registry  # local import: avoid a circular import at module load time
 
-        if registry.is_deck_physical(r, str(record["deck_id"])) and new_status != current:
+        moving_out = new_status != current
+        reassigning_deck = new_status == "in_deck" and deck_id is not None and deck_id != record.get("deck_id")
+        if registry.is_deck_physical(r, str(record["deck_id"])) and (moving_out or reassigning_deck):
             raise InstanceError(
                 f"instance is bound to physical deck {record.get('deck_name')!r}; "
                 "unassign it via the deck's unlock flow, not a direct instance transition"
@@ -369,13 +371,12 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
                 bound_count += 1
 
         while bound_count < quantity:
-            create_instance(
+            new_inst = create_instance(
                 r,
                 card_name=card_name,
                 ownership_status="in_collection",
                 notes="auto-created on physical deck bind",
             )
-            new_inst = list_instances(r, card_name=card_name, ownership_status="in_collection")[-1]
             transition_status(r, new_inst["id"], "in_deck", deck_id=deck_registry_id, deck_name=deck_name)
             bound_count += 1
             created_count += 1

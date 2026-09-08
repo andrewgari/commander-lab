@@ -16,6 +16,7 @@ USER_AGENT = (
 )
 
 _URL_RE = re.compile(r"moxfield\.com/decks/([A-Za-z0-9_-]+)")
+_PUBLIC_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 # Boards folded into the mainboard cardlist for the physical instance registry.
 # Sideboard/maybeboard-equivalents are excluded, matching the Archidekt convention.
@@ -23,12 +24,17 @@ MAINBOARD_BOARDS = {"mainboard", "commanders", "companions", "signatureSpells"}
 
 
 def parse_identifier(identifier: str) -> str:
-    """Accept a bare publicId or a full moxfield.com/decks/{publicId} URL."""
+    """Accept a bare publicId or a full moxfield.com/decks/{publicId} URL.
+    Raises ValueError for anything that isn't a plausible publicId (no
+    slashes, whitespace, query strings, etc.), so malformed input fails
+    fast with a clear error instead of flowing into the request path.
+    """
     identifier = identifier.strip()
     match = _URL_RE.search(identifier)
-    if match:
-        return match.group(1)
-    return identifier
+    candidate = match.group(1) if match else identifier
+    if not _PUBLIC_ID_RE.match(candidate):
+        raise ValueError(f"could not parse a Moxfield deck id from: {identifier}")
+    return candidate
 
 
 def fetch_deck(identifier: str) -> dict:

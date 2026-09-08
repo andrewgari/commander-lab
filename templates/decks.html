@@ -496,7 +496,7 @@
             });
             const data = await res.json();
             if (data.success) {
-                statusEl.textContent = `Imported "${data.deck.name}" (status: testing).`;
+                statusEl.textContent = `Imported "${data.deck.name}" (status: ${data.deck.status}).`;
                 statusEl.style.color = '#4ade80';
                 await loadDecks();
                 setTimeout(closeImportModal, 900);

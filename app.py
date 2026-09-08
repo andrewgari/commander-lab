@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import redis
 import os
@@ -425,7 +425,7 @@ async def create_instance(request: Request):
         )
         return {"success": True, "instance": record}
     except InstanceError as e:
-        return {"success": False, "error": str(e)}, 400
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
 
 @app.get("/api/instances")
@@ -446,7 +446,7 @@ async def list_instances(
 async def get_instance(instance_id: str):
     record = instance_store.get_instance(r, instance_id)
     if not record:
-        return {"error": "Instance not found"}, 404
+        return JSONResponse(status_code=404, content={"error": "Instance not found"})
     return {"instance": record}
 
 
@@ -480,18 +480,18 @@ async def update_instance(instance_id: str, request: Request):
         if record is None:
             record = instance_store.get_instance(r, instance_id)
             if not record:
-                return {"error": "Instance not found"}, 404
+                return JSONResponse(status_code=404, content={"error": "Instance not found"})
 
         return {"success": True, "instance": record}
     except InstanceError as e:
-        return {"success": False, "error": str(e)}, 400
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
 
 @app.delete("/api/instances/{instance_id}")
 async def delete_instance(instance_id: str):
     deleted = instance_store.delete_instance(r, instance_id)
     if not deleted:
-        return {"error": "Instance not found"}, 404
+        return JSONResponse(status_code=404, content={"error": "Instance not found"})
     return {"success": True}
 
 

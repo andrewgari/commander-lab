@@ -140,7 +140,9 @@ class TestInstanceRegistry(unittest.TestCase):
             self.r, card_name="Sol Ring", ownership_status="in_deck", deck_id=1, deck_name="Deck A"
         )
         iid = record["id"]
-        self.assertIn(iid, instance_store.list_instances(self.r, deck_id=1)[0]["id"] and {record["id"]})
+        deck_instances = instance_store.list_instances(self.r, deck_id=1)
+        self.assertEqual(len(deck_instances), 1)
+        self.assertEqual(deck_instances[0]["id"], iid)
         instance_store.transition_status(self.r, iid, "in_collection")
         remaining = instance_store.list_instances(self.r, deck_id=1)
         self.assertEqual(len(remaining), 0)
@@ -219,6 +221,19 @@ class TestInstanceRegistry(unittest.TestCase):
         iid = instance_store.list_instances(self.r, card_name="Sol Ring")[0]["id"]
         record = instance_store.transition_status(self.r, iid, "in_collection")
         self.assertEqual(record["ownership_status"], "in_collection")
+
+    def test_physical_deck_lock_blocks_reassignment_to_another_deck(self):
+        # Same ownership_status (in_deck) but a different deck_id — a transfer
+        # away from a physical deck must be blocked just like a status change.
+        instance_store.create_instance(
+            self.r, card_name="Sol Ring", ownership_status="in_deck", deck_id="archidekt:1", deck_name="Deck A"
+        )
+        decks_payload = [{"id": "archidekt:1", "registry_id": "archidekt:1", "name": "Deck A", "status": "physical"}]
+        self.r.set("decks", json.dumps(decks_payload))
+
+        iid = instance_store.list_instances(self.r, card_name="Sol Ring")[0]["id"]
+        with self.assertRaises(InstanceError):
+            instance_store.transition_status(self.r, iid, "in_deck", deck_id="archidekt:2", deck_name="Deck B")
 
 
 if __name__ == "__main__":

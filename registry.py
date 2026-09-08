@@ -145,7 +145,7 @@ def set_status(r, registry_id: str, new_status: str) -> dict:
     if new_status == "physical" and not was_physical:
         bind_report = instance_store.auto_bind_physical(
             r,
-            deck_registry_id=registry_id_of(target),
+            deck_registry_id=target["id"],
             deck_name=target["name"],
             decklist=target.get("cards", []),
         )
