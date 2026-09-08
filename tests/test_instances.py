@@ -171,6 +171,19 @@ class TestInstanceRegistry(unittest.TestCase):
             len(instance_store.list_instances(self.r, ownership_status="in_collection", q="sol ring")), 1
         )
 
+    def test_list_instances_search_query_handles_null_fields(self):
+        # notes/set_name/deck_name default to "" on create, but guard against
+        # any None values (e.g. legacy records) not producing a literal
+        # "none" false-positive match.
+        record = instance_store.create_instance(self.r, card_name="Sol Ring")
+        stored = instance_store.get_instance(self.r, record["id"])
+        stored["notes"] = None
+        stored["set_name"] = None
+        instance_store._save_instance(self.r, stored)
+
+        self.assertEqual(len(instance_store.list_instances(self.r, q="none")), 0)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="sol ring")), 1)
+
     def test_update_instance_fields(self):
         record = instance_store.create_instance(self.r, card_name="Sol Ring")
         updated = instance_store.update_instance_fields(self.r, record["id"], condition="LP", notes="bent corner")

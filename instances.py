@@ -311,10 +311,10 @@ def list_instances(
         if needle:
             def _matches(rec: dict) -> bool:
                 haystacks = (
-                    rec.get("card_name", ""),
-                    rec.get("set_name", ""),
-                    rec.get("deck_name", ""),
-                    rec.get("notes", ""),
+                    rec.get("card_name") or "",
+                    rec.get("set_name") or "",
+                    rec.get("deck_name") or "",
+                    rec.get("notes") or "",
                 )
                 return any(needle in str(h).lower() for h in haystacks)
 
