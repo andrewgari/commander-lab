@@ -2,7 +2,7 @@
 
 ## Overview
 
-The tag system has been completely redesigned so that **Cmdr Lab owns the tags** and can force-sync them to Archidekt on demand.
+The tag system was redesigned so that **Cmdr Lab owns the tags**. Lab tags are the source of truth and are managed entirely within the app; there is no longer an outward push to Archidekt.
 
 ## Key Changes
 
@@ -21,7 +21,7 @@ The tag system has been completely redesigned so that **Cmdr Lab owns the tags**
 - Display cardinality (how many decks use each tag)
 - Not editable (read from Archidekt during sync)
 
-### 2. Sync Model
+### 2. Sync Model (pull-only)
 
 **FROM Archidekt (python sync.py)**:
 - Pulls all decks and cards
@@ -29,20 +29,16 @@ The tag system has been completely redesigned so that **Cmdr Lab owns the tags**
 - Initializes Lab tags for new cards using high-confidence tags (50%+)
 - Does NOT overwrite existing Lab tags
 
-**TO Archidekt (Sync button in UI)**:
-- Pushes Lab tags to Archidekt
-- Preserves structural categories (Commander, Sideboard, Maybeboard)
-- Replaces thematic tags with Lab tags
-- Can sync all decks or selected decks
+> **REMOVED:** Lab tags no longer push back to Archidekt. The former
+> "Sync button in UI" push path (`POST /api/sync-tags`,
+> `scripts/sync_to_archidekt.py`) has been deleted — see "Removed:
+> Archidekt Push Path" below.
 
 ### 3. New UI Features
 
 **Tag Management Page** (`/tags`):
 - Displays Lab tags (bright blue) vs Archidekt reference tags (dimmed)
 - Edit Lab tags per card
-- Two sync buttons:
-  - **Sync All Decks to Archidekt**: Overwrites all Archidekt tags
-  - **Sync Selected Decks**: Prompt for comma-separated deck names
 
 **Tag Editor**:
 - Add/remove Lab tags
@@ -78,26 +74,15 @@ Add or remove Lab tags:
 }
 ```
 
-### POST /api/sync-tags (NEW)
-Force sync Lab tags to Archidekt:
-```json
-{
-  "decks": []  // Empty = all decks, or ["Deck Name 1", "Deck Name 2"]
-}
-```
+## Removed: Archidekt Push Path
 
-Returns:
-```json
-{
-  "success": true,
-  "synced_decks": 45,
-  "total_decks": 56,
-  "results": [
-    {"deck_name": "Spider-Man", "success": true, "updated_count": 15},
-    ...
-  ]
-}
-```
+The following were removed (Lab tags are no longer pushed to Archidekt):
+- `POST /api/sync-tags` endpoint (`app.py`)
+- `scripts/sync_to_archidekt.py`
+- "Sync All Decks to Archidekt" / "Sync Selected Decks" buttons and their JS in `templates/tags.html`
+- Reading of `ARCHIDEKT_SESSION` / `ARCHIDEKT_CSRF` env vars
+
+GET-only sync (`sync.py`, pulling from Archidekt) is unaffected.
 
 ## Workflow
 
@@ -122,12 +107,7 @@ uvicorn app:app --reload
    - Add or remove tags
    - Lab tags are saved immediately
 
-2. **Sync to Archidekt**:
-   - Click "Sync All Decks" to push all Lab tags to Archidekt
-   - Or click "Sync Selected Decks" and enter specific deck names
-   - Requires `ARCHIDEKT_SESSION` and `ARCHIDEKT_CSRF` in `.env`
-
-3. **Re-sync from Archidekt** (optional):
+2. **Re-sync from Archidekt** (optional):
    - Run `python sync.py` to pull latest Archidekt data
    - Existing Lab tags are preserved
    - Only new cards get initialized with high-confidence tags
@@ -152,7 +132,7 @@ After sync, Sol Ring has:
 
 If you add "Fast Mana" to Sol Ring's Lab tags:
 - Sol Ring now has Lab tags: `["Ramp", "Fast Mana"]`
-- When you sync to Archidekt, all 53 decks will get both tags
+- This is reflected in the Lab UI only (no longer pushed to Archidekt)
 
 ## Data Storage
 
@@ -165,20 +145,16 @@ If you add "Fast Mana" to Sol Ring's Lab tags:
 ## Notes
 
 - Lab tags are **card-level** (oracle name), not deck-specific
-- Structural categories (Commander, Sideboard, Maybeboard) are always preserved during sync
-- Syncing to Archidekt requires cookies (session + CSRF token) from your browser
-- Rate limiting: 1 second between deck updates to avoid 429 errors
+- Structural categories (Commander, Sideboard, Maybeboard) are always preserved
 - Initial tag assignment uses 50% confidence threshold from Archidekt data
 
 ## Files Modified
 
 1. `sync.py` - Initialize Lab tags, don't auto-apply anymore
-2. `app.py` - New API endpoints for Lab tags and sync
-3. `templates/tags.html` - Show Lab vs Archidekt tags, sync buttons
-4. `sync_to_archidekt.py` - No longer needed (functionality moved to app.py)
+2. `app.py` - API endpoints for Lab tags (push-to-Archidekt endpoint removed, see above)
+3. `templates/tags.html` - Show Lab vs Archidekt tags (sync buttons removed, see above)
+4. `scripts/sync_to_archidekt.py` - Deleted; Lab tags are no longer pushed to Archidekt
 
 ## Next Steps
 
-- Test the sync by editing a card's Lab tags and clicking "Sync All Decks"
-- Check Archidekt to verify tags were pushed correctly
 - Adjust the 50% confidence threshold if needed (in sync.py, line ~255)
