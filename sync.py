@@ -85,14 +85,14 @@ def sync_inventory():
         parent_id = deck.get("parentFolderId") or deck.get("parentFolder")
         folder_name = FOLDER_MAP.get(parent_id, f"Folder {parent_id}" if parent_id else "Loose Decks")
         
-        # Determine status
+        # Determine status (lifecycle vocabulary: physical | digital | retired | testing)
         saved_status = r.get(f"deck_status:{deck_id}")
         if saved_status:
             status = saved_status
         elif folder_name == "Commander Decks":
             status = "physical"
         else:
-            status = "test"
+            status = "testing"
         
         deck_obj = {
             "id": deck_id,
@@ -162,7 +162,7 @@ def sync_inventory():
             
             status = "have"
             if "virtual" in deck_name.lower() or folder_name == "Test Decks":
-                status = "virtual"
+                status = "virtual"  # card-copy ownership status vocabulary, unrelated to deck lifecycle status
             elif text in ["pending", "ordered", "in flight"] or "Pending" in categories:
                 status = "pending"
             elif text in ["possible", "maybe"] or "Possible" in categories:
