@@ -6,6 +6,8 @@ import json
 from collections import defaultdict
 import time
 
+import cards as card_store
+
 load_dotenv(override=True)
 
 ARCHIDEKT_USERNAME = os.getenv("ARCHIDEKT_USERNAME")
@@ -206,7 +208,12 @@ def sync_inventory():
                 color_code = "".join([color_map.get(c, "") for c in color_identity])
                 
             quantity = card.get("quantity", 1)
-            
+
+            # Scryfall's oracle_id, surfaced by Archidekt as oracleCard.uid.
+            # Feeds the new card:{oracle_id} ORM keyspace (cards.py) below,
+            # additive alongside the legacy name-keyed inventory dict.
+            oracle_id = oracle_card.get("uid")
+
             if card_name not in inventory:
                 inventory[card_name] = {
                     "type": display_type,
@@ -217,6 +224,19 @@ def sync_inventory():
                     "oracle_text": oracle_text,
                     "copies": []
                 }
+
+            if oracle_id:
+                card_store.upsert_card(r, {
+                    "oracle_id": oracle_id,
+                    "name": card_name,
+                    "type": display_type,
+                    "color": color_code,
+                    "super_types": super_types,
+                    "sub_types": oracle_card.get("subTypes", []),
+                    "keywords": oracle_card.get("keywords", []),
+                    "oracle_text": oracle_text,
+                    "cmc": cmc,
+                })
             
             for _ in range(quantity):
                 inventory[card_name]["copies"].append({
@@ -266,8 +286,11 @@ def sync_inventory():
 
     # Clear old inventory and set new
     print("\nUpdating Redis inventory...")
-    # Delete existing keys
-    old_keys = r.keys("card:*")
+    # Delete existing keys. NOTE: `card:*` is shared with the new
+    # card:{oracle_id} ORM keyspace (cards.py) written above in this same
+    # sync pass — only clear the legacy name-keyed entries here, or a
+    # full resync would wipe the oracle_id records right after writing them.
+    old_keys = [k for k in r.keys("card:*") if not card_store.is_oracle_id(k[len("card:"):])]
     if old_keys:
         r.delete(*old_keys)
         
