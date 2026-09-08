@@ -304,6 +304,83 @@ def list_instances(
     return instances
 
 
+def clear_pending_removal(r, instance_id: str) -> Optional[dict]:
+    """Clear the pending_removal marker from an instance (called when the
+    user adjudicates a resync-flagged card via keep/toss). Returns the
+    updated instance record, or None if the instance doesn't exist.
+    """
+    record = get_instance(r, instance_id)
+    if not record:
+        return None
+    if "pending_removal" in record:
+        del record["pending_removal"]
+        record["updated_at"] = _now()
+        _save_instance(r, record)
+    return record
+
+
+def flag_resync_removed(r, registry_id: str, current_decklist_card_names: set) -> list:
+    """Flag instances bound (in_deck) to `registry_id` whose card_name is
+    NOT in `current_decklist_card_names` (the new remote decklist) with a
+    `pending_removal` marker. This is the physical-deck resync diff:
+    ownership_status and deck_id are NOT touched — the instance stays fully
+    bound until the human adjudicates.
+
+    Idempotent: if an instance already has a pending_removal marker for this
+    same registry_id and reason, we don't update the timestamp.
+
+    Returns the list of instance records that were newly flagged (or already
+    flagged for this registry_id).
+    """
+    flagged = []
+    now = _now()
+    bound_instances = list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+
+    for inst in bound_instances:
+        card_name = inst.get("card_name")
+        if card_name in current_decklist_card_names:
+            # Still on the remote decklist — nothing to flag
+            continue
+
+        existing_marker = inst.get("pending_removal")
+        if existing_marker and existing_marker.get("registry_id") == str(registry_id) and existing_marker.get("reason") == "resync_removed":
+            # Already flagged for this exact resync — don't re-timestamp
+            flagged.append(inst)
+            continue
+
+        # Set new pending_removal marker
+        inst["pending_removal"] = {
+            "reason": "resync_removed",
+            "detected_at": now,
+            "registry_id": str(registry_id),
+        }
+        inst["updated_at"] = now
+        _save_instance(r, inst)
+        flagged.append(inst)
+
+    return flagged
+
+
+def compute_resync_additions(r, registry_id: str, current_decklist_card_names: set) -> list:
+    """Compute which cards in `current_decklist_card_names` (the new remote
+    decklist) are NOT currently bound as in_deck instances for this deck.
+    These are informational only — no instances are created, just a list of
+    card names returned for the UI to display as "remote added these cards".
+
+    This is the complement of `flag_resync_removed`: that flags what the
+    remote removed, this surfaces what the remote added.
+    """
+    bound_instances = list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+    bound_card_names = {inst.get("card_name") for inst in bound_instances}
+
+    additions = []
+    for card_name in current_decklist_card_names:
+        if card_name not in bound_card_names:
+            additions.append(card_name)
+
+    return sorted(additions)
+
+
 def card_rollup(r, card_name: str) -> dict:
     """Ownership summary for one card: counts by status and per-deck breakdown."""
     instances = list_instances(r, card_name=card_name)
