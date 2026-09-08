@@ -278,6 +278,213 @@ async def update_card_tags(card_name: str, request: Request):
         "tag": tag
     }
 
+@app.get("/api/decks/{deck_id}/categories")
+async def get_deck_categories(deck_id: str):
+    """Get per-deck category overrides: {card_name: [tags]}.
+
+    This is the Deck Categories override layer (see docs/DECK_MANAGEMENT_VIEW.md) —
+    distinct from and secondary to the global Lab Tags (/api/card/{name}/tags).
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    deck_categories_json = r.get(f"deck_categories:{deck_id}")
+    deck_categories = json.loads(deck_categories_json) if deck_categories_json else {}
+
+    return {"deck_id": deck_id, "categories": deck_categories}
+
+
+@app.post("/api/decks/{deck_id}/categories")
+async def update_deck_categories(deck_id: str, request: Request):
+    """Add or remove a per-deck category override tag for a card.
+
+    NOTE: this endpoint is for the Deck Categories override layer only. Editing
+    a card's global Lab Tags from the deck-manage UI must go through the
+    existing /api/card/{name}/tags endpoint instead, per the DECISION comment
+    on this task — Deck Categories is a secondary/override layer, not primary.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    data = await request.json()
+    card_name = data.get("card_name")
+    tag = data.get("tag")
+    action = data.get("action")  # "add" or "remove"
+
+    if not card_name or not tag or action not in ["add", "remove"]:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
+
+    deck_categories_json = r.get(f"deck_categories:{deck_id}")
+    deck_categories = json.loads(deck_categories_json) if deck_categories_json else {}
+
+    if card_name not in deck_categories:
+        deck_categories[card_name] = []
+
+    if action == "add" and tag not in deck_categories[card_name]:
+        deck_categories[card_name].append(tag)
+    elif action == "remove" and tag in deck_categories[card_name]:
+        deck_categories[card_name].remove(tag)
+
+    # Drop empty entries so the map only ever holds cards with an actual override
+    if not deck_categories[card_name]:
+        del deck_categories[card_name]
+
+    r.set(f"deck_categories:{deck_id}", json.dumps(deck_categories))
+
+    return {
+        "success": True,
+        "deck_id": deck_id,
+        "card_name": card_name,
+        "categories": deck_categories.get(card_name, []),
+        "action": action,
+        "tag": tag
+    }
+
+
+@app.post("/api/decks/{deck_id}/cards")
+async def add_card_to_deck(deck_id: str, request: Request):
+    """Manually add a card to a deck (the sanctioned manual add path — see
+    docs/DECK_MANAGEMENT_VIEW.md "Add / remove flow").
+
+    - Reuses an existing `in_collection` instance of `card_name` if one
+      exists, else creates a new one via instances.create_instance, then
+      transitions it to `in_deck` bound to this deck.
+    - Appends card_name to the deck's local decklist if not already present.
+    - Explicitly bypasses the is_deck_physical lock (this endpoint is the
+      intended exception to that lock, unlike direct instance PATCH calls).
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    data = await request.json()
+    card_name = data.get("card_name")
+    if not card_name:
+        return JSONResponse(status_code=400, content={"success": False, "error": "card_name is required"})
+
+    registry_id = registry.registry_id_of(deck)
+    deck_name = deck.get("name", "")
+
+    try:
+        existing = [
+            inst for inst in instance_store.list_instances(r, card_name=card_name, ownership_status="in_collection")
+        ]
+        if existing:
+            instance = existing[0]
+        else:
+            instance = instance_store.create_instance(
+                r, card_name=card_name, ownership_status="in_collection"
+            )
+
+        instance = instance_store.transition_status(
+            r,
+            instance["id"],
+            new_status="in_deck",
+            deck_id=registry_id,
+            deck_name=deck_name,
+            _allow_physical_lock_bypass=True,
+        )
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    registry.add_card_to_decklist(r, registry_id, card_name)
+
+    return {"success": True, "instance": instance, "deck_id": registry_id, "card_name": card_name}
+
+
+@app.delete("/api/decks/{deck_id}/cards/{instance_id}")
+async def remove_card_from_deck(deck_id: str, instance_id: str):
+    """Manually remove a card instance from a deck (the sanctioned manual
+    remove path — see docs/DECK_MANAGEMENT_VIEW.md "Add / remove flow").
+
+    - Validates the instance is currently bound `in_deck` to this deck_id
+      (mismatched deck_id or unknown instance_id is a 404, not a silent
+      no-op).
+    - Transitions the instance to `in_collection` via
+      instance_store.transition_status, which clears deck_id per the
+      existing state machine — the instance becomes plain inventory
+      immediately.
+    - Explicitly bypasses the is_deck_physical lock (this endpoint is the
+      intended exception to that lock, unlike direct instance PATCH calls),
+      mirroring add_card_to_deck.
+    - If multiple instances of the same card are bound to the deck, the
+      caller (UI) picks which instance_id to unbind; this endpoint only
+      ever acts on the single instance_id given.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    registry_id = registry.registry_id_of(deck)
+
+    instance = instance_store.get_instance(r, instance_id)
+    if not instance:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Instance not found"})
+
+    if instance.get("ownership_status") != "in_deck" or str(instance.get("deck_id")) != str(registry_id):
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Instance is not bound to this deck"},
+        )
+
+    try:
+        instance = instance_store.transition_status(
+            r,
+            instance_id,
+            new_status="in_collection",
+            _allow_physical_lock_bypass=True,
+        )
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "instance": instance, "deck_id": registry_id, "instance_id": instance_id}
+
+
+@app.get("/api/decks/{deck_id}/search")
+async def search_deck_cards(deck_id: str, q: str = ""):
+    """Local card-name autocomplete for the add-card dropdown in the deck
+    management view. Case-insensitive substring search over `card_meta:*`
+    records (same filtering pattern as /api/tags-adjacent card lookups).
+
+    v1 scope: local Redis card_meta matching only — no live Scryfall lookups.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    query = q.strip()
+    if not query:
+        return {"deck_id": deck_id, "query": q, "results": []}
+
+    query_lower = query.lower()
+    results = []
+    for key in r.keys("card_meta:*"):
+        card_name = key[len("card_meta:"):]
+        if query_lower not in card_name.lower():
+            continue
+
+        raw = r.get(key)
+        if not raw:
+            continue
+        try:
+            meta = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+
+        results.append({
+            "name": card_name,
+            "type": meta.get("type", "Unknown"),
+            "cmc": meta.get("cmc", 0),
+        })
+
+    results.sort(key=lambda c: c["name"])
+    results = results[:50]
+
+    return {"deck_id": deck_id, "query": q, "results": results}
+
+
 @app.post("/api/sync-tags")
 async def sync_tags_to_archidekt(request: Request):
     """Force sync Lab tags to Archidekt for specific decks or all decks"""
