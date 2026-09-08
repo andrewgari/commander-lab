@@ -122,7 +122,12 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     r.set(f"deck_status:{deck_id}", status)
 
     result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
-    instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+    # Only physical decks represent real ownership -- digital/testing/retired
+    # decks are hypothetical/wishlist decklists that exist purely as
+    # deck.cards[] metadata and must have zero inventory footprint. See
+    # docs/PHYSICAL_RESYNC_ADJUDICATION.md section 2 (reverses part of #18).
+    if result_deck.get("status") == "physical":
+        instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
 
     return result_deck
 
