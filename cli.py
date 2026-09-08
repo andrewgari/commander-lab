@@ -8,8 +8,8 @@ Usage:
 
 Exit codes:
     0  success
-    1  usage / validation error (bad args, ambiguous card, no match)
-    2  not found (deck or instance doesn't exist)
+    1  usage / validation error (bad args, ambiguous card)
+    2  not found (deck, instance, or no matching in_collection card found)
     3  illegal transition / other InstanceError from the assignment helpers
 
 This subcommand only implements the non-interactive, flag-driven path
@@ -37,8 +37,20 @@ def get_redis():
 
 
 def _resolve_deck(r, deck_ref: str):
-    """Look up a deck by registry_id, source_id, or numeric/legacy id."""
-    return registry.find_deck(r, deck_ref)
+    """Look up a deck by registry_id, source_id, or numeric/legacy id.
+
+    registry.find_deck() only matches registry_id or the deck's legacy
+    numeric id, so a bare provider-native source_id (e.g. "abc123" for a
+    Moxfield deck) falls through to an explicit scan of list_decks() here.
+    """
+    deck = registry.find_deck(r, deck_ref)
+    if deck:
+        return deck
+
+    for candidate in registry.list_decks(r):
+        if str(candidate.get("source_id", "")) == str(deck_ref):
+            return candidate
+    return None
 
 
 def _candidate_instances(r, card: Optional[str] = None, instance_id: Optional[str] = None):
