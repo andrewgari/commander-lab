@@ -276,9 +276,15 @@ def list_instances(
     ownership_status: Optional[str] = None,
     deck_id: Optional[DeckId] = None,
     set: Optional[str] = None,
+    q: Optional[str] = None,
 ) -> list:
     """List instances, optionally intersecting filters via the secondary indexes
-    instead of scanning all instance keys."""
+    instead of scanning all instance keys.
+
+    `q` is a free-text search applied after index lookup: a case-insensitive
+    substring match against card_name, set_name, deck_name, and notes — for the
+    inventory UI's search box, distinct from the exact-match `card_name` filter.
+    """
     index_sets = []
     if card_name:
         index_sets.append(_idx_card_key(card_name))
@@ -299,6 +305,20 @@ def list_instances(
         record = get_instance(r, instance_id)
         if record:
             instances.append(record)
+
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            def _matches(rec: dict) -> bool:
+                haystacks = (
+                    rec.get("card_name", ""),
+                    rec.get("set_name", ""),
+                    rec.get("deck_name", ""),
+                    rec.get("notes", ""),
+                )
+                return any(needle in str(h).lower() for h in haystacks)
+
+            instances = [rec for rec in instances if _matches(rec)]
 
     instances.sort(key=lambda x: (x["card_name"], x.get("set", ""), x.get("created_at", "")))
     return instances
