@@ -117,6 +117,8 @@ class LinkedAccountsTestBase(unittest.TestCase):
     def tearDown(self):
         if self._orig_archidekt is not None:
             PROVIDERS["archidekt"] = self._orig_archidekt
+        else:
+            PROVIDERS.pop("archidekt", None)
 
 
 class TestAddAccount(LinkedAccountsTestBase):

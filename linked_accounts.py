@@ -184,19 +184,28 @@ def sync_all(r) -> list:
     """Run sync_account for every enabled linked account. Returns the list
     of updated account records. A failure syncing one account (e.g. the
     provider itself being unreachable) doesn't stop the others.
+
+    Every element of the returned list is a standard account record (the
+    same shape persisted by add_account/sync_account), even when the sync
+    itself raised: in that case the account's last_synced_at/
+    last_sync_result are updated in place to reflect the failure and the
+    updated record is persisted, exactly as a successful sync would.
     """
+    accounts = _load(r)
     results = []
-    for account in _load(r):
+    for idx, account in enumerate(accounts):
         if not account.get("enabled", True):
             continue
         try:
             results.append(sync_account(r, account["id"]))
         except Exception as exc:  # noqa: BLE001 - one bad account must not abort sync_all
-            results.append({
-                "id": account["id"],
-                "provider": account.get("provider"),
-                "username": account.get("username"),
-                "error": str(exc),
-            })
+            account["last_synced_at"] = _now()
+            account["last_sync_result"] = {
+                "decks_synced": 0,
+                "failures": [{"deck_id": None, "error": str(exc)}],
+            }
+            accounts[idx] = account
+            results.append(account)
 
+    _save(r, accounts)
     return results

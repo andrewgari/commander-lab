@@ -39,11 +39,19 @@ enough copies, but not in the printing you asked for."
 from typing import Optional
 
 
-def _card_key(entry: dict) -> str:
+def _card_key(entry: dict, common_oracle_ids: Optional[set] = None) -> str:
     """Identity key for a decklist entry or instance record: prefer
-    oracle_id (stable across reprints) and fall back to name."""
+    oracle_id (stable across reprints) and fall back to name.
+
+    oracle_id is only used as the grouping key when it is present on BOTH
+    the decklist side and the instance side for this reconciliation run
+    (see module docstring). ``common_oracle_ids`` is the intersection of
+    oracle_ids seen across the decklist and the instances; if an entry's
+    oracle_id isn't in that set (e.g. only the decklist has it, or only
+    the instances have it), we fall back to name-based keying so the same
+    physical card doesn't get split across two different keys."""
     oracle_id = entry.get("oracle_id")
-    if oracle_id:
+    if oracle_id and (common_oracle_ids is None or oracle_id in common_oracle_ids):
         return f"oracle:{oracle_id}"
     name = entry.get("name") or entry.get("card_name")
     return f"name:{name}"
@@ -110,11 +118,22 @@ def reconcile_deck(decklist: list, instances: list) -> dict:
     required_by_key: dict = {}
     meta_by_key: dict = {}
 
-    for entry in decklist or []:
+    decklist = decklist or []
+    instances = instances or []
+
+    decklist_oracle_ids = {
+        entry.get("oracle_id") for entry in decklist if entry.get("oracle_id")
+    }
+    instance_oracle_ids = {
+        inst.get("oracle_id") for inst in instances if inst.get("oracle_id")
+    }
+    common_oracle_ids = decklist_oracle_ids & instance_oracle_ids
+
+    for entry in decklist:
         quantity = entry.get("quantity", 1)
         if quantity is None or quantity <= 0:
             continue
-        key = _card_key(entry)
+        key = _card_key(entry, common_oracle_ids)
         required_by_key[key] = required_by_key.get(key, 0) + quantity
         if key not in meta_by_key:
             meta_by_key[key] = {
@@ -128,8 +147,8 @@ def reconcile_deck(decklist: list, instances: list) -> dict:
     instance_ids_by_key: dict = {}
     wrong_printing_by_key: dict = {}
 
-    for inst in instances or []:
-        key = _card_key(inst)
+    for inst in instances:
+        key = _card_key(inst, common_oracle_ids)
         assigned_by_key[key] = assigned_by_key.get(key, 0) + 1
         instance_ids_by_key.setdefault(key, []).append(inst.get("id"))
         if key not in meta_by_key:
