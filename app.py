@@ -38,6 +38,12 @@ async def inventory(request: Request):
 async def tags(request: Request):
     return templates.TemplateResponse(request=request, name="tags.html")
 
+
+@app.get("/instances", response_class=HTMLResponse)
+async def instances_view(request: Request):
+    """Instance list view: ownership source of truth for physical card copies."""
+    return templates.TemplateResponse(request=request, name="instances.html")
+
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
