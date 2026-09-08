@@ -83,9 +83,9 @@ def list_decks(username: str) -> list:
                 # to the unfiltered global feed. Bail out with a clear error
                 # instead of harvesting unrelated decks.
                 raise MoxfieldUserNotFound(
-                    f"no Moxfield decks found for username: {username} "
-                    "(search returned unrelated results — username likely "
-                    "does not exist)"
+                    f"no decks found for Moxfield user {username} (API "
+                    "returned results but none listed this user as an "
+                    "author -- check the username)"
                 )
             saw_match = True
             public_id = deck.get("publicId")
@@ -95,7 +95,10 @@ def list_decks(username: str) -> list:
         page += 1
 
     if not saw_match:
-        raise MoxfieldUserNotFound(f"no Moxfield decks found for username: {username}")
+        raise MoxfieldUserNotFound(
+            f"no decks found for Moxfield user {username} (API returned "
+            "no results for this username -- check the username)"
+        )
 
     return public_ids
 
