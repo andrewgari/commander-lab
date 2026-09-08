@@ -325,7 +325,9 @@
                     return (a.deck_name || '').localeCompare(b.deck_name || '');
                 case 'status':
                     const statusOrder = { in_deck: 0, in_collection: 1, in_mail: 2, not_owned: 3 };
-                    return (statusOrder[a.ownership_status] || 99) - (statusOrder[b.ownership_status] || 99);
+                    const aOrder = statusOrder[a.ownership_status] !== undefined ? statusOrder[a.ownership_status] : 99;
+                    const bOrder = statusOrder[b.ownership_status] !== undefined ? statusOrder[b.ownership_status] : 99;
+                    return aOrder - bOrder;
                 case 'updated':
                     return (b.updated_at || '').localeCompare(a.updated_at || '');
                 case 'set':
@@ -354,6 +356,14 @@
         } catch {
             return '-';
         }
+    }
+
+    // Escape HTML to prevent XSS from user-provided fields
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function getStatusLabel(status) {
@@ -408,15 +418,15 @@
                     : '';
             
             const deckLink = inst.deck_name 
-                ? `<a href="/deck/${encodeURIComponent(inst.deck_name)}" class="deck-link" onclick="event.stopPropagation()">${inst.deck_name}</a>`
-                : (inst.considered_for_deck ? `<span style="color: var(--text-muted); font-style: italic;">Considering: ${inst.considered_for_deck}</span>` : '-');
+                ? `<a href="/deck/${encodeURIComponent(inst.deck_name)}" class="deck-link" onclick="event.stopPropagation()">${escapeHtml(inst.deck_name)}</a>`
+                : (inst.considered_for_deck ? `<span style="color: var(--text-muted); font-style: italic;">Considering: ${escapeHtml(inst.considered_for_deck)}</span>` : '-');
             
             const setDisplay = inst.set 
-                ? `<span class="set-code">${inst.set.toUpperCase()}</span> ${inst.set_name || ''}`
+                ? `<span class="set-code">${escapeHtml(inst.set.toUpperCase())}</span> ${escapeHtml(inst.set_name || '')}`
                 : '-';
             
             tr.innerHTML = `
-                <td class="mtg-font">${inst.card_name || 'Unknown'}</td>
+                <td class="mtg-font">${escapeHtml(inst.card_name) || 'Unknown'}</td>
                 <td><span class="status-badge status-${inst.ownership_status}">${getStatusLabel(inst.ownership_status)}</span></td>
                 <td>${deckLink}</td>
                 <td>${setDisplay}</td>
@@ -442,15 +452,15 @@
                 <td colspan="7" style="padding: 0; border: none;">
                     <div class="details-container">
                         <div class="details-info" style="flex: 1;">
-                            <p><strong>Instance ID:</strong> <code style="font-size: 0.75rem; color: var(--text-muted);">${inst.id}</code></p>
-                            <p><strong>Card:</strong> ${inst.card_name}</p>
-                            <p><strong>Set:</strong> ${inst.set_name || inst.set || 'Unknown'} ${inst.collector_number ? `#${inst.collector_number}` : ''}</p>
-                            <p><strong>Condition:</strong> ${inst.condition || 'NM'}</p>
-                            <p><strong>Finish:</strong> ${inst.finish || 'nonfoil'}</p>
-                            <p><strong>Language:</strong> ${inst.language || 'EN'}</p>
+                            <p><strong>Instance ID:</strong> <code style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(inst.id)}</code></p>
+                            <p><strong>Card:</strong> ${escapeHtml(inst.card_name)}</p>
+                            <p><strong>Set:</strong> ${escapeHtml(inst.set_name || inst.set || 'Unknown')} ${inst.collector_number ? `#${escapeHtml(inst.collector_number)}` : ''}</p>
+                            <p><strong>Condition:</strong> ${escapeHtml(inst.condition || 'NM')}</p>
+                            <p><strong>Finish:</strong> ${escapeHtml(inst.finish || 'nonfoil')}</p>
+                            <p><strong>Language:</strong> ${escapeHtml(inst.language || 'EN')}</p>
                             ${inst.price_paid ? `<p><strong>Price Paid:</strong> $${parseFloat(inst.price_paid).toFixed(2)}</p>` : ''}
-                            ${inst.source ? `<p><strong>Source:</strong> ${inst.source}</p>` : ''}
-                            ${inst.notes ? `<p><strong>Notes:</strong> ${inst.notes}</p>` : ''}
+                            ${inst.source ? `<p><strong>Source:</strong> ${escapeHtml(inst.source)}</p>` : ''}
+                            ${inst.notes ? `<p><strong>Notes:</strong> ${escapeHtml(inst.notes)}</p>` : ''}
                             <hr style="border-color: #333; margin: 1rem 0;">
                             <p><strong>Status History:</strong></p>
                             <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">${historyHtml || '<li style="color: var(--text-muted);">No history</li>'}</ul>
@@ -464,10 +474,7 @@
         });
     }
 
-    // Initialize
-    fetchInstances();
-    
-    // Handle URL params for deep linking
+    // Handle URL params for deep linking BEFORE initial fetch
     const urlParams = new URLSearchParams(window.location.search);
     const statusParam = urlParams.get('status');
     const qParam = urlParams.get('q');
@@ -477,5 +484,8 @@
     if (qParam) {
         document.getElementById('searchInput').value = qParam;
     }
+
+    // Initialize - now after URL params are applied
+    fetchInstances();
 </script>
 {% endblock %}
