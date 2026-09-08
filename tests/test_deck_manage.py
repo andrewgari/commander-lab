@@ -116,6 +116,56 @@ class TestDeckManage(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    @patch("app.instance_store.list_instances")
+    @patch("app.registry.find_deck")
+    @patch("app.r")
+    def test_manage_numeric_id_reads_categories_from_matching_key(
+        self, mock_redis, mock_find_deck, mock_list_instances
+    ):
+        """Regression test: /api/decks/{deck_id}/manage must read deck
+        category overrides from the SAME key as
+        /api/decks/{deck_id}/categories — i.e. keyed by the raw URL
+        deck_id (here the numeric deck.id), not registry_id — otherwise
+        overrides written via /categories for numeric-id decks are
+        silently dropped by /manage.
+        """
+        mock_find_deck.return_value = {
+            "id": 123,
+            "registry_id": "archidekt:123",
+            "name": "Test Deck",
+            "status": "physical",
+        }
+        mock_list_instances.return_value = [
+            {"id": "inst-1", "card_name": "Sol Ring", "ownership_status": "in_deck", "deck_id": "archidekt:123"},
+        ]
+
+        def mock_get(key):
+            return {
+                # Keyed by the numeric URL deck_id, matching what
+                # /api/decks/{deck_id}/categories would read/write for
+                # this same URL.
+                "deck_categories:123": json.dumps({"Sol Ring": ["Fast Mana"]}),
+                "lab_tags": json.dumps({"Sol Ring": ["Ramp"]}),
+            }.get(key)
+
+        mock_redis.get.side_effect = mock_get
+        mock_redis.pipeline.return_value = _pipeline_returning([
+            json.dumps({"type": "Artifact", "cmc": 1, "color": "C"}),
+        ])
+
+        response = self.client.get("/api/decks/123/manage")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        # deck_id in the response must match the URL deck_id used by other
+        # deck endpoints, not registry_id.
+        self.assertEqual(data["deck_id"], "123")
+        self.assertEqual(data["deck_categories"], {"Sol Ring": ["Fast Mana"]})
+
+        sol_ring = data["cards"][0]
+        self.assertEqual(sol_ring["deck_categories"], ["Fast Mana"])
+        self.assertEqual(sol_ring["effective_category"], "Fast Mana")
+
 
 if __name__ == "__main__":
     unittest.main()

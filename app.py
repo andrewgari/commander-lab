@@ -493,7 +493,10 @@ async def get_deck_manage(deck_id: str):
     Assembles, in one response, so the template never does N+1 fetches:
     - the deck's bound instances (ownership_status == "in_deck" for this deck)
     - each bound card's card_meta (type/cmc/color), joined by card_name
-    - the deck's category overrides (deck_categories:{deck_id})
+    - the deck's category overrides (deck_categories:{deck_id}), read using
+      the same key derivation as the /api/decks/{deck_id}/categories
+      endpoints (the raw URL deck_id, not registry_id) so overrides written
+      via those endpoints are visible here.
     - each card's global lab_tags (lab_tags redis key)
     - effective_category per card: deck category override, else lab tag,
       else "Uncategorized" (first tag wins when a card has several) — lets
@@ -507,7 +510,10 @@ async def get_deck_manage(deck_id: str):
 
     instances = instance_store.list_instances(r, deck_id=registry_id, ownership_status="in_deck")
 
-    deck_categories_json = r.get(f"deck_categories:{registry_id}")
+    # Match the /api/decks/{deck_id}/categories endpoints, which key off the
+    # raw URL deck_id (not registry_id) — otherwise overrides written via
+    # those endpoints for numeric deck ids would silently be dropped here.
+    deck_categories_json = r.get(f"deck_categories:{deck_id}")
     deck_categories = json.loads(deck_categories_json) if deck_categories_json else {}
 
     lab_tags_json = r.get("lab_tags")
@@ -550,7 +556,7 @@ async def get_deck_manage(deck_id: str):
         })
 
     return {
-        "deck_id": registry_id,
+        "deck_id": deck_id,
         "deck_name": deck.get("name", ""),
         "status": deck.get("status"),
         "cards": cards,
