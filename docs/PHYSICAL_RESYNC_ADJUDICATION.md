@@ -53,8 +53,22 @@ Corrected rule:
 
 ### Migration required
 `registry.upsert_deck` calls `instance_store.ensure_wishlist_instances`
-unconditionally today. Change to only call it when
-`result_deck.get("status") == "physical"`.
+unconditionally today. **Correction per Copilot review of this doc:** do
+NOT gate this call on `status == "physical"` and keep calling it on every
+resync — that would violate section 3's rule that a physical deck's resync
+must never auto-create instances for remotely-added cards (which is
+exactly what `ensure_wishlist_instances` does: it creates `not_owned`
+placeholders for any decklist card lacking an instance, physical or not).
+
+Instead: **remove the `ensure_wishlist_instances` call from `upsert_deck`
+entirely.** Instance creation happens in exactly two places going forward:
+- `instances.auto_bind_physical` — unchanged, runs only at the one-time
+  `digital/testing -> physical` status transition (`registry.set_status`),
+  creating/reusing instances for every card in the decklist at that moment.
+- Nowhere else, automatically. A physical deck's later resyncs use the new
+  `flag_resync_removed`/informational-additions flow from section 3, not
+  instance creation. A non-physical deck's resyncs touch zero instances,
+  per section 2's core rule.
 
 A cleanup script, `scripts/remove_nonphysical_wishlist_instances.py`
 (dry-run default, `--apply` to write, matching the existing
@@ -101,7 +115,7 @@ against the deck's currently-bound (`in_deck`) instances by card name:
     "pending_removal": {
       "reason": "resync_removed",
       "detected_at": "2026-09-08T12:00:00Z",
-      "registry_id": "archidekt:123"
+      "deck_registry_id": "archidekt:123"
     }
   }
   ```
@@ -114,28 +128,34 @@ against the deck's currently-bound (`in_deck`) instances by card name:
 Deck-manage UI gets a "Resync changes pending review" panel listing every
 instance with a `pending_removal` marker on the current deck, each with
 two actions:
-- **Save to inventory** — `transition_status(instance_id, "in_collection")`
-  (existing `in_deck -> in_collection` transition), clears `deck_id`,
-  clears `pending_removal`. Matches the standing rule: out of deck = normal
-  inventory, never deleted.
-- **Toss** — `transition_status(instance_id, "not_owned")` (existing
-  `in_deck -> not_owned` transition, documented today as "sold while
-  assembled, unusual but allowed" — this resync-adjudication is the second,
-  now-common legitimate use of that transition). Clears `deck_id` and
-  `pending_removal`.
+- **Save to inventory** (`action: "save"`) — `transition_status(instance_id,
+  "in_collection")` (existing `in_deck -> in_collection` transition),
+  clears `deck_id`, clears `pending_removal`. Matches the standing rule:
+  out of deck = normal inventory, never deleted.
+- **Toss** (`action: "toss"`) — `transition_status(instance_id,
+  "not_owned")` (existing `in_deck -> not_owned` transition, documented
+  today as "sold while assembled, unusual but allowed" — this
+  resync-adjudication is the second, now-common legitimate use of that
+  transition). Clears `deck_id` and `pending_removal`.
 
 No bulk/auto-resolve action — the user explicitly wants one-by-one
 adjudication, not a "keep all" / "toss all" shortcut, since each card is a
 real physical-ownership decision.
 
 ### New API surface
-- `GET /api/decks/{id}/resync-review` — list of instances with
+- `GET /api/decks/{deck_id}/resync-review` — list of instances with
   `pending_removal` set for this deck, plus the list of remotely-added
   cards not yet bound (informational, no instance exists yet for those).
-- `POST /api/decks/{id}/resync-review/{instance_id}` `{"action": "keep" |
-  "toss"}` — resolves one pending-removal instance per the adjudication
-  rules above. 404 if the instance has no pending_removal marker (nothing
-  to adjudicate) or doesn't belong to this deck.
+- `POST /api/decks/{deck_id}/resync-review/{instance_id}` `{"action":
+  "save" | "toss"}` — resolves one pending-removal instance per the
+  adjudication rules above (`save` = "Save to inventory" in the UI,
+  matching the action name to the button label to avoid ambiguity with
+  "keep" meaning something else). 404 if the instance has no
+  pending_removal marker (nothing to adjudicate) or doesn't belong to this
+  deck. `{deck_id}` here is the same identifier every other
+  `/api/decks/{deck_id}/...` endpoint in this codebase already uses
+  (`registry.find_deck`'s resolvable id), not a separate `registry_id`
+  path shape.
 - Resync itself (`linked_accounts.sync_account`, single-deck re-import via
   `registry.upsert_deck`) computes the diff and writes `pending_removal`
   markers for a physical deck instead of touching bindings; for a
