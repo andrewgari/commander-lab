@@ -23,6 +23,48 @@ def parse_identifier(identifier: str) -> str:
     raise ValueError(f"could not parse an Archidekt deck id from: {identifier}")
 
 
+class ArchidektUserNotFound(ValueError):
+    """Raised when an Archidekt username has no matching account."""
+
+
+def list_decks(username: str) -> list:
+    """Return every Archidekt deck id owned by `username`.
+
+    Mirrors the account-wide pull previously implemented ad hoc in
+    ../sync.py (see docs/LINKED_ACCOUNTS.md): resolve username -> user id,
+    then page through /api/decks/v3/?ownerId=...&pageSize=100.
+
+    Raises ArchidektUserNotFound for a username with no matching account
+    (never returns an empty list silently for a bad username).
+    """
+    username = username.strip()
+    if not username:
+        raise ArchidektUserNotFound("empty Archidekt username")
+
+    user_res = requests.get(
+        "https://archidekt.com/api/users/", params={"username": username}, timeout=20
+    )
+    user_res.raise_for_status()
+    user_data = user_res.json()
+    results = user_data.get("results") or []
+    if not results:
+        raise ArchidektUserNotFound(f"no Archidekt user found for username: {username}")
+    user_id = results[0]["id"]
+
+    deck_ids = []
+    url = "https://archidekt.com/api/decks/v3/"
+    params = {"ownerId": user_id, "pageSize": 100}
+    while url:
+        res = requests.get(url, params=params, timeout=20)
+        res.raise_for_status()
+        data = res.json()
+        deck_ids.extend(str(d["id"]) for d in data.get("results", []))
+        url = data.get("next")
+        params = None  # `next` is already a fully-qualified URL with querystring
+
+    return deck_ids
+
+
 def fetch_deck(identifier: str) -> dict:
     deck_id = parse_identifier(identifier)
     res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/", timeout=20)

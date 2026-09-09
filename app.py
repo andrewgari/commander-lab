@@ -11,6 +11,8 @@ import instances as instance_store
 from instances import InstanceError
 import registry
 from providers import fetch_deck, ProviderError
+import linked_accounts
+from linked_accounts import LinkedAccountError
 
 app = FastAPI()
 
@@ -712,4 +714,62 @@ async def delete_instance(instance_id: str):
 async def get_card_instances(card_name: str):
     """Ownership rollup for a card: counts by status and per-deck breakdown."""
     return instance_store.card_rollup(r, card_name)
+
+
+# ---------------------------------------------------------------------------
+# Linked Accounts — provider-account registry + sync (see docs/LINKED_ACCOUNTS.md)
+# Thin wrappers over linked_accounts.py; no business logic lives here.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/linked-accounts")
+async def list_linked_accounts():
+    """List every linked account with its sync status."""
+    accounts = linked_accounts.list_accounts(r)
+    return {"accounts": accounts, "count": len(accounts)}
+
+
+@app.post("/api/linked-accounts")
+async def add_linked_account(request: Request):
+    """Link a new provider account and trigger its immediate first sync.
+
+    Body: {"provider": "archidekt"|"moxfield", "username": str}
+    """
+    data = await request.json()
+    provider = data.get("provider", "")
+    username = data.get("username", "")
+    try:
+        account = linked_accounts.add_account(r, provider, username)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    account = linked_accounts.sync_account(r, account["id"])
+    return {"success": True, "account": account}
+
+
+@app.delete("/api/linked-accounts/{account_id}")
+async def remove_linked_account(account_id: str):
+    """Unlink an account. Decks already pulled from it stay as-is (pull-only,
+    non-destructive design — see docs/LINKED_ACCOUNTS.md)."""
+    try:
+        linked_accounts.remove_account(r, account_id)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True}
+
+
+@app.post("/api/linked-accounts/{account_id}/sync")
+async def sync_linked_account(account_id: str):
+    """Manually resync one linked account."""
+    try:
+        account = linked_accounts.sync_account(r, account_id)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, "account": account}
+
+
+@app.post("/api/linked-accounts/sync-all")
+async def sync_all_linked_accounts():
+    """Manually resync every enabled linked account."""
+    accounts = linked_accounts.sync_all(r)
+    return {"success": True, "accounts": accounts, "count": len(accounts)}
 
