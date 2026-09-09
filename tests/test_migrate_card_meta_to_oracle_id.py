@@ -72,7 +72,7 @@ class TestMigrateCardMetaToOracleId(unittest.TestCase):
 
     def _run(self, apply, resolver):
         with mock.patch.object(migrate_mod, "resolve_oracle_id", side_effect=resolver):
-            migrate_mod.migrate(apply=apply, r=self.r)
+            return migrate_mod.migrate(apply=apply, r=self.r)
 
     def test_dry_run_does_not_write_card_records(self):
         seed_meta(self.r, "Sol Ring", type="Artifact", cmc=1)
@@ -96,13 +96,17 @@ class TestMigrateCardMetaToOracleId(unittest.TestCase):
         }[name]
 
         snapshot_before = dict(self.r.store)
-        self._run(apply=False, resolver=resolver)
+        stats_first = self._run(apply=False, resolver=resolver)
         snapshot_after_first = dict(self.r.store)
-        self._run(apply=False, resolver=resolver)
+        stats_second = self._run(apply=False, resolver=resolver)
         snapshot_after_second = dict(self.r.store)
 
         self.assertEqual(snapshot_before, snapshot_after_first)
         self.assertEqual(snapshot_after_first, snapshot_after_second)
+        self.assertEqual(stats_first, stats_second)
+        self.assertEqual(stats_first["migrated"], 2)
+        self.assertEqual(stats_first["already_indexed"], 0)
+        self.assertEqual(stats_first["unresolved"], [])
         self.assertIsNone(card_store.get_card(self.r, SOL_RING_ORACLE_ID))
         self.assertIsNone(card_store.get_card(self.r, LOTUS_ORACLE_ID))
 
