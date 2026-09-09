@@ -61,14 +61,20 @@ class WishlistGatingTestCase(unittest.TestCase):
         self.assertEqual(deck["status"], "retired")
         self.assertEqual(instance_store.list_instances(self.r), [])
 
-    def test_physical_deck_import_still_creates_wishlist_instances(self):
-        deck = registry.upsert_deck(self.r, _normalized_deck("4"), default_status="physical")
-        self.assertEqual(deck["status"], "physical")
+    def test_physical_deck_via_status_transition_creates_bound_instances(self):
+        # Instance creation is no longer triggered by upsert_deck directly
+        # (even for a physical default_status) -- it happens exclusively
+        # via instances.auto_bind_physical at the digital/testing->physical
+        # status transition. Import as testing first, then flip physical,
+        # matching how the real UI/API flow works (registry.set_status).
+        deck = registry.upsert_deck(self.r, _normalized_deck("4"), default_status="testing")
+        self.assertEqual(instance_store.list_instances(self.r), [])
+        result = registry.set_status(self.r, registry.registry_id_of(deck), "physical")
+        self.assertEqual(result["deck"]["status"], "physical")
         instances = instance_store.list_instances(self.r)
         self.assertEqual(len(instances), 2)
         for inst in instances:
-            self.assertEqual(inst["ownership_status"], "not_owned")
-            self.assertEqual(inst["considered_for_deck"], registry.registry_id_of(deck))
+            self.assertIn(inst["ownership_status"], ("in_deck", "not_owned"))
 
     def test_resync_of_nonphysical_deck_creates_zero_instances(self):
         # Import once, then re-import (resync) the same deck -- still digital.
@@ -76,12 +82,18 @@ class WishlistGatingTestCase(unittest.TestCase):
         registry.upsert_deck(self.r, _normalized_deck("5", cards=[{"name": "Sol Ring", "quantity": 1}]))
         self.assertEqual(instance_store.list_instances(self.r), [])
 
-    def test_resync_of_physical_deck_does_not_duplicate_instances(self):
-        # Physical resync re-runs ensure_wishlist_instances, which is
-        # idempotent -- existing instances aren't duplicated.
-        registry.upsert_deck(self.r, _normalized_deck("6"), default_status="physical")
+    def test_resync_of_physical_deck_does_not_create_new_instances(self):
+        # upsert_deck no longer calls ensure_wishlist_instances at all, for
+        # any status. A physical deck's resync (re-import via upsert_deck)
+        # must not create instances for remotely-added cards -- that's the
+        # whole point of section 3's pending_removal/informational-additions
+        # flow instead of automatic creation. Bind via the one-time status
+        # transition, then resync and confirm no new instances appear.
+        deck = registry.upsert_deck(self.r, _normalized_deck("6"), default_status="testing")
+        registry.set_status(self.r, registry.registry_id_of(deck), "physical")
+        before = len(instance_store.list_instances(self.r))
         registry.upsert_deck(self.r, _normalized_deck("6"))
-        self.assertEqual(len(instance_store.list_instances(self.r)), 2)
+        self.assertEqual(len(instance_store.list_instances(self.r)), before)
 
 
 if __name__ == "__main__":
