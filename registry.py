@@ -122,7 +122,23 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     r.set(f"deck_status:{deck_id}", status)
 
     result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
-    instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+
+    # Physical deck resync: flag instances that are no longer on the remote
+    # decklist but are still bound to this deck. See
+    # docs/PHYSICAL_RESYNC_ADJUDICATION.md section 3.
+    # Non-physical decks have zero inventory footprint — deck.cards[] is
+    # just metadata, no instances involved.
+    if result_deck.get("status") == "physical":
+        # Only call wishlist creation for physical decks (per section 2 of
+        # the adjudication doc — non-physical decks are hypothetical only)
+        instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+
+        # Compute the resync diff for physical decks — flag instances whose
+        # card is no longer on the remote decklist. The flagged instances
+        # stay fully bound (ownership_status + deck_id untouched) until
+        # human adjudicates via the /resync-review endpoint.
+        new_card_names = {c.get("name") for c in result_deck.get("cards", []) if c.get("name")}
+        instance_store.flag_resync_removed(r, registry_id_of(result_deck), new_card_names)
 
     return result_deck
 
