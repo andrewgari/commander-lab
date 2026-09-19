@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import redis
 import instances as instance_store
+import cards as card_store
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -43,7 +44,11 @@ def migrate(apply: bool, delete_old: bool):
     all_decks = json.loads(decks_json) if decks_json else []
     decks_by_name = {d["name"]: d for d in all_decks}
 
-    old_keys = r.keys("card:*")
+    # Only process legacy name-keyed records, NOT the new card:{oracle_id}
+    # ORM records written by cards.py (which share the card:* prefix).
+    # Without this filter, --delete-old would json-load UUID keys as card names
+    # and then delete the ORM records, corrupting the new keyspace.
+    old_keys = [k for k in r.keys("card:*") if not card_store.is_oracle_id(k[len("card:"):])]
     print(f"Found {len(old_keys)} legacy card:* records.")
 
     total_instances = 0
