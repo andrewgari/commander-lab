@@ -293,9 +293,17 @@ def sync_inventory():
     old_keys = [k for k in r.keys("card:*") if not card_store.is_oracle_id(k[len("card:"):])]
     if old_keys:
         r.delete(*old_keys)
-        
-    for name, data in inventory.items():
-        r.set(f"card:{name}", json.dumps(data))
+
+    # Guard: skip rewriting legacy card:{name} keys if the instance-model
+    # migration has already run and purged them (scripts/migrate_to_instances.py
+    # --delete-old sets this marker). Without this guard, every sync run would
+    # silently recreate the legacy keys that the migration just deleted.
+    LEGACY_CARD_KEYS_PURGED_MARKER = "migration:legacy_card_keys_purged"
+    if not r.get(LEGACY_CARD_KEYS_PURGED_MARKER):
+        for name, data in inventory.items():
+            r.set(f"card:{name}", json.dumps(data))
+    else:
+        print("Migration marker found -- skipping legacy card:{name} write.")
         
     r.set("decks", json.dumps(sorted(deck_names, key=lambda d: d["name"])))
         

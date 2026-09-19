@@ -116,6 +116,9 @@ def migrate(apply: bool, delete_old: bool):
 
     if apply and delete_old:
         r.delete(*old_keys)
+        # Set a marker so sync.py knows the legacy card:{name} keys have been
+        # purged and should not be recreated on subsequent sync runs.
+        r.set("migration:legacy_card_keys_purged", "1")
         print(f"\nDeleted {len(old_keys)} legacy card:* keys.")
     elif not apply:
         print("\nDry run only — no data written. Re-run with --apply to write instances.")
