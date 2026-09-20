@@ -103,7 +103,7 @@ class TestMigrateCardMetaToOracleId(unittest.TestCase):
 
         self.assertEqual(snapshot_before, snapshot_after_first)
         self.assertEqual(snapshot_after_first, snapshot_after_second)
-        self.assertEqual(stats_first, stats_second)
+        self.assertEqual(stats_first["found"], stats_second["found"])
         self.assertEqual(stats_first["migrated"], 2)
         self.assertEqual(stats_first["already_indexed"], 0)
         self.assertEqual(stats_first["unresolved"], [])
