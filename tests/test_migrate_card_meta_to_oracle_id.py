@@ -85,8 +85,8 @@ class TestMigrateCardMetaToOracleId(unittest.TestCase):
         self.assertIn("card_meta:Sol Ring", self.r.store)
 
     def test_dry_run_is_idempotent(self):
-        """Running the dry run multiple times must never mutate state, and
-        must report the same counts each time."""
+        """Running the dry run multiple times must never mutate state:
+        Redis is byte-for-byte unchanged after each run."""
         seed_meta(self.r, "Sol Ring", type="Artifact", cmc=1)
         seed_meta(self.r, "Black Lotus", type="Artifact", cmc=0)
 
