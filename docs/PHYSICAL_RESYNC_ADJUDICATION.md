@@ -165,17 +165,18 @@ real physical-ownership decision.
 ## Summary of touched files
 - `providers/archidekt.py` — color identity fix (section 1)
 - `instances.py` — new optional `pending_removal` field + a resync-diff
-  helper (e.g. `flag_resync_removed(r, registry_id, current_decklist)`) +
-  keep/toss resolution helper
-- `registry.py` — `upsert_deck` gated to only call
-  `ensure_wishlist_instances` when `status == "physical"`; physical-deck
-  resync path calls the new diff/flag helper instead of silently
-  overwriting `cards[]` when bound instances are affected
+  helper (e.g. `flag_resync_removed(r, deck_registry_id, current_decklist)`) +
+  save/toss resolution helper
+- `registry.py` — `upsert_deck` no longer calls
+  `ensure_wishlist_instances` at all (instance creation happens only via
+  `instances.auto_bind_physical` at the physical transition); the
+  physical-deck resync path calls the new diff/flag helper instead of
+  silently overwriting `cards[]` when bound instances are affected
 - `scripts/remove_nonphysical_wishlist_instances.py` — new cleanup script
   (section 2 migration)
-- `app.py` — new `/api/decks/{id}/resync-review` GET + POST endpoints
+- `app.py` — new `/api/decks/{deck_id}/resync-review` GET + POST endpoints
 - `templates/deck_manage.html` — new "Resync changes pending review" panel
 - Test coverage for: color-identity union logic, non-physical decks
   creating zero instances end-to-end, physical-deck resync diff correctly
-  flagging removed/added cards without mutating bindings, keep/toss
+  flagging removed/added cards without mutating bindings, save/toss
   resolution transitions matching the state machine exactly.
