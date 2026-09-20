@@ -13,9 +13,12 @@ with save as an optional, separate, explicit second step.
 
 ## Input
 Both accepted, matching the earlier clarification:
-- **URL/id** -- reuses `providers.fetch_deck(provider, identifier)` exactly
-  like `/api/import` does. Provider inferred from URL host
-  (`archidekt.com` / `moxfield.com`), or passed explicitly.
+- **URL/id** -- the salvager endpoint infers the provider from the URL host
+  (`archidekt.com` -> `archidekt`, `moxfield.com` -> `moxfield`) before
+  calling `providers.fetch_deck(provider, identifier)` (which, like
+  `/api/import`, requires an explicit non-empty provider and raises
+  `unknown provider` otherwise). A provider passed explicitly in the
+  request body takes precedence over host inference.
 - **Raw paste** -- plain decklist text, one card per line, formats:
   `1 Sol Ring`, `1x Sol Ring`, or bare `Sol Ring` (quantity defaults to 1).
   Blank lines and lines starting with `#` or `//` ignored (comment/section
@@ -80,6 +83,13 @@ This gives 5 visually distinct states (green/yellow/orange/blue/gray),
 satisfying "VERY distinct" between free / committed-elsewhere / assumed
 absent, with the two extra states (partial-free, incoming) as natural
 sub-cases the user's phrasing implies rather than contradicts.
+
+The API's per-card `status` field is a **coarse category**, not the
+5-state badge: `have` (green), `steal` (yellow case 2 *and* orange case 3),
+`incoming` (blue), `missing` (gray). The finer badge color is derived on
+the client from the returned `free` / `committed` / `in_mail` counts plus
+`quantity`, using the priority order above -- `status` alone collapses
+yellow and orange into `steal`.
 
 Quantity display: never a bare "have 1 need 2" progress bar (user
 explicitly rejected fractional/partial framing) -- text is literally
