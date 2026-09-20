@@ -41,7 +41,7 @@ def find_candidates(r) -> list:
     status_by_registry_id = {registry.registry_id_of(d): d.get("status") for d in decks}
 
     candidates = []
-    for inst_id in r.keys("instance:*"):
+    for inst_id in r.scan_iter("instance:*"):
         instance_id = inst_id[len("instance:"):] if isinstance(inst_id, str) else inst_id.decode()[len("instance:"):]
         record = instance_store.get_instance(r, instance_id)
         if not record:

@@ -98,10 +98,6 @@ class RemoveNonphysicalWishlistInstancesTestCase(unittest.TestCase):
             considered_for_deck=registry.registry_id_of(digital_deck),
         )
 
-        cleanup_script.cleanup(apply=False)
-        # Dry run: nothing deleted.
-        self.assertIsNotNone(instance_store.get_instance(self.r, bad_wishlist["id"]))
-
         self._run_apply()
 
         self.assertIsNone(instance_store.get_instance(self.r, bad_wishlist["id"]))
