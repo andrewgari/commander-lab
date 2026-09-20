@@ -16,14 +16,24 @@ Prerequisites:
 
 Run with: pytest tests/e2e/test_linked_accounts_e2e.py --base-url=http://localhost:8000
 
-To run using the shared venv:
-    source /home/andrewgari/.hermes/kanban/boards/commander-lab/workspaces/t_d981179d/.venv/bin/activate
-    pytest tests/e2e/test_linked_accounts_e2e.py -v
+Install the E2E dependencies into a virtualenv, then run:
+    pip install pytest pytest-playwright
+    python -m pytest tests/e2e/test_linked_accounts_e2e.py -v
 """
-import pytest
 import json
 import re
-from playwright.sync_api import Page, expect
+import unittest
+
+try:
+    import pytest  # noqa: F401
+    from playwright.sync_api import Page, expect  # noqa: F401
+except ImportError as exc:  # pytest/playwright are E2E-only deps (not in requirements.txt)
+    # The CI unit-test job runs `python -m unittest discover -s tests`, which
+    # imports this module; skip it rather than failing discovery when the
+    # Playwright toolchain isn't installed.
+    raise unittest.SkipTest(
+        "pytest/playwright not installed; install them to run the E2E tests"
+    ) from exc
 
 
 class TestLinkedAccountsSectionRendering:
