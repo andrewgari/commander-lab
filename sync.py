@@ -312,7 +312,7 @@ def sync_inventory():
     # migration has already run and purged them (scripts/migrate_to_instances.py
     # --delete-old sets this marker). Without this guard, every sync run would
     # silently recreate the legacy keys that the migration just deleted.
-    if not r.get(MIGRATION_LEGACY_CARD_KEYS_PURGED):
+    if should_write_legacy_card_keys(r):
         for name, data in inventory.items():
             r.set(f"card:{name}", json.dumps(data))
     else:

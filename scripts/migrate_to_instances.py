@@ -120,10 +120,16 @@ def migrate(apply: bool, delete_old: bool):
             print(f"  - {name}")
 
     if apply and delete_old:
-        r.delete(*old_keys)
-        # Set a marker so sync.py knows the legacy card:{name} keys have been
-        # purged and should not be recreated on subsequent sync runs.
-        r.set("migration:legacy_card_keys_purged", "1")
+        # Delete the legacy keys and set the completion marker in a single
+        # atomic pipeline so a concurrent sync can't observe the gap between
+        # delete() and set() (delete-without-marker would let it recreate the
+        # keys). Guard the delete when old_keys is empty: DEL with no args
+        # raises a wrong-number-of-arguments error.
+        pipe = r.pipeline()
+        if old_keys:
+            pipe.delete(*old_keys)
+        pipe.set("migration:legacy_card_keys_purged", "1")
+        pipe.execute()
         print(f"\nDeleted {len(old_keys)} legacy card:* keys.")
     elif not apply:
         print("\nDry run only — no data written. Re-run with --apply to write instances.")

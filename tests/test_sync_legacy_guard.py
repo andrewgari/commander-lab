@@ -4,6 +4,11 @@ Unit test for the legacy card:{name} key guard in sync.py.
 Verifies that sync.py's guard against rewriting legacy card:{name} keys
 respects the migration:legacy_card_keys_purged marker set by
 scripts/migrate_to_instances.py --delete-old.
+
+These tests exercise the production guard (sync.should_write_legacy_card_keys)
+and the shared marker constant (sync.MIGRATION_LEGACY_CARD_KEYS_PURGED)
+directly, rather than reimplementing the check, so they fail if the guard or
+the marker constant regresses.
 """
 import os
 import sys
@@ -11,6 +16,13 @@ import json
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# sync.py runs load_dotenv() and exits(1) at import time if ARCHIDEKT_USERNAME
+# is unset, so provide a dummy value before importing it.
+os.environ.setdefault("ARCHIDEKT_USERNAME", "test_user")
+
+import sync
+import cards as card_store
 
 
 class FakeRedis:
@@ -36,23 +48,20 @@ class FakeRedis:
 
 class TestSyncLegacyKeyGuard(unittest.TestCase):
     def setUp(self):
-        import cards as card_store
         self.card_store = card_store
         self.r = FakeRedis()
 
     def test_legacy_write_skipped_when_marker_present(self):
         """When migration:legacy_card_keys_purged is set, the guard must skip
         writing legacy card:{name} keys."""
-        self.r.set("migration:legacy_card_keys_purged", "1")
+        self.r.set(sync.MIGRATION_LEGACY_CARD_KEYS_PURGED, "1")
 
         inventory = {
             "Sol Ring": {"type": "Artifact", "copies": []},
             "Mana Crypt": {"type": "Artifact", "copies": []},
         }
 
-        LEGACY_CARD_KEYS_PURGED_MARKER = "migration:legacy_card_keys_purged"
-        # This is the exact guard logic from sync.py (lines 296-301)
-        if not self.r.get(LEGACY_CARD_KEYS_PURGED_MARKER):
+        if sync.should_write_legacy_card_keys(self.r):
             for name, data in inventory.items():
                 self.r.set(f"card:{name}", json.dumps(data))
 
@@ -72,8 +81,7 @@ class TestSyncLegacyKeyGuard(unittest.TestCase):
             "Sol Ring": {"type": "Artifact", "copies": []},
         }
 
-        LEGACY_CARD_KEYS_PURGED_MARKER = "migration:legacy_card_keys_purged"
-        if not self.r.get(LEGACY_CARD_KEYS_PURGED_MARKER):
+        if sync.should_write_legacy_card_keys(self.r):
             for name, data in inventory.items():
                 self.r.set(f"card:{name}", json.dumps(data))
 
@@ -87,15 +95,14 @@ class TestSyncLegacyKeyGuard(unittest.TestCase):
     def test_marker_distinguishes_legacy_from_oracle_keys(self):
         """The guard must not block card:{oracle_id} writes (those come from
         cards.py and are unrelated to the legacy inventory keys)."""
-        self.r.set("migration:legacy_card_keys_purged", "1")
+        self.r.set(sync.MIGRATION_LEGACY_CARD_KEYS_PURGED, "1")
         # Simulate an oracle_id key already present (written by cards.py)
         self.r.set("card:62a7d306-de17-4b2a-92e1-27a4a1cccb43",
                    json.dumps({"oracle_id": "62a7d306-de17-4b2a-92e1-27a4a1cccb43",
                                "name": "Sol Ring"}))
 
         # The guard only looks at legacy name-keyed entries
-        LEGACY_CARD_KEYS_PURGED_MARKER = "migration:legacy_card_keys_purged"
-        if not self.r.get(LEGACY_CARD_KEYS_PURGED_MARKER):
+        if sync.should_write_legacy_card_keys(self.r):
             self.r.set("card:SomeLegacyCard", json.dumps({"type": "Creature"}))
 
         # oracle_id key should still exist
