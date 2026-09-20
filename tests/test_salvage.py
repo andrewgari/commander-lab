@@ -78,7 +78,8 @@ class TestMatchDecklistToInventory(unittest.TestCase):
         self.r = FakeRedis()
 
     def _seed_deck(self, deck_id="deck-1", deck_name="Najeela Hatebears"):
-        # Ensure a deck exists in-deck for committed instances to reference.
+        # Return a (deck_id, deck_name) pair for callers to pass into
+        # create_instance(); it does not seed any Redis deck record.
         return deck_id, deck_name
 
     def test_have_status_when_free_covers_quantity(self):

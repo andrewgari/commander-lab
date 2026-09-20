@@ -35,8 +35,10 @@ def match_decklist_to_inventory(r, cards: list[dict]) -> dict:
     summary = {"have": 0, "steal": 0, "incoming": 0, "missing": 0}
 
     for card in cards:
-        name = card["name"]
+        name = card.get("name")
         quantity = card.get("quantity", 1)
+        if not name or quantity <= 0:
+            continue
 
         free_instances = instances.list_instances(
             r, card_name=name, ownership_status="in_collection"
@@ -54,7 +56,7 @@ def match_decklist_to_inventory(r, cards: list[dict]) -> dict:
 
         committed_decks = sorted(
             {
-                inst.get("deck_name") or inst.get("deck_id")
+                str(inst.get("deck_name") or inst.get("deck_id"))
                 for inst in committed_instances
                 if inst.get("deck_name") or inst.get("deck_id")
             }
