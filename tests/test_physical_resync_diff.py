@@ -4,9 +4,7 @@ Tests for the physical-deck resync diff mechanism:
 - flag_resync_removed helper in instances.py
 - registry.py's resync path calling the helper for physical decks only
 
-See docs/PHYSICAL_RESYNC_ADJUDICATION.md section 3.
-
-Run: pytest tests/test_physical_resync_diff.py -v
+Run: python -m unittest discover -s tests
 """
 import os
 import sys
@@ -127,7 +125,7 @@ class TestFlagResyncRemoved(unittest.TestCase):
         # pending_removal should be set
         self.assertIn("pending_removal", inst)
         self.assertEqual(inst["pending_removal"]["reason"], "resync_removed")
-        self.assertEqual(inst["pending_removal"]["registry_id"], self.deck_id)
+        self.assertEqual(inst["pending_removal"]["deck_registry_id"], self.deck_id)
 
         # ownership_status and deck_id must be UNTOUCHED
         self.assertEqual(inst["ownership_status"], "in_deck")

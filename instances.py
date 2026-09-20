@@ -327,7 +327,7 @@ def flag_resync_removed(r, registry_id: str, current_decklist_card_names: set) -
     bound until the human adjudicates.
 
     Idempotent: if an instance already has a pending_removal marker for this
-    same registry_id and reason, we don't update the timestamp.
+    same deck_registry_id and reason, we don't update the timestamp.
 
     Returns the list of instance records that were newly flagged (or already
     flagged for this registry_id).
@@ -343,7 +343,7 @@ def flag_resync_removed(r, registry_id: str, current_decklist_card_names: set) -
             continue
 
         existing_marker = inst.get("pending_removal")
-        if existing_marker and existing_marker.get("registry_id") == str(registry_id) and existing_marker.get("reason") == "resync_removed":
+        if existing_marker and existing_marker.get("deck_registry_id") == str(registry_id) and existing_marker.get("reason") == "resync_removed":
             # Already flagged for this exact resync — don't re-timestamp
             flagged.append(inst)
             continue
@@ -352,7 +352,7 @@ def flag_resync_removed(r, registry_id: str, current_decklist_card_names: set) -
         inst["pending_removal"] = {
             "reason": "resync_removed",
             "detected_at": now,
-            "registry_id": str(registry_id),
+            "deck_registry_id": str(registry_id),
         }
         inst["updated_at"] = now
         _save_instance(r, inst)
