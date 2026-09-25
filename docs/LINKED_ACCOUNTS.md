@@ -1,15 +1,50 @@
-# Linked Accounts
+# Linked Accounts (pull-only sync)
 
-`linked_accounts.py` is a registry of provider accounts (Archidekt/Moxfield
-usernames) that Commander Lab can pull decks from on a recurring or manual
-basis, layered on top of the existing single-deck import flow.
+Commander Lab can sync a user's entire deck collection from Archidekt or
+Moxfield by "linking" that user's provider account via **username**, rather
+than importing decks one at a time by URL/id.
+
+## Design
+
+- **Username-based linking.** A linked account is just `(provider, username)`.
+  There is no OAuth handshake, API key, or stored credential — usernames are
+  public, and both providers expose enough unauthenticated surface area to
+  resolve a username to that user's public decks.
+- **`list_decks(username)` provider capability.** Each provider module in
+  `providers/` implements:
+  - `fetch_deck(identifier)` — fetch + normalize a single deck by id/URL
+    (used for one-off imports).
+  - `list_decks(username)` — return every deck identifier owned by
+    `username`, so the whole account can be resynced by calling
+    `fetch_deck` on each id in turn.
+
+  `providers/__init__.py` dispatches both by provider name via `PROVIDERS`.
+
+- **Pull-only.** Linked-account sync only ever *reads* from Archidekt/
+  Moxfield. Commander Lab never creates, edits, or deletes decks on either
+  service, and never writes anything back. All local state (tags, folders,
+  physical-instance tracking, etc.) lives only in Commander Lab's own
+  registry and is layered on top of the pulled deck data. Unlinking an
+  account is likewise non-destructive locally: it only removes the registry
+  entry, never the decks already pulled from it.
+
+- **Fail loudly on a bad username.** Both providers raise a specific,
+  descriptive error (`ArchidektUserNotFound` / `MoxfieldUserNotFound`)
+  instead of silently returning an empty list when a username can't be
+  resolved to real decks:
+  - Archidekt: `/api/users/?username=...` returns no matching account.
+  - Moxfield: the search API has no real "does this user exist" check and
+    silently falls back to an unfiltered global feed for bad usernames, so
+    `list_decks` keeps only the decks whose `authors` include the requested
+    username, ignoring unrelated entries, and raises only if no deck across
+    any page lists that user as an author.
 
 ## Storage
 
 All state lives in a single Redis key, `linked_accounts`, holding a JSON
 array of account records. Reads/writes to this key go exclusively through
-this module (mirroring the pattern used by `instances.py`, `registry.py`,
-and `cards.py`).
+`linked_accounts.py` (mirroring the pattern used by `instances.py`,
+`registry.py`, and `cards.py`).
 
 ### Account record shape
 
@@ -45,7 +80,7 @@ a bad entry in the registry. New accounts start `enabled=True`.
 ### `remove_account(r, account_id)`
 Removes the registry entry only. Never touches decks already pulled from
 that account, and never clears their `linked_account_id` stamp — per the
-pull-only/non-destructive design below, unlinking is purely a
+pull-only/non-destructive design above, unlinking is purely a
 registry-bookkeeping operation.
 
 ### `sync_account(r, account_id)`
@@ -67,12 +102,9 @@ recorded under `last_sync_result.failures`) and is persisted and returned
 in the same shape as every other account — never a differently-shaped
 error object. One bad account never stops the rest of the run.
 
-## Pull-only architecture
+## Adding a new provider
 
-Linked accounts are **pull-only**. Commander Lab only ever reads decks from
-Archidekt/Moxfield via each provider's `list_decks`/`fetch_deck`; it never
-writes back to the provider. Nothing in this module (or the deck sync flow
-it drives) pushes local edits, card assignments, or reconciliation results
-back to Archidekt or Moxfield. Unlinking an account is likewise
-non-destructive locally: it only removes the registry entry, never the
-decks already pulled from it.
+A new provider only needs to implement `fetch_deck(identifier)` and
+`list_decks(username)` with the same contract (raise a clear error rather
+than returning an empty list for a bad username) and register itself in
+`providers/PROVIDERS`.
