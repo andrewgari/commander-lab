@@ -122,7 +122,15 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     r.set(f"deck_status:{deck_id}", status)
 
     result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
-    instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+    # Instance creation is NOT triggered here at all, for any deck status.
+    # Non-physical decks (digital/testing/retired) are hypothetical/wishlist
+    # decklists that exist purely as deck.cards[] metadata and must have
+    # zero inventory footprint. Physical decks get their instances from
+    # instances.auto_bind_physical at the one-time status transition
+    # (registry.set_status) -- calling ensure_wishlist_instances here on
+    # every resync would violate the "no automatic instance creation for
+    # remotely-added cards" rule for physical-deck resyncs. See
+    # docs/PHYSICAL_RESYNC_ADJUDICATION.md sections 2-3 (reverses #18).
 
     return result_deck
 
