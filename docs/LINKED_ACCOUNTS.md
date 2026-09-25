@@ -35,8 +35,9 @@ than importing decks one at a time by URL/id.
   - Archidekt: `/api/users/?username=...` returns no matching account.
   - Moxfield: the search API has no real "does this user exist" check and
     silently falls back to an unfiltered global feed for bad usernames, so
-    `list_decks` additionally verifies that every returned deck's `authors`
-    actually includes the requested username before accepting the results.
+    `list_decks` keeps only the decks whose `authors` include the requested
+    username, ignoring unrelated entries, and raises only if no deck across
+    any page lists that user as an author.
 
 ## Storage
 
