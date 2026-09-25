@@ -3,8 +3,6 @@
 Parses plain-text decklists (as pasted from Archidekt/Moxfield exports or
 typed by hand) into the normalized card-line shape used throughout the
 Deck Salvager feature: ``[{"name": str, "quantity": int}, ...]``.
-
-See docs/DECK_SALVAGER.md for the full design.
 """
 import re
 
@@ -43,8 +41,15 @@ def parse_decklist(text: str) -> list[dict]:
             quantity = 1
             name = line
 
+        # A line that is only a number (optionally with an "x" suffix) has no
+        # card name — skip it instead of treating it as a bare card name.
+        if re.fullmatch(r"\d+\s*[xX]?", name):
+            continue
+
         name = _BRACKET_SUFFIX_RE.sub("", name).strip()
         if not name:
+            continue
+        if quantity <= 0:
             continue
 
         cards.append({"name": name, "quantity": quantity})

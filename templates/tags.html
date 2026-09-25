@@ -167,14 +167,9 @@
 <h1>Tag Management</h1>
 
 <p style="color: #9ca3af; margin-bottom: 1.5rem;">
-    Lab Tags are your source of truth. Edit them here, then sync to Archidekt when ready.<br>
+    Lab Tags are your source of truth.<br>
     <strong>Right-click</strong> a tag in the cloud below to toggle its status as a <span style="color: #fcd34d;">Core Archetype Tag</span>.
 </p>
-
-<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-    <button class="btn btn-primary" onclick="syncAllDecks()">Sync All Decks to Archidekt</button>
-    <button class="btn" onclick="syncSelectedDecks()">Sync Selected Decks</button>
-</div>
 
 <div class="tag-cloud" id="tagCloud">
     <!-- Tags will be populated here -->
@@ -206,7 +201,7 @@
     <h3 style="margin-top: 0;">Edit Lab Tags for <span id="editCardName"></span></h3>
     
     <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
-        Lab tags apply to this card across all decks. Sync to Archidekt when ready.
+        Lab tags apply to this card across all decks.
     </p>
     
     <div class="tag-input-row">
@@ -232,7 +227,6 @@
     let allTags = [];
     let allCards = {};
     let currentEditCard = null;
-    let allDecks = [];
     
     async function loadTags() {
         const res = await fetch('/api/tags');
@@ -285,12 +279,6 @@
             opt.value = tag;
             datalist.appendChild(opt);
         });
-    }
-    
-    async function loadDecks() {
-        const res = await fetch('/api/decks');
-        const data = await res.json();
-        allDecks = data.decks;
     }
     
     function filterByTag(tag) {
@@ -443,81 +431,6 @@
         }
     }
     
-    async function syncAllDecks() {
-        if (!confirm('Sync ALL decks to Archidekt? This will overwrite all Archidekt tags with Lab tags.')) {
-            return;
-        }
-        
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = 'Syncing...';
-        
-        try {
-            const res = await fetch('/api/sync-tags', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ decks: [] })
-            });
-            
-            const result = await res.json();
-            
-            if (result.error) {
-                alert(`Error: ${result.error}`);
-            } else {
-                alert(`Synced ${result.synced_decks}/${result.total_decks} decks successfully!`);
-            }
-        } catch (e) {
-            alert(`Error: ${e.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Sync All Decks to Archidekt';
-        }
-    }
-    
-    async function syncSelectedDecks() {
-        const decks = prompt('Enter deck names separated by commas:');
-        if (!decks) return;
-        
-        const deckList = decks.split(',').map(d => d.trim()).filter(d => d);
-        
-        if (!confirm(`Sync ${deckList.length} deck(s) to Archidekt?`)) {
-            return;
-        }
-        
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = 'Syncing...';
-        
-        try {
-            const res = await fetch('/api/sync-tags', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ decks: deckList })
-            });
-            
-            const result = await res.json();
-            
-            if (result.error) {
-                alert(`Error: ${result.error}`);
-            } else {
-                let message = `Synced ${result.synced_decks}/${result.total_decks} decks successfully!\n\n`;
-                result.results.forEach(r => {
-                    if (r.success) {
-                        message += `✓ ${r.deck_name}: ${r.updated_count} cards updated\n`;
-                    } else {
-                        message += `✗ ${r.deck_name}: ${r.error}\n`;
-                    }
-                });
-                alert(message);
-            }
-        } catch (e) {
-            alert(`Error: ${e.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Sync Selected Decks';
-        }
-    }
-    
     async function addTag() {
         const tagInput = document.getElementById('newTagInput');
         const tag = tagInput.value.trim();
@@ -570,7 +483,7 @@
     }
     
     // Initialize
-    Promise.all([loadTags(), loadDecks()]).then(() => {
+    Promise.all([loadTags()]).then(() => {
         fetchCards();
     });
 </script>
