@@ -8,6 +8,20 @@ import time
 
 import cards as card_store
 
+# Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
+# that the legacy card:{name} inventory keys have been purged. sync.py checks
+# this before rewriting those keys so a subsequent sync doesn't silently
+# recreate what the migration just deleted.
+MIGRATION_LEGACY_CARD_KEYS_PURGED = "migration:legacy_card_keys_purged"
+
+
+def should_write_legacy_card_keys(r):
+    """Return False when the instance-model migration has purged legacy
+    card:{name} keys (marker is set). Callers use this to decide whether to
+    write the legacy inventory blob for each card in their inventory dict.
+    """
+    return not r.get(MIGRATION_LEGACY_CARD_KEYS_PURGED)
+
 load_dotenv(override=True)
 
 ARCHIDEKT_USERNAME = os.getenv("ARCHIDEKT_USERNAME")
@@ -293,9 +307,16 @@ def sync_inventory():
     old_keys = [k for k in r.keys("card:*") if not card_store.is_oracle_id(k[len("card:"):])]
     if old_keys:
         r.delete(*old_keys)
-        
-    for name, data in inventory.items():
-        r.set(f"card:{name}", json.dumps(data))
+
+    # Guard: skip rewriting legacy card:{name} keys if the instance-model
+    # migration has already run and purged them (scripts/migrate_to_instances.py
+    # --delete-old sets this marker). Without this guard, every sync run would
+    # silently recreate the legacy keys that the migration just deleted.
+    if should_write_legacy_card_keys(r):
+        for name, data in inventory.items():
+            r.set(f"card:{name}", json.dumps(data))
+    else:
+        print("Migration marker found -- skipping legacy card:{name} write.")
         
     r.set("decks", json.dumps(sorted(deck_names, key=lambda d: d["name"])))
         
