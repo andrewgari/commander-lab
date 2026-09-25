@@ -89,7 +89,16 @@ def add_account(r, provider: str, username: str) -> dict:
         raise LinkedAccountError(f"account already linked: {account_id}")
 
     # Probe: one list_decks call so a typo fails fast, before persisting.
-    mod.list_decks(username)
+    # Provider-specific errors (e.g. ArchidektUserNotFound/MoxfieldUserNotFound)
+    # are ValueError subclasses but not LinkedAccountError -- wrap them so the
+    # FastAPI route (which only catches LinkedAccountError) returns a clean
+    # 400 instead of an unhandled 500.
+    try:
+        mod.list_decks(username)
+    except LinkedAccountError:
+        raise
+    except ValueError as exc:
+        raise LinkedAccountError(str(exc)) from exc
 
     account = {
         "id": account_id,
@@ -197,7 +206,9 @@ def sync_all(r) -> list:
         if not account.get("enabled", True):
             continue
         try:
-            results.append(sync_account(r, account["id"]))
+            updated = sync_account(r, account["id"])
+            accounts[idx] = updated
+            results.append(updated)
         except Exception as exc:  # noqa: BLE001 - one bad account must not abort sync_all
             account["last_synced_at"] = _now()
             account["last_sync_result"] = {

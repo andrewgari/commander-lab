@@ -79,14 +79,12 @@ def list_decks(username: str) -> list:
             authors = deck.get("authors") or []
             author_names = {a.get("userName", "").lower() for a in authors}
             if username_lower not in author_names:
-                # Wrong/nonexistent username: the search silently fell back
-                # to the unfiltered global feed. Bail out with a clear error
-                # instead of harvesting unrelated decks.
-                raise MoxfieldUserNotFound(
-                    f"no decks found for Moxfield user {username} (API "
-                    "returned results but none listed this user as an "
-                    "author -- check the username)"
-                )
+                # Wrong/nonexistent username can make the search silently
+                # fall back to the unfiltered global feed, which mixes in
+                # unrelated decks. Skip those entries rather than aborting
+                # the whole call -- only bail out below if NO deck across
+                # any page actually lists this user as an author.
+                continue
             saw_match = True
             public_id = deck.get("publicId")
             if public_id:
