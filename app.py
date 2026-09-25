@@ -5,6 +5,7 @@ import redis
 import os
 import json
 import time
+import html
 from typing import List, Optional
 
 import instances as instance_store
@@ -38,10 +39,39 @@ async def inventory(request: Request):
 async def tags(request: Request):
     return templates.TemplateResponse(request=request, name="tags.html")
 
+
+@app.get("/instances", response_class=HTMLResponse)
+async def instances_view(request: Request):
+    """Instance list view: ownership source of truth for physical card copies."""
+    return templates.TemplateResponse(request=request, name="instances.html")
+
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
     return templates.TemplateResponse(request=request, name="deck.html", context={"providers": providers, "deck_name": deck_name})
+
+@app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
+async def deck_manage_view(request: Request, deck_name: str):
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+
+    /deck/{deck_name} (the read-only view) keys off the deck's display
+    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
+    and sibling manage endpoints all key off registry_id. Resolve name ->
+    registry_id here so the template only ever has to call the registry_id
+    APIs, matching how the rest of the manage API surface works.
+    """
+    decks = registry.list_decks(r)
+    deck = next((d for d in decks if d.get("name") == deck_name), None)
+    if not deck:
+        return HTMLResponse(
+            "<html><head><title>Deck Not Found</title></head>"
+            "<body><h1>Deck Not Found</h1>"
+            "<p>No deck named &quot;{}&quot; could be found.</p>"
+            "</body></html>".format(html.escape(deck_name)),
+            status_code=404,
+        )
+    deck_id = registry.registry_id_of(deck)
+    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
 
 @app.get("/api/decks")
 async def get_decks():
@@ -485,119 +515,82 @@ async def search_deck_cards(deck_id: str, q: str = ""):
     return {"deck_id": deck_id, "query": q, "results": results}
 
 
-@app.post("/api/sync-tags")
-async def sync_tags_to_archidekt(request: Request):
-    """Force sync Lab tags to Archidekt for specific decks or all decks"""
-    data = await request.json()
-    deck_names = data.get("decks", [])  # Empty = all decks
-    
-    session_id = os.getenv("ARCHIDEKT_SESSION")
-    csrf_token = os.getenv("ARCHIDEKT_CSRF")
-    
-    if not session_id or not csrf_token:
-        return {
-            "error": "ARCHIDEKT_SESSION and ARCHIDEKT_CSRF must be set in .env"
-        }, 400
-    
-    # Get Lab tags
-    lab_tags_json = r.get("lab_tags")
-    lab_tags = json.loads(lab_tags_json) if lab_tags_json else {}
-    
-    # Get decks to sync
-    decks_json = r.get("decks")
-    all_decks = json.loads(decks_json) if decks_json else []
-    
-    if deck_names:
-        decks_to_sync = [d for d in all_decks if d["name"] in deck_names]
-    else:
-        decks_to_sync = all_decks
-    
-    results = []
-    for deck in decks_to_sync:
-        try:
-            result = sync_deck_tags_to_archidekt(
-                deck["id"], 
-                deck["name"], 
-                lab_tags, 
-                session_id, 
-                csrf_token
-            )
-            results.append(result)
-            time.sleep(1)  # Rate limit
-        except Exception as e:
-            results.append({
-                "deck_name": deck["name"],
-                "success": False,
-                "error": str(e)
-            })
-    
-    return {
-        "success": True,
-        "synced_decks": len([r for r in results if r.get("success")]),
-        "total_decks": len(results),
-        "results": results
-    }
+@app.get("/api/decks/{deck_id}/manage")
+async def get_deck_manage(deck_id: str):
+    """Single-call aggregate for the deck management view (see
+    docs/DECK_MANAGEMENT_VIEW.md "New API surface").
 
-def sync_deck_tags_to_archidekt(deck_id, deck_name, lab_tags, session_id, csrf_token):
-    """Sync Lab tags to a specific Archidekt deck"""
-    import requests
-    import time
-    
-    # Fetch current deck
-    deck_url = f"https://archidekt.com/api/decks/{deck_id}/"
-    headers = {
-        "Cookie": f"sessionid={session_id}; csrftoken={csrf_token}",
-        "X-CSRFToken": csrf_token,
-        "Referer": f"https://archidekt.com/decks/{deck_id}/",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.get(deck_url, headers=headers)
-    response.raise_for_status()
-    deck_data = response.json()
-    
-    # Update categories on deck cards
-    cards = deck_data.get("cards", [])
-    updated_count = 0
-    
-    structural_categories = {"Commander", "Sideboard", "Maybeboard", "Considering"}
-    
-    for card in cards:
-        oracle_name = card.get("card", {}).get("oracleCard", {}).get("name")
-        if not oracle_name or oracle_name not in lab_tags:
-            continue
-        
-        current_cats = card.get("categories") or []
-        
-        # Preserve structural categories
-        structural = [c for c in current_cats if c in structural_categories]
-        
-        # Get Lab tags for this card
-        thematic = lab_tags[oracle_name]
-        
-        # Combine: structural + Lab tags
-        new_cats = structural + thematic
-        
-        if set(current_cats) != set(new_cats):
-            card["categories"] = new_cats
-            updated_count += 1
-    
-    if updated_count == 0:
-        return {
-            "deck_name": deck_name,
-            "success": True,
-            "updated_count": 0,
-            "message": "No changes needed"
-        }
-    
-    # PUT the updated deck back
-    response = requests.put(deck_url, headers=headers, json=deck_data)
-    response.raise_for_status()
-    
+    Assembles, in one response, so the template never does N+1 fetches:
+    - the deck's bound instances (ownership_status == "in_deck" for this deck)
+    - each bound card's card_meta (type/cmc/color), joined by card_name
+    - the deck's category overrides (deck_categories:{deck_id}), read using
+      the same key derivation as the /api/decks/{deck_id}/categories
+      endpoints (the raw URL deck_id, not registry_id) so overrides written
+      via those endpoints are visible here.
+    - each card's global lab_tags (lab_tags redis key)
+    - effective_category per card: deck category override, else lab tag,
+      else "Uncategorized" (first tag wins when a card has several) — lets
+      the UI group cards without any further calls.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    registry_id = registry.registry_id_of(deck)
+
+    instances = instance_store.list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+
+    # Match the /api/decks/{deck_id}/categories endpoints, which key off the
+    # raw URL deck_id (not registry_id) — otherwise overrides written via
+    # those endpoints for numeric deck ids would silently be dropped here.
+    deck_categories_json = r.get(f"deck_categories:{deck_id}")
+    deck_categories = json.loads(deck_categories_json) if deck_categories_json else {}
+
+    lab_tags_json = r.get("lab_tags")
+    lab_tags_all = json.loads(lab_tags_json) if lab_tags_json else {}
+
+    # Pre-fetch card_meta for every distinct card_name bound to this deck to
+    # avoid a per-card GET round trip.
+    card_names = sorted({inst["card_name"] for inst in instances})
+    card_meta_by_name = {}
+    if card_names:
+        meta_pipe = r.pipeline()
+        for name in card_names:
+            meta_pipe.get(f"card_meta:{name}")
+        for name, raw in zip(card_names, meta_pipe.execute()):
+            card_meta_by_name[name] = json.loads(raw) if raw else {}
+
+    cards = []
+    for inst in instances:
+        card_name = inst["card_name"]
+        meta = card_meta_by_name.get(card_name, {})
+        card_lab_tags = lab_tags_all.get(card_name, [])
+        card_deck_categories = deck_categories.get(card_name, [])
+
+        if card_deck_categories:
+            effective_category = card_deck_categories[0]
+        elif card_lab_tags:
+            effective_category = card_lab_tags[0]
+        else:
+            effective_category = "Uncategorized"
+
+        cards.append({
+            "instance_id": inst["id"],
+            "card_name": card_name,
+            "type": meta.get("type", "Unknown"),
+            "cmc": meta.get("cmc", 0),
+            "color": meta.get("color", ""),
+            "lab_tags": card_lab_tags,
+            "deck_categories": card_deck_categories,
+            "effective_category": effective_category,
+        })
+
     return {
-        "deck_name": deck_name,
-        "success": True,
-        "updated_count": updated_count
+        "deck_id": deck_id,
+        "deck_name": deck.get("name", ""),
+        "status": deck.get("status"),
+        "cards": cards,
+        "deck_categories": deck_categories,
     }
 
 
@@ -641,10 +634,16 @@ async def list_instances(
     status: Optional[str] = None,
     deck_id: Optional[str] = None,
     set: Optional[str] = None,
+    q: Optional[str] = None,
 ):
-    """List/filter instances by card name, ownership status, deck, or set."""
+    """List/filter instances by card name, ownership status, deck, or set.
+
+    `q` is a free-text search (case-insensitive substring match against card
+    name, set name, deck name, and notes) for the inventory search box —
+    separate from the exact-match `card` filter.
+    """
     records = instance_store.list_instances(
-        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set
+        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set, q=q
     )
     return {"instances": records, "count": len(records)}
 

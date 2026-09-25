@@ -29,9 +29,31 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/tags")
         self.assertEqual(response.status_code, 200)
 
+    def test_instances_route(self):
+        response = self.client.get("/instances")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+
     def test_deck_view_route(self):
         response = self.client.get("/deck/TestDeck")
         self.assertEqual(response.status_code, 200)
+
+    @patch("app.registry")
+    def test_deck_manage_route(self, mock_registry):
+        mock_registry.list_decks.return_value = [
+            {"id": 1, "name": "TestDeck", "registry_id": "archidekt:1"}
+        ]
+        mock_registry.registry_id_of.return_value = "archidekt:1"
+        response = self.client.get("/deck/TestDeck/manage")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+
+    @patch("app.registry")
+    def test_deck_manage_route_not_found(self, mock_registry):
+        mock_registry.list_decks.return_value = []
+        response = self.client.get("/deck/UnknownDeck/manage")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("text/html", response.headers["content-type"])
 
     @patch("app.r")
     def test_api_decks(self, mock_redis):
