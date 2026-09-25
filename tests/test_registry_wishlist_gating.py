@@ -3,19 +3,19 @@ Tests for the physical-only wishlist-instance gating in registry.upsert_deck
 (reversal of part of PR #18 -- see docs/PHYSICAL_RESYNC_ADJUDICATION.md
 section 2): non-physical decks (digital/testing/retired) must have zero
 inventory footprint on import or re-import (resync). Only physical decks
-get automatic wishlist-instance creation via instance_store.ensure_wishlist_instances.
+get instances, and only via instances.auto_bind_physical at the one-time
+digital/testing->physical status transition.
 
-Uses fakeredis (same convention as tests/test_deck_manage_integration.py)
-rather than the hand-rolled FakeRedis in tests/test_instances.py, since this
-exercises registry.py + instances.py together end-to-end.
+Uses the in-repo in-memory FakeRedis (same shape as the one in
+tests/test_instances.py and tests/test_deck_manage_integration.py) rather
+than the external `fakeredis` package, so the suite runs under CI's
+`pip install -r requirements.txt` with no test-only runtime dependency.
 
-Run: pytest tests/test_registry_wishlist_gating.py -q
+Run: python -m unittest discover -s tests
 """
 import os
 import sys
 import unittest
-
-import fakeredis
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,9 +23,76 @@ import registry
 import instances as instance_store
 
 
-def _normalized_deck(source_id: str, status_hint: str = None, cards=None):
-    """Build a minimal NORMALIZED_DECK_SHAPE payload. `status_hint` is not
-    a real provider field -- upsert_deck ignores it; tests set the desired
+class FakeRedis:
+    """Minimal in-memory stand-in for the redis calls registry.py and
+    instances.py make, mirroring the FakeRedis in tests/test_instances.py so
+    the whole suite uses one consistent in-repo fake instead of the external
+    fakeredis package."""
+
+    def __init__(self):
+        self.store = {}
+        self.sets = {}
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def set(self, key, value):
+        self.store[key] = value
+
+    def delete(self, *keys):
+        for k in keys:
+            self.store.pop(k, None)
+
+    def sadd(self, key, member):
+        self.sets.setdefault(key, set()).add(member)
+
+    def srem(self, key, member):
+        self.sets.get(key, set()).discard(member)
+
+    def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    def sinter(self, *keys):
+        sets = [self.sets.get(k, set()) for k in keys]
+        if not sets:
+            return set()
+        result = sets[0]
+        for s in sets[1:]:
+            result = result & s
+        return result
+
+    def keys(self, pattern):
+        prefix = pattern.rstrip("*")
+        return [k for k in self.store if k.startswith(prefix)]
+
+    def scan_iter(self, match):
+        # Snapshot the key list so callers may mutate the store while iterating,
+        # matching real SCAN's tolerance for concurrent modification.
+        return iter(self.keys(match))
+
+    def pipeline(self):
+        return FakePipeline(self)
+
+
+class FakePipeline:
+    def __init__(self, parent):
+        self.parent = parent
+        self.ops = []
+
+    def __getattr__(self, name):
+        def call(*args, **kwargs):
+            self.ops.append((name, args, kwargs))
+            return self
+        return call
+
+    def execute(self):
+        for name, args, kwargs in self.ops:
+            getattr(self.parent, name)(*args, **kwargs)
+        self.ops = []
+
+
+def _normalized_deck(source_id: str, cards=None):
+    """Build a minimal NORMALIZED_DECK_SHAPE payload. Tests set the desired
     status via default_status on first import (deck status is otherwise
     preserved across re-imports, exactly as production does)."""
     return {
@@ -44,7 +111,7 @@ def _normalized_deck(source_id: str, status_hint: str = None, cards=None):
 
 class WishlistGatingTestCase(unittest.TestCase):
     def setUp(self):
-        self.r = fakeredis.FakeRedis(decode_responses=True)
+        self.r = FakeRedis()
 
     def test_digital_deck_import_creates_zero_instances(self):
         deck = registry.upsert_deck(self.r, _normalized_deck("1"), default_status="digital")
@@ -92,6 +159,7 @@ class WishlistGatingTestCase(unittest.TestCase):
         deck = registry.upsert_deck(self.r, _normalized_deck("6"), default_status="testing")
         registry.set_status(self.r, registry.registry_id_of(deck), "physical")
         before = len(instance_store.list_instances(self.r))
+        self.assertGreater(before, 0)
         registry.upsert_deck(self.r, _normalized_deck("6"))
         self.assertEqual(len(instance_store.list_instances(self.r)), before)
 
