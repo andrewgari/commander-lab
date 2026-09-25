@@ -156,6 +156,34 @@ class TestInstanceRegistry(unittest.TestCase):
         self.assertEqual(len(instance_store.list_instances(self.r, ownership_status="in_collection")), 2)
         self.assertEqual(len(instance_store.list_instances(self.r, deck_id=1)), 1)
 
+    def test_list_instances_search_query(self):
+        instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_collection", set_name="Commander 2021")
+        instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_deck", deck_id=1, deck_name="Group Hug")
+        instance_store.create_instance(self.r, card_name="Arcane Signet", ownership_status="in_collection", notes="bent corner")
+
+        self.assertEqual(len(instance_store.list_instances(self.r, q="sol ring")), 2)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="COMMANDER 2021")), 1)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="group hug")), 1)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="bent corner")), 1)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="nonexistent")), 0)
+        # combined with an index filter
+        self.assertEqual(
+            len(instance_store.list_instances(self.r, ownership_status="in_collection", q="sol ring")), 1
+        )
+
+    def test_list_instances_search_query_handles_null_fields(self):
+        # notes/set_name/deck_name default to "" on create, but guard against
+        # any None values (e.g. legacy records) not producing a literal
+        # "none" false-positive match.
+        record = instance_store.create_instance(self.r, card_name="Sol Ring")
+        stored = instance_store.get_instance(self.r, record["id"])
+        stored["notes"] = None
+        stored["set_name"] = None
+        instance_store._save_instance(self.r, stored)
+
+        self.assertEqual(len(instance_store.list_instances(self.r, q="none")), 0)
+        self.assertEqual(len(instance_store.list_instances(self.r, q="sol ring")), 1)
+
     def test_update_instance_fields(self):
         record = instance_store.create_instance(self.r, card_name="Sol Ring")
         updated = instance_store.update_instance_fields(self.r, record["id"], condition="LP", notes="bent corner")
