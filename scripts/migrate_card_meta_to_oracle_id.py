@@ -49,8 +49,12 @@ def resolve_oracle_id(card_name: str):
     return data.get("oracle_id")
 
 
-def migrate(apply: bool):
-    r = redis.from_url(REDIS_URL, decode_responses=True)
+def migrate(apply: bool, r=None):
+    """Run the backfill. `r` is an optional injected redis-like client
+    (used by tests to avoid a real Redis connection); defaults to a real
+    connection built from REDIS_URL when not supplied."""
+    if r is None:
+        r = redis.from_url(REDIS_URL, decode_responses=True)
 
     meta_keys = r.keys("card_meta:*")
     print(f"Found {len(meta_keys)} legacy card_meta:* records.")
