@@ -37,6 +37,72 @@ def parse_identifier(identifier: str) -> str:
     return candidate
 
 
+class MoxfieldUserNotFound(ValueError):
+    """Raised when a Moxfield username has no matching decks / doesn't exist."""
+
+
+def list_decks(username: str) -> list:
+    """Return every public Moxfield deck publicId owned by `username`.
+
+    Pages through api2.moxfield.com/v2/decks/search with authorUserNames
+    (plural — the only param name that actually filters; see
+    docs/LINKED_ACCOUNTS.md / mtg-apis skill references/moxfield_api.md).
+    A bad/nonexistent username does NOT error at the HTTP layer — Moxfield
+    silently returns the global top-N feed instead. Guard against that by
+    verifying every returned deck's authors actually include the requested
+    username (case-insensitive); if none do, raise MoxfieldUserNotFound
+    rather than returning that unrelated feed as if it were the user's decks.
+    """
+    username = username.strip()
+    if not username:
+        raise MoxfieldUserNotFound("empty Moxfield username")
+
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    public_ids = []
+    page = 1
+    total_pages = 1
+    username_lower = username.lower()
+    saw_match = False
+
+    while page <= total_pages:
+        res = requests.get(
+            "https://api2.moxfield.com/v2/decks/search",
+            params={"pageSize": 100, "pageNumber": page, "authorUserNames": username},
+            headers=headers,
+            timeout=20,
+        )
+        res.raise_for_status()
+        data = res.json()
+        total_pages = data.get("totalPages", 1) or 1
+
+        for deck in data.get("data", []):
+            authors = deck.get("authors") or []
+            author_names = {a.get("userName", "").lower() for a in authors}
+            if username_lower not in author_names:
+                # Wrong/nonexistent username: the search silently fell back
+                # to the unfiltered global feed. Bail out with a clear error
+                # instead of harvesting unrelated decks.
+                raise MoxfieldUserNotFound(
+                    f"no decks found for Moxfield user {username} (API "
+                    "returned results but none listed this user as an "
+                    "author -- check the username)"
+                )
+            saw_match = True
+            public_id = deck.get("publicId")
+            if public_id:
+                public_ids.append(public_id)
+
+        page += 1
+
+    if not saw_match:
+        raise MoxfieldUserNotFound(
+            f"no decks found for Moxfield user {username} (API returned "
+            "no results for this username -- check the username)"
+        )
+
+    return public_ids
+
+
 def fetch_deck(identifier: str) -> dict:
     public_id = parse_identifier(identifier)
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
