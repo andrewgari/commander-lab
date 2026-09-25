@@ -122,7 +122,22 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     r.set(f"deck_status:{deck_id}", status)
 
     result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
-    instance_store.ensure_wishlist_instances(r, registry_id_of(result_deck), result_deck.get("cards", []))
+
+    if result_deck.get("status") == "physical":
+        # Physical deck resync: surface a diff only. Flag instances that are
+        # still bound (in_deck) to this deck but are no longer on the remote
+        # decklist, and do NOT create placeholders for newly added remote
+        # cards — a physical deck's inventory is real cardboard, so additions
+        # and removals both wait for human adjudication.
+        new_card_names = {c.get("name") for c in result_deck.get("cards", []) if c.get("name")}
+        instance_store.flag_resync_removed(r, registry_id_of(result_deck), new_card_names)
+    else:
+        # Digital/testing decks have no physical footprint: importing them is
+        # a wishlist action, so placeholder not_owned instances are created up
+        # front (see tests/test_deck_wishlist_integration.py).
+        instance_store.ensure_wishlist_instances(
+            r, registry_id_of(result_deck), result_deck.get("cards", [])
+        )
 
     return result_deck
 
