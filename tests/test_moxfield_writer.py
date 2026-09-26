@@ -363,5 +363,78 @@ class TestUpdateAndFolderMove(ClientTestBase):
                 client.list_my_decks()
 
 
+class TestEnvTokenAuth(unittest.TestCase):
+    """MOXFIELD_TOKEN path: no .auth file, no Playwright, no refresh call.
+
+    This is the path that matters for hosts that cannot load moxfield.com --
+    Moxfield's login is gated by a Cloudflare Turnstile CAPTCHA, so a headless
+    password login is impossible and a pasted token is the only option.
+    """
+
+    def test_env_token_needs_no_session_file(self):
+        with patch.dict(os.environ, {
+            "MOXFIELD_TOKEN": "tok-env",
+            "MOXFIELD_USER_ID": "user-env",
+            "MOXFIELD_SESSION_FILE": "/nonexistent/state.json",
+        }, clear=True):
+            with patch.object(mw.requests, "post") as mock_post:
+                client = mw.MoxfieldClient()
+
+        self.assertEqual(client.access_token, "tok-env")
+        self.assertTrue(client.token_from_env)
+        self.assertEqual(client.cookies, {})
+        mock_post.assert_not_called()  # no token/refresh round trip
+
+    def test_bearer_prefix_is_stripped(self):
+        with patch.dict(os.environ, {
+            "MOXFIELD_TOKEN": "Bearer tok-env",
+            "MOXFIELD_USER_ID": "user-env",
+        }, clear=True):
+            client = mw.MoxfieldClient()
+        self.assertEqual(client.access_token, "tok-env")
+        self.assertEqual(client._headers()["Authorization"], "Bearer tok-env")
+
+    def test_env_token_works_without_a_user_id(self):
+        with patch.dict(os.environ, {
+            "MOXFIELD_TOKEN": "tok-env",
+            "MOXFIELD_SESSION_FILE": "/nonexistent/state.json",
+        }, clear=True):
+            client = mw.MoxfieldClient()
+        self.assertEqual(client.access_token, "tok-env")
+        self.assertNotIn("X-Session-User", client._headers())
+
+    def test_expired_env_token_gives_an_actionable_error(self):
+        """A pasted token can't be refreshed -- the error must say how to fix it
+        rather than surfacing a bare 401."""
+        with patch.dict(os.environ, {
+            "MOXFIELD_TOKEN": "tok-expired", "MOXFIELD_USER_ID": "user-env",
+        }, clear=True):
+            client = mw.MoxfieldClient()
+            unauthorized = MagicMock(status_code=401, text="nope")
+            with patch.object(mw.requests, "request", return_value=unauthorized):
+                with self.assertRaises(MoxfieldAuthError) as ctx:
+                    client.list_my_decks()
+
+        message = str(ctx.exception)
+        self.assertIn("MOXFIELD_TOKEN", message)
+        self.assertIn("fresh", message)
+
+    def test_env_token_takes_precedence_over_a_saved_session(self):
+        path = write_state()
+        try:
+            with patch.dict(os.environ, {"MOXFIELD_TOKEN": "tok-env"}, clear=True):
+                with patch.object(mw.requests, "post") as mock_post:
+                    client = mw.MoxfieldClient(session_path=path)
+            self.assertEqual(client.access_token, "tok-env")
+            mock_post.assert_not_called()
+        finally:
+            os.unlink(path)
+
+    def test_explicit_access_token_argument_wins(self):
+        with patch.dict(os.environ, {}, clear=True):
+            client = mw.MoxfieldClient(access_token="tok-arg")
+        self.assertEqual(client.access_token, "tok-arg")
+
+
 if __name__ == "__main__":
     unittest.main()

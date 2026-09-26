@@ -55,3 +55,6 @@ tests/review_evals/results/*
 
 # import-linter cache (STA-8)
 .import_linter_cache/
+
+# local scratch
+_boot_redis.py
