@@ -824,6 +824,25 @@
 {% endblock %}
 
 {% block content %}
+<!-- ==========================================================================
+     Transcribe to Moxfield (physical decks only)
+     ========================================================================== -->
+<section class="linked-accounts-section" id="transcribeSection">
+    <div class="linked-accounts-header">
+        <h2 class="linked-accounts-title">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Transcribe to Moxfield
+        </h2>
+        <div class="linked-accounts-actions">
+            <button class="btn" id="transcribePreviewBtn" onclick="runTranscribe(true)">Preview</button>
+            <button class="btn btn-primary" id="transcribeBtn" onclick="runTranscribe(false)">Transcribe Physical Decks</button>
+        </div>
+    </div>
+    <div id="transcribeMeta" class="linked-accounts-empty">Checking…</div>
+    <div id="transcribeReport" style="display: none; font-size: 0.85rem; color: #9ca3af; margin-top: 0.75rem;"></div>
+</section>
+
+
 <div class="controls">
     <h1>Commander Decks</h1>
     <div style="display: flex; align-items: center; gap: 1.5rem;">
@@ -2097,6 +2116,111 @@
         }
     }
     
+    // ---------------------------------------------------------------
+    // Transcribe physical decks to Moxfield
+    // ---------------------------------------------------------------
+
+    // decks.html has no shared escape helper; this panel renders deck names
+    // and server error strings, so it escapes its own interpolations.
+    function txEscape(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function setTranscribeEnabled(enabled) {
+        document.getElementById('transcribePreviewBtn').disabled = !enabled;
+        document.getElementById('transcribeBtn').disabled = !enabled;
+    }
+
+    async function loadTranscribeStatus() {
+        const meta = document.getElementById('transcribeMeta');
+        try {
+            const res = await fetch('/api/transcribe/moxfield');
+            const data = await res.json();
+            const total = data.eligible || 0;
+            const done = (data.decks || []).filter(d => d.transcribed).length;
+
+            if (total === 0) {
+                meta.textContent = 'No physical decks to transcribe.';
+                setTranscribeEnabled(false);
+                return;
+            }
+            meta.textContent = `${total} physical deck${total === 1 ? '' : 's'} eligible`
+                + ` — ${done} already on Moxfield.`
+                + ` New decks are created private in the "${data.folder}" folder.`;
+            setTranscribeEnabled(true);
+        } catch (err) {
+            meta.textContent = 'Could not read transcribe status.';
+            setTranscribeEnabled(false);
+        }
+    }
+
+    window.runTranscribe = async function(dryRun) {
+        const report = document.getElementById('transcribeReport');
+        setTranscribeEnabled(false);
+        report.style.display = 'block';
+        report.style.color = '#9ca3af';
+        report.textContent = dryRun ? 'Previewing…' : 'Transcribing to Moxfield… (this takes a moment per deck)';
+
+        try {
+            const res = await fetch('/api/transcribe/moxfield', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dry_run: dryRun })
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                report.style.color = '#f87171';
+                report.textContent = data.error || `Transcribe failed (HTTP ${res.status})`;
+                return;
+            }
+
+            const rep = data.report || {};
+            const rows = (rep.results || []).map(item => {
+                const name = txEscape(item.name);
+                if (item.action === 'created') {
+                    const url = txEscape(item.moxfield_url || '');
+                    const warn = item.description_error
+                        ? ' <span style="color:#fbbf24;">(description not set)</span>' : '';
+                    return `<li>${name} → <a href="${url}" target="_blank" rel="noopener">${url}</a>${warn}</li>`;
+                }
+                if (item.action === 'would_create') {
+                    return `<li>${name} (${item.cards || 0} cards) would be created</li>`;
+                }
+                if (item.action === 'skipped_already') {
+                    const url = txEscape(item.moxfield_url || '');
+                    return `<li style="opacity:0.65;">${name} already transcribed → ${url}</li>`;
+                }
+                if (item.action === 'failed') {
+                    return `<li style="color:#f87171;">${name}: ${txEscape(item.error || 'failed')}</li>`;
+                }
+                return '';
+            }).filter(Boolean).join('');
+
+            // Safe: every interpolation above is either txEscape()d or a number.
+            report.innerHTML = `
+                <p><strong style="color:#e5e7eb;">${rep.created || 0}</strong> ${dryRun ? 'would be created' : 'created'},
+                   <strong style="color:#e5e7eb;">${rep.skipped_already || 0}</strong> already done,
+                   <strong style="color:#e5e7eb;">${rep.failed || 0}</strong> failed
+                   — folder "${txEscape(rep.folder)}", visibility ${txEscape(rep.visibility)}.</p>
+                ${dryRun ? '<p><em>Preview only — Moxfield was not contacted.</em></p>' : ''}
+                <ul style="padding-left:1.1rem; margin:0.5rem 0;">${rows}</ul>
+            `;
+
+            if (!dryRun) await loadTranscribeStatus();
+        } catch (err) {
+            report.style.color = '#f87171';
+            report.textContent = `Transcribe failed: ${err}`;
+        } finally {
+            setTranscribeEnabled(true);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', loadTranscribeStatus);
+
     // Auto load once deferred hud.js has run (renderDecks uses HUD).
     document.addEventListener('DOMContentLoaded', loadDecks);
 </script>
