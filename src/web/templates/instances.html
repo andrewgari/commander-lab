@@ -186,11 +186,91 @@
         color: var(--text-heading);
         margin-bottom: 0.5rem;
     }
+
+    /* Collection import panel */
+    .collection-panel {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .collection-panel .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .collection-panel h2 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin: 0;
+    }
+    .collection-panel .meta {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 0.3rem;
+    }
+    .collection-panel .actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .collection-panel button {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: #111827;
+        color: #e5e7eb;
+        cursor: pointer;
+    }
+    .collection-panel button:hover:not(:disabled) { border-color: var(--accent); }
+    .collection-panel button:disabled { opacity: 0.5; cursor: default; }
+    .collection-report {
+        margin-top: 0.9rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.85rem;
+        color: #9ca3af;
+        display: none;
+    }
+    .collection-report .numbers {
+        display: flex;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+    }
+    .collection-report .numbers span strong {
+        color: var(--text-heading);
+        margin-right: 0.3rem;
+    }
+    .collection-report.error { color: #f87171; }
+    .collection-surplus {
+        margin: 0.5rem 0 0;
+        padding-left: 1.1rem;
+        font-size: 0.8rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <h1>Card Instances</h1>
+
+<div class="collection-panel" id="collectionPanel">
+    <div class="panel-head">
+        <div>
+            <h2>Archidekt Collection</h2>
+            <div class="meta" id="collectionMeta">Checking…</div>
+        </div>
+        <div class="actions">
+            <button id="previewBtn" onclick="runCollectionImport(true)">Preview</button>
+            <button id="importBtn" onclick="runCollectionImport(false)">Import collection</button>
+        </div>
+    </div>
+    <div class="collection-report" id="collectionReport"></div>
+</div>
 
 <div class="stats-row" id="statsRow">
     <div class="stat-card">
@@ -474,6 +554,100 @@
         });
     }
 
+    // ---------------------------------------------------------------
+    // Archidekt collection import
+    // ---------------------------------------------------------------
+
+    function setCollectionButtonsEnabled(enabled) {
+        document.getElementById('previewBtn').disabled = !enabled;
+        document.getElementById('importBtn').disabled = !enabled;
+    }
+
+    async function loadCollectionStatus() {
+        const meta = document.getElementById('collectionMeta');
+        try {
+            const res = await fetch('/api/collection/sync');
+            const data = await res.json();
+
+            if (!data.credentialed) {
+                meta.innerHTML = 'Not configured — set <code>ARCHIDEKT_SESSION</code> and '
+                    + '<code>ARCHIDEKT_CSRF</code> (see docs/COLLECTION_IMPORT.md). '
+                    + 'Archidekt has no public collection API.';
+                setCollectionButtonsEnabled(false);
+                return;
+            }
+
+            const user = data.username ? escapeHtml(data.username) : 'ARCHIDEKT_USERNAME not set';
+            if (data.last_sync) {
+                const rep = data.last_sync.report || {};
+                meta.innerHTML = `${user} — last imported ${formatDate(data.last_sync.synced_at)} `
+                    + `(${rep.remote_copies || 0} copies, ${rep.created || 0} created)`;
+            } else {
+                meta.innerHTML = `${user} — never imported`;
+            }
+            setCollectionButtonsEnabled(true);
+        } catch (err) {
+            meta.textContent = 'Could not read collection sync status';
+            setCollectionButtonsEnabled(false);
+        }
+    }
+
+    window.runCollectionImport = async function(dryRun) {
+        const report = document.getElementById('collectionReport');
+        setCollectionButtonsEnabled(false);
+        report.className = 'collection-report';
+        report.style.display = 'block';
+        report.textContent = dryRun ? 'Previewing collection…' : 'Importing collection…';
+
+        try {
+            const res = await fetch('/api/collection/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dry_run: dryRun })
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                report.className = 'collection-report error';
+                report.textContent = data.error || `Import failed (HTTP ${res.status})`;
+                return;
+            }
+
+            const rep = data.report || {};
+            const surplus = rep.surplus || [];
+            // innerHTML is safe here: every card-derived string goes through
+            // escapeHtml() and the remaining interpolations are our own
+            // integer counters, same convention as renderInstances above.
+            const surplusHtml = surplus.length
+                ? `<p>Copies here but not in Archidekt (nothing was removed):</p>
+                   <ul class="collection-surplus">${surplus.slice(0, 25).map(s =>
+                       `<li>${escapeHtml(s.card_name)} — ${s.count} ${escapeHtml(s.set || '')} ${escapeHtml(s.finish || '')}</li>`
+                   ).join('')}${surplus.length > 25 ? `<li>…and ${surplus.length - 25} more</li>` : ''}</ul>`
+                : '';
+
+            report.innerHTML = `
+                <div class="numbers">
+                    <span><strong>${rep.remote_copies || 0}</strong>copies in Archidekt</span>
+                    <span><strong>${rep.created || 0}</strong>${dryRun ? 'would be created' : 'created'}</span>
+                    <span><strong>${rep.promoted || 0}</strong>wishlist promoted</span>
+                    <span><strong>${rep.already_present || 0}</strong>already here</span>
+                </div>
+                ${dryRun ? '<p><em>Preview only — nothing was written.</em></p>' : ''}
+                ${surplusHtml}
+            `;
+
+            if (!dryRun) {
+                await loadCollectionStatus();
+                await fetchInstances();
+            }
+        } catch (err) {
+            report.className = 'collection-report error';
+            report.textContent = `Import failed: ${err}`;
+        } finally {
+            setCollectionButtonsEnabled(true);
+        }
+    };
+
     // Handle URL params for deep linking BEFORE initial fetch
     const urlParams = new URLSearchParams(window.location.search);
     const statusParam = urlParams.get('status');
@@ -487,5 +661,6 @@
 
     // Initialize - now after URL params are applied
     fetchInstances();
+    loadCollectionStatus();
 </script>
 {% endblock %}
