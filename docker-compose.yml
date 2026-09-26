@@ -59,6 +59,7 @@ services:
       # returns 501 push_not_configured. See docs/SYNC_UPDATE_PUSH.md.
       - ARCHIDEKT_TOKEN=${ARCHIDEKT_TOKEN:-}
       - MOXFIELD_TOKEN=${MOXFIELD_TOKEN:-}
+      - MOXFIELD_USER_ID=${MOXFIELD_USER_ID:-}
       - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
@@ -76,6 +77,9 @@ services:
         condition: service_healthy
     volumes:
       - app_data:/data
+      # Moxfield session captured by scripts/setup_auth.py (docs/MOXFIELD_TRANSCRIBE.md).
+      # Read-only: live credentials, gitignored, refreshed out-of-band without a rebuild.
+      - ./.auth:/app/.auth:ro
     command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - internal
