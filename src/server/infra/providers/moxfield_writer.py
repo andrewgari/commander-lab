@@ -247,7 +247,84 @@ class MoxfieldClient:
                 return folder
         return self.create_folder(name)
 
+    def add_deck_to_folder(self, deck_id: str, folder_id: str) -> None:
+        """Move a deck into a folder (Moxfield's ADD_DECK_TO_FOLDER)."""
+        res = self._request("POST", f"/v1/deck-folders/{folder_id}/decks/{deck_id}")
+        if res.status_code not in (200, 201, 204):
+            raise MoxfieldWriteError(
+                f"could not move deck {deck_id} into folder {folder_id} "
+                f"({res.status_code}: {res.text[:160]})"
+            )
+
     # -- decks -----------------------------------------------------------
+
+    def list_my_decks(self) -> list:
+        """Every deck on the authenticated account, including private ones.
+
+        Uses /v2/decks/personal/search (the endpoint Moxfield's own "My Decks"
+        view calls) rather than the public /v2/decks/search, so archiving can't
+        silently skip a private deck.
+        """
+        decks = []
+        page = 1
+        while True:
+            res = self._request(
+                "GET", "/v2/decks/personal/search",
+                params={"pageNumber": page, "pageSize": 100,
+                        "sortType": "updated", "sortDirection": "descending"},
+            )
+            if res.status_code != 200:
+                raise MoxfieldWriteError(
+                    f"could not list your decks ({res.status_code}: {res.text[:160]})"
+                )
+            payload = res.json() or {}
+            decks.extend(payload.get("data") or [])
+            if page >= (payload.get("totalPages") or 1):
+                break
+            page += 1
+        return decks
+
+    def update_deck(self, deck: dict, **changes) -> dict:
+        """PUT a deck with selected fields changed.
+
+        Moxfield's update is a full-object PUT needing its optimistic
+        concurrency headers, so unchanged fields are echoed from `deck` rather
+        than invented. Only name/visibility/description/format/comments are
+        sent — notably this never touches the cardlist, so renaming or
+        re-filing a deck cannot lose cards.
+        """
+        deck_id = deck.get("id")
+        public_id = deck.get("publicId")
+        if not deck_id or not public_id:
+            raise MoxfieldWriteError("deck payload is missing id/publicId")
+
+        body = {
+            "name": changes.get("name", deck.get("name")),
+            "format": changes.get("format", deck.get("format", "commander")),
+            "description": changes.get("description", deck.get("description", "") or ""),
+            "visibility": changes.get("visibility", deck.get("visibility", "private")),
+            "areCommentsEnabled": changes.get(
+                "areCommentsEnabled", deck.get("areCommentsEnabled", True)
+            ),
+        }
+        if body["visibility"] not in VISIBILITIES:
+            raise MoxfieldWriteError(f"invalid visibility: {body['visibility']}")
+
+        res = self._request(
+            "PUT",
+            f"/v2/decks/{deck_id}",
+            json=body,
+            extra_headers={
+                "X-Public-Deck-ID": str(public_id),
+                "X-Deck-Version": str(deck.get("version", 0)),
+            },
+        )
+        if res.status_code not in (200, 204):
+            raise MoxfieldWriteError(
+                f"could not update deck {deck.get('name')!r} "
+                f"({res.status_code}: {res.text[:200]})"
+            )
+        return {**deck, **body}
 
     def create_deck(
         self,

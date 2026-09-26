@@ -275,5 +275,93 @@ class TestDeckCreation(ClientTestBase):
             client.update_deck_description({"name": "no ids"}, "desc")
 
 
+class TestUpdateAndFolderMove(ClientTestBase):
+    """Covers the archive-path methods: update_deck, add_deck_to_folder,
+    list_my_decks."""
+
+    def _resp(self, payload, status=200):
+        res = MagicMock(status_code=status, text=json.dumps(payload))
+        res.json.return_value = payload
+        return res
+
+    def test_update_deck_sends_only_metadata_never_a_cardlist(self):
+        """Renaming a deck must not be able to touch its cards."""
+        client = self.make_client()
+        ok = self._resp({})
+        deck = {"id": "mx1", "publicId": "pub1", "name": "Old", "version": 2,
+                "format": "commander", "visibility": "public"}
+
+        with patch.object(mw.requests, "request", return_value=ok) as mock_req:
+            client.update_deck(deck, name="[Archived] Old", visibility="private")
+
+        body = mock_req.call_args.kwargs["json"]
+        self.assertEqual(body["name"], "[Archived] Old")
+        self.assertEqual(body["visibility"], "private")
+        self.assertNotIn("mainboard", body)
+        self.assertNotIn("cards", body)
+        headers = mock_req.call_args.kwargs["headers"]
+        self.assertEqual(headers["X-Public-Deck-ID"], "pub1")
+        self.assertEqual(headers["X-Deck-Version"], "2")
+
+    def test_update_deck_preserves_unchanged_fields(self):
+        client = self.make_client()
+        ok = self._resp({})
+        deck = {"id": "mx1", "publicId": "pub1", "name": "Keep", "version": 1,
+                "format": "commander", "visibility": "unlisted",
+                "description": "existing primer", "areCommentsEnabled": False}
+
+        with patch.object(mw.requests, "request", return_value=ok) as mock_req:
+            client.update_deck(deck, name="[Archived] Keep")
+
+        body = mock_req.call_args.kwargs["json"]
+        self.assertEqual(body["visibility"], "unlisted")
+        self.assertEqual(body["description"], "existing primer")
+        self.assertFalse(body["areCommentsEnabled"])
+
+    def test_update_deck_rejects_invalid_visibility(self):
+        client = self.make_client()
+        deck = {"id": "mx1", "publicId": "pub1", "name": "X", "version": 1}
+        with patch.object(mw.requests, "request") as mock_req:
+            with self.assertRaises(MoxfieldWriteError):
+                client.update_deck(deck, visibility="nope")
+        mock_req.assert_not_called()
+
+    def test_add_deck_to_folder_posts_to_the_folder_route(self):
+        client = self.make_client()
+        ok = MagicMock(status_code=204, text="")
+        with patch.object(mw.requests, "request", return_value=ok) as mock_req:
+            client.add_deck_to_folder("mx1", "f1")
+        self.assertEqual(mock_req.call_args.args[0], "POST")
+        self.assertIn("/v1/deck-folders/f1/decks/mx1", mock_req.call_args.args[1])
+
+    def test_add_deck_to_folder_error_raises(self):
+        client = self.make_client()
+        failed = MagicMock(status_code=500, text="boom")
+        with patch.object(mw.requests, "request", return_value=failed):
+            with self.assertRaises(MoxfieldWriteError):
+                client.add_deck_to_folder("mx1", "f1")
+
+    def test_list_my_decks_uses_personal_search_and_paginates(self):
+        """Must use the authenticated endpoint so private decks are included."""
+        client = self.make_client()
+        page1 = self._resp({"data": [{"id": "d1"}, {"id": "d2"}], "totalPages": 2})
+        page2 = self._resp({"data": [{"id": "d3"}], "totalPages": 2})
+
+        with patch.object(mw.requests, "request", side_effect=[page1, page2]) as mock_req:
+            decks = client.list_my_decks()
+
+        self.assertEqual([d["id"] for d in decks], ["d1", "d2", "d3"])
+        self.assertIn("/v2/decks/personal/search", mock_req.call_args_list[0].args[1])
+        self.assertEqual(mock_req.call_args_list[0].kwargs["params"]["pageNumber"], 1)
+        self.assertEqual(mock_req.call_args_list[1].kwargs["params"]["pageNumber"], 2)
+
+    def test_list_my_decks_error_raises(self):
+        client = self.make_client()
+        failed = MagicMock(status_code=500, text="boom")
+        with patch.object(mw.requests, "request", return_value=failed):
+            with self.assertRaises(MoxfieldWriteError):
+                client.list_my_decks()
+
+
 if __name__ == "__main__":
     unittest.main()
