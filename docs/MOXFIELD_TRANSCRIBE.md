@@ -45,21 +45,49 @@ description is a second `PUT`.
 
 ## Setup
 
+### Recommended: paste a token (no installs, no browser automation)
+
+Moxfield's login endpoint (`POST /v2/account/token`) requires a **Cloudflare
+Turnstile CAPTCHA token**, so a headless username/password login is impossible
+by design. Many hosts (datacenter IPs) are also hard-blocked from loading
+`moxfield.com` at all — though `api2.moxfield.com` stays reachable. So the
+simplest credential path is to copy a token from a browser where you are
+already logged in:
+
+1. Open Moxfield in your normal browser, logged in.
+2. DevTools → Application → Local Storage → `https://www.moxfield.com`.
+3. Find the entry holding your session and copy `accessToken` and `userId`.
+4. Put them in `.env` where the app runs:
+
 ```
-python scripts/setup_auth.py
+MOXFIELD_TOKEN=<accessToken>
+MOXFIELD_USER_ID=<userId>
 ```
 
-Log in to Moxfield in the browser it opens, then press ENTER. This writes:
+A leading `Bearer ` is tolerated. Nothing to install, and it works on a
+headless server.
 
-- `.auth/state.json` — Playwright storage state (cookies)
-- `.auth/moxfield.json` — your Moxfield `userId`, read from the live page
+Tokens are short-lived. A pasted token cannot be auto-refreshed, so when it
+expires the error says exactly that — paste a fresh one.
 
-Your password never passes through Commander Lab — the code only ever reads
-cookies from `.auth/` and exchanges them for a short-lived bearer token.
-If the userId capture fails, set `MOXFIELD_USER_ID` in `.env` instead.
+### Alternative: saved browser session (auto-refreshing)
 
-Sessions expire; when they do, transcribe fails with an explicit
-"re-run scripts/setup_auth.py" message.
+```
+python scripts/setup_auth.py                       # writes ./.auth
+python scripts/setup_auth.py --auth-dir ~/cl-auth  # if the repo dir isn't writable
+```
+
+Needs a machine **with a display** and `playwright` installed, and its IP must
+not be Cloudflare-blocked. Log in to Moxfield in the browser it opens, then
+press ENTER. This writes `.auth/state.json` plus `.auth/moxfield.json`
+(your `userId`). Cookies from this path *can* be exchanged for a fresh token
+automatically, which is its one advantage.
+
+Your password never passes through Commander Lab in either path — the code
+only ever reads a token or cookies.
+
+Sessions expire; when they do, transcribe fails with an explicit message
+telling you which credential to refresh.
 
 ## Usage
 

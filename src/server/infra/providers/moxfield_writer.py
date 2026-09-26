@@ -138,25 +138,73 @@ def _user_id_from_state(session_path: Optional[str] = None) -> Optional[str]:
 class MoxfieldClient:
     """Authenticated Moxfield write client.
 
-    The access token is short-lived, so it is fetched on construction via the
-    session cookies and refreshed automatically on a 401 retry.
+    Two credential sources, in priority order:
+
+    1. `MOXFIELD_TOKEN` (+ `MOXFIELD_USER_ID`) in the environment — an
+       `accessToken` copied from a browser where you are already logged in.
+       No browser automation, no Playwright, nothing to install. This is the
+       recommended path: Moxfield's login endpoint is gated by a Cloudflare
+       Turnstile CAPTCHA, so a headless password login is impossible by
+       design, and many hosts (datacenter IPs) can't load moxfield.com at all.
+    2. A saved Playwright session (`.auth/state.json`) whose cookies are
+       exchanged for a bearer token via `/v1/account/token/refresh`.
+
+    Tokens are short-lived either way. With the cookie path we can refresh
+    automatically; with a pasted token we cannot, so an expired token raises a
+    clear "paste a fresh one" error instead of silently failing.
     """
 
-    def __init__(self, session_path: Optional[str] = None, user_id: Optional[str] = None):
+    def __init__(
+        self,
+        session_path: Optional[str] = None,
+        user_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ):
         self.session_path = session_path
+        env_token = (access_token or os.getenv("MOXFIELD_TOKEN") or "").strip()
+        # Tolerate a pasted "Bearer xyz" as well as a bare token.
+        if env_token.lower().startswith("bearer "):
+            env_token = env_token[7:].strip()
+
+        self.token_from_env = bool(env_token)
+        self.cookies = {}
+        self.access_token = env_token or None
+
+        if self.token_from_env:
+            self.user_id = (
+                user_id
+                or os.getenv("MOXFIELD_USER_ID")
+                or _user_id_from_state(session_path)
+            )
+            # userId is only needed for the X-Session-User header and the
+            # refresh call; with a pasted token it's optional but recommended.
+            return
+
         self.cookies = _load_session_cookies(session_path)
         self.user_id = (
             user_id
             or os.getenv("MOXFIELD_USER_ID")
             or _user_id_from_state(session_path)
         )
-        self.access_token = None
         self.refresh()
 
     # -- auth ------------------------------------------------------------
 
     def refresh(self) -> str:
-        """Exchange the session cookies for a bearer access token."""
+        """Exchange the session cookies for a bearer access token.
+
+        Not possible when the token came from MOXFIELD_TOKEN — there are no
+        cookies to exchange, so say so plainly rather than failing obscurely
+        on the next request.
+        """
+        if self.token_from_env:
+            raise MoxfieldAuthError(
+                "MOXFIELD_TOKEN has expired and cannot be refreshed automatically. "
+                "Copy a fresh accessToken from a logged-in Moxfield browser tab "
+                "(DevTools > Application > Local Storage > moxfield.com) and update "
+                "MOXFIELD_TOKEN — see docs/MOXFIELD_TRANSCRIBE.md"
+            )
+
         if not self.user_id:
             raise MoxfieldAuthError(
                 "could not determine your Moxfield userId — set MOXFIELD_USER_ID "
