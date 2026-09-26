@@ -40,6 +40,8 @@ from src.server.infra.providers import fetch_deck, ProviderError
 import src.server.infra.providers.linked_accounts as linked_accounts
 import src.server.domain.inventory.collection as collection
 from src.server.infra.providers import archidekt_collection
+import src.server.domain.decks.transcribe as transcribe
+from src.server.infra.providers.moxfield_writer import MoxfieldAuthError, MoxfieldWriteError
 from src.server.infra.providers.linked_accounts import LinkedAccountError
 import src.server.domain.decks.deck_links as deck_links
 from src.server.domain.decks.deck_links import DeckLinkError
@@ -6374,4 +6376,60 @@ async def import_collection(request: Request):
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
     return {"success": True, **result}
+
+
+# ---------------------------------------------------------------------------
+# Transcribe — push physical Archidekt decks to Moxfield
+# (see docs/MOXFIELD_TRANSCRIBE.md). Thin wrappers over transcribe.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/transcribe/moxfield")
+async def get_transcribe_status():
+    """Which physical decks are eligible, and which are already on Moxfield."""
+    decks = transcribe.eligible_decks(r)
+    return {
+        "folder": transcribe.DEFAULT_FOLDER_NAME,
+        "visibility": transcribe.DEFAULT_VISIBILITY,
+        "eligible": len(decks),
+        "decks": [
+            {
+                "registry_id": registry.registry_id_of(deck),
+                "name": deck.get("name"),
+                "status": deck.get("status"),
+                "cards": transcribe.card_count(deck),
+                "transcribed": transcribe.get_mapping(r, registry.registry_id_of(deck)),
+            }
+            for deck in decks
+        ],
+    }
+
+
+@app.post("/api/transcribe/moxfield")
+async def run_transcribe(request: Request):
+    """Transcribe physical decks to Moxfield.
+
+    Body (all optional): {"folder": str, "visibility": str, "force": bool,
+    "dry_run": bool}. Only decks with registry status "physical" are ever
+    touched; dry_run previews without calling Moxfield at all.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = transcribe.transcribe_all(
+            r,
+            folder_name=data.get("folder", transcribe.DEFAULT_FOLDER_NAME),
+            visibility=data.get("visibility", transcribe.DEFAULT_VISIBILITY),
+            force=bool(data.get("force", False)),
+            dry_run=bool(data.get("dry_run", False)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, transcribe.TranscribeError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
 
