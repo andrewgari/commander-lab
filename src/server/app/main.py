@@ -38,6 +38,8 @@ from src.server.domain.tags import engine as autotag_engine_mod
 from src.server.domain.tags import tag_registry
 from src.server.infra.providers import fetch_deck, ProviderError
 import src.server.infra.providers.linked_accounts as linked_accounts
+import src.server.domain.inventory.collection as collection
+from src.server.infra.providers import archidekt_collection
 from src.server.infra.providers.linked_accounts import LinkedAccountError
 import src.server.domain.decks.deck_links as deck_links
 from src.server.domain.decks.deck_links import DeckLinkError
@@ -6323,4 +6325,53 @@ async def api_deck_tune_pet(deck_id: str, request: Request):
     except (tuner_mod.TunerError, journal_mod.JournalError) as exc:
         return _bad_request(exc)
     return {"success": True, **out}
+
+
+# ---------------------------------------------------------------------------
+# Collection import — pull the Archidekt card collection into owned instances
+# (see docs/COLLECTION_IMPORT.md). Thin wrappers over collection.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/collection/sync")
+async def get_collection_sync_status():
+    """Last collection import (or null), plus whether credentials are present,
+    so the UI can show a "configure cookies" hint without a failed import."""
+    try:
+        archidekt_collection.credentials()
+        credentialed = True
+    except archidekt_collection.CollectionAuthError:
+        credentialed = False
+
+    return {
+        "credentialed": credentialed,
+        "username": os.getenv("ARCHIDEKT_USERNAME", ""),
+        "last_sync": collection.last_sync(r),
+    }
+
+
+@app.post("/api/collection/import")
+async def import_collection(request: Request):
+    """Import (or preview) the Archidekt collection.
+
+    Body (all optional): {"username": str, "dry_run": bool}
+    dry_run=true returns the same report without writing any instances.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+
+    username = (data or {}).get("username")
+    dry_run = bool((data or {}).get("dry_run", False))
+
+    try:
+        result = collection.import_collection(r, username=username, dry_run=dry_run)
+    except archidekt_collection.CollectionAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (archidekt_collection.CollectionFetchError, collection.CollectionImportError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
 
