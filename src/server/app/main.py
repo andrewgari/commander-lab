@@ -41,6 +41,7 @@ import src.server.infra.providers.linked_accounts as linked_accounts
 import src.server.domain.inventory.collection as collection
 from src.server.infra.providers import archidekt_collection
 import src.server.domain.decks.transcribe as transcribe
+import src.server.domain.decks.archive as archive
 from src.server.infra.providers.moxfield_writer import MoxfieldAuthError, MoxfieldWriteError
 from src.server.infra.providers.linked_accounts import LinkedAccountError
 import src.server.domain.decks.deck_links as deck_links
@@ -6432,4 +6433,56 @@ async def run_transcribe(request: Request):
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
     return {"success": True, "report": report}
+
+
+# ---------------------------------------------------------------------------
+# Archive — rename + re-file existing Moxfield decks. Never deletes.
+# (see docs/MOXFIELD_ARCHIVE.md). Thin wrappers over archive.py.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/archive/moxfield")
+async def run_archive(request: Request):
+    """Archive existing Moxfield decks: prefix the name, set visibility, and
+    move them into a holding folder. Nothing is ever deleted.
+
+    Body (all optional): {"folder": str, "prefix": str, "visibility": str|null,
+    "skip_transcribed": bool, "dry_run": bool}
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = archive.archive_all(
+            r,
+            folder_name=data.get("folder", archive.DEFAULT_ARCHIVE_FOLDER),
+            prefix=data.get("prefix", archive.DEFAULT_PREFIX),
+            visibility=data.get("visibility", archive.DEFAULT_VISIBILITY),
+            skip_transcribed=bool(data.get("skip_transcribed", True)),
+            dry_run=bool(data.get("dry_run", False)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, archive.ArchiveError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
+
+
+@app.post("/api/archive/moxfield/{deck_id}/restore")
+async def restore_archived_deck(deck_id: str):
+    """Undo one deck's archive: original name and visibility back from the
+    recorded backup."""
+    try:
+        result = archive.restore(r, deck_id)
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except archive.ArchiveError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    except MoxfieldWriteError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
 
