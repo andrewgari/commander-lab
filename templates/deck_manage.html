@@ -208,6 +208,36 @@
     }
 
     .instance-option:hover { background: var(--row-hover); border-color: var(--accent); }
+
+    #resync-review-panel {
+        background: rgba(30, 58, 138, 0.2);
+        border: 1px solid #1e40af;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .review-section { margin-bottom: 1.5rem; }
+    .review-section-title { font-weight: 600; margin-bottom: 0.75rem; color: #93c5fd; }
+    
+    .review-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .review-actions { display: flex; gap: 0.5rem; }
+    
+    .btn-review-keep { background: #065f46; color: #fff; border-color: #059669; }
+    .btn-review-toss { background: #991b1b; color: #fff; border-color: #dc2626; }
+    
+    .unbound-list { list-style: disc; margin-left: 1.5rem; color: var(--text-muted); }
+    .unbound-list li { margin-bottom: 0.25rem; }
 </style>
 {% endblock %}
 
@@ -220,6 +250,20 @@
         </div>
     </div>
     <a class="btn" href="/deck/{{ deck_name | urlencode }}">&larr; Back to Deck</a>
+</div>
+
+<div id="resync-review-panel" style="display: none;">
+    <h2 style="margin-top: 0; font-size: 1.25rem;">Resync changes pending review</h2>
+    
+    <div id="pending-removals-section" class="review-section" style="display: none;">
+        <div class="review-section-title">Physical Cards Not in Remote Decklist (Action Required)</div>
+        <div id="pending-removals-list"></div>
+    </div>
+    
+    <div id="remote-additions-section" class="review-section" style="display: none;">
+        <div class="review-section-title">Cards in Remote Decklist but Missing Physically</div>
+        <ul id="remote-additions-list" class="unbound-list"></ul>
+    </div>
 </div>
 
 <div class="search-container">
@@ -513,7 +557,95 @@
         await loadManageData();
     }
 
+    // --- Resync review panel ---
+    // Safe: card names, sets, and IDs are escaped with escapeHtml/escapeAttr before innerHTML insertion
+    async function loadResyncReview() {
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/resync-review`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.success) return;
+
+            const panel = document.getElementById('resync-review-panel');
+            const removalSection = document.getElementById('pending-removals-section');
+            const additionSection = document.getElementById('remote-additions-section');
+
+            let hasContent = false;
+
+            // Handle pending removals
+            const removals = data.pending_removal || [];
+            if (removals.length > 0) {
+                const list = document.getElementById('pending-removals-list');
+                list.innerHTML = removals.map(inst => `
+                    <div class="review-item" id="review-inst-${escapeAttr(inst.id)}">
+                        <div>
+                            <strong>${escapeHtml(inst.card_name)}</strong>
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">(${escapeHtml(inst.set_name || inst.set || '')})</span>
+                        </div>
+                        <div class="review-actions">
+                            <button class="btn btn-review-keep" onclick="resolveReview('${escapeAttr(inst.id)}', 'keep')">Keep</button>
+                            <button class="btn btn-review-toss" onclick="resolveReview('${escapeAttr(inst.id)}', 'toss')">Toss</button>
+                        </div>
+                    </div>
+                `).join('');
+                removalSection.style.display = 'block';
+                hasContent = true;
+            } else {
+                removalSection.style.display = 'none';
+            }
+
+            // Handle remote additions (unbound cards)
+            const additions = data.unbound_card_names || data.remotely_added || [];
+            if (additions.length > 0) {
+                const list = document.getElementById('remote-additions-list');
+                list.innerHTML = additions.map(name => `<li>${escapeHtml(name)}</li>`).join('');
+                additionSection.style.display = 'block';
+                hasContent = true;
+            } else {
+                additionSection.style.display = 'none';
+            }
+
+            panel.style.display = hasContent ? 'block' : 'none';
+        } catch (err) {
+            console.error("Failed to load resync review:", err);
+        }
+    }
+
+    async function resolveReview(instanceId, action) {
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/resync-review/${encodeURIComponent(instanceId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                const item = document.getElementById(`review-inst-${instanceId}`);
+                if (item) item.remove();
+
+                const list = document.getElementById('pending-removals-list');
+                if (list && list.children.length === 0) {
+                    document.getElementById('pending-removals-section').style.display = 'none';
+                    if (document.getElementById('remote-additions-section').style.display === 'none') {
+                        document.getElementById('resync-review-panel').style.display = 'none';
+                    }
+                }
+
+                // Refresh main deck management cards and resync review panel
+                await loadManageData();
+                await loadResyncReview();
+            } else {
+                alert("Error: " + (data.error || "Unknown error"));
+            }
+        } catch (err) {
+            console.error("Failed to resolve review item:", err);
+            alert("API call failed.");
+        }
+    }
+
     // Start
     loadManageData();
+    loadResyncReview();
 </script>
 {% endblock %}

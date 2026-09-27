@@ -474,6 +474,122 @@ async def remove_card_from_deck(deck_id: str, instance_id: str):
     return {"success": True, "instance": instance, "deck_id": registry_id, "instance_id": instance_id}
 
 
+@app.get("/api/decks/{deck_id}/resync-review")
+async def get_deck_resync_review(deck_id: str):
+    """Review changes detected during a physical deck resync.
+
+    Returns:
+    - pending_removal: instances currently flagged with pending_removal for this deck
+    - unbound_cards: informational list of cards in remote decklist without bound instances
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    registry_id = registry.registry_id_of(deck)
+    raw_id = str(deck.get("id")) if deck.get("id") is not None else None
+
+    # Fetch flagged instances using helper
+    pending_instances = instance_store.list_pending_removal(r, registry_id)
+    if raw_id and raw_id != registry_id:
+        seen = {inst["id"] for inst in pending_instances}
+        for inst in instance_store.list_pending_removal(r, raw_id):
+            if inst["id"] not in seen:
+                pending_instances.append(inst)
+                seen.add(inst["id"])
+
+    # Also check bound instances for pending_removal marker in case secondary index was bypassed
+    bound = instance_store.list_instances(r, deck_id=registry_id)
+    if raw_id and raw_id != registry_id:
+        bound.extend(instance_store.list_instances(r, deck_id=raw_id))
+    seen = {inst["id"] for inst in pending_instances}
+    for inst in bound:
+        if inst.get("pending_removal") and inst["id"] not in seen:
+            pending_instances.append(inst)
+            seen.add(inst["id"])
+
+    pending_instances.sort(key=lambda x: x.get("card_name", ""))
+
+    cards = deck.get("cards", [])
+    unbound_cards = instance_store.find_unbound_remote_cards(r, registry_id, cards)
+    unbound_card_names = [c["name"] for c in unbound_cards]
+
+    return {
+        "success": True,
+        "deck_id": deck_id,
+        "registry_id": registry_id,
+        "pending_removal": pending_instances,
+        "instances": pending_instances,
+        "unbound_cards": unbound_cards,
+        "unbound_card_names": unbound_card_names,
+        "remotely_added": unbound_card_names,
+    }
+
+
+@app.post("/api/decks/{deck_id}/resync-review/{instance_id}")
+async def resolve_deck_resync_review(deck_id: str, instance_id: str, request: Request):
+    """Resolve one pending_removal instance flagged during deck resync.
+
+    - action 'keep' or 'save': transition to 'in_collection' (clears deck_id) and clear pending_removal
+    - action 'toss': transition to 'not_owned' and clear pending_removal
+    Enforces 404 if the instance does not belong to the deck or lacks the pending_removal marker.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    registry_id = registry.registry_id_of(deck)
+    instance = instance_store.get_instance(r, instance_id)
+    if not instance:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Instance not found"})
+
+    pending = instance.get("pending_removal")
+    if not pending:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Instance does not have pending_removal marker"},
+        )
+
+    valid_deck_ids = {str(deck_id), str(registry_id)}
+    if deck.get("id") is not None:
+        valid_deck_ids.add(str(deck.get("id")))
+
+    inst_deck = str(instance.get("deck_id")) if instance.get("deck_id") else None
+    pending_reg = str(pending.get("deck_registry_id") or pending.get("registry_id")) if pending else None
+
+    if inst_deck not in valid_deck_ids and pending_reg not in valid_deck_ids:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Instance does not belong to this deck"},
+        )
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    action = (data.get("action") or "").strip().lower()
+    if action not in ("keep", "save", "toss"):
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": f"Invalid action: must be 'keep' or 'toss', got {action!r}"},
+        )
+
+    try:
+        updated = instance_store.resolve_resync_removal(r, instance_id, action)
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {
+        "success": True,
+        "instance": updated,
+        "action": action,
+        "deck_id": deck_id,
+        "registry_id": registry_id,
+        "instance_id": instance_id,
+    }
+
+
 @app.get("/api/decks/{deck_id}/search")
 async def search_deck_cards(deck_id: str, q: str = ""):
     """Local card-name autocomplete for the add-card dropdown in the deck
