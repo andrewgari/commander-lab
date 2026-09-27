@@ -123,6 +123,14 @@ def migrate(apply: bool, r=None):
         print("\nDry run only — no data written. Re-run with --apply to write "
               "card:{oracle_id} records + the name index.")
 
+    unresolved.sort()
+    return {
+        "found": len(meta_keys),
+        "migrated": migrated,
+        "already_indexed": already_indexed,
+        "unresolved": unresolved,
+    }
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

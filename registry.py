@@ -131,6 +131,14 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     # every resync would violate the "no automatic instance creation for
     # remotely-added cards" rule for physical-deck resyncs. See
     # docs/PHYSICAL_RESYNC_ADJUDICATION.md sections 2-3 (reverses #18).
+    if result_deck.get("status") == "physical":
+        # Physical deck resync: surface a diff only. Flag instances that are
+        # still bound (in_deck) to this deck but are no longer on the remote
+        # decklist, and do NOT create placeholders for newly added remote
+        # cards — a physical deck's inventory is real cardboard, so additions
+        # and removals both wait for human adjudication.
+        new_card_names = {c.get("name") for c in result_deck.get("cards", []) if c.get("name")}
+        instance_store.flag_resync_removed(r, registry_id_of(result_deck), new_card_names)
 
     return result_deck
 
