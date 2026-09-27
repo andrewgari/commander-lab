@@ -166,6 +166,27 @@ class TestDeckManage(unittest.TestCase):
         self.assertEqual(sol_ring["deck_categories"], ["Fast Mana"])
         self.assertEqual(sol_ring["effective_category"], "Fast Mana")
 
+    @patch("app.registry")
+    def test_deck_manage_page_renders_resync_review_panel(self, mock_registry):
+        """Verify templates/deck_manage.html includes the resync review panel and actions."""
+        mock_registry.list_decks.return_value = [
+            {"id": "archidekt:123", "name": "Test Deck", "registry_id": "archidekt:123"}
+        ]
+        mock_registry.registry_id_of.return_value = "archidekt:123"
+
+        response = self.client.get("/deck/Test%20Deck/manage")
+        self.assertEqual(response.status_code, 200)
+        content = response.text
+
+        self.assertIn('id="resync-review-panel"', content)
+        self.assertIn("Resync changes pending review", content)
+        self.assertIn('id="pending-removals-section"', content)
+        self.assertIn('id="remote-additions-section"', content)
+        self.assertIn("btn-review-keep", content)
+        self.assertIn("btn-review-toss", content)
+        self.assertIn("loadResyncReview", content)
+        self.assertIn("resolveReview", content)
+
 
 if __name__ == "__main__":
     unittest.main()
