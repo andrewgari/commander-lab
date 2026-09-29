@@ -446,6 +446,69 @@ class TestDeckAnalyticsAggregator(unittest.TestCase):
         self.assertEqual(len(report.successful_providers), 2)
         self.assertEqual(report.consolidated_metrics.summary.salt_score, 25.0)
 
+    def test_invalid_quantity_validation_fails(self) -> None:
+        payload = {
+            "commanders": ["Atraxa, Praetors' Voice"],
+            "cards": [{"name": "Sol Ring", "quantity": 0}],
+        }
+        with self.assertRaises(Exception):
+            coerce_to_decklist_input(payload)
+
+    def test_case_insensitive_has_provider(self) -> None:
+        aggregator = DeckAnalyticsAggregator(registry=self.registry)
+        self.assertTrue(aggregator._has_provider("MOCK_FAST"))
+        self.assertTrue(aggregator._has_provider("mock_fast"))
+        self.assertFalse(aggregator._has_provider("UNKNOWN_P"))
+
+    def test_enabled_providers_whitelist(self) -> None:
+        aggregator = DeckAnalyticsAggregator(
+            registry=self.registry,
+            enabled_providers=["mock_fast"],
+        )
+        report = aggregator.aggregate(
+            self.sample_deck, providers=["mock_fast", "mock_salt"]
+        )
+        self.assertIn("mock_fast", report.successful_providers)
+        self.assertIn("mock_salt", report.failed_providers)
+        self.assertEqual(report.provider_statuses["mock_salt"].status, "disabled")
+
+    def test_provider_instantiation_failure_isolated(self) -> None:
+        class BrokenInitProvider(BaseAnalyticsProvider):
+            @property
+            def name(self) -> str:
+                return "broken_init"
+            def __init__(self):
+                raise RuntimeError("Failed to connect or initialize provider")
+            def get_meta_scores(self, deck: DecklistInput) -> MetaScores: raise NotImplementedError
+            def get_recommendations(self, deck: DecklistInput) -> CardRecommendations: raise NotImplementedError
+            def get_synergy(self, deck: DecklistInput) -> DeckSynergy: raise NotImplementedError
+            def get_popularity(self, deck: DecklistInput) -> DeckPopularity: raise NotImplementedError
+
+        reg = AnalyticsProviderRegistry()
+        reg.register(MockFastProvider(), name="mock_fast")
+        reg.register(BrokenInitProvider, name="broken_init")
+
+        aggregator = DeckAnalyticsAggregator(registry=reg)
+        report = aggregator.aggregate(self.sample_deck, providers=["mock_fast", "broken_init"])
+        self.assertIn("mock_fast", report.successful_providers)
+        self.assertIn("broken_init", report.failed_providers)
+        self.assertEqual(report.provider_statuses["broken_init"].status, "error")
+
+    def test_recommendation_sources_tracked(self) -> None:
+        aggregator = DeckAnalyticsAggregator(registry=self.registry)
+        report = aggregator.aggregate(self.sample_deck, providers=["mock_fast"])
+        self.assertIsNotNone(report.consolidated_metrics.recommendations)
+        recs = report.consolidated_metrics.recommendations
+        self.assertIsNotNone(recs)
+        assert recs is not None
+        self.assertGreater(len(recs.items), 0)
+        self.assertIn("mock_fast", recs.items[0].sources)
+
+    def test_providers_string_argument_rejected(self) -> None:
+        aggregator = DeckAnalyticsAggregator(registry=self.registry)
+        with self.assertRaises(TypeError):
+            aggregator.aggregate(self.sample_deck, providers="mock_fast")  # type: ignore[arg-type]
+
     def test_functional_convenience_api(self) -> None:
         # Patch default_aggregator's registry with our test registry
         from analytics.aggregator import default_aggregator

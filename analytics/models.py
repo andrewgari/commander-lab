@@ -375,6 +375,9 @@ class CardRecommendation(BaseModel):
     categories: List[str] = Field(
         default_factory=list, description="Associated functional tags/categories"
     )
+    sources: List[str] = Field(
+        default_factory=list, description="Provider sources recommending this card"
+    )
 
     @field_validator("card_name")
     @classmethod
@@ -414,6 +417,9 @@ class CardCutRecommendation(BaseModel):
         None, ge=-1.0, le=1.0, description="Synergy rating (-1.0 to 1.0)"
     )
     reason: Optional[str] = Field(None, description="Reason to cut this card")
+    sources: List[str] = Field(
+        default_factory=list, description="Provider sources recommending this cut"
+    )
 
     @field_validator("card_name")
     @classmethod

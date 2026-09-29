@@ -222,6 +222,44 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.assertFalse(data.get("success"))
         self.assertIn("not found", data.get("error", "").lower())
 
+    def test_post_analytics_non_object_json_returns_400(self) -> None:
+        response = self.client.post("/api/analytics", json=["invalid", "array", "payload"])
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data.get("success"))
+        self.assertIn("JSON object", data.get("error", ""))
+
+    def test_post_analytics_invalid_providers_type_returns_400(self) -> None:
+        payload = {
+            "deck": self.valid_deck_payload,
+            "providers": "dummy",  # string instead of list of strings
+        }
+        response = self.client.post("/api/analytics", json=payload)
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data.get("success"))
+        self.assertIn("list of strings", data.get("error", ""))
+
+        # Non-string entries in list
+        payload2 = {
+            "deck": self.valid_deck_payload,
+            "providers": [123, False],
+        }
+        response2 = self.client.post("/api/analytics", json=payload2)
+        self.assertEqual(response2.status_code, 400)
+
+    def test_post_analytics_invalid_quantity_returns_422(self) -> None:
+        payload = {
+            "name": "Invalid Qty Deck",
+            "commanders": ["Atraxa, Praetors' Voice"],
+            "cards": [{"name": "Sol Ring", "quantity": 0}],
+        }
+        response = self.client.post("/api/analytics", json=payload)
+        self.assertEqual(response.status_code, 422)
+        data = response.json()
+        self.assertFalse(data.get("success"))
+        self.assertIn("Deck validation error", data.get("error", ""))
+
     def test_get_analytics_providers_list(self) -> None:
         response = self.client.get("/api/analytics/providers")
         self.assertEqual(response.status_code, 200)

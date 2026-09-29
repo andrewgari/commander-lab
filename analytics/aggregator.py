@@ -11,6 +11,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 import logging
+import threading
 import time
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
@@ -69,7 +70,7 @@ class ProviderAnalyticsStatus(BaseModel):
     provider_name: str = Field(..., description="Provider unique identifier")
     status: str = Field(
         ...,
-        description="Query status: 'success', 'error', 'timeout', or 'not_found'",
+        description="Query status: 'success', 'error', 'timeout', 'not_found', or 'disabled'",
     )
     execution_time_ms: float = Field(..., ge=0.0, description="Latency in milliseconds")
     error: Optional[str] = Field(None, description="Error message if query failed")
@@ -290,15 +291,11 @@ def coerce_to_decklist_input(deck: Any) -> DecklistInput:
             elif isinstance(entry, dict):
                 c_name = entry.get("name") or entry.get("card_name")
                 if c_name:
-                    qty = entry.get("quantity") or entry.get("count") or 1
-                    try:
-                        qty = max(1, int(qty))
-                    except (ValueError, TypeError):
-                        qty = 1
+                    raw_qty: Any = entry.get("quantity") if "quantity" in entry else (entry.get("count") if "count" in entry else 1)
                     cards.append(
                         DeckCardEntry(
                             name=str(c_name).strip(),
-                            quantity=qty,
+                            quantity=raw_qty,
                             oracle_id=entry.get("oracle_id"),
                             scryfall_id=entry.get("scryfall_id"),
                             category=entry.get("category"),
@@ -307,7 +304,31 @@ def coerce_to_decklist_input(deck: Any) -> DecklistInput:
 
         # Fallback if decklist text was provided in dictionary
         if not cards and "decklist" in deck and isinstance(deck["decklist"], str):
-            return coerce_to_decklist_input(deck["decklist"])
+            cmd_names = [c.name for c in commanders] if commanders else None
+            try:
+                import deck_intake
+                intake_res = deck_intake.process_deck_intake(
+                    decklist=deck["decklist"],
+                    commanders=cmd_names,
+                    name=name,
+                    deck_id=str(deck_id) if deck_id else None,
+                    format=format_val,
+                )
+                return intake_res.to_analytics_input()
+            except Exception:
+                pass
+
+            # Fallback to direct parsing while preserving explicit commanders
+            parsed_input = coerce_to_decklist_input(deck["decklist"])
+            if commanders:
+                return DecklistInput(
+                    deck_id=str(deck_id) if deck_id else parsed_input.deck_id,
+                    name=name or parsed_input.name,
+                    commanders=commanders,
+                    cards=parsed_input.cards,
+                    format=format_val or parsed_input.format,
+                )
+            return parsed_input
 
         return DecklistInput(
             deck_id=str(deck_id) if deck_id else None,
@@ -414,6 +435,16 @@ class DeckAnalyticsAggregator:
             max_workers=self.max_workers,
             thread_name_prefix="analytics-aggregator",
         )
+        self._provider_locks: Dict[str, threading.Lock] = {}
+        self._locks_mutex = threading.Lock()
+
+    def _get_provider_lock(self, provider_name: str) -> threading.Lock:
+        """Get or create a mutex for a specific provider to prevent concurrent thread races."""
+        key = provider_name.strip().lower()
+        with self._locks_mutex:
+            if key not in self._provider_locks:
+                self._provider_locks[key] = threading.Lock()
+            return self._provider_locks[key]
 
     def get_available_providers(self) -> List[Dict[str, Any]]:
         """
@@ -437,8 +468,13 @@ class DeckAnalyticsAggregator:
         return result
 
     def _has_provider(self, name: str) -> bool:
-        """Check whether a provider is registered in the underlying registry."""
-        return name.lower() in self.registry.list_providers()
+        """Check whether a provider is registered in the underlying registry (case-insensitive)."""
+        if not isinstance(name, str):
+            return False
+        key = name.strip().lower()
+        if hasattr(self.registry, "_providers"):
+            return key in self.registry._providers
+        return any(p.strip().lower() == key for p in self.registry.list_providers())
 
     def _resolve_providers_to_query(
         self, providers: Optional[Sequence[str]] = None
@@ -447,10 +483,15 @@ class DeckAnalyticsAggregator:
         Determine the list of provider identifiers to query based on requested
         providers, enabled filters, and registered providers.
         """
-        if providers:
+        if isinstance(providers, str):
+            raise TypeError("'providers' must be a sequence of strings, not a string")
+
+        if providers is not None:
             resolved: List[str] = []
             for p in providers:
-                norm = str(p).strip().lower()
+                if not isinstance(p, str):
+                    continue
+                norm = p.strip().lower()
                 if norm and norm not in resolved:
                     resolved.append(norm)
             return resolved
@@ -458,8 +499,8 @@ class DeckAnalyticsAggregator:
         # Default: all registered providers subject to enabled_providers filter
         registered = self.registry.list_providers()
         if self.enabled_providers is not None:
-            return [p for p in registered if p.lower() in self.enabled_providers]
-        return registered
+            return [p.lower() for p in registered if p.lower() in self.enabled_providers]
+        return [p.lower() for p in registered]
 
     def _get_timeout_for_provider(
         self,
@@ -480,12 +521,34 @@ class DeckAnalyticsAggregator:
         self,
         provider_name: str,
         deck: DecklistInput,
+        deadline: Optional[float] = None,
     ) -> DeckAnalyticsResult:
         """
-        Execute a single provider query synchronously.
+        Execute analyze_deck for a single provider under its provider-level lock.
+        Checks deadline before and during execution to terminate early on timeout.
         """
-        provider = self.registry.get(provider_name)
-        return provider.analyze_deck(deck)
+        if deadline is not None and time.perf_counter() >= deadline:
+            raise TimeoutError("Query cancelled before execution: deadline exceeded")
+
+        lock = self._get_provider_lock(provider_name)
+        acquired = False
+        try:
+            if deadline is not None:
+                remaining = deadline - time.perf_counter()
+                if remaining <= 0 or not lock.acquire(timeout=remaining):
+                    raise TimeoutError("Query timed out waiting for provider lock")
+            else:
+                lock.acquire()
+            acquired = True
+
+            if deadline is not None and time.perf_counter() >= deadline:
+                raise TimeoutError("Query cancelled: deadline exceeded")
+
+            provider = self.registry.get(provider_name)
+            return provider.analyze_deck(deck)
+        finally:
+            if acquired:
+                lock.release()
 
     def aggregate(
         self,
@@ -530,6 +593,16 @@ class DeckAnalyticsAggregator:
 
         # Submit queries concurrently to thread pool
         for p_name in providers_to_query:
+            if self.enabled_providers is not None and p_name.lower() not in self.enabled_providers:
+                provider_statuses[p_name] = ProviderAnalyticsStatus(
+                    provider_name=p_name,
+                    status="disabled",
+                    execution_time_ms=0.0,
+                    error=f"Provider '{p_name}' is disabled by service configuration",
+                    supported_queries=[],
+                )
+                continue
+
             # Check if provider exists in registry first
             if not self._has_provider(p_name):
                 provider_statuses[p_name] = ProviderAnalyticsStatus(
@@ -541,28 +614,56 @@ class DeckAnalyticsAggregator:
                 )
                 continue
 
-            provider_obj = self.registry.get(p_name)
-            supported = sorted(list(getattr(provider_obj, "SUPPORTED_QUERIES", [])))
             t_limit = self._get_timeout_for_provider(p_name, timeout, provider_timeouts)
             start_t = time.perf_counter()
+            deadline = start_t + t_limit
 
-            future = self._executor.submit(self._execute_provider, p_name, deck_input)
-            futures_map[p_name] = (future, t_limit, start_t, supported)
+            try:
+                provider_obj = self.registry.get(p_name)
+                supported = sorted(list(getattr(provider_obj, "SUPPORTED_QUERIES", [])))
+            except Exception:
+                supported = []
+
+            future = self._executor.submit(self._execute_provider, p_name, deck_input, deadline)
+            futures_map[p_name] = (future, t_limit, start_t, deadline, supported)
 
         # Collect results with per-provider timeouts
-        for p_name, (future, t_limit, start_t, supported) in futures_map.items():
-            try:
-                result = future.result(timeout=t_limit)
+        for p_name, (future, t_limit, start_t, deadline, supported) in futures_map.items():
+            remaining = deadline - time.perf_counter()
+            if remaining <= 0:
+                future.cancel()
                 elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
                 provider_statuses[p_name] = ProviderAnalyticsStatus(
                     provider_name=p_name,
-                    status="success",
+                    status="timeout",
                     execution_time_ms=elapsed_ms,
-                    error=None,
+                    error=f"Query timed out after {t_limit}s",
                     supported_queries=supported,
                 )
-                successful_results[p_name] = result
-            except FutureTimeoutError:
+                continue
+
+            try:
+                result = future.result(timeout=remaining)
+                elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
+                if (time.perf_counter() - start_t) > (t_limit + 0.05):
+                    provider_statuses[p_name] = ProviderAnalyticsStatus(
+                        provider_name=p_name,
+                        status="timeout",
+                        execution_time_ms=elapsed_ms,
+                        error=f"Query timed out after {t_limit}s",
+                        supported_queries=supported,
+                    )
+                else:
+                    provider_statuses[p_name] = ProviderAnalyticsStatus(
+                        provider_name=p_name,
+                        status="success",
+                        execution_time_ms=elapsed_ms,
+                        error=None,
+                        supported_queries=supported,
+                    )
+                    successful_results[p_name] = result
+            except (FutureTimeoutError, TimeoutError):
+                future.cancel()
                 elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
                 provider_statuses[p_name] = ProviderAnalyticsStatus(
                     provider_name=p_name,
@@ -647,6 +748,16 @@ class DeckAnalyticsAggregator:
         loop = asyncio.get_running_loop()
 
         async def _query_single_async(p_name: str) -> Tuple[str, str, float, Optional[DeckAnalyticsResult], Optional[str], List[str]]:
+            if self.enabled_providers is not None and p_name.lower() not in self.enabled_providers:
+                return (
+                    p_name,
+                    "disabled",
+                    0.0,
+                    None,
+                    f"Provider '{p_name}' is disabled by service configuration",
+                    [],
+                )
+
             if not self._has_provider(p_name):
                 return (
                     p_name,
@@ -657,19 +768,25 @@ class DeckAnalyticsAggregator:
                     [],
                 )
 
-            provider_obj = self.registry.get(p_name)
-            supported = sorted(list(getattr(provider_obj, "SUPPORTED_QUERIES", [])))
             t_limit = self._get_timeout_for_provider(p_name, timeout, provider_timeouts)
             start_t = time.perf_counter()
+            deadline = start_t + t_limit
+
+            try:
+                provider_obj = self.registry.get(p_name)
+                supported = sorted(list(getattr(provider_obj, "SUPPORTED_QUERIES", [])))
+            except Exception as e:
+                elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
+                return (p_name, "error", elapsed_ms, None, str(e), [])
 
             try:
                 res = await asyncio.wait_for(
-                    loop.run_in_executor(self._executor, self._execute_provider, p_name, deck_input),
+                    loop.run_in_executor(self._executor, self._execute_provider, p_name, deck_input, deadline),
                     timeout=t_limit,
                 )
                 elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
                 return (p_name, "success", elapsed_ms, res, None, supported)
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, TimeoutError):
                 elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
                 return (
                     p_name,
@@ -947,6 +1064,7 @@ class DeckAnalyticsAggregator:
                 oracle_id=item["oracle_id"],
                 score=None,
                 categories=item["categories"],
+                sources=item.get("sources", []),
             )
             for item in sorted_recs
         ]
@@ -962,6 +1080,7 @@ class DeckAnalyticsAggregator:
                 synergy=cut["synergy"],
                 reason=cut["reason"],
                 oracle_id=cut["oracle_id"],
+                sources=cut.get("sources", []),
             )
             for cut in sorted_cuts
         ]

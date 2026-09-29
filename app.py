@@ -999,10 +999,13 @@ async def api_deck_analytics(request: Request):
     except Exception:
         return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
 
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"success": False, "error": "Request body must be a JSON object"})
+
     from analytics.aggregator import default_aggregator, coerce_to_decklist_input
 
     deck_id = data.get("deck_id")
-    deck_data = data.get("deck") or data.get("decklist") or data
+    deck_data = data.get("deck") or data
 
     if deck_id and not data.get("cards") and not data.get("deck") and not data.get("decklist"):
         deck_obj = registry.find_deck(r, deck_id)
@@ -1011,6 +1014,10 @@ async def api_deck_analytics(request: Request):
         deck_data = deck_obj
 
     providers = data.get("providers")
+    if providers is not None:
+        if not isinstance(providers, list) or not all(isinstance(p, str) for p in providers):
+            return JSONResponse(status_code=400, content={"success": False, "error": "'providers' must be a list of strings"})
+
     timeout = data.get("timeout")
     if timeout is not None:
         try:
