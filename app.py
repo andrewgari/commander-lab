@@ -86,38 +86,86 @@ async def get_version():
 
 
 
+def extract_short_description(body: str | None, max_length: int = 280) -> str:
+    """Extract a concise summary from a GitHub release body."""
+    if not body:
+        return ""
+    lines = [line.strip() for line in body.strip().splitlines()]
+    # Ignore markdown headings
+    content_lines = [line for line in lines if line and not line.startswith("#")]
+    if not content_lines:
+        content_lines = [line for line in lines if line]
+    if not content_lines:
+        return ""
+    text = " ".join(content_lines)
+    if len(text) > max_length:
+        truncated = text[:max_length].rsplit(" ", 1)[0]
+        return f"{truncated}..."
+    return text
+
+
 @app.get("/changelog", response_class=HTMLResponse)
 async def changelog(request: Request):
     """Display a scrollable changelog page pulled from GitHub releases."""
     GITHUB_RELEASES_URL = "https://api.github.com/repos/andrewgari/commander-lab/releases"
     CACHE_KEY = "github_releases"
+    STALE_CACHE_KEY = "github_releases_stale"
     CACHE_TTL = 600  # 10 minutes
 
     releases = None
     error_msg = None
 
-    # Try cache first
+    # 1. Try active cache first
     cached = r.get(CACHE_KEY)
-    
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(GITHUB_RELEASES_URL, headers={"Accept": "application/vnd.github+json"})
-            resp.raise_for_status()
-            releases = resp.json()
-            r.setex(CACHE_KEY, CACHE_TTL, json.dumps(releases))
-    except Exception:
-        if cached:
+    if cached:
+        try:
             releases = json.loads(cached)
-        else:
-            error_msg = "Could not load changelog — GitHub API is unavailable."
+        except Exception:
+            cached = None
 
-    if releases is None and error_msg is None:
-        releases = []
+    # 2. If cache miss, fetch from GitHub API
+    if releases is None:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    GITHUB_RELEASES_URL,
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "commander-lab",
+                    },
+                )
+                resp.raise_for_status()
+                releases = resp.json()
+                # Store in Redis with TTL and persist stale fallback
+                r.setex(CACHE_KEY, CACHE_TTL, json.dumps(releases))
+                r.set(STALE_CACHE_KEY, json.dumps(releases))
+        except Exception:
+            # 3. Graceful fallback on API failure: serve stale cache if available
+            stale = r.get(STALE_CACHE_KEY) or cached
+            if stale:
+                try:
+                    releases = json.loads(stale)
+                except Exception:
+                    releases = None
+
+            if releases is None:
+                error_msg = "Changelog is currently unavailable. Please check back later."
+
+    # Format releases with tag, date, and short description
+    formatted_releases = []
+    if releases:
+        for rel in releases:
+            rel_dict = dict(rel)
+            body = rel.get("body") or ""
+            rel_dict["short_description"] = extract_short_description(body)
+            pub_date = rel.get("published_at")
+            rel_dict["release_date"] = pub_date[:10] if pub_date else "Unknown date"
+            formatted_releases.append(rel_dict)
 
     return templates.TemplateResponse(
         request=request,
         name="changelog.html",
-        context={"releases": releases or [], "error_msg": error_msg},
+        context={"releases": formatted_releases, "error_msg": error_msg},
     )
 
 @app.get("/api/decks")

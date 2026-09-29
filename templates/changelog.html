@@ -1,39 +1,192 @@
 {% extends "base.html" %}
 
-{% block title %}Changelog — Commander Lab{% endblock %}
+{% block title %}Changelog | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .changelog-header {
+        margin-bottom: 2rem;
+    }
+
+    .changelog-subtitle {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-top: -1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .changelog-container {
+        max-width: 800px;
+    }
+
+    .changelog-scrollable {
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+        padding-right: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    /* Custom scrollbar matching base theme */
+    .changelog-scrollable::-webkit-scrollbar {
+        width: 8px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-track {
+        background: var(--bg-color);
+        border-radius: 4px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-thumb:hover {
+        background: #374151;
+    }
+
+    .release-entry {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .release-entry:hover {
+        border-color: rgba(59, 130, 246, 0.4);
+        transform: translateY(-1px);
+    }
+
+    .release-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .release-tags {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .version-tag {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #93c5fd;
+        background: #172554;
+        border: 1px solid #1e40af;
+        border-radius: 4px;
+        padding: 0.2rem 0.6rem;
+        letter-spacing: 0.02em;
+    }
+
+    .badge-prerelease {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        background: #713f12;
+        color: #fef3c7;
+        border: 1px solid #854d0e;
+    }
+
+    .release-date {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .release-name {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin: 0 0 0.5rem 0;
+    }
+
+    .release-description {
+        color: var(--text-main);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin: 0;
+        white-space: pre-line;
+    }
+
+    .changelog-alert {
+        background: rgba(127, 29, 29, 0.15);
+        border: 1px solid #991b1b;
+        border-radius: 8px;
+        padding: 1.5rem;
+        color: #fca5a5;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .changelog-alert svg {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        color: #ef4444;
+    }
+
+    .changelog-empty {
+        background: var(--nav-bg);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 3rem 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto py-8 px-4">
-    <h1 class="text-2xl font-bold text-gray-100 mb-6">Changelog</h1>
+<div class="changelog-container">
+    <div class="changelog-header">
+        <h1>Changelog</h1>
+        <div class="changelog-subtitle">Version history and release notes for Commander Lab</div>
+    </div>
 
     {% if error_msg %}
-    <div class="bg-red-900/40 border border-red-700 rounded-lg p-4 text-red-300">
-        {{ error_msg }}
+    <div class="changelog-alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ error_msg }}</span>
     </div>
-    {% elif releases|length == 0 %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-gray-400">
-        No releases found yet.
+    {% elif not releases %}
+    <div class="changelog-empty">
+        <p>No releases found yet.</p>
     </div>
     {% else %}
-    <div class="space-y-4 max-h-[75vh] overflow-y-auto pr-2" style="scrollbar-color: #374151 transparent;">
+    <div class="changelog-scrollable">
         {% for release in releases %}
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-gray-500 transition-colors">
-            <div class="flex items-center gap-3 mb-2">
-                <span class="text-lg font-semibold text-indigo-400 font-mono">{{ release.tag_name }}</span>
-                {% if release.prerelease %}
-                <span class="text-xs bg-yellow-900/60 text-yellow-300 border border-yellow-700 rounded px-2 py-0.5">pre-release</span>
-                {% endif %}
-                <span class="text-sm text-gray-500 ml-auto">
-                    {{ release.published_at[:10] if release.published_at else 'unknown date' }}
-                </span>
+        <article class="release-entry">
+            <div class="release-header">
+                <div class="release-tags">
+                    <span class="version-tag">{{ release.tag_name }}</span>
+                    {% if release.prerelease %}
+                    <span class="badge-prerelease">Pre-release</span>
+                    {% endif %}
+                </div>
+                <time class="release-date">{{ release.release_date or release.published_at[:10] }}</time>
             </div>
             {% if release.name and release.name != release.tag_name %}
-            <div class="text-gray-300 font-medium mb-1">{{ release.name }}</div>
+            <h2 class="release-name">{{ release.name }}</h2>
             {% endif %}
-            {% if release.body %}
-            <div class="text-sm text-gray-400 whitespace-pre-line leading-relaxed">{{ release.body }}</div>
-            {% endif %}
-        </div>
+            <p class="release-description">{{ release.short_description or release.body or "No description provided." }}</p>
+        </article>
         {% endfor %}
     </div>
     {% endif %}
