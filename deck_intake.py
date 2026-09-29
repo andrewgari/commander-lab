@@ -259,6 +259,10 @@ class ConsolidatedDeckIntake:
         return provider.analyze_deck(self.to_analytics_input())
 
 
+# Alias for backwards compatibility and domain terminology
+DeckIntakeResult = ConsolidatedDeckIntake
+
+
 # =============================================================================
 # Deck Intake Orchestration Service
 # =============================================================================
