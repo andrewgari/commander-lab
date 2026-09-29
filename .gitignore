@@ -18,7 +18,9 @@ ENV/
 next_data.json
 *.dump
 *.log
+*.rdb
 scratch/
+.worktrees/
 
 # Testing and coverage
 .pytest_cache/

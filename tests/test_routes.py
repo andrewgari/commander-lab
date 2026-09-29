@@ -29,6 +29,11 @@ class TestAppRoutes(unittest.TestCase):
         response = self.client.get("/tags")
         self.assertEqual(response.status_code, 200)
 
+    def test_version_route(self):
+        response = self.client.get("/api/version")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("version", response.json())
+
     def test_instances_route(self):
         response = self.client.get("/instances")
         self.assertEqual(response.status_code, 200)
