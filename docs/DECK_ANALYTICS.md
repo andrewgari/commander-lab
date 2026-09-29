@@ -77,8 +77,8 @@ from analytics import register_provider, get_provider, list_providers, BaseAnaly
 class CommanderSaltProvider(BaseAnalyticsProvider):
     ...
 
-# Direct registration:
-register_provider(CommanderSaltProvider, name="commandersalt")
+# Alternatively, direct (non-decorator) registration of an unregistered class:
+# register_provider(CommanderSaltProvider, name="commandersalt")
 
 # Retrieval:
 salt_provider = get_provider("commandersalt")

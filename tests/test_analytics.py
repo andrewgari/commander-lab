@@ -279,6 +279,19 @@ class TestAnalyticsOutputModels(unittest.TestCase):
         self.assertEqual(len(recs.cuts), 1)
         self.assertEqual(recs.total, 1)
 
+    def test_card_recommendations_total_defaults_to_item_count(self):
+        recs = CardRecommendations(
+            items=[
+                CardRecommendation(card_name="Good Card A"),
+                CardRecommendation(card_name="Good Card B"),
+            ]
+        )
+        self.assertEqual(recs.total, 2)
+
+    def test_card_recommendations_empty_defaults_total_to_zero(self):
+        recs = CardRecommendations()
+        self.assertEqual(recs.total, 0)
+
     def test_synergy_metric_valid(self):
         syn = SynergyMetric(
             card_name="Deepglow Skate",

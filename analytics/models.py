@@ -465,14 +465,20 @@ class CardRecommendations(BaseModel):
     cuts: List[CardCutRecommendation] = Field(
         default_factory=list, description="Suggested cuts"
     )
-    total: int = Field(default=0, ge=0, description="Total recommendation count")
+    total: Optional[int] = Field(
+        default=None,
+        ge=0,
+        validate_default=True,
+        description="Total recommendation count (defaults to len(items))",
+    )
 
     @field_validator("total", mode="before")
     @classmethod
     def populate_total(cls, v: Optional[int], info) -> int:
-        # If total is not provided or 0, default to len(items) if items given
+        """Default `total` to the number of recommended items when omitted."""
         if v is None:
-            return 0
+            items = info.data.get("items") or []
+            return len(items)
         return v
 
 
