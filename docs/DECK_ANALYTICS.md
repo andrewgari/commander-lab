@@ -84,12 +84,106 @@ class CommanderSaltProvider(BaseAnalyticsProvider):
 salt_provider = get_provider("commandersalt")
 
 # Listing:
-all_providers = list_providers()  # ['commandersalt', ...]
+all_providers = list_providers()  # ['commandersalt', 'edhrec', ...]
 ```
 
 ---
 
-## 4. EDHRec Provider Adapter (`analytics.providers.edhrec`)
+## 4. Commander Salt Provider Adapter (`analytics.providers.commandersalt`)
+
+`CommanderSaltProvider` (registered as `"commandersalt"`) is a concrete
+`BaseAnalyticsProvider` implementation backed by Commander Salt's unofficial,
+unauthenticated `api.commandersalt.com/decks?id=...` endpoint (the same data
+commandersalt.com's own frontend consumes — Commander Salt has no official
+public API or documented auth scheme).
+
+```python
+from analytics import get_provider
+from analytics.providers import CommanderSaltProvider  # registers "commandersalt" on import
+
+provider = get_provider("commandersalt")
+result = provider.analyze_deck(deck)  # DeckAnalyticsResult (meta_scores only)
+```
+
+### Data sourced
+
+A single deck lookup supplies everything this adapter needs, so
+`get_meta_scores()` issues exactly one HTTP request per deck (the raw
+payload is cached per resolved source URL for the provider instance's
+lifetime):
+
+- **Salt score** — `SaltScore.score` (Commander Salt's deck-wide
+  `saltRating`), `SaltScore.salt_sum` (sum of all per-card salt values), and
+  `SaltScore.high_salt_cards` (top contributing cards, ranked descending).
+- **Power level estimate** — `PowerScore.score` (0-10 scale, from
+  `powerLevelRating`), `PowerScore.tier` (Commander Salt's own bracket
+  label, e.g. `"cEDH"`), and `PowerScore.breakdown` (per-category subscores:
+  stax, ramp, combos, interaction, etc.).
+- **Combo detection** — surfaced under
+  `MetaScores.provider_metrics["combos"]`: combo count, number of
+  independent effective win lines, redundancy classification, a
+  human-readable summary, and a list of individual combos (participating
+  cards, outcome categories, score, and a Commander Spellbook link).
+- **Other provider metrics** — `bracket_rating`, `synergy_rating`,
+  `threat_rating`, and `archetype_label` are passed through under
+  `MetaScores.provider_metrics` when present.
+
+Commander Salt does not publish card recommendation, synergy, or popularity
+data in a form directly comparable to the other providers, so
+`get_recommendations()`, `get_synergy()`, and `get_popularity()` raise
+`UnsupportedAnalyticsQueryError`; `analyze_deck()` skips those dimensions
+automatically via `SUPPORTED_QUERIES = {"meta_scores"}`.
+
+### Deck identifier resolution
+
+Commander Salt's lookup endpoint keys off the deck's *source* URL (matching
+the "Commander Salt" link construction in `templates/deck.html` /
+`templates/decks.html`), not an internal Commander Lab id.
+`analytics.providers.commandersalt.resolve_source_url()` translates
+`DecklistInput.deck_id` into that form and accepts:
+
+- a full `http(s)://` deck URL, used as-is;
+- a `"<provider>:<id>"` reference (e.g. `"archidekt:6862011"`), expanded to
+  `https://archidekt.com/decks/6862011` (`"moxfield:<id>"` similarly); or
+- a raw 32-character Commander Salt internal deck id, used as-is.
+
+### Lazy ingestion
+
+Commander Salt scores a deck the first time it is looked up. A deck that has
+never been viewed on commandersalt.com returns HTTP 200 with
+`status.exists=False` / `status.invalid=True` and empty scoring, rather than
+an HTTP error. The adapter raises `CommanderSaltNotIngestedError` for this
+case (distinct from `CommanderSaltNotFoundError`, a real 404) so callers can
+decide whether to retry once Commander Salt has finished importing the deck.
+
+### Error handling & rate limiting
+
+`CommanderSaltClient` wraps outbound requests with:
+- **Rate limiting** — a configurable minimum interval between requests
+  (`min_request_interval`, default 0.6s) to avoid hammering an unofficial
+  third-party endpoint.
+- **Retry with backoff** — timeouts, connection errors, HTTP 429, and HTTP
+  5xx responses are retried with exponential backoff (`max_retries`,
+  default 3 attempts).
+- **Typed exceptions** (`analytics.providers.commandersalt`):
+  - `CommanderSaltNotFoundError` — no record at all for the deck identifier
+    (HTTP 404, or an unrecognized identifier format; not retried).
+  - `CommanderSaltNotIngestedError` — a 200 response for a deck Commander
+    Salt has not yet ingested/scored.
+  - `CommanderSaltResponseError` — a 200 response that isn't valid JSON, or
+    doesn't match the expected deck schema.
+  - `CommanderSaltRequestError` — network/timeout/rate-limit/server errors
+    that persisted after exhausting all retries, or a malformed/unsupported
+    `deck_id`.
+
+All four inherit `analytics.exceptions.AnalyticsProviderError`, so callers
+that already handle the base analytics exception hierarchy catch Commander
+Salt failures without a Commander-Salt-specific import. No authentication or
+session is required: the endpoint is a public, unauthenticated GET.
+
+---
+
+## 5. EDHRec Provider Adapter (`analytics.providers.edhrec`)
 
 `EDHRecProvider` is a concrete `BaseAnalyticsProvider` implementation backed
 by EDHRec's unofficial `json.edhrec.com` JSON endpoints (the same data

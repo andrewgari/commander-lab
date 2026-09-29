@@ -2,6 +2,16 @@
 Concrete adapter implementations of `analytics.provider.BaseAnalyticsProvider`
 for third-party deck analytics data sources.
 """
+from .commandersalt import (
+    CommanderSaltClient,
+    CommanderSaltError,
+    CommanderSaltNotFoundError,
+    CommanderSaltNotIngestedError,
+    CommanderSaltProvider,
+    CommanderSaltRequestError,
+    CommanderSaltResponseError,
+    resolve_source_url,
+)
 from .edhrec import (
     EDHRecClient,
     EDHRecError,
@@ -14,6 +24,14 @@ from .edhrec import (
 )
 
 __all__ = [
+    "CommanderSaltClient",
+    "CommanderSaltProvider",
+    "CommanderSaltError",
+    "CommanderSaltNotFoundError",
+    "CommanderSaltNotIngestedError",
+    "CommanderSaltRequestError",
+    "CommanderSaltResponseError",
+    "resolve_source_url",
     "EDHRecClient",
     "EDHRecProvider",
     "EDHRecError",
