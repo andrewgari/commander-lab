@@ -145,8 +145,9 @@ class TestResolveSourceUrl(unittest.TestCase):
             resolve_source_url("   ")
 
     def test_malformed_reference_raises(self):
-        with self.assertRaises(CommanderSaltRequestError):
+        with self.assertRaises(CommanderSaltRequestError) as ctx:
             resolve_source_url("archidekt:")
+        self.assertIn("missing its reference value", str(ctx.exception))
 
 
 class TestCommanderSaltClient(unittest.TestCase):
@@ -232,6 +233,65 @@ class TestCommanderSaltClient(unittest.TestCase):
         with self.assertRaises(CommanderSaltRequestError):
             client.get_deck("https://archidekt.com/decks/6862011")
         session.get.assert_called_once()
+
+    def test_missing_status_object_raises_response_error(self):
+        session = MagicMock()
+        session.get.return_value = _make_response(200, json_body={})
+        client = self._make_client(session)
+
+        with self.assertRaises(CommanderSaltResponseError):
+            client.get_deck("https://archidekt.com/decks/6862011")
+
+    def test_status_exists_not_true_raises_response_error(self):
+        session = MagicMock()
+        session.get.return_value = _make_response(200, json_body={"status": {"exists": "maybe"}})
+        client = self._make_client(session)
+
+        with self.assertRaises(CommanderSaltResponseError):
+            client.get_deck("https://archidekt.com/decks/6862011")
+
+    def test_concurrent_throttling_serialized(self):
+        import threading
+        import time
+
+        call_times = []
+        lock = threading.Lock()
+        session = MagicMock()
+
+        def fake_get(*args, **kwargs):
+            with lock:
+                call_times.append(time.monotonic())
+            return _make_response(200, _INGESTED_DECK_PAYLOAD)
+
+        session.get.side_effect = fake_get
+
+        client = CommanderSaltClient(
+            session=session,
+            min_request_interval=0.04,
+            max_retries=1,
+        )
+
+        threads = [
+            threading.Thread(
+                target=client.get_deck,
+                args=(f"https://archidekt.com/decks/{i}",),
+            )
+            for i in range(4)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(len(call_times), 4)
+        # Check that consecutive calls are spaced out by at least ~0.035s
+        for i in range(1, len(call_times)):
+            diff = call_times[i] - call_times[i - 1]
+            self.assertGreaterEqual(
+                diff,
+                0.03,
+                f"Call {i} occurred {diff:.4f}s after previous, expected >= 0.03s",
+            )
 
 
 class TestCommanderSaltProvider(unittest.TestCase):
@@ -347,6 +407,58 @@ class TestCommanderSaltProvider(unittest.TestCase):
         meta = provider.get_meta_scores(_make_deck())
         self.assertIsNone(meta.power)
 
+    def test_non_numeric_power_level_rating_yields_none_power(self):
+        payload = dict(_INGESTED_DECK_PAYLOAD)
+        payload = {**payload, "powerLevelRating": "not-a-number"}
+        provider, _ = self._make_provider(payload=payload)
+        meta = provider.get_meta_scores(_make_deck())
+        self.assertIsNone(meta.power)
+
+    def test_cache_ttl_expiration(self):
+        current_time = [1000.0]
+        session = MagicMock()
+        session.get.return_value = _make_response(200, _INGESTED_DECK_PAYLOAD)
+        client = CommanderSaltClient(
+            session=session, min_request_interval=0.0, sleep_fn=lambda _: None
+        )
+        provider = CommanderSaltProvider(
+            client=client,
+            cache_ttl_seconds=300.0,
+            time_fn=lambda: current_time[0],
+        )
+        deck = _make_deck()
+        provider.get_meta_scores(deck)
+        self.assertEqual(session.get.call_count, 1)
+
+        # Within TTL: cached
+        current_time[0] += 100.0
+        provider.get_meta_scores(deck)
+        self.assertEqual(session.get.call_count, 1)
+
+        # Past TTL: re-fetched
+        current_time[0] += 201.0
+        provider.get_meta_scores(deck)
+        self.assertEqual(session.get.call_count, 2)
+
+    def test_cache_max_entries_eviction(self):
+        session = MagicMock()
+        session.get.return_value = _make_response(200, _INGESTED_DECK_PAYLOAD)
+        client = CommanderSaltClient(
+            session=session, min_request_interval=0.0, sleep_fn=lambda _: None
+        )
+        provider = CommanderSaltProvider(client=client)
+        provider._CACHE_MAX_ENTRIES = 2
+
+        provider.get_meta_scores(_make_deck("archidekt:1"))
+        provider.get_meta_scores(_make_deck("archidekt:2"))
+        self.assertEqual(len(provider._cache), 2)
+
+        # 3rd deck evicts oldest
+        provider.get_meta_scores(_make_deck("archidekt:3"))
+        self.assertEqual(len(provider._cache), 2)
+        self.assertNotIn("https://archidekt.com/decks/1", provider._cache)
+        self.assertIn("https://archidekt.com/decks/3", provider._cache)
+
     def test_deck_without_deck_id_raises_request_error(self):
         provider, _ = self._make_provider()
         deck = DecklistInput(
@@ -359,24 +471,27 @@ class TestCommanderSaltProvider(unittest.TestCase):
 
 class TestProviderRegistration(unittest.TestCase):
     def test_registered_under_commandersalt_name(self):
+        import importlib
         from analytics.registry import default_registry
-        from analytics.providers import commandersalt as commandersalt_module
+        import analytics.providers.commandersalt as commandersalt_module
 
-        # Some other test suites (e.g. test_analytics.py's
-        # TestAnalyticsProviderRegistry.test_global_registry_functions) call
-        # clear_registry() against this same process-wide default registry,
-        # which can run before this test under `unittest discover` and wipe
-        # out the module-import-time @register_provider registration below.
-        # Re-assert registration defensively so this test verifies the
-        # decorator's effect regardless of suite ordering.
-        if "commandersalt" not in default_registry.list_providers():
-            default_registry.register(
-                commandersalt_module.CommanderSaltProvider, name="commandersalt"
-            )
+        # Verify import-time registration via @register_provider decorator
+        default_registry.unregister("commandersalt")
+        self.assertNotIn("commandersalt", default_registry.list_providers())
+
+        importlib.reload(commandersalt_module)
+        # Keep module-level aliases in sync with reloaded classes
+        globals()["CommanderSaltRequestError"] = commandersalt_module.CommanderSaltRequestError
+        globals()["CommanderSaltNotFoundError"] = commandersalt_module.CommanderSaltNotFoundError
+        globals()["CommanderSaltNotIngestedError"] = commandersalt_module.CommanderSaltNotIngestedError
+        globals()["CommanderSaltResponseError"] = commandersalt_module.CommanderSaltResponseError
+        globals()["CommanderSaltClient"] = commandersalt_module.CommanderSaltClient
+        globals()["CommanderSaltProvider"] = commandersalt_module.CommanderSaltProvider
+        globals()["resolve_source_url"] = commandersalt_module.resolve_source_url
 
         self.assertIn("commandersalt", default_registry.list_providers())
         provider = default_registry.get("commandersalt")
-        self.assertIsInstance(provider, CommanderSaltProvider)
+        self.assertIsInstance(provider, commandersalt_module.CommanderSaltProvider)
 
 
 if __name__ == "__main__":

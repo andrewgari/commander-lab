@@ -167,7 +167,7 @@ decide whether to retry once Commander Salt has finished importing the deck.
   default 3 attempts).
 - **Typed exceptions** (`analytics.providers.commandersalt`):
   - `CommanderSaltNotFoundError` — no record at all for the deck identifier
-    (HTTP 404, or an unrecognized identifier format; not retried).
+    (HTTP 404 response from Commander Salt; not retried).
   - `CommanderSaltNotIngestedError` — a 200 response for a deck Commander
     Salt has not yet ingested/scored.
   - `CommanderSaltResponseError` — a 200 response that isn't valid JSON, or

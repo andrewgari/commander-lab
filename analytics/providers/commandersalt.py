@@ -23,6 +23,7 @@ Commander Salt integration and its data model quirks.
 from __future__ import annotations
 
 import re
+import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -63,8 +64,10 @@ class CommanderSaltError(AnalyticsProviderError):
 
 
 class CommanderSaltNotFoundError(CommanderSaltError):
-    """Raised when Commander Salt has no record at all for the requested
-    deck identifier (HTTP 404, or an unrecognized/malformed identifier)."""
+    """Raised when Commander Salt returns HTTP 404 for the requested deck
+    identifier -- i.e. Commander Salt itself has no record of it. Malformed
+    or unrecognized `deck_id` values never reach the network and instead
+    raise `CommanderSaltRequestError` from `resolve_source_url()`."""
 
 
 class CommanderSaltNotIngestedError(CommanderSaltError):
@@ -115,8 +118,9 @@ def resolve_source_url(deck_id: Optional[str]) -> str:
       - a raw 32-character Commander Salt internal deck id, used as-is
 
     Raises:
-        CommanderSaltRequestError: if `deck_id` is missing or its provider
-            prefix is not one Commander Salt is known to ingest.
+        CommanderSaltRequestError: if `deck_id` is missing, its provider
+            prefix is not one Commander Salt is known to ingest, or it has
+            a recognized prefix but no reference value (e.g. `"archidekt:"`).
     """
     if not deck_id or not deck_id.strip():
         raise CommanderSaltRequestError(
@@ -133,14 +137,21 @@ def resolve_source_url(deck_id: Optional[str]) -> str:
 
     if ":" in cleaned:
         provider, _, ref = cleaned.partition(":")
-        builder = _SOURCE_URL_BUILDERS.get(provider.strip().lower())
+        provider_key = provider.strip().lower()
+        builder = _SOURCE_URL_BUILDERS.get(provider_key)
         ref = ref.strip()
-        if builder is not None and ref:
-            return builder(ref)
-        raise CommanderSaltRequestError(
-            f"cannot query Commander Salt: unsupported deck_id source '{provider}' "
-            f"(supported: {', '.join(sorted(_SOURCE_URL_BUILDERS))})"
-        )
+        if builder is None:
+            raise CommanderSaltRequestError(
+                f"cannot query Commander Salt: unsupported deck_id source '{provider}' "
+                f"(supported: {', '.join(sorted(_SOURCE_URL_BUILDERS))})"
+            )
+        if not ref:
+            raise CommanderSaltRequestError(
+                f"cannot query Commander Salt: deck_id source '{provider}' is "
+                "missing its reference value (expected '<provider>:<id>', e.g. "
+                f"'{provider_key}:6862011')"
+            )
+        return builder(ref)
 
     raise CommanderSaltRequestError(
         f"cannot query Commander Salt: unrecognized deck_id format '{deck_id}'"
@@ -169,9 +180,10 @@ class CommanderSaltClient:
       endpoint.
     - Retries transient failures (timeouts, connection errors, 429, 5xx)
       with exponential backoff, up to `max_retries` attempts.
-    - Raises `CommanderSaltNotFoundError` for 404s,
+    - Raises `CommanderSaltNotFoundError` for HTTP 404 responses,
       `CommanderSaltNotIngestedError` for decks Commander Salt has not yet
-      scored, `CommanderSaltResponseError` for malformed/unexpected JSON,
+      scored, `CommanderSaltResponseError` for malformed/unexpected JSON
+      (including a 200 response missing the expected `status` object),
       and `CommanderSaltRequestError` for anything else that exhausts
       retries.
     - No authentication/session is required: the endpoint is a public,
@@ -201,16 +213,20 @@ class CommanderSaltClient:
         self._sleep = sleep_fn
         self._now = time_fn
         self._last_request_at: Optional[float] = None
+        self._throttle_lock = threading.Lock()
 
     def _throttle(self) -> None:
         """Block until at least `min_request_interval` has elapsed since the
-        previous outbound request."""
-        if self._last_request_at is not None:
-            elapsed = self._now() - self._last_request_at
-            wait = self._min_request_interval - elapsed
-            if wait > 0:
-                self._sleep(wait)
-        self._last_request_at = self._now()
+        previous outbound request. Serialized with a lock so concurrent
+        callers reserve distinct time slots instead of racing to read/update
+        `_last_request_at` and issuing requests together."""
+        with self._throttle_lock:
+            if self._last_request_at is not None:
+                elapsed = self._now() - self._last_request_at
+                wait = self._min_request_interval - elapsed
+                if wait > 0:
+                    self._sleep(wait)
+            self._last_request_at = self._now()
 
     def get_deck(self, source_url: str) -> Dict[str, Any]:
         """Fetch the raw deck payload for a resolved Commander Salt deck
@@ -261,12 +277,20 @@ class CommanderSaltClient:
                             f"Commander Salt returned unexpected response shape for {source_url}"
                         )
                     status = payload.get("status")
-                    if isinstance(status, dict) and (
-                        status.get("exists") is False or status.get("invalid") is True
-                    ):
+                    if not isinstance(status, dict):
+                        raise CommanderSaltResponseError(
+                            f"Commander Salt response for {source_url} is missing "
+                            "the expected 'status' object"
+                        )
+                    if status.get("exists") is False or status.get("invalid") is True:
                         raise CommanderSaltNotIngestedError(
                             f"Commander Salt has not yet ingested/scored: {source_url} "
                             "(try again after Commander Salt has imported this deck)"
+                        )
+                    if status.get("exists") is not True:
+                        raise CommanderSaltResponseError(
+                            f"Commander Salt response for {source_url} has an "
+                            f"unrecognized status.exists value: {status.get('exists')!r}"
                         )
                     return payload
 
@@ -407,16 +431,31 @@ class CommanderSaltProvider(BaseAnalyticsProvider):
 
     SUPPORTED_QUERIES = {"meta_scores"}
 
+    #: Cached raw payloads expire after this many seconds so a deck that is
+    #: edited/rescored at the same source URL doesn't return stale analytics
+    #: indefinitely from a long-lived provider instance.
+    _CACHE_TTL_SECONDS = 300.0
+    #: Hard cap on distinct cached source URLs so arbitrary caller-supplied
+    #: deck_id values can't grow the cache unbounded.
+    _CACHE_MAX_ENTRIES = 256
+
     def __init__(
         self,
         client: Optional[CommanderSaltClient] = None,
         max_high_salt_cards: int = 15,
         max_combos: int = 15,
+        cache_ttl_seconds: Optional[float] = None,
+        time_fn: Callable[[], float] = time.monotonic,
     ) -> None:
         self._client = client or CommanderSaltClient()
         self._max_high_salt_cards = max_high_salt_cards
         self._max_combos = max_combos
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_ttl_seconds = (
+            self._CACHE_TTL_SECONDS if cache_ttl_seconds is None else cache_ttl_seconds
+        )
+        self._now = time_fn
+        # source_url -> (cached_at_monotonic, raw_payload)
+        self._cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
     @property
     def name(self) -> str:
@@ -427,10 +466,18 @@ class CommanderSaltProvider(BaseAnalyticsProvider):
 
         cached = self._cache.get(source_url)
         if cached is not None:
-            return cached
+            cached_at, payload = cached
+            if self._now() - cached_at < self._cache_ttl_seconds:
+                return payload
+            del self._cache[source_url]
 
         raw = self._client.get_deck(source_url)
-        self._cache[source_url] = raw
+
+        if len(self._cache) >= self._CACHE_MAX_ENTRIES:
+            # Evict the oldest entry to bound memory growth.
+            oldest_key = min(self._cache, key=lambda key: self._cache[key][0])
+            del self._cache[oldest_key]
+        self._cache[source_url] = (self._now(), raw)
         return raw
 
     def get_meta_scores(self, deck: DecklistInput) -> MetaScores:
@@ -457,24 +504,26 @@ class CommanderSaltProvider(BaseAnalyticsProvider):
         power_level_rating = raw.get("powerLevelRating")
         power: Optional[PowerScore] = None
         if power_level_rating is not None:
-            try:
-                power_level_details = (
-                    details.get("powerLevel") if isinstance(details, dict) else {}
-                )
-                power_level_scoring = (
-                    power_level_details.get("scoring")
-                    if isinstance(power_level_details, dict)
-                    else {}
-                )
-                manuel = raw.get("manuel")
-                power = PowerScore(
-                    score=_clamp(power_level_rating, 0.0, 10.0) or 0.0,
-                    tier=manuel.get("category") if isinstance(manuel, dict) else None,
-                    description=_power_description(manuel),
-                    breakdown=_power_breakdown(power_level_scoring),
-                )
-            except (TypeError, ValueError):
-                power = None
+            clamped_power = _clamp(power_level_rating, 0.0, 10.0)
+            if clamped_power is not None:
+                try:
+                    power_level_details = (
+                        details.get("powerLevel") if isinstance(details, dict) else {}
+                    )
+                    power_level_scoring = (
+                        power_level_details.get("scoring")
+                        if isinstance(power_level_details, dict)
+                        else {}
+                    )
+                    manuel = raw.get("manuel")
+                    power = PowerScore(
+                        score=clamped_power,
+                        tier=manuel.get("category") if isinstance(manuel, dict) else None,
+                        description=_power_description(manuel),
+                        breakdown=_power_breakdown(power_level_scoring),
+                    )
+                except (TypeError, ValueError):
+                    power = None
 
         combos_detail = details.get("combos") if isinstance(details, dict) else None
         provider_metrics: Dict[str, Any] = {
