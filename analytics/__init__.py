@@ -38,6 +38,16 @@ from .registry import (
     register_provider,
     unregister_provider,
 )
+from .aggregator import (
+    AggregatedAnalyticsReport,
+    AnalyticsSummary,
+    ConsolidatedMetrics,
+    DeckAnalyticsAggregator,
+    ProviderAnalyticsStatus,
+    aggregate_deck_analytics,
+    coerce_to_decklist_input,
+    default_aggregator,
+)
 
 __all__ = [
     # Input models
@@ -57,6 +67,15 @@ __all__ = [
     "PopularityMetric",
     "DeckPopularity",
     "DeckAnalyticsResult",
+    # Aggregator models & service
+    "AggregatedAnalyticsReport",
+    "AnalyticsSummary",
+    "ConsolidatedMetrics",
+    "DeckAnalyticsAggregator",
+    "ProviderAnalyticsStatus",
+    "aggregate_deck_analytics",
+    "coerce_to_decklist_input",
+    "default_aggregator",
     # Provider interface
     "BaseAnalyticsProvider",
     # Registry & helpers
