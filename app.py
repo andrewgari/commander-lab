@@ -890,3 +890,59 @@ async def sync_all_linked_accounts():
     accounts = linked_accounts.sync_all(r)
     return {"success": True, "accounts": accounts, "count": len(accounts)}
 
+
+@app.post("/api/intake")
+async def api_deck_intake(request: Request):
+    """Unified deck intake orchestration endpoint.
+    Ingests raw decklist or card structure and user review intent,
+    validates both, and returns a consolidated deck intake object ready
+    for downstream analysis.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
+
+    from deck_intake import DeckIntakeService, DeckIntakeValidationError
+    service = DeckIntakeService()
+    try:
+        result = service.process_payload(data)
+        return {"success": True, "intake": result.to_dict()}
+    except DeckIntakeValidationError as e:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "error": str(e),
+                "errors": e.errors,
+                "warnings": e.warnings,
+            },
+        )
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+
+@app.post("/api/intake/validate")
+async def api_deck_intake_validate(request: Request):
+    """Validate incoming decklist structure and intent without throwing errors."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
+
+    from deck_intake import DeckIntakeService
+    service = DeckIntakeService()
+    result = service.validate(
+        decklist=data.get("decklist") or data.get("cards"),
+        intent=data.get("user_intent"),
+        name=data.get("name"),
+        format=data.get("format", "commander"),
+        commanders=data.get("commanders"),
+        deck_id=data.get("deck_id"),
+        strict_coherence=data.get("strict_coherence", True),
+        strict_deck_size=data.get("strict_deck_size", False),
+        strict_singleton=data.get("strict_singleton", False),
+    )
+    return {"success": True, "validation": result.to_dict()}
+
+
