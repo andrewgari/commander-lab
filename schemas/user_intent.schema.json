@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commander-lab.local/schemas/user_intent.schema.json",
+  "title": "UserDeckIntent",
+  "description": "Configuration schema capturing a user's deck-review intent, playstyle preferences, and constraints for Commander deck reviews.",
+  "type": "object",
+  "properties": {
+    "deck_vision": {
+      "type": "object",
+      "description": "Captures whether the deck review is for a new brew, tuning up an existing deck, or performing an overhaul, along with custom vision notes.",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "enum": ["new_build", "tune_up", "overhaul"],
+          "default": "tune_up",
+          "description": "Primary goal: 'new_build' (creating a fresh decklist from scratch), 'tune_up' (optimizing and refining an existing list), or 'overhaul' (major rebuild/restructuring of theme, commander, or colors)."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "User's stated vision, favorite cards, pet interactions, or thematic focus for the deck."
+        },
+        "target_turn_win": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 20,
+          "default": null,
+          "description": "Expected or desired turn window to present a win or establish an overwhelming board state."
+        }
+      },
+      "required": [],
+      "default": {
+        "intent": "tune_up",
+        "description": "",
+        "target_turn_win": null
+      },
+      "additionalProperties": false
+    },
+    "target_power_level": {
+      "type": "object",
+      "description": "Target power level on the traditional 1-10 Commander scale or named power tiers.",
+      "properties": {
+        "scale": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 7,
+          "description": "Numeric power level rating from 1 (jank / meme deck) to 10 (cEDH / maximum optimization)."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["casual", "focused", "optimized", "competitive"],
+          "default": "optimized",
+          "description": "Named power tier: 'casual' (1-4, low interaction/precon), 'focused' (5-6, synergy & clear gameplan), 'optimized' (7-8, efficient mana curve & answers), 'competitive' (9-10, cEDH, fast combos & free interaction)."
+        }
+      },
+      "required": [],
+      "default": {
+        "scale": 7,
+        "tier": "optimized"
+      },
+      "additionalProperties": false
+    },
+    "budget_constraints": {
+      "type": "object",
+      "description": "Financial constraints and limits for recommended deck upgrades or substitutions.",
+      "properties": {
+        "no_budget": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, financial constraints are disabled (budget caps are disregarded/unlimited)."
+        },
+        "total_budget": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Maximum total expenditure limit for proposed deck upgrades in the given currency. If no_budget is true, must be null."
+        },
+        "max_card_price": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "default": null,
+          "description": "Maximum price cap allowed for any individual card recommendation in the given currency. Must not exceed total_budget when both are set."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "GBP", "CAD", "AUD"],
+          "default": "USD",
+          "description": "Currency code for evaluating card pricing."
+        }
+      },
+      "required": [],
+      "default": {
+        "no_budget": false,
+        "total_budget": null,
+        "max_card_price": null,
+        "currency": "USD"
+      },
+      "additionalProperties": false
+    },
+    "preferred_win_conditions": {
+      "type": "object",
+      "description": "Preferred ways the deck should achieve victory, along with win conditions to avoid.",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "enum": [
+            "combat",
+            "combo",
+            "attrition",
+            "commander_damage",
+            "alternate_wincon",
+            "mill",
+            "burn",
+            "lockout"
+          ],
+          "default": "combat",
+          "description": "Primary intended victory route: combat (creature combat/go-wide/go-tall), combo (infinite loops or instant win lines), attrition (grind, drain, incremental value), commander_damage (voltron lethal commander hits), alternate_wincon (cards stating 'you win the game'), mill (opponent library depletion), burn (direct non-combat damage), lockout (hard stax lock)."
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "combat",
+              "combo",
+              "attrition",
+              "commander_damage",
+              "alternate_wincon",
+              "mill",
+              "burn",
+              "lockout"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Secondary or backup victory paths."
+        },
+        "disliked_or_excluded": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "combat",
+              "combo",
+              "attrition",
+              "commander_damage",
+              "alternate_wincon",
+              "mill",
+              "burn",
+              "lockout"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Win conditions explicitly disallowed (cannot overlap with primary or secondary win conditions)."
+        },
+        "custom_win_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Free-text or user-specific win conditions (e.g. 'Maze\\'s End guildgates', 'Biovisionary clones')."
+        }
+      },
+      "required": [],
+      "default": {
+        "primary": "combat",
+        "secondary": [],
+        "disliked_or_excluded": [],
+        "custom_win_conditions": []
+      },
+      "additionalProperties": false
+    },
+    "archetype_preferences": {
+      "type": "object",
+      "description": "Preferred deck archetype and gameplay themes, as well as archetypes to strictly avoid.",
+      "properties": {
+        "primary_archetype": {
+          "type": "string",
+          "enum": [
+            "aggro",
+            "midrange",
+            "control",
+            "combo",
+            "stax",
+            "spellslinger",
+            "aristocrats",
+            "tokens",
+            "graveyard",
+            "voltron",
+            "ramp",
+            "tribal",
+            "group_hug",
+            "group_slug"
+          ],
+          "default": "midrange",
+          "description": "Primary archetype defining deck construction."
+        },
+        "secondary_archetypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "aggro",
+              "midrange",
+              "control",
+              "combo",
+              "stax",
+              "spellslinger",
+              "aristocrats",
+              "tokens",
+              "graveyard",
+              "voltron",
+              "ramp",
+              "tribal",
+              "group_hug",
+              "group_slug"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Secondary archetypes or hybrid sub-themes (e.g. tokens with aristocrats)."
+        },
+        "excluded_archetypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "aggro",
+              "midrange",
+              "control",
+              "combo",
+              "stax",
+              "spellslinger",
+              "aristocrats",
+              "tokens",
+              "graveyard",
+              "voltron",
+              "ramp",
+              "tribal",
+              "group_hug",
+              "group_slug"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Archetypes explicitly banned from consideration (e.g. no stax, no group hug)."
+        },
+        "custom_themes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Free-text archetype tags or tribal themes (e.g. 'Dinosaurs', 'Landfall burn', 'Equipment voltron')."
+        }
+      },
+      "required": [],
+      "default": {
+        "primary_archetype": "midrange",
+        "secondary_archetypes": [],
+        "excluded_archetypes": [],
+        "custom_themes": []
+      },
+      "additionalProperties": false
+    },
+    "freeform_notes": {
+      "type": "string",
+      "default": "",
+      "description": "Any additional freeform notes, rule 0 considerations, or playgroup context."
+    },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "description": "Arbitrary key-value metadata for downstream intake and orchestration pipelines.",
+      "additionalProperties": true
+    }
+  },
+  "required": [],
+  "additionalProperties": true
+}
