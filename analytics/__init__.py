@@ -67,6 +67,21 @@ from .engine import (
     default_analysis_engine,
     parse_mana_cost,
 )
+from .recommendations import (
+    CURATED_CARD_CATALOG,
+    RECENT_SETS,
+    CardSwapSuggestion,
+    RecommendationGenerator,
+    RecommendationSet,
+    default_recommendation_generator,
+)
+from .report import (
+    DeckReportFormatter,
+    DeckReview,
+    DeckReviewPipeline,
+    default_review_pipeline,
+    generate_deck_review,
+)
 
 __all__ = [
     # Input models
@@ -129,4 +144,17 @@ __all__ = [
     "KNOWN_STAPLE_SALT",
     "KNOWN_RAMP_CARDS",
     "ARCHETYPE_PATTERNS",
+    # Recommendations & Card Swaps
+    "CardSwapSuggestion",
+    "RecommendationSet",
+    "RecommendationGenerator",
+    "default_recommendation_generator",
+    "CURATED_CARD_CATALOG",
+    "RECENT_SETS",
+    # Deck Review & Report Formatter
+    "DeckReview",
+    "DeckReportFormatter",
+    "DeckReviewPipeline",
+    "default_review_pipeline",
+    "generate_deck_review",
 ]
