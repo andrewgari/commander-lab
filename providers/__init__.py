@@ -38,5 +38,18 @@ def fetch_deck(provider: str, identifier: str) -> dict:
     return mod.fetch_deck(identifier)
 
 
+def list_decks(provider: str, username: str) -> list:
+    """Return every deck identifier owned by `username` on `provider`.
+
+    Dispatches to providers/{archidekt,moxfield}.list_decks(username), each
+    of which raises a clear provider-specific error (not a silent empty
+    list) for a wrong/nonexistent username. See docs/LINKED_ACCOUNTS.md.
+    """
+    mod = PROVIDERS.get(provider)
+    if not mod:
+        raise ProviderError(f"unknown provider: {provider}")
+    return mod.list_decks(username)
+
+
 def registry_id(deck: dict) -> str:
     return f"{deck['source']}:{deck['source_id']}"

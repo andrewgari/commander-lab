@@ -5,12 +5,15 @@ import redis
 import os
 import json
 import time
+import html
 from typing import List, Optional
 
 import instances as instance_store
 from instances import InstanceError
 import registry
 from providers import fetch_deck, ProviderError
+import linked_accounts
+from linked_accounts import LinkedAccountError
 
 app = FastAPI()
 
@@ -48,6 +51,29 @@ async def instances_view(request: Request):
 async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
     return templates.TemplateResponse(request=request, name="deck.html", context={"providers": providers, "deck_name": deck_name})
+
+@app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
+async def deck_manage_view(request: Request, deck_name: str):
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+
+    /deck/{deck_name} (the read-only view) keys off the deck's display
+    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
+    and sibling manage endpoints all key off registry_id. Resolve name ->
+    registry_id here so the template only ever has to call the registry_id
+    APIs, matching how the rest of the manage API surface works.
+    """
+    decks = registry.list_decks(r)
+    deck = next((d for d in decks if d.get("name") == deck_name), None)
+    if not deck:
+        return HTMLResponse(
+            "<html><head><title>Deck Not Found</title></head>"
+            "<body><h1>Deck Not Found</h1>"
+            "<p>No deck named &quot;{}&quot; could be found.</p>"
+            "</body></html>".format(html.escape(deck_name)),
+            status_code=404,
+        )
+    deck_id = registry.registry_id_of(deck)
+    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
 
 @app.get("/api/decks")
 async def get_decks():
@@ -448,6 +474,122 @@ async def remove_card_from_deck(deck_id: str, instance_id: str):
     return {"success": True, "instance": instance, "deck_id": registry_id, "instance_id": instance_id}
 
 
+@app.get("/api/decks/{deck_id}/resync-review")
+async def get_deck_resync_review(deck_id: str):
+    """Review changes detected during a physical deck resync.
+
+    Returns:
+    - pending_removal: instances currently flagged with pending_removal for this deck
+    - unbound_cards: informational list of cards in remote decklist without bound instances
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    registry_id = registry.registry_id_of(deck)
+    raw_id = str(deck.get("id")) if deck.get("id") is not None else None
+
+    # Fetch flagged instances using helper
+    pending_instances = instance_store.list_pending_removal(r, registry_id)
+    if raw_id and raw_id != registry_id:
+        seen = {inst["id"] for inst in pending_instances}
+        for inst in instance_store.list_pending_removal(r, raw_id):
+            if inst["id"] not in seen:
+                pending_instances.append(inst)
+                seen.add(inst["id"])
+
+    # Also check bound instances for pending_removal marker in case secondary index was bypassed
+    bound = instance_store.list_instances(r, deck_id=registry_id)
+    if raw_id and raw_id != registry_id:
+        bound.extend(instance_store.list_instances(r, deck_id=raw_id))
+    seen = {inst["id"] for inst in pending_instances}
+    for inst in bound:
+        if inst.get("pending_removal") and inst["id"] not in seen:
+            pending_instances.append(inst)
+            seen.add(inst["id"])
+
+    pending_instances.sort(key=lambda x: x.get("card_name", ""))
+
+    cards = deck.get("cards", [])
+    unbound_cards = instance_store.find_unbound_remote_cards(r, registry_id, cards)
+    unbound_card_names = [c["name"] for c in unbound_cards]
+
+    return {
+        "success": True,
+        "deck_id": deck_id,
+        "registry_id": registry_id,
+        "pending_removal": pending_instances,
+        "instances": pending_instances,
+        "unbound_cards": unbound_cards,
+        "unbound_card_names": unbound_card_names,
+        "remotely_added": unbound_card_names,
+    }
+
+
+@app.post("/api/decks/{deck_id}/resync-review/{instance_id}")
+async def resolve_deck_resync_review(deck_id: str, instance_id: str, request: Request):
+    """Resolve one pending_removal instance flagged during deck resync.
+
+    - action 'keep' or 'save': transition to 'in_collection' (clears deck_id) and clear pending_removal
+    - action 'toss': transition to 'not_owned' and clear pending_removal
+    Enforces 404 if the instance does not belong to the deck or lacks the pending_removal marker.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Deck not found"})
+
+    registry_id = registry.registry_id_of(deck)
+    instance = instance_store.get_instance(r, instance_id)
+    if not instance:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Instance not found"})
+
+    pending = instance.get("pending_removal")
+    if not pending:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Instance does not have pending_removal marker"},
+        )
+
+    valid_deck_ids = {str(deck_id), str(registry_id)}
+    if deck.get("id") is not None:
+        valid_deck_ids.add(str(deck.get("id")))
+
+    inst_deck = str(instance.get("deck_id")) if instance.get("deck_id") else None
+    pending_reg = str(pending.get("deck_registry_id") or pending.get("registry_id")) if pending else None
+
+    if inst_deck not in valid_deck_ids and pending_reg not in valid_deck_ids:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Instance does not belong to this deck"},
+        )
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    action = (data.get("action") or "").strip().lower()
+    if action not in ("keep", "save", "toss"):
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": f"Invalid action: must be 'keep' or 'toss', got {action!r}"},
+        )
+
+    try:
+        updated = instance_store.resolve_resync_removal(r, instance_id, action)
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {
+        "success": True,
+        "instance": updated,
+        "action": action,
+        "deck_id": deck_id,
+        "registry_id": registry_id,
+        "instance_id": instance_id,
+    }
+
+
 @app.get("/api/decks/{deck_id}/search")
 async def search_deck_cards(deck_id: str, q: str = ""):
     """Local card-name autocomplete for the add-card dropdown in the deck
@@ -491,119 +633,82 @@ async def search_deck_cards(deck_id: str, q: str = ""):
     return {"deck_id": deck_id, "query": q, "results": results}
 
 
-@app.post("/api/sync-tags")
-async def sync_tags_to_archidekt(request: Request):
-    """Force sync Lab tags to Archidekt for specific decks or all decks"""
-    data = await request.json()
-    deck_names = data.get("decks", [])  # Empty = all decks
-    
-    session_id = os.getenv("ARCHIDEKT_SESSION")
-    csrf_token = os.getenv("ARCHIDEKT_CSRF")
-    
-    if not session_id or not csrf_token:
-        return {
-            "error": "ARCHIDEKT_SESSION and ARCHIDEKT_CSRF must be set in .env"
-        }, 400
-    
-    # Get Lab tags
-    lab_tags_json = r.get("lab_tags")
-    lab_tags = json.loads(lab_tags_json) if lab_tags_json else {}
-    
-    # Get decks to sync
-    decks_json = r.get("decks")
-    all_decks = json.loads(decks_json) if decks_json else []
-    
-    if deck_names:
-        decks_to_sync = [d for d in all_decks if d["name"] in deck_names]
-    else:
-        decks_to_sync = all_decks
-    
-    results = []
-    for deck in decks_to_sync:
-        try:
-            result = sync_deck_tags_to_archidekt(
-                deck["id"], 
-                deck["name"], 
-                lab_tags, 
-                session_id, 
-                csrf_token
-            )
-            results.append(result)
-            time.sleep(1)  # Rate limit
-        except Exception as e:
-            results.append({
-                "deck_name": deck["name"],
-                "success": False,
-                "error": str(e)
-            })
-    
-    return {
-        "success": True,
-        "synced_decks": len([r for r in results if r.get("success")]),
-        "total_decks": len(results),
-        "results": results
-    }
+@app.get("/api/decks/{deck_id}/manage")
+async def get_deck_manage(deck_id: str):
+    """Single-call aggregate for the deck management view (see
+    docs/DECK_MANAGEMENT_VIEW.md "New API surface").
 
-def sync_deck_tags_to_archidekt(deck_id, deck_name, lab_tags, session_id, csrf_token):
-    """Sync Lab tags to a specific Archidekt deck"""
-    import requests
-    import time
-    
-    # Fetch current deck
-    deck_url = f"https://archidekt.com/api/decks/{deck_id}/"
-    headers = {
-        "Cookie": f"sessionid={session_id}; csrftoken={csrf_token}",
-        "X-CSRFToken": csrf_token,
-        "Referer": f"https://archidekt.com/decks/{deck_id}/",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.get(deck_url, headers=headers)
-    response.raise_for_status()
-    deck_data = response.json()
-    
-    # Update categories on deck cards
-    cards = deck_data.get("cards", [])
-    updated_count = 0
-    
-    structural_categories = {"Commander", "Sideboard", "Maybeboard", "Considering"}
-    
-    for card in cards:
-        oracle_name = card.get("card", {}).get("oracleCard", {}).get("name")
-        if not oracle_name or oracle_name not in lab_tags:
-            continue
-        
-        current_cats = card.get("categories") or []
-        
-        # Preserve structural categories
-        structural = [c for c in current_cats if c in structural_categories]
-        
-        # Get Lab tags for this card
-        thematic = lab_tags[oracle_name]
-        
-        # Combine: structural + Lab tags
-        new_cats = structural + thematic
-        
-        if set(current_cats) != set(new_cats):
-            card["categories"] = new_cats
-            updated_count += 1
-    
-    if updated_count == 0:
-        return {
-            "deck_name": deck_name,
-            "success": True,
-            "updated_count": 0,
-            "message": "No changes needed"
-        }
-    
-    # PUT the updated deck back
-    response = requests.put(deck_url, headers=headers, json=deck_data)
-    response.raise_for_status()
-    
+    Assembles, in one response, so the template never does N+1 fetches:
+    - the deck's bound instances (ownership_status == "in_deck" for this deck)
+    - each bound card's card_meta (type/cmc/color), joined by card_name
+    - the deck's category overrides (deck_categories:{deck_id}), read using
+      the same key derivation as the /api/decks/{deck_id}/categories
+      endpoints (the raw URL deck_id, not registry_id) so overrides written
+      via those endpoints are visible here.
+    - each card's global lab_tags (lab_tags redis key)
+    - effective_category per card: deck category override, else lab tag,
+      else "Uncategorized" (first tag wins when a card has several) — lets
+      the UI group cards without any further calls.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    registry_id = registry.registry_id_of(deck)
+
+    instances = instance_store.list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+
+    # Match the /api/decks/{deck_id}/categories endpoints, which key off the
+    # raw URL deck_id (not registry_id) — otherwise overrides written via
+    # those endpoints for numeric deck ids would silently be dropped here.
+    deck_categories_json = r.get(f"deck_categories:{deck_id}")
+    deck_categories = json.loads(deck_categories_json) if deck_categories_json else {}
+
+    lab_tags_json = r.get("lab_tags")
+    lab_tags_all = json.loads(lab_tags_json) if lab_tags_json else {}
+
+    # Pre-fetch card_meta for every distinct card_name bound to this deck to
+    # avoid a per-card GET round trip.
+    card_names = sorted({inst["card_name"] for inst in instances})
+    card_meta_by_name = {}
+    if card_names:
+        meta_pipe = r.pipeline()
+        for name in card_names:
+            meta_pipe.get(f"card_meta:{name}")
+        for name, raw in zip(card_names, meta_pipe.execute()):
+            card_meta_by_name[name] = json.loads(raw) if raw else {}
+
+    cards = []
+    for inst in instances:
+        card_name = inst["card_name"]
+        meta = card_meta_by_name.get(card_name, {})
+        card_lab_tags = lab_tags_all.get(card_name, [])
+        card_deck_categories = deck_categories.get(card_name, [])
+
+        if card_deck_categories:
+            effective_category = card_deck_categories[0]
+        elif card_lab_tags:
+            effective_category = card_lab_tags[0]
+        else:
+            effective_category = "Uncategorized"
+
+        cards.append({
+            "instance_id": inst["id"],
+            "card_name": card_name,
+            "type": meta.get("type", "Unknown"),
+            "cmc": meta.get("cmc", 0),
+            "color": meta.get("color", ""),
+            "lab_tags": card_lab_tags,
+            "deck_categories": card_deck_categories,
+            "effective_category": effective_category,
+        })
+
     return {
-        "deck_name": deck_name,
-        "success": True,
-        "updated_count": updated_count
+        "deck_id": deck_id,
+        "deck_name": deck.get("name", ""),
+        "status": deck.get("status"),
+        "cards": cards,
+        "deck_categories": deck_categories,
     }
 
 
@@ -647,10 +752,16 @@ async def list_instances(
     status: Optional[str] = None,
     deck_id: Optional[str] = None,
     set: Optional[str] = None,
+    q: Optional[str] = None,
 ):
-    """List/filter instances by card name, ownership status, deck, or set."""
+    """List/filter instances by card name, ownership status, deck, or set.
+
+    `q` is a free-text search (case-insensitive substring match against card
+    name, set name, deck name, and notes) for the inventory search box —
+    separate from the exact-match `card` filter.
+    """
     records = instance_store.list_instances(
-        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set
+        r, card_name=card, ownership_status=status, deck_id=deck_id, set=set, q=q
     )
     return {"instances": records, "count": len(records)}
 
@@ -712,4 +823,62 @@ async def delete_instance(instance_id: str):
 async def get_card_instances(card_name: str):
     """Ownership rollup for a card: counts by status and per-deck breakdown."""
     return instance_store.card_rollup(r, card_name)
+
+
+# ---------------------------------------------------------------------------
+# Linked Accounts — provider-account registry + sync (see docs/LINKED_ACCOUNTS.md)
+# Thin wrappers over linked_accounts.py; no business logic lives here.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/linked-accounts")
+async def list_linked_accounts():
+    """List every linked account with its sync status."""
+    accounts = linked_accounts.list_accounts(r)
+    return {"accounts": accounts, "count": len(accounts)}
+
+
+@app.post("/api/linked-accounts")
+async def add_linked_account(request: Request):
+    """Link a new provider account and trigger its immediate first sync.
+
+    Body: {"provider": "archidekt"|"moxfield", "username": str}
+    """
+    data = await request.json()
+    provider = data.get("provider", "")
+    username = data.get("username", "")
+    try:
+        account = linked_accounts.add_account(r, provider, username)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    account = linked_accounts.sync_account(r, account["id"])
+    return {"success": True, "account": account}
+
+
+@app.delete("/api/linked-accounts/{account_id}")
+async def remove_linked_account(account_id: str):
+    """Unlink an account. Decks already pulled from it stay as-is (pull-only,
+    non-destructive design — see docs/LINKED_ACCOUNTS.md)."""
+    try:
+        linked_accounts.remove_account(r, account_id)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True}
+
+
+@app.post("/api/linked-accounts/{account_id}/sync")
+async def sync_linked_account(account_id: str):
+    """Manually resync one linked account."""
+    try:
+        account = linked_accounts.sync_account(r, account_id)
+    except LinkedAccountError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, "account": account}
+
+
+@app.post("/api/linked-accounts/sync-all")
+async def sync_all_linked_accounts():
+    """Manually resync every enabled linked account."""
+    accounts = linked_accounts.sync_all(r)
+    return {"success": True, "accounts": accounts, "count": len(accounts)}
 

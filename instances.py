@@ -57,6 +57,11 @@ def _idx_set_key(set_code: str) -> str:
     return f"idx:instances_by_set:{set_code}"
 
 
+def _idx_pending_removal_key(registry_id: "DeckId") -> str:
+    """Index key for instances flagged with pending_removal for a given deck."""
+    return f"idx:instances_pending_removal:{registry_id}"
+
+
 def create_instance(
     r,
     card_name: str,
@@ -266,6 +271,11 @@ def delete_instance(r, instance_id: str) -> bool:
         pipe.srem(_idx_deck_key(record["deck_id"]), instance_id)
     if record.get("set"):
         pipe.srem(_idx_set_key(record["set"]), instance_id)
+    pending = record.get("pending_removal")
+    if pending:
+        reg = pending.get("deck_registry_id") or pending.get("registry_id")
+        if reg:
+            pipe.srem(_idx_pending_removal_key(str(reg)), instance_id)
     pipe.execute()
     return True
 
@@ -276,9 +286,15 @@ def list_instances(
     ownership_status: Optional[str] = None,
     deck_id: Optional[DeckId] = None,
     set: Optional[str] = None,
+    q: Optional[str] = None,
 ) -> list:
     """List instances, optionally intersecting filters via the secondary indexes
-    instead of scanning all instance keys."""
+    instead of scanning all instance keys.
+
+    `q` is a free-text search applied after index lookup: a case-insensitive
+    substring match against card_name, set_name, deck_name, and notes — for the
+    inventory UI's search box, distinct from the exact-match `card_name` filter.
+    """
     index_sets = []
     if card_name:
         index_sets.append(_idx_card_key(card_name))
@@ -300,8 +316,307 @@ def list_instances(
         if record:
             instances.append(record)
 
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            def _matches(rec: dict) -> bool:
+                haystacks = (
+                    rec.get("card_name") or "",
+                    rec.get("set_name") or "",
+                    rec.get("deck_name") or "",
+                    rec.get("notes") or "",
+                )
+                return any(needle in str(h).lower() for h in haystacks)
+
+            instances = [rec for rec in instances if _matches(rec)]
+
     instances.sort(key=lambda x: (x["card_name"], x.get("set", ""), x.get("created_at", "")))
     return instances
+
+
+def set_pending_removal(
+    r,
+    instance_id: str,
+    registry_id: str,
+    reason: str = "resync_removed",
+) -> Optional[dict]:
+    """Set the pending_removal marker on an instance and update the secondary index.
+
+    Args:
+        r: Redis connection
+        instance_id: ID of the instance to flag
+        registry_id: Deck registry ID that triggered the flag
+        reason: Why the instance was flagged (default: 'resync_removed')
+
+    Returns:
+        The updated instance record, or None if instance doesn't exist.
+        Does NOT re-timestamp if already flagged with same registry_id and reason.
+    """
+    record = get_instance(r, instance_id)
+    if not record:
+        return None
+
+    existing = record.get("pending_removal")
+    existing_reg = existing.get("deck_registry_id") or existing.get("registry_id") if existing else None
+    if (
+        existing
+        and existing_reg == str(registry_id)
+        and existing.get("reason") == reason
+    ):
+        # Already flagged for this exact case — idempotent, don't re-timestamp
+        return record
+
+    pipe = r.pipeline()
+    if existing_reg:
+        pipe.srem(_idx_pending_removal_key(str(existing_reg)), instance_id)
+
+    now = _now()
+    record["pending_removal"] = {
+        "reason": reason,
+        "detected_at": now,
+        "deck_registry_id": str(registry_id),
+        "registry_id": str(registry_id),
+    }
+    record["updated_at"] = now
+
+    pipe.sadd(_idx_pending_removal_key(str(registry_id)), instance_id)
+    pipe.set(_instance_key(instance_id), json.dumps(record))
+    pipe.execute()
+
+    return record
+
+
+def clear_pending_removal(r, instance_id: str) -> Optional[dict]:
+    """Clear the pending_removal marker from an instance (called when the
+    user adjudicates a resync-flagged card via keep/toss). Returns the
+    updated instance record, or None if the instance doesn't exist.
+    """
+    record = get_instance(r, instance_id)
+    if not record:
+        return None
+
+    existing = record.get("pending_removal")
+    if not existing:
+        return record
+
+    pipe = r.pipeline()
+    reg = existing.get("deck_registry_id") or existing.get("registry_id")
+    if reg:
+        pipe.srem(_idx_pending_removal_key(str(reg)), instance_id)
+
+    del record["pending_removal"]
+    record["updated_at"] = _now()
+    pipe.set(_instance_key(instance_id), json.dumps(record))
+    pipe.execute()
+    return record
+
+
+def flag_resync_removed(r, registry_id: str, current_decklist_card_names: set) -> list:
+    """Flag instances bound (in_deck) to `registry_id` whose card_name is
+    NOT in `current_decklist_card_names` (the new remote decklist) with a
+    `pending_removal` marker. This is the physical-deck resync diff:
+    ownership_status and deck_id are NOT touched — the instance stays fully
+    bound until the human adjudicates.
+
+    Idempotent: if an instance already has a pending_removal marker for this
+    same deck_registry_id and reason, we don't update the timestamp.
+
+    Returns the list of instance records that were newly flagged (or already
+    flagged for this registry_id).
+    """
+    flagged = []
+    now = _now()
+    bound_instances = list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+
+    for inst in bound_instances:
+        card_name = inst.get("card_name")
+        if card_name in current_decklist_card_names:
+            # Still on the remote decklist — nothing to flag
+            continue
+
+        existing_marker = inst.get("pending_removal")
+        existing_reg = existing_marker.get("deck_registry_id") or existing_marker.get("registry_id") if existing_marker else None
+        if existing_marker and existing_reg == str(registry_id) and existing_marker.get("reason") == "resync_removed":
+            # Already flagged for this exact resync — don't re-timestamp
+            flagged.append(inst)
+            continue
+
+        # Set new pending_removal marker
+        inst["pending_removal"] = {
+            "reason": "resync_removed",
+            "detected_at": now,
+            "deck_registry_id": str(registry_id),
+            "registry_id": str(registry_id),
+        }
+        inst["updated_at"] = now
+        pipe = r.pipeline()
+        if existing_reg:
+            pipe.srem(_idx_pending_removal_key(str(existing_reg)), inst["id"])
+        pipe.sadd(_idx_pending_removal_key(str(registry_id)), inst["id"])
+        pipe.set(_instance_key(inst["id"]), json.dumps(inst))
+        pipe.execute()
+        flagged.append(inst)
+
+    return flagged
+
+
+def list_pending_removal(r, registry_id: str) -> list:
+    """List all instances flagged with pending_removal for a given deck.
+
+    Returns list of instance records sorted by card_name.
+    """
+    ids = r.smembers(_idx_pending_removal_key(str(registry_id)))
+    instances = []
+    seen = set()
+    for instance_id in ids:
+        record = get_instance(r, instance_id)
+        if record and record.get("pending_removal"):
+            instances.append(record)
+            seen.add(record["id"])
+
+    # Also check bound instances in case any were flagged without the index
+    bound = list_instances(r, deck_id=registry_id)
+    for inst in bound:
+        if inst.get("pending_removal") and inst["id"] not in seen:
+            instances.append(inst)
+            seen.add(inst["id"])
+
+    instances.sort(key=lambda x: x.get("card_name", ""))
+    return instances
+
+
+def resolve_resync_removal(
+    r,
+    instance_id: str,
+    action: str,
+    deck_id: Optional[Union[int, str]] = None,
+) -> Optional[dict]:
+    """Resolve a pending_removal instance via 'keep'/'save' or 'toss'.
+
+    Args:
+        r: Redis connection
+        instance_id: ID of the instance to resolve
+        action: 'keep' / 'save' (save to inventory, transitions to in_collection)
+                or 'toss' (mark not_owned)
+        deck_id: Optional deck identifier or registry ID to validate against.
+                 If provided, ensures the instance is either bound to this deck
+                 or was flagged for removal by this deck.
+
+    Returns:
+        The updated instance record.
+
+    Raises:
+        InstanceError: If instance not found, has no pending_removal marker,
+                       deck_id mismatch, or action is invalid.
+    """
+    record = get_instance(r, instance_id)
+    if not record:
+        raise InstanceError(f"instance not found: {instance_id}")
+
+    pending = record.get("pending_removal")
+    if not pending:
+        raise InstanceError(f"instance {instance_id} has no pending_removal marker")
+
+    if deck_id is not None:
+        target_str = str(deck_id)
+        inst_deck = str(record.get("deck_id")) if record.get("deck_id") else None
+        pending_reg = str(pending.get("deck_registry_id") or pending.get("registry_id")) if pending else None
+        if inst_deck != target_str and pending_reg != target_str:
+            raise InstanceError(f"instance {instance_id} does not belong to deck {deck_id}")
+
+    norm_action = action.lower().strip()
+    if norm_action in ("keep", "save"):
+        new_status = "in_collection"
+    elif norm_action == "toss":
+        new_status = "not_owned"
+    else:
+        raise InstanceError(f"invalid action: {action!r}, must be 'keep', 'save', or 'toss'")
+
+    transition_status(
+        r,
+        instance_id,
+        new_status=new_status,
+        _allow_physical_lock_bypass=True,
+    )
+
+    updated = clear_pending_removal(r, instance_id)
+    return updated
+
+
+def find_unbound_remote_cards(
+    r,
+    registry_id: Union[int, str],
+    current_decklist: Union[list, tuple],
+) -> list:
+    """Identify cards in the remote decklist that have no instance bound to this deck.
+
+    Read-only computation — does NOT create any new instances. Used to surface
+    "newly added" cards during a physical deck resync so the UI can prompt the
+    user to either bind existing owned copies or create new instances.
+
+    Args:
+        r: Redis connection
+        registry_id: Deck registry ID (string or int, coerced to string)
+        current_decklist: List of dicts with at least {"name": str, "quantity": int}.
+            These are the cards currently in the remote decklist.
+
+    Returns:
+        List of dicts representing unbound cards:
+            {
+                "name": str,           # card name
+                "quantity": int,       # how many are in the remote decklist
+                "bound_count": int,    # how many instances are already bound to this deck
+                "shortfall": int,      # quantity - bound_count (always > 0)
+            }
+        Sorted by card name. Only includes cards where shortfall > 0.
+    """
+    registry_id = str(registry_id)
+
+    bound_instances = list_instances(r, deck_id=registry_id)
+    bound_by_card: dict[str, int] = {}
+    for inst in bound_instances:
+        card_name = inst.get("card_name")
+        if card_name:
+            bound_by_card[card_name] = bound_by_card.get(card_name, 0) + 1
+
+    unbound = []
+    for card in current_decklist:
+        name = card.get("name")
+        quantity = card.get("quantity", 1)
+        if not name or quantity <= 0:
+            continue
+
+        bound_count = bound_by_card.get(name, 0)
+        if bound_count < quantity:
+            unbound.append({
+                "name": name,
+                "quantity": quantity,
+                "bound_count": bound_count,
+                "shortfall": quantity - bound_count,
+            })
+
+    unbound.sort(key=lambda x: x["name"])
+    return unbound
+
+
+def compute_resync_additions(r, registry_id: str, current_decklist_card_names: set) -> list:
+    """Compute which cards in `current_decklist_card_names` (the new remote
+    decklist) are NOT currently bound as in_deck instances for this deck.
+    These are informational only — no instances are created, just a list of
+    card names returned for the UI to display as "remote added these cards".
+
+    This is the complement of `flag_resync_removed`: that flags what the
+    remote removed, this surfaces what the remote added.
+    """
+    bound_instances = list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+    bound_card_names = {inst.get("card_name") for inst in bound_instances}
+
+    additions = []
+    for card_name in current_decklist_card_names:
+        if card_name not in bound_card_names:
+            additions.append(card_name)
+
+    return sorted(additions)
 
 
 def card_rollup(r, card_name: str) -> dict:
