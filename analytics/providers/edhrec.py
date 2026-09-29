@@ -15,6 +15,7 @@ shape raises a typed `EDHRecError` rather than propagating a raw KeyError.
 from __future__ import annotations
 
 import re
+import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -155,16 +156,18 @@ class EDHRecClient:
         self._sleep = sleep_fn
         self._now = time_fn
         self._last_request_at: Optional[float] = None
+        self._throttle_lock = threading.Lock()
 
     def _throttle(self) -> None:
         """Block until at least `min_request_interval` has elapsed since the
         previous outbound request."""
-        if self._last_request_at is not None:
-            elapsed = self._now() - self._last_request_at
-            wait = self._min_request_interval - elapsed
-            if wait > 0:
-                self._sleep(wait)
-        self._last_request_at = self._now()
+        with self._throttle_lock:
+            if self._last_request_at is not None:
+                elapsed = self._now() - self._last_request_at
+                wait = self._min_request_interval - elapsed
+                if wait > 0:
+                    self._sleep(wait)
+            self._last_request_at = self._now()
 
     def _get_json(self, path: str) -> Dict[str, Any]:
         url = f"{self._base_url}/{path.lstrip('/')}"

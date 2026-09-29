@@ -249,3 +249,118 @@ only the front face.
 All three inherit `analytics.exceptions.AnalyticsProviderError`, so callers
 that already handle the base analytics exception hierarchy catch EDHRec
 failures without an EDHRec-specific import.
+
+---
+
+## 6. Deck Analytics Aggregator Service (`analytics.aggregator`)
+
+`DeckAnalyticsAggregator` orchestrates concurrent queries across enabled deck
+analytics providers (such as EDHRec, Commander Salt, and future providers) with
+configurable timeouts, per-provider execution status tracking, error isolation,
+and multi-source metric consolidation.
+
+```python
+from analytics import (
+    DeckAnalyticsAggregator,
+    aggregate_deck_analytics,
+    default_aggregator,
+    DecklistInput,
+)
+
+# Using convenience functional API:
+report = aggregate_deck_analytics(deck, providers=["edhrec", "commandersalt"], timeout=10.0)
+
+# Or instantiating an aggregator:
+aggregator = DeckAnalyticsAggregator(default_timeout=8.0)
+report = aggregator.aggregate(deck)
+
+# Async execution (e.g. inside FastAPI endpoints):
+report = await aggregator.aggregate_async(deck)
+```
+
+### Key Features
+
+1. **Concurrent Execution** — Outbound queries across providers are dispatched
+   concurrently via thread pools (`ThreadPoolExecutor`) in synchronous mode and
+   `asyncio.gather` with executor delegation in asynchronous mode.
+2. **Configurable Timeouts** — Per-provider timeouts and global default timeouts
+   are configurable on the service and can be overridden on individual calls.
+   If a provider query times out, its status is recorded as `"timeout"`,
+   leaving other provider results intact.
+3. **Fault Isolation** — If any individual provider encounters a network error,
+   unexpected schema, or missing deck, the error is caught, latency is recorded,
+   and `status="error"` is set in `provider_statuses`. The overall aggregation
+   does not crash.
+4. **Metrics Consolidation** —
+   - **Meta Scores**: Combines salt scores and power levels, deduplicates and
+     reranks high-salt cards, and retains combo detection metrics.
+   - **Recommendations**: Deduplicates suggested additions and cuts across
+     providers, excludes cards already in the deck, tracks sources, and sorts
+     by synergy and inclusion rate.
+   - **Synergy**: Averages overall deck synergy and deduplicates per-card
+     synergy ratings.
+   - **Popularity**: Aggregates commander popularity rank, deck counts, and
+     per-card inclusion rates.
+   - **Summary**: Synthesizes key metrics into a concise `AnalyticsSummary`
+     object.
+
+---
+
+## 7. REST API Endpoints (`app.py`)
+
+### `POST /api/analytics` (alias: `POST /api/decks/analytics`)
+
+Runs aggregated analytics across enabled providers for a provided deck payload.
+
+**Request Body Options:**
+- Standard `DecklistInput`: `{"commanders": [...], "cards": [...]}`
+- Wrapped payload with options: `{"deck": {...}, "providers": ["edhrec"], "timeout": 5.0}`
+- Plain text decklist: `{"decklist": "Commander\n1 Atraxa...\n\n1 Sol Ring..."}`
+- Library deck id: `{"deck_id": "archidekt:6862011"}`
+
+**Response (`200 OK`):**
+```json
+{
+  "success": true,
+  "report": {
+    "deck_id": "archidekt:6862011",
+    "deck_name": "Atraxa Proliferate Engine",
+    "commanders": ["Atraxa, Praetors' Voice"],
+    "timestamp": "2026-09-29T12:00:00Z",
+    "providers_queried": ["commandersalt", "edhrec"],
+    "successful_providers": ["commandersalt", "edhrec"],
+    "failed_providers": [],
+    "provider_statuses": {
+      "commandersalt": {
+        "provider_name": "commandersalt",
+        "status": "success",
+        "execution_time_ms": 120.5,
+        "error": null,
+        "supported_queries": ["meta_scores"]
+      },
+      "edhrec": {
+        "provider_name": "edhrec",
+        "status": "success",
+        "execution_time_ms": 190.2,
+        "error": null,
+        "supported_queries": ["meta_scores", "recommendations", "synergy", "popularity"]
+      }
+    },
+    "consolidated_metrics": { ... },
+    "provider_results": { ... }
+  }
+}
+```
+
+### `GET /api/decks/{deck_id}/analytics`
+
+Runs aggregated analytics for an existing deck in the local library by `deck_id`.
+
+**Query Parameters:**
+- `timeout` (float, optional): Timeout in seconds.
+- `providers` (string, optional): Comma-separated list of providers (e.g. `edhrec,commandersalt`).
+
+### `GET /api/analytics/providers`
+
+Returns the list of registered analytics providers, display names, and supported query capabilities.
+

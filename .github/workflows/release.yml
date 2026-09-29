@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: Bump Version & Release
+    runs-on: ubuntu-latest
+    # Skip if the push commit itself is a version bump (prevents infinite loop)
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump from merged PR
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Find the merged PR associated with this push commit
+          PR_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")]' 2>/dev/null || echo "[]")
+
+          if [ "$PR_JSON" = "[]" ] || [ "$(echo "$PR_JSON" | jq length)" -eq 0 ]; then
+            echo "::error::No merged PR associated with commit ${GITHUB_SHA}; refusing to create a release."
+            exit 1
+          fi
+
+          # Extract PR metadata
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.[0].title // empty')
+          PR_BODY=$(echo "$PR_JSON" | jq -r '.[0].body // empty')
+          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number // empty')
+          LABELS=$(echo "$PR_JSON" | jq -r '.[0].labels[]?.name // empty' 2>/dev/null | tr '\n' ',' || echo "")
+
+          echo "PR #${PR_NUMBER:-none}: ${PR_TITLE:-no title}"
+          echo "Labels: ${LABELS:-none}"
+
+          # Determine bump level from labels
+          BUMP="patch"
+          if echo "$LABELS" | grep -qi "major"; then
+            BUMP="major"
+          elif echo "$LABELS" | grep -qi "minor"; then
+            BUMP="minor"
+          fi
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "pr_title=${PR_TITLE:-}" >> "$GITHUB_OUTPUT"
+          echo "pr_body<<PREOF" >> "$GITHUB_OUTPUT"
+          echo "${PR_BODY:-}" >> "$GITHUB_OUTPUT"
+          echo "PREOF" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version in version.py
+        id: version
+        run: |
+          set -euo pipefail
+
+          BUMP="${{ steps.bump.outputs.bump }}"
+
+          # Parse current version from version.py (strip +metadata)
+          CURRENT=$(grep '__version__' version.py | head -1 | sed 's/.*"\(.*\)".*/\1/' | cut -d'+' -f1)
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+          echo "Current: $MAJOR.$MINOR.$PATCH  Bump: $BUMP"
+
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          BUILD_DATE=$(date -u +%Y%m%d)
+          RELEASE_DATE=$(date -u +%Y-%m-%d)
+          FULL_VERSION="${NEW_VERSION}+${BUILD_DATE}"
+
+          echo "New version: $FULL_VERSION"
+
+          # Rewrite version.py
+          cat > version.py << EOF
+          """Commander Lab version information.
+
+          Single source of truth for the application version.
+          Format: MAJOR.MINOR.PATCH+YYYYMMDD (semver with build date metadata).
+          """
+
+          __version__ = "${FULL_VERSION}"
+          VERSION = __version__
+          RELEASE_DATE = "${RELEASE_DATE}"
+          EOF
+
+          # Remove leading whitespace from heredoc indentation
+          sed -i 's/^          //' version.py
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "full_version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag, and push
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git add version.py
+          git commit -m "chore: bump version to ${TAG} [skip ci]"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          PR_TITLE="${{ steps.bump.outputs.pr_title }}"
+          PR_BODY="${{ steps.bump.outputs.pr_body }}"
+          PR_NUMBER="${{ steps.bump.outputs.pr_number }}"
+
+          # Build release title
+          if [ -n "$PR_TITLE" ]; then
+            RELEASE_TITLE="${TAG}: ${PR_TITLE}"
+          else
+            RELEASE_TITLE="Release ${TAG}"
+          fi
+
+          # Build release notes
+          NOTES=""
+          if [ -n "$PR_NUMBER" ]; then
+            NOTES="## What's Changed\n\n"
+            if [ -n "$PR_BODY" ]; then
+              NOTES="${NOTES}${PR_BODY}\n\n"
+            fi
+            NOTES="${NOTES}Merged PR: #${PR_NUMBER}"
+          else
+            NOTES="Release ${TAG}"
+          fi
+
+          echo -e "$NOTES" | gh release create "$TAG" \
+            --title "$RELEASE_TITLE" \
+            --notes-file -
