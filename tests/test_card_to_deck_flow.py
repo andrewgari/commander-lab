@@ -6,7 +6,11 @@ isolation: transitioning/reading instances that don't exist, and looking
 up a card that was never registered in the oracle_id ORM.
 """
 import json
+import os
+import sys
 import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cards
 import instances as instance_store
