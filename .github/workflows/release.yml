@@ -31,15 +31,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Find the merged PR associated with this push
-          PR_JSON=$(gh pr list --state merged --base main \
-            --search "merge:${{ github.sha }}" \
-            --json number,title,body,labels --limit 1 2>/dev/null || echo "[]")
+          # Find the merged PR associated with this push commit
+          PR_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")]' 2>/dev/null || echo "[]")
 
-          # Fallback: if search-by-SHA finds nothing, get the most recent merged PR
           if [ "$PR_JSON" = "[]" ] || [ "$(echo "$PR_JSON" | jq length)" -eq 0 ]; then
-            PR_JSON=$(gh pr list --state merged --base main \
-              --json number,title,body,labels --limit 1 2>/dev/null || echo "[]")
+            echo "::error::No merged PR associated with commit ${GITHUB_SHA}; refusing to create a release."
+            exit 1
           fi
 
           # Extract PR metadata
