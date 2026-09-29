@@ -220,6 +220,24 @@ class RetryRequestTests(unittest.TestCase):
         self.assertEqual(sleep_calls, [1.0, 2.0, 3.0, 3.0])
 
 
+class RetryConfigValidationTests(unittest.TestCase):
+    def test_negative_max_retries_rejected(self):
+        with self.assertRaises(ValueError):
+            RetryConfig(max_retries=-1)
+
+    def test_negative_base_delay_rejected(self):
+        with self.assertRaises(ValueError):
+            RetryConfig(base_delay=-1.0)
+
+    def test_negative_max_delay_rejected(self):
+        with self.assertRaises(ValueError):
+            RetryConfig(max_delay=-1.0)
+
+    def test_max_delay_below_base_delay_rejected(self):
+        with self.assertRaises(ValueError):
+            RetryConfig(base_delay=5.0, max_delay=1.0)
+
+
 class ExceptionHierarchyTests(unittest.TestCase):
     def test_rate_limit_error_is_http_client_error(self):
         self.assertTrue(issubclass(RateLimitError, HttpClientError))

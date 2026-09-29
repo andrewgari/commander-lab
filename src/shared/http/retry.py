@@ -35,6 +35,16 @@ class RetryConfig:
     )
     jitter: bool = True
 
+    def __post_init__(self) -> None:
+        if self.max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if self.base_delay < 0:
+            raise ValueError("base_delay must be >= 0")
+        if self.max_delay < 0:
+            raise ValueError("max_delay must be >= 0")
+        if self.max_delay < self.base_delay:
+            raise ValueError("max_delay must be >= base_delay")
+
 
 class RetryExhaustedError(HttpClientError):
     """Raised when all retry attempts have been exhausted."""
