@@ -59,6 +59,18 @@ class RateLimitConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             RateLimitConfig(requests_per_second=-1)
 
+    def test_rejects_non_finite_rate(self):
+        with self.assertRaises(ValueError):
+            RateLimitConfig(requests_per_second=float("nan"))
+        with self.assertRaises(ValueError):
+            RateLimitConfig(requests_per_second=float("inf"))
+
+    def test_rejects_non_finite_burst(self):
+        with self.assertRaises(ValueError):
+            RateLimitConfig(requests_per_second=5, burst=float("nan"))
+        with self.assertRaises(ValueError):
+            RateLimitConfig(requests_per_second=5, burst=float("inf"))
+
     def test_default_burst_equals_rate(self):
         cfg = RateLimitConfig(requests_per_second=10)
         self.assertEqual(cfg.burst, 10)
@@ -190,6 +202,11 @@ class RateLimiterTests(unittest.IsolatedAsyncioTestCase):
 
         # All 20 requests eventually completed -- none were dropped.
         self.assertEqual(sorted(completed), list(range(20)))
+        # With burst=1 and 10 req/s, only the first request is free; the
+        # remaining 19 must each wait for a token to refill. Total elapsed
+        # time must reflect real throttling, not a bypass that lets every
+        # request through instantly.
+        self.assertAlmostEqual(slept["seconds"], (20 - 1) / 10, places=3)
 
     async def test_configure_updates_limit_at_runtime(self):
         limiter = RateLimiter()

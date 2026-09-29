@@ -24,6 +24,7 @@ against one host never delays requests to another.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from dataclasses import dataclass
 from typing import Dict, Optional
@@ -37,15 +38,15 @@ class RateLimitConfig:
     burst: Optional[float] = None
 
     def __post_init__(self) -> None:
-        if self.requests_per_second <= 0:
-            raise ValueError("requests_per_second must be > 0")
+        if not math.isfinite(self.requests_per_second) or self.requests_per_second <= 0:
+            raise ValueError("requests_per_second must be a finite number > 0")
         if self.burst is None:
             # Default burst capacity: at least 1 token, otherwise equal to
             # the per-second rate (i.e. up to one second's worth of
             # requests may be issued back-to-back).
             self.burst = max(1.0, float(self.requests_per_second))
-        if self.burst <= 0:
-            raise ValueError("burst must be > 0")
+        if not math.isfinite(self.burst) or self.burst <= 0:
+            raise ValueError("burst must be a finite number > 0")
 
     @classmethod
     def from_mapping(cls, value: "RateLimitConfig | Dict[str, float]") -> "RateLimitConfig":
@@ -86,8 +87,8 @@ class _TokenBucket:
             self._last_refill = now
 
     async def acquire(self, tokens: float = 1.0) -> None:
-        if tokens <= 0:
-            raise ValueError("tokens must be > 0")
+        if not math.isfinite(tokens) or tokens <= 0:
+            raise ValueError("tokens must be a finite number > 0")
         while True:
             async with self._lock:
                 self._refill()
