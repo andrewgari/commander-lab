@@ -35,6 +35,22 @@ class MakeCacheKeyTests(unittest.TestCase):
         key_b = make_cache_key("GET", "https://api.example.com/cards", {"page": 2})
         self.assertNotEqual(key_a, key_b)
 
+    def test_key_preserves_repeated_query_params(self):
+        multi_value_key = make_cache_key("GET", "https://api.example.com/cards?color=U&color=R")
+        single_value_key = make_cache_key("GET", "https://api.example.com/cards?color=R")
+        self.assertNotEqual(multi_value_key, single_value_key)
+
+        # Order of repeated same-name params should not matter.
+        reordered_key = make_cache_key("GET", "https://api.example.com/cards?color=R&color=U")
+        self.assertEqual(multi_value_key, reordered_key)
+
+    def test_explicit_params_override_same_named_query_string_params(self):
+        key_from_override = make_cache_key(
+            "GET", "https://api.example.com/cards?page=1", {"page": 2}
+        )
+        key_from_direct = make_cache_key("GET", "https://api.example.com/cards?page=2")
+        self.assertEqual(key_from_override, key_from_direct)
+
 
 class TTLCacheTests(unittest.TestCase):
     def test_cache_hit_returns_stored_response(self):

@@ -34,8 +34,11 @@ class CachedResponse:
 def make_cache_key(method: str, url: str, params: Optional[Mapping[str, Any]] = None) -> tuple:
     """Build a normalized cache key from method, URL, and query params.
 
-    Query params passed explicitly via `params` are merged with any
-    query string already present in `url`. The resulting param set is
+    Query params passed explicitly via `params` override same-named
+    params already present in `url`'s query string (matching typical
+    HTTP client semantics), while repeated params for a given name are
+    preserved rather than collapsed, so `?color=U&color=R` is kept
+    distinct from `?color=R`. The resulting (key, value) pairs are
     sorted so that differing param order produces the same key. The URL
     itself is stored without its query string since params are captured
     separately.
@@ -45,14 +48,16 @@ def make_cache_key(method: str, url: str, params: Optional[Mapping[str, Any]] = 
     split = urlsplit(url)
     base_url = f"{split.scheme}://{split.netloc}{split.path}"
 
-    combined_params: dict[str, Any] = {}
-    for key, value in parse_qsl(split.query, keep_blank_values=True):
-        combined_params[key] = value
-    if params:
-        for key, value in params.items():
-            combined_params[key] = value
+    url_pairs = parse_qsl(split.query, keep_blank_values=True)
+    override_names = {str(k) for k in params} if params else set()
 
-    sorted_params = tuple(sorted((str(k), str(v)) for k, v in combined_params.items()))
+    combined_pairs: list[tuple[str, str]] = [
+        (k, v) for k, v in url_pairs if k not in override_names
+    ]
+    if params:
+        combined_pairs.extend((str(k), str(v)) for k, v in params.items())
+
+    sorted_params = tuple(sorted(combined_pairs))
 
     return (normalized_method, base_url, sorted_params)
 
