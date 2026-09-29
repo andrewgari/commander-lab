@@ -86,3 +86,72 @@ salt_provider = get_provider("commandersalt")
 # Listing:
 all_providers = list_providers()  # ['commandersalt', ...]
 ```
+
+---
+
+## 4. EDHRec Provider Adapter (`analytics.providers.edhrec`)
+
+`EDHRecProvider` is a concrete `BaseAnalyticsProvider` implementation backed
+by EDHRec's unofficial `json.edhrec.com` JSON endpoints (the same data
+EDHRec's own frontend consumes — EDHRec has no official public API).
+
+```python
+from analytics import get_provider
+from analytics.providers import EDHRecProvider  # registers "edhrec" on import
+
+provider = get_provider("edhrec")
+result = provider.analyze_deck(deck)  # DeckAnalyticsResult
+```
+
+### Data sourced
+
+A single EDHRec commander page (`GET
+https://json.edhrec.com/pages/commanders/{slug}.json`) supplies everything
+this adapter needs, so `analyze_deck()` issues exactly one HTTP request per
+deck (the raw page is cached per commander slug for the provider instance's
+lifetime):
+
+- **Meta scores** — EDHRec's community salt score (`card.salt`) and
+  meta rank/deck-count (`provider_metrics.edhrec_rank` /
+  `edhrec_num_decks`). EDHRec does not publish a power-level score, so
+  `MetaScores.power` is left `None`.
+- **Recommendations** — cards from the `newcards`, `highsynergycards`,
+  `topcards`, and `gamechangers` cardlists, deduplicated (highest synergy
+  wins) and with cards already present in the input deck excluded.
+- **Synergy** — per-card synergy ratings from the `highsynergycards`,
+  `topcards`, and `gamechangers` cardlists; `overall_synergy` is the mean of
+  the top synergy cards surfaced.
+- **Popularity** — the commander's overall rank/deck count plus per-card
+  inclusion counts and percentages computed from `num_decks /
+  potential_decks` across all cardlists.
+
+### Slug resolution
+
+`analytics.providers.edhrec.slugify_card_name()` and `commander_slug()`
+implement the same lowercase/strip-punctuation/hyphenate scheme as the
+client-side `getEdhrecSlug()` helper in `templates/deck.html` /
+`templates/decks.html`, so the adapter and the "open on EDHREC" UI links
+resolve to the same URL. Partner/background commanders are combined with a
+hyphen (matching EDHRec's own multi-commander page slugs); split cards use
+only the front face.
+
+### Error handling & rate limiting
+
+`EDHRecClient` wraps outbound requests with:
+- **Rate limiting** — a configurable minimum interval between requests
+  (`min_request_interval`, default 0.6s) to avoid hammering an unofficial
+  third-party endpoint.
+- **Retry with backoff** — timeouts, connection errors, HTTP 429, and HTTP
+  5xx responses are retried with exponential backoff (`max_retries`,
+  default 3 attempts).
+- **Typed exceptions** (`analytics.providers.edhrec`):
+  - `EDHRecNotFoundError` — EDHRec has no page for the requested commander(s)
+    (HTTP 404; not retried).
+  - `EDHRecResponseError` — a 200 response that isn't valid JSON, or doesn't
+    match the expected `container.json_dict` shape.
+  - `EDHRecRequestError` — network/timeout/rate-limit/server errors that
+    persisted after exhausting all retries.
+
+All three inherit `analytics.exceptions.AnalyticsProviderError`, so callers
+that already handle the base analytics exception hierarchy catch EDHRec
+failures without an EDHRec-specific import.
