@@ -214,9 +214,9 @@ _SB_TAG_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Foil tags: *F*, *Foil*, [F], [Foil], (F), (Foil), or trailing " Foil" / " F"
+# Foil tags: *F*, *Foil*, [F], [Foil], (F), (Foil), or trailing standalone " Foil" / " F"
 _FOIL_TAG_RE = re.compile(
-    r"[\*\[\(]\s*(?:foil|f)\s*[\*\]\)]|\bfoil\b\s*$",
+    r"[\*\[\(]\s*(?:foil|f)\s*[\*\]\)]|\b(?:foil|f)\b\s*$",
     re.IGNORECASE,
 )
 
@@ -254,9 +254,6 @@ def parse_decklist(text: str) -> ParsedDeck:
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
-            # Blank line resets commander section if no explicit header was used next
-            if current_section == DeckSection.COMMANDER:
-                current_section = DeckSection.MAINBOARD
             continue
 
         # Check for section headers
@@ -332,6 +329,19 @@ def parse_decklist(text: str) -> ParsedDeck:
         if _FOIL_TAG_RE.search(line):
             foil = True
             line = _FOIL_TAG_RE.sub("", line).strip()
+
+        # Strip a trailing bracketed category suffix that is NOT a set-code
+        # bracket, e.g. "Sol Ring [Ramp]" -> "Sol Ring", while leaving
+        # set/collector-style brackets (e.g. "[NEO:123]") alone so the
+        # annotation parser below can still match them.
+        cat_match = re.search(r"\[(?P<cat>[^\]]*)\]\s*$", line)
+        if cat_match:
+            cat = cat_match.group("cat")
+            looks_like_set_bracket = bool(
+                re.match(r"^[A-Za-z0-9_]{2,6}(?:[:\s]+[A-Za-z0-9★#/\-]+)?$", cat)
+            ) and (":" in cat or re.search(r"\d", cat) or (cat.isupper() and 2 <= len(cat) <= 5))
+            if not looks_like_set_bracket:
+                line = line[: cat_match.start()].strip()
 
         # Extract set code and collector number
         set_code: Optional[str] = None

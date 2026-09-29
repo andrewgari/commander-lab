@@ -116,6 +116,23 @@ Deck
         self.assertEqual(deck[6]["set_code"], "NEO")
         self.assertIsNone(deck[6]["collector_number"])
 
+    def test_trailing_f_foil_marker(self):
+        text = "1 Sol Ring (NEO) 123 F"
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck), 1)
+        self.assertEqual(deck[0]["name"], "Sol Ring")
+        self.assertEqual(deck[0]["set_code"], "NEO")
+        self.assertEqual(deck[0]["collector_number"], "123")
+        self.assertTrue(deck[0]["foil"])
+
+    def test_category_suffix_combined_with_set_annotation(self):
+        text = "1 Sol Ring (NEO) 123 [Ramp]"
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck), 1)
+        self.assertEqual(deck[0]["name"], "Sol Ring")
+        self.assertEqual(deck[0]["set_code"], "NEO")
+        self.assertEqual(deck[0]["collector_number"], "123")
+
 
 class TestDecklistParserMTGO(unittest.TestCase):
     def test_mtgo_format_with_slash_headers(self):
@@ -257,6 +274,27 @@ Mainboard:
         deck = parse_decklist(text)
         self.assertEqual(len(deck.commander), 1)
         self.assertEqual(deck.commander[0]["name"], "Atraxa, Praetors' Voice")
+        self.assertEqual(len(deck.mainboard), 1)
+        self.assertEqual(deck.mainboard[0]["name"], "Sol Ring")
+
+    def test_blank_line_does_not_reset_section(self):
+        # A blank line between partner commanders (no new header in between)
+        # must not misclassify the second commander as mainboard.
+        text = """
+Commander
+1 Thrasios, Triton Hero
+
+1 Tymna the Weaver
+
+Deck
+1 Sol Ring
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.commander), 2)
+        self.assertEqual(
+            [c["name"] for c in deck.commander],
+            ["Thrasios, Triton Hero", "Tymna the Weaver"],
+        )
         self.assertEqual(len(deck.mainboard), 1)
         self.assertEqual(deck.mainboard[0]["name"], "Sol Ring")
 
