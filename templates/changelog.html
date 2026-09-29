@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Changelog — Commander Lab{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-8 px-4">
+    <h1 class="text-2xl font-bold text-gray-100 mb-6">Changelog</h1>
+
+    {% if error_msg %}
+    <div class="bg-red-900/40 border border-red-700 rounded-lg p-4 text-red-300">
+        {{ error_msg }}
+    </div>
+    {% elif releases|length == 0 %}
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-gray-400">
+        No releases found yet.
+    </div>
+    {% else %}
+    <div class="space-y-4 max-h-[75vh] overflow-y-auto pr-2" style="scrollbar-color: #374151 transparent;">
+        {% for release in releases %}
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-gray-500 transition-colors">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="text-lg font-semibold text-indigo-400 font-mono">{{ release.tag_name }}</span>
+                {% if release.prerelease %}
+                <span class="text-xs bg-yellow-900/60 text-yellow-300 border border-yellow-700 rounded px-2 py-0.5">pre-release</span>
+                {% endif %}
+                <span class="text-sm text-gray-500 ml-auto">
+                    {{ release.published_at[:10] if release.published_at else 'unknown date' }}
+                </span>
+            </div>
+            {% if release.name and release.name != release.tag_name %}
+            <div class="text-gray-300 font-medium mb-1">{{ release.name }}</div>
+            {% endif %}
+            {% if release.body %}
+            <div class="text-sm text-gray-400 whitespace-pre-line leading-relaxed">{{ release.body }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
