@@ -48,6 +48,25 @@ from .aggregator import (
     coerce_to_decklist_input,
     default_aggregator,
 )
+from .engine import (
+    ARCHETYPE_PATTERNS,
+    KNOWN_RAMP_CARDS,
+    KNOWN_STAPLE_SALT,
+    SALT_CATEGORY_CARDS,
+    ArchetypeMatch,
+    CohesionAnalysisBreakdown,
+    CurveAnalysisBreakdown,
+    DeckAnalysisEngine,
+    DeckAnalysisReport,
+    IntentAlignmentReport,
+    PlayfeelAnalysisBreakdown,
+    SaltCategoryBreakdown,
+    SynergyCluster,
+    ThemeAnalysisBreakdown,
+    analyze_deck,
+    default_analysis_engine,
+    parse_mana_cost,
+)
 
 __all__ = [
     # Input models
@@ -92,4 +111,22 @@ __all__ = [
     "ProviderNotFoundError",
     "ProviderRegistrationError",
     "UnsupportedAnalyticsQueryError",
+    # Analysis Engine
+    "ArchetypeMatch",
+    "ThemeAnalysisBreakdown",
+    "CurveAnalysisBreakdown",
+    "SynergyCluster",
+    "CohesionAnalysisBreakdown",
+    "SaltCategoryBreakdown",
+    "PlayfeelAnalysisBreakdown",
+    "IntentAlignmentReport",
+    "DeckAnalysisReport",
+    "DeckAnalysisEngine",
+    "analyze_deck",
+    "default_analysis_engine",
+    "parse_mana_cost",
+    "SALT_CATEGORY_CARDS",
+    "KNOWN_STAPLE_SALT",
+    "KNOWN_RAMP_CARDS",
+    "ARCHETYPE_PATTERNS",
 ]
