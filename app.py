@@ -15,6 +15,7 @@ from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
 from version import __version__, VERSION
+import httpx
 
 app = FastAPI()
 
@@ -82,6 +83,42 @@ async def deck_manage_view(request: Request, deck_name: str):
 async def get_version():
     """Return the application version information."""
     return {"version": __version__}
+
+
+
+@app.get("/changelog", response_class=HTMLResponse)
+async def changelog(request: Request):
+    """Display a scrollable changelog page pulled from GitHub releases."""
+    GITHUB_RELEASES_URL = "https://api.github.com/repos/andrewgari/commander-lab/releases"
+    CACHE_KEY = "github_releases"
+    CACHE_TTL = 600  # 10 minutes
+
+    releases = None
+    error_msg = None
+
+    # Try cache first
+    cached = r.get(CACHE_KEY)
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(GITHUB_RELEASES_URL, headers={"Accept": "application/vnd.github+json"})
+            resp.raise_for_status()
+            releases = resp.json()
+            r.setex(CACHE_KEY, CACHE_TTL, json.dumps(releases))
+    except Exception:
+        if cached:
+            releases = json.loads(cached)
+        else:
+            error_msg = "Could not load changelog — GitHub API is unavailable."
+
+    if releases is None and error_msg is None:
+        releases = []
+
+    return templates.TemplateResponse(
+        request=request,
+        name="changelog.html",
+        context={"releases": releases or [], "error_msg": error_msg},
+    )
 
 @app.get("/api/decks")
 async def get_decks():
