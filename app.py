@@ -983,3 +983,100 @@ async def api_deck_intake_validate(request: Request):
     return {"success": True, "validation": result.to_dict()}
 
 
+@app.post("/api/analytics")
+@app.post("/api/decks/analytics")
+async def api_deck_analytics(request: Request):
+    """Run aggregated deck analytics across enabled providers with configurable timeouts.
+
+    Accepts:
+    1. Direct DecklistInput: {"commanders": [...], "cards": [...]}
+    2. Wrapped payload: {"deck": {...}, "providers": ["edhrec", "commandersalt"], "timeout": 10.0}
+    3. Decklist text: {"decklist": "Commander\\n...", "commanders": [...]}
+    4. Deck ID reference: {"deck_id": "archidekt:123"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
+
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"success": False, "error": "Request body must be a JSON object"})
+
+    from analytics.aggregator import default_aggregator, coerce_to_decklist_input
+
+    deck_id = data.get("deck_id")
+    deck_data = data.get("deck") or data
+
+    if deck_id and not data.get("cards") and not data.get("deck") and not data.get("decklist"):
+        deck_obj = registry.find_deck(r, deck_id)
+        if not deck_obj:
+            return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+        deck_data = deck_obj
+
+    providers = data.get("providers")
+    if providers is not None:
+        if not isinstance(providers, list) or not all(isinstance(p, str) for p in providers):
+            return JSONResponse(status_code=400, content={"success": False, "error": "'providers' must be a list of strings"})
+
+    timeout = data.get("timeout")
+    if timeout is not None:
+        try:
+            timeout = float(timeout)
+        except (ValueError, TypeError):
+            return JSONResponse(status_code=400, content={"success": False, "error": "Invalid timeout parameter"})
+
+    try:
+        deck_input = coerce_to_decklist_input(deck_data)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck validation error: {str(e)}"})
+
+    try:
+        report = await default_aggregator.aggregate_async(
+            deck=deck_input,
+            providers=providers,
+            timeout=timeout,
+        )
+        return {"success": True, "report": report.model_dump()}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+
+@app.get("/api/decks/{deck_id}/analytics")
+async def api_get_deck_analytics(
+    deck_id: str,
+    timeout: Optional[float] = None,
+    providers: Optional[str] = None,
+):
+    """Run aggregated deck analytics for an existing deck in the library."""
+    deck_obj = registry.find_deck(r, deck_id)
+    if not deck_obj:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+
+    from analytics.aggregator import default_aggregator, coerce_to_decklist_input
+
+    prov_list = [p.strip() for p in providers.split(",")] if providers else None
+    try:
+        deck_input = coerce_to_decklist_input(deck_obj)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck validation error: {str(e)}"})
+
+    try:
+        report = await default_aggregator.aggregate_async(
+            deck=deck_input,
+            providers=prov_list,
+            timeout=timeout,
+        )
+        return {"success": True, "report": report.model_dump()}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
+
+@app.get("/api/analytics/providers")
+async def api_list_analytics_providers():
+    """List available deck analytics providers and their supported queries."""
+    from analytics.aggregator import default_aggregator
+    providers_info = default_aggregator.get_available_providers()
+    return {"success": True, "providers": providers_info}
+
+
+
