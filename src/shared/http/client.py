@@ -390,7 +390,8 @@ class SharedHttpClient:
         return cls(config=final_cfg, **client_kwargs)
 
     async def __aenter__(self) -> SharedHttpClient:
-        await self._client.__aenter__()
+        if self._owns_client:
+            await self._client.__aenter__()
         return self
 
     async def __aexit__(
@@ -399,11 +400,13 @@ class SharedHttpClient:
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
     ) -> None:
-        await self._client.__aexit__(exc_type, exc_val, exc_tb)
+        if self._owns_client:
+            await self._client.__aexit__(exc_type, exc_val, exc_tb)
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client session."""
-        await self._client.aclose()
+        if self._owns_client:
+            await self._client.aclose()
 
     async def close(self) -> None:
         """Alias for `aclose`."""

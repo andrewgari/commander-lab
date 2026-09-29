@@ -536,6 +536,23 @@ class TestSharedHttpClientVerbsAndContextManager(unittest.IsolatedAsyncioTestCas
         await client.close()
         self.assertTrue(client.is_closed)
 
+    async def test_injected_client_lifecycle_not_closed_by_wrapper(self):
+        """A caller-owned injected client is NOT entered, exited, or closed by the wrapper."""
+        injected_client = httpx.AsyncClient(base_url="https://api.example.com")
+        self.assertFalse(injected_client.is_closed)
+
+        wrapper = SharedHttpClient(client=injected_client)
+        async with wrapper:
+            self.assertFalse(injected_client.is_closed)
+
+        self.assertFalse(injected_client.is_closed)
+        await wrapper.aclose()
+        self.assertFalse(injected_client.is_closed)
+
+        # Caller closes their own client
+        await injected_client.aclose()
+        self.assertTrue(injected_client.is_closed)
+
 
 class TestSharedHttpClientProfilesAndFactory(unittest.IsolatedAsyncioTestCase):
     """Test MTG API predefined profiles and factory functions."""
