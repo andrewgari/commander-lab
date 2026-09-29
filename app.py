@@ -14,10 +14,13 @@ import registry
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
+from version import __version__, VERSION
 
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
+templates.env.globals["app_version"] = __version__
+templates.env.globals["version"] = __version__
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -74,6 +77,11 @@ async def deck_manage_view(request: Request, deck_name: str):
         )
     deck_id = registry.registry_id_of(deck)
     return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
+
+@app.get("/api/version")
+async def get_version():
+    """Return the application version information."""
+    return {"version": __version__}
 
 @app.get("/api/decks")
 async def get_decks():

@@ -91,6 +91,28 @@
             opacity: 0.8;
         }
 
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .version-badge {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background: #111827;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            color: #9ca3af;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
         /* Main Content Area */
         .main-content {
             flex: 1;
@@ -141,6 +163,10 @@
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                 Tag Management
             </a>
+        </div>
+        <div class="sidebar-footer">
+            <span>Version</span>
+            <span id="app-version" class="version-badge" title="Commander Lab v{{ app_version }}">v{{ app_version }}</span>
         </div>
     </nav>
 
