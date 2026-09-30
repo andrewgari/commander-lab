@@ -560,6 +560,127 @@
         background: var(--accent-hover);
         border-color: var(--accent-hover);
     }
+
+    /* Container for physical/digital status and repository badge */
+    .deck-status-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+        min-height: 22px; /* Preserves card height across clean/dirty states */
+    }
+
+    .deck-status-row .deck-status {
+        margin-top: 0;
+    }
+
+    /* Base Repository Status Badge */
+    .repo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        line-height: 1;
+        position: relative;
+        cursor: default;
+        transition: opacity 0.15s ease, background 0.15s ease;
+        user-select: none;
+    }
+
+    .repo-badge svg {
+        width: 12px;
+        height: 12px;
+        stroke-width: 2.2;
+        flex-shrink: 0;
+    }
+
+    /* State Variants */
+    .repo-badge--clean {
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #4ade80;
+    }
+
+    .repo-badge--dirty {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fbbf24;
+    }
+
+    .repo-badge--untracked {
+        background: rgba(56, 189, 248, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        color: #38bdf8;
+    }
+
+    .repo-badge--ahead {
+        background: rgba(168, 85, 247, 0.12);
+        border: 1px solid rgba(168, 85, 247, 0.4);
+        color: #c084fc;
+    }
+
+    .repo-badge--behind {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        color: #818cf8;
+    }
+
+    .repo-badge--diverged {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fbbf24;
+    }
+
+    .repo-badge--error {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #f87171;
+    }
+
+    /* Clean Mode Suppression (Optional class for minimal display) */
+    .repo-badge--clean-hidden {
+        display: none;
+    }
+
+    /* Tooltip Affordance */
+    .repo-badge[data-tooltip] {
+        position: relative;
+    }
+
+    .repo-badge[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111827;
+        border: 1px solid #374151;
+        color: #f3f4f6;
+        font-size: 0.72rem;
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: normal;
+        padding: 0.35rem 0.55rem;
+        border-radius: 4px;
+        white-space: pre;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        z-index: 40;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+    }
+
+    .repo-badge[data-tooltip]:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
 </style>
 {% endblock %}
 
@@ -952,6 +1073,197 @@
         }
         return pips;
     }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Render repository change indicator HTML for a deck card.
+     * @param {Object} deck - Deck payload from /api/decks
+     * @param {boolean} [showClean=true] - Whether to render badge for clean repos
+     * @returns {string} Safe HTML string for badge, or empty string
+     */
+    function renderRepoBadge(deck, showClean = true) {
+        const status = deck && deck.repo_status;
+        if (!status) {
+            return `
+                <span class="repo-badge repo-badge--error" 
+                      data-tooltip="No repository status available" 
+                      title="No repository status available"
+                      role="status" 
+                      aria-label="Repository error: No repository status available">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <circle cx="12" cy="16" r="0.75" fill="currentColor"></circle>
+                    </svg>
+                    <span>NO REPO</span>
+                </span>
+            `;
+        }
+
+        // 1. Error / Unknown State
+        if (status.error) {
+            const errorMsg = escapeHtml(status.error);
+            const label = status.error === 'Path not specified' ? 'NO REPO' : 'ERROR';
+            return `
+                <span class="repo-badge repo-badge--error" 
+                      data-tooltip="Git error: ${errorMsg}" 
+                      title="Git error: ${errorMsg}"
+                      role="status" 
+                      aria-label="Repository error: ${errorMsg}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <circle cx="12" cy="16" r="0.75" fill="currentColor"></circle>
+                    </svg>
+                    <span>${label}</span>
+                </span>
+            `;
+        }
+
+        const branch = status.branch ? escapeHtml(status.branch) : 'main';
+        const dirty = Boolean(status.dirty);
+        const staged = status.staged || 0;
+        const untracked = status.untracked || 0;
+        const ahead = status.ahead || 0;
+        const behind = status.behind || 0;
+
+        // 2. Dirty / Uncommitted State (Takes highest precedence among non-errors)
+        if (dirty || staged > 0) {
+            const parts = [];
+            if (staged > 0) parts.push(`${staged} staged`);
+            if (dirty) parts.push(`modified`);
+            if (untracked > 0) parts.push(`${untracked} untracked`);
+            if (ahead > 0) parts.push(`${ahead} ahead`);
+            const countText = staged > 0 && dirty ? `${staged + 1} DIRTY` : (staged > 0 ? `${staged} STAGED` : `MODIFIED`);
+            const tooltip = `${parts.join(', ')} • Branch: ${branch}`;
+            const aria = `Repository has uncommitted changes: ${parts.join(', ')} on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--dirty" 
+                      data-tooltip="${tooltip}" 
+                      title="${tooltip}"
+                      role="status" 
+                      aria-label="${aria}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <line x1="1.05" y1="12" x2="7" y2="12"></line>
+                        <line x1="17" y1="12" x2="22.95" y2="12"></line>
+                    </svg>
+                    <span>${countText}</span>
+                </span>
+            `;
+        }
+
+        // 3. Untracked Files Only
+        if (untracked > 0) {
+            const tooltip = `${untracked} untracked file${untracked > 1 ? 's' : ''}${ahead > 0 ? ', ' + ahead + ' ahead' : ''} • Branch: ${branch}`;
+            const aria = `Repository has ${untracked} untracked file(s) on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--untracked" 
+                      data-tooltip="${tooltip}" 
+                      title="${tooltip}"
+                      role="status" 
+                      aria-label="${aria}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>${untracked} UNTRACKED</span>
+                </span>
+            `;
+        }
+
+        // 4. Diverged (Both Ahead & Behind)
+        if (ahead > 0 && behind > 0) {
+            const tooltip = `${ahead} ahead, ${behind} behind upstream • Branch: ${branch}`;
+            const aria = `Repository diverged: ${ahead} ahead, ${behind} behind on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--diverged" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="7" y1="4" x2="7" y2="20"></line>
+                    <polyline points="4 7 7 4 10 7"></polyline>
+                    <line x1="17" y1="20" x2="17" y2="4"></line>
+                    <polyline points="14 17 17 20 20 17"></polyline>
+                </svg>
+                <span>↑${ahead} ↓${behind}</span>
+            </span>
+        `;
+    }
+
+    // 5. Ahead of Upstream Only
+    if (ahead > 0) {
+        const tooltip = `${ahead} commit${ahead > 1 ? 's' : ''} ahead of upstream (ready to push) • Branch: ${branch}`;
+        const aria = `Repository is ${ahead} commit(s) ahead of upstream on branch ${branch}`;
+
+        return `
+            <span class="repo-badge repo-badge--ahead" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5"></line>
+                    <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+                <span>${ahead} AHEAD</span>
+            </span>
+        `;
+    }
+
+    // 6. Behind Upstream Only
+    if (behind > 0) {
+        const tooltip = `${behind} commit${behind > 1 ? 's' : ''} behind upstream (pull needed) • Branch: ${branch}`;
+        const aria = `Repository is ${behind} commit(s) behind upstream on branch ${branch}`;
+
+        return `
+            <span class="repo-badge repo-badge--behind" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="19 12 12 19 5 12"></polyline>
+                </svg>
+                <span>${behind} BEHIND</span>
+            </span>
+        `;
+    }
+
+    // 7. Clean State
+    if (!showClean) return '';
+
+    const tooltip = `Repository clean • Branch: ${branch}`;
+    return `
+        <span class="repo-badge repo-badge--clean" 
+              data-tooltip="${tooltip}" 
+              title="${tooltip}"
+              role="status" 
+              aria-label="Repository clean on branch ${branch}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>CLEAN</span>
+        </span>
+    `;
+}
     
     function toggleFolder(folderName) {
         const grid = document.getElementById(`grid-${folderName.replace(/\s+/g, '-')}`);
@@ -1203,7 +1515,10 @@
                         <div>
                             <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
                             <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
-                            <span class="deck-status status-${deck.status || 'digital'}">${deck.status || 'Digital'}</span>
+                            <div class="deck-status-row">
+                                <span class="deck-status status-${deck.status || 'digital'}">${deck.status || 'Digital'}</span>
+                                ${renderRepoBadge(deck)}
+                            </div>
                         </div>
                     </div>
                     <div class="deck-footer">
