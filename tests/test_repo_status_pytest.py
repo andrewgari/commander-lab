@@ -3,8 +3,13 @@
 import os
 import subprocess
 import time
+import unittest
 from unittest.mock import patch
-import pytest
+
+try:
+    import pytest
+except ImportError as exc:
+    raise unittest.SkipTest("pytest not installed; install pytest to run pytest-based tests") from exc
 
 from repo_status import (
     clear_repo_status_cache,
