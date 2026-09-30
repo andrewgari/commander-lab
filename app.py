@@ -16,6 +16,7 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 from version import __version__, VERSION
 import httpx
+from repo_status import enrich_decks_with_repo_status
 
 app = FastAPI()
 
@@ -124,6 +125,7 @@ async def changelog(request: Request):
 async def get_decks():
     decks_json = r.get("decks")
     decks = json.loads(decks_json) if decks_json else []
+    decks = enrich_decks_with_repo_status(decks)
     return {"decks": decks}
 
 @app.post("/api/decks/{deck_id}/status")
