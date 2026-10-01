@@ -188,12 +188,51 @@ def build_parser() -> argparse.ArgumentParser:
         "--format", choices=["text", "json"], default="text", help="Output format (default: text)."
     )
 
+    review = sub.add_parser(
+        "review",
+        help="Generate an actionable Commander deck review with recommendations and swaps.",
+    )
+    review.add_argument(
+        "--deck",
+        "-d",
+        required=True,
+        help="Path to decklist file or raw decklist string.",
+    )
+    review.add_argument(
+        "--intent",
+        "-i",
+        default=None,
+        help="Path to user intent JSON file or raw JSON string.",
+    )
+    review.add_argument(
+        "--format",
+        "-f",
+        choices=["markdown", "cli", "json"],
+        default="cli",
+        help="Output report format (default: cli).",
+    )
+    review.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Optional file path to write the formatted report to.",
+    )
+
     return parser
 
 
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "review":
+        import deck_review
+        review_argv = ["--deck", args.deck, "--format", args.format]
+        if args.intent:
+            review_argv.extend(["--intent", args.intent])
+        if args.output:
+            review_argv.extend(["--output", args.output])
+        return deck_review.main(review_argv)
 
     if args.command != "assign":
         parser.print_help()
