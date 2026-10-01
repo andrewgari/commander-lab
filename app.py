@@ -14,6 +14,10 @@ import registry
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
+import deck_links
+from deck_links import DeckLinkError
+import deck_sync
+from deck_sync import DeckSyncError
 from version import __version__, VERSION
 import httpx
 from repo_status import enrich_decks_with_repo_status
@@ -219,6 +223,62 @@ async def import_deck(request: Request):
 
     deck = registry.upsert_deck(r, normalized, default_status="testing")
     return {"success": True, "deck": deck}
+
+
+@app.get("/api/decks/{deck_id}/links")
+async def get_deck_links(deck_id: str):
+    """List every external source link (Archidekt/Moxfield/Commander Salt)
+    configured on a deck."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    return {"success": True, "links": deck_links.get_links(deck)}
+
+
+@app.post("/api/decks/{deck_id}/links")
+async def set_deck_link(deck_id: str, request: Request):
+    """Add or edit one provider's link on a deck (save-to-record, not a
+    one-off copy/paste): body {"provider": "archidekt"|"moxfield"|"commandersalt",
+    "identifier": "<url or id>"}. Pass an empty/missing identifier to clear
+    that provider's link. Validates/normalizes the identifier via the
+    provider's own parser before persisting, so a bad URL is rejected here
+    rather than at the next sync.
+    """
+    data = await request.json()
+    provider = data.get("provider", "")
+    identifier = data.get("identifier", "")
+    try:
+        deck = deck_links.set_link(r, deck_id, provider, identifier)
+    except DeckLinkError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "links": deck_links.get_links(deck)}
+
+
+@app.delete("/api/decks/{deck_id}/links/{provider}")
+async def remove_deck_link(deck_id: str, provider: str):
+    """Remove one provider's link from a deck. Does not touch the deck's
+    already-synced cardlist."""
+    try:
+        deck = deck_links.remove_link(r, deck_id, provider)
+    except DeckLinkError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "links": deck_links.get_links(deck)}
+
+
+@app.post("/api/decks/{deck_id}/sync")
+async def sync_deck(deck_id: str):
+    """Sync a deck's cardlist from every linked provider (Archidekt and/or
+    Moxfield) in a single operation, merging the results (see
+    docs/DUAL_SOURCE_SYNC.md). One source being unreachable does not block
+    the other -- the response's `warnings`/`sources` show exactly what
+    happened per source. Fails with 400 only if the deck has no syncable
+    link at all, or if every linked source failed.
+    """
+    try:
+        report = deck_sync.sync_deck(r, deck_id)
+    except DeckSyncError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "report": report.to_dict()}
 
 @app.get("/api/inventory")
 async def get_inventory(query: str = "", deck: Optional[List[str]] = Query(None)):

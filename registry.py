@@ -143,6 +143,54 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     return result_deck
 
 
+def update_deck_cards(
+    r,
+    registry_id: str,
+    cards: list,
+    commanders: Optional[list] = None,
+    commander_uids: Optional[list] = None,
+    color: Optional[str] = None,
+) -> dict:
+    """Overwrite a deck's cardlist (and optionally commanders/commander_uids/
+    color) in place, without touching its source/source_id/registry_id or
+    lifecycle status. Used by deck_sync.py after merging cardlists pulled
+    from more than one linked provider (see docs/DUAL_SOURCE_SYNC.md) --
+    unlike upsert_deck, this never creates a new deck and never changes
+    which provider(s) a deck is considered to originate from.
+
+    Applies the same physical-deck resync diff as upsert_deck: for a deck
+    whose status is "physical", bound instances no longer present in the
+    new cardlist are flagged pending_removal rather than silently dropped
+    or auto-added.
+
+    Raises ValueError if registry_id doesn't match any deck.
+    """
+    decks = _load_decks(r)
+    target = None
+    for d in decks:
+        if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id:
+            target = d
+            break
+    if target is None:
+        raise ValueError(f"deck not found: {registry_id}")
+
+    target["cards"] = cards
+    if commanders is not None:
+        target["commanders"] = commanders
+    if commander_uids is not None:
+        target["commander_uids"] = commander_uids
+    if color is not None:
+        target["color"] = color
+
+    _save_decks(r, decks)
+
+    if target.get("status") == "physical":
+        new_card_names = {c.get("name") for c in cards if c.get("name")}
+        instance_store.flag_resync_removed(r, registry_id_of(target), new_card_names)
+
+    return target
+
+
 def add_card_to_decklist(r, registry_id: str, card_name: str) -> dict:
     """Append `card_name` (quantity 1) to a deck's local decklist if it isn't
     already present. Used by the manual add-card path (POST
