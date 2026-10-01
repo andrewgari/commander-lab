@@ -137,8 +137,12 @@ async def changelog(request: Request):
                 resp.raise_for_status()
                 releases = resp.json()
                 # Store in Redis with TTL and persist stale fallback
-                r.setex(CACHE_KEY, CACHE_TTL, json.dumps(releases))
-                r.set(STALE_CACHE_KEY, json.dumps(releases))
+                serialized_releases = json.dumps(releases)
+                try:
+                    r.setex(CACHE_KEY, CACHE_TTL, serialized_releases)
+                    r.set(STALE_CACHE_KEY, serialized_releases)
+                except redis.exceptions.RedisError:
+                    pass
         except Exception:
             # 3. Graceful fallback on API failure: serve stale cache if available
             stale = r.get(STALE_CACHE_KEY) or cached
