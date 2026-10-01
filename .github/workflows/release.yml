@@ -160,7 +160,7 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then
             echo -e "## What's Changed\n" > "$NOTES_FILE"
             if [ -n "$PR_BODY" ]; then
-              echo "$PR_BODY" >> "$NOTES_FILE"
+              printf '%s\n' "$PR_BODY"
               echo "" >> "$NOTES_FILE"
             fi
             echo "Merged PR: #${PR_NUMBER}" >> "$NOTES_FILE"
