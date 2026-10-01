@@ -16,6 +16,7 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 from version import __version__, VERSION
 import httpx
+from repo_status import enrich_decks_with_repo_status
 
 app = FastAPI()
 
@@ -124,6 +125,7 @@ async def changelog(request: Request):
 async def get_decks():
     decks_json = r.get("decks")
     decks = json.loads(decks_json) if decks_json else []
+    decks = enrich_decks_with_repo_status(decks)
     return {"decks": decks}
 
 @app.post("/api/decks/{deck_id}/status")
@@ -1077,6 +1079,78 @@ async def api_list_analytics_providers():
     from analytics.aggregator import default_aggregator
     providers_info = default_aggregator.get_available_providers()
     return {"success": True, "providers": providers_info}
+
+
+@app.post("/api/review")
+@app.post("/api/decks/review")
+async def api_deck_review(request: Request):
+    """Generate an actionable deck review synthesizing analysis, recommendations, and card swaps."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"success": False, "error": "Invalid JSON body"})
+
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"success": False, "error": "Request body must be a JSON object"})
+
+    from deck_review import review_deck
+    from user_intent import parse_user_intent
+
+    deck_id = data.get("deck_id")
+    deck_input = data.get("deck") or data.get("decklist") or data.get("cards")
+
+    if deck_id and not deck_input:
+        deck_obj = registry.find_deck(r, deck_id)
+        if not deck_obj:
+            return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+        deck_input = deck_obj
+
+    if not deck_input:
+        deck_input = data
+
+    intent_data = data.get("user_intent")
+    intent_obj = None
+    if intent_data:
+        try:
+            intent_obj = parse_user_intent(intent_data)
+        except Exception as e:
+            return JSONResponse(status_code=422, content={"success": False, "error": f"Invalid user intent: {str(e)}"})
+
+    try:
+        review = review_deck(deck=deck_input, intent=intent_obj)
+        return {
+            "success": True,
+            "review": review.model_dump(),
+            "markdown": review.to_markdown(),
+            "cli": review.to_cli(),
+        }
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
+
+
+@app.get("/api/decks/{deck_id}/review")
+async def api_get_deck_review(deck_id: str):
+    """Generate an actionable deck review for an existing deck in the library."""
+    try:
+        deck_obj = registry.find_deck(r, deck_id)
+    except Exception:
+        deck_obj = None
+
+    if not deck_obj:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+
+    from deck_review import review_deck
+    try:
+        review = review_deck(deck=deck_obj)
+        return {
+            "success": True,
+            "review": review.model_dump(),
+            "markdown": review.to_markdown(),
+            "cli": review.to_cli(),
+        }
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
+
 
 
 
