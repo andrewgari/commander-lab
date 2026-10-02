@@ -186,7 +186,10 @@ def update_deck_cards(
 
     if target.get("status") == "physical":
         new_card_names = {c.get("name") for c in cards if c.get("name")}
-        instance_store.flag_resync_removed(r, registry_id_of(target), new_card_names)
+        instance_store.flag_resync_removed(r, target["id"], new_card_names)
+        target_registry_id = registry_id_of(target)
+        if str(target["id"]) != target_registry_id:
+            instance_store.flag_resync_removed(r, target_registry_id, new_card_names)
 
     return target
 
