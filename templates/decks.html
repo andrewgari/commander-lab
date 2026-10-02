@@ -795,12 +795,30 @@
             <div id="modalLinksContainer" style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
                 <!-- Links dynamically populated here -->
             </div>
-            
+
+            <div id="modalLinkEditor" style="margin-bottom: 1.5rem; padding-top: 0.75rem; border-top: 1px solid #111827;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Sync Sources</div>
+                <div style="display: flex; gap: 0.4rem; margin-bottom: 0.4rem;">
+                    <input type="text" id="modalArchidektUrl" placeholder="Archidekt URL or ID" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('archidekt')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div style="display: flex; gap: 0.4rem; margin-bottom: 0.4rem;">
+                    <input type="text" id="modalMoxfieldUrl" placeholder="Moxfield URL or ID" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('moxfield')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div style="display: flex; gap: 0.4rem;">
+                    <input type="text" id="modalCommanderSaltUrl" placeholder="Commander Salt URL (optional)" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('commandersalt')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div id="modalLinkStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
+            </div>
+
             <div class="modal-buttons" style="margin-top: auto; border-top: 1px solid #111827; padding-top: 1rem;">
                 <button class="btn btn-primary" onclick="syncDeck()">Sync</button>
                 <button class="btn" onclick="reviewDeck()">Review</button>
                 <button class="btn" onclick="tradeDeck()">Trade</button>
             </div>
+            <div id="modalSyncStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
         </div>
     </div>
 </div>
@@ -1335,6 +1353,16 @@
         });
         
         linksContainer.innerHTML = linksHtml;
+
+        // Populate the sync-source link editor from deck.links (see
+        // deck_links.py) -- deck.id is used as the registry_id lookup key
+        // for the /api/decks/{id}/links and /sync endpoints.
+        const links = deck.links || {};
+        document.getElementById('modalArchidektUrl').value = (links.archidekt && links.archidekt.identifier) || '';
+        document.getElementById('modalMoxfieldUrl').value = (links.moxfield && links.moxfield.identifier) || '';
+        document.getElementById('modalCommanderSaltUrl').value = (links.commandersalt && links.commandersalt.identifier) || '';
+        document.getElementById('modalLinkStatus').textContent = '';
+        document.getElementById('modalSyncStatus').textContent = '';
         
         const imagesContainer = document.getElementById('modalImagesContainer');
         imagesContainer.innerHTML = '';
@@ -1432,8 +1460,69 @@
         }
     }
     
-    function syncDeck() {
-        console.log("Sync clicked");
+    async function saveDeckLink(provider) {
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        const inputIds = {
+            archidekt: 'modalArchidektUrl',
+            moxfield: 'modalMoxfieldUrl',
+            commandersalt: 'modalCommanderSaltUrl',
+        };
+        const identifier = document.getElementById(inputIds[provider]).value.trim();
+        const statusEl = document.getElementById('modalLinkStatus');
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = 'var(--text-muted)';
+        try {
+            const res = await fetch(`/api/decks/${deck.id}/links`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, identifier })
+            });
+            const data = await res.json();
+            if (data.success) {
+                deck.links = data.links;
+                statusEl.textContent = identifier ? `${provider} link saved.` : `${provider} link cleared.`;
+                statusEl.style.color = '#4ade80';
+            } else {
+                statusEl.textContent = data.error || 'Failed to save link.';
+                statusEl.style.color = '#f87171';
+            }
+        } catch (err) {
+            statusEl.textContent = 'Failed to save link: ' + err;
+            statusEl.style.color = '#f87171';
+        }
+    }
+
+    async function syncDeck() {
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        const statusEl = document.getElementById('modalSyncStatus');
+        statusEl.textContent = 'Syncing...';
+        statusEl.style.color = 'var(--text-muted)';
+        try {
+            const res = await fetch(`/api/decks/${deck.id}/sync`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                const report = data.report;
+                const sourceSummary = report.sources
+                    .map(s => s.status === 'ok' ? `${s.provider}: ${s.card_count} cards` : `${s.provider}: FAILED (${s.error})`)
+                    .join(' | ');
+                let msg = `Synced ${report.merged_card_count} cards. ${sourceSummary}`;
+                if (report.conflicts.length > 0) {
+                    msg += ` -- ${report.conflicts.length} conflict(s) resolved by max quantity / union.`;
+                }
+                await loadDecks();
+                openDeckModal(currentDeckIndex);
+                statusEl.textContent = msg;
+                statusEl.style.color = report.warnings.length > 0 ? '#facc15' : '#4ade80';
+            } else {
+                statusEl.textContent = data.error || 'Sync failed.';
+                statusEl.style.color = '#f87171';
+            }
+        } catch (err) {
+            statusEl.textContent = 'Sync failed: ' + err;
+            statusEl.style.color = '#f87171';
+        }
     }
     
     function reviewDeck() {
