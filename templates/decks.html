@@ -372,15 +372,33 @@
         margin-bottom: 0.5rem;
     }
     
+    .deck-header-art {
+        display: flex;
+        align-items: center;
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .deck-header-info {
+        flex: 1;
+        min-width: 0;
+    }
+
     .commander-icon {
-        width: 48px;
-        height: 48px;
+        width: 80px;
+        height: 80px;
         border-radius: 50%;
         object-fit: cover;
         border: 2px solid var(--border);
         background: #222;
         flex-shrink: 0;
         position: relative;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .deck-card:hover .commander-icon {
+        border-color: var(--accent);
     }
     
     .deck-name {
@@ -390,6 +408,7 @@
         color: var(--text-heading);
         margin: 0;
         line-height: 1.2;
+        word-break: break-word;
     }
     
     .deck-status {
@@ -411,8 +430,9 @@
     .deck-commanders {
         font-size: 0.9rem;
         color: var(--text-muted);
-        margin-bottom: 1rem;
-        flex-grow: 1;
+        margin-top: 0.25rem;
+        margin-bottom: 0.5rem;
+        word-break: break-word;
     }
     
     .mana-pip { width: 16px; height: 16px; vertical-align: middle; margin-right: 2px; }
@@ -1580,17 +1600,17 @@
                 if (deck.commander_uids && deck.commander_uids.length > 0) {
                     deck.commander_uids.forEach((uid, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
+                        const style = i > 0 ? `margin-left: -32px; z-index: ${i};` : `z-index: 0;`;
                         iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
                     });
                 } else if (deck.commanders && deck.commanders.length > 0) {
                     deck.commanders.forEach((cname, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
+                        const style = i > 0 ? `margin-left: -32px; z-index: ${i};` : `z-index: 0;`;
                         iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
                     });
                 } else {
-                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
+                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
                 }
                 
                 const globalIndex = allDecks.indexOf(deck);
@@ -1598,10 +1618,10 @@
                 return `
                 <div class="deck-card" onclick="openDeckModal(${globalIndex})">
                     <div class="deck-header">
-                        <div style="display: flex; align-items: center; position: relative;">
+                        <div class="deck-header-art">
                             ${iconsHtml}
                         </div>
-                        <div>
+                        <div class="deck-header-info">
                             <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
                             <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
                             <div class="deck-status-row">
