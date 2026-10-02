@@ -1511,9 +1511,10 @@
                 if (report.conflicts.length > 0) {
                     msg += ` -- ${report.conflicts.length} conflict(s) resolved by max quantity / union.`;
                 }
+                await loadDecks();
+                openDeckModal(currentDeckIndex);
                 statusEl.textContent = msg;
                 statusEl.style.color = report.warnings.length > 0 ? '#facc15' : '#4ade80';
-                await loadDecks();
             } else {
                 statusEl.textContent = data.error || 'Sync failed.';
                 statusEl.style.color = '#f87171';
