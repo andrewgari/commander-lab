@@ -213,8 +213,8 @@ def sync_deck(r, registry_id: str) -> SyncReport:
         r,
         registry_id,
         cards=cards,
-        commanders=commanders or None,
-        commander_uids=commander_uids or None,
+        commanders=commanders,
+        commander_uids=commander_uids,
         color=color,
     )
 
