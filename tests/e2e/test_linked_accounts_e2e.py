@@ -46,12 +46,7 @@ class TestLinkedAccountsSectionRendering:
         section = page.locator('.linked-accounts-section')
         expect(section).to_be_visible()
 
-    def test_linked_accounts_section_visible_on_root_page(self, page: Page, base_url: str):
-        """The linked-accounts section should also be visible on / (root redirects to decks)."""
-        page.goto(base_url)
-        
-        section = page.locator('.linked-accounts-section')
-        expect(section).to_be_visible()
+
 
     def test_linked_accounts_has_title(self, page: Page, base_url: str):
         """The linked-accounts section should have a 'Linked Accounts' title."""

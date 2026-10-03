@@ -34,8 +34,7 @@ r = redis.from_url(redis_url, decode_responses=True)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
-    return templates.TemplateResponse(request=request, name="decks.html", context={"providers": providers})
+    return templates.TemplateResponse(request=request, name="home.html")
 
 @app.get("/decks", response_class=HTMLResponse)
 async def decks(request: Request):
