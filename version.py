@@ -4,6 +4,6 @@ Single source of truth for the application version.
 Format: MAJOR.MINOR.PATCH+YYYYMMDD (semver with build date metadata).
 """
 
-__version__ = "0.4.0+20260930"
+__version__ = "0.4.1+20261004"
 VERSION = __version__
-RELEASE_DATE = "2026-09-30"
+RELEASE_DATE = "2026-10-04"
