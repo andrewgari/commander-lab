@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import redis
 import os
+import asyncio
+import github_sync
 import json
 import time
 import html
@@ -23,6 +25,42 @@ import httpx
 from repo_status import enrich_decks_with_repo_status
 
 app = FastAPI()
+
+github_sync_lock = False
+
+@app.middleware("http")
+async def github_sync_middleware(request: Request, call_next):
+    global github_sync_lock
+    version = None
+    try:
+        version = r.get(github_sync.CACHE_VERSION_KEY)
+    except redis.exceptions.RedisError:
+        pass
+        
+    if not version:
+        if not github_sync_lock:
+            github_sync_lock = True
+            
+            async def run_sync():
+                global github_sync_lock
+                try:
+                    await github_sync.update_github_data(r)
+                finally:
+                    github_sync_lock = False
+                    
+            asyncio.create_task(run_sync())
+            
+        try:
+            version = r.get(github_sync.STALE_VERSION_KEY)
+        except redis.exceptions.RedisError:
+            pass
+            
+        if not version:
+            from version import __version__
+            version = __version__
+            
+    request.state.app_version = version
+    return await call_next(request)
 
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
@@ -84,9 +122,9 @@ async def deck_manage_view(request: Request, deck_name: str):
     return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
 
 @app.get("/api/version")
-async def get_version():
+async def get_version(request: Request):
     """Return the application version information."""
-    return {"version": __version__}
+    return {"version": getattr(request.state, "app_version", "unknown")}
 
 
 
@@ -111,53 +149,42 @@ def extract_short_description(body: str | None, max_length: int = 280) -> str:
 @app.get("/changelog", response_class=HTMLResponse)
 async def changelog(request: Request):
     """Display a scrollable changelog page pulled from GitHub releases."""
-    GITHUB_RELEASES_URL = "https://api.github.com/repos/andrewgari/commander-lab/releases"
-    CACHE_KEY = "github_releases"
-    STALE_CACHE_KEY = "github_releases_stale"
-    CACHE_TTL = 600  # 10 minutes
-
     releases = None
     error_msg = None
 
-    # 1. Try active cache first
-    cached = r.get(CACHE_KEY)
+    # Try active cache first
+    cached = None
+    try:
+        cached = r.get(github_sync.CACHE_CHANGELOG_KEY)
+    except redis.exceptions.RedisError:
+        pass
+        
+    if not cached:
+        # Trigger background sync if not running
+        global github_sync_lock
+        if not github_sync_lock:
+            github_sync_lock = True
+            async def run_sync():
+                global github_sync_lock
+                try:
+                    await github_sync.update_github_data(r)
+                finally:
+                    github_sync_lock = False
+            asyncio.create_task(run_sync())
+            
+        try:
+            cached = r.get(github_sync.STALE_CHANGELOG_KEY)
+        except redis.exceptions.RedisError:
+            pass
+
     if cached:
         try:
             releases = json.loads(cached)
         except Exception:
-            cached = None
+            pass
 
-    # 2. If cache miss, fetch from GitHub API
-    if releases is None:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    GITHUB_RELEASES_URL,
-                    headers={
-                        "Accept": "application/vnd.github+json",
-                        "User-Agent": "commander-lab",
-                    },
-                )
-                resp.raise_for_status()
-                releases = resp.json()
-                # Store in Redis with TTL and persist stale fallback
-                serialized_releases = json.dumps(releases)
-                try:
-                    r.setex(CACHE_KEY, CACHE_TTL, serialized_releases)
-                    r.set(STALE_CACHE_KEY, serialized_releases)
-                except redis.exceptions.RedisError:
-                    pass
-        except Exception:
-            # 3. Graceful fallback on API failure: serve stale cache if available
-            stale = r.get(STALE_CACHE_KEY) or cached
-            if stale:
-                try:
-                    releases = json.loads(stale)
-                except Exception:
-                    releases = None
-
-            if releases is None:
-                error_msg = "Changelog is currently unavailable. Please check back later."
+    if not releases:
+        error_msg = "Changelog is currently unavailable. Please check back later."
 
     # Format releases with tag, date, and short description
     formatted_releases = []
