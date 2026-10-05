@@ -9,15 +9,15 @@ class TestDeckNamecardUI(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_decks_page_contains_enlarged_commander_icon_css(self):
-        """Verify templates/decks.html contains enlarged commander-icon styles (80px, shadow, hover)."""
+        """Verify templates/decks.html contains enlarged commander-icon styles (160px, shadow, hover)."""
         response = self.client.get("/decks")
         self.assertEqual(response.status_code, 200)
         html = response.text
 
         # Commander icon sizing
         self.assertIn(".commander-icon", html)
-        self.assertIn("width: 80px", html)
-        self.assertIn("height: 80px", html)
+        self.assertIn("width: 160px", html)
+        self.assertIn("height: 160px", html)
 
         # Header art container and info styling
         self.assertIn(".deck-header-art", html)
@@ -25,16 +25,16 @@ class TestDeckNamecardUI(unittest.TestCase):
         self.assertIn("min-width: 0", html)
 
     def test_decks_page_contains_commander_icon_js_rendering(self):
-        """Verify templates/decks.html JS uses 80px fallback and -32px partner overlap."""
+        """Verify templates/decks.html JS uses 160px fallback and -64px partner overlap."""
         response = self.client.get("/decks")
         self.assertEqual(response.status_code, 200)
         html = response.text
 
-        # Partner overlap margin adjusted for 80px icons
-        self.assertIn("margin-left: -32px", html)
+        # Partner overlap margin adjusted for 160px icons
+        self.assertIn("margin-left: -64px", html)
 
         # Fallback svg dimensions
-        self.assertIn("width='80' height='80'", html)
+        self.assertIn("width='160' height='160'", html)
 
         # Markup contains deck-header-art and deck-header-info
         self.assertIn('<div class="deck-header-art">', html)

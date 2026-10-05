@@ -385,8 +385,8 @@
     }
 
     .commander-icon {
-        width: 80px;
-        height: 80px;
+        width: 160px;
+        height: 160px;
         border-radius: 50%;
         object-fit: cover;
         border: 2px solid var(--border);
@@ -1600,17 +1600,17 @@
                 if (deck.commander_uids && deck.commander_uids.length > 0) {
                     deck.commander_uids.forEach((uid, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -32px; z-index: ${i};` : `z-index: 0;`;
+                        const style = i > 0 ? `margin-left: -64px; z-index: ${i};` : `z-index: 0;`;
                         iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
                     });
                 } else if (deck.commanders && deck.commanders.length > 0) {
                     deck.commanders.forEach((cname, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -32px; z-index: ${i};` : `z-index: 0;`;
+                        const style = i > 0 ? `margin-left: -64px; z-index: ${i};` : `z-index: 0;`;
                         iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
                     });
                 } else {
-                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
+                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><rect width='160' height='160' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
                 }
                 
                 const globalIndex = allDecks.indexOf(deck);
