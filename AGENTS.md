@@ -6,7 +6,7 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 ## Tech Stack
 - Backend: Python 3.11+, FastAPI, Uvicorn
 - Storage: Redis (caching decks, inventory, physical deck statuses, card archetype tags)
-- Frontend: Jinja2 templates, Tailwind CSS (CDN), FontAwesome icons, Scryfall card imagery
+- Frontend: Jinja2 templates, shared HUD stylesheet `static/css/hud.css` (tokens in `docs/DESIGN_TOKENS.md`), inline SVG icons, Scryfall card imagery
 - Containerization: Docker & Docker Compose
 
 ## Repository Structure
