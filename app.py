@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
 import os
@@ -65,6 +66,9 @@ async def github_sync_middleware(request: Request, call_next):
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
+
+# Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

@@ -1,0 +1,386 @@
+/* ==========================================================================
+   Commander Lab — HUD stylesheet
+   Served at /static/css/hud.css and linked from templates/base.html, so it
+   loads on every page. Full reference: docs/DESIGN_TOKENS.md
+
+   Sections
+     1. Tokens       CSS custom properties. The only place raw values live.
+     2. Legacy       Aliases for the pre-HUD variable names still used by
+                     page templates. Remove once every page is migrated.
+     3. Base         Element defaults (type, links, forms, scrollbars).
+     4. Chrome       App shell: sidebar nav + main content column.
+
+   Rules (from the HUD brief)
+     - Dark slate base, never pure black.
+     - ONE warm signal colour (--signal) for status, alerts, active state.
+     - ONE cool data colour (--data, --data-1..5) for charts and heatmaps.
+     - Mana colours (--mana-*) are semantic only: they mean W/U/B/R/G/C/M.
+       Never use them for decoration.
+     - Mono for numbers, labels and stats; sans for prose; tabular numerals.
+     - Square or near-square corners, 1px hairlines. No glow, neon,
+       glassmorphism or gradients (no box-shadow blur, no backdrop-filter).
+   ========================================================================== */
+
+
+/* 1. TOKENS ================================================================ */
+:root {
+    color-scheme: dark;
+
+    /* --- Surfaces: dark slate, stepped by elevation ---------------------- */
+    --surface-0: #0e1216;   /* page background */
+    --surface-1: #141a1f;   /* sidebar, panels, cards */
+    --surface-2: #1a2128;   /* raised: hover rows, inputs, panel headers */
+    --surface-3: #222b33;   /* pressed / selected / tooltips */
+
+    /* --- Lines (1px hairlines) ------------------------------------------- */
+    --line-faint:  #1c232a; /* row separators inside dense tables */
+    --line:        #29323b; /* default border */
+    --line-strong: #3a4651; /* emphasized border, focused-but-not-active */
+
+    /* --- Text ------------------------------------------------------------- */
+    --text-1: #e8ebee;      /* headings, primary values */
+    --text-2: #b6bfc8;      /* body copy */
+    --text-3: #76828e;      /* muted: captions, micro-labels, placeholders */
+    --text-4: #4f5a64;      /* disabled, axis ticks */
+    --text-on-signal: #17110a;
+
+    /* --- Signal: the single warm accent (status, alerts, active) -------- */
+    --signal:        #f0a63a;
+    --signal-strong: #ffc266;  /* hover / emphasis */
+    --signal-dim:    #3b2a12;  /* solid tint behind signal text (chips) */
+    --signal-line:   #7a5420;  /* border for signal-tinted elements */
+
+    /* --- Data: the single cool colour for charts ------------------------ */
+    --data:        #4fb0c6;
+    --data-strong: #7fcde0;
+    --data-dim:    #15333b;
+    /* Sequential ramp for heatmaps / matrix cells (low -> high). Solid
+       colours, no alpha, so cells read the same on any surface. */
+    --data-0: var(--surface-2);
+    --data-1: #17343c;
+    --data-2: #1d4f5b;
+    --data-3: #276d7c;
+    --data-4: #368fa2;
+    --data-5: #4fb0c6;
+
+    /* --- Semantic states ------------------------------------------------- */
+    --ok:          #6cbf7a;
+    --ok-dim:      #17301d;
+    --warn:        var(--signal);
+    --warn-dim:    var(--signal-dim);
+    --danger:      #e5584f;
+    --danger-dim:  #3a1714;
+    --neutral:     var(--text-3);
+    --neutral-dim: var(--surface-3);
+
+    /* --- Mana: fixed semantic palette (WUBRG + colourless + multicolour) -
+       --mana-x      chart / bar / swatch colour, legible on --surface-*
+       --mana-x-pip  light pip face (render pip glyph text in --mana-ink)  */
+    --mana-w: #e6dcb4;  --mana-w-pip: #f8f6d8;
+    --mana-u: #3f8fd2;  --mana-u-pip: #c1d7e9;
+    --mana-b: #9b8c97;  --mana-b-pip: #bab1ab;
+    --mana-r: #d9533e;  --mana-r-pip: #e49977;
+    --mana-g: #3f9c62;  --mana-g-pip: #a3c095;
+    --mana-c: #9a948f;  --mana-c-pip: #cbc2bf;
+    --mana-m: #c8a94e;  --mana-m-pip: #e3cf8a;  /* multicolour / gold */
+    --mana-ink: #15120f;
+
+    /* --- Typography ------------------------------------------------------ */
+    --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --font-card: 'EB Garamond', Georgia, serif;  /* card names only (MTG flavour) */
+
+    /* Type scale (16px root). Dense UI sits at --fs-sm / --fs-base. */
+    --fs-micro: 0.6875rem;  /* 11px  uppercase micro-labels, chip text */
+    --fs-xs:    0.75rem;    /* 12px  table meta, captions */
+    --fs-sm:    0.8125rem;  /* 13px  dense table cells, nav */
+    --fs-base:  0.875rem;   /* 14px  body */
+    --fs-md:    1rem;       /* 16px  panel titles */
+    --fs-lg:    1.25rem;    /* 20px  section headings */
+    --fs-xl:    1.625rem;   /* 26px  page title */
+    --fs-stat:  2rem;       /* 32px  stat-tile value */
+    --fs-hero:  2.75rem;    /* 44px  lead stat on a deck surface */
+
+    --fw-regular:  400;
+    --fw-medium:   500;
+    --fw-semibold: 600;
+
+    --lh-tight: 1.15;   /* stats, headings */
+    --lh-snug:  1.35;   /* tables, nav */
+    --lh-base:  1.55;   /* prose */
+
+    --tracking-label: 0.08em;   /* uppercase micro-labels */
+    --tracking-tight: -0.01em;  /* large headings */
+
+    /* --- Spacing: 4px grid ------------------------------------------------ */
+    --sp-0:  0;
+    --sp-px: 1px;
+    --sp-1:  0.25rem;  /*  4px */
+    --sp-2:  0.5rem;   /*  8px */
+    --sp-3:  0.75rem;  /* 12px */
+    --sp-4:  1rem;     /* 16px */
+    --sp-5:  1.25rem;  /* 20px */
+    --sp-6:  1.5rem;   /* 24px */
+    --sp-8:  2rem;     /* 32px */
+    --sp-10: 2.5rem;   /* 40px */
+    --sp-12: 3rem;     /* 48px */
+    --sp-16: 4rem;     /* 64px */
+
+    /* --- Borders & corners ---------------------------------------------- */
+    --hairline:      1px;
+    /* Shorthands: `border: var(--stroke)`. (--border is a legacy COLOUR alias.) */
+    --stroke:        var(--hairline) solid var(--line);
+    --stroke-faint:  var(--hairline) solid var(--line-faint);
+    --stroke-strong: var(--hairline) solid var(--line-strong);
+    --stroke-signal: var(--hairline) solid var(--signal);
+    --radius-0: 0;
+    --radius-1: 2px;  /* default: chips, inputs, buttons, panels */
+    --radius-2: 3px;  /* card-art frames (real cards have rounded corners) */
+    --indicator: 2px; /* width of active-state bars (nav, selected rows) */
+
+    /* --- Focus: a solid outline, never a glow --------------------------- */
+    --focus-ring: var(--hairline) solid var(--signal);
+    --focus-offset: 1px;
+
+    /* --- Motion ---------------------------------------------------------- */
+    --dur-fast: 100ms;
+    --dur-base: 160ms;
+    --ease:     cubic-bezier(0.2, 0, 0, 1);
+
+    /* --- Layout ---------------------------------------------------------- */
+    --sidebar-w:           232px;
+    --sidebar-w-collapsed: 56px;
+    --content-max:         1280px;
+    --content-pad:         var(--sp-8);
+    --bp-tablet:           900px;  /* reference only: media queries can't read vars */
+
+    /* --- Layers ---------------------------------------------------------- */
+    --z-sidebar: 50;
+    --z-overlay: 900;
+    --z-modal:   1000;
+    --z-toast:   1100;
+}
+
+
+/* 2. LEGACY ALIASES ======================================================== */
+/* Pre-HUD names used by page-level <style> blocks. Mapped onto the new
+   tokens so un-migrated pages adopt the palette. Do not use in new code. */
+:root {
+    --bg-color:     var(--surface-0);
+    --nav-bg:       var(--surface-1);
+    --text-main:    var(--text-2);
+    --text-muted:   var(--text-3);
+    --text-heading: var(--text-1);
+    --accent:       var(--signal);
+    --accent-hover: var(--signal-strong);
+    --row-hover:    var(--surface-2);
+    --border:       var(--line);  /* colour; templates use `1px solid var(--border)` */
+}
+
+
+/* 3. BASE ================================================================== */
+html {
+    background: var(--surface-0);
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: var(--surface-0);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    line-height: var(--lh-base);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+    color: var(--text-1);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-tight);
+    margin: 0 0 var(--sp-4);
+}
+h1 { font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); margin-bottom: var(--sp-6); }
+h2 { font-size: var(--fs-lg); }
+h3 { font-size: var(--fs-md); }
+h4 { font-size: var(--fs-base); }
+
+p { margin: 0 0 var(--sp-3); }
+
+a { color: var(--text-1); text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+a:hover { color: var(--signal-strong); text-decoration-color: currentColor; }
+
+code, kbd, samp, pre { font-family: var(--font-mono); font-size: 0.92em; }
+
+hr { border: 0; border-top: var(--stroke); margin: var(--sp-6) 0; }
+
+img { max-width: 100%; }
+
+::selection { background: var(--signal); color: var(--text-on-signal); }
+
+:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+input, select, textarea {
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-1);
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    outline: none;
+    min-width: 0;  /* let controls shrink inside flex rows at tablet width */
+    transition: border-color var(--dur-fast) var(--ease);
+}
+input::placeholder, textarea::placeholder { color: var(--text-3); }
+input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
+input:focus, select:focus, textarea:focus { border-color: var(--signal); }
+
+button { font-family: inherit; font-size: inherit; }
+
+/* Scrollbars: thin, square, hairline-coloured */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
+
+
+/* 4. CHROME ================================================================ */
+.app-shell { display: flex; min-height: 100vh; }
+
+/* Sidebar ------------------------------------------------------------------ */
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: var(--z-sidebar);
+    box-sizing: border-box;
+    width: var(--sidebar-w);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-1);
+    border-right: var(--stroke);
+    overflow-y: auto;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    height: 56px;
+    padding: 0 var(--sp-5);
+    border-bottom: var(--stroke);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.brand:hover { color: var(--text-1); }
+.brand svg { flex-shrink: 0; color: var(--signal); }
+
+.nav-section-label {
+    padding: var(--sp-5) var(--sp-5) var(--sp-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.nav-items { display: flex; flex-direction: column; padding-bottom: var(--sp-4); }
+
+.nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-5);
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    line-height: var(--lh-snug);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text-1); }
+.nav-item.active { background: var(--surface-2); color: var(--text-1); }
+.nav-item.active::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--indicator);
+    background: var(--signal);
+}
+.nav-item.active .nav-icon { color: var(--signal); opacity: 1; }
+
+.nav-icon { flex-shrink: 0; width: 16px; height: 16px; opacity: 0.75; }
+
+.sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-5);
+    border-top: var(--stroke);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.sidebar-footer a { text-decoration: none; color: inherit; }
+
+.version-badge {
+    display: inline-block;
+    padding: 1px var(--sp-2);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: 0;
+    text-transform: none;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+a:hover .version-badge, .version-badge:hover { border-color: var(--signal); color: var(--signal-strong); }
+
+/* Main column -------------------------------------------------------------- */
+.main-content {
+    flex: 1;
+    min-width: 0;
+    margin-left: var(--sidebar-w);
+    padding: var(--content-pad);
+    max-width: calc(var(--content-max) + var(--sidebar-w));
+}
+
+/* Tablet: collapse the sidebar to an icon rail so content keeps its width. */
+@media (max-width: 900px) {
+    :root { --content-pad: var(--sp-5); }
+
+    .sidebar { width: var(--sidebar-w-collapsed); }
+    .main-content {
+        margin-left: var(--sidebar-w-collapsed);
+        max-width: none;
+    }
+    .brand { justify-content: center; padding: 0; }
+    .brand-label,
+    .nav-label,
+    .nav-section-label,
+    .sidebar-footer-label { display: none; }
+    .nav-item { justify-content: center; padding: var(--sp-3) 0; }
+    .nav-icon { width: 18px; height: 18px; }
+    .sidebar-footer { justify-content: center; padding: var(--sp-3) var(--sp-1); }
+    .version-badge { padding: 1px var(--sp-1); font-size: 0.625rem; }
+}
