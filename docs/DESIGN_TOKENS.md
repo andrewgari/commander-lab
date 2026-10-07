@@ -157,9 +157,21 @@ Live reference with sample data: **`/styleguide`**.
 - Jinja macros: `templates/partials/hud.html`. Import with
   `{% import "partials/hud.html" as hud %}`.
 - JS: `static/js/hud.js`, loaded on every page, exposes `window.HUD`. It
-  handles sortable tables, and `HUD.pips()`, `HUD.chip()` and
-  `HUD.statusChip()` return the same markup as the macros, for pages that
-  render from fetched JSON.
+  handles sortable tables and modals. `HUD.pips()`, `HUD.chip()`,
+  `HUD.statusChip()`, `HUD.stat()`, `HUD.stack()`, `HUD.barChart()`,
+  `HUD.rankList()` and `HUD.art()` return the same markup as the macros, for
+  pages that render from fetched JSON (the deck view is built this way).
+  Output is escaped.
+- `HUD.scryfall(uid, version)` returns `{src, fallback}`. `src` points at the
+  `cards.scryfall.io` CDN. Don't use the `api.scryfall.com/...?format=image`
+  redirect for grids, because it returns 429 once a 100-card deck loads at
+  once. Pass `fallback` to `HUD.art()`, and an `<img data-fallback>` retries
+  through the API once if the CDN file is missing.
+- Shell (`base.html`): the sidebar marks the active section by path prefix, so
+  `/deck/*` lights up "Commander Decks", and it sets `aria-current="page"`.
+  There's a Reference group (Changelog, Styleguide) and a skip link. A page
+  that fills `{% block crumbs %}` (and optionally `{% block topbar_meta %}`)
+  gets an `.app-topbar` breadcrumb strip; pages that don't are unchanged.
 
 | Component | Macro | Root class | Notes |
 |---|---|---|---|
@@ -167,7 +179,7 @@ Live reference with sample data: **`/styleguide`**.
 | Page header | `page_head(title, eyebrow)` + call block for actions | `.hud-page-head` | |
 | Section head | `section_head(title, code, anchor)` | `.hud-section-head` | trailing hairline |
 | Stat tile | `stat(label, value, unit, foot, delta, mod)` | `.hud-stat` | mod `hero` / `signal`; wrap in `.hud-stat-strip` |
-| Status chip | `chip(text, tone, dot)`, `status_chip(status)` | `.hud-chip` | tones `signal ok danger data neutral ghost`; `STATUS_TONES` maps deck, ownership and repo statuses |
+| Status chip | `chip(text, tone, dot)`, `status_chip(status)` | `.hud-chip` | tones `signal ok danger data neutral ghost`; `STATUS_TONES` maps deck, ownership and repo statuses; `.hud-chip-remove` button for editable tag lists |
 | Mana pip | `pips(colors, size)` | `.hud-pip` | `"WUBG"` or a list; `""` gives colourless; size `sm` |
 | Colour bar | `stack(segments)` | `.hud-stack` | `[{"color": "W", "value": 12}]` |
 | Button | (markup) | `.hud-btn` | `--primary --ghost --danger --sm` |
@@ -181,3 +193,4 @@ Live reference with sample data: **`/styleguide`**.
 | Ranked bars | `rank_list(items, max)` | `.hud-rank` | item `color` uses a mana swatch, `hl` uses signal |
 | Comparison | `compare(entities, groups)` | `.hud-compare` | 2–3 columns; row `lead: max\|min` marks the best value |
 | Heatmap | `heatmap(rows, cols, matrix, max, self_diag, fmt, hl)` | `.hud-heat` | cells bucketed onto `--data-0..5` (`data-level`) |
+| Modal | (markup) + `HUD.openModal(id)` | `.hud-modal` > `.hud-panel.hud-modal-dialog` | flat `--scrim`, no blur; scrim click / `[data-hud-close]` / Esc closes |
