@@ -97,6 +97,12 @@ async def instances_view(request: Request):
     """Instance list view: ownership source of truth for physical card copies."""
     return templates.TemplateResponse(request=request, name="instances.html")
 
+
+@app.get("/styleguide", response_class=HTMLResponse)
+async def styleguide(request: Request):
+    """Living reference for the HUD tokens and component kit (static sample data)."""
+    return templates.TemplateResponse(request=request, name="styleguide.html")
+
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]

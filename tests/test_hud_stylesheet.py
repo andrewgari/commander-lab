@@ -23,6 +23,7 @@ PAGES = [
     "/instances",
     "/changelog",
     "/deck/TestDeck",
+    "/styleguide",
 ]
 
 # One representative token per documented group (docs/DESIGN_TOKENS.md).

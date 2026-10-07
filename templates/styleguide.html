@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Styleguide · Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page-specific layout only. Every component comes from hud.css. */
+    .sg-toc { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin-bottom: var(--sp-2); }
+    .sg-toc a { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); text-decoration: none; letter-spacing: var(--tracking-label); text-transform: uppercase; }
+    .sg-toc a:hover { color: var(--signal-strong); }
+    .sg-intro { max-width: 68ch; color: var(--text-2); }
+    .sg-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+    .sg-note { margin: var(--sp-2) 0 0; color: var(--text-3); font-size: var(--fs-xs); }
+    .sg-note code { color: var(--text-2); }
+
+    .sg-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--sp-2); }
+    .sg-swatch { border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-1); overflow: hidden; }
+    .sg-swatch-chip { height: 40px; border-bottom: var(--stroke); }
+    .sg-swatch-meta { padding: var(--sp-1) var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text-2); }
+    .sg-swatch-meta span { display: block; color: var(--text-3); }
+
+    .sg-type-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: baseline; gap: var(--sp-4); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); }
+    .sg-type-row:last-child { border-bottom: 0; }
+    .sg-space { display: flex; align-items: center; gap: var(--sp-3); font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-3); }
+    .sg-space-bar { height: 8px; background: var(--data); }
+
+    .sg-art-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--sp-4); align-items: start; }
+    .sg-art-grid--cards { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
+
+    .sg-nav-demo { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); border: var(--stroke); }
+    .sg-nav-demo .sidebar { position: static; width: auto; border-right: var(--stroke); }
+    .sg-nav-demo .sg-nav-pane { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+    @media (max-width: 900px) {
+        .sg-nav-demo { grid-template-columns: minmax(0, 1fr); }
+        .sg-nav-demo .sidebar { border-right: 0; border-bottom: var(--stroke); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{#- ---------------------------------------------------------- sample data -#}
+{%- set ART = "https://api.scryfall.com/cards/named?format=image&version=art_crop&exact=" -%}
+{%- set CARD = "https://api.scryfall.com/cards/named?format=image&version=normal&exact=" -%}
+{%- set decks = [
+    {"name": "Atraxa, Praetors' Voice", "colors": "WUBG", "meta": "Superfriends · 100", "status": "physical", "img": ART ~ "Atraxa%2C%20Praetors%27%20Voice"},
+    {"name": "Krenko, Mob Boss", "colors": "R", "meta": "Goblins · 100", "status": "testing", "img": ART ~ "Krenko%2C%20Mob%20Boss"},
+    {"name": "Meren of Clan Nel Toth", "colors": "BG", "meta": "Aristocrats · 100", "status": "digital", "img": ART ~ "Meren%20of%20Clan%20Nel%20Toth"},
+] -%}
+
+{% call hud.page_head("Styleguide", eyebrow="System · HUD kit v1") %}
+    <a class="hud-btn hud-btn--ghost" href="/static/css/hud.css">hud.css</a>
+    <a class="hud-btn" href="#components">Components</a>
+{% endcall %}
+
+<p class="sg-intro">Every token and component in the HUD kit, shown with sample data. Components are Jinja macros in <code>templates/partials/hud.html</code>, styled by <code>static/css/hud.css</code>. JS helpers for client-rendered pages live in <code>static/js/hud.js</code>. Token reference: <code>docs/DESIGN_TOKENS.md</code>.</p>
+
+<nav class="sg-toc" aria-label="Styleguide sections">
+    <a href="#tokens-colour">01 Colour</a><a href="#tokens-mana">02 Mana</a><a href="#tokens-type">03 Type</a>
+    <a href="#tokens-space">04 Space</a><a href="#components">05 Stat tiles</a><a href="#chips">06 Chips</a>
+    <a href="#pips">07 Pips</a><a href="#buttons">08 Buttons</a><a href="#nav">09 Nav</a><a href="#panels">10 Panels</a>
+    <a href="#table">11 Table</a><a href="#art">12 Card art</a><a href="#chart">13 Charts</a><a href="#rank">14 Ranked</a>
+    <a href="#compare">15 Compare</a><a href="#heatmap">16 Heatmap</a><a href="#composed">17 Composed</a>
+</nav>
+
+{#- ============================================================ TOKENS -#}
+{{ hud.section_head("Colour tokens", "01", "tokens-colour") }}
+{%- set colour_groups = [
+    ("Surface", [("--surface-0", "page"), ("--surface-1", "panel"), ("--surface-2", "raised"), ("--surface-3", "selected")]),
+    ("Line", [("--line-faint", "row rule"), ("--line", "border"), ("--line-strong", "emphasis")]),
+    ("Text", [("--text-1", "primary"), ("--text-2", "body"), ("--text-3", "muted"), ("--text-4", "disabled")]),
+    ("Signal (warm)", [("--signal", "accent"), ("--signal-strong", "hover"), ("--signal-dim", "chip fill"), ("--signal-line", "chip line")]),
+    ("Data (cool)", [("--data", "series"), ("--data-strong", "hover"), ("--data-dim", "chip fill"), ("--data-0", "ramp 0"), ("--data-1", "ramp 1"), ("--data-2", "ramp 2"), ("--data-3", "ramp 3"), ("--data-4", "ramp 4"), ("--data-5", "ramp 5")]),
+    ("State", [("--ok", "ok"), ("--ok-dim", "ok fill"), ("--danger", "danger"), ("--danger-dim", "danger fill"), ("--neutral", "neutral"), ("--neutral-dim", "neutral fill")]),
+] -%}
+{% for group, tokens in colour_groups %}
+<span class="hud-label" style="margin: var(--sp-4) 0 var(--sp-2);">{{ group }}</span>
+<div class="sg-swatches">
+    {% for t, use in tokens %}
+    <div class="sg-swatch"><div class="sg-swatch-chip" style="background: var({{ t }})"></div><div class="sg-swatch-meta">{{ t }}<span>{{ use }}</span></div></div>
+    {% endfor %}
+</div>
+{% endfor %}
+
+{{ hud.section_head("Mana palette (semantic only)", "02", "tokens-mana") }}
+<div class="sg-swatches">
+    {% for c, n in [("w","White"),("u","Blue"),("b","Black"),("r","Red"),("g","Green"),("c","Colourless"),("m","Multicolour")] %}
+    <div class="sg-swatch">
+        <div class="sg-swatch-chip" style="display:flex">
+            <span style="flex:1; background: var(--mana-{{ c }})"></span><span style="flex:1; background: var(--mana-{{ c }}-pip)"></span>
+        </div>
+        <div class="sg-swatch-meta">--mana-{{ c }} / -pip<span>{{ n }} · bar / pip face</span></div>
+    </div>
+    {% endfor %}
+</div>
+<p class="sg-note">Mana colours always mean mana. Never use <code>--mana-*</code> for decoration, brand or status.</p>
+
+{{ hud.section_head("Typography", "03", "tokens-type") }}
+{% call hud.panel("Type scale", meta="IBM Plex Sans / Mono · EB Garamond") %}
+    {%- set scale = [("--fs-hero","44","mono","142"),("--fs-stat","32","mono","38.4"),("--fs-xl","26","sans","Deck overview"),("--fs-lg","20","sans","Section heading"),("--fs-md","16","sans","Panel title / card name"),("--fs-base","14","sans","Body copy explains what the numbers mean."),("--fs-sm","13","sans","Dense table cell · nav item"),("--fs-xs","12","mono","CAPTION · META 1,204"),("--fs-micro","11","mono","MICRO-LABEL")] -%}
+    {% for tok, px, fam, sample in scale %}
+    <div class="sg-type-row">
+        <span class="hud-label">{{ tok }} · {{ px }}</span>
+        <span style="font-size: var({{ tok }}); font-family: var(--font-{{ fam }}); color: var(--text-1); line-height: var(--lh-tight);{% if tok == '--fs-micro' %} letter-spacing: var(--tracking-label);{% endif %}">{{ sample }}</span>
+    </div>
+    {% endfor %}
+    <div class="sg-type-row">
+        <span class="hud-label">--font-card</span>
+        <span class="hud-card-name" style="font-size: var(--fs-lg)">Sol Ring · Rhystic Study</span>
+    </div>
+    <div class="sg-type-row">
+        <span class="hud-label">tabular-nums</span>
+        <span class="hud-num" style="color: var(--text-1)">1,111.11<br>9,999.99</span>
+    </div>
+{% endcall %}
+
+{{ hud.section_head("Spacing, borders, corners", "04", "tokens-space") }}
+<div class="hud-grid hud-grid--2">
+    {% call hud.panel("Spacing · 4px grid") %}
+        {% for s, px in [("--sp-1",4),("--sp-2",8),("--sp-3",12),("--sp-4",16),("--sp-5",20),("--sp-6",24),("--sp-8",32),("--sp-10",40),("--sp-12",48),("--sp-16",64)] %}
+        <div class="sg-space"><span style="width: 4.5rem">{{ s }}</span><span class="sg-space-bar" style="width: var({{ s }})"></span><span>{{ px }}</span></div>
+        {% endfor %}
+    {% endcall %}
+    {% call hud.panel("Strokes · radius · focus") %}
+        <div class="hud-grid" style="gap: var(--sp-3)">
+            {% for s in ["--stroke-faint", "--stroke", "--stroke-strong", "--stroke-signal"] %}
+            <div class="sg-row"><span class="hud-label" style="width: 9rem">{{ s }}</span><span style="flex:1; height: 24px; border: var({{ s }});"></span></div>
+            {% endfor %}
+            {% for r, use in [("--radius-0","0 · tables"),("--radius-1","2px · default"),("--radius-2","3px · card art")] %}
+            <div class="sg-row"><span class="hud-label" style="width: 9rem">{{ r }}</span><span style="width: 40px; height: 24px; border: var(--stroke-strong); border-radius: var({{ r }})"></span><span class="hud-muted hud-num" style="font-size: var(--fs-xs)">{{ use }}</span></div>
+            {% endfor %}
+            <div class="sg-row"><span class="hud-label" style="width: 9rem">--focus-ring</span><span class="hud-btn" style="outline: var(--focus-ring); outline-offset: var(--focus-offset)">Focused</span></div>
+        </div>
+    {% endcall %}
+</div>
+
+{#- ======================================================== COMPONENTS -#}
+{{ hud.section_head("Stat tiles", "05", "components") }}
+<div class="hud-grid hud-grid--auto">
+    {{ hud.stat("Decks", 38, foot="12 physical") }}
+    {{ hud.stat("Avg CMC", "3.12", delta={"value": "−0.18", "dir": "up"}, foot="vs. archetype") }}
+    {{ hud.stat("Owned", "4,812", unit="cards", delta={"value": "+64", "dir": "up"}, foot="this week") }}
+    {{ hud.stat("Missing", 23, unit="cards", mod="signal", foot="across 4 decks") }}
+    {{ hud.stat("Salt", "1.84", delta={"value": "+0.3", "dir": "down"}, foot="higher = saltier") }}
+</div>
+<span class="hud-label" style="margin: var(--sp-5) 0 var(--sp-2);">Strip + hero (deck surfaces lead with stats)</span>
+<div class="hud-stat-strip">
+    {{ hud.stat("Bracket", 3, mod="hero", foot="Upgraded") }}
+    {{ hud.stat("Lands", 36, foot="+ 11 ramp") }}
+    {{ hud.stat("Interaction", 14, foot="8 removal · 3 wipes") }}
+    {{ hud.stat("Draw", 11, foot="4 engines") }}
+    {{ hud.stat("Value", "$412", foot="TCG market") }}
+</div>
+<p class="sg-note"><code>hud.stat(label, value, unit, foot, delta, mod)</code>. mod: <code>hero</code>, <code>signal</code>. Wrap tiles in <code>.hud-stat-strip</code> to join them with shared hairlines.</p>
+
+{{ hud.section_head("Status chips", "06", "chips") }}
+<div class="hud-grid hud-grid--2">
+    {% call hud.panel("Tones") %}
+        <div class="sg-row">
+            {{ hud.chip("Signal", "signal", dot=true) }}{{ hud.chip("OK", "ok", dot=true) }}{{ hud.chip("Danger", "danger", dot=true) }}
+            {{ hud.chip("Data", "data", dot=true) }}{{ hud.chip("Neutral", "neutral", dot=true) }}{{ hud.chip("No dot", "neutral") }}{{ hud.chip("ramp", "ghost") }}{{ hud.chip("card draw", "ghost") }}
+        </div>
+    {% endcall %}
+    {% call hud.panel("Domain statuses", meta="hud.status_chip()") %}
+        <div class="hud-grid" style="gap: var(--sp-3)">
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Deck</span>{% for s in ["physical", "testing", "digital", "retired"] %}{{ hud.status_chip(s) }}{% endfor %}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Ownership</span>{% for s in ["in_deck", "in_collection", "in_mail", "not_owned"] %}{{ hud.status_chip(s) }}{% endfor %}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Repo</span>{% for s in ["clean", "dirty", "error", "untracked"] %}{{ hud.status_chip(s) }}{% endfor %}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">JS mirror</span><span id="sg-js-chips" class="sg-row"></span></div>
+        </div>
+    {% endcall %}
+</div>
+
+{{ hud.section_head("Mana pips + colour distribution", "07", "pips") }}
+<div class="hud-grid hud-grid--2">
+    {% call hud.panel("Pips", meta="hud.pips(colors)") %}
+        <div class="hud-grid" style="gap: var(--sp-3)">
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Single</span>{% for c in "WUBRGCM" %}{{ hud.pips(c) }}{% endfor %}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Identity</span>{{ hud.pips("WUBG") }}{{ hud.pips("BG") }}{{ hud.pips("UR") }}{{ hud.pips("") }}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Small</span>{{ hud.pips("WUBRG", "sm") }}</div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">JS mirror</span><span id="sg-js-pips"></span></div>
+        </div>
+    {% endcall %}
+    {% call hud.panel("Colour distribution", meta="Atraxa · 64 pips") %}
+        {{ hud.stack([{"color": "W", "value": 14}, {"color": "U", "value": 18}, {"color": "B", "value": 12}, {"color": "G", "value": 20}]) }}
+        <div style="height: var(--sp-5)"></div>
+        {{ hud.stack([{"color": "B", "value": 31}, {"color": "G", "value": 27}, {"color": "C", "value": 6}]) }}
+    {% endcall %}
+</div>
+
+{{ hud.section_head("Buttons", "08", "buttons") }}
+<div class="sg-row">
+    <button class="hud-btn hud-btn--primary" type="button">Sync decks</button>
+    <button class="hud-btn" type="button">Compare</button>
+    <button class="hud-btn hud-btn--ghost" type="button">Cancel</button>
+    <button class="hud-btn hud-btn--danger" type="button">Retire deck</button>
+    <button class="hud-btn" type="button" disabled>Disabled</button>
+    <button class="hud-btn hud-btn--sm" type="button">Small</button>
+    <input type="search" placeholder="Search cards…" aria-label="Search sample" style="width: 14rem">
+    <select aria-label="Select sample"><option>All statuses</option><option>Physical</option></select>
+</div>
+
+{{ hud.section_head("Navigation", "09", "nav") }}
+<div class="sg-nav-demo">
+    <nav class="sidebar" aria-label="Sample sidebar">
+        <span class="brand"><span class="brand-label">Cmdr Lab</span></span>
+        <div class="nav-section-label">Navigate</div>
+        <div class="nav-items">
+            <a class="nav-item" href="#nav"><span class="nav-label">Home</span></a>
+            <a class="nav-item active" href="#nav"><span class="nav-label">Commander Decks</span></a>
+            <a class="nav-item" href="#nav"><span class="nav-label">Inventory</span></a>
+        </div>
+    </nav>
+    <div class="sg-nav-pane">
+        {{ hud.crumbs([{"label": "Decks", "href": "#nav"}, {"label": "Physical", "href": "#nav"}, {"label": "Atraxa, Praetors' Voice"}]) }}
+        {{ hud.tabs([{"label": "Overview", "href": "#nav", "count": none}, {"label": "Cards", "href": "#nav-cards", "count": 100}, {"label": "Analytics", "href": "#nav-a"}, {"label": "Compare", "href": "#nav-c", "count": 2}], active="Overview") }}
+        <p class="sg-note" style="margin:0">Sidebar = the app shell in <code>base.html</code> (collapses to an icon rail at ≤900px). Tabs and breadcrumbs: <code>hud.tabs()</code>, <code>hud.crumbs()</code>.</p>
+    </div>
+</div>
+
+{{ hud.section_head("Panels", "10", "panels") }}
+<div class="hud-grid hud-grid--3">
+    {% call hud.panel("Deck info", meta="ID archidekt:1182") %}
+        {{ hud.kv([("Commander", "Atraxa, Praetors' Voice"), ("Identity", hud.pips("WUBG", "sm")), ("Status", hud.status_chip("physical")), ("Folder", "Active Physical"), ("Updated", "2026-10-02")]) }}
+    {% endcall %}
+    {% call hud.panel("Sync alert", meta=hud.chip("2 drift", "signal", dot=true), mod="signal", foot="Last check 4m ago") %}
+        <p style="margin:0">Archidekt has 2 cards that are not in the physical deck. Review before the next resync.</p>
+    {% endcall %}
+    {% call hud.panel("Empty state") %}
+        {{ hud.empty("No recommendations yet") }}
+    {% endcall %}
+</div>
+
+{{ hud.section_head("Dense data table", "11", "table") }}
+{%- set card_rows = [
+    ("Sol Ring", "Artifact", 1, "C", "in_deck", 98.2, 1.4),
+    ("Rhystic Study", "Enchantment", 3, "U", "in_deck", 61.7, 2.9),
+    ("Doubling Season", "Enchantment", 5, "G", "in_mail", 34.1, 1.8),
+    ("Toxic Deluge", "Sorcery", 3, "B", "in_collection", 40.3, 2.3),
+    ("Atraxa, Praetors' Voice", "Legendary Creature", 4, "WUBG", "in_deck", 12.9, 1.1),
+    ("Swords to Plowshares", "Instant", 1, "W", "not_owned", 55.0, 0.9),
+    ("Cyclonic Rift", "Instant", 2, "U", "in_deck", 47.6, 3.1),
+] -%}
+{% call hud.panel("Card list", meta="7 rows · click a header to sort", mod="flush") %}
+    {% call hud.table([
+        {"label": "Card", "sort": "text"}, {"label": "Type", "sort": "text"}, {"label": "Colour"},
+        {"label": "CMC", "num": true, "sort": "num"}, {"label": "Status", "sort": "text"},
+        {"label": "Incl. %", "num": true, "sort": "num"}, {"label": "Salt", "num": true, "sort": "num"}], id="sg-table") %}
+        {% for name, type, cmc, col, status, incl, salt in card_rows %}
+        <tr{% if loop.index == 2 %} class="is-selected"{% endif %}>
+            <td class="is-primary"><span class="hud-card-name">{{ name }}</span></td>
+            <td>{{ type }}</td>
+            <td class="is-shrink">{{ hud.pips(col, "sm") }}</td>
+            <td class="is-num">{{ cmc }}</td>
+            <td data-value="{{ status }}">{{ hud.status_chip(status) }}</td>
+            <td class="is-num">{{ "%.1f"|format(incl) }}</td>
+            <td class="is-num">{{ "%.1f"|format(salt) }}</td>
+        </tr>
+        {% endfor %}
+    {% endcall %}
+{% endcall %}
+<p class="sg-note"><code>hud.table(columns, rows)</code> or a call block for custom rows. Sortable when a column sets <code>sort: "num"|"text"</code>; numeric columns sort high-to-low first. Selected row: <code>tr.is-selected</code>.</p>
+
+{{ hud.section_head("Card-art frame", "12", "art") }}
+<div class="sg-art-grid">
+    {% for d in decks %}
+    {{ hud.art(d.name, d.img, meta=d.meta, colors=d.colors, href="#art", chip=(d.status, hud.STATUS_TONES[d.status])) }}
+    {% endfor %}
+    {{ hud.art("Unknown printing", none, meta="Image unavailable", colors="") }}
+</div>
+<span class="hud-label" style="margin: var(--sp-5) 0 var(--sp-2);">Full card (kind="card")</span>
+<div class="sg-art-grid sg-art-grid--cards">
+    {% for n, c in [("Sol Ring", "C"), ("Rhystic Study", "U"), ("Doubling Season", "G"), ("Toxic Deluge", "B")] %}
+    {{ hud.art(n, CARD ~ n|urlencode, colors=c, kind="card") }}
+    {% endfor %}
+</div>
+
+{#- ========================================================= ANALYTICS -#}
+{{ hud.section_head("Bar / curve chart", "13", "chart") }}
+<div class="hud-grid hud-grid--2">
+    {% call hud.panel("Mana curve", meta="avg 3.12") %}
+        {{ hud.bar_chart(
+            [{"label": "0", "value": 1}, {"label": "1", "value": 9}, {"label": "2", "value": 14}, {"label": "3", "value": 12}, {"label": "4", "value": 10}, {"label": "5", "value": 6}, {"label": "6", "value": 3}, {"label": "7+", "value": 2}],
+            ref=[2, 8, 12, 11, 9, 6, 4, 2], hl=4, legend=("This deck", "Archetype avg", "Commander CMC"), title="Mana curve") }}
+    {% endcall %}
+    {% call hud.panel("Card types", meta="63 nonland") %}
+        {{ hud.bar_chart(
+            [{"label": "CRE", "value": 24}, {"label": "INS", "value": 10}, {"label": "SOR", "value": 7}, {"label": "ART", "value": 11}, {"label": "ENC", "value": 8}, {"label": "PLW", "value": 3}],
+            height=160, legend=("Count",), title="Card types") }}
+    {% endcall %}
+</div>
+
+{{ hud.section_head("Ranked-bar list", "14", "rank") }}
+<div class="hud-grid hud-grid--2">
+    {% call hud.panel("Top synergy", meta="score / 100") %}
+        {{ hud.rank_list([
+            {"label": "Doubling Season", "value": 92, "sub": "proliferate", "hl": true},
+            {"label": "Deepglow Skate", "value": 81, "sub": "counters"},
+            {"label": "Contagion Engine", "value": 74, "sub": "proliferate"},
+            {"label": "Vorinclex, Monstrous Raider", "value": 66, "sub": "counters"},
+            {"label": "Tekuthal, Inquiry Dominus", "value": 58, "sub": "proliferate"},
+        ], max=100) }}
+    {% endcall %}
+    {% call hud.panel("Cards by colour", meta="pips") %}
+        {{ hud.rank_list([
+            {"label": "Green", "value": 20, "color": "G"}, {"label": "Blue", "value": 18, "color": "U"},
+            {"label": "White", "value": 14, "color": "W"}, {"label": "Black", "value": 12, "color": "B"},
+            {"label": "Colourless", "value": 7, "color": "C"},
+        ], numbered=false) }}
+    {% endcall %}
+</div>
+
+{{ hud.section_head("Comparison layout", "15", "compare") }}
+{{ hud.compare(decks, [
+    {"label": "Profile", "rows": [
+        {"label": "Bracket", "values": [3, 3, 2]},
+        {"label": "Avg CMC", "values": [3.12, 2.41, 3.38], "lead": "min"},
+        {"label": "Salt", "values": [1.84, 1.12, 1.47], "lead": "min"},
+    ]},
+    {"label": "Composition", "rows": [
+        {"label": "Lands", "values": [36, 33, 37]},
+        {"label": "Ramp", "values": [11, 8, 12], "lead": "max"},
+        {"label": "Draw", "values": [11, 9, 10], "lead": "max"},
+        {"label": "Removal", "values": [8, 5, 9], "lead": "max"},
+    ]},
+    {"label": "Collection", "rows": [
+        {"label": "Owned", "values": [100, 94, 97], "lead": "max", "unit": "/100"},
+        {"label": "Value", "values": ["$412", "$188", "$263"]},
+    ]},
+]) }}
+<p class="sg-note"><code>hud.compare(entities, groups)</code>. Takes 2 or 3 columns. A row with <code>lead: "max"|"min"</code> marks its best value in signal; ties and all-equal rows are left unmarked.</p>
+
+{{ hud.section_head("Heatmap / matrix", "16", "heatmap") }}
+<div class="hud-grid hud-grid--sidebar">
+    {% call hud.panel("Cross-deck overlap", meta="shared cards") %}
+        {%- set names = ["Atraxa", "Krenko", "Meren", "Korvold", "Yuriko"] -%}
+        {{ hud.heatmap(names, names, [
+            [none, 6, 18, 14, 9],
+            [6, none, 4, 7, 5],
+            [18, 4, none, 22, 6],
+            [14, 7, 22, none, 8],
+            [9, 5, 6, 8, none],
+        ], self_diag=true, hl=(2, 3), legend=("0", "22 shared")) }}
+    {% endcall %}
+    {% call hud.panel("Card × archetype", meta="synergy") %}
+        {{ hud.heatmap(["Doubling Season", "Sol Ring", "Blood Artist"], ["+1", "TOK", "ARI"], [
+            [0.95, 0.80, 0.10],
+            [0.40, 0.40, 0.40],
+            [0.05, 0.55, 0.92],
+        ], max=1, fmt="{:.2f}") }}
+    {% endcall %}
+</div>
+<p class="sg-note"><code>hud.heatmap(rows, cols, matrix)</code>. Values are bucketed onto the <code>--data-0…5</code> ramp. <code>none</code> means n/a, <code>self_diag</code> blanks out the diagonal, and <code>hl=(r, c)</code> outlines one cell in signal.</p>
+
+{{ hud.section_head("Composed: deck surface", "17", "composed") }}
+<div class="hud-grid hud-grid--sidebar">
+    <div class="hud-grid">
+        <div class="hud-stat-strip">
+            {{ hud.stat("Bracket", 3, mod="hero") }}
+            {{ hud.stat("Avg CMC", "3.12", delta={"value": "−0.18", "dir": "up"}) }}
+            {{ hud.stat("Owned", "100", unit="/100") }}
+            {{ hud.stat("Salt", "1.84") }}
+        </div>
+        {% call hud.panel("Mana curve") %}
+            {{ hud.bar_chart([{"label": "1", "value": 9}, {"label": "2", "value": 14}, {"label": "3", "value": 12}, {"label": "4", "value": 10}, {"label": "5", "value": 6}, {"label": "6+", "value": 5}], height=120) }}
+        {% endcall %}
+    </div>
+    <div class="hud-grid">
+        {{ hud.art(decks[0].name, decks[0].img, meta=decks[0].meta, colors=decks[0].colors, chip=("physical", "ok")) }}
+        {% call hud.panel("Colour distribution") %}
+            {{ hud.stack([{"color": "W", "value": 14}, {"color": "U", "value": 18}, {"color": "B", "value": 12}, {"color": "G", "value": 20}]) }}
+        {% endcall %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Demo the JS mirrors once hud.js (deferred) has loaded.
+    window.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("sg-js-pips").innerHTML = HUD.pips("WUBRG") + " " + HUD.pips([], "sm");
+        document.getElementById("sg-js-chips").innerHTML = ["physical", "in_mail", "error"].map(function (s) { return HUD.statusChip(s); }).join(" ");
+    });
+</script>
+{% endblock %}
