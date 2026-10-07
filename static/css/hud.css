@@ -177,6 +177,11 @@
     --card-ratio:     488 / 680; /* full card image */
     --tile-min:       10rem;     /* stat-tile min width in auto grids */
     --col-min:        15rem;     /* comparison column min width */
+    --modal-w:        56rem;     /* modal dialog max width */
+    --topbar-h:       2.5rem;    /* in-page shell bar (crumbs + page meta) */
+
+    /* --- Scrim behind modals: flat, no blur ---------------------------- */
+    --scrim: rgba(8, 11, 14, 0.84);
 }
 
 
@@ -383,6 +388,52 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     max-width: calc(var(--content-max) + var(--sidebar-w));
 }
 
+/* Skip link: hidden until keyboard focus. */
+.skip-link {
+    position: absolute;
+    top: var(--sp-2);
+    left: var(--sp-2);
+    z-index: var(--z-toast);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--signal);
+    color: var(--text-on-signal);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+    transform: translateY(-200%);
+}
+.skip-link:focus { transform: none; color: var(--text-on-signal); }
+
+/* Shell bar at the top of the main column: breadcrumb left, page meta right.
+   Rendered by base.html only when a page fills {% block crumbs %}. */
+.app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    min-height: var(--topbar-h);
+    margin: calc(-1 * var(--content-pad)) calc(-1 * var(--content-pad)) var(--sp-6);
+    padding: 0 var(--content-pad);
+    background: var(--surface-1);
+    border-bottom: var(--stroke);
+}
+.app-topbar-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Secondary nav group (reference pages) sits under the primary list. */
+.nav-items + .nav-section-label { padding-top: var(--sp-3); border-top: var(--stroke-faint); }
+
 /* Tablet: collapse the sidebar to an icon rail so content keeps its width. */
 @media (max-width: 900px) {
     :root { --content-pad: var(--sp-5); }
@@ -401,6 +452,7 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .nav-icon { width: 18px; height: 18px; }
     .sidebar-footer { justify-content: center; padding: var(--sp-3) var(--sp-1); }
     .version-badge { padding: 1px var(--sp-1); font-size: 0.625rem; }
+    .nav-items + .nav-section-label { display: block; height: 0; padding: 0; overflow: hidden; }
 }
 
 
@@ -611,6 +663,22 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 /* Outline-only: tags and secondary labels that aren't a status. */
 .hud-chip--ghost   { --chip-bg: transparent; --chip-line: var(--line); text-transform: none; letter-spacing: 0; }
 .hud-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+/* Remove control inside a chip (editable tag lists). */
+.hud-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 calc(-1 * var(--sp-1)) 0 var(--sp-1);
+    padding: 0 2px;
+    background: none;
+    border: 0;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1;
+    cursor: pointer;
+}
+.hud-chip-remove:hover { color: var(--danger); }
 
 /* Mana pip ------------------------------------------------------------------------ */
 .hud-pip {
@@ -738,6 +806,7 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     white-space: nowrap;
 }
 .hud-tab:hover { color: var(--text-1); }
+button.hud-tab { background: none; border: 0; cursor: pointer; }
 .hud-tab.active, .hud-tab[aria-current="page"] { color: var(--text-1); }
 .hud-tab.active::after, .hud-tab[aria-current="page"]::after {
     content: "";
@@ -933,6 +1002,28 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
     overflow: hidden;
 }
 .hud-art-meta .hud-pips { margin-left: auto; }
+/* Clickable frame that isn't a link (opens a detail modal). */
+.hud-art[role="button"] { cursor: pointer; }
+.hud-art[role="button"]:hover { border-color: var(--line-strong); }
+.hud-art[role="button"]:hover .hud-art-name { color: var(--signal-strong); }
+
+/* Modal ---------------------------------------------------------------------------- */
+/* <div class="hud-modal" aria-hidden="true"><section class="hud-panel hud-modal-dialog"
+   role="dialog">…</section></div>. HUD.openModal()/closeModal() toggle .is-open;
+   scrim click, [data-hud-close] and Escape close it. Flat scrim, no blur. */
+.hud-modal {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: var(--sp-12) var(--sp-4);
+    background: var(--scrim);
+    overflow-y: auto;
+}
+.hud-modal.is-open { display: flex; }
+.hud-modal-dialog { width: 100%; max-width: var(--modal-w); border-color: var(--line-strong); }
 
 
 /* 6. ANALYTICS ============================================================= */

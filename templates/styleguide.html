@@ -160,6 +160,7 @@
         <div class="sg-row">
             {{ hud.chip("Signal", "signal", dot=true) }}{{ hud.chip("OK", "ok", dot=true) }}{{ hud.chip("Danger", "danger", dot=true) }}
             {{ hud.chip("Data", "data", dot=true) }}{{ hud.chip("Neutral", "neutral", dot=true) }}{{ hud.chip("No dot", "neutral") }}{{ hud.chip("ramp", "ghost") }}{{ hud.chip("card draw", "ghost") }}
+            <span class="hud-chip hud-chip--ghost">removable<button type="button" class="hud-chip-remove" aria-label="Remove removable">✕</button></span>
         </div>
     {% endcall %}
     {% call hud.panel("Domain statuses", meta="hud.status_chip()") %}
@@ -230,6 +231,17 @@
     {% call hud.panel("Empty state") %}
         {{ hud.empty("No recommendations yet") }}
     {% endcall %}
+</div>
+<div class="sg-row" style="margin-top: var(--sp-4)">
+    <button type="button" class="hud-btn" onclick="HUD.openModal('sg-modal')">Open modal</button>
+    <span class="sg-note" style="margin:0"><code>.hud-modal</code> + <code>.hud-modal-dialog</code> (a panel). <code>HUD.openModal(id)</code>; scrim click, <code>[data-hud-close]</code> or Esc closes. Flat scrim, no blur.</span>
+</div>
+<div class="hud-modal" id="sg-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-label="Sample modal">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Card detail</h3>
+            <div class="hud-panel-meta"><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close>Close ✕</button></div></header>
+        <div class="hud-panel-body">{{ hud.kv([("Set", "Commander Masters"), ("CMC", "1")]) }}</div>
+    </section>
 </div>
 
 {{ hud.section_head("Dense data table", "11", "table") }}
