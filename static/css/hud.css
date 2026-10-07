@@ -9,6 +9,9 @@
                      page templates. Remove once every page is migrated.
      3. Base         Element defaults (type, links, forms, scrollbars).
      4. Chrome       App shell: sidebar nav + main content column.
+     5. Components   hud-* kit: label, panel, stat, chip, pip, stack, button,
+                     tabs/crumbs, kv, empty, table, card-art frame.
+     6. Analytics    bar/curve chart, ranked-bar list, comparison, heatmap.
 
    Rules (from the HUD brief)
      - Dark slate base, never pure black.
@@ -159,6 +162,21 @@
     --z-overlay: 900;
     --z-modal:   1000;
     --z-toast:   1100;
+
+    /* --- Component sizing (section 5 / 6) ------------------------------- */
+    --pip-size:       1.125rem;  /* 18px mana pip */
+    --pip-size-sm:    0.875rem;  /* 14px pip inside dense tables */
+    --chip-h:         1.25rem;   /* 20px status chip */
+    --dot-size:       6px;       /* status dot inside chips */
+    --row-h:          2rem;      /* 32px dense table row */
+    --panel-head-h:   2.5rem;    /* 40px panel header */
+    --bar-track-h:    6px;       /* ranked-bar track */
+    --stack-bar-h:    8px;       /* stacked colour-distribution bar */
+    --heat-cell:      2.25rem;   /* 36px heatmap cell */
+    --art-ratio:      626 / 457; /* Scryfall art_crop */
+    --card-ratio:     488 / 680; /* full card image */
+    --tile-min:       10rem;     /* stat-tile min width in auto grids */
+    --col-min:        15rem;     /* comparison column min width */
 }
 
 
@@ -383,4 +401,755 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .nav-icon { width: 18px; height: 18px; }
     .sidebar-footer { justify-content: center; padding: var(--sp-3) var(--sp-1); }
     .version-badge { padding: 1px var(--sp-1); font-size: 0.625rem; }
+}
+
+
+/* 5. COMPONENTS ============================================================ */
+/* Every kit class is prefixed `hud-` so it can't collide with the per-page
+   classes (.badge, .stat-card, .mana-pip, .label…) still in un-migrated
+   templates. Jinja macros: templates/partials/hud.html. JS mirrors for
+   client-rendered data: static/js/hud.js. Live reference: /styleguide. */
+
+/* Micro-label ---------------------------------------------------------------- */
+.hud-label {
+    display: block;
+    margin: 0;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-weight: var(--fw-medium);
+    line-height: var(--lh-snug);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.hud-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hud-muted { color: var(--text-3); }
+.hud-card-name { font-family: var(--font-card); font-weight: var(--fw-semibold); color: var(--text-1); }
+
+/* Page header ------------------------------------------------------------------ */
+.hud-page-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    padding-bottom: var(--sp-4);
+    margin-bottom: var(--sp-6);
+    border-bottom: var(--stroke);
+}
+.hud-page-head h1 { margin: var(--sp-1) 0 0; }
+.hud-page-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Section heading (a micro-label with a trailing hairline) ----------------- */
+.hud-section-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: var(--sp-10) 0 var(--sp-4);
+}
+.hud-section-head::after { content: ""; flex: 1; border-top: var(--stroke); }
+.hud-section-head h2 {
+    margin: 0;
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-section-head .hud-section-id { color: var(--signal); font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+/* Layout grids ------------------------------------------------------------------ */
+.hud-grid { display: grid; gap: var(--sp-4); }
+.hud-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hud-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hud-grid--auto { grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr)); }
+.hud-grid--sidebar { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+
+/* Panel ---------------------------------------------------------------------------- */
+.hud-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.hud-panel-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: var(--panel-head-h);
+    padding: 0 var(--sp-4);
+    border-bottom: var(--stroke);
+}
+.hud-panel-title {
+    margin: 0;
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hud-panel-meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+}
+.hud-panel-body { padding: var(--sp-4); min-width: 0; }
+.hud-panel--flush > .hud-panel-body { padding: 0; }
+.hud-panel-foot {
+    padding: var(--sp-2) var(--sp-4);
+    border-top: var(--stroke);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+}
+/* Alert panel: signal indicator bar on the left edge. */
+.hud-panel--signal { border-left: var(--indicator) solid var(--signal); }
+
+/* Stat tile ---------------------------------------------------------------------- */
+.hud-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    min-width: 0;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.hud-stat-value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-1);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-stat);
+    font-weight: var(--fw-medium);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tracking-tight);
+    white-space: nowrap;
+}
+.hud-stat-unit { color: var(--text-3); font-size: var(--fs-sm); letter-spacing: 0; }
+.hud-stat-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hud-stat--hero .hud-stat-value { font-size: var(--fs-hero); }
+.hud-stat--signal { border-top: var(--indicator) solid var(--signal); }
+.hud-stat--signal .hud-stat-value { color: var(--signal); }
+/* Tiles joined into one strip with shared hairlines. */
+.hud-stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr));
+    gap: var(--hairline);
+    background: var(--line);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.hud-stat-strip > .hud-stat { border: 0; border-radius: 0; }
+
+/* Delta (change vs. a reference) ---------------------------------------------- */
+.hud-delta { font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; }
+.hud-delta--up   { color: var(--ok); }
+.hud-delta--down { color: var(--danger); }
+.hud-delta--flat { color: var(--text-3); }
+
+/* Status chip -------------------------------------------------------------------- */
+.hud-chip {
+    --chip-fg: var(--text-2);
+    --chip-bg: var(--surface-2);
+    --chip-line: var(--line-strong);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    box-sizing: border-box;
+    height: var(--chip-h);
+    padding: 0 var(--sp-2);
+    background: var(--chip-bg);
+    border: var(--hairline) solid var(--chip-line);
+    border-radius: var(--radius-1);
+    color: var(--chip-fg);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.hud-chip-dot {
+    flex-shrink: 0;
+    width: var(--dot-size);
+    height: var(--dot-size);
+    background: currentColor;
+}
+.hud-chip--signal  { --chip-fg: var(--signal); --chip-bg: var(--signal-dim);  --chip-line: var(--signal-line); }
+.hud-chip--ok      { --chip-fg: var(--ok);     --chip-bg: var(--ok-dim);      --chip-line: var(--ok); }
+.hud-chip--danger  { --chip-fg: var(--danger); --chip-bg: var(--danger-dim);  --chip-line: var(--danger); }
+.hud-chip--data    { --chip-fg: var(--data);   --chip-bg: var(--data-dim);    --chip-line: var(--data-2); }
+.hud-chip--neutral { --chip-fg: var(--text-3); --chip-bg: var(--neutral-dim); --chip-line: var(--line); }
+/* Outline-only: tags and secondary labels that aren't a status. */
+.hud-chip--ghost   { --chip-bg: transparent; --chip-line: var(--line); text-transform: none; letter-spacing: 0; }
+.hud-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+/* Mana pip ------------------------------------------------------------------------ */
+.hud-pip {
+    --pip-face: var(--mana-c-pip);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: var(--pip-size);
+    height: var(--pip-size);
+    background: var(--pip-face);
+    border: var(--hairline) solid var(--mana-ink);
+    border-radius: 50%;  /* real pips are round; this is semantic, not decorative */
+    color: var(--mana-ink);
+    font-family: var(--font-mono);
+    font-size: calc(var(--pip-size) * 0.58);
+    font-weight: var(--fw-semibold);
+    line-height: 1;
+    vertical-align: middle;
+    user-select: none;
+}
+.hud-pip--w { --pip-face: var(--mana-w-pip); }
+.hud-pip--u { --pip-face: var(--mana-u-pip); }
+.hud-pip--b { --pip-face: var(--mana-b-pip); }
+.hud-pip--r { --pip-face: var(--mana-r-pip); }
+.hud-pip--g { --pip-face: var(--mana-g-pip); }
+.hud-pip--c { --pip-face: var(--mana-c-pip); }
+.hud-pip--m { --pip-face: var(--mana-m-pip); }
+.hud-pip--sm { --pip-size: var(--pip-size-sm); }
+.hud-pips { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+/* Square swatch in the chart colour (legends, rank-list markers). */
+.hud-swatch {
+    --swatch: var(--data);
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    background: var(--swatch);
+    vertical-align: middle;
+}
+.hud-swatch--w { --swatch: var(--mana-w); }
+.hud-swatch--u { --swatch: var(--mana-u); }
+.hud-swatch--b { --swatch: var(--mana-b); }
+.hud-swatch--r { --swatch: var(--mana-r); }
+.hud-swatch--g { --swatch: var(--mana-g); }
+.hud-swatch--c { --swatch: var(--mana-c); }
+.hud-swatch--m { --swatch: var(--mana-m); }
+.hud-swatch--signal { --swatch: var(--signal); }
+.hud-swatch--ref { --swatch: var(--text-3); }
+
+/* Colour-distribution stack bar (mana share of a deck) ----------------------- */
+.hud-stack {
+    display: flex;
+    gap: var(--hairline);
+    height: var(--stack-bar-h);
+    background: var(--surface-0);
+    border: var(--stroke);
+}
+.hud-stack > span { min-width: 2px; background: var(--swatch, var(--data)); }
+.hud-stack-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-4);
+    margin-top: var(--sp-2);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+}
+.hud-stack-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+
+/* Buttons ------------------------------------------------------------------------- */
+.hud-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    box-sizing: border-box;
+    height: 2rem;
+    padding: 0 var(--sp-3);
+    background: var(--surface-2);
+    border: var(--stroke-strong);
+    border-radius: var(--radius-1);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.hud-btn:hover { background: var(--surface-3); border-color: var(--text-3); color: var(--text-1); }
+.hud-btn:disabled, .hud-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.hud-btn--primary { background: var(--signal); border-color: var(--signal); color: var(--text-on-signal); }
+.hud-btn--primary:hover { background: var(--signal-strong); border-color: var(--signal-strong); color: var(--text-on-signal); }
+.hud-btn--ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.hud-btn--ghost:hover { background: var(--surface-2); border-color: var(--line); }
+.hud-btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.hud-btn--danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+.hud-btn--sm { height: 1.5rem; padding: 0 var(--sp-2); font-size: var(--fs-micro); }
+
+/* In-page nav: tabs + breadcrumb (the sidebar is section 4) ----------------- */
+.hud-tabs {
+    display: flex;
+    gap: var(--sp-1);
+    border-bottom: var(--stroke);
+    overflow-x: auto;
+}
+.hud-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.hud-tab:hover { color: var(--text-1); }
+.hud-tab.active, .hud-tab[aria-current="page"] { color: var(--text-1); }
+.hud-tab.active::after, .hud-tab[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 -1px 0;
+    height: var(--indicator);
+    background: var(--signal);
+}
+.hud-tab-count { color: var(--text-4); }
+.hud-tab.active .hud-tab-count { color: var(--signal); }
+
+.hud-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-crumbs li + li::before { content: "/"; margin-right: var(--sp-2); color: var(--text-4); }
+.hud-crumbs a { color: var(--text-3); text-decoration: none; }
+.hud-crumbs a:hover { color: var(--signal-strong); }
+.hud-crumbs [aria-current="page"] { color: var(--text-1); }
+
+/* Key / value list ------------------------------------------------------------ */
+.hud-kv {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--sp-2) var(--sp-4);
+    margin: 0;
+}
+.hud-kv dt { align-self: center; color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-micro); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-kv dd { margin: 0; color: var(--text-1); font-size: var(--fs-sm); min-width: 0; }
+
+/* Empty / loading state ------------------------------------------------------- */
+.hud-empty {
+    padding: var(--sp-8) var(--sp-4);
+    border: var(--hairline) dashed var(--line-strong);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* Dense data table -------------------------------------------------------------- */
+/* Sortable-ready: add data-hud-sortable to the <table> and data-sort="num|text"
+   to a <th>; static/js/hud.js wires the click and keeps aria-sort in sync. A
+   <td data-value="…"> overrides the cell text as the sort key. */
+.hud-table-wrap {
+    overflow-x: auto;
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    background: var(--surface-1);
+}
+.hud-panel--flush .hud-table-wrap { border: 0; border-radius: 0; }
+.hud-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+}
+.hud-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: var(--row-h);
+    padding: 0 var(--sp-3);
+    background: var(--surface-2);
+    border-bottom: var(--stroke);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tracking-label);
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.hud-table td {
+    height: var(--row-h);
+    padding: 0 var(--sp-3);
+    border-bottom: var(--stroke-faint);
+    vertical-align: middle;
+}
+.hud-table tbody tr:last-child td { border-bottom: 0; }
+.hud-table tbody tr:hover td { background: var(--surface-2); }
+.hud-table tbody tr.is-selected td { background: var(--surface-3); }
+.hud-table tbody tr.is-selected td:first-child { box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-table .is-num { font-family: var(--font-mono); text-align: right; white-space: nowrap; }
+.hud-table th.is-num { text-align: right; }
+.hud-table .is-primary { color: var(--text-1); }
+.hud-table .is-shrink { width: 1%; white-space: nowrap; }
+.hud-table a { text-decoration: none; }
+.hud-table a:hover { text-decoration: underline; }
+.hud-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+.hud-sort:hover { color: var(--text-1); }
+.hud-sort::after { content: "↕"; color: var(--text-4); font-size: 1.1em; }
+th[aria-sort="ascending"] .hud-sort,
+th[aria-sort="descending"] .hud-sort { color: var(--signal); }
+th[aria-sort="ascending"] .hud-sort::after { content: "↑"; color: var(--signal); }
+th[aria-sort="descending"] .hud-sort::after { content: "↓"; color: var(--signal); }
+
+/* Card-art frame ------------------------------------------------------------------ */
+/* Art is the colour on the page: plain 1px frame, no overlay tint, caption
+   sits below the art rather than on top of it. */
+.hud-art {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-2);
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+}
+a.hud-art:hover { border-color: var(--line-strong); color: inherit; }
+a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
+.hud-art-media {
+    position: relative;
+    aspect-ratio: var(--art-ratio);
+    background: var(--surface-2);
+    border-bottom: var(--stroke);
+}
+.hud-art--card .hud-art-media { aspect-ratio: var(--card-ratio); }
+.hud-art-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.hud-art-media .hud-chip { position: absolute; top: var(--sp-2); left: var(--sp-2); }
+.hud-art-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-4);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-art-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-2) var(--sp-3);
+    min-width: 0;
+}
+.hud-art-name {
+    font-family: var(--font-card);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semibold);
+    line-height: var(--lh-tight);
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hud-art-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.hud-art-meta .hud-pips { margin-left: auto; }
+
+
+/* 6. ANALYTICS ============================================================= */
+
+/* Bar / curve chart -------------------------------------------------------------- */
+/* Plot area is an SVG (viewBox 0..100 x 0..100, preserveAspectRatio none,
+   non-scaling strokes) so it stretches to any width; the axis labels and
+   value labels are HTML so text never distorts. --chart-h sets the plot
+   height. A reference series (e.g. archetype average) draws as a stepped
+   line over the bars in --text-3. */
+.hud-chart { --chart-h: 160px; --chart-n: 1; min-width: 0; }
+.hud-chart-body {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    grid-template-rows: var(--chart-h) auto;
+}
+.hud-chart-yaxis {
+    position: relative;
+    grid-row: 1;
+    color: var(--text-4);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+}
+.hud-chart-yaxis span {
+    position: absolute;
+    right: var(--sp-2);
+    transform: translateY(50%);
+    line-height: 1;
+}
+.hud-chart-plot {
+    position: relative;
+    grid-row: 1;
+    grid-column: 2;
+    border-bottom: var(--stroke-strong);
+}
+.hud-chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.hud-chart-grid { stroke: var(--line-faint); stroke-width: 1; }
+.hud-chart-bar { fill: var(--data); }
+.hud-chart-bar.is-hl { fill: var(--signal); }
+.hud-chart-ref { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.hud-chart-values,
+.hud-chart-xaxis {
+    display: grid;
+    grid-template-columns: repeat(var(--chart-n), minmax(0, 1fr));
+}
+.hud-chart-values { position: absolute; inset: 0; grid-template-rows: 1fr; pointer-events: none; }
+.hud-chart-values span {
+    position: relative;
+    align-self: end;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    line-height: 1;
+    text-align: center;
+    transform: translateY(calc(-1 * var(--sp-1)));
+}
+.hud-chart-xaxis {
+    grid-row: 2;
+    grid-column: 2;
+    padding-top: var(--sp-1);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    text-align: center;
+}
+.hud-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-4);
+    margin-top: var(--sp-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-chart-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.hud-chart-legend .hud-swatch--ref { height: 0; border-top: 2px dashed var(--text-3); background: none; width: 12px; }
+
+/* Horizontal ranked-bar list --------------------------------------------------- */
+.hud-rank { margin: 0; padding: 0; list-style: none; }
+.hud-rank-item {
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr) minmax(4rem, 34%) 3.5rem;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: var(--row-h);
+    border-bottom: var(--stroke-faint);
+}
+.hud-rank-item:last-child { border-bottom: 0; }
+.hud-rank-pos { color: var(--text-4); font-family: var(--font-mono); font-size: var(--fs-xs); text-align: right; }
+.hud-rank-label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
+    color: var(--text-1);
+    font-size: var(--fs-sm);
+}
+.hud-rank-label > .hud-rank-text { display: flex; flex-direction: column; min-width: 0; }
+.hud-rank-label > .hud-rank-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud-rank-label a { color: inherit; text-decoration: none; }
+.hud-rank-label a:hover { color: var(--signal-strong); }
+.hud-rank-sub { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-micro); line-height: var(--lh-snug); white-space: nowrap; }
+.hud-rank-item:has(.hud-rank-sub) { padding: var(--sp-1) 0; }
+.hud-rank-track { height: var(--bar-track-h); background: var(--surface-2); }
+.hud-rank-fill { height: 100%; background: var(--swatch, var(--data)); }
+.hud-rank-value { color: var(--text-1); font-family: var(--font-mono); font-size: var(--fs-xs); text-align: right; white-space: nowrap; }
+.hud-rank-item.is-hl .hud-rank-pos,
+.hud-rank-item.is-hl .hud-rank-value { color: var(--signal); }
+.hud-rank-item.is-hl .hud-rank-fill { background: var(--signal); }
+
+/* Comparison layout (2-3 decks side by side) ------------------------------------ */
+/* One grid: a label column plus --compare-n entity columns, so every metric
+   row lines up across decks. The best value in a row gets .is-lead. */
+.hud-compare {
+    --compare-n: 2;
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.8fr) repeat(var(--compare-n), minmax(var(--col-min), 1fr));
+    overflow-x: auto;
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.hud-compare > * {
+    min-width: 0;
+    padding: var(--sp-2) var(--sp-4);
+    border-bottom: var(--stroke-faint);
+}
+.hud-compare > :not(.hud-compare-label) { border-left: var(--stroke); }
+.hud-compare-head { padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); vertical-align: top; }
+.hud-compare-head .hud-art { margin-bottom: var(--sp-2); }
+.hud-compare-label {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-compare-cell {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+}
+.hud-compare-cell.is-lead { color: var(--signal); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-compare-group {
+    grid-column: 1 / -1;
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: var(--stroke);
+    border-left: 0 !important;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+
+/* Heatmap / matrix ------------------------------------------------------------------- */
+/* Cells take data-level="0".."5" (the --data-0..5 ramp). Use for cross-deck
+   overlap, card x archetype synergy, etc. The diagonal of a self-matrix gets
+   .is-self. */
+.hud-heat-wrap { overflow-x: auto; }
+.hud-heat { border-collapse: separate; border-spacing: 2px; font-family: var(--font-mono); }
+.hud-heat th {
+    padding: 0 var(--sp-2);
+    color: var(--text-3);
+    font-size: var(--fs-micro);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.hud-heat thead th { height: var(--sp-6); vertical-align: bottom; text-align: center; }
+.hud-heat tbody th { text-align: right; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+.hud-heat-cell {
+    width: var(--heat-cell);
+    min-width: var(--heat-cell);
+    height: var(--heat-cell);
+    padding: 0;
+    background: var(--data-0);
+    color: var(--text-2);
+    font-size: var(--fs-micro);
+    text-align: center;
+}
+.hud-heat-cell[data-level="1"] { background: var(--data-1); color: var(--text-2); }
+.hud-heat-cell[data-level="2"] { background: var(--data-2); color: var(--text-1); }
+.hud-heat-cell[data-level="3"] { background: var(--data-3); color: var(--text-1); }
+.hud-heat-cell[data-level="4"] { background: var(--data-4); color: var(--surface-0); }
+.hud-heat-cell[data-level="5"] { background: var(--data-5); color: var(--surface-0); }
+.hud-heat-cell.is-self { background: var(--surface-1); color: var(--text-4); outline: var(--stroke-faint); outline-offset: -1px; }
+.hud-heat-cell.is-hl { outline: var(--stroke-signal); outline-offset: -1px; }
+.hud-heat-legend {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.hud-heat-ramp { display: inline-flex; gap: 2px; }
+.hud-heat-ramp > span { width: 14px; height: 10px; }
+
+/* Tablet: stack two/three-up grids, keep tables + comparison scrollable. ---- */
+@media (max-width: 900px) {
+    .hud-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hud-grid--sidebar { grid-template-columns: minmax(0, 1fr); }
+    .hud-stat--hero .hud-stat-value { font-size: var(--fs-stat); }
+    .hud-compare { grid-template-columns: minmax(6.5rem, 0.6fr) repeat(var(--compare-n), minmax(11rem, 1fr)); }
 }
