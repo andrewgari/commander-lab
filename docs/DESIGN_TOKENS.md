@@ -138,3 +138,46 @@ them in new code. Delete them once no template references them
 `.sidebar-footer`, followed by `main.main-content`. Labels that collapse in
 the tablet icon rail are wrapped in `.brand-label`, `.nav-label` and
 `.sidebar-footer-label`.
+
+## Component sizing tokens
+
+`--pip-size` / `--pip-size-sm` (18 / 14px), `--chip-h` (20px), `--dot-size`
+(6px), `--row-h` (32px, dense table row), `--panel-head-h` (40px),
+`--bar-track-h` (6px), `--stack-bar-h` (8px), `--heat-cell` (36px),
+`--art-ratio` (Scryfall art_crop 626/457), `--card-ratio` (488/680),
+`--tile-min` (stat-tile min width), `--col-min` (comparison column min width).
+
+## Component kit
+
+Live reference with sample data: **`/styleguide`**.
+
+- CSS: `static/css/hud.css` sections 5 (components) and 6 (analytics). Every
+  class starts with `hud-` so it can't collide with the per-page classes
+  (`.badge`, `.stat-card`, `.mana-pip`…) still in un-migrated templates.
+- Jinja macros: `templates/partials/hud.html`. Import with
+  `{% import "partials/hud.html" as hud %}`.
+- JS: `static/js/hud.js`, loaded on every page, exposes `window.HUD`. It
+  handles sortable tables, and `HUD.pips()`, `HUD.chip()` and
+  `HUD.statusChip()` return the same markup as the macros, for pages that
+  render from fetched JSON.
+
+| Component | Macro | Root class | Notes |
+|---|---|---|---|
+| Micro-label | `label(text)` | `.hud-label` | uppercase mono |
+| Page header | `page_head(title, eyebrow)` + call block for actions | `.hud-page-head` | |
+| Section head | `section_head(title, code, anchor)` | `.hud-section-head` | trailing hairline |
+| Stat tile | `stat(label, value, unit, foot, delta, mod)` | `.hud-stat` | mod `hero` / `signal`; wrap in `.hud-stat-strip` |
+| Status chip | `chip(text, tone, dot)`, `status_chip(status)` | `.hud-chip` | tones `signal ok danger data neutral ghost`; `STATUS_TONES` maps deck, ownership and repo statuses |
+| Mana pip | `pips(colors, size)` | `.hud-pip` | `"WUBG"` or a list; `""` gives colourless; size `sm` |
+| Colour bar | `stack(segments)` | `.hud-stack` | `[{"color": "W", "value": 12}]` |
+| Button | (markup) | `.hud-btn` | `--primary --ghost --danger --sm` |
+| Tabs / crumbs | `tabs(items, active)`, `crumbs(items)` | `.hud-tabs`, `.hud-crumbs` | the sidebar stays in `base.html` |
+| Panel | `panel(title, meta, mod, foot)` + call block | `.hud-panel` | mod `flush` (tables, lists), `signal` (alert) |
+| Key/value | `kv(pairs)` | `.hud-kv` | |
+| Empty state | `empty(text)` | `.hud-empty` | |
+| Data table | `table(columns, rows)` or call block | `.hud-table` | sortable: `<table data-hud-sortable>` + `<th data-sort="num\|text">`; `<td data-value>` overrides the sort key; `tr.is-selected` |
+| Card-art frame | `art(name, img, meta, colors, href, kind, chip)` | `.hud-art` | kind `art` (art_crop) / `card` (full card); caption sits below the art, never on it |
+| Bar / curve chart | `bar_chart(bars, ref, hl, height, legend)` | `.hud-chart` | SVG bars in `--data`, `hl` bar in `--signal`, `ref` series as a dashed step line |
+| Ranked bars | `rank_list(items, max)` | `.hud-rank` | item `color` uses a mana swatch, `hl` uses signal |
+| Comparison | `compare(entities, groups)` | `.hud-compare` | 2–3 columns; row `lead: max\|min` marks the best value |
+| Heatmap | `heatmap(rows, cols, matrix, max, self_diag, fmt, hl)` | `.hud-heat` | cells bucketed onto `--data-0..5` (`data-level`) |
