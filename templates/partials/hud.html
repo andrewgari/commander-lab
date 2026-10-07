@@ -1,0 +1,309 @@
+{#- ==========================================================================
+    HUD component kit: Jinja macros.
+    Import with:  {% import "partials/hud.html" as hud %}
+    Styles: static/css/hud.css sections 5-6. Live reference: /styleguide.
+    JS mirrors for client-rendered data (pips, chips, sortable tables):
+    static/js/hud.js (window.HUD).
+    ========================================================================== -#}
+
+{#- Status vocabularies -> chip tone. Deck status comes from
+    registry.VALID_STATUSES; ownership from instances.OWNERSHIP_STATUSES.
+    Keep in sync with HUD.STATUS_TONES in static/js/hud.js. -#}
+{% set STATUS_TONES = {
+    "physical": "ok", "testing": "signal", "digital": "data", "retired": "neutral",
+    "in_deck": "ok", "in_collection": "data", "in_mail": "signal", "not_owned": "neutral",
+    "clean": "ok", "dirty": "signal", "error": "danger", "untracked": "neutral",
+} %}
+
+{# Uppercase mono micro-label. #}
+{% macro label(text, tag="span") -%}
+<{{ tag }} class="hud-label">{{ text }}</{{ tag }}>
+{%- endmacro %}
+
+{# Page header: micro-label eyebrow, title, optional right-side actions (caller). #}
+{% macro page_head(title, eyebrow=none) -%}
+<header class="hud-page-head">
+    <div>
+        {% if eyebrow %}<span class="hud-label">{{ eyebrow }}</span>{% endif %}
+        <h1>{{ title }}</h1>
+    </div>
+    {% if caller %}<div class="hud-page-actions">{{ caller() }}</div>{% endif %}
+</header>
+{%- endmacro %}
+
+{# Section heading with trailing hairline. `code` is a short index shown in signal. #}
+{% macro section_head(title, code=none, anchor=none) -%}
+<div class="hud-section-head"{% if anchor %} id="{{ anchor }}"{% endif %}>
+    {% if code %}<span class="hud-section-id">{{ code }}</span>{% endif %}
+    <h2>{{ title }}</h2>
+</div>
+{%- endmacro %}
+
+{# Stat tile. delta: {"value": "+3", "dir": "up|down|flat"}. mod: "hero", "signal". #}
+{% macro stat(label, value, unit=none, foot=none, delta=none, mod=none) -%}
+<div class="hud-stat{% for m in (mod or '').split() %} hud-stat--{{ m }}{% endfor %}">
+    <span class="hud-label">{{ label }}</span>
+    <span class="hud-stat-value">{{ value }}{% if unit %}<span class="hud-stat-unit">{{ unit }}</span>{% endif %}</span>
+    {% if foot or delta %}
+    <span class="hud-stat-foot">
+        {% if delta %}<span class="hud-delta hud-delta--{{ delta.dir or 'flat' }}">{{ delta.value }}</span>{% endif %}
+        {% if foot %}<span>{{ foot }}</span>{% endif %}
+    </span>
+    {% endif %}
+</div>
+{%- endmacro %}
+
+{# Status chip. tone: signal | ok | danger | data | neutral | ghost. #}
+{% macro chip(text, tone="neutral", dot=false, title=none) -%}
+<span class="hud-chip hud-chip--{{ tone }}"{% if title %} title="{{ title }}"{% endif %}>{% if dot %}<span class="hud-chip-dot" aria-hidden="true"></span>{% endif %}{{ text }}</span>
+{%- endmacro %}
+
+{# Chip for a known status value (deck status, ownership, repo state). #}
+{% macro status_chip(status, text=none) -%}
+{{ chip(text or status|replace("_", " "), STATUS_TONES.get(status, "neutral"), dot=true) }}
+{%- endmacro %}
+
+{# Mana pips. colors: "WUB", ["W","U"], or "" (colourless). size: "sm" for tables. #}
+{% macro pips(colors, size=none) -%}
+{%- set cs = (colors|list if colors is string else (colors or [])) | map("upper") | select("in", ["W","U","B","R","G","C","M"]) | list -%}
+<span class="hud-pips" role="img" aria-label="{{ 'Colourless' if not cs else cs|join(' ') }}">
+{%- for c in (cs or ["C"]) -%}
+<span class="hud-pip hud-pip--{{ c|lower }}{% if size %} hud-pip--{{ size }}{% endif %}" aria-hidden="true">{{ c }}</span>
+{%- endfor -%}
+</span>
+{%- endmacro %}
+
+{# Colour-distribution bar. segments: [{"color": "W", "value": 12}, ...]. #}
+{% macro stack(segments, legend=true) -%}
+{%- set total = segments|sum(attribute="value") or 1 -%}
+<div class="hud-stack" role="img" aria-label="{% for s in segments %}{{ s.color }} {{ s.value }}{{ ', ' if not loop.last }}{% endfor %}">
+    {%- for s in segments if s.value -%}
+    <span class="hud-swatch--{{ s.color|lower }}" style="flex: {{ s.value }}" title="{{ s.color }} {{ s.value }}"></span>
+    {%- endfor -%}
+</div>
+{% if legend %}
+<div class="hud-stack-legend">
+    {% for s in segments %}<span><span class="hud-swatch hud-swatch--{{ s.color|lower }}"></span>{{ s.color }} <span class="hud-muted">{{ s.value }} · {{ (s.value / total * 100)|round|int }}%</span></span>{% endfor %}
+</div>
+{% endif %}
+{%- endmacro %}
+
+{# Panel with header. Body comes from the call block.
+   mod: "flush" (no body padding, for tables/lists), "signal" (alert edge). #}
+{% macro panel(title, meta=none, mod=none, foot=none) -%}
+<section class="hud-panel{% for m in (mod or '').split() %} hud-panel--{{ m }}{% endfor %}">
+    <header class="hud-panel-head">
+        <h3 class="hud-panel-title">{{ title }}</h3>
+        {% if meta %}<div class="hud-panel-meta">{{ meta }}</div>{% endif %}
+    </header>
+    <div class="hud-panel-body">{{ caller() if caller }}</div>
+    {% if foot %}<footer class="hud-panel-foot">{{ foot }}</footer>{% endif %}
+</section>
+{%- endmacro %}
+
+{# Dense data table. columns: [{"key", "label", "num": bool, "sort": "num|text", "primary": bool}].
+   rows: list of dicts keyed by column key. Pass a call block instead of rows
+   to render your own <tr>s. Sortable when any column has "sort". #}
+{% macro table(columns, rows=none, caption=none, id=none) -%}
+{%- set sortable = columns|selectattr("sort")|list|length > 0 -%}
+<div class="hud-table-wrap">
+<table class="hud-table"{% if id %} id="{{ id }}"{% endif %}{% if sortable %} data-hud-sortable{% endif %}>
+    {% if caption %}<caption class="hud-label" style="text-align:left; padding: var(--sp-2) var(--sp-3);">{{ caption }}</caption>{% endif %}
+    <thead><tr>
+        {% for col in columns %}
+        <th scope="col"{% if col.num %} class="is-num"{% endif %}{% if col.sort %} data-sort="{{ col.sort }}" aria-sort="none"{% endif %}>
+            {%- if col.sort %}<button type="button" class="hud-sort">{{ col.label }}</button>{% else %}{{ col.label }}{% endif -%}
+        </th>
+        {% endfor %}
+    </tr></thead>
+    <tbody>
+        {% if caller %}{{ caller() }}{% else %}
+        {% for row in rows or [] %}
+        <tr>
+            {% for col in columns %}
+            {%- set v = row[col.key] -%}
+            <td class="{{ 'is-num' if col.num }} {{ 'is-primary' if col.primary }}">{{ v if v is not none else "—" }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        {% endif %}
+    </tbody>
+</table>
+</div>
+{%- endmacro %}
+
+{# Card-art frame. kind: "art" (Scryfall art_crop ratio) or "card" (full card).
+   chip: optional (text, tone) tuple pinned to the art's corner. #}
+{% macro art(name, img=none, meta=none, colors=none, href=none, kind="art", chip=none, alt=none) -%}
+{%- set tag = "a" if href else "figure" -%}
+<{{ tag }} class="hud-art{% if kind == 'card' %} hud-art--card{% endif %}"{% if href %} href="{{ href }}"{% endif %}>
+    <div class="hud-art-media">
+        {% if img %}<img src="{{ img }}" alt="{{ alt or name }}" loading="lazy">{% else %}<span class="hud-art-placeholder">No art</span>{% endif %}
+        {% if chip %}<span class="hud-chip hud-chip--{{ chip[1] }}"><span class="hud-chip-dot" aria-hidden="true"></span>{{ chip[0] }}</span>{% endif %}
+    </div>
+    <{{ "div" if href else "figcaption" }} class="hud-art-caption">
+        <span class="hud-art-name">{{ name }}</span>
+        {% if meta or colors is not none %}
+        <span class="hud-art-meta">{% if meta %}<span>{{ meta }}</span>{% endif %}{% if colors is not none %}{{ pips(colors, "sm") }}{% endif %}</span>
+        {% endif %}
+    </{{ "div" if href else "figcaption" }}>
+</{{ tag }}>
+{%- endmacro %}
+
+{# In-page tabs. items: [{"label", "href", "count"}]; active: label or href. #}
+{% macro tabs(items, active=none, label="Sections") -%}
+<nav class="hud-tabs" aria-label="{{ label }}">
+    {% for t in items %}
+    {%- set is_active = active in (t.label, t.href) -%}
+    <a class="hud-tab{% if is_active %} active{% endif %}" href="{{ t.href or '#' }}"{% if is_active %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count is defined and t.count is not none %} <span class="hud-tab-count">{{ t.count }}</span>{% endif %}</a>
+    {% endfor %}
+</nav>
+{%- endmacro %}
+
+{# Breadcrumb. items: [{"label", "href"}]; the last item is the current page. #}
+{% macro crumbs(items) -%}
+<nav aria-label="Breadcrumb"><ol class="hud-crumbs">
+    {% for c in items %}
+    <li>{% if loop.last or not c.href %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ c.label }}</span>{% else %}<a href="{{ c.href }}">{{ c.label }}</a>{% endif %}</li>
+    {% endfor %}
+</ol></nav>
+{%- endmacro %}
+
+{# Key/value list. pairs: [(key, value), ...]. #}
+{% macro kv(pairs) -%}
+<dl class="hud-kv">{% for k, v in pairs %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>
+{%- endmacro %}
+
+{% macro empty(text="No data") -%}
+<div class="hud-empty">{{ text }}</div>
+{%- endmacro %}
+
+
+{#- ---------------------------------------------------------------- analytics -#}
+
+{# Vertical bar chart (mana curve, type counts…), hand-rolled SVG.
+   bars: [{"label", "value"}]. ref: optional list of numbers, same length,
+   drawn as a dashed stepped line (e.g. archetype average). hl: index of a bar
+   to draw in signal (e.g. the commander's CMC). legend: (series, ref) names. #}
+{% macro bar_chart(bars, ref=none, hl=none, height=160, ticks=4, legend=none, title="Bar chart") -%}
+{%- set n = bars|length -%}
+{%- set peak = [bars|map(attribute="value")|max or 0, (ref|max if ref else 0), 1]|max -%}
+{%- set step = [((peak / ticks)|round(0, "ceil"))|int, 1]|max -%}
+{%- set top = step * ticks -%}
+<figure class="hud-chart" style="--chart-h: {{ height }}px; --chart-n: {{ n }}; margin: 0;" role="img"
+        aria-label="{{ title }}: {% for b in bars %}{{ b.label }} {{ b.value }}{{ ', ' if not loop.last }}{% endfor %}">
+    <div class="hud-chart-body">
+        <div class="hud-chart-yaxis" aria-hidden="true">
+            {% for i in range(ticks + 1) %}<span style="bottom: {{ (i / ticks * 100)|round(2) }}%">{{ i * step }}</span>{% endfor %}
+        </div>
+        <div class="hud-chart-plot">
+            <svg viewBox="0 0 {{ n * 10 }} 100" preserveAspectRatio="none" aria-hidden="true">
+                {% for i in range(1, ticks) %}
+                <line class="hud-chart-grid" x1="0" x2="{{ n * 10 }}" y1="{{ 100 - i / ticks * 100 }}" y2="{{ 100 - i / ticks * 100 }}" vector-effect="non-scaling-stroke"/>
+                {% endfor %}
+                {% for b in bars %}
+                {%- set h = (b.value / top * 100) -%}
+                <rect class="hud-chart-bar{% if hl == loop.index0 %} is-hl{% endif %}" x="{{ loop.index0 * 10 + 1.5 }}" y="{{ (100 - h)|round(3) }}" width="7" height="{{ h|round(3) }}"><title>{{ b.label }}: {{ b.value }}</title></rect>
+                {% endfor %}
+                {% if ref %}
+                <path class="hud-chart-ref" vector-effect="non-scaling-stroke" d="{% for r in ref %}{{ 'M' if loop.first else 'L' }}{{ loop.index0 * 10 }},{{ (100 - r / top * 100)|round(3) }} H{{ loop.index * 10 }} {% endfor %}"/>
+                {% endif %}
+            </svg>
+            <div class="hud-chart-values" aria-hidden="true">
+                {% for b in bars %}<span style="bottom: {{ (b.value / top * 100)|round(2) }}%">{{ b.value if b.value else "" }}</span>{% endfor %}
+            </div>
+        </div>
+        <div class="hud-chart-xaxis" aria-hidden="true">{% for b in bars %}<span>{{ b.label }}</span>{% endfor %}</div>
+    </div>
+    {% if legend %}
+    <figcaption class="hud-chart-legend">
+        <span><span class="hud-swatch"></span>{{ legend[0] }}</span>
+        {% if ref and legend|length > 1 %}<span><span class="hud-swatch hud-swatch--ref"></span>{{ legend[1] }}</span>{% endif %}
+        {% if hl is not none and legend|length > 2 %}<span><span class="hud-swatch hud-swatch--signal"></span>{{ legend[2] }}</span>{% endif %}
+    </figcaption>
+    {% endif %}
+</figure>
+{%- endmacro %}
+
+{# Horizontal ranked-bar list. items: [{"label", "value", "display", "sub",
+   "href", "color" (W/U/B/R/G/C/M swatch), "hl"}]. max defaults to the top value. #}
+{% macro rank_list(items, max=none, numbered=true) -%}
+{%- set top = max or ([items|map(attribute="value")|max or 0, 1]|max) -%}
+<ol class="hud-rank">
+    {% for it in items %}
+    <li class="hud-rank-item{% if it.hl %} is-hl{% endif %}">
+        <span class="hud-rank-pos">{{ loop.index if numbered else "" }}</span>
+        <span class="hud-rank-label">
+            {% if it.color %}<span class="hud-swatch hud-swatch--{{ it.color|lower }}"></span>{% endif %}
+            <span class="hud-rank-text"><span>{% if it.href %}<a href="{{ it.href }}">{{ it.label }}</a>{% else %}{{ it.label }}{% endif %}</span>{% if it.sub %}<span class="hud-rank-sub">{{ it.sub }}</span>{% endif %}</span>
+        </span>
+        <span class="hud-rank-track" role="presentation"><span class="hud-rank-fill" style="width: {{ [it.value / top * 100, 100]|min|round(1) }}%{% if it.color %}; --swatch: var(--mana-{{ it.color|lower }}){% endif %}"></span></span>
+        <span class="hud-rank-value">{{ it.display if it.display is defined else it.value }}</span>
+    </li>
+    {% endfor %}
+</ol>
+{%- endmacro %}
+
+{# Side-by-side comparison (2-3 entities). entities: [{"name", "img", "colors",
+   "meta", "status"}]. groups: [{"label", "rows": [{"label", "values": [...],
+   "lead": "max"|"min"|none, "unit"}]}]. Leading value per row gets signal. #}
+{% macro compare(entities, groups) -%}
+{%- set n = entities|length -%}
+<div class="hud-compare" style="--compare-n: {{ n }}" role="table" aria-label="Comparison">
+    <div class="hud-compare-label hud-compare-head" role="columnheader">Metric</div>
+    {% for e in entities %}
+    <div class="hud-compare-head" role="columnheader">
+        {{ art(e.name, e.img, meta=e.meta, colors=e.colors) }}
+        {% if e.status %}{{ status_chip(e.status) }}{% endif %}
+    </div>
+    {% endfor %}
+    {% for g in groups %}
+    {% if g.label %}<div class="hud-compare-group" role="rowheader">{{ g.label }}</div>{% endif %}
+    {% for row in g.rows %}
+    {%- set nums = row["values"]|select("number")|list -%}
+    {%- set best = (nums|max if row.lead == "max" else (nums|min if row.lead == "min" else none)) if nums else none -%}
+    <div class="hud-compare-label" role="rowheader">{{ row.label }}</div>
+    {% for v in row["values"] %}
+    <div class="hud-compare-cell{% if best is not none and v == best and nums|select('equalto', best)|list|length < nums|length %} is-lead{% endif %}" role="cell">{{ v if v is not none else "—" }}{% if row.unit and v is not none %}<span class="hud-muted">{{ row.unit }}</span>{% endif %}</div>
+    {% endfor %}
+    {% endfor %}
+    {% endfor %}
+</div>
+{%- endmacro %}
+
+{# Heatmap / matrix. rows/cols: label lists; matrix[r][c] numbers (none = n/a).
+   Levels are value/max bucketed onto --data-0..5. self_diag marks r == c. #}
+{% macro heatmap(rows, cols, matrix, max=none, self_diag=false, fmt="{}", legend=("Low", "High"), hl=none) -%}
+{%- set flat = [] -%}
+{%- for r in matrix %}{% set ri = loop.index0 %}{% for v in r %}{% if v is number and not (self_diag and ri == loop.index0) %}{% set _ = flat.append(v) %}{% endif %}{% endfor %}{% endfor -%}
+{%- set top = max or ([flat|max if flat else 0, 1]|max) -%}
+<div class="hud-heat-wrap">
+<table class="hud-heat">
+    <thead><tr><th></th>{% for c in cols %}<th scope="col" title="{{ c }}">{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in rows %}
+    {%- set ri = loop.index0 -%}
+    <tr>
+        <th scope="row" title="{{ r }}">{{ r }}</th>
+        {% for v in matrix[ri] %}
+        {%- set ci = loop.index0 -%}
+        {%- if self_diag and ri == ci -%}
+        <td class="hud-heat-cell is-self" title="{{ r }}">—</td>
+        {%- elif v is none -%}
+        <td class="hud-heat-cell" data-level="0" title="{{ r }} × {{ cols[ci] }}: n/a">·</td>
+        {%- else -%}
+        {%- set lvl = [((v / top) * 5)|round(0, "ceil")|int, 5]|min -%}
+        <td class="hud-heat-cell{% if hl and hl[0] == ri and hl[1] == ci %} is-hl{% endif %}" data-level="{{ lvl }}" title="{{ r }} × {{ cols[ci] }}: {{ fmt.format(v) }}">{{ fmt.format(v) }}</td>
+        {%- endif -%}
+        {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+<div class="hud-heat-legend" aria-hidden="true">
+    <span>{{ legend[0] }}</span>
+    <span class="hud-heat-ramp">{% for i in range(6) %}<span style="background: var(--data-{{ i }})"></span>{% endfor %}</span>
+    <span>{{ legend[1] }}</span>
+</div>
+{%- endmacro %}
