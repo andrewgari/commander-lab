@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction A · Roster · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="mockup.css">
+<style>
+  /* Direction A: the HUD, finished. Same IA (minus merges), denser roster. */
+  main { padding: var(--sp-6); max-width: 1280px; }
+  .head { display: flex; align-items: flex-end; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+  .head h1 { margin: 0; font: 600 var(--fs-xl)/1.1 var(--font-sans); letter-spacing: var(--tracking-tight); color: var(--text-1); }
+  .head .actions { margin-left: auto; display: flex; gap: var(--sp-2); }
+  .filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-bottom: var(--sp-4); }
+  .seg { display: inline-flex; border: 1px solid var(--line); }
+  .seg button { height: 28px; padding: 0 var(--sp-3); background: none; border: 0; border-right: 1px solid var(--line); color: var(--text-3); font: 500 var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text-1); box-shadow: inset 0 -2px 0 var(--signal); }
+  .seg .n { color: var(--text-3); margin-left: 6px; }
+  .roster td.art { width: 56px; padding-right: 0; }
+  .roster td.art img { display: block; width: 48px; height: 24px; object-fit: cover; border-radius: var(--radius-1); }
+  .roster td.deck { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+  .roster td.deck a { text-decoration: none; }
+  .roster td.deck .card-name { font-size: var(--fs-md); }
+  .roster td.cmdr { color: var(--text-3); max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  .bar { display: inline-block; width: 60px; height: 6px; background: var(--surface-3); vertical-align: middle; margin-right: 6px; }
+  .bar i { display: block; height: 100%; background: var(--data); }
+  .bar i.warn { background: var(--signal); }
+  .exceptions { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-5); }
+  .exc { padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border: 1px solid var(--line); border-left: 2px solid var(--signal); }
+  .exc .num { font-size: var(--fs-stat); line-height: 1; display: block; margin: 4px 0; }
+  .exc p { margin: 0; color: var(--text-3); font-size: var(--fs-xs); }
+  @media (max-width: 700px) {
+    main { padding: var(--sp-4); }
+    .exceptions { grid-template-columns: 1fr; }
+    .roster th.hide-m, .roster td.hide-m { display: none; }
+    .head { flex-wrap: wrap; } .head .actions { margin-left: 0; }
+    .filters .label { margin-left: 0 !important; }
+    .roster td.deck { max-width: 180px; }
+    .panel { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand" aria-hidden="true">CL</div>
+    <a href="#" aria-current="page" title="Decks (g d)">DK</a>
+    <a href="#" title="Collection (g c)">CO</a>
+    <a href="#" title="Tags (g t)">TG</a>
+    <div class="spacer"></div>
+    <a href="#" title="Settings (accounts, sync)">ST</a>
+    <kbd>v0.5</kbd>
+  </nav>
+  <div>
+    <header class="cmdbar">
+      <div class="cmd" role="search">⌕ Jump to deck, card, tag… <kbd>/</kbd></div>
+      <div class="sync"><span><span class="dot"></span>Archidekt · 56 · 23h</span><span><span class="dot dot--warn"></span>Moxfield · 32 · 8d</span></div>
+    </header>
+    <main id="main">
+      <div class="head">
+        <div><span class="label">Roster · 56 decks</span><h1>Decks</h1></div>
+        <div class="actions"><button class="btn">Import</button><button class="btn btn--primary">Sync all</button></div>
+      </div>
+
+      <!-- Exceptions, not totals: only show what needs a decision -->
+      <div class="exceptions">
+        <div class="exc enter" style="--i:0"><span class="label">Resync pending</span><span class="num">3</span><p>Decks whose Archidekt list drifted from the physical one.</p></div>
+        <div class="exc enter" style="--i:1"><span class="label">Short on cards</span><span class="num">4</span><p>Don (52), Knights (60), Darien (99), Thranduil (99).</p></div>
+        <div class="exc enter" style="--i:2"><span class="label">Testing &gt; 30 days</span><span class="num">9</span><p>Promote to Have or retire. 17 decks are in Testing.</p></div>
+      </div>
+
+      <div class="filters">
+        <div class="seg" role="group" aria-label="Status">
+          <button aria-pressed="true">All<span class="n">56</span></button>
+          <button aria-pressed="false">Have<span class="n">39</span></button>
+          <button aria-pressed="false">Testing<span class="n">17</span></button>
+          <button aria-pressed="false">Retired<span class="n">0</span></button>
+        </div>
+        <div class="seg" role="group" aria-label="Colour"><button aria-pressed="false">W</button><button aria-pressed="false">U</button><button aria-pressed="false">B</button><button aria-pressed="false">R</button><button aria-pressed="false">G</button></div>
+        <span class="label" style="margin-left:auto">Sort: last played ▾</span>
+      </div>
+
+      <div class="panel">
+        <table class="dense roster">
+          <thead><tr><th></th><th>Deck</th><th class="hide-m">Commander</th><th>ID</th><th class="hide-m">Status</th><th class="hide-m r">Cards</th><th class="hide-m">Owned</th><th class="hide-m r">Synced</th></tr></thead>
+          <tbody>
+            <tr class="enter-l" style="--i:0"><td class="art"><img alt="" src="https://api.scryfall.com/cards/ef099f25-2b0b-4028-8490-fbc859e35f6c?format=image&version=art_crop"></td><td class="deck"><a href="b-workbench.html" class="card-name">Holy Hellfire</a></td><td class="cmdr hide-m">Kaalia of the Vast</td><td><span class="pips"><span class="pip pip--w">W</span><span class="pip pip--b">B</span><span class="pip pip--r">R</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:1"><td class="art"><img alt="" src="https://api.scryfall.com/cards/716d0b3b-bac9-4fb8-882e-bd6171864043?format=image&version=art_crop"></td><td class="deck"><span class="card-name">Magic in Stereo</span></td><td class="cmdr hide-m">Riku of Two Reflections</td><td><span class="pips"><span class="pip pip--u">U</span><span class="pip pip--r">R</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:2"><td class="art"><img alt="" src="https://api.scryfall.com/cards/687a2b76-3f05-4732-bd9b-513d06d16300?format=image&version=art_crop"></td><td class="deck"><span class="card-name">Adventure After Elevensies</span></td><td class="cmdr hide-m">Sam, Loyal Attendant &amp; Frodo, Adventurous Hobbit</td><td><span class="pips"><span class="pip pip--w">W</span><span class="pip pip--b">B</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:3"><td class="art"><img alt="" src="https://api.scryfall.com/cards/a08b8ff8-13e4-46e7-b028-d055e4548f6a?format=image&version=art_crop"></td><td class="deck"><span class="card-name">The Word is 'Gamer'</span></td><td class="cmdr hide-m">The Most Dangerous Gamer</td><td><span class="pips"><span class="pip pip--b">B</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num" style="color:var(--signal)">178</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:4"><td class="art"><img alt="" src="https://api.scryfall.com/cards/ed5f96a4-55e0-4ae3-bd78-f01703649e9d?format=image&version=art_crop"></td><td class="deck"><span class="card-name">No The Other Frozen Throne</span></td><td class="cmdr hide-m">Darien, King of Kjeldor</td><td><span class="pips"><span class="pip pip--w">W</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num" style="color:var(--signal)">99</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:5"><td class="art"><img alt="" src="https://api.scryfall.com/cards/07ce00ad-acb5-4418-9ea1-50eaf2273242?format=image&version=art_crop"></td><td class="deck"><span class="card-name">Everything is permitted.</span></td><td class="cmdr hide-m">Ezio Auditore da Firenze</td><td><span class="pips"><span class="pip pip--w">W</span><span class="pip pip--u">U</span><span class="pip pip--b">B</span><span class="pip pip--r">R</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:6"><td class="art"><img alt="" src="https://api.scryfall.com/cards/257928ba-27ae-4a11-ae41-76dfcd626ed4?format=image&version=art_crop"></td><td class="deck"><span class="card-name">Yip! Yip!</span></td><td class="cmdr hide-m">Avatar Aang // Aang, Master of Elements</td><td><span class="pips"><span class="pip pip--w">W</span><span class="pip pip--u">U</span><span class="pip pip--b">B</span><span class="pip pip--r">R</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--ok">Have</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i style="width:100%"></i></span><span class="num">100%</span></td><td class="hide-m r mono">23h</td></tr>
+            <tr class="enter-l" style="--i:7"><td class="art"><img alt="" src="https://api.scryfall.com/cards/aaa3e063-472e-445a-8440-dc1910899d81?format=image&version=art_crop"></td><td class="deck"><span class="card-name">Cause it rhymes with "tough!"</span></td><td class="cmdr hide-m">Toph, the First Metalbender</td><td><span class="pips"><span class="pip pip--w">W</span><span class="pip pip--r">R</span><span class="pip pip--g">G</span></span></td><td class="hide-m"><span class="chip chip--signal">Testing</span></td><td class="hide-m r num">100</td><td class="hide-m"><span class="bar"><i class="warn" style="width:62%"></i></span><span class="num">62%</span></td><td class="hide-m r mono">23h</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="label" style="margin-top:var(--sp-3)">8 of 56 shown · j/k to move · enter to open · s to cycle status</p>
+    </main>
+  </div>
+</div>
+<div class="mock-note">Mockup · Direction A · Owned % is illustrative</div>
+</body>
+</html>
