@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C · Lab · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="mockup.css">
+<style>
+  /* Direction C home: the Lab. Decks as identity tiles, sorted by "needs sharpening". */
+  main { padding: var(--sp-8); }
+  .hero { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--sp-6); margin-bottom: var(--sp-8); }
+  .hero h1 { margin: 0; font: 600 var(--fs-display)/0.95 var(--font-sans); letter-spacing: -0.035em; color: var(--text-1); }
+  .hero h1 span { color: var(--signal); }
+  .kpis { display: flex; gap: var(--sp-8); }
+  .kpis .num { display: block; font-size: var(--fs-stat); line-height: 1; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); grid-auto-rows: 180px; gap: 4px; }
+  .tile { position: relative; overflow: hidden; background: var(--surface-1); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: flex-end; padding: var(--sp-4); text-decoration: none; transition: transform var(--dur-base) var(--ease); }
+  .tile:hover { transform: perspective(600px) rotateX(2deg) translateY(-2px); }
+  .tile:active { transform: scale(0.98); }
+  .tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .28; transition: opacity var(--dur-base) var(--ease), transform var(--dur-slow) var(--ease); }
+  .tile:hover img { opacity: .45; transform: scale(1.04); }
+  .tile > *:not(img) { position: relative; }
+  .tile .idbar { position: absolute; left: 0; right: 0; top: 0; height: 4px; display: flex; }
+  .tile .idbar i { flex: 1; }
+  .tile .card-name { font-size: var(--fs-lg); line-height: 1.1; }
+  .tile .label { margin-top: var(--sp-1); }
+  .tile .sharp { position: absolute; top: var(--sp-4); right: var(--sp-4); font: 600 var(--fs-lg) var(--font-mono); color: var(--text-1); }
+  .tile .sharp small { font-size: var(--fs-micro); color: var(--text-3); }
+  .tile--wide { grid-column: span 2; }
+  .tile--tall { grid-row: span 2; }
+  .tile--alert { border-color: var(--signal-line); }
+  .tile--alert .sharp { color: var(--signal); }
+  .tile .thesis { font-size: var(--fs-sm); color: var(--text-2); margin-top: var(--sp-2); max-width: 40ch; }
+  .tile--box { background: var(--signal); border-color: var(--signal); }
+  .tile--box * { color: var(--text-on-signal) !important; }
+  .tile--box .num { font-size: var(--fs-hero); line-height: 1; }
+  /* Live tile: cycles the reason it needs attention */
+  .cycle { position: relative; height: 18px; overflow: hidden; margin-top: var(--sp-2); }
+  .cycle span { position: absolute; left: 0; font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--signal); animation: cyc 9s var(--ease) infinite; opacity: 0; }
+  .cycle span:nth-child(2) { animation-delay: 3s; } .cycle span:nth-child(3) { animation-delay: 6s; }
+  @keyframes cyc { 0% { opacity: 0; transform: translateY(100%); } 4%, 30% { opacity: 1; transform: none; } 34%, 100% { opacity: 0; transform: translateY(-100%); } }
+  @media (prefers-reduced-motion: reduce) { .cycle span { opacity: 0; } .cycle span:first-child { opacity: 1; } }
+  @media (max-width: 700px) {
+    main { padding: var(--sp-4); }
+    .hero { grid-template-columns: 1fr; } .hero h1 { font-size: var(--fs-hero); }
+    .tiles { grid-template-columns: 1fr 1fr; grid-auto-rows: 150px; }
+    .tile--wide { grid-column: span 2; } .tile--tall { grid-row: span 1; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand" aria-hidden="true">CL</div>
+    <a href="#" aria-current="page" title="Lab (g l)">LB</a>
+    <a href="c-identity.html" title="Deck">DK</a>
+    <a href="#" title="Box: free agents (g b)">BX</a>
+    <a href="#" title="Tags (g t)">TG</a>
+    <div class="spacer"></div>
+    <a href="#" title="Settings">ST</a>
+  </nav>
+  <div>
+    <header class="cmdbar">
+      <div class="cmd" role="search">⌕ Jump to deck, card, tag… <kbd>⌘K</kbd></div>
+      <div class="sync"><span><span class="dot"></span>Archidekt · 56 · 23h</span><span><span class="dot dot--warn"></span>Moxfield · 32 · 8d</span></div>
+    </header>
+    <main id="main">
+      <div class="hero">
+        <div><span class="label">39 sleeved · 17 testing · 5 with a thesis</span><h1>51 decks are still<br><span>just EDHREC.</span></h1></div>
+        <div class="kpis">
+          <div><span class="label">Avg on-thesis</span><span class="num">58%</span></div>
+          <div><span class="label">No thesis yet</span><span class="num">51</span></div>
+          <div><span class="label">Drift</span><span class="num">3</span></div>
+        </div>
+      </div>
+      <div class="tiles">
+        <a class="tile tile--wide tile--tall tile--alert enter" style="--i:0" href="c-identity.html">
+          <img alt="" src="https://api.scryfall.com/cards/ef099f25-2b0b-4028-8490-fbc859e35f6c?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-w)"></i><i style="background:var(--mana-b)"></i><i style="background:var(--mana-r)"></i></span>
+          <span class="sharp">71<small>%</small></span>
+          <span class="card-name" style="font-size:var(--fs-xl)">Holy Hellfire</span>
+          <span class="thesis">Swing with Kaalia, cheat a seven-drop in sideways, keep her alive.</span>
+          <div class="cycle"><span>3 off-list cards in the box</span><span>Pillar 2 is thin: 8 of 10</span><span>1 free agent fits</span></div>
+        </a>
+        <a class="tile tile--box enter" style="--i:1" href="#">
+          <span class="label">The Box · free agents</span><span class="num">0</span><span class="label">Instance data needs a dedupe first. See review §1.</span>
+        </a>
+        <a class="tile enter" style="--i:2" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/716d0b3b-bac9-4fb8-882e-bd6171864043?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-u)"></i><i style="background:var(--mana-r)"></i><i style="background:var(--mana-g)"></i></span>
+          <span class="sharp">—</span><span class="card-name">Magic in Stereo</span><span class="label">Riku · no thesis</span>
+        </a>
+        <a class="tile enter" style="--i:3" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/ada6aeb6-8c9f-4498-9326-b4da0fcb19a3?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-u)"></i><i style="background:var(--mana-r)"></i></span>
+          <span class="sharp">—</span><span class="card-name">I cast, therefore I am</span><span class="label">Vivi · no thesis</span>
+        </a>
+        <a class="tile tile--wide enter" style="--i:4" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/687a2b76-3f05-4732-bd9b-513d06d16300?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-w)"></i><i style="background:var(--mana-b)"></i><i style="background:var(--mana-g)"></i></span>
+          <span class="sharp">64<small>%</small></span><span class="card-name">Adventure After Elevensies</span><span class="thesis">Food every turn, and Sam turns it into card draw.</span>
+        </a>
+        <a class="tile enter" style="--i:5" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/1696453f-a678-47ff-b583-53c2130b7d49?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-w)"></i><i style="background:var(--mana-r)"></i></span>
+          <span class="sharp">—</span><span class="card-name">For Cheese and Country</span><span class="label">Mabel · no thesis</span>
+        </a>
+        <a class="tile enter" style="--i:6" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/07ce00ad-acb5-4418-9ea1-50eaf2273242?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-w)"></i><i style="background:var(--mana-u)"></i><i style="background:var(--mana-b)"></i><i style="background:var(--mana-r)"></i><i style="background:var(--mana-g)"></i></span>
+          <span class="sharp">—</span><span class="card-name">Everything is permitted.</span><span class="label">Ezio · no thesis</span>
+        </a>
+        <a class="tile enter" style="--i:7" href="#">
+          <img alt="" src="https://api.scryfall.com/cards/a08b8ff8-13e4-46e7-b028-d055e4548f6a?format=image&version=art_crop">
+          <span class="idbar"><i style="background:var(--mana-b)"></i><i style="background:var(--mana-g)"></i></span>
+          <span class="sharp" style="color:var(--signal)">178<small> cards</small></span><span class="card-name">The Word is 'Gamer'</span><span class="label">Gamer · 78 over</span>
+        </a>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="mock-note">Mockup · Direction C · scores and theses are illustrative</div>
+</body>
+</html>
