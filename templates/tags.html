@@ -342,6 +342,8 @@
             // Get tag stats
             const tagRes = await fetch(`/api/card/${encodeURIComponent(card.name)}/tags`);
             const tagData = await tagRes.json();
+            tagData.lab_tags = tagData.lab_tags || [];
+            tagData.archidekt_tags = tagData.archidekt_tags || [];
             
             // Filter by tag if needed
             if (tagFilter && !tagData.lab_tags.includes(tagFilter)) {

@@ -52,8 +52,17 @@ def migrate(apply: bool, delete_old: bool):
     print(f"Found {len(old_keys)} legacy card:* records.")
 
     total_instances = 0
+    skipped_existing = 0
     counts_by_new_status = {"in_deck": 0, "in_mail": 0, "in_collection": 0, "not_owned": 0}
     unresolved_decks = set()
+
+    # Idempotency: count instances that already exist per copy identity so a
+    # re-run only creates what's missing. Running this twice is how prod got
+    # 2 x 5,608 instances (see scripts/dedupe_instances.py).
+    from collections import Counter
+    from scripts.dedupe_instances import copy_key
+    existing = Counter(copy_key(i) for i in instance_store.load_all_instances(r))
+    planned = Counter()
 
     for key in old_keys:
         card_name = key[len("card:"):]
@@ -91,6 +100,19 @@ def migrate(apply: bool, delete_old: bool):
                 new_status = "in_collection"
                 considered_for_deck = deck_name
 
+            final_deck_id = deck_id if new_status == "in_deck" else None
+            key = copy_key({
+                "card_name": card_name,
+                "deck_id": final_deck_id,
+                "archidekt_uid": copy.get("uid", ""),
+                "ownership_status": new_status,
+                "considered_for_deck": considered_for_deck,
+            })
+            planned[key] += 1
+            if planned[key] <= existing[key]:
+                skipped_existing += 1
+                continue
+
             total_instances += 1
             counts_by_new_status[new_status] += 1
 
@@ -109,7 +131,8 @@ def migrate(apply: bool, delete_old: bool):
                     archidekt_uid=copy.get("uid", ""),
                 )
 
-    print(f"\n{'Would create' if not apply else 'Created'} {total_instances} instances:")
+    print(f"\n{'Would create' if not apply else 'Created'} {total_instances} instances "
+          f"({skipped_existing} already present, skipped):")
     for status, count in counts_by_new_status.items():
         print(f"  {status}: {count}")
 

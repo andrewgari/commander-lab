@@ -50,6 +50,21 @@ def registry_id_of(deck: dict) -> str:
     return f"{deck.get('source', 'archidekt')}:{deck.get('source_id', deck.get('id'))}"
 
 
+def deck_instance_ids(deck: dict) -> list:
+    """Every deck_id value an instance bound to `deck` may carry.
+
+    Instances are written with two different deck_id shapes:
+    auto_bind_physical / the instance migration use the deck's raw `id`
+    (an int for Archidekt decks), while the manual add-card path uses
+    registry_id ("archidekt:417707"). Readers must check both, or a deck
+    whose cards were bound by one path looks empty to the other.
+    """
+    ids = [registry_id_of(deck)]
+    if deck.get("id") is not None and str(deck["id"]) not in ids:
+        ids.append(str(deck["id"]))
+    return ids
+
+
 def list_decks(r) -> list:
     return _load_decks(r)
 
@@ -138,7 +153,8 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
         # cards — a physical deck's inventory is real cardboard, so additions
         # and removals both wait for human adjudication.
         new_card_names = {c.get("name") for c in result_deck.get("cards", []) if c.get("name")}
-        instance_store.flag_resync_removed(r, registry_id_of(result_deck), new_card_names)
+        for did in deck_instance_ids(result_deck):
+            instance_store.flag_resync_removed(r, did, new_card_names)
 
     return result_deck
 
