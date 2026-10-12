@@ -112,8 +112,8 @@
         var row = function (k, v, max, low, disp) { return "<span>" + k + '</span><span class="t' + (low ? " is-low" : "") + '"><i style="width:' + Math.round(v / max * 100) + '%"></i></span><span class="v">' + disp + "</span>"; };
         return '<div class="hud-why">' + row("Edges", edges, 10, edges <= 1, edges) + row("Fit", fit, 1, fit < 0.35, fit.toFixed(2)) + row("EDHREC", edh, 100, edh < 10, edh + "%") + "</div>";
     }
-    function opt(o, pick) {
-        if (!o) return '<div class="hud-opt is-empty">No buy beats the owned pick by ≥ 0.10.<br>Good enough: keep it free.</div>';
+    function opt(o, pick, hardHidden) {
+        if (!o) return '<div class="hud-opt is-empty">' + (hardHidden ? 'Best buy hidden: over your hard cap.' : 'No buy beats the owned pick by ≥ 0.10.<br>Good enough: keep it free.') + '</div>';
         var src = o.buy ? '<span class="hud-opt-src">Buy · <b style="color:var(--text-1)">$' + o.price.toFixed(2) + "</b></span>"
                         : '<span class="hud-opt-src"><b>Owned</b> · ' + o.where + "</span>";
         return '<div class="hud-opt' + (pick ? " is-pick" : "") + (o.buy ? " is-buy" : "") + '">' + src +
@@ -123,29 +123,29 @@
     }
     var SW = [
         { cut: "Phyrexian Arena", w: [1, 0.21, 31], own: { name: "Sword of Feast and Famine", where: "box · free", score: 0.81, pillar: "Swing twice" },
-          buy: { name: "Moonshaker Cavalry", buy: true, price: 0.89, score: 0.84, pillar: "Payoffs" }, pick: "own", gap: 0.03 },
+          buy: null, pick: "own", hiddenGap: 0.03 },
         { cut: "Ob Nixilis, Unshackled", w: [1, 0.41, 18], own: { name: "Combat Celebrant", where: "in Dawnbringer", score: 0.77, pillar: "Swing twice" },
           buy: null, pick: "own" },
         { cut: "Angelic Arbiter", w: [0, 0.27, 4], own: { name: "Aurelia's Fury", where: "box · free", score: 0.52, pillar: "Payoffs" },
           buy: { name: "Moraug, Fury of Akoum", buy: true, price: 6.40, score: 0.79, pillar: "Swing twice" }, pick: "buy", gap: 0.27 },
         { cut: "Platinum Angel", petLocked: true },
         { cut: "Steel Hellkite", w: [1, 0.33, 12], own: { name: "Scourge of the Throne", where: "box · free", score: 0.70, pillar: "Swing twice" },
-          buy: { name: "Old Gnawbone", buy: true, price: 22.50, score: 0.88, pillar: "Payoffs", cap: ["over soft cap $15", "signal"] }, pick: "own", gap: 0.18, soft: true },
+          buy: { name: "Neheb, the Eternal", buy: true, price: 18.50, score: 0.88, pillar: "Swing twice", cap: ["over soft cap $15", "signal"] }, pick: "own", gap: 0.18, soft: true },
         { cut: "Bloodthirster", w: [1, 0.36, 9], own: { name: "Hellkite Charger", where: "already in deck", score: 0, pillar: "" },
-          buy: { name: "Jeweled Lotus", buy: true, price: 68.00, score: 0.91, pillar: "Keep her alive", cap: ["over hard cap $40", "danger"] }, pick: "own", hard: true }
+          buy: null, pick: "own", hard: true }
     ];
     document.getElementById("swaps").innerHTML = SW.map(function (s, i) {
         if (s.petLocked) return '<li class="hud-swap" style="grid-template-columns:minmax(0,1fr) auto"><span><span class="hud-card-name" style="color:var(--text-2)">♥ ' + s.cut + '</span> <span class="hud-field-hint">· pet · weakest card in the deck (0 edges, fit 0.24) but pets are never cut. Shown once so you know it was considered.</span></span><a class="hud-btn hud-btn--sm hud-btn--ghost" href="journal.html#j-pets">Edit pets</a></li>';
         if (s.hard) { s.buy = null; }
         var gapLine = s.gap != null ? '<div class="hud-gapline">Gap <b>' + (s.gap >= 0 ? "+" : "") + s.gap.toFixed(2) + "</b> buy vs owned" +
             (s.pick === "buy" ? HUD.chip("worth buying", "signal") : HUD.chip("owned is good enough", "ok")) + "</div>" : "";
-        var just = s.soft ? '<div class="hud-justify"><b>Soft cap:</b> Old Gnawbone ($22.50) beats the owned Scourge by 0.18 and doubles as ramp off combat. Shown because the gap is big; picked owned because you set soft $15.</div>' : "";
+        var just = s.soft ? '<div class="hud-justify"><b>Soft cap:</b> Neheb, the Eternal ($18.50) beats the owned Scourge by 0.18: post-combat mana for the next cheat-in. Shown because the gap is big; picked owned because you set soft $15.</div>' : "";
         var hard = s.hard ? '<div class="hud-gapline">1 better buy hidden <b>· over hard cap $40</b>' + HUD.chip("hard cap", "neutral") + "</div>" : "";
         var ownOpt = s.own.score ? opt(s.own, s.pick === "own") : '<div class="hud-opt is-empty">No owned card scores ≥ 0.50 for this slot.</div>';
         return '<li class="hud-swap' + (i === 0 ? " is-current" : "") + (i === 1 ? " is-accepted" : "") + '" tabindex="-1">' +
             '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + s.cut + "</span>" + why(s.w[0], s.w[1], s.w[2]) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
-            '<div class="hud-opts">' + ownOpt + (s.hard ? opt(null) : opt(s.buy, s.pick === "buy")) + gapLine + just + hard + "</div>" +
+            '<div class="hud-opts">' + ownOpt + opt(s.buy, s.pick === "buy", s.hard) + gapLine + just + hard + "</div>" +
             '<div class="hud-swap-act">' + (i === 1 ? '<span class="hud-chip hud-chip--ok">Accepted</span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Undo</button>'
                 : '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button">Accept</button>' + (s.buy && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button">Buy instead</button>' : "") +
                   '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Dismiss</button>') + "</div></li>";

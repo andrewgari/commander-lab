@@ -32,7 +32,7 @@
                     <div><span class="hud-label">On-plan</span><b>64% → <span class="up">71%</span></b></div>
                 </div>
             </div>
-            <div class="hud-progress">
+            <div class="hud-progress" aria-live="polite">
                 <span class="hud-label">3 of 8 answered</span>
                 <div class="hud-progress-bar" aria-hidden="true"><i class="is-done"></i><i class="is-done"></i><i class="is-changed"></i><i></i><i></i><i></i><i></i><i></i></div>
                 <span class="hud-freshness"><span class="hud-kbd">y</span> still true · <span class="hud-kbd">c</span> change · <span class="hud-kbd">j</span>/<span class="hud-kbd">k</span> move</span>
@@ -122,10 +122,12 @@
                         <input type="radio" name="wcp" id="w2"><label for="w2">Combo</label>
                         <input type="radio" name="wcp" id="w3"><label for="w3">Attrition</label>
                         <input type="radio" name="wcp" id="w4"><label for="w4">Cmdr dmg</label>
+                        <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost hud-seg-more" aria-expanded="false" aria-controls="wcMore" onclick="var m=document.getElementById('wcMore');m.hidden=!m.hidden;this.setAttribute('aria-expanded',String(!m.hidden));this.textContent=m.hidden?'More… 4':'Less'">More… 4</button>
+                        <span id="wcMore" class="hud-seg-rest" hidden>
                         <input type="radio" name="wcp" id="w5"><label for="w5">Alt win</label>
                         <input type="radio" name="wcp" id="w6"><label for="w6">Burn</label>
                         <input type="radio" name="wcp" id="w7"><label for="w7">Lockout</label>
-                        <input type="radio" name="wcp" id="w8"><label for="w8">Mill</label>
+                        <input type="radio" name="wcp" id="w8"><label for="w8">Mill</label></span>
                     </span></div>
                 <div class="hud-field-row">
                     <div class="hud-field"><span class="hud-field-label" id="wcS">Secondary</span>

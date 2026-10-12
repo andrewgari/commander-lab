@@ -485,3 +485,7 @@ main.main-content { padding-bottom: var(--sp-16); }
 }
 .hud-pillar.is-hero .hud-chip { --chip-fg: var(--text-on-signal); --chip-bg: transparent; --chip-line: var(--text-on-signal); color: var(--text-on-signal); background: transparent; border-color: var(--text-on-signal); }
 @media (max-width: 640px) { .hud-stat-foot { white-space: normal; } }
+/* "More…" inside a segmented control: the overflow options join the strip when expanded. */
+.hud-seg-rest:not([hidden]) { display: contents; }
+.hud-seg-rest[hidden] { display: none; }
+.hud-seg .hud-seg-more { height: 2rem; border: 0; border-left: var(--stroke); border-radius: 0; }

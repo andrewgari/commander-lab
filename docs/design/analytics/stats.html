@@ -15,7 +15,7 @@
     .graph-list { display: none; }
     .graph-list ol { list-style: none; margin: 0; padding: 0; }
     .graph-list li { padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
-    @media (max-width: 1180px) { .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: 1 / -1; } }
+    @media (max-width: 1380px) { .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: 1 / -1; } }
     @media (max-width: 900px) { .stats-row, .stats-row--3 { grid-template-columns: minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: auto; } }
 </style>
 </head>
@@ -160,7 +160,9 @@
         M.ENGINES = [{ id: "hub", name: hub.split(",")[0] + " hub", flow: "(real data · engines not detected yet)", kind: "cluster", pillar: null, cards: mem }].concat(M.ENGINES.slice(1, 1));
         document.querySelector(".hud-graph-toolbar .hud-freshness").innerHTML = "<b>" + Object.keys(dg).length + "</b> cards · <b>" + es.length + "</b> edges · REAL AN-1 data";
     }
-    var deg = {}; M.EDGES.forEach(function (e) { deg[e[0]] = (deg[e[0]] || 0) + e[2].length; deg[e[1]] = (deg[e[1]] || 0) + e[2].length; });
+    // degree = DISTINCT neighbours (what "N connections" means); edge WIDTH carries reasons.
+    var nb = {}; M.EDGES.forEach(function (e) { (nb[e[0]] = nb[e[0]] || {})[e[1]] = 1; (nb[e[1]] = nb[e[1]] || {})[e[0]] = 1; });
+    var deg = {}; Object.keys(nb).forEach(function (k) { deg[k] = Object.keys(nb[k]).length; });
     var nodes = Object.keys(deg).map(function (id) { return { id: id, degree: deg[id] }; });
     var edges = M.EDGES.map(function (e) { return { source: e[0], target: e[1], reasons: e[2] }; });
     var engList = document.getElementById("engines");
@@ -210,15 +212,20 @@
         var b = e.target.closest("[data-engine]"); if (!b) return;
         var on = b.getAttribute("aria-pressed") !== "true";
         engList.querySelectorAll("[data-engine]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
-        b.setAttribute("aria-pressed", String(on)); activeEngine = on ? b.dataset.engine : null; G.focusEngine(activeEngine); inspect(null);
+        b.setAttribute("aria-pressed", String(on)); activeEngine = on ? b.dataset.engine : null; G.focusEngine(activeEngine); inspect(null); phoneList();
     });
     var gs = document.getElementById("gsearch");
     gs.addEventListener("input", function () { G.search(gs.value); });
     gs.addEventListener("keydown", function (e) { if (e.key === "Enter") { var id = G.search(gs.value); if (id) G.select(id); } });
+    function clearAll() { activeEngine = null; G.select(null); G.focusEngine(null); engList.querySelectorAll("[data-engine]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); }); inspect(null); phoneList(); }
     document.addEventListener("keydown", function (e) {
-        var tag = e.target.tagName; if (tag === "INPUT" || tag === "TEXTAREA") { if (e.key === "Escape") e.target.blur(); return; }
+        var t = e.target, tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) {
+            if (e.key === "Escape") { t.blur(); if (t === gs) { gs.value = ""; clearAll(); } } // one Esc clears search AND focus
+            return;
+        }
         if (e.key === "/") { e.preventDefault(); gs.focus(); }
-        if (e.key === "Escape") { activeEngine = null; G.select(null); G.focusEngine(null); engList.querySelectorAll("[data-engine]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); }); inspect(null); }
+        if (e.key === "Escape") clearAll();
         if (e.key === "]" || e.key === "[") {
             var bs = Array.from(engList.querySelectorAll("[data-engine]")), cur = bs.findIndex(function (b) { return b.getAttribute("aria-pressed") === "true"; });
             var nx = e.key === "]" ? (cur + 1) % bs.length : (cur - 1 + bs.length) % bs.length; bs[nx].click();
@@ -226,11 +233,20 @@
     });
     // Default: first engine focused, Kaalia selected = the "aha" view on load.
     engList.querySelector("[data-engine]").click();
-    // Phone fallback list (same data as the graph, readable at 390px).
-    document.getElementById("glist").innerHTML = '<ol>' + M.ENGINES[0].cards.slice(1, 7).map(function (c) {
-        var e = M.EDGES.find(function (x) { return x[1] === c && x[0] === M.DECK.commander; }) || M.EDGES.find(function (x) { return x[0] === c || x[1] === c; });
-        return '<li><span class="hud-card-name">' + esc(c) + '</span><span class="hud-rank-sub" style="display:block">← Kaalia · ' + esc(e ? e[2].join(" · ") : "") + "</span></li>";
-    }).join("") + '</ol><div class="hud-panel-foot">Showing engine members. Full graph on a wider screen.</div>';
+    // Phone fallback list (same data as the graph, readable at 390px). Follows the active engine.
+    function phoneList() {
+        var g = M.ENGINES.find(function (x) { return x.id === activeEngine; });
+        var el = document.getElementById("glist");
+        if (!g) { el.innerHTML = '<div class="hud-panel-foot">Pick an engine above. Full graph on a wider screen.</div>'; return; }
+        var hub = g.cards[0];
+        el.innerHTML = '<ol>' + g.cards.slice(1).map(function (c) {
+            var e = M.EDGES.find(function (x) { return (x[0] === hub && x[1] === c) || (x[1] === hub && x[0] === c); }) ||
+                    M.EDGES.find(function (x) { return (x[0] === c || x[1] === c) && g.cards.indexOf(x[0] === c ? x[1] : x[0]) !== -1; });
+            var dir = e ? (e[0] === c ? "→ " : "← ") + (e[0] === c ? e[1] : e[0]).split(",")[0] : "";
+            return '<li><span class="hud-card-name">' + esc(c) + '</span><span class="hud-rank-sub" style="display:block">' + esc(dir + (e ? " · " + e[2].join(" · ") : "")) + "</span></li>";
+        }).join("") + '</ol><div class="hud-panel-foot">' + esc(g.name) + " · " + g.cards.length + " cards. Full graph on a wider screen.</div>";
+    }
+    phoneList();
 
     // ---- Composition ---------------------------------------------------
     var COMP = [["Lands", 35, 38], ["Ramp", 7, 10], ["Card advantage", 11, 12], ["Targeted disruption", 13, 12], ["Mass disruption", 4, 6], ["Plan", 38, 22]];
