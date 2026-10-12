@@ -1868,6 +1868,133 @@ async def api_deck_tune_adds(deck_id: str, request: Request):
     return {"success": True, "state": st}
 
 
+# ---------------------------------------------------------------------------
+# Theory (TH-2) -- see docs/THEORY_SPEC.md, docs/THEORY.md
+# ---------------------------------------------------------------------------
+
+THEORY_PREFLIGHT_TIMEOUT_S = 8.0
+
+
+def _oracle_client():
+    from analytics.oracle_client import OracleClient
+
+    return OracleClient.from_env()
+
+
+def _oracle_offline(detail: str = ""):
+    from analytics.oracle_client import OFFLINE_MESSAGE
+
+    body = {"success": False, "error": OFFLINE_MESSAGE, "error_kind": "oracle_offline"}
+    if detail:
+        body["detail"] = detail
+    return JSONResponse(status_code=503, content=body)
+
+
+def _oracle_preflight() -> Optional[JSONResponse]:
+    """Fail fast (503) when oracle is not configured or not answering /v1/models."""
+    from analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+
+    try:
+        client = _oracle_client()
+        client.timeout = THEORY_PREFLIGHT_TIMEOUT_S
+        client.models()
+    except OracleUnavailable as exc:
+        return _oracle_offline(exc.detail)
+    except OracleAuthError:
+        return _oracle_offline("oracle rejected the API key")
+    except OracleError as exc:
+        return _oracle_offline(str(exc)[:200])
+    return None
+
+
+def _theory_deck_id(deck) -> str:
+    return deck.get("registry_id") or registry.registry_id_of(deck)
+
+
+@app.post("/api/decks/{deck_id}/theory")
+async def api_theory_generate(deck_id: str, request: Request):
+    """{"theme": str, "commander_mode": "keep"|"open"} -> 202 {job_id}. Oracle writes the
+    doc in the background (30 s to minutes); poll GET .../theory/jobs/{job_id}."""
+    from analytics import theory as theory_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(theory_mod.TheoryError("Body must be a JSON object."))
+    theme = body.get("theme") if isinstance(body.get("theme"), str) else ""
+    mode = body.get("commander_mode") or "keep"
+    try:
+        job = theory_mod.new_job(r, deck, theme, mode)
+    except theory_mod.TheoryBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    except theory_mod.TheoryError as exc:
+        return _bad_request(exc)
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        theory_mod.release(job["deck_id"], job["job_id"])
+        r.delete(theory_mod.job_key(job["job_id"]))
+        return offline
+    try:
+        theory_mod.start_job(r, job, deck, _oracle_client)
+    except Exception:
+        theory_mod.release(job["deck_id"], job["job_id"])
+        raise
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(_theory_deck_id(deck), safe='')}/theory/jobs/{job['job_id']}"})
+
+
+@app.get("/api/decks/{deck_id}/theory/jobs/{job_id}")
+async def api_theory_job(deck_id: str, job_id: str):
+    from analytics import theory as theory_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    job = theory_mod.load_job(r, job_id)
+    if not job or job.get("deck_id") != _theory_deck_id(deck):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": job}
+
+
+@app.get("/api/decks/{deck_id}/theory")
+async def api_theory_list(deck_id: str):
+    from analytics import theory as theory_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    return {"success": True, "docs": theory_mod.list_docs(r, _theory_deck_id(deck))}
+
+
+@app.get("/api/decks/{deck_id}/theory/{doc_id}")
+async def api_theory_get(deck_id: str, doc_id: str):
+    from analytics import theory as theory_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    doc = theory_mod.load(r, _theory_deck_id(deck), doc_id)
+    if doc is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Theory '{doc_id}' not found"})
+    return {"success": True, "doc": doc}
+
+
+@app.delete("/api/decks/{deck_id}/theory/{doc_id}")
+async def api_theory_delete(deck_id: str, doc_id: str):
+    from analytics import theory as theory_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    if not theory_mod.delete(r, _theory_deck_id(deck), doc_id):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Theory '{doc_id}' not found"})
+    return {"success": True, "deleted": doc_id}
+
+
 @app.post("/api/decks/{deck_id}/tune/pet")
 async def api_deck_tune_pet(deck_id: str, request: Request):
     """{"name": card}: add the card to the Journal's pets (Tune key `h`)."""
