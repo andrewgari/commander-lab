@@ -113,15 +113,15 @@ class TestDeckView(unittest.TestCase):
         cls.client = client
 
     def test_page_leads_with_stats(self):
-        # Page head, then the stat strip comes before the briefing and decklist.
-        order = [self.body.find(m) for m in ('class="hud-page-head"', 'id="deckStats"', '<h2>Briefing</h2>', 'id="decklistContainer"')]
+        # Shared deck header (UX_SPEC §3.0), then the stat strip comes before the briefing and decklist.
+        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="deckStats"', '<h2>Briefing</h2>', 'id="decklistContainer"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertRegex(self.body, r'<div class="hud-stat-strip" id="deckStats">\s*<div class="hud-stat hud-stat--hero">')
 
     def test_built_from_kit_components(self):
         classes = _classes(self.html)
-        for cls in ["hud-page-head", "hud-stat-strip", "hud-stat", "hud-panel", "hud-panel-head",
+        for cls in ["hud-deckhead", "hud-deck-tabs", "hud-stat-strip", "hud-stat", "hud-panel", "hud-panel-head",
                     "hud-kv", "hud-tabs", "hud-tab", "hud-btn", "hud-modal", "hud-modal-dialog", "hud-crumbs"]:
             with self.subTest(cls=cls):
                 self.assertIn(cls, classes)

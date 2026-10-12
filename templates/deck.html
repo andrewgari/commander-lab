@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
 
 {% block title %}{{ deck_name }} | Commander Lab{% endblock %}
 
@@ -14,8 +15,6 @@
     }
     .deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-commanders { display: grid; gap: var(--sp-3); }
-    .deck-title-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-    .deck-title-row h1 { margin: 0; }
     .deck-links { display: flex; flex-direction: column; gap: var(--sp-2); }
     .deck-links .hud-btn { justify-content: space-between; }
     .deck-prose { max-width: 75ch; color: var(--text-2); line-height: var(--lh-base); }
@@ -52,25 +51,15 @@
 </style>
 {% endblock %}
 
-{% block crumbs %}{{ hud.crumbs([{"label": "Decks", "href": "/decks"}, {"label": "Folder", "href": "/decks"}, {"label": deck_name}]) }}{% endblock %}
-{% block topbar_meta %}<span id="deckSyncMeta">Deck view</span>{% endblock %}
+{% block crumbs %}{{ dh.crumbs(head, "Overview") }}{% endblock %}
+{% block topbar_meta %}<span id="deckSyncMeta" class="hud-freshness">Deck view</span>{% endblock %}
 
 {% block content %}
-<header class="hud-page-head">
-    <div>
-        <span class="hud-label" id="deckEyebrow">Commander deck</span>
-        <div class="deck-title-row">
-            <h1 id="deckTitle">{{ deck_name }}</h1>
-            <span id="deckColors"></span>
-            <span id="deckStatus"></span>
-        </div>
-    </div>
-    <div class="hud-page-actions">
-        <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
-        <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
-        <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
-    </div>
-</header>
+{% call dh.header(head, tab) %}
+    <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
+    <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
+    <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
+{% endcall %}
 
 <div class="deck-hero">
     <aside class="deck-hero-side">
@@ -229,6 +218,10 @@
             renderCommanders();
             renderStats();
             renderCards();
+            // ?card=NAME (the Stats inspector's "Open card") opens the card modal.
+            const want = new URLSearchParams(location.search).get('card');
+            const wantIdx = want ? inventoryCards.findIndex(c => c.name === want) : -1;
+            if (wantIdx !== -1) openCardModal(wantIdx);
         } catch (e) {
             console.error("Error loading deck data:", e);
             document.getElementById('decklistContainer').innerHTML = '<div class="hud-empty">Could not load deck</div>';
@@ -240,9 +233,6 @@
         document.getElementById('deckColors').innerHTML = HUD.pips(deck.color === 'C' ? '' : (deck.color || ''));
         document.getElementById('deckStatus').innerHTML = HUD.statusChip(deck.status || 'physical');
         document.getElementById('deckFolder').textContent = folder;
-        document.getElementById('deckEyebrow').textContent = 'Commander deck · ' + folder;
-        const folderCrumb = document.querySelector('.app-topbar .hud-crumbs li:nth-child(2) a');
-        if (folderCrumb) folderCrumb.textContent = folder;
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
         if (deck.description) {

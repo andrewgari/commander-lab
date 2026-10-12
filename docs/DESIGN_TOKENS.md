@@ -37,7 +37,7 @@ nowhere else. Components and pages use `var(--token)`.
 | `--line-strong` | `#3a4651` | hover / emphasized border |
 | `--text-1` | `#e8ebee` | headings, primary values |
 | `--text-2` | `#b6bfc8` | body copy |
-| `--text-3` | `#76828e` | muted, micro-labels, placeholders |
+| `--text-3` | `#8a96a2` | muted, micro-labels, placeholders (AA: 5.8:1 on surface-1; was `#76828e`) |
 | `--text-4` | `#4f5a64` | disabled, axis ticks |
 | `--signal` / `-strong` / `-dim` / `-line` | `#f0a63a` / `#ffc266` / `#3b2a12` / `#7a5420` | warm accent: text, hover, chip fill, chip border |
 | `--text-on-signal` | `#17110a` | text on a solid `--signal` fill |
@@ -45,7 +45,7 @@ nowhere else. Components and pages use `var(--token)`.
 | `--data-0` … `--data-5` | surface-2 → `#4fb0c6` | sequential heatmap ramp, solid (no alpha) |
 | `--ok` / `--ok-dim` | `#6cbf7a` / `#17301d` | success state |
 | `--warn` / `--warn-dim` | = signal | warning (same as the accent on purpose) |
-| `--danger` / `--danger-dim` | `#e5584f` / `#3a1714` | error / destructive |
+| `--danger` / `--danger-dim` | `#ee6a61` / `#3a1714` | error / destructive (AA on danger-dim; was `#e5584f`) |
 | `--neutral` / `--neutral-dim` | text-3 / surface-3 | inactive status |
 
 ### Mana (fixed palette)
@@ -103,6 +103,11 @@ Fonts load from Google Fonts in `base.html`.
 | `--indicator` | 2px, the active-state bar (nav, selected rows) |
 | `--focus-ring`, `--focus-offset` | `1px solid var(--signal)`, 1px |
 | `--dur-fast` / `--dur-base` / `--ease` | 100ms / 160ms / `cubic-bezier(0.2,0,0,1)` |
+| `--dur-slow` / `--stagger` / `--i` | 320ms (entrances) / 40ms per item / per-item index set inline (`style="--i:3"`) |
+| `--fs-display` | 4.5rem, reserved for the Lab thesis hero (Phase 3) |
+| `--graph-h` | 36rem, interaction-graph plot height (desktop) |
+| `--graph-node-min` / `-max` | 5 / 18, node radius px by √degree (unitless: read by `HUD.graph`) |
+| `--graph-edge` / `--graph-dim` | `var(--line-strong)` resting edge / 0.14 opacity of non-neighbours while focused |
 
 ## Layout and layers
 
@@ -194,3 +199,31 @@ Live reference with sample data: **`/styleguide`**.
 | Comparison | `compare(entities, groups)` | `.hud-compare` | 2–3 columns; row `lead: max\|min` marks the best value |
 | Heatmap | `heatmap(rows, cols, matrix, max, self_diag, fmt, hl)` | `.hud-heat` | cells bucketed onto `--data-0..5` (`data-level`) |
 | Modal | (markup) + `HUD.openModal(id)` | `.hud-modal` > `.hud-panel.hud-modal-dialog` | flat `--scrim`, no blur; scrim click / `[data-hud-close]` / Esc closes |
+
+### Analytics II (hud.css section 7, AN-4)
+
+Ported from `docs/design/analytics/analytics.css`; spec in
+`docs/design/analytics/UX_SPEC.md`. Stats and Tune render from JSON (no
+macros). Identity renders from JSON too in AN-4 (simplest path: every pillar
+edit needs the rescored payload anyway). Journal (AN-5) gets macros.
+
+| Component | Builder | Root class | Notes |
+|---|---|---|---|
+| Deck header + tabs | `partials/deck_head.html`: `header(head, tab)`, `crumbs(head, label)`, `freshness()` | `.hud-deckhead`, `.hud-deck-tabs` | every deck tab; tabs carry `data-key` 1–5, keys handled in `static/js/deck_analytics.js` (never while typing) |
+| Interaction graph | `HUD.graph(svg, {nodes, edges, engines, commander, commanders, onSelect})` → `{focusEngine, select, search, nodeEl, conns}` | `.hud-graph` (`-engines`, `-stage`, `-toolbar`, `-svg`, `-legend`), `.g-node`, `.g-edge`, `.g-elabel` | needs `static/vendor/d3-force-3.0.0.min.js` (load on `/stats` only); laid out once (300 ticks), frozen |
+| Engine row | (markup) | `.hud-engine[aria-pressed]` | name, flow, kind, pillar chip, card count |
+| Inspector | (markup) | `.hud-inspector`, `.hud-io`, `.hud-edgelist`, `.hud-members`, `.hud-cardlink` | `aria-live="polite"` |
+| Isolated tray | (markup) | `.hud-isolated` | cards with 0–1 edges as `.hud-cardlink` |
+| Composition rows | (markup) | `.hud-comp` > `.hud-comp-row` (`-track`, `-fill`, `-target`, `-val`), `.hud-template-edit` | `is-under` = short by ≥ 2 (signal fill) |
+| Meter | (markup) | `.hud-meter`, `.hud-meter-legend` | pillar / glue / generic |
+| Pillars | (markup) | `.hud-pillars` > `.hud-pillar` (`is-hero is-pinned is-draft is-editing`), `.hud-pillar-add` | max 5; hero spans 2 columns, solid signal |
+| Thesis | (markup) | `.hud-thesis`, `.hud-thesis-bar` | one `<em>` phrase in signal |
+| Tray | `<details>` | `.hud-tray`, `.hud-tray-row` | rejected pillars |
+| Save bar | (markup) | `.hud-savebar` (`is-dirty`) | sticky; `hidden` when clean |
+| Combos | (markup) | `.hud-combos` > `.hud-combo`, `.hud-combo-group` | missing piece = `.is-missing` chip |
+| Kbd / freshness | (markup) | `.hud-kbd`, `.hud-freshness` | |
+| Compact ranked bars | wrap `HUD.rankList()` | `.hud-rank-compact` | narrow panels |
+| Journal / check-in / tuner | (AN-5 / AN-6) | `.hud-form`, `.hud-field`, `.hud-seg`, `.hud-picker`, `.hud-money`, `.hud-checkin-head`, `.hud-checklist`, `.hud-check`, `.hud-swap`, `.hud-opts`, `.hud-opt`, `.hud-why`, `.hud-fix`, `.hud-changes` | CSS shipped in AN-4, pages pending |
+
+`HUD.barChart(bars, {ref: [...]})` now draws the dashed reference step line
+like the `bar_chart` macro (Stats uses it for the template curve).
