@@ -29,6 +29,11 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - NOUS_API_KEY=${NOUS_API_KEY:-}
       - INTERACTIONS_NIGHTLY_HOUR_UTC=${INTERACTIONS_NIGHTLY_HOUR_UTC:-8}
+      # oracle (Hermes profile on the Framework) for Theory docs, see docs/THEORY_SPEC.md.
+      # ORACLE_KEY: set it on the Portainer stack or as the file secrets/ORACLE_KEY (never in git).
+      - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - ORACLE_KEY=${ORACLE_KEY:-}
+      - ORACLE_TIMEOUT_S=${ORACLE_TIMEOUT_S:-600}
     volumes:
       - /mnt/user/appdata/commander-lab/secrets:/run/commander-lab-secrets:ro
     depends_on:
