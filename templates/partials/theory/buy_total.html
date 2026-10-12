@@ -1,0 +1,27 @@
+{% import "partials/hud.html" as hud %}
+{#- buy_total: {total_usd, count, cards[{name, price, qty}], caps{no_budget, hard_cap, soft_cap}} (app-verified) -#}
+{%- set d = section.data %}
+{%- set caps = d.caps or {} %}
+<div class="hud-stat-strip hud-buy-stats">
+    {{ hud.stat("Buy total", tv.money(d.total_usd), foot="Scryfall USD, re-checked by the app", mod="signal") }}
+    {{ hud.stat("Cards to buy", d.count if d.count is not none else (d.cards or []) | length) }}
+    {%- if caps.no_budget %}
+    {{ hud.stat("Caps", "none", foot="no budget") }}
+    {%- elif caps %}
+    {{ hud.stat("Caps / card", tv.money(caps.hard_cap), foot="hard · soft " ~ tv.money(caps.soft_cap)) }}
+    {%- endif %}
+</div>
+{%- if d.cards %}
+<div class="hud-panel hud-panel--flush hud-doc-gap">
+    <ul class="hud-tcards hud-tcards--panel hud-panel-body">
+        {%- for card in d.cards if card is mapping %}
+        <li class="hud-tcard is-buy">
+            <span class="hud-tcard-qty">{{ card.qty or 1 }}</span>
+            <span class="hud-card-name">{{ card.name }}</span>
+            <span></span>
+            <span class="hud-tcard-price">{{ tv.money(card.price) }}</span>
+        </li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- endif %}

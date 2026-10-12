@@ -3,7 +3,7 @@
    Loaded on every deck tab (partials/deck_head.html), exposes
    window.DeckAnalytics. Pure functions that turn the AN-1..AN-3 JSON
    payloads into what the Stats / Identity pages draw (UX_SPEC.md §3.1-3.2).
-   No DOM access except the 1-5 tab hotkeys at the bottom.
+   No DOM access except the 1-6 tab hotkeys at the bottom.
    ========================================================================== */
 (function () {
     "use strict";
@@ -298,7 +298,7 @@
         whyBars: whyBars, gapText: gapText, verdictChip: verdictChip, keepYoursLine: keepYoursLine
     };
 
-    // Deck tabs: keys 1-5 switch tab (data-key on .hud-deck-tabs links).
+    // Deck tabs: keys 1-6 switch tab (data-key on .hud-deck-tabs links).
     if (document.addEventListener) {
         // On narrow screens the strip scrolls inside itself: keep the active tab in view.
         document.addEventListener("DOMContentLoaded", function () {
@@ -309,7 +309,7 @@
         });
         document.addEventListener("keydown", function (e) {
             if (e.metaKey || e.ctrlKey || e.altKey || inTextField(e.target)) return;
-            if (!/^[1-5]$/.test(e.key)) return;
+            if (!/^[1-6]$/.test(e.key)) return;
             var a = document.querySelector('.hud-deck-tabs [data-key="' + e.key + '"]');
             if (a && a.getAttribute("aria-current") !== "page") { e.preventDefault(); window.location.href = a.getAttribute("href"); }
         });
