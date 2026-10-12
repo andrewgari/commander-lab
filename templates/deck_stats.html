@@ -175,7 +175,8 @@ document.addEventListener("DOMContentLoaded", function () {
                                  commander: VIEW.commander, commanders: VIEW.commanders, onSelect: inspect });
         // Isolated tray
         $("isolated").innerHTML = '<span class="hud-label">Isolated · 0–1 edges</span>' +
-            (VIEW.isolated.length ? VIEW.isolated.map(cardBtn).join("") : '<span class="hud-muted">none</span>');
+            (VIEW.isolated.length ? VIEW.isolated.map(cardBtn).join("") : '<span class="hud-muted">none</span>') +
+            '<a class="hud-btn hud-btn--sm hud-btn--ghost stats-isolated-more" href="/deck/' + encodeURIComponent(DECK_NAME) + '/tune#weak">See in Tune →</a>';
         renderEngines();
         strip();
     }
@@ -361,7 +362,9 @@ document.addEventListener("DOMContentLoaded", function () {
         var price = c.prices && c.prices.tcgplayer ? " · $" + c.prices.tcgplayer : "";
         return '<li class="hud-combo"><div class="hud-combo-pieces">' + pieces.map(function (p) { return piece(p); }).join('<span class="plus">+</span>') +
             (miss ? '<span class="plus">+</span>' + piece(miss, "is-missing") : "") + "</div>" +
-            '<div class="stats-combo-act"' + (own ? ' title="' + esc(own.text + (own.rank === 2 ? price : "")) + '">' + H.chip(own.text + (own.rank === 2 ? price : ""), own.tone, true) : ">" + H.chip("in deck", "ok", true)) + "</div>" +
+            '<div class="stats-combo-act"' + (own ? ' title="' + esc(own.text + (own.rank === 2 ? price : "")) + '">' + H.chip(own.text + (own.rank === 2 ? price : ""), own.tone, true) +
+                (miss ? '<a class="hud-btn hud-btn--sm" href="/deck/' + encodeURIComponent(DECK_NAME) + "/tune?add=" + encodeURIComponent(miss) + '">Add</a>' : "")
+                : ">" + H.chip("in deck", "ok", true)) + "</div>" +
             '<span class="hud-combo-result">' + esc((c.produces || []).slice(0, 3).join(" · ")) + "</span></li>";
     }
     function renderCombos() {

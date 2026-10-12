@@ -169,13 +169,14 @@ class _DeckPage:
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4"])
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5"])
         self.assertEqual([h for h, _ in tabs], ["/deck/Holy%20Hellfire", "/deck/Holy%20Hellfire/stats",
-                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/journal"])
+                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/journal",
+                                                 "/deck/Holy%20Hellfire/tune"])
         active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
-        # Tune ships with AN-6: no link to a page that doesn't exist yet.
-        self.assertNotIn("/tune", nav)
+        # No tuner run yet: Tune's badge is hidden, never "0" (UX_SPEC §1).
+        self.assertNotRegex(nav, r'/tune"[^>]*>Tune <span')
 
     def test_every_hud_class_used_is_defined(self):
         used = set(re.findall(r"(?<![-\w])(hud-[a-z0-9-]+)", self.body))

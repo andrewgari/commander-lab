@@ -37,8 +37,8 @@ the history, and the next check-in diffs against it.
 - `/deck/{name}/journal` is the Journal tab (key `4`).
 - `/deck/{name}/journal?review=1` is the check-in. The Overview **Review**
   button and the deck list's review action both go here (UX_SPEC D4).
-- Finish lands on `?reviewed=1`. When Tune (AN-6) ships, `finish` returns
-  `/deck/{name}/tune` as `next` instead.
+- **Finish → Tune**: `finish` returns `/deck/{name}/tune` as `next` (AN-6,
+  docs/TUNER.md). A new finished review also resets the tuner's decisions.
 
 ## API
 
