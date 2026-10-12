@@ -26,7 +26,14 @@
                 <span class="hud-tcard-price">{{ tv.money(card.price) if card.price is not none else "—" }}</span>
                 {%- if card.over_soft_cap %}<span class="hud-tcard-note is-cap">Over the soft cap</span>{% endif %}
                 {%- if card.why %}<span class="hud-tcard-note">{{ card.why }}</span>{% endif %}
-                {%- if card.salt_flag is mapping %}<span class="hud-tcard-note is-salt" title="{{ card.salt_flag.reason }}"><b>Salt · {{ card.salt_flag.level }}</b> {{ (card.salt_flag.reason or "").split("; salt:")[0] }}</span>{% endif %}
+                {%- if card.salt_flag is mapping %}
+                {#- TH-3R F6: the "; salt: unverified [source]" tail becomes a short visible status in the label
+                    (the source stays in title). reason is free-form extra data: stringify before splitting. #}
+                {%- set sr = card.salt_flag.reason %}{% set sr = "" if sr is none else (sr if sr is string else sr | string) %}
+                {%- set sp = sr.split("; salt:", 1) %}
+                {%- set sv = (sp[1].strip().split(" ", 1)[0] if sp | length > 1 else "") %}
+                <span class="hud-tcard-note is-salt" title="{{ sr }}"><b>Salt · {{ card.salt_flag.level }}{% if sv %} · {{ sv }}{% endif %}</b> {{ sp[0] }}</span>
+                {%- endif %}
             </li>
             {%- endfor %}
         </ul>

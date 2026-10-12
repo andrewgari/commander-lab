@@ -173,7 +173,12 @@ class TestKnownPartials(unittest.TestCase):
                 {"name": "Demonic Tutor", "source": "kept", "price": 60.0,
                  "salt_flag": {"level": "high", "reason": "game_changer: tutor; salt: unverified [scryfall oracle]"}}]}]}})
         # Salt boilerplate goes to the tooltip; the visible note keeps the reason.
-        self.assertIn("<b>Salt · high</b> game_changer: tutor</span>", html)
+        self.assertIn("<b>Salt · high · unverified</b> game_changer: tutor</span>", html)
+        # A non-string reason (free-form extra data) must not 500 the page.
+        odd = render_section({"type": "decklist", "data": {"groups": [{"role": "X", "cards": [
+            {"name": "A", "source": "kept", "price": 1.0, "salt_flag": {"level": "low", "reason": 7}},
+            {"name": "B", "source": "kept", "price": 1.0, "salt_flag": {"level": "low", "reason": None}}]}]}})
+        self.assertIn("<b>Salt · low</b> 7</span>", odd)
         self.assertIn('title="game_changer: tutor; salt: unverified [scryfall oracle]"', html)
         # A zero count is neutral, not green.
         self.assertIn('hud-chip--neutral">0 owned', html)
