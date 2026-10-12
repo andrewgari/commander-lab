@@ -162,8 +162,31 @@ class TestKnownPartials(unittest.TestCase):
     def test_buy_total(self):
         html = render_section(DOC["sections"][3])
         self.assertIn("$46.08", html)
-        self.assertIn("Caps / card", html)
+        self.assertIn("Per-card cap", html)          # TH-3R F9: not "Caps / card"
+        self.assertIn("hud-stat--quiet", html)
         self.assertEqual(html.count('class="hud-tcard is-buy"'), 8)
+
+    def test_th3r_salt_and_zero_counts(self):
+        html = render_section({"type": "decklist", "data": {
+            "counts": {"kept": 99, "owned": 0, "buy": 1, "total": 100},
+            "groups": [{"role": "Tutors", "cards": [
+                {"name": "Demonic Tutor", "source": "kept", "price": 60.0,
+                 "salt_flag": {"level": "high", "reason": "game_changer: tutor; salt: unverified [scryfall oracle]"}}]}]}})
+        # Salt boilerplate goes to the tooltip; the visible note keeps the reason.
+        self.assertIn("<b>Salt · high · unverified</b> game_changer: tutor</span>", html)
+        # A non-string reason (free-form extra data) must not 500 the page.
+        odd = render_section({"type": "decklist", "data": {"groups": [{"role": "X", "cards": [
+            {"name": "A", "source": "kept", "price": 1.0, "salt_flag": {"level": "low", "reason": 7}},
+            {"name": "B", "source": "kept", "price": 1.0, "salt_flag": {"level": "low", "reason": None}}]}]}})
+        self.assertIn("<b>Salt · low</b> 7</span>", odd)
+        self.assertIn('title="game_changer: tutor; salt: unverified [scryfall oracle]"', html)
+        # A zero count is neutral, not green.
+        self.assertIn('hud-chip--neutral">0 owned', html)
+        self.assertIn('hud-chip--signal">1 buy', html)
+
+    def test_th3r_hidden_buttons_stay_hidden(self):
+        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        self.assertIn(".hud-btn[hidden] { display: none; }", css)
 
     def test_commander_change_callout(self):
         html = render_section({"type": "commander_change", "title": "Commander change", "data": {

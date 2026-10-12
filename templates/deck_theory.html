@@ -7,7 +7,7 @@
 {% block extra_css %}
 <style>
     /* Page layout only (THEORY_SPEC). Components are hud.css section 8. */
-    .th-back { margin-bottom: var(--sp-4); }
+    .th-back { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-4); }
     .th-actions { display: flex; gap: var(--sp-2); align-items: center; }
     .th-error { color: var(--danger); font-size: var(--fs-xs); }
     .th-error:empty { display: none; }
@@ -23,7 +23,11 @@
 
 {%- set ideas = "/deck/" ~ (deck_name | urlencode) ~ "/ideas" %}
 <article class="hud-doc" id="doc" data-doc="{{ doc.doc_id }}">
-    <a class="hud-btn hud-btn--sm hud-btn--ghost th-back" href="{{ ideas }}">← All ideas</a>
+    {#- TH-3R F2: Delete lives on the back row, away from the buy total (it was the loudest thing in the header). #}
+    <div class="th-back">
+        <a class="hud-btn hud-btn--sm hud-btn--ghost" href="{{ ideas }}">← All ideas</a>
+        <button class="hud-btn hud-btn--sm hud-btn--danger" type="button" id="deleteBtn">Delete</button>
+    </div>
     <header class="hud-doc-head">
         <div>
             <span class="hud-label">Theory · thematic overhaul</span>
@@ -41,8 +45,7 @@
             </div>
         </div>
         <div class="th-actions">
-            <div class="hud-idea-buy">{{ tv.money(meta.buy_total) }}<small>buy total</small></div>
-            <button class="hud-btn hud-btn--sm hud-btn--danger" type="button" id="deleteBtn">Delete</button>
+            <div class="hud-idea-buy hud-doc-buy">{{ tv.money(meta.buy_total) }}<small>buy total</small></div>
         </div>
     </header>
     <p class="th-error" id="docError" role="alert"></p>

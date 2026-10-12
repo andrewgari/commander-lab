@@ -1935,3 +1935,46 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-doc .hud-thesis { gap: var(--sp-3); padding: var(--sp-3) 0 var(--sp-4); }
     #newTheory .hud-seg label { flex: 1 1 0; }
 }
+
+/* =======================================================================
+   12. TH-3R fixes (designer review, docs/THEORY_UX_REVIEW.md).
+   ======================================================================= */
+/* F1. `.hud-btn { display:inline-flex }` beat the UA [hidden] rule, so the
+   job card's Dismiss showed (and hid the card) while a theory was still
+   being written. Hidden buttons stay hidden, kit-wide. */
+.hud-btn[hidden] { display: none; }
+/* F3. Single column (<=1180): a running/failed job card jumps above the
+   theories list instead of sitting ~1200px down at 390. */
+@media (max-width: 1180px) {
+    .hud-ideas > .id-aside:has(.hud-job:not([hidden])) { order: -1; }
+    .id-aside .hud-job { order: -1; }
+}
+/* F4. Open and Delete sat 4px apart (50/50 on phone): a mis-tap deletes. */
+.hud-idea-act { gap: var(--sp-3); }
+@media (max-width: 640px) {
+    .hud-idea-act .hud-btn--danger { flex: 0 0 auto; }
+}
+/* F5. 88 identical "kept" pills buried the 12 buys. Kept is the default:
+   a quiet outline chip and a dimmer (not-spend) price; buy rows get the
+   signal bar in the gutter so they scan as the exceptions. */
+.hud-tcard { position: relative; }
+.hud-tcard.is-kept .hud-chip { --chip-bg: transparent; --chip-line: transparent; }
+.hud-tcard.is-kept .hud-tcard-price { color: var(--text-3); }
+.hud-tcard.is-buy .hud-tcard-qty { color: var(--signal); }
+.hud-tgroups .hud-tcard.is-buy::before { content: ""; position: absolute; top: var(--sp-1); bottom: var(--sp-1); left: calc(-1 * var(--sp-2)); width: var(--indicator); background: var(--signal); }
+/* F6. Salt notes were amber, same as BUY, so salty *kept* cards read as
+   purchases. Salt is its own voice: muted note, danger-toned label. The
+   "salt: unverified [source]" boilerplate moved to the title tooltip. */
+.hud-tcard-note.is-salt { color: var(--text-3); }
+.hud-tcard-note.is-salt b { color: var(--danger); font: var(--fw-medium) var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; margin-right: var(--sp-1); }
+.hud-tcard-note.is-cap { color: var(--signal); }
+/* F7. In a doc the thesis was 36px against a 26px doc title: the pull quote
+   out-shouted the page. Capped one step above the section heads. */
+.hud-doc .hud-thesis blockquote { max-width: 48ch; font-size: clamp(var(--fs-lg), 2vw, 1.625rem); line-height: 1.3; }
+/* F9. Per-card cap is context, not a total: quiet tile. */
+.hud-stat--quiet .hud-stat-value { color: var(--text-2); font-size: var(--fs-lg); }
+/* F11. Phone doc head: the buy total sits left under the facts, no orphan
+   right-aligned label. */
+@media (max-width: 640px) {
+    .hud-doc-buy { text-align: left; }
+}

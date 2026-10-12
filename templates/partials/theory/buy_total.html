@@ -8,7 +8,8 @@
     {%- if caps.no_budget %}
     {{ hud.stat("Caps", "none", foot="no budget") }}
     {%- elif caps %}
-    {{ hud.stat("Caps / card", tv.money(caps.hard_cap), foot="hard · soft " ~ tv.money(caps.soft_cap)) }}
+    {#- TH-3R F9: the cap is per card, not a budget; a quiet tile so "$40.25" next to "$40.00" doesn't read as over budget. #}
+    {{ hud.stat("Per-card cap", tv.money(caps.hard_cap), unit=" hard", foot="soft " ~ tv.money(caps.soft_cap) ~ " · applies to each buy, not the total", mod="quiet") }}
     {%- endif %}
 </div>
 {%- if d.cards %}
