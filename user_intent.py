@@ -85,8 +85,10 @@ class TargetPowerLevel:
 class BudgetConstraints:
     no_budget: bool = False
     total_budget: Optional[float] = None
-    max_card_price: Optional[float] = None
+    max_card_price: Optional[float] = None  # alias of hard_cap (AN-5)
     currency: str = "USD"
+    hard_cap: Optional[float] = None
+    soft_cap: Optional[float] = None
 
 
 @dataclass
@@ -116,6 +118,8 @@ class UserDeckIntent:
     archetype_preferences: ArchetypePreferences = field(
         default_factory=ArchetypePreferences
     )
+    pet_cards: List[str] = field(default_factory=list)
+    novelties: str = ""
     freeform_notes: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -167,11 +171,17 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
 
     # 3. budget_constraints
     bc_in = payload.get("budget_constraints") or {}
+    # max_card_price is an alias of hard_cap; hard_cap wins when both are set.
+    hard_cap = bc_in.get("hard_cap")
+    if hard_cap is None:
+        hard_cap = bc_in.get("max_card_price")
     resolved["budget_constraints"] = {
         "no_budget": bool(bc_in.get("no_budget", False)),
         "total_budget": bc_in.get("total_budget", None),
-        "max_card_price": bc_in.get("max_card_price", None),
+        "max_card_price": hard_cap,
         "currency": bc_in.get("currency", "USD"),
+        "hard_cap": hard_cap,
+        "soft_cap": bc_in.get("soft_cap", None),
     }
 
     # 4. preferred_win_conditions
@@ -192,6 +202,10 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
         "custom_themes": list(ap_in.get("custom_themes", [])),
     }
 
+    # 6. Deck Journal fields (AN-5)
+    resolved["pet_cards"] = list(payload.get("pet_cards") or [])
+    resolved["novelties"] = payload.get("novelties") or ""
+
     # Freeform & metadata
     resolved["freeform_notes"] = payload.get("freeform_notes", "")
     metadata = dict(payload.get("metadata", {}))
@@ -203,6 +217,8 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
         "budget_constraints",
         "preferred_win_conditions",
         "archetype_preferences",
+        "pet_cards",
+        "novelties",
         "freeform_notes",
         "metadata",
     }
@@ -352,8 +368,37 @@ def validate_intent(
                 else:
                     currency_val = curr
 
+            # Per-card caps (AN-5). hard_cap supersedes its alias max_card_price.
+            caps: Dict[str, Optional[float]] = {}
+            for cap_key in ("hard_cap", "soft_cap"):
+                cv = bc.get(cap_key)
+                if cv is None:
+                    caps[cap_key] = None
+                elif (not isinstance(cv, (int, float))) or isinstance(cv, bool):
+                    errors.append(
+                        f"budget_constraints.{cap_key} must be a number, got {type(cv).__name__}"
+                    )
+                    caps[cap_key] = None
+                elif cv < 0:
+                    errors.append(f"budget_constraints.{cap_key} cannot be negative, got {cv}")
+                    caps[cap_key] = None
+                else:
+                    caps[cap_key] = float(cv)
+            if caps["hard_cap"] is not None:
+                max_card_price = caps["hard_cap"]
+            if (
+                caps["soft_cap"] is not None
+                and max_card_price is not None
+                and caps["soft_cap"] > max_card_price
+            ):
+                errors.append(
+                    f"budget_constraints.soft_cap ({caps['soft_cap']}) cannot exceed hard_cap ({max_card_price})."
+                )
+
             # Mutual exclusivity constraint: no_budget vs explicit limits
-            if no_budget and (total_budget is not None or max_card_price is not None):
+            if no_budget and (
+                total_budget is not None or max_card_price is not None or caps["soft_cap"] is not None
+            ):
                 errors.append(
                     "budget_constraints conflict: no_budget is true, but total_budget or max_card_price was specified."
                 )
@@ -485,6 +530,14 @@ def validate_intent(
                     "archetype_preferences.custom_themes must be a list of strings."
                 )
 
+    # 6. Deck Journal fields (AN-5)
+    pets = payload.get("pet_cards")
+    if pets is not None and (not isinstance(pets, list) or not all(isinstance(p, str) for p in pets)):
+        errors.append("pet_cards must be a list of card names (strings).")
+    nov = payload.get("novelties")
+    if nov is not None and not isinstance(nov, str):
+        errors.append("novelties must be a string.")
+
     return (len(errors) == 0, errors)
 
 
@@ -526,6 +579,8 @@ def parse_user_intent(
             total_budget=bc_data["total_budget"],
             max_card_price=bc_data["max_card_price"],
             currency=bc_data["currency"],
+            hard_cap=bc_data["hard_cap"],
+            soft_cap=bc_data["soft_cap"],
         ),
         preferred_win_conditions=PreferredWinConditions(
             primary=wc_data["primary"],
@@ -539,6 +594,8 @@ def parse_user_intent(
             excluded_archetypes=ap_data["excluded_archetypes"],
             custom_themes=ap_data["custom_themes"],
         ),
+        pet_cards=resolved["pet_cards"],
+        novelties=resolved["novelties"],
         freeform_notes=resolved["freeform_notes"],
         metadata=resolved["metadata"],
     )

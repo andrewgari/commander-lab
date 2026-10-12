@@ -11,7 +11,7 @@ Redis keys added by AN-3:
     identity:deck:{registry_id}          thesis + pillars (identity.py)
     embeddings:card:{model_id}           hash: sha1(card text)[:16] -> base64 float32
     edhrec:commander:{slug}              parsed EDHREC commander page (7-day freshness)
-    journal:deck:{registry_id}           read only, for pet_cards (written by the Journal card, AN-5)
+    journal:deck:{registry_id}           read only, for pet_cards (written by analytics/journal.py, AN-5)
 """
 from __future__ import annotations
 

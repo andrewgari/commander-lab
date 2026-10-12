@@ -30,6 +30,8 @@ from analytics.interactions import combos
 from analytics import composition as composition_mod
 from analytics import identity as identity_mod
 from analytics import insights
+from analytics import journal as journal_mod
+import urllib.parse
 
 app = FastAPI()
 
@@ -146,15 +148,17 @@ def _deck_head_context(deck_name: str) -> dict:
     return out
 
 
-async def _deck_tab(request: Request, deck_name: str, template: str, tab: str):
+async def _deck_tab(request: Request, deck_name: str, template: str, tab: str, extra=None):
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     if not head["found"]:
         return HTMLResponse(
             "<html><head><title>Deck Not Found</title></head><body><h1>Deck Not Found</h1>"
             "<p>No deck named &quot;{}&quot; could be found.</p></body></html>".format(html.escape(deck_name)),
             status_code=404)
-    return templates.TemplateResponse(request=request, name=template, context={
-        "deck_name": deck_name, "deck_id": head["registry_id"], "head": head, "tab": tab})
+    ctx = {"deck_name": deck_name, "deck_id": head["registry_id"], "head": head, "tab": tab}
+    if extra:
+        ctx.update(await asyncio.to_thread(extra, deck_name))
+    return templates.TemplateResponse(request=request, name=template, context=ctx)
 
 
 @app.get("/deck/{deck_name}/stats", response_class=HTMLResponse)
@@ -167,6 +171,32 @@ async def deck_stats_view(request: Request, deck_name: str):
 async def deck_identity_view(request: Request, deck_name: str):
     """Thesis + pillars editor (UX_SPEC §3.2)."""
     return await _deck_tab(request, deck_name, "deck_identity.html", "identity")
+
+
+@app.get("/deck/{deck_name}/journal", response_class=HTMLResponse)
+async def deck_journal_view(request: Request, deck_name: str):
+    """Deck Journal form; ?review=1 opens the check-in above it (UX_SPEC §3.3)."""
+    return await _deck_tab(request, deck_name, "deck_journal.html", "journal", extra=_journal_page_context)
+
+
+def _journal_page_context(deck_name: str) -> dict:
+    """Server-rendered Journal form data. Never raises (Redis down = empty form)."""
+    out = {"j": journal_mod.public(None), "exists": False, "caps": None, "deck_cards": [], "pillars": [],
+           "money": journal_mod.money, "wincons": list(journal_mod.WINCON_ORDER),
+           "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items())}
+    defaults = dict(journal_mod.DEFAULT_CAPS)
+    try:
+        deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+        if deck:
+            out["deck_cards"] = sorted(journal_mod.deck_entries(deck))
+            view = journal_mod.journal_view(r, deck)
+            out.update(j=view["journal"], exists=view["exists"], caps=view["caps"])
+            defaults = view["caps"]["defaults"]
+            out["pillars"] = [p.get("name") for p in identity_mod.live_pillars(identity_mod.load_identity(r, deck))]
+    except Exception:
+        pass
+    out["defaults"] = defaults
+    return out
 
 @app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
 async def deck_manage_view(request: Request, deck_name: str):
@@ -1578,4 +1608,134 @@ async def api_deck_weak_performers(deck_id: str, limit: Optional[int] = None):
 @app.on_event("startup")
 async def _start_interactions_nightly():
     interactions_service.start_nightly_thread(r)
+
+
+# ---------------------------------------------------------------------------
+# Deck Journal + review check-in (AN-5) -- see docs/DECK_JOURNAL.md
+# ---------------------------------------------------------------------------
+
+
+def _journal_error(exc: Exception, status: int = 400):
+    return JSONResponse(status_code=status, content={"success": False, "error": str(exc),
+                                                     "errors": getattr(exc, "errors", [str(exc)])})
+
+
+@app.get("/api/journal/defaults")
+async def api_journal_defaults():
+    """Global per-card price caps (USD). Each deck's journal may override them."""
+    return {"success": True, "defaults": journal_mod.get_defaults(r)}
+
+
+@app.put("/api/journal/defaults")
+async def api_set_journal_defaults(request: Request):
+    try:
+        d = journal_mod.set_defaults(r, await _json_body(request))
+    except journal_mod.JournalError as exc:
+        return _journal_error(exc)
+    return {"success": True, "defaults": d}
+
+
+@app.get("/api/decks/{deck_id}/journal")
+async def api_deck_journal(deck_id: str):
+    """The deck's journal (user_intent + pets, novelties, per-card caps), the
+    effective caps, the deck's card names (pet autocomplete) and live metrics."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    view = await asyncio.to_thread(journal_mod.journal_view, r, deck)
+    ctx = await asyncio.to_thread(journal_mod.collect_context, r, deck, journal_mod.load_journal(r, deck))
+    view.update(success=True, deck_cards=sorted(journal_mod.deck_entries(deck)),
+                metrics={k: ctx.get(k) for k in ("power", "price", "on_plan", "unpriced")},
+                pillars=ctx.get("pillars") or [])
+    return view
+
+
+@app.put("/api/decks/{deck_id}/journal")
+async def api_save_deck_journal(deck_id: str, request: Request):
+    """Save (merge whole sections). The first save records the baseline the
+    first check-in diffs against."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journal_mod.JournalError("Journal must be a JSON object."))
+    snap = None
+    if journal_mod.load_journal(r, deck) is None:
+        ctx = await asyncio.to_thread(journal_mod.collect_context, r, deck, body)
+        snap = journal_mod.snapshot(deck, ctx)
+    try:
+        rec = journal_mod.save_journal(r, deck, body, snapshot=snap)
+    except journal_mod.JournalError as exc:
+        return _journal_error(exc)
+    return {"success": True, "journal": journal_mod.public(rec), "caps": journal_mod.effective_caps(r, rec)}
+
+
+@app.get("/api/decks/{deck_id}/checkin")
+async def api_get_checkin(deck_id: str):
+    """The check-in in progress, or null."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    review = journal_mod.load_open(r, deck)
+    if not review:
+        return {"success": True, "checkin": None}
+    return {"success": True,
+            "checkin": journal_mod.review_view(r, deck, review, journal_mod.load_journal(r, deck) or {})}
+
+
+@app.post("/api/decks/{deck_id}/checkin")
+async def api_start_checkin(deck_id: str):
+    """Open (or resume) a review check-in with fresh metrics."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = journal_mod.load_journal(r, deck)
+    if not rec:
+        return _journal_error(journal_mod.JournalError("Fill in the Deck Journal first."), 409)
+    ctx = await asyncio.to_thread(journal_mod.collect_context, r, deck, rec)
+    return {"success": True, "checkin": journal_mod.start_review(r, deck, ctx)}
+
+
+@app.patch("/api/decks/{deck_id}/checkin/rows/{field}")
+async def api_answer_checkin_row(deck_id: str, field: str, request: Request):
+    """{"answer": "true"} | {"answer": "changed", "journal": {section: ...}} | {"answer": null} (undo)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request) or {}
+    if not isinstance(body, dict):
+        return _journal_error(journal_mod.JournalError("Body must be a JSON object."))
+    try:
+        view = journal_mod.answer_row(r, deck, field, body.get("answer"), body.get("journal"))
+    except journal_mod.NoOpenReview as exc:
+        return _journal_error(exc, 409)
+    except journal_mod.JournalError as exc:
+        return _journal_error(exc)
+    return {"success": True, "checkin": view}
+
+
+@app.post("/api/decks/{deck_id}/checkin/finish")
+async def api_finish_checkin(deck_id: str, request: Request):
+    """Store the review in history ({"skipped": true} for Skip check-in)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request) or {}
+    try:
+        rec = journal_mod.finish_review(r, deck, skipped=bool(isinstance(body, dict) and body.get("skipped")))
+    except journal_mod.NoOpenReview as exc:
+        return _journal_error(exc, 409)
+    # Tune (AN-6) isn't shipped yet: land back on the journal with a "reviewed" note.
+    nxt = "/deck/" + urllib.parse.quote(deck.get("name") or "") + "/journal?reviewed=1"
+    return {"success": True, "review": rec, "next": nxt}
+
+
+@app.get("/api/decks/{deck_id}/reviews")
+async def api_deck_reviews(deck_id: str, limit: int = 20):
+    """Review history, newest first."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    return {"success": True, "reviews": journal_mod.list_reviews(r, deck, max(1, min(limit, 50)))}
 

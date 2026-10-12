@@ -11,7 +11,11 @@
       "properties": {
         "intent": {
           "type": "string",
-          "enum": ["new_build", "tune_up", "overhaul"],
+          "enum": [
+            "new_build",
+            "tune_up",
+            "overhaul"
+          ],
           "default": "tune_up",
           "description": "Primary goal: 'new_build' (creating a fresh decklist from scratch), 'tune_up' (optimizing and refining an existing list), or 'overhaul' (major rebuild/restructuring of theme, commander, or colors)."
         },
@@ -21,7 +25,10 @@
           "description": "User's stated vision, favorite cards, pet interactions, or thematic focus for the deck."
         },
         "target_turn_win": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 1,
           "maximum": 20,
           "default": null,
@@ -49,7 +56,12 @@
         },
         "tier": {
           "type": "string",
-          "enum": ["casual", "focused", "optimized", "competitive"],
+          "enum": [
+            "casual",
+            "focused",
+            "optimized",
+            "competitive"
+          ],
           "default": "optimized",
           "description": "Named power tier: 'casual' (1-4, low interaction/precon), 'focused' (5-6, synergy & clear gameplan), 'optimized' (7-8, efficient mana curve & answers), 'competitive' (9-10, cEDH, fast combos & free interaction)."
         }
@@ -71,22 +83,52 @@
           "description": "When true, financial constraints are disabled (budget caps are disregarded/unlimited)."
         },
         "total_budget": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0,
           "default": null,
           "description": "Maximum total expenditure limit for proposed deck upgrades in the given currency. If no_budget is true, must be null."
         },
         "max_card_price": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0,
           "default": null,
-          "description": "Maximum price cap allowed for any individual card recommendation in the given currency. Must not exceed total_budget when both are set."
+          "description": "Alias of hard_cap, kept for older payloads. Maximum price for any individual card recommendation in the given currency. Must not exceed total_budget when both are set."
         },
         "currency": {
           "type": "string",
-          "enum": ["USD", "EUR", "GBP", "CAD", "AUD"],
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP",
+            "CAD",
+            "AUD"
+          ],
           "default": "USD",
           "description": "Currency code for evaluating card pricing."
+        },
+        "hard_cap": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Per-card hard cap (USD, Scryfall): the tuner never suggests a card above it. null = use the global default."
+        },
+        "soft_cap": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Per-card soft cap: cards above it may be suggested but are flagged with a justification. Must not exceed hard_cap. null = use the global default."
         }
       },
       "required": [],
@@ -94,7 +136,9 @@
         "no_budget": false,
         "total_budget": null,
         "max_card_price": null,
-        "currency": "USD"
+        "currency": "USD",
+        "hard_cap": null,
+        "soft_cap": null
       },
       "additionalProperties": false
     },
@@ -265,6 +309,19 @@
         "custom_themes": []
       },
       "additionalProperties": false
+    },
+    "pet_cards": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Cards in this deck the user loves: never suggested as cuts (AN-5 Deck Journal)."
+    },
+    "novelties": {
+      "type": "string",
+      "default": "",
+      "description": "Things the user wants to see happen with this deck (scored as a bonus, never a requirement)."
     },
     "freeform_notes": {
       "type": "string",

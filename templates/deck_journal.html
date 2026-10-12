@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Journal · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (UX_SPEC §3.3). Components are hud.css sections 7 + 10. */
+    .jr-checkin { margin-bottom: var(--sp-12); }
+    .jr-checkin .hud-savebar { position: static; margin-top: var(--sp-4); }
+    .jr-anchor { display: flex; gap: var(--sp-4); flex-wrap: wrap; position: sticky; top: 0; z-index: 4; padding: var(--sp-2) 0; background: var(--surface-0); border-bottom: var(--stroke); }
+    .jr-anchor a { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; text-decoration: none; }
+    .jr-anchor a:hover, .jr-anchor a.is-on { color: var(--signal); }
+    .jr-ttw { max-width: 12rem; }
+    .jr-ttw input { font-family: var(--font-mono); }
+    .jr-pillars { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+    .jr-error { color: var(--danger); font-size: var(--fs-xs); }
+    .jr-error:empty { display: none; }
+    .jr-note { color: var(--text-2); font-size: var(--fs-sm); }
+    .jr-change-actions { display: flex; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); }
+    .jr-power-now { color: var(--signal); font-family: var(--font-mono); }
+    .jr-kbd-on-primary { border-color: var(--text-on-signal); color: var(--text-on-signal); }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Journal") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <span class="hud-freshness" id="reviewState" hidden></span>
+    <a class="hud-btn hud-btn--primary" id="reviewBtn" href="?review=1">Review</a>
+{% endcall %}
+
+{#- ===== Check-in (?review=1). Rendered from GET/POST /checkin. ===== #}
+<section class="hud-checkin jr-checkin" id="checkin" aria-labelledby="ciTitle" hidden>
+    <div class="hud-checkin-head">
+        <div>
+            <span class="hud-label" id="ciSinceLabel">Review</span>
+            <h2 id="ciTitle">Is this still true?</h2>
+            <div class="hud-since" id="ciSince"></div>
+        </div>
+        <div class="hud-progress" aria-live="polite">
+            <span class="hud-label" id="ciProgressLabel"></span>
+            <div class="hud-progress-bar" id="ciProgressBar" aria-hidden="true"></div>
+            <span class="hud-freshness"><span class="hud-kbd">y</span> still true · <span class="hud-kbd">c</span> change · <span class="hud-kbd">j</span>/<span class="hud-kbd">k</span> move</span>
+        </div>
+    </div>
+    <p class="jr-note" id="ciEmpty" hidden></p>
+    <ol class="hud-checklist" id="ciRows" aria-label="Check-in fields"></ol>
+    <div class="hud-savebar" id="ciBar">
+        <span class="hud-freshness">Answers save as you go · unanswered rows count as still true</span>
+        <button class="hud-btn hud-btn--ghost" type="button" id="ciSkip">Skip check-in</button>
+        <button class="hud-btn hud-btn--primary" type="button" id="ciFinish">Finish review</button>
+    </div>
+</section>
+
+{#- ===== The form (Journal tab, or "Change" from the check-in) ===== #}
+{{ hud.section_head("Deck journal", "01") }}
+<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-win">Win cons</a><a href="#j-power">Target power</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+
+{%- set dv = j.deck_vision -%}
+{%- set wc = j.preferred_win_conditions -%}
+{%- set bc = j.budget_constraints -%}
+{%- set scale = j.target_power_level.scale -%}
+{%- set wc_opts = [] -%}{%- for k in wincons %}{%- set _ = wc_opts.append((k, wincon_labels[k])) -%}{%- endfor -%}
+{%- set power_opts = [] -%}{%- for n in range(1, 11) %}{%- set _ = power_opts.append((n, n)) -%}{%- endfor -%}
+{%- set hard_deck = caps and caps.hard_source == "deck" -%}
+{%- set soft_deck = caps and caps.soft_source == "deck" -%}
+
+<form class="hud-form" id="journalForm" novalidate>
+    {% call hud.form_section("j-vision", "Vision", "One or two sentences. What does a good game with this deck look like?") %}
+        <div class="hud-field"><span class="hud-field-label" id="intentL">Intent</span>
+            {{ hud.seg("intent", intents, dv.intent, label_id="intentL", id_prefix="int") }}</div>
+        <div class="hud-field"><label for="vision">Vision</label>
+            <textarea id="vision" name="vision" maxlength="1000">{{ dv.description }}</textarea>
+            <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
+        <div class="hud-field jr-ttw"><label for="ttw">Target win turn <span class="hud-field-hint">(optional)</span></label>
+            <input id="ttw" name="ttw" type="number" min="1" max="20" inputmode="numeric" value="{{ dv.target_turn_win if dv.target_turn_win is not none else '' }}"></div>
+    {% endcall %}
+
+    {% call hud.form_section("j-win", "Win cons", "Primary is one choice. Secondary can be several. Excluded means the tuner will never push you toward it.") %}
+        <div class="hud-field"><span class="hud-field-label" id="wcP">Primary</span>
+            {{ hud.seg("wc_primary", wc_opts, wc.primary, label_id="wcP", visible=4, more_id="wcPrimaryMore", id_prefix="wcp") }}</div>
+        <div class="hud-field-row">
+            <div class="hud-field"><span class="hud-field-label" id="wcS">Secondary</span>
+                {{ hud.seg("wc_secondary", wc_opts, wc.secondary, label_id="wcS", multi=true, mod="multi", visible=4, more_id="wcSecondaryMore", id_prefix="wcs") }}</div>
+            <div class="hud-field"><span class="hud-field-label" id="wcX">Excluded</span>
+                {{ hud.seg("wc_excluded", wc_opts, wc.disliked_or_excluded, label_id="wcX", multi=true, mod="multi exclude", visible=4, more_id="wcExcludedMore", id_prefix="wcx") }}</div>
+        </div>
+    {% endcall %}
+
+    {% call hud.form_section("j-power", "Target power", "The 1–10 scale. The tier is derived, so you don't pick it twice.") %}
+        <div class="hud-field"><span class="hud-field-label" id="pwL">Power · <span class="jr-power-now" id="powerNow">{{ scale }} · {{ j.target_power_level.tier }}</span></span>
+            {{ hud.seg("power", power_opts, scale, label_id="pwL", mod="scale", id_prefix="pw") }}
+            <div class="hud-scale-tiers" id="tierRail" aria-hidden="true">
+                {%- for t, label in [("casual", "Casual"), ("focused", "Focused"), ("optimized", "Optimized"), ("competitive", "cEDH")] -%}
+                <span data-tier="{{ t }}"{% if t == j.target_power_level.tier %} class="is-on"{% endif %}>{{ label }}</span>
+                {%- endfor -%}
+            </div>
+            <span class="hud-field-hint" id="powerHint">Current estimate: computing…</span></div>
+    {% endcall %}
+
+    {% call hud.form_section("j-budget", "Budget", "Per-card caps drive the tuner. Hard = never suggested. Soft = allowed, flagged, needs a reason.") %}
+        <label class="hud-toggle"><input type="checkbox" id="noBudget"{% if bc.no_budget %} checked{% endif %}> No budget (ignore all caps)</label>
+        <div class="hud-field-row" id="moneyRow">
+            {{ hud.money("totalBudget", bc.total_budget, "Deck total", "", "totalHint") }}
+            {{ hud.money("hardCap", bc.hard_cap, "Hard cap / card",
+                         ("Global default " ~ money(defaults.hard_cap) ~ " · overridden") if hard_deck else "Using global default · " ~ money(defaults.hard_cap), "hardHint") }}
+            {{ hud.money("softCap", bc.soft_cap, "Soft cap / card",
+                         ("Global default " ~ money(defaults.soft_cap) ~ " · overridden") if soft_deck else "Using global default · " ~ money(defaults.soft_cap), "softHint") }}
+        </div>
+        <span class="hud-field-hint">Prices: Scryfall USD, nonfoil, refreshed daily. Owned cards cost $0 against the budget.</span>
+    {% endcall %}
+
+    {% call hud.form_section("j-pets", "Pets & novelties", "Pets are never suggested as cuts. Novelties are things you want to see happen, scored as a bonus.") %}
+        <div class="hud-field"><label for="petInput">Pet cards</label>
+            <div class="hud-picker" id="petPicker">
+                {%- for p in j.pet_cards %}{{ hud.picker_chip(p) }}{% endfor -%}
+                <input id="petInput" placeholder="Add a card in this deck…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="petList" autocomplete="off">
+                <ul class="hud-picker-list" id="petList" role="listbox" aria-label="Cards in this deck" hidden></ul>
+            </div>
+            <span class="hud-field-hint">Autocomplete from this deck's list only.</span></div>
+        <div class="hud-field"><label for="novelties">Novelties</label><textarea id="novelties" maxlength="1000">{{ j.novelties }}</textarea></div>
+        <div class="hud-field"><label for="notes">Notes</label><textarea id="notes" maxlength="2000" placeholder="Anything else. Freeform, never parsed.">{{ j.freeform_notes }}</textarea></div>
+    {% endcall %}
+
+    {% call hud.form_section("j-pillars", "Pillars", "What the deck is built around. They live on Identity, where they're drafted from the cards and scored.") %}
+        <div class="jr-pillars">
+            {%- for p in pillars %}{{ hud.chip(p, "data") }}{% else %}<span class="hud-muted">No pillars yet.</span>{% endfor -%}
+            <a class="hud-btn hud-btn--sm" href="/deck/{{ deck_name | urlencode }}/identity">Open Identity</a>
+        </div>
+    {% endcall %}
+</form>
+<div class="hud-savebar" id="savebar">
+    <span class="hud-freshness" id="saveSummary">{% if exists %}Saved · edit anytime{% else %}No journal yet · fill it once, edit anytime{% endif %}</span>
+    <span class="jr-error" id="saveError" role="alert"></span>
+    <button class="hud-btn hud-btn--ghost" type="button" id="discardBtn">Discard</button>
+    <button class="hud-btn hud-btn--primary" type="button" id="saveBtn">Save journal</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var H = window.HUD, A = window.DeckAnalytics, esc = H.esc;
+    var DECK_ID = {{ deck_id | tojson }}, DECK_NAME = {{ deck_name | tojson }};
+    var CARDS = {{ deck_cards | tojson }};
+    var DEFAULTS = {{ defaults | tojson }};
+    var API = "/api/decks/" + encodeURIComponent(DECK_ID);
+    var params = new URLSearchParams(location.search);
+    var REVIEW = params.get("review") === "1";
+    var $ = function (id) { return document.getElementById(id); };
+    var form = $("journalForm");
+    // Row field -> form section id + journal keys it may write (analytics/journal.py SECTIONS).
+    var ROWS = { vision: ["j-vision", ["deck_vision"]], win_cons: ["j-win", ["preferred_win_conditions"]],
+                 power: ["j-power", ["target_power_level"]], budget: ["j-budget", ["budget_constraints"]],
+                 pets: ["j-pets", ["pet_cards"]], novelties: ["j-pets", ["novelties", "freeform_notes"]] };
+    var extras = { custom_win_conditions: {{ j.preferred_win_conditions.custom_win_conditions | tojson }} };
+
+    function send(method, path, body) {
+        return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" },
+                                   body: body === undefined ? undefined : JSON.stringify(body) })
+            .then(function (r) { return r.json().then(function (j) {
+                if (!r.ok || j.success === false) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; throw e; }
+                return j; }); });
+    }
+
+    // ---- Form <-> journal payload ------------------------------------------------
+    function radio(name) { var x = form.querySelector('input[name="' + name + '"]:checked'); return x ? x.value : null; }
+    function checks(name) { return Array.prototype.map.call(form.querySelectorAll('input[name="' + name + '"]:checked'), function (x) { return x.value; }); }
+    function num(id) {
+        var v = $(id).value.trim();
+        if (v === "") return null;
+        var n = Number(v.replace(/[$,]/g, ""));
+        return isFinite(n) ? n : v;   // a non-number goes to the server, which explains it
+    }
+    function pets() { return Array.prototype.map.call($("petPicker").querySelectorAll(".hud-chip[data-value]"), function (c) { return c.getAttribute("data-value"); }); }
+    function collect() {
+        var ttw = num("ttw");
+        return {
+            deck_vision: { intent: radio("intent") || "tune_up", description: $("vision").value, target_turn_win: ttw === null ? null : (typeof ttw === "number" ? Math.round(ttw) : ttw) },
+            target_power_level: { scale: Number(radio("power") || 7) },
+            budget_constraints: $("noBudget").checked ? { no_budget: true, total_budget: null, hard_cap: null, soft_cap: null, currency: "USD" }
+                : { no_budget: false, total_budget: num("totalBudget"), hard_cap: num("hardCap"), soft_cap: num("softCap"), currency: "USD" },
+            preferred_win_conditions: { primary: radio("wc_primary") || "combat", secondary: checks("wc_secondary"),
+                                        disliked_or_excluded: checks("wc_excluded"), custom_win_conditions: extras.custom_win_conditions },
+            pet_cards: pets(), novelties: $("novelties").value, freeform_notes: $("notes").value
+        };
+    }
+    function setRadio(name, v) { form.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = String(x.value) === String(v); }); }
+    function setChecks(name, vs) { vs = (vs || []).map(String); form.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = vs.indexOf(x.value) !== -1; }); }
+    function val(v) { return v === null || v === undefined ? "" : String(v); }
+    function fill(j, keys) {
+        var has = function (k) { return !keys || keys.indexOf(k) !== -1; };
+        if (has("deck_vision") && j.deck_vision) { setRadio("intent", j.deck_vision.intent); $("vision").value = j.deck_vision.description || ""; $("ttw").value = val(j.deck_vision.target_turn_win); }
+        if (has("target_power_level") && j.target_power_level) setRadio("power", j.target_power_level.scale);
+        if (has("budget_constraints") && j.budget_constraints) {
+            var b = j.budget_constraints; $("noBudget").checked = !!b.no_budget;
+            $("totalBudget").value = val(b.total_budget); $("hardCap").value = val(b.hard_cap); $("softCap").value = val(b.soft_cap);
+        }
+        if (has("preferred_win_conditions") && j.preferred_win_conditions) {
+            var w = j.preferred_win_conditions; setRadio("wc_primary", w.primary); setChecks("wc_secondary", w.secondary); setChecks("wc_excluded", w.disliked_or_excluded);
+            extras.custom_win_conditions = w.custom_win_conditions || [];
+        }
+        if (has("pet_cards")) setPets(j.pet_cards || []);
+        if (has("novelties")) $("novelties").value = j.novelties || "";
+        if (has("freeform_notes")) $("notes").value = j.freeform_notes || "";
+        syncDerived();
+    }
+
+    // ---- Derived bits: tier rail, cap hints, no-budget, More… ---------------------
+    function syncDerived() {
+        var s = Number(radio("power") || 7), tier = A.tierOf(s);
+        $("powerNow").textContent = s + " · " + tier;
+        $("tierRail").querySelectorAll("span").forEach(function (x) { x.classList.toggle("is-on", x.getAttribute("data-tier") === tier); });
+        [["hardCap", "hardHint", "hard_cap"], ["softCap", "softHint", "soft_cap"]].forEach(function (c) {
+            var d = A.money(DEFAULTS[c[2]]);
+            $(c[1]).textContent = $(c[0]).value.trim() === "" ? "Using global default · " + d : "Global default " + d + " · overridden";
+        });
+        var off = $("noBudget").checked;
+        ["totalBudget", "hardCap", "softCap"].forEach(function (id) { $(id).disabled = off; });
+        // An option chosen behind "More…" keeps its group open.
+        form.querySelectorAll(".hud-seg-rest").forEach(function (rest) {
+            if (rest.querySelector("input:checked") && rest.hidden) toggleMore(rest.previousElementSibling, true);
+        });
+    }
+    function toggleMore(btn, open) {
+        var rest = $(btn.getAttribute("aria-controls"));
+        rest.hidden = !open; btn.setAttribute("aria-expanded", String(open));
+        btn.textContent = open ? "Less" : "More… " + btn.getAttribute("data-more");
+    }
+    form.addEventListener("click", function (e) {
+        var b = e.target.closest(".hud-seg-more");
+        if (b) { e.preventDefault(); toggleMore(b, $(b.getAttribute("aria-controls")).hidden); }
+    });
+
+    // ---- Pet picker (combobox over this deck's cards) ------------------------------
+    var petInput = $("petInput"), petList = $("petList"), active = -1;
+    function chipHtml(name) {
+        return '<span class="hud-chip hud-chip--ghost" data-value="' + esc(name) + '">' + esc(name) +
+            '<button class="hud-chip-remove" type="button" aria-label="Remove ' + esc(name) + '">×</button></span>';
+    }
+    function setPets(list) {
+        $("petPicker").querySelectorAll(".hud-chip[data-value]").forEach(function (c) { c.remove(); });
+        petInput.insertAdjacentHTML("beforebegin", list.map(chipHtml).join(""));
+    }
+    function addPet(name) {
+        if (pets().indexOf(name) === -1) petInput.insertAdjacentHTML("beforebegin", chipHtml(name));
+        petInput.value = ""; closeList(); changed();
+    }
+    function closeList() { petList.hidden = true; petInput.setAttribute("aria-expanded", "false"); petInput.removeAttribute("aria-activedescendant"); active = -1; }
+    function openList() {
+        var q = petInput.value.trim().toLowerCase(), have = pets();
+        var hits = CARDS.filter(function (c) { return have.indexOf(c) === -1 && (!q || c.toLowerCase().indexOf(q) !== -1); }).slice(0, 8);
+        if (!hits.length) { closeList(); return; }
+        petList.innerHTML = hits.map(function (c, i) { return '<li role="option" id="petOpt' + i + '" aria-selected="false" data-value="' + esc(c) + '">' + esc(c) + "</li>"; }).join("");
+        petList.hidden = false; petInput.setAttribute("aria-expanded", "true"); active = -1;
+    }
+    function move(d) {
+        var opts = petList.querySelectorAll('[role="option"]');
+        if (!opts.length) return;
+        active = (active + d + opts.length) % opts.length;
+        opts.forEach(function (o, i) { o.setAttribute("aria-selected", String(i === active)); });
+        petInput.setAttribute("aria-activedescendant", opts[active].id);
+        opts[active].scrollIntoView({ block: "nearest" });
+    }
+    petInput.addEventListener("input", openList);
+    petInput.addEventListener("focus", openList);
+    petInput.addEventListener("blur", function () { setTimeout(closeList, 150); });
+    petInput.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { e.preventDefault(); if (petList.hidden) openList(); move(1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+        else if (e.key === "Enter") {
+            e.preventDefault();
+            var opts = petList.querySelectorAll('[role="option"]');
+            var pick = active >= 0 ? opts[active] : (opts.length === 1 ? opts[0] : null);
+            if (pick) addPet(pick.getAttribute("data-value"));
+        }
+        else if (e.key === "Escape") { closeList(); }
+        else if (e.key === "Backspace" && !petInput.value) {
+            var chips = $("petPicker").querySelectorAll(".hud-chip[data-value]");
+            if (chips.length) { chips[chips.length - 1].remove(); changed(); }
+        }
+    });
+    petList.addEventListener("mousedown", function (e) {
+        var o = e.target.closest('[role="option"]');
+        if (o) { e.preventDefault(); addPet(o.getAttribute("data-value")); }
+    });
+    $("petPicker").addEventListener("click", function (e) {
+        var x = e.target.closest(".hud-chip-remove");
+        if (x) { x.closest(".hud-chip").remove(); changed(); petInput.focus(); }
+    });
+
+    // ---- Dirty tracking + save ------------------------------------------------------
+    var KEYS = ["deck_vision", "target_power_level", "budget_constraints", "preferred_win_conditions", "pet_cards", "novelties", "freeform_notes"];
+    var base = collect();
+    function dirtyKeys() { var cur = collect(); return KEYS.filter(function (k) { return JSON.stringify(cur[k]) !== JSON.stringify(base[k]); }); }
+    function rebase(keys) { var cur = collect(); (keys || KEYS).forEach(function (k) { base[k] = cur[k]; }); }
+    function changed() {
+        syncDerived();
+        if (openRow) return;   // an inline change from the check-in has its own Save
+        var d = dirtyKeys(), bar = $("savebar");
+        bar.classList.toggle("is-dirty", d.length > 0);
+        if (d.length) {
+            var s = "Unsaved";
+            var a = base.target_power_level.scale, b = collect().target_power_level.scale;
+            if (a !== b) s += " · power " + a + " → " + b;
+            $("saveSummary").innerHTML = "<b>" + esc(s) + "</b>";
+        }
+    }
+    form.addEventListener("input", changed);
+    form.addEventListener("change", changed);
+    window.addEventListener("beforeunload", function (e) {
+        if (dirtyKeys().length) { e.preventDefault(); e.returnValue = ""; }
+    });
+    function saveAll() {
+        $("saveError").textContent = "";
+        return send("PUT", "/journal", collect()).then(function (j) {
+            fill(j.journal); rebase();
+            $("savebar").classList.remove("is-dirty");
+            $("saveSummary").textContent = "Saved just now · edit anytime";
+            if (REVIEW && !checkin) startCheckin();
+        }).catch(function (e) { $("saveError").textContent = e.message; });
+    }
+    $("saveBtn").addEventListener("click", saveAll);
+    $("discardBtn").addEventListener("click", function () {
+        fill(base); $("savebar").classList.remove("is-dirty"); $("saveError").textContent = "";
+        $("saveSummary").textContent = "Changes discarded";
+    });
+
+    // ---- Anchor nav: highlight the section in view ------------------------------------
+    var anchors = document.querySelectorAll(".jr-anchor a");
+    if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (!en.isIntersecting) return;
+                anchors.forEach(function (a) { a.classList.toggle("is-on", a.getAttribute("href") === "#" + en.target.id); });
+            });
+        }, { rootMargin: "-20% 0px -70% 0px" });
+        form.querySelectorAll(".hud-form-section").forEach(function (s) { io.observe(s); });
+    }
+
+    // ---- Live metrics (estimate, price) --------------------------------------------
+    send("GET", "/journal").then(function (j) {
+        var m = j.metrics || {};
+        $("powerHint").textContent = m.power != null ? "Current estimate: " + m.power + " (computed)." : "No estimate yet.";
+        $("totalHint").textContent = m.price != null ? "Now " + A.money(m.price) + (m.unpriced ? " · " + m.unpriced + " unpriced" : "") : "";
+    }).catch(function () { $("powerHint").textContent = "Estimate unavailable."; });
+
+    // ---- Check-in ---------------------------------------------------------------------
+    var checkin = null, cur = 0, openRow = null, marker = null, busy = false;
+    function rowsEl() { return $("ciRows").querySelectorAll(".hud-check"); }
+    function sinceLabel(s) {
+        if (!s || !s.at) return "Review · first check-in";
+        var d = s.days != null ? " · " + s.days + " day" + (s.days === 1 ? "" : "s") : "";
+        return "Review · since " + String(s.at).slice(0, 10) + d + (s.kind === "journal" ? " (journal filled)" : "");
+    }
+    function rowHtml(r, i) {
+        var done = r.answer === "true", ch = r.answer === "changed";
+        var val = r.field === "pets" && (r.value_list || []).length
+            ? r.value_list.map(function (p) { return H.chip(p, "ghost"); }).join(" ") : esc(r.value);
+        var acts;
+        if (ch) acts = H.chip("Changed", "signal") + '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="undo">Undo</button>';
+        else if (r.context) acts = '<button class="hud-btn hud-btn--sm" type="button" data-act="true" aria-pressed="' + done + '">✓ Seen</button>';
+        else {
+            acts = '<button class="hud-btn hud-btn--sm" type="button" data-act="true" aria-pressed="' + done + '">✓ Still true</button>';
+            acts += r.link ? '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + esc(r.link) + '">Open Identity</a>'
+                           : '<button class="hud-btn hud-btn--sm' + (r.evidence ? "" : " hud-btn--ghost") + '" type="button" data-act="change" aria-expanded="false">Change</button>';
+        }
+        return '<li class="hud-check' + (done || ch ? " is-done" : "") + (i === cur ? " is-current" : "") + '" tabindex="-1" data-field="' + esc(r.field) + '">' +
+            '<span class="hud-check-field">' + esc(r.label) + "</span>" +
+            '<span class="hud-check-value">' + val + (r.was ? '<span class="was">' + esc(r.was) + "</span>" : "") +
+            (r.evidence ? '<span class="hud-check-evidence">' + esc(r.evidence) + "</span>" : "") + "</span>" +
+            '<span class="hud-check-actions">' + acts + "</span>" +
+            '<div class="hud-check-form" hidden></div></li>';
+    }
+    function render(view) {
+        checkin = view;
+        $("checkin").hidden = false; $("ciEmpty").hidden = true; $("ciBar").hidden = false;
+        $("ciSinceLabel").textContent = sinceLabel(view.since);
+        $("ciSince").innerHTML = A.sinceItems(view.deltas).map(function (s) {
+            return '<div><span class="hud-label">' + esc(s.label) + "</span><b>" + s.html + "</b></div>"; }).join("");
+        $("ciProgressLabel").textContent = A.progressLabel(view.progress);
+        $("ciProgressBar").innerHTML = A.progressSegments(view.rows).map(function (c) { return "<i" + (c ? ' class="' + c + '"' : "") + "></i>"; }).join("");
+        $("ciRows").innerHTML = view.rows.map(rowHtml).join("");
+        $("reviewBtn").hidden = true; $("reviewState").hidden = false;
+        $("reviewState").innerHTML = "Review in progress · <b>" + view.progress.answered + " / " + view.progress.total + "</b>";
+    }
+    function startCheckin() {
+        $("checkin").hidden = false;
+        return send("POST", "/checkin").then(function (j) { render(j.checkin); }).catch(function (e) {
+            $("ciRows").innerHTML = ""; $("ciBar").hidden = true; $("ciEmpty").hidden = false;
+            $("ciEmpty").textContent = e.status === 409 ? "No journal yet. Fill it in below and save: the check-in reviews it." : "Check-in failed: " + e.message;
+            $("ciSince").innerHTML = ""; $("ciProgressLabel").textContent = ""; $("ciProgressBar").innerHTML = "";
+        });
+    }
+    function rowOf(field) { return checkin && checkin.rows.filter(function (r) { return r.field === field; })[0]; }
+    function go(i) {
+        var els = rowsEl(); if (!els.length) return;
+        cur = Math.max(0, Math.min(els.length - 1, i));
+        els.forEach(function (x, k) { x.classList.toggle("is-current", k === cur); });
+        els[cur].focus({ preventScroll: false });
+    }
+    function answer(field, ans, journalPart) {
+        if (busy) return Promise.resolve();
+        busy = true;
+        var body = { answer: ans }; if (journalPart) body.journal = journalPart;
+        return send("PATCH", "/checkin/rows/" + encodeURIComponent(field), body)
+            .then(function (j) { render(j.checkin); }).finally(function () { busy = false; });
+    }
+    function openChange(field) {
+        if (!ROWS[field]) return;
+        if (openRow) closeChange(true);
+        var li = $("ciRows").querySelector('[data-field="' + field + '"]'), box = li.querySelector(".hud-check-form");
+        var sec = $(ROWS[field][0]);
+        marker = document.createComment("section"); sec.parentNode.insertBefore(marker, sec);
+        box.innerHTML = '<div class="hud-form"></div><div class="jr-change-actions"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="save-change">Save change <span class="hud-kbd jr-kbd-on-primary">⌘↵</span></button>' +
+            '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel-change">Cancel</button><span class="jr-error" role="alert"></span></div>';
+        box.firstChild.appendChild(sec); box.hidden = false; openRow = field;
+        var btn = li.querySelector('[data-act="change"]'); if (btn) btn.setAttribute("aria-expanded", "true");
+        var first = sec.querySelector("input:not([type=hidden]), textarea"); if (first) first.focus();
+    }
+    function closeChange(restore) {
+        if (!openRow) return;
+        var keys = ROWS[openRow][1], sec = $(ROWS[openRow][0]);
+        marker.parentNode.insertBefore(sec, marker); marker.remove(); marker = null;
+        if (restore) fill(base, keys);
+        var li = $("ciRows").querySelector('[data-field="' + openRow + '"]');
+        if (li) { var box = li.querySelector(".hud-check-form"); box.hidden = true; box.innerHTML = ""; }
+        openRow = null;
+    }
+    function saveChange() {
+        var field = openRow, keys = ROWS[field][1], all = collect(), part = {};
+        keys.forEach(function (k) { part[k] = all[k]; });
+        var li = $("ciRows").querySelector('[data-field="' + field + '"]');
+        var err = li.querySelector(".jr-error"); err.textContent = "";
+        send("PATCH", "/checkin/rows/" + encodeURIComponent(field), { answer: "changed", journal: part }).then(function (j) {
+            rebase(keys); closeChange(false); render(j.checkin);
+            var idx = checkin.rows.findIndex(function (r) { return r.field === field; }); go(idx + 1);
+        }).catch(function (e) { err.textContent = e.message; });
+    }
+    function undo(field) {
+        answer(field, null).then(function () {
+            return send("GET", "/journal").then(function (j) { fill(j.journal, ROWS[field] ? ROWS[field][1] : null); rebase(ROWS[field] ? ROWS[field][1] : null); });
+        });
+    }
+    $("ciRows").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-act]"); if (!b) return;
+        var li = b.closest(".hud-check"), field = li.getAttribute("data-field"), act = b.getAttribute("data-act");
+        cur = Array.prototype.indexOf.call(rowsEl(), li);
+        if (act === "true") answer(field, (rowOf(field) || {}).answer === "true" ? null : "true");
+        else if (act === "change") openChange(field);
+        else if (act === "undo") undo(field);
+        else if (act === "save-change") saveChange();
+        else if (act === "cancel-change") closeChange(true);
+    });
+    function finish(skipped) {
+        if (openRow) closeChange(true);
+        send("POST", "/checkin/finish", { skipped: skipped }).then(function (j) {
+            if (dirtyKeys().length) { $("saveError").textContent = "Review saved. You still have unsaved journal edits below."; return; }
+            window.location.href = j.next;
+        }).catch(function (e) { $("ciEmpty").hidden = false; $("ciEmpty").textContent = "Couldn't finish: " + e.message; });
+    }
+    $("ciSkip").addEventListener("click", function () { finish(true); });
+    $("ciFinish").addEventListener("click", function () { finish(false); });
+
+    // Keys (UX_SPEC §4): j/k move, y still true + advance, c change; ⌘/Ctrl+↵ saves.
+    document.addEventListener("keydown", function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); if (openRow) saveChange(); else saveAll(); return; }
+        if (e.metaKey || e.ctrlKey || e.altKey || A.inTextField(e.target)) return;
+        if (!checkin || $("checkin").hidden) return;
+        if (e.key === "Escape" && openRow) { closeChange(true); return; }
+        if (openRow) return;
+        var r = checkin.rows[cur];
+        if (e.key === "j") { e.preventDefault(); go(cur + 1); }
+        else if (e.key === "k") { e.preventDefault(); go(cur - 1); }
+        else if (e.key === "y" && r) { e.preventDefault(); var next = cur + 1; (r.answer ? Promise.resolve() : answer(r.field, "true")).then(function () { go(next); }); }
+        else if (e.key === "c" && r && ROWS[r.field]) { e.preventDefault(); openChange(r.field); }
+    });
+
+    if (REVIEW) startCheckin();
+    if (params.get("reviewed") === "1") $("saveSummary").textContent = "Review saved · the Tune tab ships next (AN-6)";
+    syncDerived();
+});
+</script>
+{% endblock %}

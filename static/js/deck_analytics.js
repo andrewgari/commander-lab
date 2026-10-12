@@ -165,16 +165,67 @@
         return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!t.isContentEditable;
     }
 
+    // ---- Journal / check-in (AN-5, UX_SPEC §3.3) ----------------------------------
+    var TIERS = [[4, "casual"], [6, "focused"], [8, "optimized"], [10, "competitive"]];
+    function tierOf(scale) {
+        for (var i = 0; i < TIERS.length; i++) if (scale <= TIERS[i][0]) return TIERS[i][1];
+        return "competitive";
+    }
+    function money(v) {
+        if (v == null || !isFinite(v)) return "\u2014";
+        var whole = Math.abs(v - Math.round(v)) < 0.005;
+        return "$" + (whole ? Math.round(v).toLocaleString("en-US")
+                            : Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+    // "a → b" with the new value tinted: up = ok, down = signal (never red, D8).
+    // `better` is +1 when a higher value is good, -1 when lower is good, 0 for neutral.
+    function arrow(a, b, fmt, better) {
+        var e = function (x) { return window.HUD ? window.HUD.esc(x) : String(x); };
+        if (b == null) return a == null ? "\u2014" : e(fmt(a));
+        if (a == null || a === b) return e(fmt(b));
+        var cls = !better ? "" : ((b > a) === (better > 0) ? "up" : "down");
+        return e(fmt(a)) + " \u2192 " + (cls ? '<span class="' + cls + '">' + e(fmt(b)) + "</span>" : e(fmt(b)));
+    }
+    function sinceItems(d) {
+        d = d || {};
+        var add = (d.added || []).length, rem = (d.removed || []).length;
+        var pw = d.power || [], pr = d.price || [], op = d.on_plan || [];
+        var pct = function (x) { return x + "%"; };
+        return [
+            { label: "Cards", html: (add ? '<span class="up">+' + add + "</span>" : "0") + " / " +
+                                    (rem ? '<span class="down">' + MINUS + rem + "</span>" : "0") },
+            { label: "Power est.", html: arrow(pw[0], pw[1], function (x) { return String(x); }, 1) },
+            { label: "Price", html: arrow(pr[0], pr[1], money, 0) },
+            { label: "On-plan", html: arrow(op[0], op[1], pct, 1) }
+        ];
+    }
+    function progressSegments(rows) {
+        return (rows || []).map(function (r) { return r.answer === "changed" ? "is-changed" : r.answer ? "is-done" : ""; });
+    }
+    function progressLabel(p) {
+        p = p || {};
+        return (p.answered || 0) + " of " + (p.total || 0) + " answered" + (p.changed ? " \u00b7 " + p.changed + " changed" : "");
+    }
+
     window.DeckAnalytics = {
         MANA_REASONS: MANA_REASONS, CURVE_TEMPLATE: CURVE_TEMPLATE,
         isLand: isLand, shortName: shortName, graphData: graphData, engineList: engineList,
         deltaChip: deltaChip, compRow: compRow, curveBuckets: curveBuckets, curveRef: curveRef,
         comboOwnership: comboOwnership, sortCombos: sortCombos, fitMeter: fitMeter, lowFit: lowFit,
-        age: age, inTextField: inTextField
+        age: age, inTextField: inTextField,
+        tierOf: tierOf, money: money, sinceItems: sinceItems, progressSegments: progressSegments,
+        progressLabel: progressLabel
     };
 
     // Deck tabs: keys 1-5 switch tab (data-key on .hud-deck-tabs links).
     if (document.addEventListener) {
+        // On narrow screens the strip scrolls inside itself: keep the active tab in view.
+        document.addEventListener("DOMContentLoaded", function () {
+            var strip = document.querySelector(".hud-deck-tabs"), act = strip && strip.querySelector('[aria-current="page"]');
+            if (!act) return;
+            var over = act.getBoundingClientRect().right - strip.getBoundingClientRect().right;
+            if (over > 0) strip.scrollLeft += over;
+        });
         document.addEventListener("keydown", function (e) {
             if (e.metaKey || e.ctrlKey || e.altKey || inTextField(e.target)) return;
             if (!/^[1-5]$/.test(e.key)) return;
