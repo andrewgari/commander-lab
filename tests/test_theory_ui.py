@@ -363,6 +363,22 @@ class TestPageEdges(unittest.TestCase):
         self.assertIn("load theories. Try again later", res.text)
         self.assertNotIn("Traceback", res.text)
 
+    def test_doc_page_storage_down_is_503_not_404(self):
+        theory.store(self.fake, _doc(deck_id=RID))
+        with patch.object(theory, "load", side_effect=ConnectionError("redis down")):
+            res = self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad")
+        self.assertEqual(res.status_code, 503)
+        self.assertIn("Try again", res.text)
+        with patch("app.registry.list_decks", side_effect=ConnectionError("redis down")):
+            self.assertEqual(self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad").status_code, 503)
+
+    def test_delete_updates_tab_badge_and_409_syncs_job_fields(self):
+        theory.store(self.fake, _doc(deck_id=RID))
+        body = self.client.get("/deck/Holy%20Hellfire/ideas").text
+        self.assertIn('[data-key="6"]', body)
+        self.assertIn("hud-tab-count", body)
+        self.assertIn("job.commander_mode", body)
+
     def test_api_delete_then_list(self):
         theory.store(self.fake, _doc(deck_id=RID))
         self.assertEqual(len(self.client.get(f"/api/decks/{RID}/theory").json()["docs"]), 1)

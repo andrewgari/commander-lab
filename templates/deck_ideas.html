@@ -165,6 +165,10 @@ document.addEventListener("DOMContentLoaded", function () {
         call("GET", API + "/jobs/" + encodeURIComponent(j.job_id)).then(function (res) {
             var job = res.job || {};
             if (job.created_at && !j.started) { j.started = job.created_at; remember(j); }
+            // A 409-adopted job carries the in-flight theme/mode, not what was typed.
+            if (job.theme && (job.theme !== j.theme || (job.commander_mode && job.commander_mode !== j.mode))) {
+                j.theme = job.theme; j.mode = job.commander_mode || j.mode; remember(j);
+            }
             if (job.status === "done") {
                 forget(); showJob("done", j, "Done. Opening the list…");
                 location.replace(location.pathname + "?new=" + encodeURIComponent(job.doc_id || ""));
@@ -218,6 +222,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var li = b.closest(".hud-idea"); li.parentNode.removeChild(li);
             var n = list.querySelectorAll(".hud-idea").length;
             $("ideasMeta").textContent = n + " doc" + (n === 1 ? "" : "s") + " · newest first";
+            // Keep the Ideas tab badge in step (hidden at 0, like the server render).
+            var tab = document.querySelector('.hud-deck-tabs [data-key="6"]'), badge = tab && tab.querySelector(".hud-tab-count");
+            if (badge) { if (n) badge.textContent = n; else badge.parentNode.removeChild(badge); }
             if (!n) list.outerHTML = '<div class="hud-panel-body"><div class="hud-empty">No theories yet. Start one with New theory.</div></div>';
         }).catch(function (err) { b.disabled = false; $("listError").textContent = err.message; });
     });

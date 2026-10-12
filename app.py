@@ -233,12 +233,21 @@ async def deck_theory_view(request: Request, deck_name: str, doc_id: str):
     from analytics import theory_view
 
     head = await asyncio.to_thread(_deck_head_context, deck_name)
+    unavailable = HTMLResponse(
+        "<html><head><title>Theory unavailable</title></head><body><h1>Theory unavailable</h1>"
+        "<p>Storage is unreachable right now. Try again in a moment.</p></body></html>", status_code=503)
+    if not head["found"]:
+        # _deck_head_context hides registry errors: tell "no such deck" from "storage down".
+        try:
+            await asyncio.to_thread(registry.list_decks, r)
+        except Exception:
+            return unavailable
     doc = None
     if head["found"] and head["registry_id"]:
         try:
             doc = await asyncio.to_thread(theory_mod.load, r, head["registry_id"], doc_id)
         except Exception:
-            doc = None
+            return unavailable
     if not doc:
         return HTMLResponse(
             "<html><head><title>Theory Not Found</title></head><body><h1>Theory Not Found</h1>"
