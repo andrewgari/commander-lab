@@ -126,6 +126,13 @@ class TestJournalPage(_JournalPage, unittest.TestCase):
         actions = self.body.split('class="hud-deckhead-actions"', 1)[1].split("</div>", 1)[0]
         self.assertIn("?review=1", actions)
 
+    def test_inline_change_reads_fields_outside_the_form(self):
+        # "Change" moves a form section under its check-in row (outside <form>):
+        # reads must be document-scoped or the edit is lost (live bug, AN-5).
+        script = self.body.split("<script>", 1)[1]
+        self.assertNotIn("form.querySelector", script)
+        self.assertNotIn("form.addEventListener", script)
+
 
 class TestJournalPageEmpty(_JournalPage, unittest.TestCase):
     SAVED = None

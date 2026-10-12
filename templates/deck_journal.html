@@ -169,8 +169,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ---- Form <-> journal payload ------------------------------------------------
-    function radio(name) { var x = form.querySelector('input[name="' + name + '"]:checked'); return x ? x.value : null; }
-    function checks(name) { return Array.prototype.map.call(form.querySelectorAll('input[name="' + name + '"]:checked'), function (x) { return x.value; }); }
+    function radio(name) { var x = document.querySelector('input[name="' + name + '"]:checked'); return x ? x.value : null; }
+    function checks(name) { return Array.prototype.map.call(document.querySelectorAll('input[name="' + name + '"]:checked'), function (x) { return x.value; }); }
     function num(id) {
         var v = $(id).value.trim();
         if (v === "") return null;
@@ -190,8 +190,8 @@ document.addEventListener("DOMContentLoaded", function () {
             pet_cards: pets(), novelties: $("novelties").value, freeform_notes: $("notes").value
         };
     }
-    function setRadio(name, v) { form.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = String(x.value) === String(v); }); }
-    function setChecks(name, vs) { vs = (vs || []).map(String); form.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = vs.indexOf(x.value) !== -1; }); }
+    function setRadio(name, v) { document.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = String(x.value) === String(v); }); }
+    function setChecks(name, vs) { vs = (vs || []).map(String); document.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = vs.indexOf(x.value) !== -1; }); }
     function val(v) { return v === null || v === undefined ? "" : String(v); }
     function fill(j, keys) {
         var has = function (k) { return !keys || keys.indexOf(k) !== -1; };
@@ -223,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var off = $("noBudget").checked;
         ["totalBudget", "hardCap", "softCap"].forEach(function (id) { $(id).disabled = off; });
         // An option chosen behind "More…" keeps its group open.
-        form.querySelectorAll(".hud-seg-rest").forEach(function (rest) {
+        document.querySelectorAll(".hud-seg-rest").forEach(function (rest) {
             if (rest.querySelector("input:checked") && rest.hidden) toggleMore(rest.previousElementSibling, true);
         });
     }
@@ -232,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function () {
         rest.hidden = !open; btn.setAttribute("aria-expanded", String(open));
         btn.textContent = open ? "Less" : "More… " + btn.getAttribute("data-more");
     }
-    form.addEventListener("click", function (e) {
+    document.addEventListener("click", function (e) {
         var b = e.target.closest(".hud-seg-more");
         if (b) { e.preventDefault(); toggleMore(b, $(b.getAttribute("aria-controls")).hidden); }
     });
@@ -311,8 +311,8 @@ document.addEventListener("DOMContentLoaded", function () {
             $("saveSummary").innerHTML = "<b>" + esc(s) + "</b>";
         }
     }
-    form.addEventListener("input", changed);
-    form.addEventListener("change", changed);
+    document.addEventListener("input", function (e) { if (e.target.closest("#journalForm, .hud-check-form")) changed(); });
+    document.addEventListener("change", function (e) { if (e.target.closest("#journalForm, .hud-check-form")) changed(); });
     window.addEventListener("beforeunload", function (e) {
         if (dirtyKeys().length) { e.preventDefault(); e.returnValue = ""; }
     });
@@ -340,7 +340,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 anchors.forEach(function (a) { a.classList.toggle("is-on", a.getAttribute("href") === "#" + en.target.id); });
             });
         }, { rootMargin: "-20% 0px -70% 0px" });
-        form.querySelectorAll(".hud-form-section").forEach(function (s) { io.observe(s); });
+        document.querySelectorAll(".hud-form-section").forEach(function (s) { io.observe(s); });
     }
 
     // ---- Live metrics (estimate, price) --------------------------------------------
