@@ -490,7 +490,7 @@ class TestJournalRoutes(unittest.TestCase):
         self.assertIsNotNone(self.client.get("/api/decks/archidekt:417707/checkin").json()["checkin"])
         res = self.client.post("/api/decks/archidekt:417707/checkin/finish", json={})
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json()["next"], "/deck/Holy%20Hellfire/journal?reviewed=1")
+        self.assertEqual(res.json()["next"], "/deck/Holy%20Hellfire/tune")
         self.assertEqual(self.client.post("/api/decks/archidekt:417707/checkin/finish", json={}).status_code, 409)
         self.assertEqual(self.client.patch("/api/decks/archidekt:417707/checkin/rows/vision",
                                            json={"answer": "true"}).status_code, 409)

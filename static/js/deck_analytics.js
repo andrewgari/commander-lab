@@ -207,6 +207,82 @@
         return (p.answered || 0) + " of " + (p.total || 0) + " answered" + (p.changed ? " \u00b7 " + p.changed + " changed" : "");
     }
 
+    // ---- Tune (AN-6, UX_SPEC §3.4) ---------------------------------------------
+    // The option a decision takes: "own" | "buy" (null = the row's pick).
+    function tuneOption(swap, decision) {
+        var d = decision || swap.pick;
+        return (d === "buy" ? swap.buy : swap.own) || swap.own || swap.buy || null;
+    }
+    function tuneSource(opt) {
+        if (!opt) return "";
+        if (opt.source === "buy") return "buy " + money(opt.price);
+        if (opt.source === "free") return "owned \u00b7 free";
+        if (opt.source === "accepted") return "accepted";
+        return "from " + (opt.deck || "another deck");
+    }
+    // Accepted swaps + extra adds -> ordered change list, spend, on-plan projection.
+    function changeList(tune, adds) {
+        tune = tune || {};
+        var items = [], spend = 0, swaps = 0;
+        var on = (tune.on_plan && tune.on_plan.on) || 0, total = (tune.on_plan && tune.on_plan.total) || 0;
+        var moves = [];
+        (tune.swaps || []).forEach(function (s) {
+            if (s.decision !== "own" && s.decision !== "buy") return;
+            var o = tuneOption(s, s.decision);
+            // The card accepted is the truth, even if a recompute now ranks another first.
+            if (s.decision_add && (!o || o.name !== s.decision_add)) {
+                o = [s.own, s.buy].filter(function (x) { return x && x.name === s.decision_add; })[0] ||
+                    { name: s.decision_add, source: "accepted", price: 0, on_plan: true };
+            }
+            if (!o) return;
+            swaps += 1;
+            items.push({ op: "out", name: s.cut.name, source: "" });
+            items.push({ op: "in", name: o.name, source: tuneSource(o) });
+            if (o.source === "buy") spend += o.price || 0;
+            if (o.source === "deck" && o.deck) moves.push({ name: o.name, from: o.deck });
+            on += (o.on_plan ? 1 : 0) - (s.cut.on_plan ? 1 : 0);
+        });
+        (adds || tune.adds || []).forEach(function (a) {
+            items.push({ op: "in", name: a.name, qty: a.qty || 1, source: a.source === "basic" ? "basic land" : (a.source || "") });
+            on += a.qty || 1; total += a.qty || 1;   // basics count as glue (lands row)
+        });
+        var before = tune.on_plan && tune.on_plan.pct;
+        var after = total ? Math.round(on / total * 100) : null;
+        return { items: items, swaps: swaps, spend: Math.round(spend * 100) / 100, moves: moves,
+                 onPlan: [before == null ? null : before, after] };
+    }
+    function changeText(deckName, list) {
+        var outs = list.items.filter(function (i) { return i.op === "out"; });
+        var ins = list.items.filter(function (i) { return i.op === "in"; });
+        var lines = ["// " + deckName + " \u00b7 Tune", "// Out"];
+        outs.forEach(function (i) { lines.push("1 " + i.name); });
+        lines.push("// In");
+        ins.forEach(function (i) { lines.push((i.qty || 1) + " " + i.name + (i.source ? "  // " + i.source : "")); });
+        lines.push("// Spend " + money(list.spend));
+        return lines.join("\n");
+    }
+    // The three weak-performer inputs as mini-bars (low value = signal).
+    function whyBars(why) {
+        why = why || {};
+        var fit = why.fit, edh = why.edhrec;
+        return [
+            { key: "Edges", pct: Math.min(100, Math.round((why.edges || 0) / 10 * 100)), low: (why.edges || 0) <= 1, text: String(why.edges || 0) },
+            { key: "Fit", pct: fit == null ? 0 : Math.round(fit * 100), low: fit == null || fit < 0.35, text: fit == null ? "\u2014" : fit.toFixed(2) },
+            { key: "EDHREC", pct: Math.round((edh || 0) * 100), low: !edh || edh < 0.10, text: edh == null ? "0%" : Math.round(edh * 100) + "%" }
+        ];
+    }
+    function gapText(g) { return g == null ? "" : (g >= 0 ? "+" : MINUS) + Math.abs(g).toFixed(2); }
+    function verdictChip(swap) {
+        if (swap.buy && swap.own) return swap.pick === "buy" ? ["worth buying", "signal"] : ["owned is good enough", "ok"];
+        if (swap.verdict === "keep_yours") return ["keep yours", "ok"];
+        return null;
+    }
+    function keepYoursLine(swap) {
+        var n = swap.near_buy;
+        if (!n) return "";
+        return "Keep yours: " + gapText(n.gap) + " isn't worth " + money(n.price) + " (" + n.name + ").";
+    }
+
     window.DeckAnalytics = {
         MANA_REASONS: MANA_REASONS, CURVE_TEMPLATE: CURVE_TEMPLATE,
         isLand: isLand, shortName: shortName, graphData: graphData, engineList: engineList,
@@ -214,7 +290,9 @@
         comboOwnership: comboOwnership, sortCombos: sortCombos, fitMeter: fitMeter, lowFit: lowFit,
         age: age, inTextField: inTextField,
         tierOf: tierOf, money: money, sinceItems: sinceItems, progressSegments: progressSegments,
-        progressLabel: progressLabel
+        progressLabel: progressLabel,
+        tuneOption: tuneOption, tuneSource: tuneSource, changeList: changeList, changeText: changeText,
+        whyBars: whyBars, gapText: gapText, verdictChip: verdictChip, keepYoursLine: keepYoursLine
     };
 
     // Deck tabs: keys 1-5 switch tab (data-key on .hud-deck-tabs links).

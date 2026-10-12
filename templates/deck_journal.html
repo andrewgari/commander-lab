@@ -52,7 +52,7 @@
     <div class="hud-savebar" id="ciBar">
         <span class="hud-freshness">Answers save as you go · unanswered rows count as still true</span>
         <button class="hud-btn hud-btn--ghost" type="button" id="ciSkip">Skip check-in</button>
-        <button class="hud-btn hud-btn--primary" type="button" id="ciFinish">Finish review</button>
+        <button class="hud-btn hud-btn--primary" type="button" id="ciFinish">Finish → Tune</button>
     </div>
 </section>
 
@@ -482,7 +482,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     if (REVIEW) startCheckin();
-    if (params.get("reviewed") === "1") $("saveSummary").textContent = "Review saved · the Tune tab ships next (AN-6)";
+    if (params.get("reviewed") === "1") $("saveSummary").textContent = "Review saved";
     syncDerived();
 });
 </script>

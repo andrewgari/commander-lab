@@ -31,6 +31,7 @@ from analytics import composition as composition_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+from analytics import tuner as tuner_mod
 import urllib.parse
 
 app = FastAPI()
@@ -123,7 +124,7 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "cards": None, "lands": None, "pillars": None, "registry_id": None}
+           "art_uid": None, "cards": None, "lands": None, "pillars": None, "tune": None, "registry_id": None}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -143,6 +144,10 @@ def _deck_head_context(deck_name: str) -> dict:
         pass
     try:
         out["pillars"] = len(identity_mod.live_pillars(identity_mod.load_identity(r, deck))) or None
+    except Exception:
+        pass
+    try:
+        out["tune"] = tuner_mod.open_count(r, deck) or None
     except Exception:
         pass
     return out
@@ -177,6 +182,12 @@ async def deck_identity_view(request: Request, deck_name: str):
 async def deck_journal_view(request: Request, deck_name: str):
     """Deck Journal form; ?review=1 opens the check-in above it (UX_SPEC §3.3)."""
     return await _deck_tab(request, deck_name, "deck_journal.html", "journal", extra=_journal_page_context)
+
+
+@app.get("/deck/{deck_name}/tune", response_class=HTMLResponse)
+async def deck_tune_view(request: Request, deck_name: str):
+    """Tune (UX_SPEC §3.4): shape fixes, swaps, weak performers, change list. Renders from JSON."""
+    return await _deck_tab(request, deck_name, "deck_tune.html", "tune")
 
 
 def _journal_page_context(deck_name: str) -> dict:
@@ -1726,8 +1737,8 @@ async def api_finish_checkin(deck_id: str, request: Request):
         rec = journal_mod.finish_review(r, deck, skipped=bool(isinstance(body, dict) and body.get("skipped")))
     except journal_mod.NoOpenReview as exc:
         return _journal_error(exc, 409)
-    # Tune (AN-6) isn't shipped yet: land back on the journal with a "reviewed" note.
-    nxt = "/deck/" + urllib.parse.quote(deck.get("name") or "") + "/journal?reviewed=1"
+    # UX_SPEC D4: finishing the check-in lands on Tune.
+    nxt = "/deck/" + urllib.parse.quote(deck.get("name") or "") + "/tune"
     return {"success": True, "review": rec, "next": nxt}
 
 
@@ -1738,4 +1749,91 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
     if err:
         return err
     return {"success": True, "reviews": journal_mod.list_reviews(r, deck, max(1, min(limit, 50)))}
+
+
+# ---------------------------------------------------------------------------
+# Tuner (AN-6) -- see docs/TUNER.md
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/tune")
+async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool = True):
+    """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
+    pet notice. Deterministic; cached LLM 'why' lines are attached when present.
+    mode = owned_first | owned_only | best; sleeved=false drops cards in other decks."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    return {"success": True, "tune": out}
+
+
+@app.post("/api/decks/{deck_id}/tune/why")
+async def api_deck_tune_why(deck_id: str, request: Request):
+    """Ask the LLM (Gemini, then Nous) for the one-line 'why' of each swap. Prose
+    only: every number is the tuner's. Cached per cut/add pair; cost is logged
+    to /api/interactions/runs (trigger 'tuner')."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request) or {}
+    mode = body.get("mode", "owned_first") if isinstance(body, dict) else "owned_first"
+    sleeved = bool(body.get("sleeved", True)) if isinstance(body, dict) else True
+    try:
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    from analytics.interactions.llm import default_chain
+    out = await asyncio.to_thread(tuner_mod.generate_prose, r, deck, tune, default_chain(),
+                                  tuner_mod.prose_context(r, deck))
+    return JSONResponse(status_code=200 if out["llm"]["status"] in ("ok", "cached") else 502,
+                        content={"success": out["llm"]["status"] in ("ok", "cached"), **out, "tune": tune})
+
+
+@app.put("/api/decks/{deck_id}/tune/decisions")
+async def api_deck_tune_decide(deck_id: str, request: Request):
+    """{"cut": name, "decision": "own"|"buy"|"dismissed"|null, "add": name}. Decisions
+    last until the next finished review."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(tuner_mod.TunerError("Body must be a JSON object."))
+    try:
+        st = tuner_mod.decide(r, deck, body.get("cut"), body.get("decision"), body.get("add"))
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    return {"success": True, "state": st}
+
+
+@app.put("/api/decks/{deck_id}/tune/adds")
+async def api_deck_tune_adds(deck_id: str, request: Request):
+    """Extra adds on the change list (basics from a shape fix, a combo piece): [{name, qty, source}]."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    try:
+        st = tuner_mod.set_adds(r, deck, (body or {}).get("adds") if isinstance(body, dict) else None)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    return {"success": True, "state": st}
+
+
+@app.post("/api/decks/{deck_id}/tune/pet")
+async def api_deck_tune_pet(deck_id: str, request: Request):
+    """{"name": card}: add the card to the Journal's pets (Tune key `h`)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request) or {}
+    try:
+        out = tuner_mod.mark_pet(r, deck, body.get("name") if isinstance(body, dict) else None)
+    except (tuner_mod.TunerError, journal_mod.JournalError) as exc:
+        return _bad_request(exc)
+    return {"success": True, **out}
 
