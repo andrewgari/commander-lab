@@ -25,13 +25,15 @@ class TestDeckNamecardUI(unittest.TestCase):
         self.assertIn("min-width: 0", html)
 
     def test_decks_page_contains_commander_icon_js_rendering(self):
-        """Verify templates/decks.html JS uses 160px fallback and -64px partner overlap."""
+        """Verify templates/decks.html JS uses 160px fallback; partner overlap lives in CSS
+        (.deck-header--multi), not an inline -64px margin (t_96b8867c)."""
         response = self.client.get("/decks")
         self.assertEqual(response.status_code, 200)
         html = response.text
 
-        # Partner overlap margin adjusted for 160px icons
-        self.assertIn("margin-left: -64px", html)
+        # Partner decks stack art above text; no inline overlap squeezing the text column
+        self.assertNotIn("margin-left: -64px", html)
+        self.assertIn("deck-header--multi", html)
 
         # Fallback svg dimensions
         self.assertIn("width='160' height='160'", html)
