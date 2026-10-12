@@ -1763,3 +1763,69 @@ main.main-content { padding-bottom: var(--sp-16); }
     .hud-progress .hud-freshness { display: none; }
     .hud-checkin-head .hud-label { white-space: normal; }
 }
+
+/* =======================================================================
+   11. AN-6R fixes (designer review, docs/design/analytics/reviews/AN-6.md).
+   ======================================================================= */
+/* R1. Tab badge counts were --text-4 (2.7:1). Badges are text: use --text-3. */
+.hud-tab-count { color: var(--text-3); }
+/* R2. Swap arrow is decorative but still text on screen; lift it to --text-3. */
+.hud-swap-arrow { color: var(--text-3); }
+/* R3. The swap row is sized by its own width, not the viewport. At 1440 the
+   main column is 630px (the 20rem change list takes the rest), so the 4-col
+   row left each option ~128px: 12 of 20 source lines truncated and every
+   gapline wrapped to 2 lines. Below 52rem of row width the actions drop under
+   the options and the cut sits above, so options get the full row. */
+.hud-swaps { container-type: inline-size; container-name: swaps; }
+@container swaps (max-width: 52rem) {
+    .hud-swap { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--sp-3); }
+    .hud-swap-out { grid-column: 1; grid-row: 1; }
+    .hud-swap-arrow { display: none; }
+    .hud-opts { grid-column: 1 / -1; grid-row: 2; }
+    .hud-swap-act { grid-column: 2; grid-row: 1; flex-direction: row; align-self: start; }
+    .hud-swap-act .hud-btn { width: auto; }
+    .hud-swap-out .hud-why { max-width: 22rem; }
+    .tn-pet { grid-template-columns: minmax(0, 1fr) auto; }
+}
+@container swaps (max-width: 30rem) {
+    .hud-swap-act { grid-column: 1 / -1; grid-row: 3; }
+    .hud-swap-out { grid-column: 1 / -1; }
+    .hud-swap-act .hud-btn { flex: 1 1 0; }
+    /* Verdict chips that wrap start the next line instead of hanging off the right edge. */
+    .hud-gapline .hud-chip { margin-left: 0; }
+}
+/* Accepted row: chip + Undo sit together, Undo doesn't stretch. */
+.hud-swap.is-accepted .hud-swap-act { align-items: center; }
+.hud-swap.is-accepted .hud-swap-act .hud-btn { flex: 0 0 auto; width: auto; }
+/* R4. Check-in actions: a fixed 2-slot track so "✓ Still true" lines up on
+   every row (Open Identity / single "✓ Seen" pushed it 53px left). */
+.hud-check-actions { display: grid; grid-template-columns: 7rem 7.5rem; gap: var(--sp-1); justify-content: end; }
+.hud-check-actions > :only-child { grid-column: 1; }
+.hud-check-actions > .hud-btn { justify-content: center; }
+@media (max-width: 640px) {
+    .hud-check-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; }
+    .hud-check-actions > .hud-btn { justify-content: center; }
+}
+/* R5. Tier rail matches the scale: same width as the 10 labels (2.5rem each
+   + 9 1px dividers) inside the 1px seg border, split 4/2/2/2 of 10 equal
+   tracks (was 4fr/2fr/2fr/2fr over 25rem: the rail ended 9px short and
+   "Optimized" started 6px left of the 7 cell). */
+.hud-scale-tiers { grid-template-columns: repeat(10, minmax(0, 1fr)); width: calc(10 * 2.5rem + 9px); margin-left: 1px; }
+.hud-scale-tiers span:nth-child(1) { grid-column: span 4; }
+.hud-scale-tiers span:nth-child(n+2) { grid-column: span 2; }
+@media (max-width: 640px) {
+    .hud-scale-tiers { width: 100%; margin-left: 0; }
+}
+/* R6. While a check-in is open, its own bar is the primary; the journal
+   savebar is only sticky when there are unsaved edits (two stacked amber
+   primaries at the bottom of the viewport otherwise). */
+.hud-checkin:not([hidden]) ~ .hud-savebar:not(.is-dirty) { position: static; }
+/* R7. `.hud-changes li` (3-col grid) also matched the "Pull X from {deck}"
+   moves list, crushing each move into a 20px column (147px tall, a word per
+   line). Moves are plain lines. */
+.hud-changes .tn-moves li { display: block; padding: var(--sp-1) 0; border-bottom: 0; }
+/* R8. A long source ("from Uncharted: Lara's Legacy") squeezed the card name
+   to 33px and broke it mid-name. Source drops under the name instead. */
+.hud-changes ol li { grid-template-columns: 1.25rem minmax(0, 1fr); }
+.hud-changes ol li .hud-freshness { grid-column: 2; white-space: normal; }
+.hud-changes ol li .hud-freshness:empty { display: none; }

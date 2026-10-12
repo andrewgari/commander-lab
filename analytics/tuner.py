@@ -176,8 +176,8 @@ def soft_note(buy: Mapping, own: Optional[Mapping], gap: Optional[float], caps: 
         tail = (f" Picked anyway: the gap is at least {GAP_SOFT_OVERRIDE:.2f}, which is worth breaking your "
                 f"{money(caps.get('soft_cap'))} soft cap.")
     else:
-        tail = (f" Shown because the gap is big; picked owned because you set soft {money(caps.get('soft_cap'))}"
-                f" and the gap is under {GAP_SOFT_OVERRIDE:.2f}.")
+        tail = (f" Kept owned: {buy['name']} is over your {money(caps.get('soft_cap'))} soft cap, and breaking"
+                f" the soft cap takes a gap of {GAP_SOFT_OVERRIDE:.2f} or more.")
     return head + tail
 
 
@@ -207,12 +207,13 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
             listing += " Owned, free: " + ", ".join(names) + "."
         if far:
             listing += " Owned, sleeved elsewhere: " + ", ".join(far) + "."
+        # The gap column already says "−3 · 35 / 38"; the advice line only names cards (AN-6R).
         if key == "lands":
             basics = basics_for(_deck_colors(deck), short)
-            advice = f"{short} short of the template's {row.get('target')}." + listing + " Or add basics."
+            advice = (listing + " Or add basics.").strip() if listing else "Nothing you own fits: add basics."
             action = {"kind": "add_basics", "count": short, "basics": basics, "label": f"Add {short} lands"}
         else:
-            advice = f"{short} short of {row.get('target')}." + (listing or " Nothing you own fits.")
+            advice = listing.strip() or "Nothing you own fits."
             action = ({"kind": "filter", "row": key, "label": f"See {len(owned)} owned"} if owned else None)
         out.append({"key": key, "label": label, "actual": row.get("actual"), "target": row.get("target"),
                     "gap": row["delta"], "owned": [c["name"] for c in owned], "free": [c["name"] for c in free],
