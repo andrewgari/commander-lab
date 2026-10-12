@@ -27,6 +27,9 @@ import httpx
 from repo_status import enrich_decks_with_repo_status
 from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
+from analytics import composition as composition_mod
+from analytics import identity as identity_mod
+from analytics import insights
 
 app = FastAPI()
 
@@ -1360,6 +1363,162 @@ async def api_deck_combos(deck_id: str, refresh: bool = False, owned_only: bool 
     except combos.SpellbookError as exc:
         return JSONResponse(status_code=502, content={"success": False, "error": str(exc)})
     return {"success": True, "combos": out}
+
+
+# ---------------------------------------------------------------------------
+# Composition, identity (thesis + pillars), pillar fit, EDHREC inclusion,
+# weak performers (AN-3) -- see docs/DECK_IDENTITY.md
+# ---------------------------------------------------------------------------
+
+
+def _deck_or_404(deck_id: str):
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return None, JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    return deck, None
+
+
+def _bad_request(exc: Exception, status: int = 400):
+    return JSONResponse(status_code=status, content={"success": False, "error": str(exc)})
+
+
+async def _json_body(request: Request):
+    try:
+        return await request.json()
+    except Exception:
+        return None
+
+
+@app.get("/api/decks/{deck_id}/composition")
+async def api_deck_composition(deck_id: str):
+    """Cards classified into Lands / Ramp / Card advantage / Targeted disruption /
+    Mass disruption / Plan, vs the deck's template (Command Zone 2025 by default)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(insights.deck_composition, r, deck)
+    return {"success": True, "composition": out}
+
+
+@app.put("/api/decks/{deck_id}/composition/template")
+async def api_set_composition_template(deck_id: str, request: Request):
+    """Per-deck template override, e.g. {"lands": 36, "ramp": 12}. Rows not sent keep their value."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    try:
+        tpl = composition_mod.set_template_override(r, deck, body)
+    except composition_mod.CompositionError as exc:
+        return _bad_request(exc)
+    return {"success": True, "template": tpl}
+
+
+@app.delete("/api/decks/{deck_id}/composition/template")
+async def api_reset_composition_template(deck_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    return {"success": True, "template": composition_mod.reset_template(r, deck)}
+
+
+@app.get("/api/decks/{deck_id}/identity")
+async def api_deck_identity(deck_id: str, cards: bool = True):
+    """Thesis + pillars with pillar fit (local embeddings). ?cards=false drops per_card."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(insights.identity_view, r, deck, cards)
+    return {"success": True, "identity": out}
+
+
+@app.post("/api/decks/{deck_id}/identity/generate")
+async def api_generate_identity(deck_id: str):
+    """Ask the LLM (Gemini, then Nous) for a thesis + 3-5 pillars. First time:
+    drafts. Afterwards: only proposes NEW draft pillars; never edits yours."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(insights.generate, r, deck)
+    ok = out.get("status") in ("generated", "proposed")
+    view = await asyncio.to_thread(insights.identity_view, r, deck, False)
+    return JSONResponse(status_code=200 if ok else 502,
+                        content={"success": ok, "result": out, "identity": view})
+
+
+@app.put("/api/decks/{deck_id}/identity/thesis")
+async def api_update_thesis(deck_id: str, request: Request):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        thesis = identity_mod.update_thesis(r, deck, await _json_body(request) or {})
+    except identity_mod.IdentityError as exc:
+        return _bad_request(exc)
+    return {"success": True, "thesis": thesis}
+
+
+@app.post("/api/decks/{deck_id}/identity/pillars")
+async def api_add_pillar(deck_id: str, request: Request):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        p = identity_mod.add_pillar(r, deck, await _json_body(request) or {})
+    except identity_mod.IdentityError as exc:
+        return _bad_request(exc)
+    return {"success": True, "pillar": p}
+
+
+@app.put("/api/decks/{deck_id}/identity/pillars/order")
+async def api_reorder_pillars(deck_id: str, request: Request):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request) or {}
+    try:
+        ps = identity_mod.reorder_pillars(r, deck, body.get("order") if isinstance(body, dict) else None)
+    except identity_mod.PillarNotFound as exc:
+        return _bad_request(exc, 404)
+    except identity_mod.IdentityError as exc:
+        return _bad_request(exc)
+    return {"success": True, "pillars": ps}
+
+
+@app.patch("/api/decks/{deck_id}/identity/pillars/{pillar_id}")
+async def api_update_pillar(deck_id: str, pillar_id: str, request: Request):
+    """{"action": "pin"|"unpin"|"keep"|"reject"|"restore"} and/or {"name", "description"} (edits pin)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        p = identity_mod.update_pillar(r, deck, pillar_id, await _json_body(request) or {})
+    except identity_mod.PillarNotFound as exc:
+        return _bad_request(exc, 404)
+    except identity_mod.IdentityError as exc:
+        return _bad_request(exc)
+    return {"success": True, "pillar": p}
+
+
+@app.get("/api/decks/{deck_id}/edhrec")
+async def api_deck_edhrec(deck_id: str, refresh: bool = False):
+    """EDHREC inclusion per card for the deck's commander (cached 7 days)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(insights.deck_edhrec, r, deck, refresh)
+    return {"success": True, "edhrec": out}
+
+
+@app.get("/api/decks/{deck_id}/weak-performers")
+async def api_deck_weak_performers(deck_id: str, limit: Optional[int] = None):
+    """Computed only: few graph edges + off-pillar + low EDHREC inclusion, equally weighted."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    out = await asyncio.to_thread(insights.deck_weak_performers, r, deck, graph, limit=limit)
+    return {"success": True, "weak_performers": out}
 
 
 @app.on_event("startup")

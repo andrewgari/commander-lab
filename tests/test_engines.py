@@ -296,7 +296,7 @@ class TestServiceEngines(unittest.TestCase):
         sf = FakeScryfall([])
         run = service.rebuild(self.r, trigger="manual", scryfall=sf, llm=chain)
         self.assertEqual(run["status"], "ok")
-        self.assertEqual(len(gem.gen_calls), 1)
+        self.assertEqual(len([p for p in gem.gen_calls if not p.startswith("Deck:")]), 1)  # AN-3 pillar drafts also use generate_json
         self.assertEqual(run["engine_naming"]["named"], 1)
         naming = [c for c in run["llm_calls"] if c.get("purpose") == "engine_names"]
         self.assertEqual(len(naming), 1)
@@ -306,7 +306,7 @@ class TestServiceEngines(unittest.TestCase):
         self.assertEqual(e["name"], "Aura counters: enchantments → counters")
         # second rebuild: cached name, no new call
         run2 = service.rebuild(self.r, trigger="nightly", scryfall=sf, llm=chain)
-        self.assertEqual(len(gem.gen_calls), 1)
+        self.assertEqual(len([p for p in gem.gen_calls if not p.startswith("Deck:")]), 1)
         self.assertEqual(run2["engine_naming"]["named"], 0)
 
     def test_rebuild_survives_naming_failure(self):

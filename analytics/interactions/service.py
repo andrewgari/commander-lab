@@ -213,6 +213,7 @@ def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[L
             run.graphs_built += 1
             run.extra["collection_counts"] = coll["counts"]
         run.extra["engine_naming"] = _name_new_engines(r, deck_graphs, tagger.llm, run)
+        run.extra["identity"] = _draft_identities(r, decks, tags, tagger.llm, run)
         run.status = "ok"
     except Exception as exc:  # noqa: BLE001 - the run log must record the failure
         log.exception("interaction graph rebuild failed")
@@ -340,6 +341,21 @@ def _name_new_engines(r, deck_graphs: List[dict], chain: Optional[LLMChain], run
         stats["named"] = len(names)
         stats["provider"] = next(iter(names.values())).get("provider")
     return stats
+
+
+def _draft_identities(r, decks: List[dict], tags: Dict[str, dict], chain: Optional[LLMChain], run: "RunLog") -> dict:
+    """AN-3: draft thesis + pillars for decks whose cards changed since their
+    last draft (re-syncs only ever ADD draft pillars). Capped per rebuild;
+    every call lands in this run's llm_calls with purpose "pillars"."""
+    if chain is None:
+        return {"skipped": "no llm chain"}
+    try:
+        from analytics import insights
+
+        return insights.rebuild_hook(r, decks, tags, chain, run)
+    except Exception as exc:  # noqa: BLE001 - identity drafting is best effort
+        log.warning("identity drafting failed: %s", exc)
+        return {"error": str(exc)[:200]}
 
 
 def get_deck_engines(r, deck: dict, graph: Optional[dict] = None) -> dict:
