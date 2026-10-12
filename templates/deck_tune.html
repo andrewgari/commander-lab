@@ -200,7 +200,8 @@ document.addEventListener("DOMContentLoaded", function () {
               (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy">Buy instead</button>' : "") +
               '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="dismiss">Dismiss</button>';
         return '<li class="hud-swap' + (i === cur ? " is-current" : "") + (accepted ? " is-accepted" : "") + '" tabindex="-1" data-cut="' + esc(s.cut.name) + '">' +
-            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" + why(s.cut.why) + "</div>" +
+            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" +
+            '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
             '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + just + hard + whyLine + "</div>" +
             '<div class="hud-swap-act">' + acts + "</div></li>";

@@ -102,6 +102,10 @@ class TestTunePage(_TunePage, unittest.TestCase):
         self.assertIn('H.chip("hard cap", "danger")', self.body)
         self.assertIn('"over soft cap " + A.money(T.caps.soft_cap), "signal"', self.body)
 
+    def test_cut_shows_its_own_score_so_the_gap_reads(self):
+        # Fit is one of three inputs; without the cut's score a 0.56 add next to "Fit 0.61" looks like a downgrade.
+        self.assertIn("s.cut.score.toFixed(2)", self.body)
+
 
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
     def test_finish_button_label(self):
