@@ -60,8 +60,14 @@ BASICS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes", "Snow-Cov
           "Snow-Covered Wastes"}
 # Cards that may appear more than once in a Commander deck besides basics.
 ANY_NUMBER = {"Relentless Rats", "Rat Colony", "Persistent Petitioners", "Shadowborn Apostle",
-              "Dragon's Approach", "Seven Dwarves", "Slime Against Humanity", "Templar Knight",
-              "Hare Apparent", "Tempest Hawk", "Nazgûl", "Cid, Timeless Artificer"}
+              "Dragon's Approach", "Slime Against Humanity", "Templar Knight", "Hare Apparent",
+              "Tempest Hawk", "Cid, Timeless Artificer"}
+# Bounded exceptions: "up to N".
+COPY_LIMITS = {"Seven Dwarves": 7, "Nazgûl": 9}
+# In-flight generation limits (single app process): one job per deck, MAX_INFLIGHT overall.
+MAX_INFLIGHT = 2
+_INFLIGHT: Dict[str, str] = {}  # deck_id -> job_id
+_INFLIGHT_LOCK = threading.Lock()
 
 SKILL_NAME = "deck-theory"
 SYSTEM_PROMPT = (
@@ -77,6 +83,14 @@ class TheoryError(ValueError):
 
 class TheoryParseError(TheoryError):
     pass
+
+
+class TheoryBusy(TheoryError):
+    """A theory is already being written for this deck, or too many are in flight."""
+
+    def __init__(self, message: str, per_deck: bool):
+        self.per_deck = per_deck
+        super().__init__(message)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +143,10 @@ class TheoryDoc(BaseModel):
     @field_validator("schema_version", mode="before")
     @classmethod
     def _v(cls, v):
-        return str(v) if v is not None else SCHEMA_VERSION
+        v = SCHEMA_VERSION if v is None else str(v)
+        if v != SCHEMA_VERSION:
+            raise ValueError(f"unsupported schema_version {v!r} (this app reads {SCHEMA_VERSION!r})")
+        return v
 
     def section(self, type_: str) -> Optional[TheorySection]:
         return next((s for s in self.sections if s.type == type_), None)
@@ -214,6 +231,8 @@ def build_request(r, deck: Mapping, theme: str, commander_mode: str, owned: Opti
     if commander_mode not in COMMANDER_MODES:
         raise TheoryError(f"commander_mode must be one of {list(COMMANDER_MODES)}")
     owned = _owned(r) if owned is None else owned
+    if not journal_mod.deck_entries(deck):
+        raise TheoryError("this deck has no decklist synced yet; sync it first")
     rec = journal_mod.public(journal_mod.load_journal(r, deck))
     caps = journal_mod.effective_caps(r, rec)
     ident = identity.load_identity(r, dict(deck)) or {}
@@ -279,9 +298,20 @@ Lookup = Callable[[List[str]], Mapping[str, dict]]
 PriceFetch = Callable[[List[str]], Mapping[str, Optional[float]]]
 
 
+def can_command(type_line: str, oracle_text: str) -> bool:
+    """May this card be a commander? Legendary creature, a Background, or 'can be your commander'."""
+    t = type_line or ""
+    front = t.split(" // ")[0]
+    if "Legendary" in front and "Creature" in front:
+        return True
+    if "Legendary" in front and "Background" in front:
+        return True
+    return "can be your commander" in (oracle_text or "")
+
+
 def scryfall_lookup(names: List[str], session=None, timeout: float = 30.0) -> Dict[str, dict]:
-    """{requested name: {name, color_identity, legal}} via /cards/collection. Unknown names
-    are absent."""
+    """{requested name: {name, color_identity, legal, commander_ok}} via /cards/collection.
+    Unknown names are absent."""
     import requests
 
     http = session or requests.Session()
@@ -301,8 +331,11 @@ def scryfall_lookup(names: List[str], session=None, timeout: float = 30.0) -> Di
         resp.raise_for_status()
         by_key: Dict[str, dict] = {}
         for c in resp.json().get("data", []):
+            faces = c.get("card_faces") or []
+            text = c.get("oracle_text") or " ".join(f.get("oracle_text", "") for f in faces)
             card = {"name": c.get("name", ""), "color_identity": "".join(c.get("color_identity") or []),
-                    "legal": (c.get("legalities") or {}).get("commander") == "legal"}
+                    "legal": (c.get("legalities") or {}).get("commander") == "legal",
+                    "commander_ok": can_command(c.get("type_line") or "", text)}
             by_key[c.get("name", "").lower()] = card
             for face in c.get("name", "").split(" // "):
                 by_key.setdefault(face.lower(), card)
@@ -396,17 +429,41 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
     all_names = sorted({c.name for _, c in entries} | set(new_cmdrs) | set(pets))
     facts = dict(lookup(all_names) or {})
 
-    # Commander colour identity
-    allowed: set = set()
+    # Commander: a swap must resolve, be Commander-legal, be able to command, and (when it
+    # has to be bought) be priced and under the hard cap. Otherwise the swap is reverted
+    # and the list is verified under the current commander's identity.
+    no_budget = bool(caps.get("no_budget"))
+    hard, soft = caps.get("hard_cap"), caps.get("soft_cap")
     if cc_sec is not None:
+        cmd_prices = dict(prices(list(new_cmdrs)) or {})
+        bad = None
         for cmd in new_cmdrs:
             f = facts.get(cmd)
+            k = name_key(cmd)
+            o = owned.get(k)
+            is_buy = k not in deck_keys and not (o and (o.get("available") or 0) > 0)
+            p = cmd_prices.get(cmd)
             if not f:
-                fix("commander_unknown", f"New commander '{cmd}' does not resolve on Scryfall; swap removed.", card=cmd)
+                bad = ("commander_unknown", f"New commander '{cmd}' does not resolve on Scryfall")
+            elif not f.get("legal", True):
+                bad = ("commander_illegal", f"New commander '{cmd}' is not legal in Commander")
+            elif not f.get("commander_ok", True):
+                bad = ("commander_ineligible", f"'{cmd}' can't be a commander")
+            elif is_buy and p is None:
+                bad = ("commander_unpriced", f"New commander '{cmd}' has no Scryfall USD price")
+            elif is_buy and not no_budget and hard is not None and p is not None and p > float(hard):
+                bad = ("commander_hard_cap", f"New commander '{cmd}' costs ${p:.2f}, over the hard cap "
+                                             f"${float(hard):.2f}")
+            if bad:
+                fix(bad[0], bad[1] + "; swap reverted, list checked against the current commander.", card=cmd)
                 new_cmdrs = list(old_cmdrs)
                 sections.remove(cc_sec)
                 cc_sec = None
+                missing = [c for c in old_cmdrs if c not in facts]
+                if missing:
+                    facts.update(lookup(missing) or {})
                 break
+    allowed: set = set()
     for cmd in new_cmdrs:
         f = facts.get(cmd)
         if f:
@@ -428,7 +485,8 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
             c.name = canon
         k = name_key(canon)
         if k in cmdr_keys:
-            pass  # the commander defines the colour identity
+            if not f.get("legal", True):  # only the current commander can get here (swaps are pre-checked)
+                fix("commander_illegal", f"Commander '{canon}' is not legal in Commander.", card=canon)
         elif not f.get("legal", True):
             fix("illegal", f"'{canon}' is not legal in Commander; dropped.", card=canon)
             continue
@@ -438,12 +496,14 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
             continue
         qty = max(1, int(c.qty or 1))
         if canon not in BASICS and canon not in ANY_NUMBER:
-            if k in seen:
-                fix("duplicate", f"'{canon}' listed twice; singleton enforced.", card=canon)
+            limit = COPY_LIMITS.get(canon, 1)
+            room = limit - seen.get(k, 0)
+            if room <= 0:
+                fix("duplicate", f"'{canon}' is over its {limit}-copy limit; extra copies dropped.", card=canon)
                 continue
-            if qty > 1:
-                fix("duplicate", f"'{canon}' x{qty}; singleton enforced.", card=canon)
-                qty = 1
+            if qty > room:
+                fix("duplicate", f"'{canon}' x{qty} is over its {limit}-copy limit; cut to {room}.", card=canon)
+                qty = room
         seen[k] = seen.get(k, 0) + qty
         c.qty = qty
         kept.append((gi, c))
@@ -465,8 +525,6 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
     # --- sources + prices --------------------------------------------------
     names = sorted({c.name for _, c in kept})
     price_of = dict(prices(names) or {})
-    no_budget = bool(caps.get("no_budget"))
-    hard, soft = caps.get("hard_cap"), caps.get("soft_cap")
     final: List[tuple] = []
     for gi, c in kept:
         k = name_key(c.name)
@@ -565,9 +623,15 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
         if k in pet_keys:
             row["pet"] = True
         cut_rows.append(row)
-    for n in old_cmdrs:
-        if name_key(n) not in final_keys:
-            cut_rows.insert(0, {"name": n, "qty": 1, "commander": True, **reasons.get(name_key(n), {})})
+    old_cmdr_keys = {name_key(n) for n in old_cmdrs}
+    for row in cut_rows:
+        if name_key(row["name"]) in old_cmdr_keys:
+            row["commander"] = True
+    present = {name_key(r_["name"]) for r_ in cut_rows}
+    for n in old_cmdrs:  # decks whose cards[] don't carry the command zone
+        if name_key(n) not in final_keys and name_key(n) not in present:
+            cut_rows.append({"name": n, "qty": 1, "commander": True, **reasons.get(name_key(n), {})})
+    cut_rows.sort(key=lambda r_: (not r_.get("commander"), r_["name"]))
     actual_keys = {name_key(c["name"]) for c in cut_rows}
     for n in claimed_cuts:
         if name_key(n) not in actual_keys:
@@ -587,8 +651,8 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
         cuts_sec.data = cuts_data
 
     # --- buy_total ---------------------------------------------------------
-    buys = [(c.name, c.price) for _, c in final if c.source == "buy"]
-    total_usd = _money(sum(p for _, p in buys)) if buys else 0.0
+    buys = [(c.name, c.price, c.qty) for _, c in final if c.source == "buy"]
+    total_usd = _money(sum(p * q for _, p, q in buys)) if buys else 0.0
     bt_sec = next((s for s in sections if s.type == "buy_total"), None)
     bdata = bt_sec.data if bt_sec is not None and isinstance(bt_sec.data, dict) else {}
     claimed_total = bdata.get("total_usd", bdata.get("total"))
@@ -599,8 +663,8 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
         except (TypeError, ValueError):
             fix("buy_total", f"Buy total is ${total_usd:.2f}; oracle's value was not a number.")
     bt_data = {**{k: v for k, v in bdata.items() if k not in ("total", "total_usd", "count", "cards")},
-               "total_usd": total_usd, "count": len(buys), "currency": "USD", "source": "scryfall",
-               "cards": [{"name": n, "price": p} for n, p in sorted(buys, key=lambda x: -x[1])],
+               "total_usd": total_usd, "count": sum(q for _, _, q in buys), "currency": "USD", "source": "scryfall",
+               "cards": [{"name": n, "price": p, "qty": q} for n, p, q in sorted(buys, key=lambda x: -x[1] * x[2])],
                "caps": {"no_budget": no_budget, "hard_cap": hard, "soft_cap": soft}}
     if bt_sec is None:
         sections.append(TheorySection(type="buy_total", title="Buy total", data=bt_data))
@@ -705,11 +769,35 @@ def list_docs(r, deck_id: str) -> List[dict]:
 # ---------------------------------------------------------------------------
 
 
+class PricesUnavailable(TheoryError):
+    """Scryfall prices could not be checked, so buys can't be verified."""
+
+
+def strict_prices(r, names: List[str], fetch: Optional[PriceFetch] = None) -> Dict[str, Optional[float]]:
+    """analytics.prices.card_prices, but a failed Scryfall fetch is an error instead of
+    silently looking like "unpriced" (which would drop every buy)."""
+    from . import prices as prices_mod
+
+    failed: List[BaseException] = []
+    base = fetch or prices_mod.scryfall_fetch
+
+    def guarded(stale):
+        try:
+            return base(stale)
+        except Exception as exc:  # noqa: BLE001
+            failed.append(exc)
+            raise
+
+    out = prices_mod.card_prices(r, names, fetch=guarded)
+    if failed and any(out.get(n) is None for n in names):
+        raise PricesUnavailable(f"Scryfall prices unavailable ({type(failed[0]).__name__}); try again later")
+    return out
+
+
 def generate(r, deck: Mapping, theme: str, commander_mode: str, client, *, lookup: Optional[Lookup] = None,
              fetch_prices: Optional[PriceFetch] = None, now: Optional[str] = None,
              doc_id: Optional[str] = None) -> dict:
     """Ask oracle, validate, verify, store. Returns the stored doc."""
-    from . import prices as prices_mod
     from . import insights
 
     owned = _owned(r)
@@ -727,7 +815,7 @@ def generate(r, deck: Mapping, theme: str, commander_mode: str, client, *, looku
     caps = journal_mod.effective_caps(r, rec)
     out = verify(doc, deck, owned=owned, caps=caps, pets=insights.pet_cards(r, dict(deck)),
                  lookup=lookup or scryfall_lookup,
-                 prices=lambda names: prices_mod.card_prices(r, names, fetch=fetch_prices), now=now)
+                 prices=lambda names: strict_prices(r, names, fetch=fetch_prices), now=now)
     return store(r, out)
 
 
@@ -764,11 +852,33 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any], **kw
     except Exception as exc:  # noqa: BLE001 - a job must always end in a state
         log.exception("theory job %s failed", job["job_id"])
         job.update(status="failed", error=f"{type(exc).__name__}: {str(exc)[:300]}", error_kind="internal")
+    finally:
+        release(job["deck_id"], job["job_id"])
     job["finished_at"] = _now_iso()
     return _save_job(r, job)
 
 
+def reserve(deck_id: str, job_id: str) -> None:
+    """Claim the deck's generation slot (one per deck, MAX_INFLIGHT overall) or raise TheoryBusy."""
+    with _INFLIGHT_LOCK:
+        if deck_id in _INFLIGHT:
+            raise TheoryBusy(f"a theory is already being written for this deck (job {_INFLIGHT[deck_id]})",
+                             per_deck=True)
+        if len(_INFLIGHT) >= MAX_INFLIGHT:
+            raise TheoryBusy(f"{MAX_INFLIGHT} theories are already being written; try again in a few minutes",
+                             per_deck=False)
+        _INFLIGHT[deck_id] = job_id
+
+
+def release(deck_id: str, job_id: Optional[str] = None) -> None:
+    with _INFLIGHT_LOCK:
+        if deck_id in _INFLIGHT and (job_id is None or _INFLIGHT[deck_id] == job_id):
+            del _INFLIGHT[deck_id]
+
+
 def new_job(r, deck: Mapping, theme: str, commander_mode: str) -> dict:
+    """Validate, reserve the deck's slot, and save a queued job. The caller must start it
+    (start_job / run_job release the slot) or call release()."""
     theme = (theme or "").strip()
     if not theme:
         raise TheoryError("theme is required")
@@ -776,10 +886,17 @@ def new_job(r, deck: Mapping, theme: str, commander_mode: str) -> dict:
         raise TheoryError(f"theme is at most {THEME_MAX} characters")
     if commander_mode not in COMMANDER_MODES:
         raise TheoryError(f"commander_mode must be one of {list(COMMANDER_MODES)}")
+    if not journal_mod.deck_entries(deck):
+        raise TheoryError("this deck has no decklist synced yet; sync it first")
     job = {"job_id": uuid.uuid4().hex[:12], "deck_id": _rid(deck), "deck_name": deck.get("name"),
            "theme": theme, "commander_mode": commander_mode, "status": "queued", "created_at": _now_iso(),
            "doc_id": uuid.uuid4().hex[:12]}
-    return _save_job(r, job)
+    reserve(job["deck_id"], job["job_id"])
+    try:
+        return _save_job(r, job)
+    except Exception:
+        release(job["deck_id"], job["job_id"])
+        raise
 
 
 def start_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any], **kw) -> threading.Thread:

@@ -68,10 +68,11 @@ FACTS = {"Kaalia of the Vast": "WBR", "Lyra Dawnbringer": "W", "Dragon Tempest":
          "Isshin, Two Heavens as One": "WBR"}
 FACTS.update({n: "W" for n in SPELLS})
 ILLEGAL = {"Banned Card"}
+CANT_COMMAND = {"Sol Ring", "Blue Card"}
 PRICES = {"Sol Ring": 1.5, "Free Agent Angel": 3.0, "Sleeved Demon": 12.0, "Pricey Dragon": 55.0,
           "Soft Cap Dragon": 20.0, "Cheap Buy": 2.25, "Unpriced Thing": None, "Lyra Dawnbringer": 4.0,
           "Dragon Tempest": 6.0, "Kaalia of the Vast": 3.0, "Kenrith, the Returned King": 1.0,
-          "Isshin, Two Heavens as One": 2.0}
+          "Isshin, Two Heavens as One": 2.0, "Sram, Senior Edificer": 1.25}
 PRICES.update({n: 0.5 for n in SPELLS})
 for b in ("Plains", "Swamp", "Mountain", "Island", "Forest"):
     PRICES[b] = 0.1
@@ -86,7 +87,8 @@ PETS = ["Dragon Tempest", "Lyra Dawnbringer"]
 
 
 def lookup(names):
-    return {n: {"name": n, "color_identity": FACTS[n], "legal": n not in ILLEGAL} for n in names if n in FACTS}
+    return {n: {"name": n, "color_identity": FACTS[n], "legal": n not in ILLEGAL, "commander_ok": n not in CANT_COMMAND}
+            for n in names if n in FACTS}
 
 
 def prices(names):
@@ -175,6 +177,19 @@ class SchemaTests(unittest.TestCase):
         with self.assertRaises(theory.TheoryParseError):
             theory.validate_doc({"deck_id": "x", "created_at": "t", "sections": [{"title": "no type"}]})
 
+    def test_unsupported_schema_version_is_rejected(self):
+        with self.assertRaises(theory.TheoryParseError):
+            theory.validate_doc({"schema_version": 2, "deck_id": "x", "created_at": "t"})
+        self.assertEqual(theory.validate_doc({"schema_version": 1, "deck_id": "x", "created_at": "t"}).schema_version,
+                         "1")
+
+    def test_can_command(self):
+        self.assertTrue(theory.can_command("Legendary Creature — Human", ""))
+        self.assertTrue(theory.can_command("Legendary Enchantment — Background", ""))
+        self.assertTrue(theory.can_command("Legendary Planeswalker — Teferi", "Teferi can be your commander."))
+        self.assertFalse(theory.can_command("Artifact", "{T}: Add {C}{C}."))
+        self.assertFalse(theory.can_command("Legendary Artifact", ""))
+
     def test_parse_reply_takes_last_json_block(self):
         text = "Here you go.\n```json\n{\"a\": 1}\n```\nprose\n```json\n{\"b\": 2}\n```\n"
         self.assertEqual(theory.parse_reply(text), {"b": 2})
@@ -258,6 +273,21 @@ class VerifyTests(unittest.TestCase):
         self.assertIn("duplicate", kinds(out))
         self.assertEqual(all_cards(out)["Plains"]["qty"], 13)
 
+    def test_bounded_copy_limits_and_multi_copy_buy_total(self):
+        FACTS.update({"Seven Dwarves": "R", "Hare Apparent": "W"})
+        PRICES.update({"Seven Dwarves": 0.25, "Hare Apparent": 0.5})
+        self.addCleanup(lambda: [d.pop(k, None) for d in (PRICES, FACTS) for k in ("Seven Dwarves", "Hare Apparent")])
+        extras = [card("Seven Dwarves", "buy", qty=9), card("Hare Apparent", "buy", qty=4)]
+        out = run_verify(raw_doc(base_groups(extras, drop=SPELLS[:11]), cuts=SPELLS[:11]))
+        cards = all_cards(out)
+        self.assertEqual(cards["Seven Dwarves"]["qty"], 7)  # "up to seven", not any number
+        self.assertEqual(cards["Hare Apparent"]["qty"], 4)
+        self.assertIn("duplicate", kinds(out))
+        bt = sec(out, "buy_total")["data"]
+        self.assertEqual(bt["total_usd"], round(7 * 0.25 + 4 * 0.5, 2))  # every copy is paid for
+        self.assertEqual(bt["count"], 11)
+        self.assertEqual(out["verification"]["counts"]["buy"], 11)
+
     def test_cuts_recomputed_from_the_real_diff(self):
         out = run_verify(raw_doc(base_groups([card("Cheap Buy", "buy")], drop=[SPELLS[0]]),
                                  cuts=["Not In Deck", SPELLS[5]]))
@@ -325,7 +355,39 @@ class CommanderModeTests(unittest.TestCase):
         self.assertTrue(out["verification"]["commander_changed"])
         cut_names = [c["name"] for c in sec(out, "cuts")["data"]["cards"]]
         self.assertEqual(cut_names[0], "Kaalia of the Vast")
+        self.assertEqual(cut_names.count("Kaalia of the Vast"), 1)  # deck.cards carries the commander too
+        self.assertTrue(sec(out, "cuts")["data"]["cards"][0]["commander"])
         self.assertIn("Swamp", cut_names)
+
+    def _swap_doc(self, new_cmdr):
+        groups = base_groups()
+        groups[0]["cards"] = [card(new_cmdr, "buy")]
+        cc = {"type": "commander_change", "title": "Swap", "data": {"new_commanders": [new_cmdr], "reason": "r",
+                                                                      "reuse_count": 1}}
+        return raw_doc(groups, commander_mode="open", sections_extra=[cc], cuts=["Kaalia of the Vast"])
+
+    def test_swap_to_illegal_or_ineligible_commander_is_reverted(self):
+        for bad, kind in (("Banned Card", "commander_illegal"), ("Sol Ring", "commander_ineligible"),
+                          ("Made Up Commander", "commander_unknown")):
+            out = run_verify(self._swap_doc(bad))
+            self.assertIn(kind, kinds(out), bad)
+            self.assertNotIn("commander_change", [s["type"] for s in out["sections"]])
+            self.assertEqual(out["verification"]["commanders"], ["Kaalia of the Vast"])
+            self.assertIn("Kaalia of the Vast", all_cards(out))  # the real commander is back in the list
+            self.assertNotIn(bad, all_cards(out) if bad != "Sol Ring" else {})
+
+    def test_swap_to_unpriced_or_over_cap_commander_is_reverted(self):
+        PRICES["Pricey Commander"] = 99.0
+        FACTS["Pricey Commander"] = "WBR"
+        FACTS["Unpriced Commander"] = "WBR"
+        self.addCleanup(lambda: [d.pop(k, None) for d in (PRICES, FACTS)
+                                 for k in ("Pricey Commander", "Unpriced Commander")])
+        for bad, kind in (("Pricey Commander", "commander_hard_cap"), ("Unpriced Commander", "commander_unpriced")):
+            out = run_verify(self._swap_doc(bad))
+            self.assertIn(kind, kinds(out))
+            self.assertFalse(out["verification"]["commander_changed"])
+            self.assertEqual(out["verification"]["commanders"], ["Kaalia of the Vast"])
+            self.assertIn("Kaalia of the Vast", all_cards(out))
 
 
 class StorageTests(unittest.TestCase):
@@ -453,6 +515,32 @@ class GenerateTests(unittest.TestCase):
             theory.new_job(self.r, DECK, "x", "swap")
         with self.assertRaises(theory.TheoryError):
             theory.new_job(self.r, DECK, "x" * 201, "keep")
+        with self.assertRaises(theory.TheoryError):  # a deck with no synced cards can't be overhauled
+            theory.new_job(self.r, {**DECK, "cards": []}, "x", "keep")
+
+    def test_scryfall_price_outage_fails_the_job_instead_of_dropping_buys(self):
+        def down(names):
+            raise ConnectionError("scryfall down")
+        job = theory.new_job(self.r, DECK, "angels", "keep")
+        out = theory.run_job(self.r, job, DECK, lambda: self.client, lookup=lookup, fetch_prices=down)
+        self.assertEqual(out["status"], "failed")
+        self.assertEqual(out["error_kind"], "PricesUnavailable")
+        self.assertEqual(theory.list_docs(self.r, DECK_ID), [])
+
+    def test_one_job_per_deck_and_global_limit(self):
+        job = theory.new_job(self.r, DECK, "angels", "keep")
+        with self.assertRaises(theory.TheoryBusy) as cm:
+            theory.new_job(self.r, DECK, "dragons", "keep")
+        self.assertTrue(cm.exception.per_deck)
+        others = []
+        for i in range(theory.MAX_INFLIGHT - 1):
+            others.append(theory.new_job(self.r, {**DECK, "registry_id": f"test:other{i}"}, "x", "keep"))
+        with self.assertRaises(theory.TheoryBusy) as cm:
+            theory.new_job(self.r, {**DECK, "registry_id": "test:one-too-many"}, "x", "keep")
+        self.assertFalse(cm.exception.per_deck)
+        for j in [job] + others:
+            theory.release(j["deck_id"], j["job_id"])
+        theory.release(theory.new_job(self.r, DECK, "again", "keep")["deck_id"])  # slot is free again
 
 
 # --- API -----------------------------------------------------------------------------
@@ -513,6 +601,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body["error_kind"], "oracle_offline")
         self.assertNotIn("Traceback", resp.text)
         self.assertFalse([k for k in self.r.store if k.startswith("theory_job:")])  # no orphan job
+        self.assertNotIn(DECK_ID, theory._INFLIGHT)  # slot released
+
+    def test_second_request_for_the_same_deck_is_409(self):
+        job = theory.new_job(self.r, DECK, "angels", "keep")
+        self.addCleanup(theory.release, job["deck_id"], job["job_id"])
+        with patch.object(self.app_mod, "_oracle_client", lambda: self.oracle):
+            resp = self.client.post(f"/api/decks/{DECK_ID}/theory", json={"theme": "dragons"})
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()["error_kind"], "busy")
 
     def test_oracle_not_configured_is_503(self):
         with patch.dict(os.environ, {"ORACLE_URL": "", "ORACLE_KEY": "", "INTERACTIONS_SECRETS_DIR": "/nonexistent"}):
@@ -538,12 +635,30 @@ class SkillContractTests(unittest.TestCase):
     SCHEMA = ROOT / "docs" / "oracle" / "deck-theory" / "references" / "theory.schema.json"
 
     def test_skill_example_validates(self):
+        import jsonschema
+
         text = self.SKILL.read_text(encoding="utf-8")
         self.assertIn("name: deck-theory", text)
         example = theory.parse_reply(text.split("## Output shape", 1)[1])
+        schema = json.loads(self.SCHEMA.read_text(encoding="utf-8"))
+        jsonschema.Draft202012Validator.check_schema(schema)
+        jsonschema.Draft202012Validator(schema).validate(example)  # the contract oracle is held to
+        # and the app's (more lenient) model accepts it
         example.update(deck_id=DECK_ID, created_at="2026-10-12T00:00:00+00:00")
         doc = theory.validate_doc(example)
         self.assertEqual([s.type for s in doc.sections][:4], ["thesis_pillars", "decklist", "cuts", "buy_total"])
+
+    def test_json_schema_rejects_bad_known_sections_but_allows_unknown_types(self):
+        import jsonschema
+
+        v = jsonschema.Draft202012Validator(json.loads(self.SCHEMA.read_text(encoding="utf-8")))
+        ok = {"schema_version": "1", "sections": [{"type": "future_thing", "title": "x", "data": [1, 2]}]}
+        v.validate(ok)
+        for bad in ({"schema_version": "2", "sections": ok["sections"]},
+                    {"schema_version": "1", "sections": [{"type": "buy_total", "title": "t", "data": {}}]},
+                    {"schema_version": "1", "sections": [{"type": "decklist", "title": "t", "data": {"groups": [
+                        {"role": "x", "cards": [{"name": "a", "source": "stolen"}]}]}}]}):
+            self.assertFalse(v.is_valid(bad), bad)
 
     def test_json_schema_lists_v1_types(self):
         schema = json.loads(self.SCHEMA.read_text(encoding="utf-8"))

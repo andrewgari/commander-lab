@@ -1927,13 +1927,21 @@ async def api_theory_generate(deck_id: str, request: Request):
     mode = body.get("commander_mode") or "keep"
     try:
         job = theory_mod.new_job(r, deck, theme, mode)
+    except theory_mod.TheoryBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
     except theory_mod.TheoryError as exc:
         return _bad_request(exc)
     offline = await asyncio.to_thread(_oracle_preflight)
     if offline is not None:
+        theory_mod.release(job["deck_id"], job["job_id"])
         r.delete(theory_mod.job_key(job["job_id"]))
         return offline
-    theory_mod.start_job(r, job, deck, _oracle_client)
+    try:
+        theory_mod.start_job(r, job, deck, _oracle_client)
+    except Exception:
+        theory_mod.release(job["deck_id"], job["job_id"])
+        raise
     return JSONResponse(status_code=202, content={
         "success": True, "job_id": job["job_id"], "status": job["status"],
         "status_url": f"/api/decks/{urllib.parse.quote(_theory_deck_id(deck), safe='')}/theory/jobs/{job['job_id']}"})

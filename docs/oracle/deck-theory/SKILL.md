@@ -43,7 +43,10 @@ best effort; the app's are the truth. Spend your effort on the build, not on boo
    over `caps.soft_cap` is allowed only with a one-line justification in `why`. Every buy needs a
    Scryfall USD price; if a card has none, don't buy it.
 4. **Commander mode.** `keep`: the commander(s) stay; do NOT emit a `commander_change` section.
-   `open`: you may swap the commander if the theme is clearly better served. If you swap, emit
+   `open`: you may swap the commander if the theme is clearly better served. The new commander
+   must be Commander-legal, able to command (legendary creature, Background, or "can be your
+   commander"), and, if bought, priced and under the hard cap; otherwise the app reverts the
+   swap. If you swap, emit
    `commander_change` with `new_commanders`, `reason`, and `reuse_count`. If you don't swap,
    omit the section.
 5. **Pets are kept.** Every `journal.pet_cards` card stays in the list, unless a commander swap
