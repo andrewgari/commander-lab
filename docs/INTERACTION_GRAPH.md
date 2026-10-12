@@ -85,3 +85,7 @@ billing data.
 The app reads LLM keys from the environment, or from one file per key in
 `/run/commander-lab-secrets` (bind-mounted read-only from
 `/mnt/user/appdata/commander-lab/secrets` on Tower, root-only). See docs/GITOPS.md.
+
+## Engines and combos (AN-2)
+
+Engine detection on deck graphs and the Commander Spellbook integration are documented in docs/ENGINES_AND_COMBOS.md.

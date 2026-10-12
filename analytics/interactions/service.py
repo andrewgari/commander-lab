@@ -13,6 +13,8 @@ Redis keys:
     interaction_graph:deck:{registry_id} materialized deck graph
     interaction_graph:collection        collection graph (nodes + resource index)
     interactions:runs                   last 200 run logs (JSON, newest first)
+    interactions:engine_names           LLM engine names per signature, no TTL (AN-2)
+    spellbook:fmc:{sha1}                Commander Spellbook find-my-combos per decklist (combos.py)
     interactions:rebuild_lock           single-flight lock (TTL)
     interactions:rebuild_rerun          set when a trigger arrives during a rebuild
 """
@@ -27,6 +29,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional
 
+from . import engines as engines_mod
 from . import graph as graph_mod
 from .llm import LLMChain, default_chain
 from .tagger import InteractionTagger, ScryfallSource
@@ -36,6 +39,7 @@ log = logging.getLogger("commander_lab.interactions")
 
 DECK_GRAPH_PREFIX = "interaction_graph:deck:"
 COLLECTION_GRAPH_KEY = "interaction_graph:collection"
+ENGINE_NAMES_KEY = "interactions:engine_names"
 RUNS_KEY = "interactions:runs"
 LOCK_KEY = "interactions:rebuild_lock"
 RERUN_KEY = "interactions:rebuild_rerun"
@@ -192,11 +196,13 @@ def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[L
         tagger = _make_tagger(r, scryfall, llm)
         tags = tagger.tag_cards(all_names, run)
 
+        deck_graphs = []
         for d in decks:
             g = build_deck_graph(d, tags)
             g["run_id"] = run.run_id
             r.set(DECK_GRAPH_PREFIX + _registry_id(d), json.dumps(g))
             run.graphs_built += 1
+            deck_graphs.append(g)
 
         if not deck_ids:
             coll = graph_mod.build_collection_graph(owned, tags, meta={
@@ -206,6 +212,7 @@ def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[L
             r.set(COLLECTION_GRAPH_KEY, json.dumps(coll))
             run.graphs_built += 1
             run.extra["collection_counts"] = coll["counts"]
+        run.extra["engine_naming"] = _name_new_engines(r, deck_graphs, tagger.llm, run)
         run.status = "ok"
     except Exception as exc:  # noqa: BLE001 - the run log must record the failure
         log.exception("interaction graph rebuild failed")
@@ -287,6 +294,75 @@ def get_deck_graph(r, deck: dict) -> dict:
 def get_collection_graph(r) -> Optional[dict]:
     raw = r.get(COLLECTION_GRAPH_KEY)
     return json.loads(raw) if raw else None
+
+
+# ---------------------------------------------------------------------------
+# Engines (AN-2) -- see analytics/interactions/engines.py
+# ---------------------------------------------------------------------------
+
+
+def load_engine_names(r) -> Dict[str, dict]:
+    raw = r.get(ENGINE_NAMES_KEY)
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _name_new_engines(r, deck_graphs: List[dict], chain: Optional[LLMChain], run: "RunLog") -> dict:
+    """Detect engines on the freshly built deck graphs and ask the LLM chain to
+    name signatures neither the catalog nor the name cache covers. One call
+    per rebuild at most; names are cached forever, so a signature costs one
+    call ever. A failed call leaves the signature generic (retried next run)."""
+    cache = load_engine_names(r)
+    engines = []
+    for g in deck_graphs:
+        engines.extend(engines_mod.detect_engines(g))
+    todo_sigs = engines_mod.unnamed_signatures(engines, cache)
+    stats = {"engines": len(engines), "unnamed": len(todo_sigs), "named": 0, "provider": None}
+    if not todo_sigs or chain is None or not chain.available():
+        return stats
+    todo = [next(e for e in engines if e["signature"] == s) for s in todo_sigs]
+    try:
+        names = engines_mod.llm_name_signatures(chain, todo, on_call=run.add_llm_call)
+    except Exception as exc:  # noqa: BLE001 - naming is best effort
+        log.warning("engine naming failed: %s", exc)
+        stats["error"] = str(exc)[:200]
+        return stats
+    if names:
+        stamp = _now()
+        for rec in names.values():
+            rec["named_at"] = stamp
+        cache.update(names)
+        r.set(ENGINE_NAMES_KEY, json.dumps(cache))
+        stats["named"] = len(names)
+        stats["provider"] = next(iter(names.values())).get("provider")
+    return stats
+
+
+def get_deck_engines(r, deck: dict, graph: Optional[dict] = None) -> dict:
+    """Engines for one deck, from its (current) interaction graph. Pure math
+    on the graph plus cached names; never calls the LLM."""
+    g = graph or get_deck_graph(r, deck)
+    engines = engines_mod.name_engines(engines_mod.detect_engines(g), load_engine_names(r))
+    in_engines = sorted({c for e in engines for c in e["cards"]})
+    names = [n["name"] for n in g.get("nodes", [])]
+    return {
+        "deck": g.get("deck") or {"registry_id": _registry_id(deck), "name": deck.get("name")},
+        "graph_built_at": g.get("built_at"),
+        "graph_stale": bool(g.get("stale")),
+        "counts": {
+            "engines": len(engines),
+            "chains": sum(1 for e in engines if e["kind"] == "chain"),
+            "loops": sum(1 for e in engines if e["kind"] == "loop"),
+            "cards_in_engines": len(in_engines),
+            "cards": len(names),
+        },
+        "engines": engines,
+        "cards_outside_engines": sorted(set(names) - set(in_engines)),
+    }
 
 
 class _NoScryfall:
