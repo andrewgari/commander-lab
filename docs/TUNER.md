@@ -48,7 +48,8 @@ A cut is scored with the same formula, so "gap" always compares like with like.
   when "Include sleeved-elsewhere" is on) plus every card on the commander's
   EDHREC page. They must be inside the colour identity and not already in
   this deck. A buy needs a Scryfall USD price (an unpriced card can't be
-  bought).
+  bought). A card sleeved in another deck also has to pass the steal rule
+  below.
 - **Role**: a cut in a functional row (ramp, card advantage, targeted or
   mass disruption) is only replaced by a card in one of the same rows. A
   Plan cut takes any non-land card. Role-bound cuts pick first, so a Plan
@@ -68,6 +69,45 @@ A cut is scored with the same formula, so "gap" always compares like with like.
 - **Modes**: Owned first (default) · Owned only (no buys) · Best regardless
   (the higher score wins, caps still apply).
 - **Pet notice (D7)**: one quiet row for the weakest pet.
+
+## Steal rule (AN-8)
+
+Taking X from another deck B for this deck A is only suggested when B gets a
+replacement Y and the trade is good for both decks:
+
+- **Y** is one of: an owned card in no deck (`available > 0`), the card A is
+  cutting for X, or a basic land in B's colours (basics are assumed owned and
+  are exempt from singleton; Wastes only for a colourless deck).
+- **Legal in B**: inside B's colour identity, not already in B, and it keeps
+  X's job in B (the same role rule as A's cuts: a land for a land, removal
+  for removal, any non-land for a plan card).
+- **Never pulled**: B's pets and B's commander.
+- **Scores**: A's score must improve (`receiver_delta` = X's score in A
+  minus the cut's, always ≥ `MIN_UPGRADE`). B is scored with the same
+  `score()` but B's own inputs: B's graph edges and p75, B's pillars, B's
+  commander's EDHREC page (cached only, never fetched for B) and card2vec
+  against B. The trade is shown only when `score_B(Y) ≥ score_B(X)`
+  (`donor_delta ≥ 0`, so a fair 1-for-1 is fine). The best Y wins (ties:
+  free card, then A's cut, then a basic). Price never matters for Y: it is
+  owned, so it costs $0.
+- **No fair Y**: the sleeved card is dropped and the next-best option takes
+  its place (a free card, another sleeved card that passes, or a buy).
+  `counts.steals_dropped` says how many were dropped.
+- A free card promised to one donor deck isn't offered again, either as
+  another donor's Y or as an add for A.
+- One hop only: A takes from B; B never takes from C. When X is sleeved in
+  several decks, the deck with the best `donor_delta` is the donor.
+- Shape fixes list a sleeved-elsewhere card only when it passes the same
+  check, e.g. "Minas Tirith (in Adventure After Elevensies; it gets Forest,
+  +0.00)".
+
+The UI shows one line under the options: **Take X from B → B gets Y
+(+0.40)**, and the change list's physical moves say "Pull X from B; put Y in
+it". The Deck Salvager's "steal" status (`salvage.py`) is a separate report
+and is unchanged.
+
+Donor contexts are built lazily per deck (`DonorBook`), read-only from Redis:
+the only write is the embedding vector cache, as for A.
 
 Caps come from the deck's Journal (`budget_constraints.hard_cap` /
 `soft_cap`), else the global default (`journal:defaults`, $30/$10 unless
@@ -99,7 +139,11 @@ on_plan}, own|null, buy|null, gap, pick: own|buy, verdict:
 owned|keep_yours|worth_buying|owned_good_enough|buy|best, near_buy|null,
 hidden_hard, soft_note|null, why|null, decision, decision_add}`. An option
 is `{name, score, pillar, source: free|deck|buy, deck, price, cap:
-soft|null, on_plan}`.
+soft|null, on_plan}`. A `source: deck` option (AN-8) also carries
+`{donor_deck, donor_replacement, donor_replacement_source: free|cut|basic,
+donor_before, donor_after, donor_delta, receiver_delta, steal_line}`. Each
+shape fix carries `steals: [{name, donor_deck, donor_replacement, ...,
+steal_line}]`. `counts` adds `steals` and `steals_dropped`.
 
 ## Redis
 

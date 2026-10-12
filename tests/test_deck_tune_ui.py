@@ -108,6 +108,13 @@ class TestTunePage(_TunePage, unittest.TestCase):
         # Fit is one of three inputs; without the cut's score a 0.56 add next to "Fit 0.61" looks like a downgrade.
         self.assertIn("s.cut.score.toFixed(2)", self.body)
 
+    def test_a_steal_shows_what_the_donor_deck_gets(self):
+        # AN-8: one line under the options, "Take X from B → B gets Y (+0.40)", from the tuner's steal_line.
+        self.assertIn("s.own.steal_line", self.body)
+        self.assertIn('class="tn-steal"', self.body)
+        self.assertIn("esc(stealO.steal_line)", self.body)
+        self.assertIn('"; put " + esc(m.give) + " in it"', self.body)
+
 
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
     def test_finish_button_label(self):
@@ -204,7 +211,8 @@ global.window = {};
 eval(fs.readFileSync(process.argv[1], 'utf8'));
 eval(fs.readFileSync(process.argv[2], 'utf8'));
 const A = window.DeckAnalytics;
-const own = { name: 'Combat Celebrant', source: 'deck', deck: 'Dawnbringer', score: 0.77, price: 0, on_plan: true };
+const own = { name: 'Combat Celebrant', source: 'deck', deck: 'Dawnbringer', score: 0.77, price: 0, on_plan: true,
+              donor_deck: 'Dawnbringer', donor_replacement: 'Ob Nixilis, Unshackled', donor_delta: 0.02 };
 const free = { name: 'Sword of Feast and Famine', source: 'free', score: 0.81, price: 0, on_plan: true };
 const buy = { name: 'Moraug, Fury of Akoum', source: 'buy', price: 6.4, score: 0.79, on_plan: true };
 const tune = { on_plan: { pct: 71, on: 71, total: 100 }, swaps: [
@@ -256,7 +264,9 @@ process.stdout.write(JSON.stringify(out));
         self.assertEqual(self.out["L"]["onPlan"], [71, 74])
 
     def test_physical_moves_from_other_decks(self):
-        self.assertEqual(self.out["L"]["moves"], [{"name": "Combat Celebrant", "from": "Dawnbringer"}])
+        # AN-8: a move out of another deck names what that deck gets back.
+        self.assertEqual(self.out["L"]["moves"], [{"name": "Combat Celebrant", "from": "Dawnbringer",
+                                                   "give": "Ob Nixilis, Unshackled"}])
 
     def test_copy_text(self):
         t = self.out["text"].split("\n")

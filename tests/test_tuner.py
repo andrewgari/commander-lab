@@ -87,6 +87,20 @@ def swap(out, cut):
     return next((s for s in out["swaps"] if s["cut"]["name"] == cut), None)
 
 
+def inp(edges, fit, inc, rows=("plan",), land=False, color="W", owned=True, available=1, played=None):
+    """A card's score inputs in the DONOR deck (AN-8)."""
+    return {"edges": edges, "fit": fit, "inclusion": inc, "rows": list(rows), "land": land, "color": color,
+            "owned": owned, "available": available, "played": played}
+
+
+def donor(name="Dawnbringer", colors="WRG", cards=None, cands=None, pets=(), p75=4.0):
+    """A hand-built donor-deck context (what DonorBook builds from Redis)."""
+    cards = dict(cards or {})
+    return {"name": name, "colors": colors, "commanders": ["Dawnbringer Cleric"],
+            "in_deck": set(cards) | {"Dawnbringer Cleric"}, "pets": set(pets), "p75": p75, "has_pillars": True,
+            "has_edhrec": True, "played_neutral": None, "cards": cards, "cands": dict(cands or {})}
+
+
 class TestScore(unittest.TestCase):
     def test_score_is_the_mean_of_the_parts_that_exist(self):
         # edges 2/4 = 0.5, fit 0.8, edhrec 0.25/0.5 = 0.5 -> 0.6
@@ -140,10 +154,14 @@ class TestOwnedFirst(unittest.TestCase):
 
     def test_owned_elsewhere_is_labelled_and_can_be_turned_off(self):
         c = [cand("Sleeved Elsewhere", 4, 0.9, 0.4, owned=True, available=0, decks=["Dawnbringer"])]
-        s = swap(build(c), "Weak Plan")
+        donors = {"Dawnbringer": donor(cards={"Sleeved Elsewhere": inp(2, 0.5, 0.2)},
+                                       cands={"Box Card": inp(2, 0.6, 0.25)})}
+        s = swap(build(c, donors=donors), "Weak Plan")
         self.assertEqual(s["own"]["source"], "deck")
         self.assertEqual(s["own"]["deck"], "Dawnbringer")
-        self.assertIsNone(swap(build(c, sleeved=False), "Weak Plan"))
+        self.assertIsNone(swap(build(c, sleeved=False, donors=donors), "Weak Plan"))
+        # AN-8: with no donor data the trade can't be checked, so it isn't offered.
+        self.assertIsNone(swap(build(c), "Weak Plan"))
 
     def test_buy_only_when_nothing_owned_fits(self):
         s = swap(build([cand("Buy Bomb", 4, 0.9, 0.5, price=3.0)]), "Weak Plan")
@@ -233,6 +251,177 @@ class TestPriceCaps(unittest.TestCase):
         journal.save_journal(r, DECK, {"budget_constraints": {"hard_cap": 40, "soft_cap": 15}})
         caps = tuner.caps_for(r, DECK)
         self.assertEqual((caps["hard_cap"], caps["soft_cap"], caps["hard_source"]), (40.0, 15.0, "deck"))
+
+
+class TestStealRule(unittest.TestCase):
+    """AN-8: a card sleeved in deck B is offered to deck A only with a
+    replacement Y for B (a free owned card, A's cut card, or a basic) that
+    leaves B's score >= before. Scores use B's own inputs:
+    score = mean(edges / p75, fit, inclusion / 0.50), p75 = 4 here."""
+
+    X = "Sleeved Bomb"
+
+    def steal_cand(self, decks=("Dawnbringer",), **kw):
+        return cand(self.X, 4, 0.9, 0.4, owned=True, available=0, decks=decks, **kw)
+
+    def test_a_free_agent_replacement_is_shown(self):
+        # B: X = (2/4 + 0.5 + 0.2/0.5)/3 = 0.4667; free Y = (0.5 + 0.6 + 0.5)/3 = 0.5333.
+        d = donor(cards={self.X: inp(2, 0.5, 0.2)}, cands={"Box Card": inp(2, 0.6, 0.25),
+                                                           "Worse Box Card": inp(0, 0.2, 0.0)})
+        out = build([self.steal_cand()], donors={"Dawnbringer": d})
+        own = swap(out, "Weak Plan")["own"]
+        self.assertEqual((own["name"], own["source"], own["deck"]), (self.X, "deck", "Dawnbringer"))
+        self.assertEqual(own["donor_deck"], "Dawnbringer")
+        self.assertEqual(own["donor_replacement"], "Box Card")          # the best valid Y
+        self.assertEqual(own["donor_replacement_source"], "free")
+        self.assertAlmostEqual(own["donor_delta"], 0.0667, places=3)
+        cut_score = swap(out, "Weak Plan")["cut"]["score"]
+        self.assertAlmostEqual(own["receiver_delta"], round(own["score"] - cut_score, 4), places=4)
+        self.assertGreater(own["receiver_delta"], 0)
+        self.assertEqual(own["steal_line"], "Take Sleeved Bomb from Dawnbringer \u2192 Dawnbringer gets Box Card (+0.07)")
+        self.assertEqual(out["counts"]["steals"], 1)
+
+    def test_the_cut_card_is_a_replacement_when_b_is_no_worse(self):
+        # Only Y is A's cut (Weak Plan, in deck A so not free): same score in B -> a fair 1-for-1, shown.
+        d = donor(cards={self.X: inp(2, 0.5, 0.2)},
+                  cands={"Weak Plan": inp(2, 0.5, 0.2, available=0), "Worse Box Card": inp(0, 0.2, 0.0)})
+        own = swap(build([self.steal_cand()], donors={"Dawnbringer": d}), "Weak Plan")["own"]
+        self.assertEqual(own["donor_replacement"], "Weak Plan")
+        self.assertEqual(own["donor_replacement_source"], "cut")
+        self.assertEqual(own["donor_delta"], 0.0)
+        self.assertIn("(+0.00)", own["steal_line"])
+        # A's cut is only a Y for the swap that cuts it: a card in A that isn't the cut is never a Y.
+        self.assertIsNone(tuner.donor_trade(self.X, d, cut="Okay Plan"))
+
+    def test_a_basic_land_replaces_a_land(self):
+        # A is short on lands; B has the dual. B gets a basic in its colours (Plains), never an off-colour one.
+        d = donor(cards={"Sleeved Dual": inp(0, None, 0.1, rows=("lands",), land=True)},
+                  cands={"Island": inp(0, None, 0.5, land=True), "Plains": inp(0, None, 0.1, land=True),
+                         "Box Spell": inp(4, 0.9, 0.5)})            # a spell never replaces a land
+        dual = cand("Sleeved Dual", 0, None, 0.4, owned=True, available=0, decks=["Dawnbringer"], rows=("lands",),
+                    land=True)
+        out = build([dual], donors={"Dawnbringer": d})
+        lands = next(f for f in out["fixes"] if f["key"] == "lands")
+        self.assertEqual(lands["owned"], ["Sleeved Dual"])
+        st = lands["steals"][0]
+        self.assertEqual((st["donor_replacement"], st["donor_replacement_source"]), ("Plains", "basic"))
+        self.assertEqual(st["steal_line"], "Take Sleeved Dual from Dawnbringer \u2192 Dawnbringer gets Plains (+0.00)")
+        self.assertIn("Sleeved Dual (in Dawnbringer; it gets Plains, +0.00)", lands["advice"])
+
+    def test_no_swap_when_every_replacement_makes_b_worse(self):
+        d = donor(cards={self.X: inp(4, 0.8, 0.4)},
+                  cands={"Box Card": inp(1, 0.4, 0.1), "Weak Plan": inp(0, 0.3, 0.0, available=0),
+                         "Plains": inp(0, None, 0.0, land=True)})
+        donors = {"Dawnbringer": d}
+        self.assertIsNone(swap(build([self.steal_cand()], donors=donors), "Weak Plan"))
+        # The next-best option takes its place: a free owned card, else a buy.
+        out = build([self.steal_cand(), cand("Owned Meh", 3, 0.6, 0.2, owned=True, available=1)], donors=donors)
+        own = swap(out, "Weak Plan")["own"]
+        self.assertEqual((own["name"], own["source"]), ("Owned Meh", "free"))
+        self.assertNotIn("donor_deck", own)
+        self.assertEqual(out["counts"]["steals_dropped"], 1)
+        s = swap(build([self.steal_cand(), cand("Buy Bomb", 4, 0.9, 0.5, price=3.0)], donors=donors), "Weak Plan")
+        self.assertIsNone(s["own"])
+        self.assertEqual(s["buy"]["name"], "Buy Bomb")
+        # Nor is it listed as "sleeved elsewhere" in a shape fix.
+        ramp = cand(self.X, 4, 0.9, 0.4, owned=True, available=0, decks=["Dawnbringer"], rows=("ramp",))
+        fix = next(f for f in build([ramp], donors=donors)["fixes"] if f["key"] == "ramp")
+        self.assertEqual((fix["owned"], fix["steals"], fix["action"]), ([], [], None))
+        self.assertNotIn(self.X, fix["advice"])
+
+    def test_replacement_must_be_legal_in_b(self):
+        d = donor(colors="WRG", cards={self.X: inp(2, 0.5, 0.2), "Already Here": inp(1, 0.2, 0.0)},
+                  cands={"Blue Card": inp(4, 0.9, 0.5, color="U"), "Already Here": inp(4, 0.9, 0.5),
+                         "Swamp": inp(4, 0.9, 0.5, land=True)})
+        self.assertIsNone(tuner.donor_trade(self.X, d))                  # off-identity, a duplicate, off-colour basic
+        self.assertIsNone(swap(build([self.steal_cand()], donors={"Dawnbringer": d}), "Weak Plan"))
+        d["cands"]["Green Card"] = inp(2, 0.6, 0.25, color="G")
+        self.assertEqual(tuner.donor_trade(self.X, d)["donor_replacement"], "Green Card")
+        # A cut card outside B's colours is rejected too.
+        d2 = donor(colors="WRG", cards={self.X: inp(2, 0.5, 0.2)},
+                   cands={"Weak Plan": inp(4, 0.9, 0.5, color="B", available=0)})
+        self.assertIsNone(tuner.donor_trade(self.X, d2, cut="Weak Plan"))
+
+    def test_a_pet_in_b_is_never_stolen(self):
+        d = donor(cards={self.X: inp(0, 0.1, 0.0)}, cands={"Box Card": inp(4, 0.9, 0.5)}, pets=[self.X])
+        self.assertIsNone(tuner.donor_trade(self.X, d))
+        out = build([self.steal_cand()], donors={"Dawnbringer": d})
+        self.assertIsNone(swap(out, "Weak Plan"))
+        self.assertNotIn(self.X, json.dumps(out["swaps"]))
+        # ... nor B's commander.
+        d["pets"] = set()
+        d["commanders"] = [self.X]
+        self.assertIsNone(tuner.donor_trade(self.X, d))
+
+    def test_y_keeps_xs_role_in_b(self):
+        d = donor(cards={self.X: inp(2, 0.5, 0.2, rows=("targeted_disruption",))},
+                  cands={"Box Plan": inp(4, 0.9, 0.5)})
+        self.assertIsNone(tuner.donor_trade(self.X, d))
+        d["cands"]["Box Removal"] = inp(2, 0.5, 0.2, rows=("targeted_disruption",))
+        self.assertEqual(tuner.donor_trade(self.X, d)["donor_replacement"], "Box Removal")
+
+    def test_best_donor_deck_wins_and_a_free_y_is_promised_once(self):
+        worse = donor(name="Worse Deck", cards={self.X: inp(2, 0.5, 0.2)}, cands={"Box Card": inp(2, 0.5, 0.2)})
+        better = donor(name="Dawnbringer", cards={self.X: inp(2, 0.5, 0.2)}, cands={"Box Card": inp(4, 0.6, 0.25)})
+        own = swap(build([self.steal_cand(decks=("Worse Deck", "Dawnbringer"))],
+                         donors={"Worse Deck": worse, "Dawnbringer": better}), "Weak Plan")["own"]
+        self.assertEqual((own["donor_deck"], own["deck"]), ("Dawnbringer", "Dawnbringer"))
+        # Two steals that both need the one free Box Card: only the first gets it.
+        two = [self.steal_cand(), cand("Sleeved Removal", 4, 0.9, 0.4, owned=True, available=0, decks=["Dawnbringer"],
+                                       rows=("targeted_disruption",))]
+        d = donor(cards={self.X: inp(2, 0.5, 0.2), "Sleeved Removal": inp(2, 0.5, 0.2)},
+                  cands={"Box Card": inp(2, 0.6, 0.25, rows=("targeted_disruption",))})
+        out = build(two, donors={"Dawnbringer": d})
+        got = [s["own"]["donor_replacement"] for s in out["swaps"] if s["own"]]
+        self.assertEqual(got, ["Box Card"])
+        # A free card given to B isn't also offered to A (ramp cut "Weak Removal" can't take it either).
+        out = build([self.steal_cand(), cand("Box Card", 4, 0.9, 0.4, owned=True, available=1,
+                                             rows=("targeted_disruption",))],
+                    donors={"Dawnbringer": donor(cards={self.X: inp(2, 0.5, 0.2)},
+                                                 cands={"Box Card": inp(2, 0.6, 0.25)})})
+        adds = [s["own"]["name"] for s in out["swaps"] if s["own"]]
+        ys = [s["own"].get("donor_replacement") for s in out["swaps"] if s["own"]]
+        self.assertEqual(adds.count("Box Card") + ys.count("Box Card"), 1)
+
+    def test_donor_book_scores_b_from_redis_read_only(self):
+        """DonorBook builds B's context from Redis (fixtures in a FakeRedis), and only reads."""
+        r = FakeRedis()
+        b = {"id": 3503874, "registry_id": "archidekt:3503874", "name": "Dawnbringer", "color": "WRG",
+             "commanders": ["Dawnbringer Cleric"],
+             "cards": [{"name": n, "quantity": 1} for n in ("Dawnbringer Cleric", self.X, "Combat Celebrant")]
+             + [{"name": "Plains", "quantity": 10}]}
+        r.set("decks", json.dumps([DECK, b]))
+        for n, color, t in ((self.X, "W", "Creature"), ("Combat Celebrant", "R", "Creature"),
+                            ("Box Card", "G", "Creature"), ("Blue Card", "U", "Creature")):
+            r.set(f"card_meta:{n}", json.dumps({"type": t, "color": color, "super_types": [], "oracle_text": ""}))
+        for i, (n, status, deck_name) in enumerate(((self.X, "in_deck", "Dawnbringer"),
+                                                    ("Box Card", "in_collection", ""),
+                                                    ("Blue Card", "in_collection", ""))):
+            r.set(f"instance:{i}", json.dumps({"card_name": n, "ownership_status": status, "deck_name": deck_name}))
+        journal.save_journal(r, b, {"pet_cards": ["Combat Celebrant"]})
+        before = dict(r.store)
+
+        class NoEmbed:
+            def available(self):
+                return False
+
+        book = tuner.DonorBook(r, DECK, embedder=NoEmbed())
+        ctx = book.get("Dawnbringer")
+        self.assertEqual(ctx["colors"], "WRG")
+        self.assertEqual(ctx["pets"], {"Combat Celebrant"})
+        self.assertIn(self.X, ctx["cards"])
+        self.assertIn("Box Card", ctx["cands"])                         # free + in identity
+        self.assertNotIn("Blue Card", ctx["cands"])                     # off identity
+        self.assertIn("Mountain", ctx["cands"])                         # basics in B's colours
+        self.assertIn("Plains", ctx["cands"])                           # basics are exempt from singleton
+        self.assertNotIn("Island", ctx["cands"])
+        self.assertNotIn("Wastes", ctx["cands"])                        # only for a colourless deck
+        self.assertIsNone(book.get("Holy Hellfire"))                    # the receiver is never a donor
+        self.assertIsNone(book.get("No Such Deck"))
+        t = tuner.donor_trade(self.X, ctx)
+        self.assertIsNotNone(t)
+        self.assertGreaterEqual(t["donor_delta"], 0)
+        self.assertEqual(r.store, before)                               # nothing written to Redis
 
 
 class TestCutsAndPets(unittest.TestCase):
