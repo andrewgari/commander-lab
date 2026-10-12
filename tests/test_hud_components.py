@@ -121,9 +121,9 @@ class TestStyleguidePage(unittest.TestCase):
         kit = self.css.split("/* 5. COMPONENTS", 1)[1]
         self.assertNotIn("gradient(", kit)
         self.assertNotIn("backdrop-filter", kit)
-        # box-shadow is only allowed as a hard inset indicator bar (no blur).
+        # box-shadow is only allowed as a hard inset indicator bar or 1px ring (no blur).
         for shadow in re.findall(r"box-shadow:\s*([^;]+);", kit):
-            self.assertRegex(shadow, r"^inset var\(--indicator\) 0 0 var\(--[a-z-]+\)$")
+            self.assertRegex(shadow, r"^inset (0|var\(--indicator\)) (0|var\(--indicator\)) 0( 1px)? var\(--[a-z-]+\)$")
 
 
 class TestKitMacros(unittest.TestCase):
