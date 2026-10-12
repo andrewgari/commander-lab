@@ -109,8 +109,9 @@ The existing tokens are unchanged. No new colours: the graph uses
   `hud-checkin-head`/`hud-checklist`/`hud-check`, `hud-swap`/`hud-opts`/`hud-opt`,
   `hud-why`, `hud-fix`, `hud-changes`, `hud-combos`, `hud-kbd`, `hud-freshness`.
 - Add the matching Jinja macros to `partials/hud.html` **only** where a
-  surface is server-rendered (Journal form, Identity). Stats and Tune render
-  from JSON, like the deck view does now.
+  surface is server-rendered (the Journal form). Stats, Identity and Tune
+  render from JSON, like the deck view does now. (Identity moved to JSON in
+  AN-4, because every edit needs the rescored payload; approved in AN-4R.)
 
 ### 2.5 Motion vocabulary (that's all of it)
 
@@ -152,7 +153,7 @@ Order, top to bottom. It answers "what is this deck" before "what's wrong
 with it".
 
 1. **Stat strip** (`HUD.stat` ×6). The first tile is `hero signal`:
-   On-plan %, Engines (`{loops} loops · {clusters} clusters`), Edges
+   On-plan %, Engines (`{loops} loops · {chains} chains`), Edges
    (`{per card}`), EDHREC overlap % ("lower = more yours"), Combos (in deck,
    `+N one card away`), and Avg CMC.
 2. **01 Interactions:** the graph block (§3.1.1–3.1.5) plus the Isolated tray.
@@ -170,7 +171,8 @@ At ≤ 640px, see §3.1.5.
 
 **Data in:** `nodes[{id: card name, degree}]` and
 `edges[{source, target, reasons[]}]`, where *source's output feeds target's
-input* (directed). `engines[{id, name, flow, kind: loop|cluster, pillar|null, cards[]}]`.
+input* (directed). `engines[{id, name, flow, kind: chain|loop, pillar|null, cards[]}]`
+(AN-2 shape; the pillar is the majority AN-3 fit pillar among members at ≥ 40%).
 
 **Default filter:** cards whose **only** edges are mana/land reasons
 (`mana`, `land`, `ramp`) are hidden. The "Show mana" checkbox brings them
@@ -216,7 +218,7 @@ stacks every node at 0,0.
 #### 3.1.2 Engines column
 
 `button.hud-engine[aria-pressed]` per engine shows the name, the flow (mono
-11px), the kind (`loop`/`cluster`), the pillar chip (`data`) or `no pillar`
+11px), the kind (`chain`/`loop`), the pillar chip (`data`) or `no pillar`
 (ghost), and the card count on the right.
 
 - Click, Enter or Space toggles focus. Only one engine is focused at a time.
@@ -229,8 +231,8 @@ stacks every node at 0,0.
 - **On load, the first engine is focused.** That's the "aha" view, and it
   avoids an empty inspector.
 
-The panel foot defines the two kinds: "Loop = resource made → spent → paid
-off. Cluster = dense, no loop."
+The panel foot defines the two kinds: "Chain = resource made → spent → paid
+off. Loop = cards that feed each other."
 
 #### 3.1.3 Inspector
 
@@ -310,9 +312,10 @@ low-connection card becomes visible without hunting for a tiny dot.
 #### 3.1.8 Curve
 
 `HUD.barChart` (the existing one), with the commander CMC bar `hl`, plus a
-dashed **template reference** step line. The reference is a fixed shape
-for 65 non-land cards: `[0,4,18,12,10,7,4,3]`, scaled to the deck's non-land
-count. Put the template in the legend. The panel foot is a one-line,
+dashed **template reference** step line. The reference is a fixed *shape*,
+`[0,4,18,12,10,7,4,3]` (sums to 58), normalised to the deck's non-land
+count (`v × nonLand / 58`), so the line always totals the same cards as the
+bars. Put the template in the legend. The panel foot is a one-line,
 commander-aware note when the commander cheats or ramps (LLM prose, cached,
 optional). The footnote is optional; the chart isn't.
 

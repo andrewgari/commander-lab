@@ -804,7 +804,11 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     display: flex;
     gap: var(--sp-1);
     border-bottom: var(--stroke);
+    /* The active indicator sits at bottom:0 (inside the box). At -1px it poked
+       out of the scroll box and overflow-x:auto drew a scrollbar on every
+       tab strip (AN-4R). */
     overflow-x: auto;
+    overflow-y: hidden;
 }
 .hud-tab {
     position: relative;
@@ -827,7 +831,7 @@ button.hud-tab { background: none; border: 0; cursor: pointer; }
 .hud-tab.active::after, .hud-tab[aria-current="page"]::after {
     content: "";
     position: absolute;
-    inset: auto 0 -1px 0;
+    inset: auto 0 0 0;
     height: var(--indicator);
     background: var(--signal);
 }
