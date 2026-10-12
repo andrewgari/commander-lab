@@ -7,7 +7,9 @@ Card interaction graph (AN-1): produce/consume tagging + deck/collection graphs.
     llm           LLM provider interface: Gemini -> Nous -> (Anthropic slot)
     graph         pure graph construction
     service       rebuild orchestration, run/cost log, nightly job, reads
+    engines       AN-2 engine detection + naming (catalog, cached LLM names)
+    combos        AN-2 Commander Spellbook client (cached) + owned flags
 
-See docs/INTERACTION_GRAPH.md.
+See docs/INTERACTION_GRAPH.md and docs/ENGINES_AND_COMBOS.md.
 """
 from .vocab import RESOURCE_KEYS, RESOURCES, VOCAB_VERSION  # noqa: F401

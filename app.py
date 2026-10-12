@@ -26,6 +26,7 @@ from version import __version__, VERSION
 import httpx
 from repo_status import enrich_decks_with_repo_status
 from analytics.interactions import service as interactions_service
+from analytics.interactions import combos
 
 app = FastAPI()
 
@@ -1324,6 +1325,41 @@ async def api_collection_interactions(card: Optional[str] = None):
 async def api_interaction_vocabulary():
     from analytics.interactions.vocab import VOCAB_VERSION, vocab_payload
     return {"success": True, "version": VOCAB_VERSION, "resources": vocab_payload()}
+
+
+# ---------------------------------------------------------------------------
+# Engines + Commander Spellbook combos (AN-2) -- see docs/ENGINES_AND_COMBOS.md
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/engines")
+async def api_deck_engines(deck_id: str):
+    """Engines detected in the deck's interaction graph: resource chains
+    (sources -> converters -> payoffs, with fuel) and two-card loops, each
+    named ("Aristocrats: tokens → sac → drain") and scored."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    out = await asyncio.to_thread(interactions_service.get_deck_engines, r, deck)
+    return {"success": True, "engines": out}
+
+
+@app.get("/api/decks/{deck_id}/combos")
+async def api_deck_combos(deck_id: str, refresh: bool = False, owned_only: bool = False,
+                          limit: Optional[int] = None):
+    """Commander Spellbook combos: fully in the deck, and one card away (the
+    missing card flagged when owned). Cached per decklist; ?refresh=true
+    refetches, ?owned_only=true keeps only near-misses you own, ?limit=N
+    caps the near-miss lists (counts stay complete)."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    try:
+        out = await asyncio.to_thread(combos.deck_combos, r, deck, refresh=refresh,
+                                      owned_only=owned_only, limit=limit)
+    except combos.SpellbookError as exc:
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)})
+    return {"success": True, "combos": out}
 
 
 @app.on_event("startup")

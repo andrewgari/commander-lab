@@ -141,6 +141,23 @@ class LLMTagProvider:
     def tag_batch(self, cards: List[dict]) -> Tuple[Dict[str, dict], Usage]:  # pragma: no cover
         raise NotImplementedError
 
+    def generate_json(self, system: str, prompt: str, schema: Optional[dict] = None) -> Tuple[object, Usage]:
+        """Free-form JSON generation (labels/prose: engine names, later
+        pillars). Providers that don't support it raise, so the chain
+        falls through to the next one."""
+        raise LLMProviderError(f"{self.name}: generate_json not supported")
+
+
+def _parse_json(text: str):
+    text = (text or "").strip()
+    m = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
+    if m:
+        text = m.group(1).strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LLMProviderError(f"unparseable LLM response: {exc}") from exc
+
 
 class GeminiProvider(LLMTagProvider):
     BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -205,6 +222,33 @@ class GeminiProvider(LLMTagProvider):
         )
         return _parse_cards_json(text, cards), usage
 
+    def generate_json(self, system, prompt, schema=None):
+        if not self.api_key:
+            raise LLMProviderError("gemini: no API key")
+        gen = {"temperature": 0.2, "responseMimeType": "application/json",
+               "thinkingConfig": _thinking_config(self.model)}
+        if schema:
+            gen["responseSchema"] = schema
+        payload = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": gen,
+        }
+        url = f"{self.BASE}/{self.model}:generateContent"
+        try:
+            resp = self._post(url, json=payload, headers={"x-goog-api-key": self.api_key}, timeout=self.timeout)
+            resp.raise_for_status()
+            body = resp.json()
+            text = "".join(p.get("text", "") for p in body["candidates"][0]["content"]["parts"])
+        except LLMProviderError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise LLMProviderError(f"gemini request failed: {_scrub(str(exc), self.api_key)}") from exc
+        meta = body.get("usageMetadata") or {}
+        usage = Usage(int(meta.get("promptTokenCount") or 0),
+                      int(meta.get("candidatesTokenCount") or 0) + int(meta.get("thoughtsTokenCount") or 0))
+        return _parse_json(text), usage
+
 
 class NousProvider(LLMTagProvider):
     """Nous Portal inference API (OpenAI-compatible chat completions)."""
@@ -247,6 +291,22 @@ class NousProvider(LLMTagProvider):
         u = body.get("usage") or {}
         usage = Usage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0))
         return _parse_cards_json(text, cards), usage
+
+    def generate_json(self, system, prompt, schema=None):
+        if not self.api_key:
+            raise LLMProviderError("nous: no API key")
+        payload = {"model": self.model, "temperature": 0.2,
+                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
+        try:
+            resp = self._post(f"{self.base_url}/chat/completions", json=payload,
+                              headers={"Authorization": f"Bearer {self.api_key}"}, timeout=self.timeout)
+            resp.raise_for_status()
+            body = resp.json()
+            text = body["choices"][0]["message"]["content"]
+        except Exception as exc:  # noqa: BLE001
+            raise LLMProviderError(f"nous request failed: {_scrub(str(exc), self.api_key)}") from exc
+        u = body.get("usage") or {}
+        return _parse_json(text), Usage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0))
 
 
 class AnthropicProvider(LLMTagProvider):
@@ -298,6 +358,26 @@ class LLMChain:
                          "cost_usd": estimate_cost(p.model, usage.input_tokens, usage.output_tokens)})
             return results, p.name
         return None, None
+
+    def generate_json(self, system: str, prompt: str, schema: Optional[dict] = None,
+                      purpose: str = "generate", on_call: Optional[Callable[[dict], None]] = None):
+        """Returns (data, provider_name, model) from the first provider that
+        answers, or (None, None, None). Each attempt is reported to on_call
+        with its tokens, estimated cost and `purpose` (for the run log)."""
+        for p in self.available():
+            try:
+                data, usage = p.generate_json(system, prompt, schema=schema)
+            except LLMProviderError as exc:
+                if on_call:
+                    on_call({"provider": p.name, "model": p.model, "ok": False, "purpose": purpose,
+                             "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0, "error": str(exc)[:300]})
+                continue
+            if on_call:
+                on_call({"provider": p.name, "model": p.model, "ok": True, "purpose": purpose,
+                         "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+                         "cost_usd": estimate_cost(p.model, usage.input_tokens, usage.output_tokens)})
+            return data, p.name, p.model
+        return None, None, None
 
 
 SECRETS_DIR_DEFAULT = "/run/commander-lab-secrets"
