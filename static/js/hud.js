@@ -443,26 +443,33 @@
     // Sticky doc index (hud.doc_index): mark the link of the section currently in view.
     function initDocIndex() {
         var nav = document.querySelector ? document.querySelector("[data-doc-index]") : null;
-        if (!nav || !("IntersectionObserver" in window)) return;
+        if (!nav || !window.requestAnimationFrame) return;
         var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
         var heads = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
         var mark = function (i) {
             links.forEach(function (a, k) { if (k === i) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
             var a = links[i];
-            if (a && a.scrollIntoView && nav.scrollWidth > nav.clientWidth) {
+            if (a && nav.scrollWidth > nav.clientWidth) {
                 var over = a.getBoundingClientRect().right - nav.getBoundingClientRect().right;
                 var under = a.getBoundingClientRect().left - nav.getBoundingClientRect().left;
                 if (over > 0) nav.scrollLeft += over; else if (under < 0) nav.scrollLeft += under;
             }
         };
-        var io = new IntersectionObserver(function () {
-            // The last head above the top third of the viewport is the current section.
+        // The last head above the top third of the viewport is current; at the end of the page
+        // the last section wins (a short final section's head may never reach that line).
+        var queued = false;
+        var update = function () {
+            queued = false;
             var cur = 0, line = window.innerHeight / 3;
             heads.forEach(function (h, i) { if (h && h.getBoundingClientRect().top <= line) cur = i; });
+            var doc = document.documentElement;
+            if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) cur = heads.length - 1;
             mark(cur);
-        }, { rootMargin: "0px 0px -66% 0px", threshold: [0, 1] });
-        heads.forEach(function (h) { if (h) io.observe(h); });
-        mark(0);
+        };
+        var schedule = function () { if (!queued) { queued = true; window.requestAnimationFrame(update); } };
+        window.addEventListener("scroll", schedule, { passive: true });
+        window.addEventListener("resize", schedule);
+        update();
     }
 
     window.HUD = {

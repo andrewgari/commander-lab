@@ -399,6 +399,8 @@ class TestDocPage(_IdeasPage, unittest.TestCase):
         self.assertIn("data-doc-index", nav)
         self.assertRegex(self.css, r"\.hud-doc-index \{\s*position: sticky;")
         self.assertIn("initDocIndex", (ROOT / "static" / "js" / "hud.js").read_text())
+        # Copilot (PR #86): a short final section must still become current at the page end.
+        self.assertIn("cur = heads.length - 1", (ROOT / "static" / "js" / "hud.js").read_text())
 
 
 class TestDocPageSwapped(_IdeasPage, unittest.TestCase):
