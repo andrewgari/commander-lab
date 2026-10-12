@@ -400,6 +400,34 @@
     .deck-card:hover .commander-icon {
         border-color: var(--accent);
     }
+
+    /* Partner / background decks (2+ commanders): side-by-side 160px
+       portraits ate the text column (deck name wrapped every few letters,
+       the status chip clipped). Stack the art row above the text at full
+       width, with smaller overlapping portraits, so the text keeps the whole
+       card width. Single-commander cards are unchanged. */
+    .deck-header--multi {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .deck-header--multi .deck-header-art {
+        justify-content: center;
+    }
+
+    .deck-header--multi .commander-icon {
+        width: 7.5rem;
+        height: 7.5rem;
+    }
+
+    .deck-header--multi .commander-icon + .commander-icon {
+        margin-left: -2.5rem;
+    }
+
+    .deck-header--multi .deck-name {
+        word-break: normal;
+        overflow-wrap: break-word;
+    }
     
     .deck-name {
         font-family: 'EB Garamond', serif;
@@ -420,6 +448,7 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-top: 0.4rem;
+        white-space: nowrap;
     }
     
     .status-physical { background: transparent; color: #4ade80; border: 1px solid #4ade80; border-radius: 4px; }
@@ -1101,6 +1130,18 @@
         renderDecks();
     }
     
+    // Partner / background decks get the stacked header (art row above the text).
+    // Count commanders by name: dual-source sync can leave two printing UIDs
+    // for one commander, so UIDs only decide the count when names are missing.
+    function commanderCount(deck) {
+        const names = (deck && deck.commanders) || [];
+        return names.length ? names.length : ((deck && deck.commander_uids) || []).length;
+    }
+
+    function deckHeaderClass(deck) {
+        return commanderCount(deck) > 1 ? 'deck-header deck-header--multi' : 'deck-header';
+    }
+
     function createColorPips(colorString) {
         if (!colorString || colorString === 'C') {
             return `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`;
@@ -1589,16 +1630,14 @@
                 let iconsHtml = '';
                 
                 if (deck.commander_uids && deck.commander_uids.length > 0) {
-                    deck.commander_uids.forEach((uid, i) => {
+                    deck.commander_uids.slice(0, commanderCount(deck)).forEach((uid, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -64px; z-index: ${i};` : `z-index: 0;`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
+                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" alt="Commander Icon" loading="lazy">`;
                     });
                 } else if (deck.commanders && deck.commanders.length > 0) {
                     deck.commanders.forEach((cname, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -64px; z-index: ${i};` : `z-index: 0;`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
+                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" alt="Commander Icon" loading="lazy">`;
                     });
                 } else {
                     iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><rect width='160' height='160' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
@@ -1608,7 +1647,7 @@
                 
                 return `
                 <div class="deck-card" onclick="openDeckModal(${globalIndex})">
-                    <div class="deck-header">
+                    <div class="${deckHeaderClass(deck)}">
                         <div class="deck-header-art">
                             ${iconsHtml}
                         </div>

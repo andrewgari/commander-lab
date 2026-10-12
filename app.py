@@ -120,11 +120,20 @@ async def deck_view(request: Request, deck_name: str):
         "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview"})
 
 
+def _commander_art_uids(deck: dict) -> list:
+    """One art UID per commander, at most two (partner decks). Dual-source sync
+    can leave two printing UIDs for one commander, so the commander names set
+    the count; UIDs alone decide only when names are missing."""
+    uids = [u for u in (deck.get("commander_uids") or []) if u]
+    n = len(deck.get("commanders") or []) or len(uids)
+    return uids[:min(n, 2)]
+
+
 def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "cards": None, "lands": None, "pillars": None, "tune": None, "registry_id": None}
+           "art_uid": None, "art_uids": [], "cards": None, "lands": None, "pillars": None, "tune": None, "registry_id": None}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -133,7 +142,8 @@ def _deck_head_context(deck_name: str) -> dict:
         return out
     out.update(found=True, commanders=deck.get("commanders") or [], status=deck.get("status") or None,
                colors="" if deck.get("color") == "C" else (deck.get("color") or ""),
-               art_uid=(deck.get("commander_uids") or [None])[0], registry_id=registry.registry_id_of(deck))
+               art_uid=(deck.get("commander_uids") or [None])[0], registry_id=registry.registry_id_of(deck),
+               art_uids=_commander_art_uids(deck))
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
