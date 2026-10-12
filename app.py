@@ -1626,6 +1626,32 @@ async def api_deck_weak_performers(deck_id: str, limit: Optional[int] = None):
     return {"success": True, "weak_performers": out}
 
 
+@app.get("/api/decks/{deck_id}/played-with")
+async def api_deck_played_with(deck_id: str, top: int = 8):
+    """card2vec (AN-7): how much each card is 'played with' the rest of this
+    deck in real Commander decklists. Most/least lists + coverage."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(insights.deck_played_view, r, deck, None, max(1, min(top, 30)))
+    return {"success": True, "played_with": out}
+
+
+@app.get("/api/card2vec")
+async def api_card2vec(card: Optional[str] = None, n: int = 10):
+    """card2vec model info; with ?card=, its nearest 'played-with' neighbours."""
+    from analytics import card2vec as card2vec_mod
+
+    m = card2vec_mod.default_model()
+    info = await asyncio.to_thread(m.info)
+    out = {"success": True, "model": info}
+    if card:
+        out["card"] = card
+        out["known"] = m.has(card)
+        out["neighbours"] = await asyncio.to_thread(m.neighbours, card, max(1, min(n, 50)))
+    return out
+
+
 @app.on_event("startup")
 async def _start_interactions_nightly():
     interactions_service.start_nightly_thread(r)

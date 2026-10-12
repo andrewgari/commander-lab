@@ -36,6 +36,7 @@ the parts that exist, each 0..1:
 | edges  | `min(1, plan edges between the card and the deck / p75)`; a "plan edge" has at least one reason other than mana/lands; p75 = the deck's 75th-percentile plan degree (the same p75 the weak-performer score uses) | never |
 | fit    | best pillar fit (local bge-small embeddings, same scale as Stats/Identity) | the deck has no live pillars |
 | edhrec | `min(1, inclusion / 0.50)` on the commander's EDHREC page; not listed = 0 | EDHREC unavailable |
+| played | card2vec played-with score (AN-7, `docs/CARD2VEC.md`): how often real Commander decklists play the card with the rest of this deck, 0 = a random card, 1 = clearly belongs | the model doesn't know the card (new set, very rare), or no artifact |
 
 A cut is scored with the same formula, so "gap" always compares like with like.
 
@@ -93,7 +94,7 @@ render. If the LLM is down, the rows simply have no prose line.
 | `PUT /api/decks/{id}/tune/adds` | `{adds: [{name, qty, source}]}` (basics, combo pieces, fix chips) |
 | `POST /api/decks/{id}/tune/pet` | `{name}`: adds the card to the Journal's pets |
 
-Swap shape: `{cut:{name, weak_score, score, why:{edges, fit, edhrec}, rows,
+Swap shape: `{cut:{name, weak_score, score, why:{edges, fit, edhrec, played?}, rows,
 on_plan}, own|null, buy|null, gap, pick: own|buy, verdict:
 owned|keep_yours|worth_buying|owned_good_enough|buy|best, near_buy|null,
 hidden_hard, soft_note|null, why|null, decision, decision_add}`. An option

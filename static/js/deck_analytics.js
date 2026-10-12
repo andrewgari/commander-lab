@@ -265,11 +265,14 @@
     function whyBars(why) {
         why = why || {};
         var fit = why.fit, edh = why.edhrec;
-        return [
+        var bars = [
             { key: "Edges", pct: Math.min(100, Math.round((why.edges || 0) / 10 * 100)), low: (why.edges || 0) <= 1, text: String(why.edges || 0) },
             { key: "Fit", pct: fit == null ? 0 : Math.round(fit * 100), low: fit == null || fit < 0.35, text: fit == null ? "\u2014" : fit.toFixed(2) },
             { key: "EDHREC", pct: Math.round((edh || 0) * 100), low: !edh || edh < 0.10, text: edh == null ? "0%" : Math.round(edh * 100) + "%" }
         ];
+        // AN-7 card2vec: only when the model knows the card (unknown is not weak).
+        if (why.played != null) bars.push({ key: "Played", pct: Math.round(why.played * 100), low: why.played < 0.35, text: why.played.toFixed(2) });
+        return bars;
     }
     function gapText(g) { return g == null ? "" : (g >= 0 ? "+" : MINUS) + Math.abs(g).toFixed(2); }
     function verdictChip(swap) {

@@ -75,12 +75,13 @@
                         <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">Edges</button></th>
                         <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">Pillar fit</button></th>
                         <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">EDHREC</button></th>
+                        <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt" title="card2vec: how often real decklists play this card with the rest of the deck"><button type="button" class="hud-sort">Played with</button></th>
                         <th scope="col" data-sort="num" aria-sort="descending" class="is-num"><button type="button" class="hud-sort">Weak score</button></th>
                         <th scope="col" class="is-shrink" aria-label="Action"></th>
                     </tr></thead>
                     <tbody id="weakRows"></tbody>
                 </table></div>
-                <footer class="hud-panel-foot">Weak = few edges + off-pillar + low EDHREC, equally weighted. No game logs. Pets (♥) are listed but never suggested as cuts.</footer>
+                <footer class="hud-panel-foot">Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec, real decklists; — = card not in the model), equally weighted. No game logs. Pets (♥) are listed but never suggested as cuts.</footer>
             </section>
         </section>
     </div>
@@ -242,12 +243,14 @@ document.addEventListener("DOMContentLoaded", function () {
         $("weakRows").innerHTML = (T.weak || []).map(function (w) {
             var fit = w.fit == null ? "—" : w.fit.toFixed(2);
             var edh = w.edhrec == null ? "0%" : Math.round(w.edhrec * 100) + "%";
+            var played = w.played == null ? "—" : w.played.toFixed(2);
             var act = w.pet ? H.chip("pet", "ghost") : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>');
             return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + esc(w.name) + "</span></td>" +
                 '<td class="is-num tn-col-opt">' + w.edges + '</td><td class="is-num tn-col-opt" data-value="' + (w.fit == null ? -1 : w.fit) + '">' + fit +
-                '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
+                '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh +
+                '</td><td class="is-num tn-col-opt" data-value="' + (w.played == null ? -1 : w.played) + '">' + played + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
                 (w.weak_score > 0.8 ? "var(--signal)" : "var(--text-1)") + '">' + w.weak_score.toFixed(2) + '</span></td><td class="is-shrink">' + act + "</td></tr>";
-        }).join("") || '<tr><td colspan="6">' + '<div class="hud-empty">No weak performers.</div></td></tr>';
+        }).join("") || '<tr><td colspan="7">' + '<div class="hud-empty">No weak performers.</div></td></tr>';
         if (H.initSortable) H.initSortable();
     }
 
