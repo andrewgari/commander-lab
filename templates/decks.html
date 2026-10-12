@@ -1130,27 +1130,16 @@
      */
     function renderRepoBadge(deck, showClean = true) {
         const status = deck && deck.repo_status;
-        if (!status) {
-            return `
-                <span class="repo-badge repo-badge--error" 
-                      data-tooltip="No repository status available" 
-                      title="No repository status available"
-                      role="status" 
-                      aria-label="Repository error: No repository status available">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <circle cx="12" cy="16" r="0.75" fill="currentColor"></circle>
-                    </svg>
-                    <span>NO REPO</span>
-                </span>
-            `;
+        // No repo configured for this deck (the default for every deck
+        // today): render nothing rather than an error badge on all of them.
+        if (!status || status.error === 'Path not specified') {
+            return '';
         }
 
         // 1. Error / Unknown State
         if (status.error) {
             const errorMsg = escapeHtml(status.error);
-            const label = status.error === 'Path not specified' ? 'NO REPO' : 'ERROR';
+            const label = 'ERROR';
             return `
                 <span class="repo-badge repo-badge--error" 
                       data-tooltip="Git error: ${errorMsg}" 
@@ -1546,7 +1535,9 @@
     }
     
     function reviewDeck() {
-        console.log("Review clicked");
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        window.location.href = `/deck/${encodeURIComponent(deck.name)}?review=1`;
     }
     
     function tradeDeck() {
