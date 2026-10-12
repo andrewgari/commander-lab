@@ -133,7 +133,7 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "art_uids": [], "cards": None, "lands": None, "pillars": None, "tune": None, "registry_id": None}
+           "art_uid": None, "art_uids": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -158,6 +158,11 @@ def _deck_head_context(deck_name: str) -> dict:
         pass
     try:
         out["tune"] = tuner_mod.open_count(r, deck) or None
+    except Exception:
+        pass
+    try:
+        from analytics import theory as theory_mod
+        out["ideas"] = int(r.zcard(theory_mod.index_key(out["registry_id"]))) or None
     except Exception:
         pass
     return out
@@ -198,6 +203,51 @@ async def deck_journal_view(request: Request, deck_name: str):
 async def deck_tune_view(request: Request, deck_name: str):
     """Tune (UX_SPEC §3.4): shape fixes, swaps, weak performers, change list. Renders from JSON."""
     return await _deck_tab(request, deck_name, "deck_tune.html", "tune")
+
+
+@app.get("/deck/{deck_name}/ideas", response_class=HTMLResponse)
+async def deck_ideas_view(request: Request, deck_name: str):
+    """Ideas (TH-3, THEORY_SPEC): past theory docs + the New theory form."""
+    return await _deck_tab(request, deck_name, "deck_ideas.html", "ideas", extra=_ideas_page_context)
+
+
+def _ideas_page_context(deck_name: str) -> dict:
+    """Theory summaries, newest first. Never raises (Redis down = empty list + a note)."""
+    from analytics import theory as theory_mod
+    from analytics import theory_view
+
+    out = {"docs": [], "list_error": False, "tv": theory_view}
+    try:
+        deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+        if deck:
+            out["docs"] = theory_mod.list_docs(r, _theory_deck_id(deck))
+    except Exception:
+        out["list_error"] = True
+    return out
+
+
+@app.get("/deck/{deck_name}/ideas/{doc_id}", response_class=HTMLResponse)
+async def deck_theory_view(request: Request, deck_name: str, doc_id: str):
+    """One theory doc: one partial per section type, generic fallback for unknown types."""
+    from analytics import theory as theory_mod
+    from analytics import theory_view
+
+    head = await asyncio.to_thread(_deck_head_context, deck_name)
+    doc = None
+    if head["found"] and head["registry_id"]:
+        try:
+            doc = await asyncio.to_thread(theory_mod.load, r, head["registry_id"], doc_id)
+        except Exception:
+            doc = None
+    if not doc:
+        return HTMLResponse(
+            "<html><head><title>Theory Not Found</title></head><body><h1>Theory Not Found</h1>"
+            "<p>No theory &quot;{}&quot; for deck &quot;{}&quot;. <a href=\"/deck/{}/ideas\">Back to Ideas</a></p>"
+            "</body></html>".format(html.escape(doc_id), html.escape(deck_name), urllib.parse.quote(deck_name)),
+            status_code=404)
+    return templates.TemplateResponse(request=request, name="deck_theory.html", context={
+        "deck_name": deck_name, "deck_id": head["registry_id"], "head": head, "tab": "ideas", "doc": doc,
+        "meta": theory_view.doc_meta(doc), "sections": theory_view.sections(doc), "tv": theory_view})
 
 
 def _journal_page_context(deck_name: str) -> dict:

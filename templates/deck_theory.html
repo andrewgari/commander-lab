@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}{{ meta.theme }} · Ideas · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (THEORY_SPEC). Components are hud.css section 8. */
+    .th-back { margin-bottom: var(--sp-4); }
+    .th-actions { display: flex; gap: var(--sp-2); align-items: center; }
+    .th-error { color: var(--danger); font-size: var(--fs-xs); }
+    .th-error:empty { display: none; }
+    .th-corrections { margin-top: var(--sp-8); }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Decks", "href": "/decks"}, {"label": head.name, "href": "/deck/" ~ (head.name | urlencode)}, {"label": "Ideas", "href": "/deck/" ~ (head.name | urlencode) ~ "/ideas"}, {"label": meta.theme | truncate(32, true, "…", 0)}]) }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}{% endcall %}
+
+{%- set ideas = "/deck/" ~ (deck_name | urlencode) ~ "/ideas" %}
+<article class="hud-doc" id="doc" data-doc="{{ doc.doc_id }}">
+    <a class="hud-btn hud-btn--sm hud-btn--ghost th-back" href="{{ ideas }}">← All ideas</a>
+    <header class="hud-doc-head">
+        <div>
+            <span class="hud-label">Theory · thematic overhaul</span>
+            <h2>{{ meta.theme }}</h2>
+            <div class="hud-doc-facts">
+                <time class="hud-freshness" datetime="{{ meta.created_iso }}">{{ meta.created }}</time>
+                {%- if meta.commander_changed %}
+                {{ hud.chip("Commander swapped → " ~ (meta.commanders | join(" + ")), "signal", dot=true) }}
+                {%- elif meta.mode == "open" %}
+                {{ hud.chip("Open to swap · kept", "neutral", dot=true) }}
+                {%- else %}
+                {{ hud.chip("Commander kept", "neutral", dot=true) }}
+                {%- endif %}
+                {%- if meta.counts %}<span class="hud-freshness">{{ meta.counts.kept or 0 }} kept · {{ meta.counts.owned or 0 }} owned · {{ meta.counts.buy or 0 }} buy · {{ meta.counts.total or 0 }} cards</span>{% endif %}
+            </div>
+        </div>
+        <div class="th-actions">
+            <div class="hud-idea-buy">{{ tv.money(meta.buy_total) }}<small>buy total</small></div>
+            <button class="hud-btn hud-btn--sm hud-btn--danger" type="button" id="deleteBtn">Delete</button>
+        </div>
+    </header>
+    <p class="th-error" id="docError" role="alert"></p>
+
+    {%- for item in sections %}
+    {%- set section = item.section %}
+    {%- set code = "%02d" | format(loop.index) %}
+    <section class="hud-doc-section" data-type="{{ section.type }}" aria-labelledby="sec{{ loop.index }}">
+        <div class="hud-section-head"><span class="hud-section-id">{{ code }}</span><h2 id="sec{{ loop.index }}">{{ section.title or (section.type | replace("_", " ") | capitalize) }}</h2></div>
+        {% include item.template %}
+    </section>
+    {%- else %}
+    <div class="hud-doc-section">{{ hud.empty("This theory has no sections.") }}</div>
+    {%- endfor %}
+
+    {%- if meta.corrections %}
+    <details class="hud-tray th-corrections">
+        <summary>App checks · {{ meta.corrections | length }} correction{{ "" if meta.corrections | length == 1 else "s" }} to oracle's draft</summary>
+        {%- for c in meta.corrections %}
+        <div class="hud-tray-row"><span>{{ c.message or c.kind }}</span><span class="hud-freshness">{{ c.kind | replace("_", " ") }}</span></div>
+        {%- endfor %}
+    </details>
+    {%- endif %}
+</article>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var DECK_ID = {{ deck_id | tojson }}, DOC_ID = {{ doc.doc_id | tojson }}, THEME = {{ meta.theme | tojson }};
+    var IDEAS = {{ ("/deck/" ~ (deck_name | urlencode) ~ "/ideas") | tojson }};
+    document.querySelectorAll("time[datetime]").forEach(function (t) {
+        var d = new Date(t.getAttribute("datetime"));
+        if (!isNaN(d)) t.textContent = d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    });
+    document.getElementById("deleteBtn").addEventListener("click", function () {
+        if (!confirm('Delete the theory "' + THEME + '"? This can\'t be undone.')) return;
+        var b = this; b.disabled = true;
+        fetch("/api/decks/" + encodeURIComponent(DECK_ID) + "/theory/" + encodeURIComponent(DOC_ID), { method: "DELETE" })
+            .then(function (r) {
+                if (r.ok || r.status === 404) { location.href = IDEAS; return; }
+                throw new Error("Couldn't delete (HTTP " + r.status + "). Try again.");
+            }, function () { throw new Error("Couldn't reach Commander Lab. Try again."); })
+            .catch(function (e) { b.disabled = false; document.getElementById("docError").textContent = e.message; });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% import "partials/hud.html" as hud %}
+{#- decklist: {groups[{role, cards[{name, qty, source, price, over_soft_cap?, why?, salt_flag?}]}], counts}
+    Grouped by role; each card carries its kept/owned/buy badge (the app's verified source) + price. -#}
+{%- set d = section.data %}
+{%- set c = d.counts or {} %}
+{%- if c %}
+<div class="hud-tlist-counts">
+    {{ hud.chip((c.kept or 0) ~ " kept", tv.SOURCE_TONES.kept) }}
+    {{ hud.chip((c.owned or 0) ~ " owned", tv.SOURCE_TONES.owned) }}
+    {{ hud.chip((c.buy or 0) ~ " buy", tv.SOURCE_TONES.buy) }}
+    <span class="hud-freshness">{{ c.total or 0 }} cards · prices Scryfall USD</span>
+</div>
+{%- endif %}
+<div class="hud-tgroups">
+    {%- for g in d.groups if g is mapping %}
+    <section class="hud-tgroup">
+        <header class="hud-tgroup-head"><h3>{{ g.role or "Other" }}</h3><span class="hud-freshness">{{ tv.group_count(g) }}</span></header>
+        <ul class="hud-tcards">
+            {%- for card in g.cards if card is mapping %}
+            {%- set src = card.source if card.source in tv.SOURCE_TONES else none %}
+            <li class="hud-tcard{% if src %} is-{{ src }}{% endif %}">
+                <span class="hud-tcard-qty">{{ card.qty or 1 }}</span>
+                <span class="hud-card-name">{{ card.name }}</span>
+                {%- if src %}{{ hud.chip(tv.SOURCE_LABELS[src], tv.SOURCE_TONES[src]) }}{% else %}<span></span>{% endif %}
+                <span class="hud-tcard-price">{{ tv.money(card.price) if card.price is not none else "—" }}</span>
+                {%- if card.over_soft_cap %}<span class="hud-tcard-note is-salt">Over the soft cap</span>{% endif %}
+                {%- if card.why %}<span class="hud-tcard-note">{{ card.why }}</span>{% endif %}
+                {%- if card.salt_flag is mapping %}<span class="hud-tcard-note is-salt" title="{{ card.salt_flag.reason }}">Salt · {{ card.salt_flag.level }}: {{ card.salt_flag.reason }}</span>{% endif %}
+            </li>
+            {%- endfor %}
+        </ul>
+    </section>
+    {%- endfor %}
+</div>

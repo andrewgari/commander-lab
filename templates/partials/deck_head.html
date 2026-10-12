@@ -3,9 +3,10 @@
         {% import "partials/deck_head.html" as dh %}
         {% block crumbs %}{{ dh.crumbs(head, "Stats") }}{% endblock %}
         {% block content %}{% call dh.header(head, tab) %}…actions…{% endcall %}
-    `head` comes from app._deck_head_context(). Tabs carry data-key 1-5;
+    `head` comes from app._deck_head_context(). Tabs carry data-key 1-6;
     static/js/deck_analytics.js turns the keys into navigation (never while
-    typing). Journal (4) shipped with AN-5, Tune (5) with AN-6. Tune's badge is
+    typing). Journal (4) shipped with AN-5, Tune (5) with AN-6, Ideas (6) with
+    TH-3 (badge = number of theory docs). Tune's badge is
     the open-suggestion count from the last tuner run (hidden when 0).
     ========================================================================== -#}
 {% import "partials/hud.html" as hud %}
@@ -27,6 +28,7 @@
     {"key": "identity", "label": "Identity", "href": base ~ "/identity", "n": "3", "count": head.pillars},
     {"key": "journal", "label": "Journal", "href": base ~ "/journal", "n": "4", "count": none},
     {"key": "tune", "label": "Tune", "href": base ~ "/tune", "n": "5", "count": head.tune},
+    {"key": "ideas", "label": "Ideas", "href": base ~ "/ideas", "n": "6", "count": head.ideas},
 ] -%}
 <header class="hud-deckhead">
     {#- Partner decks: both commanders share the same fixed frame (split in

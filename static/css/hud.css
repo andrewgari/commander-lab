@@ -1829,3 +1829,109 @@ main.main-content { padding-bottom: var(--sp-16); }
 .hud-changes ol li { grid-template-columns: 1.25rem minmax(0, 1fr); }
 .hud-changes ol li .hud-freshness { grid-column: 2; white-space: normal; }
 .hud-changes ol li .hud-freshness:empty { display: none; }
+
+/* 8. THEORY ================================================================ */
+/* Ideas tab + theory doc view (TH-3, docs/THEORY_SPEC.md). Templates:
+   deck_ideas.html, deck_theory.html, partials/theory/<type>.html. */
+.hud-ideas { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: var(--sp-6); align-items: start; }
+.hud-idea-list { list-style: none; margin: 0; padding: 0; }
+.hud-idea { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-4); align-items: center; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+.hud-idea:last-child { border-bottom: 0; }
+.hud-idea.is-new { background: var(--ok-dim); }
+.hud-idea-theme { display: block; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-medium); text-decoration: none; overflow-wrap: anywhere; }
+a.hud-idea-theme:hover { color: var(--signal); }
+.hud-idea-meta { display: flex; gap: var(--sp-2) var(--sp-3); align-items: center; flex-wrap: wrap; margin-top: var(--sp-1); }
+.hud-idea-buy { color: var(--text-1); font: var(--fw-medium) var(--fs-md) var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.hud-idea-buy small { display: block; color: var(--text-3); font-size: var(--fs-micro); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-idea-act { display: flex; gap: var(--sp-1); }
+
+/* Long-running job: indeterminate bar (transform only) + elapsed clock. */
+.hud-job { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.hud-job[hidden] { display: none; }
+.hud-job.is-failed { border-left-color: var(--danger); }
+.hud-job.is-done { border-left-color: var(--ok); }
+.hud-job-head { display: flex; gap: var(--sp-3); align-items: baseline; justify-content: space-between; }
+.hud-job-title { margin: 0; color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.hud-job-clock { color: var(--text-2); font: var(--fs-sm) var(--font-mono); font-variant-numeric: tabular-nums; }
+.hud-job-track { position: relative; height: var(--bar-track-h); overflow: hidden; background: var(--surface-3); }
+.hud-job-track i { position: absolute; inset: 0 auto 0 0; width: 30%; background: var(--signal); animation: job-slide 1.6s var(--ease) infinite; }
+.hud-job.is-failed .hud-job-track, .hud-job.is-done .hud-job-track { display: none; }
+.hud-job-msg { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.hud-job.is-failed .hud-job-msg { color: var(--danger); }
+@keyframes job-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+
+/* Doc view */
+.hud-doc { max-width: 60rem; }
+.hud-doc-head { display: flex; gap: var(--sp-4); align-items: flex-end; justify-content: space-between; flex-wrap: wrap; padding-bottom: var(--sp-4); border-bottom: var(--stroke); }
+.hud-doc-head h2 { margin: var(--sp-1) 0 0; color: var(--text-1); font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); overflow-wrap: anywhere; }
+.hud-doc-facts { display: flex; gap: var(--sp-2) var(--sp-3); align-items: center; flex-wrap: wrap; margin-top: var(--sp-2); }
+.hud-doc-section { padding-top: var(--sp-8); }
+.hud-doc-section > .hud-section-head { margin-top: 0; }
+.hud-doc-prose { max-width: 70ch; margin: 0 0 var(--sp-3); color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-doc-pre { margin: 0; padding: var(--sp-3) var(--sp-4); overflow-x: auto; background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-xs)/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hud-doc-list { margin: 0; padding-left: var(--sp-6); color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+
+/* Pillars as a numbered list (thesis_pillars) */
+.hud-doc-pillars { list-style: none; margin: var(--sp-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-doc-pillars li { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); }
+.hud-doc-pillars b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.hud-doc-pillars span { color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+
+/* Decklist: role groups, one row per card */
+.hud-tlist-counts { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.hud-tgroups { columns: 2 24rem; column-gap: var(--sp-10); column-rule: var(--stroke-faint); }
+.hud-tgroup { break-inside: avoid; margin: 0 0 var(--sp-6); }
+.hud-tgroup-head { display: flex; gap: var(--sp-2); align-items: baseline; padding-bottom: var(--sp-1); border-bottom: var(--stroke); }
+.hud-tgroup-head h3 { margin: 0; color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.hud-tgroup-head .hud-freshness { margin-left: auto; }
+.hud-tcards { list-style: none; margin: 0; padding: 0; }
+.hud-tcard { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) auto 3.75rem; gap: var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-sm); }
+.hud-tcard-qty { color: var(--text-3); font: var(--fs-xs) var(--font-mono); text-align: right; }
+.hud-tcard .hud-card-name { min-width: 0; overflow-wrap: anywhere; }
+.hud-tcard-price { color: var(--text-2); font: var(--fs-xs) var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.hud-tcard.is-buy .hud-tcard-price { color: var(--text-1); }
+.hud-tcard-note { grid-column: 2 / -1; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.hud-tcard-note.is-salt { color: var(--signal); }
+.hud-tcard .hud-chip { justify-self: end; }
+
+/* Commander-change callout */
+.hud-callout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-6); padding: var(--sp-4) var(--sp-6); background: var(--signal-dim); border: var(--hairline) solid var(--signal-line); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.hud-callout-swap { margin: var(--sp-1) 0 0; color: var(--text-1); font-size: var(--fs-lg); font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.hud-callout-swap s { color: var(--text-3); text-decoration-color: var(--text-4); }
+.hud-callout p { margin: var(--sp-2) 0 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-callout-n { text-align: right; }
+.hud-callout-n b { display: block; color: var(--text-1); font: var(--fw-medium) var(--fs-stat) var(--font-mono); }
+
+@media (max-width: 1180px) { .hud-ideas { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+    .hud-idea { grid-template-columns: minmax(0, 1fr) auto; }
+    .hud-idea-act { grid-column: 1 / -1; }
+    .hud-idea-act .hud-btn { flex: 1 1 0; }
+    .hud-tcard { grid-template-columns: 1.25rem minmax(0, 1fr) auto 3.25rem; }
+    .hud-callout { grid-template-columns: minmax(0, 1fr); padding: var(--sp-4); }
+    .hud-callout-n { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hud-job-track i { animation: none; width: 100%; opacity: 0.5; }
+}
+.hud-doc-prose--after { margin-top: var(--sp-4); }
+.hud-doc-gap { margin-top: var(--sp-4); }
+.hud-doc-fallback { min-width: 0; }
+.hud-panel--flush > .hud-tcards--panel { padding: 0 var(--sp-4); }
+.hud-tcards--panel .hud-tcard:last-child { border-bottom: 0; }
+.hud-doc-head > div:first-child { min-width: 0; flex: 1 1 20rem; }
+.hud-doc-facts .hud-chip, .hud-idea-meta .hud-chip { max-width: 100%; white-space: normal; height: auto; min-height: var(--chip-h); overflow-wrap: anywhere; }
+.hud-idea > div:first-child { min-width: 0; }
+/* Phone: the topbar crumbs nav must shrink (flex item min-width:auto); the last crumb ellipsizes. */
+@media (max-width: 640px) {
+    .app-topbar > nav { min-width: 0; }
+    .hud-crumbs li:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+.hud-buy-stats { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+@media (max-width: 640px) {
+    .hud-buy-stats { grid-template-columns: minmax(0, 1fr); }
+    .hud-doc .hud-kv { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    .hud-doc .hud-kv dd { margin-bottom: var(--sp-2); }
+    .hud-doc .hud-thesis { gap: var(--sp-3); padding: var(--sp-3) 0 var(--sp-4); }
+    #newTheory .hud-seg label { flex: 1 1 0; }
+}
