@@ -93,12 +93,13 @@
         (cards || []).forEach(function (c) { if (!isLand(c)) b[Math.min(Math.floor(c.cmc || 0), 7)] += 1; });
         return b;
     }
-    // Template shape (UX_SPEC §3.1.8), normalised so the line always sums to the
-    // deck's non-land count: v * nonLand / sum(template). The template sums to 58,
-    // so dividing by 65 drew the line ~11% short (AN-4R, coder Q1).
+    // Template shape (UX_SPEC §3.1.8), normalised to the deck's non-land count:
+    // v * nonLand / sum(template). The template sums to 58, so dividing by 65
+    // drew the line ~11% short (AN-4R, coder Q1). Unrounded: it only drives the
+    // dashed path, and rounding per bucket would break the total.
     var CURVE_TEMPLATE_SUM = CURVE_TEMPLATE.reduce(function (s, v) { return s + v; }, 0);
     function curveRef(nonLand) {
-        return CURVE_TEMPLATE.map(function (v) { return nonLand ? Math.round(v * nonLand / CURVE_TEMPLATE_SUM * 10) / 10 : 0; });
+        return CURVE_TEMPLATE.map(function (v) { return nonLand ? v * nonLand / CURVE_TEMPLATE_SUM : 0; });
     }
 
     // Spellbook near-miss ownership (UX_SPEC §3.1.10). rank: 0 owned·free, 1 owned elsewhere, 2 not owned.
