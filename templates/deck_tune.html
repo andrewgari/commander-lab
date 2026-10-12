@@ -192,18 +192,18 @@ document.addEventListener("DOMContentLoaded", function () {
         var gap = s.gap != null ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.gap) + "</b> buy vs owned" + (chip ? H.chip(chip[0], chip[1]) : "") + "</div>"
             : (s.near_buy ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.near_buy.gap) + "</b> best buy vs owned · " + esc(A.money(s.near_buy.price)) + H.chip("keep yours", "ok") + "</div>" : "");
         var just = s.soft_note ? '<div class="hud-justify">' + esc(s.soft_note) + "</div>" : "";
-        var hard = s.hidden_hard ? '<div class="hud-gapline">' + s.hidden_hard + " better buy" + (s.hidden_hard === 1 ? "" : "s") + " hidden <b>· over hard cap " + esc(A.money(T.caps.hard_cap)) + "</b>" + H.chip("hard cap", "danger") + "</div>" : "";
+        var hard = s.hidden_hard ? '<div class="hud-gapline">' + s.hidden_hard + " better buy" + (s.hidden_hard === 1 ? "" : "s") + " hidden" + H.chip("over hard cap " + A.money(T.caps.hard_cap), "danger") + "</div>" : "";
         var whyLine = s.why ? '<p class="tn-why">' + esc(s.why) + "</p>" : "";
         var acts = accepted
             ? '<span class="hud-chip hud-chip--ok">Accepted</span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="undo">Undo</button>'
-            : '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="accept">Accept</button>' +
-              (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy">Buy instead</button>' : "") +
+            : '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="accept" aria-label="Accept: ' + esc((A.tuneOption(s, s.pick) || {}).name || "picked option") + '">Accept</button>' +
+              (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy" aria-label="Buy instead: ' + esc(s.buy.name) + '">Buy instead</button>' : "") +
               '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="dismiss">Dismiss</button>';
         return '<li class="hud-swap' + (i === cur ? " is-current" : "") + (accepted ? " is-accepted" : "") + '" tabindex="-1" data-cut="' + esc(s.cut.name) + '">' +
             '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" +
             '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
-            '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + just + hard + whyLine + "</div>" +
+            '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + whyLine + just + hard + "</div>" +
             '<div class="hud-swap-act">' + acts + "</div></li>";
     }
     function petRow(p) {
