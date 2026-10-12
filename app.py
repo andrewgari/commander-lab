@@ -368,7 +368,15 @@ async def import_deck(request: Request):
     except Exception as e:
         return {"success": False, "error": f"fetch failed: {e}"}
 
-    deck = registry.upsert_deck(r, normalized, default_status="testing")
+    deck = None
+    if normalized.get("source") == "moxfield":
+        # A Moxfield copy of a deck that's already in the registry gets
+        # links.moxfield attached to that deck instead of a duplicate entry.
+        attached = registry.attach_provider_deck(r, normalized)
+        if attached["result"] != "unmatched":
+            deck = attached["deck"]
+    if deck is None:
+        deck = registry.upsert_deck(r, normalized, default_status="testing")
     interactions_service.start_rebuild(r, trigger="sync", deck_ids=[registry.registry_id_of(deck)])
     return {"success": True, "deck": deck}
 
