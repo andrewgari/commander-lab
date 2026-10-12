@@ -81,8 +81,10 @@ class TestTunePage(_TunePage, unittest.TestCase):
 
     def test_weak_table_columns_and_foot(self):
         head = self.body.split('id="weakRows"', 1)[0].rsplit("<thead>", 1)[1]
-        self.assertEqual(re.findall(r'class="hud-sort">([^<]+)<', head), ["Card", "Edges", "Pillar fit", "EDHREC", "Weak score"])
-        self.assertIn("Weak = few edges + off-pillar + low EDHREC, equally weighted. No game logs.", self.body)
+        self.assertEqual(re.findall(r'class="hud-sort">([^<]+)<', head),
+                         ["Card", "Edges", "Pillar fit", "EDHREC", "Played with", "Weak score"])
+        self.assertIn("Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec", self.body)
+        self.assertIn("equally weighted. No game logs.", self.body)
         self.assertIn("tn-col-opt", self.style)   # hidden at <= 640px
 
     def test_change_list_copy_only_apply_hidden(self):
@@ -217,6 +219,7 @@ const L = A.changeList(tune);
 const out = {
   L: L, text: A.changeText('Holy Hellfire', L),
   bars: A.whyBars({ edges: 1, fit: 0.21, edhrec: 0.31 }), barsNull: A.whyBars({ edges: 4, fit: null, edhrec: null }),
+  barsPlayed: A.whyBars({ edges: 1, fit: 0.21, edhrec: 0.31, played: 0.12 }),
   gaps: [A.gapText(0.27), A.gapText(-0.05), A.gapText(null)],
   chips: [A.verdictChip({ own: free, buy: buy, pick: 'buy' }), A.verdictChip({ own: free, buy: buy, pick: 'own' }),
           A.verdictChip({ own: free, buy: null, verdict: 'keep_yours' }), A.verdictChip({ own: free, buy: null, verdict: 'owned' })],
@@ -271,6 +274,11 @@ process.stdout.write(JSON.stringify(out));
         self.assertEqual((b["Fit"]["text"], b["EDHREC"]["text"]), ("0.21", "31%"))
         n = {x["key"]: x for x in self.out["barsNull"]}
         self.assertEqual((n["Fit"]["text"], n["EDHREC"]["text"]), ("—", "0%"))
+
+    def test_why_bars_add_played_only_when_known(self):
+        p = {x["key"]: x for x in self.out["barsPlayed"]}
+        self.assertEqual([x["key"] for x in self.out["barsPlayed"]], ["Edges", "Fit", "EDHREC", "Played"])
+        self.assertEqual((p["Played"]["text"], p["Played"]["low"]), ("0.12", True))
 
     def test_gap_and_verdicts(self):
         self.assertEqual(self.out["gaps"], ["+0.27", "−0.05", ""])

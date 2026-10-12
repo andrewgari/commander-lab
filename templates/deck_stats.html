@@ -110,6 +110,18 @@
         <footer class="hud-panel-foot">Low % ≠ bad. Low % + few edges + off-pillar = weak performer.</footer>
     </section>
 </div>
+<div class="stats-row" id="playedRow">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Played with · most</h3><div class="hud-panel-meta" id="playedMeta">card2vec</div></header>
+        <div class="hud-panel-body" id="playedMost">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot" id="playedFoot">How often real Commander decklists play the card alongside the rest of this deck. Learned from decklists only, never card text.</footer>
+    </section>
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Played with · least</h3><div class="hud-panel-meta">0 = random card, 1 = belongs</div></header>
+        <div class="hud-panel-body" id="playedLeast">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot">Low ≠ bad: pet cards and new printings often sit here. It feeds the weak-performer score as a 4th part.</footer>
+    </section>
+</div>
 
 {{ hud.section_head("Combos", code="04") }}
 <section class="hud-panel hud-panel--flush">
@@ -353,6 +365,21 @@ document.addEventListener("DOMContentLoaded", function () {
             }), { max: 100, numbered: false }) + "</div>";
     }
 
+    // ---- Played with (card2vec, AN-7) -------------------------------------------------
+    function renderPlayed() {
+        var p = D.played;
+        if (!p || p.status !== "ok") {
+            var why = p && p.status === "too_few" ? "Too few of this deck's cards are in the model" : "card2vec model unavailable";
+            fail("playedMost", why); fail("playedLeast", why); return;
+        }
+        var m = p.model || {};
+        $("playedMeta").innerHTML = '<b class="hud-num">' + p.known + "</b>/" + p.total + " known · " + Number(m.decks || 0).toLocaleString("en-US") + " decks";
+        var row = function (x) { return { label: x.name, value: x.score || 0, display: (x.score || 0).toFixed(2) }; };
+        $("playedMost").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.most.map(row), { max: 1, numbered: false }) + "</div>";
+        $("playedLeast").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.least.map(row), { max: 1, numbered: false }) + "</div>" +
+            ((p.unknown || []).length ? '<p class="hud-field-hint">Not in the model (' + p.unknown.length + "): " + esc(p.unknown.slice(0, 6).join(", ")) + (p.unknown.length > 6 ? "…" : "") + "</p>" : "");
+    }
+
     // ---- Combos ------------------------------------------------------------------
     var NEAR_SHOWN = 12;
     function comboRow(c, near) {
@@ -439,6 +466,7 @@ document.addEventListener("DOMContentLoaded", function () {
                  getJSON("/weak-performers").then(function (j) { D.weak = j.weak_performers; }, function () { D.weak = { cards: [] }; })])
         .then(function () { return inv; }).then(function () { if (D.identity) renderLowFit(); });
     getJSON("/edhrec").then(function (j) { D.edhrec = j.edhrec; renderEdhrec(); strip(); }, function () { fail("edhrec", "EDHREC unavailable"); });
+    getJSON("/played-with").then(function (j) { D.played = j.played_with; renderPlayed(); }, function () { D.played = null; renderPlayed(); });
     getJSON("/combos").then(function (j) { D.combos = j.combos; renderCombos(); strip(); }, function () {
         $("combosNear").innerHTML = '<li class="hud-combo"><span class="hud-muted">Commander Spellbook unavailable.</span></li>';
     });

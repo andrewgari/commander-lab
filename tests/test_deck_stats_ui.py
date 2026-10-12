@@ -226,7 +226,8 @@ class TestStatsPage(_DeckPage, unittest.TestCase):
         self.assertRegex(self.body, r'<input type="checkbox" id="gmana"')
 
     def test_panels_present(self):
-        for pid in ["comp", "tplForm", "curve", "fit", "lowfit", "edhrec", "combosIn", "combosNear"]:
+        for pid in ["comp", "tplForm", "curve", "fit", "lowfit", "edhrec", "combosIn", "combosNear",
+                    "playedMost", "playedLeast"]:
             with self.subTest(id=pid):
                 self.assertIn('id="' + pid + '"', self.body)
         self.assertRegex(self.body, r'id="tplEdit"[^>]*aria-expanded="false"[^>]*aria-controls="tplForm"')
@@ -234,7 +235,8 @@ class TestStatsPage(_DeckPage, unittest.TestCase):
         self.assertIn("A card can count in two rows. Plan = everything else.", self.body)
 
     def test_reads_the_shipped_apis(self):
-        for api in ["interactions", "engines", "combos", "composition", "identity", "edhrec", "weak-performers"]:
+        for api in ["interactions", "engines", "combos", "composition", "identity", "edhrec", "weak-performers",
+                    "played-with"]:
             with self.subTest(api=api):
                 self.assertIn("/" + api, self.body)
 

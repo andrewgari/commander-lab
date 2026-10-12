@@ -22,6 +22,7 @@ import time
 from typing import Callable, Dict, List, Optional
 
 from . import composition as comp
+from . import card2vec
 from . import edhrec_inclusion
 from . import embeddings
 from . import identity
@@ -149,10 +150,48 @@ def deck_weak_performers(r, deck: dict, graph: dict, limit: Optional[int] = None
     ident = identity.load_identity(r, deck)
     fit = pillar_fit_safe(r, deck, ident, texts)
     inc = deck_edhrec(r, deck, texts=texts)
+    played = deck_played(r, deck, texts)
     out = weak.compute_weak_performers(deck, graph, fit, inc, pets=pet_cards(r, deck), card_texts=texts,
-                                       limit=limit)
+                                       limit=limit, played=played)
     out["inputs"].update({"fit_status": fit.get("status"), "edhrec_status": inc.get("status"),
-                          "edhrec_stale": inc.get("stale"), "pets": len(pet_cards(r, deck))})
+                          "edhrec_stale": inc.get("stale"), "pets": len(pet_cards(r, deck)),
+                          "played_status": played.get("status")})
+    return out
+
+
+def _non_land_names(deck: dict, texts: Dict[str, dict]) -> List[str]:
+    by_card = comp.compute_composition(deck, texts)["by_card"]
+    names = card2vec.deck_card_names(deck)
+    return [n for n in names if by_card.get(n) != ["lands"]]
+
+
+def deck_played(r, deck: dict, texts: Optional[Dict[str, dict]] = None, candidates=(), model=None) -> dict:
+    """card2vec played-with scores (AN-7). Deck cards are scored leave-one-out
+    against the deck's non-land cards; candidates against all of them. Never
+    raises: a missing/bad artifact is status "unavailable"."""
+    m = model or card2vec.default_model()
+    try:
+        if not m.available():
+            return {"status": "unavailable", "error": m.error, "deck": {}, "candidates": {}}
+        texts = texts if texts is not None else card_texts(r, deck)
+        return m.deck_scores(_non_land_names(deck, texts), list(candidates or ()))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("card2vec failed for %s: %s", deck.get("name"), exc)
+        return {"status": "error", "error": str(exc), "deck": {}, "candidates": {}}
+
+
+def deck_played_view(r, deck: dict, model=None, top: int = 8) -> dict:
+    """Stats page panel: most / least played-with cards in this deck."""
+    m = model or card2vec.default_model()
+    try:
+        texts = card_texts(r, deck)
+        by_card = comp.compute_composition(deck, texts)["by_card"]
+        lands = [n for n, rows in by_card.items() if rows == ["lands"]]
+        out = m.deck_view(card2vec.deck_card_names(deck), exclude_lands=lands, top=top)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("card2vec view failed for %s: %s", deck.get("name"), exc)
+        out = {"status": "error", "error": str(exc)}
+    out["commanders"] = list(deck.get("commanders") or [])
     return out
 
 

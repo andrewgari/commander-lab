@@ -94,12 +94,14 @@ def _rid(deck: Mapping) -> str:
 
 
 def score(edges: int, p75: float, fit: Optional[float], inclusion: Optional[float], has_pillars: bool,
-          has_edhrec: bool) -> float:
+          has_edhrec: bool, played: Optional[float] = None) -> float:
     parts = [min(1.0, max(0.0, (edges or 0) / (p75 or 1.0)))]
     if has_pillars:
         parts.append(min(1.0, max(0.0, fit if fit is not None else 0.0)))
     if has_edhrec:
         parts.append(min(1.0, max(0.0, (inclusion or 0.0) / EDHREC_FULL)))
+    if played is not None:  # AN-7 card2vec: only when the model knows the card
+        parts.append(min(1.0, max(0.0, played)))
     return round(sum(parts) / len(parts), 4)
 
 
@@ -152,8 +154,8 @@ def _cap_of(price: Optional[float], caps: Mapping) -> Optional[str]:
 
 def _option(c: Mapping, s: float, buy: bool, caps: Mapping) -> dict:
     o = {"name": c["name"], "score": s, "pillar": c.get("pillar"), "edges": c.get("edges", 0),
-         "fit": c.get("fit"), "edhrec": c.get("inclusion"), "on_plan": bool(c.get("on_plan")),
-         "combo": c.get("combo")}
+         "fit": c.get("fit"), "edhrec": c.get("inclusion"), "played": c.get("played"),
+         "on_plan": bool(c.get("on_plan")), "combo": c.get("combo")}
     if buy:
         o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps))
     else:
@@ -229,6 +231,16 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
     decisions = dict((state or {}).get("decisions") or {})
     in_deck = set(journal_mod.deck_entries(deck)) | set(deck.get("commanders") or [])
+    # AN-7: when card2vec is on for this deck, EVERY card (cut or candidate)
+    # gets a played part; a card the model doesn't know gets the deck's median
+    # played score (neutral). So all scores are means over the same parts.
+    has_played = bool((weak.get("inputs") or {}).get("played"))
+    neutral = (weak.get("weights") or {}).get("played_neutral")
+
+    def _played(v):
+        if not has_played or neutral is None:
+            return None
+        return v if v is not None else neutral
 
     pool = []
     for c in cands:
@@ -240,7 +252,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         elif c.get("price") is None:
             continue  # an unpriced card can't be a buy
         c = dict(c)
-        c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec)
+        c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec,
+                           _played(c.get("played")))
         pool.append(c)
     pool.sort(key=lambda c: (-c["score"], c["name"]))
 
@@ -259,7 +272,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         dec = decisions.get(w["name"]) or {}
         if dec.get("decision") == "dismissed":
             continue
-        cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec)
+        cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
+                          _played(w.get("played")))
         fits = [c for c in pool if c["name"] not in used and _role_ok(w.get("rows") or [], c)
                 and c["score"] >= cut_score + MIN_UPGRADE]
         owned = [c for c in fits if c.get("owned")]
@@ -298,7 +312,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         used.add((buy_o or {}).get("name"))
         row = {
             "cut": {"name": w["name"], "weak_score": w["weak_score"], "score": cut_score,
-                    "why": {"edges": w.get("edges") or 0, "fit": w.get("fit"), "edhrec": w.get("edhrec_inclusion")},
+                    "why": {"edges": w.get("edges") or 0, "fit": w.get("fit"), "edhrec": w.get("edhrec_inclusion"),
+                            **({"played": w.get("played")} if w.get("played") is not None else {})},
                     "rows": w.get("rows") or [], "on_plan": w.get("fit_bucket") in ("pillar", "glue"),
                     "reasons": w.get("reasons") or []},
             "own": own_o, "buy": buy_o, "gap": gap, "pick": pick, "verdict": verdict, "near_buy": near,
@@ -314,7 +329,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
 
     with_swap = {s["cut"]["name"] for s in swaps}
     weak_table = [{"name": w["name"], "edges": w.get("edges") or 0, "fit": w.get("fit"),
-                   "edhrec": w.get("edhrec_inclusion"), "weak_score": w["weak_score"],
+                   "edhrec": w.get("edhrec_inclusion"), "played": w.get("played"), "weak_score": w["weak_score"],
                    "pet": w["name"] in pets, "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
                   for w in sorted(weak.get("cards") or [], key=lambda w: (-w["weak_score"], w["name"]))]
     notice = weak.get("pet_notice")
@@ -335,10 +350,12 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool)},
         "constants": {"gap_worth": GAP_WORTH, "gap_soft_override": GAP_SOFT_OVERRIDE, "min_upgrade": MIN_UPGRADE,
                       "p75_degree": p75, "edhrec_full_at": EDHREC_FULL},
-        "inputs": {"pillars": has_pillars, "edhrec": has_edhrec},
+        "inputs": {"pillars": has_pillars, "edhrec": has_edhrec, "played": has_played and neutral is not None,
+                   "played_neutral": neutral if has_played else None},
         "adds": list((state or {}).get("adds") or []),
-        "note": "Score = mean of edges into the deck, pillar fit and EDHREC inclusion. All numbers are computed; "
-                "the LLM only writes the why.",
+        "note": "Score = mean of edges into the deck, pillar fit, EDHREC inclusion and played-with (card2vec; a "
+                "card the model doesn't know counts as typical for this deck). All numbers are computed; the LLM "
+                "only writes the why.",
     }
 
 
@@ -561,10 +578,12 @@ def _owned(r) -> Dict[str, dict]:
 
 
 def candidate_pool(r, deck: Mapping, graph: Mapping, inclusion: Mapping, ident: Optional[Mapping], embedder,
-                   fetch_prices: Optional[Callable] = None, scryfall=None) -> List[dict]:
+                   fetch_prices: Optional[Callable] = None, scryfall=None,
+                   c2v: Optional[Callable[[List[str]], Mapping]] = None) -> List[dict]:
     """Owned cards (any status) + cards on the commander's EDHREC page, minus
     the deck, in colour identity. Each with tags, edges into the deck, fit,
-    inclusion, composition rows, ownership and (for buys) a price."""
+    inclusion, played-with (card2vec; `c2v(names)` -> {name: {sim, score}}),
+    composition rows, ownership and (for buys) a price."""
     from . import edhrec_inclusion
     from . import pillar_fit
     from . import prices as prices_mod
@@ -642,6 +661,12 @@ def candidate_pool(r, deck: Mapping, graph: Mapping, inclusion: Mapping, ident: 
             fit_by[n] = (embedder.scale(sims[i]), sims[i] >= embedder.on_pillar_sim, pillars[i]["name"])
 
     buy_names = [n for n in names if n not in owned]
+    played_by: Dict[str, float] = {}
+    if c2v is not None:
+        try:
+            played_by = {n: v["score"] for n, v in (c2v(names) or {}).items() if v.get("score") is not None}
+        except Exception as exc:  # noqa: BLE001 - card2vec is an optional signal
+            log.warning("tuner: card2vec failed: %s", exc)
     prices = {}
     if buy_names:
         try:
@@ -662,6 +687,7 @@ def candidate_pool(r, deck: Mapping, graph: Mapping, inclusion: Mapping, ident: 
             "fit": f[0] if f else None, "pillar": f[2] if f and f[1] else None,
             "on_plan": bool((f and f[1] and not land) or any(x in comp.FUNCTIONAL_ROWS for x in rows)),
             "inclusion": inc_by_key.get(edhrec_inclusion.name_key(n)) or 0.0, "rows": rows, "land": land,
+            "played": None if land else played_by.get(n),
             "owned": bool(o), "available": (o or {}).get("available", 0), "decks": (o or {}).get("decks", []),
             "price": None if o else prices.get(n),
             "sources": (["owned"] if o else []) + (["edhrec"] if edhrec_inclusion.name_key(n) in inc_by_key else []),
@@ -689,10 +715,13 @@ def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, e
     inc = insights.deck_edhrec(r, deck, texts=texts)
     graph = interactions_service.get_deck_graph(r, deck)
     pets = insights.pet_cards(r, deck)
-    weak = weak_mod.compute_weak_performers(deck, graph, fit, inc, pets=pets, card_texts=texts)
+    played = insights.deck_played(r, deck, texts)
+    weak = weak_mod.compute_weak_performers(deck, graph, fit, inc, pets=pets, card_texts=texts, played=played)
     composition = insights.deck_composition(r, deck, texts)
     caps = caps_for(r, deck)
-    cands = candidate_pool(r, deck, graph, inc, ident, emb, fetch_prices=fetch_prices, scryfall=scryfall)
+    c2v = (lambda names: insights.deck_played(r, deck, texts, names).get("candidates")) \
+        if played.get("status") == "ok" else None
+    cands = candidate_pool(r, deck, graph, inc, ident, emb, fetch_prices=fetch_prices, scryfall=scryfall, c2v=c2v)
     state = load_state(r, deck)
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,

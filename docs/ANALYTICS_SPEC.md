@@ -33,7 +33,7 @@ Existing code to build on: analytics/ (models, provider registry, EDHREC + Comma
 - LLM role = labels + prose only. All stats are deterministic math.
 
 ## Phase 2 (after layers 1-3 ship)
-- card2vec: a local model trained on real Commander decklists → "cards actually played together" co-occurrence similarity.
+- card2vec: a local model trained on real Commander decklists → "cards actually played together" co-occurrence similarity. Shipped in AN-7: see docs/CARD2VEC.md.
 
 ## Build rules
 - Sequential chain, each card gated on the previous one landing (prevents the auto-decomposer fan-out).
