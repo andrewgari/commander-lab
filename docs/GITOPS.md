@@ -109,6 +109,16 @@ backup as described above.
   in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
   To rotate a key, rewrite its file (`umask 077`), then restart
   `commander-lab-app`.
+- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` defaults to
+  `http://192.168.50.2:8645` (oracle's own standalone Hermes gateway on the
+  Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
+  `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
+  `API_SERVER_KEY` from `~/.hermes/profiles/oracle/.env`; set it on the
+  Portainer stack env or as the file `secrets/ORACLE_KEY` (the client reads
+  that file when the env var is empty). The Framework's ufw must allow
+  `8645/tcp` from Tower (`192.168.50.3`). Smoke test from prod:
+  `ssh tower 'docker exec commander-lab-app python -m analytics.oracle_client'`
+  prints `oracle online`; `OracleUnavailable` means oracle is down or blocked.
 - `Makefile` `deploy-push`: triggers the stack 124 webhook.
 
 ## Legacy / stale paths (do not use)
