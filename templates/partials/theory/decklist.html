@@ -5,9 +5,10 @@
 {%- set c = d.counts or {} %}
 {%- if c %}
 <div class="hud-tlist-counts">
+    {#- TH-3R F8: a zero count is not a status; it goes neutral instead of a green/amber "0". #}
     {{ hud.chip((c.kept or 0) ~ " kept", tv.SOURCE_TONES.kept) }}
-    {{ hud.chip((c.owned or 0) ~ " owned", tv.SOURCE_TONES.owned) }}
-    {{ hud.chip((c.buy or 0) ~ " buy", tv.SOURCE_TONES.buy) }}
+    {{ hud.chip((c.owned or 0) ~ " owned", tv.SOURCE_TONES.owned if c.owned else "neutral") }}
+    {{ hud.chip((c.buy or 0) ~ " buy", tv.SOURCE_TONES.buy if c.buy else "neutral") }}
     <span class="hud-freshness">{{ c.total or 0 }} cards · prices Scryfall USD</span>
 </div>
 {%- endif %}
@@ -23,9 +24,9 @@
                 <span class="hud-card-name">{{ card.name }}</span>
                 {%- if src %}{{ hud.chip(tv.SOURCE_LABELS[src], tv.SOURCE_TONES[src]) }}{% else %}<span></span>{% endif %}
                 <span class="hud-tcard-price">{{ tv.money(card.price) if card.price is not none else "—" }}</span>
-                {%- if card.over_soft_cap %}<span class="hud-tcard-note is-salt">Over the soft cap</span>{% endif %}
+                {%- if card.over_soft_cap %}<span class="hud-tcard-note is-cap">Over the soft cap</span>{% endif %}
                 {%- if card.why %}<span class="hud-tcard-note">{{ card.why }}</span>{% endif %}
-                {%- if card.salt_flag is mapping %}<span class="hud-tcard-note is-salt" title="{{ card.salt_flag.reason }}">Salt · {{ card.salt_flag.level }}: {{ card.salt_flag.reason }}</span>{% endif %}
+                {%- if card.salt_flag is mapping %}<span class="hud-tcard-note is-salt" title="{{ card.salt_flag.reason }}"><b>Salt · {{ card.salt_flag.level }}</b> {{ (card.salt_flag.reason or "").split("; salt:")[0] }}</span>{% endif %}
             </li>
             {%- endfor %}
         </ul>
