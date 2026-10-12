@@ -32,6 +32,21 @@ class FakeRedis:
     def __init__(self):
         self.store = {}
         self.lists = {}
+        self.hashes = {}
+
+    def hget(self, key, field):
+        return self.hashes.get(key, {}).get(field)
+
+    def hmget(self, key, fields):
+        h = self.hashes.get(key, {})
+        return [h.get(f) for f in fields]
+
+    def hset(self, key, field=None, value=None, mapping=None):
+        h = self.hashes.setdefault(key, {})
+        if field is not None:
+            h[field] = value
+        h.update(mapping or {})
+        return 1
 
     def get(self, key):
         return self.store.get(key)
