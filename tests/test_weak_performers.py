@@ -118,6 +118,7 @@ class TestDeckWeakPerformers(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.deck, cls.tags = load_hh()
+        cls.cards = {n: t["card"] for n, t in cls.tags.items()}
         cls.graph = graph_mod.build_graph([c["name"] for c in cls.deck["cards"]], cls.tags,
                                           commanders=cls.deck["commanders"])
 
@@ -133,7 +134,7 @@ class TestDeckWeakPerformers(unittest.TestCase):
 
     def test_ranks_non_land_non_commander_cards(self):
         out = weak.compute_weak_performers(self.deck, self.graph, self.fit(low={"Platinum Angel"}),
-                                           self.inclusion(), pets=[])
+                                           self.inclusion(), pets=[], card_texts=self.cards)
         names = [row["name"] for row in out["cards"]]
         self.assertNotIn("Kaalia of the Vast", names)
         self.assertNotIn("Mountain", names)
@@ -150,7 +151,7 @@ class TestDeckWeakPerformers(unittest.TestCase):
 
     def test_pets_flagged_and_moved_to_notice(self):
         out = weak.compute_weak_performers(self.deck, self.graph, self.fit(low={"Platinum Angel"}),
-                                           self.inclusion(), pets=["Platinum Angel"])
+                                           self.inclusion(), pets=["Platinum Angel"], card_texts=self.cards)
         self.assertNotEqual(out["cards"][0]["name"], "Platinum Angel")
         pa = next(row for row in out["cards"] if row["name"] == "Platinum Angel")
         self.assertTrue(pa["pet"])
@@ -158,7 +159,7 @@ class TestDeckWeakPerformers(unittest.TestCase):
 
     def test_without_edhrec(self):
         out = weak.compute_weak_performers(self.deck, self.graph, self.fit(), {"status": "unavailable",
-                                                                               "per_card": []}, pets=[])
+                                                                               "per_card": []}, pets=[], card_texts=self.cards)
         self.assertFalse(out["inputs"]["edhrec"])
         self.assertTrue(all(row["parts"]["edhrec"] == 0.0 for row in out["cards"]))
 
@@ -170,21 +171,23 @@ class TestRoutes(unittest.TestCase):
         self.client = TestClient(app)
         self.deck, _ = load_hh()
 
-    @patch("app.weak_performers")
+    @patch("app.interactions_service")
+    @patch("app.insights")
     @patch("app.registry")
-    def test_weak_route(self, mock_registry, mock_weak):
+    def test_weak_route(self, mock_registry, mock_weak, mock_graph):
         mock_registry.find_deck.return_value = self.deck
+        mock_graph.get_deck_graph.return_value = {"nodes": [], "edges": []}
         mock_weak.deck_weak_performers.return_value = {"cards": [{"name": "Platinum Angel"}]}
         res = self.client.get("/api/decks/archidekt:417707/weak-performers?limit=5")
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["weak_performers"]["cards"][0]["name"], "Platinum Angel")
         self.assertEqual(mock_weak.deck_weak_performers.call_args.kwargs["limit"], 5)
 
-    @patch("app.edhrec_inclusion")
+    @patch("app.insights")
     @patch("app.registry")
     def test_edhrec_route(self, mock_registry, mock_inc):
         mock_registry.find_deck.return_value = self.deck
-        mock_inc.deck_inclusion.return_value = {"decks_sampled": 40240, "per_card": []}
+        mock_inc.deck_edhrec.return_value = {"decks_sampled": 40240, "per_card": []}
         res = self.client.get("/api/decks/archidekt:417707/edhrec")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["edhrec"]["decks_sampled"], 40240)

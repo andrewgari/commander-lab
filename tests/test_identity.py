@@ -77,7 +77,7 @@ RESYNC = {
         {"name": "Life is a resource", "description": "Pay life and lose life to draw cards."},
         # New -> added as a draft.
         {"name": "Graveyard insurance", "description": "Reanimate and return creatures from the graveyard."},
-        # Would exceed 5 live pillars -> not added.
+        # New -> added (5th live pillar); dropped by the cap when 5 are already live.
         {"name": "Dragon storm", "description": "Dragons entering deal damage and make more dragons."},
     ],
 }
@@ -188,15 +188,15 @@ class TestResync(Base):
         for pid, p in before_ps.items():
             self.assertEqual(after_ps[pid], p)
         new = [p for pid, p in after_ps.items() if pid not in before_ps]
-        self.assertEqual([p["name"] for p in new], ["Graveyard insurance"])
-        self.assertEqual(new[0]["state"], "draft")
-        self.assertEqual(new[0]["origin"], "resync")
-        self.assertEqual(len([p for p in after["pillars"] if p["state"] != "rejected"]), 4)
+        self.assertEqual([p["name"] for p in new], ["Graveyard insurance", "Dragon storm"])
+        self.assertTrue(all(p["state"] == "draft" for p in new))
+        self.assertTrue(all(p["origin"] == "resync" for p in new))
+        self.assertEqual(len([p for p in after["pillars"] if p["state"] != "rejected"]), 5)
         # the thesis text is the user's; the new draft is offered alongside it
         self.assertEqual(after["thesis"]["text"], "My thesis.")
         self.assertEqual(after["thesis"]["draft_text"], RESYNC["thesis"]["text"])
-        self.assertEqual(after["proposal"]["new"], 1)
-        self.assertEqual(sorted(after["proposal"]["dropped"]), ["Dragon storm", "Life is a resource", "Swing twice"])
+        self.assertEqual(after["proposal"]["new"], 2)
+        self.assertEqual(sorted(after["proposal"]["dropped"]), ["Life is a resource", "Swing twice"])
         # the re-sync prompt tells the LLM what exists and what was rejected
         _, prompt, _ = primary.prompts[0]
         self.assertIn("Swing twice", prompt)
@@ -209,6 +209,7 @@ class TestResync(Base):
         self.generate(chain)
         after = identity.load_identity(self.r, self.deck)
         self.assertEqual(len([p for p in after["pillars"] if p["state"] != "rejected"]), 5)
+        self.assertIn("Dragon storm", after["proposal"]["dropped"])
 
     def test_rebuild_only_regenerates_when_cards_change(self):
         chain, primary, _ = chain_with(RESYNC, RESYNC)
@@ -290,6 +291,42 @@ class TestEdits(Base):
         self.assertEqual([p["id"] for p in ps], list(reversed(ids)))
 
 
+class TestRebuildIntegration(unittest.TestCase):
+    """service.rebuild drafts identities for changed decks and logs the calls in the run."""
+
+    def test_rebuild_drafts_and_logs_pillar_calls(self):
+        from analytics.interactions import service
+        from analytics import embeddings
+        from tests.test_interactions import FakeScryfall
+
+        r = FakeRedis()
+        deck, tags = load_hh()
+        r.set("decks", json.dumps([deck]))
+        for n, t in tags.items():
+            r.set(f"card_interactions:{n}", json.dumps({**t, "name": n, "vocab_version": 1}))
+
+        class Gen(JsonProvider):
+            def generate_json(self, system, prompt, schema=None):
+                self.prompts.append((system, prompt, schema))
+                data = FIRST if prompt.startswith("Deck:") else {"engines": []}
+                return data, llm_mod.Usage(input_tokens=3000, output_tokens=400)
+
+        gen = Gen([])
+        with patch.object(embeddings, "default_embedder", return_value=HashEmbedder()):
+            run = service.rebuild(r, trigger="manual", scryfall=FakeScryfall([]), llm=llm_mod.LLMChain([gen]))
+            self.assertEqual(run["status"], "ok", run.get("error"))
+            self.assertEqual(run["identity"]["generated"], 1)
+            pillar_calls = [c for c in run["llm_calls"] if c.get("purpose") == "pillars"]
+            self.assertEqual(len(pillar_calls), 1)
+            self.assertEqual(pillar_calls[0]["deck"], "archidekt:417707")
+            self.assertGreater(pillar_calls[0]["cost_usd"], 0)
+            self.assertEqual(len(identity.load_identity(r, deck)["pillars"]), 4)
+            # unchanged deck: the next rebuild makes no pillar call
+            run2 = service.rebuild(r, trigger="nightly", scryfall=FakeScryfall([]), llm=llm_mod.LLMChain([gen]))
+            self.assertEqual([c for c in run2["llm_calls"] if c.get("purpose") == "pillars"], [])
+            self.assertEqual(run2["identity"]["skipped_unchanged"], 1)
+
+
 class TestIdentityRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
@@ -303,8 +340,7 @@ class TestIdentityRoutes(unittest.TestCase):
     @patch("app.registry")
     def test_get_without_identity(self, mock_registry):
         mock_registry.find_deck.return_value = self.deck
-        with patch.object(self.app_mod, "r", self.fake), \
-                patch("app.pillar_fit.deck_fit", return_value={"per_card": []}):
+        with patch.object(self.app_mod, "r", self.fake):
             res = self.client.get("/api/decks/archidekt:417707/identity")
         self.assertEqual(res.status_code, 200, res.text)
         body = res.json()["identity"]

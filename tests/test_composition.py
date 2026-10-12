@@ -206,7 +206,7 @@ class TestCompositionRoutes(unittest.TestCase):
         self.client = TestClient(app)
         self.deck, self.tags = load_hh()
 
-    @patch("app.composition_service")
+    @patch("app.insights")
     @patch("app.registry")
     def test_get(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = self.deck
