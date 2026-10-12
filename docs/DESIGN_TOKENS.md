@@ -223,7 +223,9 @@ edit needs the rescored payload anyway). Journal (AN-5) gets macros.
 | Combos | (markup) | `.hud-combos` > `.hud-combo`, `.hud-combo-group` | missing piece = `.is-missing` chip |
 | Kbd / freshness | (markup) | `.hud-kbd`, `.hud-freshness` | |
 | Compact ranked bars | wrap `HUD.rankList()` | `.hud-rank-compact` | narrow panels |
-| Journal / check-in / tuner | (AN-5 / AN-6) | `.hud-form`, `.hud-field`, `.hud-seg`, `.hud-picker`, `.hud-money`, `.hud-checkin-head`, `.hud-checklist`, `.hud-check`, `.hud-swap`, `.hud-opts`, `.hud-opt`, `.hud-why`, `.hud-fix`, `.hud-changes` | CSS shipped in AN-4, pages pending |
+| Journal form | `partials/hud.html`: `form_section(id, title, blurb)`, `seg(name, options, selected, label_id, multi, mod, visible, more_id, id_prefix)`, `money(id, value, label, hint, hint_id)`, `picker_chip(name)` | `.hud-form` > `.hud-form-section`, `.hud-field`, `.hud-seg` (`--multi --exclude --scale`, `.hud-seg-more` / `.hud-seg-rest`), `.hud-scale-tiers`, `.hud-money`, `.hud-toggle`, `.hud-picker` + `.hud-picker-list` (section 10) | server-rendered (AN-5). `seg(visible=4)` puts the rest behind More…, expanded when one of them is selected |
+| Check-in | (markup, from `/checkin` JSON) | `.hud-checkin-head`, `.hud-since` (`.up` ok / `.down` signal), `.hud-progress`, `.hud-checklist` > `.hud-check` (`is-current is-done`), `.hud-check-evidence`, `.hud-check-form` (inline Change) | AN-5; `.hud-progress` is `aria-live` |
+| Tuner | (AN-6) | `.hud-swap`, `.hud-opts`, `.hud-opt`, `.hud-why`, `.hud-fix`, `.hud-changes` | CSS shipped in AN-4, page pending |
 
 `HUD.barChart(bars, {ref: [...]})` now draws the dashed reference step line
 like the `bar_chart` macro (Stats uses it for the template curve).

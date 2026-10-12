@@ -307,3 +307,45 @@
     <span>{{ legend[1] }}</span>
 </div>
 {%- endmacro %}
+
+{#- ==========================================================================
+    Journal form kit (AN-5, UX_SPEC §3.3). Server-rendered surfaces only.
+    ========================================================================== -#}
+
+{# Form section: header column (title + blurb) next to the fields (caller). #}
+{% macro form_section(id, title, blurb=none) -%}
+<section class="hud-form-section" id="{{ id }}">
+    <header><h2>{{ title }}</h2>{% if blurb %}<p>{{ blurb }}</p>{% endif %}</header>
+    <div>{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{# Segmented control over native radios/checkboxes. options: [(value, label)].
+   selected: a value (radio) or a list (multi). mod: "multi", "exclude", "scale".
+   `visible` options show; the rest sit behind a More… button (expanded when one is selected). #}
+{% macro seg(name, options, selected=none, label_id=none, multi=false, mod=none, visible=none, more_id=none, id_prefix=none) -%}
+{%- set kind = "checkbox" if multi else "radio" -%}
+{%- set sel = (selected if selected is iterable and selected is not string else [selected]) if selected is not none else [] -%}
+{%- set pre = id_prefix or name -%}
+{%- set head = options[:visible] if visible else options -%}
+{%- set rest = options[visible:] if visible else [] -%}
+{%- macro opt(o) -%}<input type="{{ kind }}" name="{{ name }}" value="{{ o[0] }}" id="{{ pre }}-{{ o[0] }}"{% if o[0] in sel %} checked{% endif %}><label for="{{ pre }}-{{ o[0] }}">{{ o[1] }}</label>{%- endmacro -%}
+<span class="hud-seg{% for m in (mod or "").split() %} hud-seg--{{ m }}{% endfor %}" role="{{ "group" if multi else "radiogroup" }}"{% if label_id %} aria-labelledby="{{ label_id }}"{% endif %}>
+    {%- for o in head %}{{ opt(o) }}{% endfor -%}
+    {%- if rest -%}
+    {%- set open = (rest | map(attribute=0) | select("in", sel) | list | length) > 0 -%}
+    <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost hud-seg-more" aria-expanded="{{ "true" if open else "false" }}" aria-controls="{{ more_id }}" data-more="{{ rest | length }}">{{ "Less" if open else "More… " ~ (rest | length) }}</button>
+    <span id="{{ more_id }}" class="hud-seg-rest"{% if not open %} hidden{% endif %}>{% for o in rest %}{{ opt(o) }}{% endfor %}</span>
+    {%- endif -%}
+</span>
+{%- endmacro %}
+
+{# Money input with a currency prefix. #}
+{% macro money(id, value=none, label=none, hint=none, hint_id=none) -%}
+<div class="hud-field"><label for="{{ id }}">{{ label }}</label><div class="hud-money"><span>$</span><input id="{{ id }}" inputmode="decimal" autocomplete="off" value="{{ "" if value is none else ("%g" | format(value)) }}"></div>{% if hint is not none %}<span class="hud-field-hint"{% if hint_id %} id="{{ hint_id }}"{% endif %}>{{ hint }}</span>{% endif %}</div>
+{%- endmacro %}
+
+{# Removable chip (picker). #}
+{% macro picker_chip(name) -%}
+<span class="hud-chip hud-chip--ghost" data-value="{{ name }}">{{ name }}<button class="hud-chip-remove" type="button" aria-label="Remove {{ name }}">×</button></span>
+{%- endmacro %}
