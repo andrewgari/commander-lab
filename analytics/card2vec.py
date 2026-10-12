@@ -26,8 +26,9 @@ Deck similarity ("played-with"):
     score         = scale(sim) in 0..1, using the artifact's calibration:
                     sim_floor (median sim of a random card to a deck) -> 0,
                     sim_ceil (p90 sim of a card to its own deck) -> 1
-Cards the model doesn't know (new sets, very rare cards) get None, never 0:
-unknown isn't the same as "nobody plays this".
+Cards the model doesn't know (new sets, very rare cards) get None here, never
+0: unknown isn't the same as "nobody plays this". The weak-performer and
+tuner scores fill them with the deck's median played score (neutral).
 """
 from __future__ import annotations
 
@@ -47,8 +48,9 @@ BASICS = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes", "Snow-Cov
 
 def name_key(name: str) -> str:
     """Same key as analytics/edhrec_inclusion.name_key: lower-cased front face.
-    EDHTop16 writes 'A // B', some sources write 'A / B'; both map to 'a'."""
-    n = (name or "").split(" // ")[0]
+    'A // B' and the single-slash spelling 'A / B' both map to 'a'. (A real
+    card name never contains ' / ' with spaces, so this is safe.)"""
+    n = (name or "").replace(" // ", " / ").split(" / ")[0]
     return n.strip().lower()
 
 

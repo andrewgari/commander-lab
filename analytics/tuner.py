@@ -231,6 +231,16 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
     decisions = dict((state or {}).get("decisions") or {})
     in_deck = set(journal_mod.deck_entries(deck)) | set(deck.get("commanders") or [])
+    # AN-7: when card2vec is on for this deck, EVERY card (cut or candidate)
+    # gets a played part; a card the model doesn't know gets the deck's median
+    # played score (neutral). So all scores are means over the same parts.
+    has_played = bool((weak.get("inputs") or {}).get("played"))
+    neutral = (weak.get("weights") or {}).get("played_neutral")
+
+    def _played(v):
+        if not has_played or neutral is None:
+            return None
+        return v if v is not None else neutral
 
     pool = []
     for c in cands:
@@ -243,7 +253,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             continue  # an unpriced card can't be a buy
         c = dict(c)
         c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec,
-                           c.get("played"))
+                           _played(c.get("played")))
         pool.append(c)
     pool.sort(key=lambda c: (-c["score"], c["name"]))
 
@@ -263,7 +273,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         if dec.get("decision") == "dismissed":
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
-                          w.get("played"))
+                          _played(w.get("played")))
         fits = [c for c in pool if c["name"] not in used and _role_ok(w.get("rows") or [], c)
                 and c["score"] >= cut_score + MIN_UPGRADE]
         owned = [c for c in fits if c.get("owned")]
@@ -340,11 +350,12 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool)},
         "constants": {"gap_worth": GAP_WORTH, "gap_soft_override": GAP_SOFT_OVERRIDE, "min_upgrade": MIN_UPGRADE,
                       "p75_degree": p75, "edhrec_full_at": EDHREC_FULL},
-        "inputs": {"pillars": has_pillars, "edhrec": has_edhrec,
-                   "played": any(w.get("played") is not None for w in weak.get("cards") or [])},
+        "inputs": {"pillars": has_pillars, "edhrec": has_edhrec, "played": has_played and neutral is not None,
+                   "played_neutral": neutral if has_played else None},
         "adds": list((state or {}).get("adds") or []),
-        "note": "Score = mean of edges into the deck, pillar fit, EDHREC inclusion and played-with (card2vec, when "
-                "the model knows the card). All numbers are computed; the LLM only writes the why.",
+        "note": "Score = mean of edges into the deck, pillar fit, EDHREC inclusion and played-with (card2vec; a "
+                "card the model doesn't know counts as typical for this deck). All numbers are computed; the LLM "
+                "only writes the why.",
     }
 
 

@@ -1,7 +1,7 @@
 """
 Weak performers (AN-3): computed only, no game logs (ANALYTICS_SPEC Layer 3).
 
-Three equally weighted parts, each 0..1 where 1 = weak:
+Three base parts plus an optional fourth, equally weighted, each 0..1 where 1 = weak:
 
     edges   1 - min(1, degree / p75)   degree in the AN-1 deck graph, ignoring
                                        edges whose only reasons are mana/lands
@@ -14,10 +14,14 @@ Three equally weighted parts, each 0..1 where 1 = weak:
                                        page = 0% inclusion; 0 for every card when
                                        EDHREC is unavailable
 
-    played  1 - card2vec played-with score   AN-7, optional 4th part: only when
-                                       the model is loaded AND knows the card
-                                       (analytics/card2vec.py); unknown cards
-                                       are scored on the other three
+    played  1 - card2vec played-with score   AN-7, optional 4th part, on when the
+                                       model is loaded for this deck
+                                       (analytics/card2vec.py). Then EVERY
+                                       card has it: a card the model doesn't
+                                       know gets the deck's median played
+                                       score (neutral, "typical card here"),
+                                       so all cards are means over the same
+                                       parts and unknown is never weak
 
 weak_score = mean of the parts, rounded to 3 dp. Lands and commanders are
 not scored. Pet cards (passed in; the Journal owns them) keep their score but
@@ -43,6 +47,12 @@ def _p75(values: List[int]) -> float:
     lo = int(k)
     hi = min(lo + 1, len(s) - 1)
     return max(1.0, s[lo] + (s[hi] - s[lo]) * (k - lo))
+
+
+def _median(values: List[float]) -> float:
+    s = sorted(values)
+    m = len(s) // 2
+    return s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2
 
 
 def weak_parts(degree: int, p75: float, fit: Optional[float], inclusion: Optional[float],
@@ -73,7 +83,7 @@ def plan_degrees(graph: dict) -> Dict[str, int]:
 
 
 def _reasons(parts: Dict[str, float], degree: int, fit_row: Optional[dict], inclusion: Optional[float],
-             listed: bool) -> List[str]:
+             listed: bool, played_known: bool = False) -> List[str]:
     out = []
     if parts["edges"] >= 0.5:
         out.append(f"{degree} edge{'s' if degree != 1 else ''}")
@@ -81,7 +91,7 @@ def _reasons(parts: Dict[str, float], degree: int, fit_row: Optional[dict], incl
         out.append("off-pillar" if fit_row and fit_row.get("bucket") != "pillar" else "weak pillar fit")
     if parts["edhrec"] >= 0.5:
         out.append("not on EDHREC" if not listed else f"EDHREC {round(100 * (inclusion or 0))}%")
-    if parts.get("played", 0) >= 0.5:
+    if played_known and parts.get("played", 0) >= 0.5:
         out.append("rarely played with the rest")
     return out
 
@@ -94,6 +104,7 @@ def compute_weak_performers(deck: dict, graph: dict, fit: dict, inclusion: dict,
     pets = set(pets or ())
     has_played = bool(played and played.get("status") == "ok")
     played_by = {n: v.get("score") for n, v in ((played or {}).get("deck") or {}).items()} if has_played else {}
+    played_by = {n: s for n, s in played_by.items() if s is not None}
     commanders = set(deck.get("commanders") or [])
     comp_rows = comp.compute_composition(deck, card_texts or {})["by_card"] if card_texts is not None else {}
     fit_by = {row["name"]: row for row in fit.get("per_card") or []}
@@ -111,12 +122,18 @@ def compute_weak_performers(deck: dict, graph: dict, fit: dict, inclusion: dict,
 
     names = sorted(n for n in (set(deg) | set(fit_by)) if n not in commanders and not is_land(n))
     p75 = _p75([deg.get(n, 0) for n in names])
+    # Unknown-to-card2vec cards get the deck's median played score (a neutral
+    # "typical card here"), so every card is a mean over the same 4 parts.
+    known = sorted(played_by[n] for n in names if n in played_by)
+    neutral = round(_median(known), 4) if known else None
+    if neutral is None:
+        has_played = False
     rows = []
     for n in names:
         f = fit_by.get(n)
         i = inc_by.get(n) or {}
         parts = weak_parts(deg.get(n, 0), p75, f.get("score") if f else None, i.get("inclusion"),
-                           has_pillars, has_edhrec, played=played_by.get(n))
+                           has_pillars, has_edhrec, played=played_by.get(n, neutral) if has_played else None)
         rows.append({
             "name": n,
             "weak_score": parts["score"],
@@ -131,7 +148,8 @@ def compute_weak_performers(deck: dict, graph: dict, fit: dict, inclusion: dict,
             "edhrec_listed": bool(i.get("listed")),
             "rows": comp_rows.get(n, []),
             "pet": n in pets,
-            "reasons": _reasons(parts, deg.get(n, 0), f, i.get("inclusion"), bool(i.get("listed"))),
+            "reasons": _reasons(parts, deg.get(n, 0), f, i.get("inclusion"), bool(i.get("listed")),
+                                played_known=n in played_by),
         })
     rows.sort(key=lambda row: (row["pet"], -row["weak_score"], row["name"]))
     pet_rows = sorted([row for row in rows if row["pet"]], key=lambda row: -row["weak_score"])
@@ -149,8 +167,9 @@ def compute_weak_performers(deck: dict, graph: dict, fit: dict, inclusion: dict,
                    "played": has_played, "played_known": len(played_by)},
         "weights": {"parts": list(PARTS) + (["played"] if has_played else []), "equal": True,
                     "p75_degree": round(p75, 2), "edhrec_full_at": EDHREC_FULL,
+                    "played_neutral": neutral if has_played else None,
                     "ignored_edge_reasons": sorted(GLUE_REASONS)},
-        "note": ("Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec, when the "
-                 "model knows the card), equally weighted. No game logs." if has_played else
-                 "Weak = few edges + off-pillar + low EDHREC, equally weighted. No game logs."),
+        "note": ("Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec; a card the "
+                 "model doesn't know counts as typical for this deck), equally weighted. No game logs."
+                 if has_played else "Weak = few edges + off-pillar + low EDHREC, equally weighted. No game logs."),
     }

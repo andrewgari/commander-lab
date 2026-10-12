@@ -19,15 +19,19 @@ pillar fit (bge-small on oracle text):
 
 - **Weak performers** (Stats → Tune): a 4th equally weighted part,
   `played = 1 − played-with score`, with the reason "rarely played with the
-  rest". Only for cards the model knows. A card it has never seen (a new set,
-  a very rare card) is scored on the other three parts, because unknown is
-  not the same as weak.
+  rest". When the model is loaded for a deck, every card gets this part. A
+  card it has never seen (a new set, a very rare card) gets the deck's median
+  played score, a neutral "typical card here", because unknown isn't weak.
+  That way every card is a mean over the same parts.
 - **Tuner score**: the mean of edges / fit / EDHREC gets `played` as a 4th
-  part for both the cut and every candidate (owned or buy), so the gap still
-  compares like with like. Swap "why" bars get a **Played** bar, and the weak
-  table gets a **Played with** column (— = not in the model).
+  part for both the cut and every candidate (owned or buy), with the same
+  neutral fill for unknown cards. So the gap is always over the same parts.
+  An unknown candidate can't look like an upgrade just because a known cut
+  scored low on a part the candidate skipped. Swap "why" bars get a
+  **Played** bar (real value only), and the weak table gets a **Played
+  with** column (— = not in the model).
 - **Stats page**: "Played with · most / least" panels (Identity section) with
-  coverage ("72/84 known · 15,433 decks") and the cards the model doesn't know.
+  coverage ("63/65 known · 24,784 decks") and the cards the model doesn't know.
 - **API**: `GET /api/decks/{id}/played-with?top=8`, and
   `GET /api/card2vec?card=Sol%20Ring&n=10` (model info + nearest neighbours).
 
@@ -77,8 +81,8 @@ python scripts/train_card2vec.py --edhtop16 data/edhtop16.ndjson \
 ```
 
 Training: skip-gram, negative sampling 10, 64 dimensions, min_count 5, 15
-epochs, window = the whole deck (each deck is reshuffled every epoch, so card
-order doesn't matter), `sample=1e-3` to downsample staples like Sol Ring.
+epochs, window = the whole deck (`window=200, shrink_windows=False`, so every
+card is context for every other card; decks are reshuffled every epoch), `sample=1e-3` to downsample staples like Sol Ring.
 Exact duplicate lists (one player registering the same deck at several
 events) are kept once. Basic lands are dropped. Names use the app's key
 (lower-cased front face, so `A // B` and `A` match). Vectors are L2-normalised

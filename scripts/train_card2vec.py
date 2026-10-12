@@ -191,8 +191,8 @@ def main(argv=None):
     train = decks[len(held):]
 
     t0 = time.time()
-    model = Word2Vec(vector_size=a.dim, window=200, min_count=a.min_count, sg=1, negative=a.negative,
-                     sample=a.sample, workers=a.workers, seed=a.seed)
+    model = Word2Vec(vector_size=a.dim, window=200, shrink_windows=False, min_count=a.min_count, sg=1,
+                     negative=a.negative, sample=a.sample, workers=a.workers, seed=a.seed)
     model.build_vocab(Shuffled(train, a.seed))
     model.train(Shuffled(train, a.seed + 1), total_examples=len(train), epochs=a.epochs)
     print(f"trained {len(model.wv)} cards x {a.dim}d in {time.time() - t0:.0f}s", flush=True)

@@ -36,7 +36,7 @@ the parts that exist, each 0..1:
 | edges  | `min(1, plan edges between the card and the deck / p75)`; a "plan edge" has at least one reason other than mana/lands; p75 = the deck's 75th-percentile plan degree (the same p75 the weak-performer score uses) | never |
 | fit    | best pillar fit (local bge-small embeddings, same scale as Stats/Identity) | the deck has no live pillars |
 | edhrec | `min(1, inclusion / 0.50)` on the commander's EDHREC page; not listed = 0 | EDHREC unavailable |
-| played | card2vec played-with score (AN-7, `docs/CARD2VEC.md`): how often real Commander decklists play the card with the rest of this deck, 0 = a random card, 1 = clearly belongs | the model doesn't know the card (new set, very rare), or no artifact |
+| played | card2vec played-with score (AN-7, `docs/CARD2VEC.md`): how often real Commander decklists play the card with the rest of this deck, 0 = a random card, 1 = clearly belongs. When on, every card has it; a card the model doesn't know gets the deck's median (neutral) | no artifact, or too few of the deck's cards are in the model |
 
 A cut is scored with the same formula, so "gap" always compares like with like.
 

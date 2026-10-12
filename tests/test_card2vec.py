@@ -67,6 +67,7 @@ class TestToyModel(unittest.TestCase):
     def test_name_key_matches_front_face(self):
         self.assertTrue(self.m.has("Brazen Borrower"))
         self.assertTrue(self.m.has("brazen borrower // petty theft"))
+        self.assertTrue(self.m.has("Brazen Borrower / Petty Theft"))   # single-slash spelling
         self.assertFalse(self.m.has("Not A Card"))
 
     def test_neighbours_are_the_same_cluster(self):
@@ -133,15 +134,26 @@ class TestScoresUseThePlayedPart(unittest.TestCase):
                                             {"name": "B", "score": 0.5, "bucket": "generic"}]}
         inc = {"status": "ok", "per_card": [{"name": "A", "inclusion": 0.2, "listed": True},
                                             {"name": "B", "inclusion": 0.2, "listed": True}]}
-        played = {"status": "ok", "deck": {"A": {"sim": 0.4, "score": 0.1}}}
+        played = {"status": "ok", "deck": {"A": {"sim": 0.4, "score": 0.1}, "B": {"sim": 0.8, "score": 0.9},
+                                           "C": {"sim": 0.6, "score": 0.5}}}
+        deck["cards"].append({"name": "C", "quantity": 1})
+        deck["cards"].append({"name": "D", "quantity": 1})
+        graph["nodes"] += [{"name": "C"}, {"name": "D"}]
+        for n in ("C", "D"):
+            fit["per_card"].append({"name": n, "score": 0.5, "bucket": "generic"})
+            inc["per_card"].append({"name": n, "inclusion": 0.2, "listed": True})
         out = weak.compute_weak_performers(deck, graph, fit, inc, played=played)
         rows = {r["name"]: r for r in out["cards"]}
         self.assertEqual(rows["A"]["played"], 0.1)
-        self.assertIsNone(rows["B"]["played"])
-        self.assertIn("played", rows["A"]["parts"])
-        self.assertNotIn("played", rows["B"]["parts"])
+        self.assertIsNone(rows["D"]["played"])          # the model doesn't know D...
+        # ...but D is still scored over the same 4 parts, with the deck's median (neutral) played score.
+        self.assertEqual(out["weights"]["played_neutral"], 0.5)
+        self.assertEqual(rows["D"]["parts"]["played"], 0.5)
+        self.assertEqual(rows["D"]["weak_score"], rows["C"]["weak_score"])
         self.assertIn("rarely played with the rest", rows["A"]["reasons"])
-        self.assertGreater(rows["A"]["weak_score"], rows["B"]["weak_score"])
+        self.assertNotIn("rarely played with the rest", rows["D"]["reasons"])
+        self.assertGreater(rows["A"]["weak_score"], rows["D"]["weak_score"])
+        self.assertGreater(rows["D"]["weak_score"], rows["B"]["weak_score"])
         self.assertTrue(out["inputs"]["played"])
         self.assertEqual(out["weights"]["parts"], ["edges", "pillar", "edhrec", "played"])
 
@@ -159,6 +171,28 @@ class TestScoresUseThePlayedPart(unittest.TestCase):
     def test_tuner_score_mean_includes_played(self):
         self.assertEqual(tuner.score(4, 4.0, 0.5, 0.25, True, True), round((1 + 0.5 + 0.5) / 3, 4))
         self.assertEqual(tuner.score(4, 4.0, 0.5, 0.25, True, True, played=0.9), round((1 + 0.5 + 0.5 + 0.9) / 4, 4))
+
+    def test_tuner_compares_cut_and_candidate_over_the_same_parts(self):
+        """A known cut with a low played score must not make an UNKNOWN candidate look
+        like an upgrade by denominator alone: the unknown candidate gets the neutral."""
+        from tests.test_tuner import CAPS, COMP, DECK, cand, weak_row
+
+        cut = weak_row("Weak Plan", 0.6, 2, 0.5, 0.25)
+        cut["played"] = 0.1
+        wk = {"cards": [cut], "pet_notice": None, "weights": {"p75_degree": 4.0, "played_neutral": 0.5},
+              "inputs": {"pillars": True, "edhrec": True, "played": True}}
+        same_but_unknown = cand("Unknown Twin", 2, 0.5, 0.25, owned=True, available=1)
+        out = tuner.build_tune(DECK, wk, COMP, [same_but_unknown], CAPS, p75=4.0, has_pillars=True,
+                               has_edhrec=True)
+        # cut: (0.5+0.5+0.5+0.1)/4 = 0.40; twin: (0.5+0.5+0.5+0.5)/4 = 0.50 -> a real (played) upgrade only.
+        self.assertEqual(out["swaps"][0]["cut"]["score"], 0.4)
+        self.assertEqual(out["swaps"][0]["own"]["score"], 0.5)
+        self.assertTrue(out["inputs"]["played"])
+        # With an identical played score the twin is NOT an upgrade (same parts, same mean).
+        cut["played"] = 0.5
+        out = tuner.build_tune(DECK, wk, COMP, [same_but_unknown], CAPS, p75=4.0, has_pillars=True,
+                               has_edhrec=True)
+        self.assertEqual(out["swaps"], [])
 
 
 @unittest.skipUnless(os.path.exists(ARTIFACT), "shipped artifact not present")
