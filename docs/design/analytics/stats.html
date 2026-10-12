@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats · Holy Hellfire · Commander Lab mockup (AN-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="analytics.css">
+<style>
+    /* Page layout only (this is what templates/deck_stats.html's extra_css will hold). */
+    .stats-strip { margin-bottom: var(--sp-6); }
+    .stats-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); margin-top: var(--sp-4); align-items: start; }
+    .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+    .graph-list { display: none; }
+    .graph-list ol { list-style: none; margin: 0; padding: 0; }
+    .graph-list li { padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+    @media (max-width: 1180px) { .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: 1 / -1; } }
+    @media (max-width: 900px) { .stats-row, .stats-row--3 { grid-template-columns: minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: auto; } }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+
+    <!-- 1. Headline numbers -->
+    <div class="hud-stat-strip stats-strip" id="strip"></div>
+
+    <!-- 2. Interaction graph -->
+    <div class="hud-section-head"><span class="hud-section-id">01</span><h2>Interactions</h2></div>
+    <div class="hud-graph" id="graph">
+        <aside class="hud-graph-engines" aria-label="Engines">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Engines</h3><span class="hud-panel-meta">6 found</span></header>
+            <ol id="engines"></ol>
+            <div class="hud-panel-foot" style="margin-top:auto">Loop = resource made → spent → paid off.<br>Cluster = dense, no loop.</div>
+        </aside>
+        <div class="hud-graph-stage">
+            <div class="hud-graph-toolbar">
+                <label class="hud-label" for="gsearch" style="display:none">Find card</label>
+                <input id="gsearch" type="search" placeholder="Find card…" autocomplete="off"><span class="hud-kbd" aria-hidden="true" style="margin-left:calc(-1 * var(--sp-8))">/</span>
+                <label class="hud-toggle hud-nowrap" style="font-size:var(--fs-xs)"><input type="checkbox" id="gmana"> Show mana</label>
+                <span class="hud-freshness"><b>50</b> cards · <b>91</b> edges</span>
+                <button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" title="Rebuild graph (r)">Rebuild</button>
+            </div>
+            <svg class="hud-graph-svg" id="gsvg" role="group" aria-label="Interaction graph. Tab through cards; the Connections list on the right has the same data as text."></svg>
+            <div class="graph-list" data-view="list" id="glist"></div>
+            <div class="hud-graph-legend" aria-hidden="true">
+                <span><i style="background:var(--signal)"></i>Commander</span>
+                <span><i style="background:var(--data-dim);border:1.5px solid var(--data)"></i>In focused engine</span>
+                <span><i style="background:var(--surface-3);border:1.5px solid var(--line-strong)"></i>Card · size = connections</span>
+                <span>Line weight = reasons · arrow = output feeds input</span>
+            </div>
+        </div>
+        <aside class="hud-inspector" aria-label="Selected card" aria-live="polite">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Card</h3><span class="hud-panel-meta"><span class="hud-kbd">Esc</span> clear</span></header>
+            <div class="hud-inspector-body" id="inspector"></div>
+        </aside>
+    </div>
+    <div class="hud-isolated">
+        <span class="hud-label">Isolated · 0–1 edges</span>
+        <button class="hud-cardlink">Platinum Angel</button><button class="hud-cardlink">Angelic Arbiter</button><button class="hud-cardlink">Lord of the Void</button>
+        <button class="hud-cardlink">Steel Hellkite</button><button class="hud-cardlink">Ob Nixilis, Unshackled</button><button class="hud-cardlink">Bloodthirster</button>
+        <a class="hud-btn hud-btn--sm" href="tuner.html#weak" style="margin-left:auto">See in Tune →</a>
+    </div>
+
+    <!-- 3. Composition + curve -->
+    <div class="hud-section-head"><span class="hud-section-id">02</span><h2>Shape</h2></div>
+    <div class="stats-row">
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Composition vs template</h3>
+                <div class="hud-panel-meta"><span>Command Zone 2025</span><button class="hud-btn hud-btn--sm" type="button" id="tplEdit" aria-expanded="false" aria-controls="tplForm">Override</button></div></header>
+            <div class="hud-panel-body">
+                <ul class="hud-comp" id="comp"></ul>
+                <form class="hud-template-edit" id="tplForm" hidden style="margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:var(--stroke)"></form>
+            </div>
+            <footer class="hud-panel-foot">A card can count in two rows (Crackling Doom = targeted). Plan = everything else. Bar = this deck, tick = target.</footer>
+        </section>
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Mana curve</h3><div class="hud-panel-meta">avg <b style="color:var(--text-1)">4.69</b> · non-land</div></header>
+            <div class="hud-panel-body" id="curve"></div>
+            <footer class="hud-panel-foot">Dashed = template curve (most at 2, tapering). Kaalia cheats the top end: a fat 7+ bar is the plan, not a bug.</footer>
+        </section>
+    </div>
+
+    <!-- 4. Identity: pillar fit + EDHREC -->
+    <div class="hud-section-head"><span class="hud-section-id">03</span><h2>Identity</h2></div>
+    <div class="stats-row--3 stats-row">
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Pillar fit</h3><div class="hud-panel-meta"><a class="hud-btn hud-btn--sm" href="pillars.html">Edit pillars</a></div></header>
+            <div class="hud-panel-body" id="fit"></div>
+        </section>
+        <section class="hud-panel hud-panel--flush">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Least on-plan</h3><div class="hud-panel-meta">fit score</div></header>
+            <div class="hud-panel-body" style="padding:0 var(--sp-4)" id="lowfit"></div>
+        </section>
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">EDHREC inclusion</h3><div class="hud-panel-meta">vs 4,812 Kaalia decks</div></header>
+            <div class="hud-panel-body" id="edhrec"></div>
+            <footer class="hud-panel-foot">Low % ≠ bad. Low % + few edges + off-pillar = weak performer.</footer>
+        </section>
+    </div>
+
+    <!-- 5. Combos -->
+    <div class="hud-section-head"><span class="hud-section-id">04</span><h2>Combos</h2></div>
+    <section class="hud-panel hud-panel--flush">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Commander Spellbook</h3>
+            <div class="hud-panel-meta">
+                <span class="hud-seg" role="radiogroup" aria-label="Show combos">
+                    <input type="radio" name="cf" id="cf1" checked><label for="cf1">All</label>
+                    <input type="radio" name="cf" id="cf2"><label for="cf2">Owned</label>
+                </span>
+            </div></header>
+        <div class="hud-panel-body">
+            <div class="hud-combo-group">In deck · 1</div>
+            <ul class="hud-combos" id="combosIn"></ul>
+            <div class="hud-combo-group">One card away · 4</div>
+            <ul class="hud-combos" id="combosNear"></ul>
+        </div>
+    </section>
+
+    <div class="mock-note">Mockup · AN-D · card list real (prod 2026-10-12) · edges, engines, scores, EDHREC %, prices illustrative</div>
+</main>
+
+<script src="../../../static/js/hud.js"></script>
+<script src="vendor/d3-force-3.0.0.bundle.min.js"></script>
+<script src="mock.js"></script>
+<script src="graph.js"></script>
+<script>
+(function () {
+    "use strict";
+    var M = MOCK, esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    M.shell();
+    document.getElementById("deckhead").innerHTML = M.deckhead("stats",
+        '<button class="hud-btn" type="button">Refresh analytics</button><a class="hud-btn hud-btn--primary" href="tuner.html">Tune deck →</a>');
+
+    document.getElementById("strip").innerHTML = [
+        HUD.stat("On-plan", "71", { unit: "%", foot: "pillar fit ≥ 0.5", mod: "hero signal" }),
+        HUD.stat("Engines", "6", { foot: "4 loops · 2 clusters" }),
+        HUD.stat("Edges", "91", { foot: "1.6 per card" }),
+        HUD.stat("EDHREC overlap", "31", { unit: "%", foot: "lower = more yours" }),
+        HUD.stat("Combos", "1", { foot: "+4 one card away" }),
+        HUD.stat("Avg CMC", "4.69", { foot: "non-land" })
+    ].join("");
+
+    // ---- Graph ----------------------------------------------------------
+    var deg = {}; M.EDGES.forEach(function (e) { deg[e[0]] = (deg[e[0]] || 0) + e[2].length; deg[e[1]] = (deg[e[1]] || 0) + e[2].length; });
+    var nodes = Object.keys(deg).map(function (id) { return { id: id, degree: deg[id] }; });
+    var edges = M.EDGES.map(function (e) { return { source: e[0], target: e[1], reasons: e[2] }; });
+    var engList = document.getElementById("engines");
+    engList.innerHTML = M.ENGINES.map(function (g) {
+        return '<li><button class="hud-engine" type="button" aria-pressed="false" data-engine="' + g.id + '"><span>' +
+            '<span class="hud-engine-name">' + esc(g.name) + '</span><span class="hud-engine-flow">' + esc(g.flow) + "</span>" +
+            '<span class="hud-engine-meta"><span class="hud-engine-kind">' + g.kind + "</span>" +
+            (g.pillar ? HUD.chip(g.pillar, "data") : HUD.chip("no pillar", "ghost")) + '</span></span><span class="hud-engine-n" title="cards">' + g.cards.length + "</span></button></li>";
+    }).join("");
+
+    var insp = document.getElementById("inspector"), inspTitle = document.querySelector(".hud-inspector .hud-panel-title");
+    var cardBtn = function (n) { return '<button type="button" class="hud-cardlink" data-goto="' + esc(n) + '">' + esc(n) + "</button>"; };
+    function inspect(id, conns) {
+        if (!id) { inspTitle.textContent = activeEngine ? "Engine" : "Overview"; insp.innerHTML = activeEngine ? engineCard(activeEngine) : overview(); return; }
+        inspTitle.textContent = "Card";
+        var c = M.CARDS[id] || { name: id, colors: "", cmc: "" }, a = M.art(id), io = M.IO[id];
+        var outs = conns.filter(function (x) { return x.out; }), ins = conns.filter(function (x) { return !x.out; });
+        var li = function (x) { return '<li><span class="dir">' + (x.out ? "→" : "←") + '</span><span><button type="button" data-goto="' + esc(x.other) + '">' + esc(x.other) + '</button><span class="why">' + esc(x.reasons.join(" · ")) + "</span></span></li>"; };
+        var cap = function (arr) { return arr.length > 6 ? arr.slice(0, 6).map(li).join("") + '<li><span></span><span class="hud-muted">+' + (arr.length - 6) + " more</span></li>" : arr.map(li).join(""); };
+        insp.innerHTML = HUD.art(id, a.src, { meta: "CMC " + c.cmc, colors: c.colors, fallback: a.fallback }) +
+            (io ? '<dl class="hud-io"><dt>Makes</dt><dd>' + io[0].map(function (t) { return HUD.chip(t, "data"); }).join("") + "</dd><dt>Uses</dt><dd>" + io[1].map(function (t) { return HUD.chip(t, "neutral"); }).join("") + "</dd></dl>" : "") +
+            '<div><span class="hud-label">Feeds · ' + outs.length + '</span><ul class="hud-edgelist">' + (cap(outs) || '<li><span></span><span class="hud-muted">nothing</span></li>') + "</ul></div>" +
+            '<div><span class="hud-label">Fed by · ' + ins.length + '</span><ul class="hud-edgelist">' + (cap(ins) || '<li><span></span><span class="hud-muted">nothing</span></li>') + "</ul></div>" +
+            '<a class="hud-btn hud-btn--sm" href="#">Open card</a>';
+    }
+    function engineCard(eid) {
+        var g = M.ENGINES.find(function (x) { return x.id === eid; });
+        return '<div><span class="hud-label">' + g.kind + " · " + g.cards.length + ' cards</span><h3 style="margin:var(--sp-1) 0 0;color:var(--text-1);font-size:var(--fs-lg)">' + esc(g.name) + "</h3>" +
+            '<p class="hud-engine-flow" style="font-size:var(--fs-xs)">' + esc(g.flow) + "</p></div>" +
+            '<div><span class="hud-label">Pillar</span><div style="margin-top:var(--sp-1)">' + (g.pillar ? HUD.chip(g.pillar, "data") : HUD.chip("none: candidate pillar?", "signal")) + "</div></div>" +
+            '<div><span class="hud-label">Members</span><div class="hud-members" style="margin-top:var(--sp-2)">' + g.cards.map(cardBtn).join("") + "</div></div>" +
+            '<div class="hud-kv"><dt>Internal edges</dt><dd class="hud-num">' + M.EDGES.filter(function (e) { return g.cards.indexOf(e[0]) !== -1 && g.cards.indexOf(e[1]) !== -1; }).length +
+            '</dd><dt>Weakest link</dt><dd>' + esc(g.cards[g.cards.length - 1]) + "</dd></div>" +
+            '<a class="hud-btn hud-btn--sm" href="tuner.html">Find more for this engine →</a>';
+    }
+    function overview() {
+        return '<p class="hud-muted" style="margin:0;font-size:var(--fs-sm)">Pick an engine or click a card. <span class="hud-kbd">Tab</span> walks cards, <span class="hud-kbd">[</span> <span class="hud-kbd">]</span> cycle engines.</p>' +
+            '<div><span class="hud-label">Most connected</span><div class="hud-rank-compact">' + HUD.rankList(nodes.slice().sort(function (a, b) { return b.degree - a.degree; }).slice(0, 8)
+            .map(function (n, i) { return { label: n.id, value: n.degree, hl: i === 0 }; })) + "</div></div>";
+    }
+    var activeEngine = null;
+    var svg = document.getElementById("gsvg");
+    var G = HUD.graph(svg, { nodes: nodes, edges: edges, engines: M.ENGINES, commander: M.DECK.commander, onSelect: inspect });
+    inspect(null);
+    insp.addEventListener("click", function (e) { var b = e.target.closest("[data-goto]"); if (b) { G.select(b.dataset.goto); var n = G.nodeEl(b.dataset.goto); if (n) n.focus(); } });
+    engList.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-engine]"); if (!b) return;
+        var on = b.getAttribute("aria-pressed") !== "true";
+        engList.querySelectorAll("[data-engine]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", String(on)); activeEngine = on ? b.dataset.engine : null; G.focusEngine(activeEngine); inspect(null);
+    });
+    var gs = document.getElementById("gsearch");
+    gs.addEventListener("input", function () { G.search(gs.value); });
+    gs.addEventListener("keydown", function (e) { if (e.key === "Enter") { var id = G.search(gs.value); if (id) G.select(id); } });
+    document.addEventListener("keydown", function (e) {
+        var tag = e.target.tagName; if (tag === "INPUT" || tag === "TEXTAREA") { if (e.key === "Escape") e.target.blur(); return; }
+        if (e.key === "/") { e.preventDefault(); gs.focus(); }
+        if (e.key === "Escape") { activeEngine = null; G.select(null); G.focusEngine(null); engList.querySelectorAll("[data-engine]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); }); inspect(null); }
+        if (e.key === "]" || e.key === "[") {
+            var bs = Array.from(engList.querySelectorAll("[data-engine]")), cur = bs.findIndex(function (b) { return b.getAttribute("aria-pressed") === "true"; });
+            var nx = e.key === "]" ? (cur + 1) % bs.length : (cur - 1 + bs.length) % bs.length; bs[nx].click();
+        }
+    });
+    // Default: first engine focused, Kaalia selected = the "aha" view on load.
+    engList.querySelector("[data-engine]").click();
+    // Phone fallback list (same data as the graph, readable at 390px).
+    document.getElementById("glist").innerHTML = '<ol>' + M.ENGINES[0].cards.slice(1, 7).map(function (c) {
+        var e = M.EDGES.find(function (x) { return x[1] === c && x[0] === M.DECK.commander; }) || M.EDGES.find(function (x) { return x[0] === c || x[1] === c; });
+        return '<li><span class="hud-card-name">' + esc(c) + '</span><span class="hud-rank-sub" style="display:block">← Kaalia · ' + esc(e ? e[2].join(" · ") : "") + "</span></li>";
+    }).join("") + '</ol><div class="hud-panel-foot">Showing engine members. Full graph on a wider screen.</div>';
+
+    // ---- Composition ---------------------------------------------------
+    var COMP = [["Lands", 35, 38], ["Ramp", 7, 10], ["Card advantage", 11, 12], ["Targeted disruption", 13, 12], ["Mass disruption", 4, 6], ["Plan", 38, 22]];
+    var max = 40;
+    document.getElementById("comp").innerHTML = COMP.map(function (r, i) {
+        var d = r[1] - r[2], tone = Math.abs(d) <= 1 ? "ok" : d < 0 ? "signal" : "neutral", txt = Math.abs(d) <= 1 ? (d === 0 ? "on target" : (d > 0 ? "+" : "") + d + " ok") : (d > 0 ? "+" + d + " over" : d + " short");
+        return '<li class="hud-comp-row' + (d < -1 ? " is-under" : "") + '"><span class="hud-comp-name">' + r[0] + '</span>' +
+            '<span class="hud-comp-track" role="img" aria-label="' + r[0] + ": " + r[1] + " of " + r[2] + '"><span class="hud-comp-fill" style="width:' + (r[1] / max * 100) + "%;--i:" + i + '"></span>' +
+            '<span class="hud-comp-target" data-t="' + r[2] + '" style="left:calc(' + (r[2] / max * 100) + '% - 1px)"></span></span>' +
+            '<span class="hud-comp-val">' + r[1] + "<small>/" + r[2] + "</small></span>" + HUD.chip(txt, tone) + "</li>";
+    }).join("");
+    var tf = document.getElementById("tplForm");
+    tf.innerHTML = COMP.map(function (r) { return '<label><span class="hud-label">' + r[0] + '</span><input type="number" min="0" max="99" value="' + r[2] + '"></label>'; }).join("") +
+        '<div style="grid-column:1/-1;display:flex;gap:var(--sp-2);align-items:center"><span class="hud-field-hint" style="margin-right:auto">Saved for this deck only. Total 100.</span><button type="button" class="hud-btn hud-btn--ghost hud-btn--sm">Reset to CZ 2025</button><button type="button" class="hud-btn hud-btn--primary hud-btn--sm">Save</button></div>';
+    document.getElementById("tplEdit").addEventListener("click", function () { var o = tf.hidden; tf.hidden = !o; this.setAttribute("aria-expanded", String(o)); });
+
+    // ---- Curve -----------------------------------------------------------
+    var cv = [0, 3, 12, 10, 6, 7, 9, 18], ref = [0, 4, 18, 12, 10, 7, 4, 3];
+    document.getElementById("curve").innerHTML = HUD.barChart(["0", "1", "2", "3", "4", "5", "6", "7+"].map(function (l, i) { return { label: l, value: cv[i] }; }),
+        { hl: 4, height: 200, legend: ["Cards at CMC", "", "Commander CMC"], title: "Mana curve" }).replace("</svg>",
+        '<polyline class="hud-chart-ref" vector-effect="non-scaling-stroke" points="' + ref.map(function (v, i) { return (i * 10) + "," + (100 - v / 20 * 100) + " " + (i * 10 + 10) + "," + (100 - v / 20 * 100); }).join(" ") + '"/></svg>');
+
+    // ---- Pillar fit --------------------------------------------------------
+    var P = [["Payoffs worth cheating", 24, "var(--signal)"], ["Swing twice", 9, "var(--data)"], ["Keep her alive", 8, "var(--data-4)"], ["Life is a resource", 5, "var(--data-2)"]];
+    document.getElementById("fit").innerHTML =
+        '<div class="hud-meter" role="img" aria-label="Pillar 46, glue 42, generic 12">' +
+        '<span style="width:46%;background:var(--signal)"></span><span style="width:42%;background:var(--data-2)"></span><span style="width:12%;background:var(--text-4)"></span></div>' +
+        '<div class="hud-meter-legend"><span><i style="background:var(--signal)"></i><b>46</b> pillar</span><span><i style="background:var(--data-2)"></i><b>42</b> glue</span><span><i style="background:var(--text-4)"></i><b>12</b> generic</span></div>' +
+        '<div class="hud-rank-compact" style="margin-top:var(--sp-4)">' + HUD.rankList(P.map(function (p, i) { return { label: p[0], value: p[1], sub: i === 0 ? "pinned · pillar 1" : i === 3 ? "draft" : "pinned", hl: i === 0 }; }), { max: 30 }) + "</div>";
+    document.getElementById("lowfit").innerHTML = '<div class="hud-rank-compact">' + HUD.rankList([
+        ["Phyrexian Arena", 0.21, "1 edge · generic draw"], ["Platinum Angel", 0.24, "0 edges · no pillar"], ["Angelic Arbiter", 0.27, "0 edges · stax"],
+        ["Lord of the Void", 0.31, "1 edge · cheat target"], ["Steel Hellkite", 0.33, "1 edge · cheat target"], ["Bloodthirster", 0.36, "1 edge · cheat target"]
+    ].map(function (x) { return { label: x[0], value: x[1], display: x[1].toFixed(2), sub: x[2] }; }), { max: 1, numbered: false }) + '</div>';
+
+    // ---- EDHREC histogram (inclusion % buckets) ---------------------------
+    var buckets = [["<5", 9], ["5–14", 8], ["15–29", 13], ["30–49", 12], ["50–74", 10], ["75+", 13]];
+    document.getElementById("edhrec").innerHTML = HUD.barChart(buckets.map(function (b) { return { label: b[0], value: b[1] }; }), { hl: 0, height: 120, title: "Cards by EDHREC inclusion %" }) +
+        '<div class="hud-rank-compact" style="margin-top:var(--sp-4)"><span class="hud-label">Your rarest picks</span>' + HUD.rankList([
+            ["Rising of the Day", 2], ["Basandra, Battle Seraph", 3], ["Angelic Arbiter", 4], ["Lord of the Void", 4]
+        ].map(function (x) { return { label: x[0], value: x[1], display: x[1] + "%" }; }), { max: 100, numbered: false }) + "</div>";
+
+    // ---- Combos ----------------------------------------------------------
+    function chipCard(name, cls) { return '<span class="hud-chip hud-chip--ghost hud-card-name ' + (cls || "") + '" style="text-transform:none;letter-spacing:0;font-size:var(--fs-xs)">' + esc(name) + "</span>"; }
+    function combo(pieces, missing, result, own) {
+        return '<li class="hud-combo"><div class="hud-combo-pieces">' + pieces.map(function (p) { return chipCard(p); }).join('<span class="plus">+</span>') +
+            (missing ? '<span class="plus">+</span>' + chipCard(missing, "is-missing") : "") + '</div><div style="display:flex;gap:var(--sp-1);align-items:center">' +
+            (own ? HUD.chip(own[0], own[1], true) : "") + (missing ? '<a class="hud-btn hud-btn--sm" href="tuner.html">Add</a>' : "") +
+            '</div><span class="hud-combo-result">' + esc(result) + "</span></li>";
+    }
+    document.getElementById("combosIn").innerHTML = combo(["Necropotence", "Vilis, Broker of Blood"], null, "Not infinite · near-unbounded draw while life lasts", ["in deck", "ok"]);
+    document.getElementById("combosNear").innerHTML = [
+        combo(["Hellkite Charger"], "Sword of Feast and Famine", "Infinite combat phases: Sword untaps lands, Charger pays for the next combat", ["owned · free", "ok"]),
+        combo(["Liesa, Forgotten Archangel", "Razaketh, the Foulblooded"], "Reassembling Skeleton", "Repeatable sac → tutor every turn (not infinite)", ["not owned · $0.25", "neutral"]),
+        combo(["Kaalia of the Vast", "Isshin, Two Heavens as One"], "Combat Celebrant", "Extra combat each turn · two cheat-ins per combat", ["owned · in Dawnbringer", "signal"]),
+        combo(["Animate Dead", "Angel of Serenity"], "Fiend Hunter", "Loop exile/return for value", ["owned · free", "ok"])
+    ].join("");
+})();
+</script>
+</body>
+</html>
