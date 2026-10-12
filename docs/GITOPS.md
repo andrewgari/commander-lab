@@ -101,7 +101,14 @@ backup as described above.
 
 - `docker-compose.prod.yml`: the compose file Portainer builds from. Compared
   with `docker-compose.yml` (local dev), it drops the Redis host port publish
-  and `--reload`, and adds Unraid UI labels.
+  and `--reload`, and adds Unraid UI labels. It also bind-mounts
+  `/mnt/user/appdata/commander-lab/secrets` (root-only, mode 700) read-only at
+  `/run/commander-lab-secrets`. Each file in that directory holds one API key
+  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`). The
+  interaction-graph tagger reads keys from there when the variable isn't set
+  in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
+  To rotate a key, rewrite its file (`umask 077`), then restart
+  `commander-lab-app`.
 - `Makefile` `deploy-push`: triggers the stack 124 webhook.
 
 ## Legacy / stale paths (do not use)
