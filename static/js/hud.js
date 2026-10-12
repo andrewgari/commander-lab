@@ -92,11 +92,13 @@
     }
 
     // Vertical bar chart (mirrors `bar_chart`). bars: [{label, value}].
-    // opts: hl (bar index drawn in signal), height, ticks, legend [series, ref, hl], title.
+    // opts: hl (bar index drawn in signal), height, ticks, legend [series, ref, hl], title,
+    // ref (numbers, one per bar: drawn as a dashed step line, e.g. a template curve).
     function barChart(bars, opts) {
         opts = opts || {};
         var ticks = opts.ticks || 4, height = opts.height || 160, n = bars.length || 1;
-        var peak = Math.max.apply(null, bars.map(function (b) { return b.value || 0; }).concat([1]));
+        var ref = Array.isArray(opts.ref) && opts.ref.length ? opts.ref : null;
+        var peak = Math.max.apply(null, bars.map(function (b) { return b.value || 0; }).concat(ref || []).concat([1]));
         var step = Math.max(Math.ceil(peak / ticks), 1), top = step * ticks;
         var pct = function (v) { return Math.round((v / top) * 100 * 1000) / 1000; };
         var y = "", grid = "", rects = "", vals = "", xs = "";
@@ -112,10 +114,16 @@
             vals += '<span style="bottom: ' + h + '%">' + (b.value ? esc(b.value) : "") + "</span>";
             xs += "<span>" + esc(b.label) + "</span>";
         });
+        if (ref) {
+            rects += '<path class="hud-chart-ref" vector-effect="non-scaling-stroke" d="' + ref.map(function (v, i) {
+                return (i ? "L" : "M") + i * 10 + "," + (100 - pct(v || 0)) + " H" + (i + 1) * 10;
+            }).join(" ") + '"/>';
+        }
         var aria = (opts.title || "Bar chart") + ": " + bars.map(function (b) { return b.label + " " + b.value; }).join(", ");
         var legend = "";
         if (opts.legend) {
             legend = '<figcaption class="hud-chart-legend"><span><span class="hud-swatch"></span>' + esc(opts.legend[0]) + "</span>" +
+                (ref && opts.legend[1] ? '<span><span class="hud-swatch hud-swatch--ref"></span>' + esc(opts.legend[1]) + "</span>" : "") +
                 (opts.hl != null && opts.legend[2] ? '<span><span class="hud-swatch hud-swatch--signal"></span>' + esc(opts.legend[2]) + "</span>" : "") +
                 "</figcaption>";
         }
@@ -264,6 +272,174 @@
         });
     }
 
+    // --- Interaction graph (UX_SPEC §3.1.1-3.1.4) ---------------------------
+    // HUD.graph(svg, {nodes, edges, engines, commander, commanders, onSelect})
+    //   nodes   [{id, degree}]                 id = card name, degree = distinct neighbours
+    //   edges   [{source, target, reasons[]}]   directed: source's output feeds target's input
+    //   engines [{id, cards[]}]
+    // returns {focusEngine(id|null), select(id|null), search(q) -> id|null, nodeEl(id)}.
+    // Needs window.d3 (static/vendor/d3-force-3.0.0.min.js, loaded on /stats only).
+    // Laid out once, synchronously (300 ticks), then frozen: no live physics.
+    var SVGNS = "http://www.w3.org/2000/svg";
+    function svgEl(tag, attrs) { var e = document.createElementNS(SVGNS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
+    function cssNum(name, fallback) { var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); return isNaN(v) ? fallback : v; }
+
+    function graph(svg, opt) {
+        var noop = { focusEngine: function () {}, select: function () {}, search: function () { return null; }, nodeEl: function () { return null; } };
+        if (!window.d3 || !window.d3.forceSimulation || !opt.nodes.length) return noop;
+        var d3 = window.d3;
+        var W = svg.clientWidth || 800, H = svg.clientHeight || 560;
+        svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+        var cmds = {}; (opt.commanders || [opt.commander]).forEach(function (c) { if (c) cmds[c] = 1; });
+        var rMin = cssNum("--graph-node-min", 5), rMax = cssNum("--graph-node-max", 18);
+        var maxDeg = Math.max.apply(null, opt.nodes.map(function (n) { return n.degree; }).concat([1]));
+        var radius = function (n) { return cmds[n.id] ? rMax + 4 : rMin + (rMax - rMin) * Math.sqrt(n.degree / maxDeg); };
+
+        var nodes = opt.nodes.map(function (n) { return Object.assign({}, n); });
+        var byId = {}; nodes.forEach(function (n) { byId[n.id] = n; });
+        var links = opt.edges.filter(function (e) { return byId[e.source] && byId[e.target]; })
+            .map(function (e) { return { source: e.source, target: e.target, reasons: e.reasons }; });
+        var engCards = {}; (opt.engines || []).forEach(function (g) { engCards[g.id] = g.cards; });
+
+        var pin = byId[opt.commander || Object.keys(cmds)[0]]; if (pin) { pin.fx = W / 2; pin.fy = H / 2; }
+        var sim = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(function (d) { return d.id; }).distance(function (l) { return 70 + 18 / l.reasons.length; }).strength(0.35))
+            .force("charge", d3.forceManyBody().strength(-340))
+            .force("collide", d3.forceCollide().radius(function (d) { return radius(d) + (nodes.length > 90 ? 34 : 26); }).iterations(2))
+            .force("x", d3.forceX(W / 2).strength(0.06)).force("y", d3.forceY(H / 2).strength(0.09))
+            .stop();
+        for (var i = 0; i < 300; i++) sim.tick();
+        // Fit the viewBox to the laid-out bounds (+ label room).
+        var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        nodes.forEach(function (n) { var r = radius(n); x0 = Math.min(x0, n.x - r - 60); x1 = Math.max(x1, n.x + r + 60); y0 = Math.min(y0, n.y - r - 12); y1 = Math.max(y1, n.y + r + 22); });
+        var full = [x0, y0, x1 - x0, y1 - y0];
+        function setView(b) { svg.setAttribute("viewBox", b.map(function (v) { return v.toFixed(0); }).join(" ")); }
+        setView(full);
+        svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        // Zoom-to-fit a node set (engine focus). It jumps: tweening the
+        // viewBox would re-layout every text node each frame.
+        function fit(set) {
+            if (!set) { setView(full); return; }
+            var a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+            nodes.forEach(function (n) { if (!set.has(n.id)) return; var r = radius(n); a = Math.min(a, n.x - r - 90); c = Math.max(c, n.x + r + 90); b = Math.min(b, n.y - r - 24); d = Math.max(d, n.y + r + 30); });
+            if (a === Infinity) { setView(full); return; }
+            var w = Math.max(c - a, full[2] * 0.45), h = Math.max(d - b, full[3] * 0.45), cx = (a + c) / 2, cy = (b + d) / 2;
+            setView([cx - w / 2, cy - h / 2, w, h]);
+        }
+
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        var gE = svgEl("g", {}), gL = svgEl("g", {}), gN = svgEl("g", {});
+        svg.appendChild(gE); svg.appendChild(gN); svg.appendChild(gL);
+        var mid = "g-arrow-" + Math.random().toString(36).slice(2, 8);
+        var defs = svgEl("defs", {}), mk = svgEl("marker", { id: mid, viewBox: "0 0 8 8", refX: "8", refY: "4", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse" });
+        var mp = svgEl("path", { d: "M0,0 L8,4 L0,8 z" }); mp.style.fill = "var(--signal)"; mk.appendChild(mp); defs.appendChild(mk); svg.insertBefore(defs, svg.firstChild);
+
+        links.forEach(function (l) {
+            var s = l.source, t = l.target, dx = t.x - s.x, dy = t.y - s.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+            var rt = radius(t) + 3;
+            l.line = svgEl("line", { x1: s.x, y1: s.y, x2: t.x - dx / d * rt, y2: t.y - dy / d * rt, class: "g-edge" });
+            l.line.style.strokeWidth = String(0.75 + l.reasons.length * 0.75);
+            gE.appendChild(l.line);
+            l.label = svgEl("text", { x: (s.x + t.x) / 2, y: (s.y + t.y) / 2 - 3, "text-anchor": "middle", class: "g-elabel" });
+            l.label.textContent = l.reasons.join(" · ");
+            gL.appendChild(l.label);
+        });
+
+        var state = { engine: null, sel: null };
+        var order = nodes.slice().sort(function (a, b) { return b.degree - a.degree; });
+        order.forEach(function (n, idx) {
+            // Outer <g> owns the SVG position; the inner <g> owns the CSS entrance
+            // animation (a CSS transform on the outer <g> would replace translate()).
+            var isCmd = !!cmds[n.id];
+            var g = svgEl("g", { class: "g-node" + (isCmd ? " is-commander" : "") + (n.degree < 3 && !isCmd ? " is-label-off" : ""),
+                transform: "translate(" + n.x.toFixed(1) + "," + n.y.toFixed(1) + ")", tabindex: "0", role: "button",
+                "aria-label": n.id + ", " + n.degree + " connection" + (n.degree === 1 ? "" : "s") });
+            var inner = svgEl("g", { class: "g-node-in is-entering" });
+            inner.style.setProperty("--i", idx);
+            inner.appendChild(svgEl("circle", { r: radius(n).toFixed(1) }));
+            var tx = svgEl("text", { y: (radius(n) + 13).toFixed(1), "text-anchor": "middle" }); tx.textContent = n.id.split(",")[0];
+            inner.appendChild(tx);
+            g.appendChild(inner);
+            g.addEventListener("mouseenter", function () { if (!state.engine && !state.sel) hover(n.id); });
+            g.addEventListener("mouseleave", function () { if (!state.engine && !state.sel) clear(); });
+            g.addEventListener("focus", function () { if (!state.engine && !state.sel) hover(n.id); });
+            g.addEventListener("blur", function () { if (!state.engine && !state.sel) clear(); });
+            g.addEventListener("click", function () { select(n.id); });
+            g.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.id); } });
+            n.g = g; gN.appendChild(g);
+        });
+        svg.addEventListener("click", function (e) { if (e.target === svg) select(null); });
+
+        function paint(set, hot, showLabels) {
+            svg.classList.toggle("is-focusing", !!set);
+            nodes.forEach(function (n) { n.g.classList.toggle("is-near", !!set && set.has(n.id)); n.g.classList.toggle("is-engine", !!state.engine && !!set && set.has(n.id)); });
+            // One label per (hub, reasons) group, with xN: hub spokes share reasons.
+            var groups = {};
+            links.forEach(function (l) {
+                var on = !!set && hot(l);
+                l.line.classList.toggle("is-near", on); l.line.classList.toggle("is-hot", on);
+                if (on) l.line.setAttribute("marker-end", "url(#" + mid + ")"); else l.line.removeAttribute("marker-end");
+                l.label.classList.remove("is-on");
+                if (!on || !showLabels) return;
+                var hub = byId[l.source.id].degree >= byId[l.target.id].degree ? l.source.id : l.target.id;
+                var key = hub + "|" + l.reasons.join("·");
+                (groups[key] = groups[key] || []).push(l);
+            });
+            Object.keys(groups).forEach(function (k) {
+                var g = groups[k], l = g[Math.floor(g.length / 2)];
+                l.label.textContent = l.reasons.join(" · ") + (g.length > 1 ? " ×" + g.length : "");
+                l.label.classList.add("is-on");
+            });
+            declutter();
+        }
+        // Greedy: heaviest edge label first; drop any label that hits a visible
+        // node or a placed label. The inspector lists every reason anyway.
+        function declutter() {
+            var kept = [], hit = function (a, b) { return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height; };
+            var focusing = svg.classList.contains("is-focusing");
+            nodes.forEach(function (n) { if (!focusing || n.g.classList.contains("is-near")) { var r = radius(n); kept.push({ x: n.x - r, y: n.y - r, width: 2 * r, height: 2 * r }); } });
+            links.filter(function (l) { return l.label.classList.contains("is-on"); })
+                .sort(function (a, b) { return b.reasons.length - a.reasons.length; })
+                .forEach(function (l) {
+                    var bb; try { bb = l.label.getBBox(); } catch (e) { return; }
+                    var box = { x: bb.x - 2, y: bb.y - 1, width: bb.width + 4, height: bb.height + 2 };
+                    if (kept.some(function (k) { return hit(box, k); })) l.label.classList.remove("is-on"); else kept.push(box);
+                });
+        }
+        function neighbours(id) {
+            var s = new Set([id]); links.forEach(function (l) { if (l.source.id === id) s.add(l.target.id); if (l.target.id === id) s.add(l.source.id); }); return s;
+        }
+        function hover(id) { paint(neighbours(id), function (l) { return l.source.id === id || l.target.id === id; }, true); }
+        function clear() { paint(null); }
+        function focusEngine(id) {
+            state.engine = id || null; state.sel = null;
+            nodes.forEach(function (n) { n.g.classList.remove("is-selected"); });
+            if (!state.engine) { clear(); fit(null); return; }
+            var set = new Set((engCards[id] || []).filter(function (c) { return byId[c]; }));
+            paint(set, function (l) { return set.has(l.source.id) && set.has(l.target.id); }, true);
+            fit(set);
+        }
+        function conns(id) {
+            return links.filter(function (l) { return l.source.id === id || l.target.id === id; })
+                .map(function (l) { return { out: l.source.id === id, other: l.source.id === id ? l.target.id : l.source.id, reasons: l.reasons }; });
+        }
+        function select(id, silent) {
+            state.sel = id && byId[id] ? id : null;
+            nodes.forEach(function (n) { n.g.classList.toggle("is-selected", n.id === state.sel); });
+            if (!state.engine) { if (state.sel) hover(state.sel); else clear(); }
+            if (opt.onSelect && !silent) opt.onSelect(id || null, id ? conns(id) : []);
+        }
+        function search(q) {
+            q = (q || "").trim().toLowerCase();
+            if (!q) { if (!state.engine && !state.sel) clear(); return null; }
+            var hit = order.find(function (n) { return n.id.toLowerCase().indexOf(q) !== -1; });
+            if (hit && !state.engine) hover(hit.id);
+            return hit ? hit.id : null;
+        }
+        return { focusEngine: focusEngine, select: select, search: search, conns: conns,
+                 nodeEl: function (id) { return byId[id] ? byId[id].g : null; } };
+    }
+
     window.HUD = {
         STATUS_TONES: STATUS_TONES,
         esc: esc,
@@ -276,6 +452,7 @@
         rankList: rankList,
         art: art,
         scryfall: scryfall,
+        graph: graph,
         openModal: openModal,
         closeModal: closeModal,
         sortTable: sortTable,

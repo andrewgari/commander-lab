@@ -112,7 +112,61 @@ async def styleguide(request: Request):
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
-    return templates.TemplateResponse(request=request, name="deck.html", context={"providers": providers, "deck_name": deck_name})
+    head = await asyncio.to_thread(_deck_head_context, deck_name)
+    return templates.TemplateResponse(request=request, name="deck.html", context={
+        "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview"})
+
+
+def _deck_head_context(deck_name: str) -> dict:
+    """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
+    Never raises: an unknown deck (or Redis being down) gives a bare header."""
+    out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
+           "art_uid": None, "cards": None, "lands": None, "pillars": None, "registry_id": None}
+    try:
+        deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+    except Exception:
+        deck = None
+    if not deck:
+        return out
+    out.update(found=True, commanders=deck.get("commanders") or [], status=deck.get("status") or None,
+               colors="" if deck.get("color") == "C" else (deck.get("color") or ""),
+               art_uid=(deck.get("commander_uids") or [None])[0], registry_id=registry.registry_id_of(deck))
+    cards = deck.get("cards") or []
+    out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
+    try:
+        rows = inventory_view.build_inventory(r, decks=[deck_name])
+        land_names = {c.get("name") for c in rows if "Land" in (c.get("type") or "")}
+        out["lands"] = sum(int(c.get("quantity") or 1) for c in cards if c.get("name") in land_names)
+    except Exception:
+        pass
+    try:
+        out["pillars"] = len(identity_mod.live_pillars(identity_mod.load_identity(r, deck))) or None
+    except Exception:
+        pass
+    return out
+
+
+async def _deck_tab(request: Request, deck_name: str, template: str, tab: str):
+    head = await asyncio.to_thread(_deck_head_context, deck_name)
+    if not head["found"]:
+        return HTMLResponse(
+            "<html><head><title>Deck Not Found</title></head><body><h1>Deck Not Found</h1>"
+            "<p>No deck named &quot;{}&quot; could be found.</p></body></html>".format(html.escape(deck_name)),
+            status_code=404)
+    return templates.TemplateResponse(request=request, name=template, context={
+        "deck_name": deck_name, "deck_id": head["registry_id"], "head": head, "tab": tab})
+
+
+@app.get("/deck/{deck_name}/stats", response_class=HTMLResponse)
+async def deck_stats_view(request: Request, deck_name: str):
+    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON."""
+    return await _deck_tab(request, deck_name, "deck_stats.html", "stats")
+
+
+@app.get("/deck/{deck_name}/identity", response_class=HTMLResponse)
+async def deck_identity_view(request: Request, deck_name: str):
+    """Thesis + pillars editor (UX_SPEC §3.2)."""
+    return await _deck_tab(request, deck_name, "deck_identity.html", "identity")
 
 @app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
 async def deck_manage_view(request: Request, deck_name: str):
