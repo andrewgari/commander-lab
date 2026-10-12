@@ -11,7 +11,7 @@
     // Edges whose only reasons are these are hidden by default (UX_SPEC §3.1.1:
     // otherwise every signet connects to everything). ?mana=1 shows them.
     var MANA_REASONS = { mana: 1, lands: 1, ramp: 1 };
-    // Template curve for 65 non-land cards (UX_SPEC §3.1.8), scaled to the deck.
+    // Template curve shape (UX_SPEC §3.1.8), normalised to the deck's non-land count.
     var CURVE_TEMPLATE = [0, 4, 18, 12, 10, 7, 4, 3];
     var MINUS = "\u2212";
 
@@ -93,11 +93,12 @@
         (cards || []).forEach(function (c) { if (!isLand(c)) b[Math.min(Math.floor(c.cmc || 0), 7)] += 1; });
         return b;
     }
-    // Template shape (UX_SPEC §3.1.8: "a fixed shape for 65 non-land cards",
-    // scaled to the deck's non-land count). Taken literally: v * nonLand / 65.
-    // (The 8 numbers total 58, not 65; asked on the AN-4 card.)
+    // Template shape (UX_SPEC §3.1.8), normalised so the line always sums to the
+    // deck's non-land count: v * nonLand / sum(template). The template sums to 58,
+    // so dividing by 65 drew the line ~11% short (AN-4R, coder Q1).
+    var CURVE_TEMPLATE_SUM = CURVE_TEMPLATE.reduce(function (s, v) { return s + v; }, 0);
     function curveRef(nonLand) {
-        return CURVE_TEMPLATE.map(function (v) { return nonLand ? Math.round(v * nonLand / 65 * 10) / 10 : 0; });
+        return CURVE_TEMPLATE.map(function (v) { return nonLand ? Math.round(v * nonLand / CURVE_TEMPLATE_SUM * 10) / 10 : 0; });
     }
 
     // Spellbook near-miss ownership (UX_SPEC §3.1.10). rank: 0 owned·free, 1 owned elsewhere, 2 not owned.

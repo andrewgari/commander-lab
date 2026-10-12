@@ -316,7 +316,7 @@ const out = {
   gAll: { nodes: gAll.nodes.length, edges: gAll.edges.length },
   engines: A.engineList(engines, ident),
   rows: comp.rows.map(A.compRow),
-  ref: A.curveRef(65), ref0: A.curveRef(0),
+  ref: A.curveRef(58), ref65: A.curveRef(65), ref0: A.curveRef(0),
   curve: A.curveBuckets([{ cmc: 0, type: 'Artifact' }, { cmc: 3 }, { cmc: 9 }, { cmc: 0, type: 'Basic Land' }]),
   own: combos.one_away.map(A.comboOwnership),
   sorted: A.sortCombos(combos.one_away).map(c => A.comboOwnership(c).rank),
@@ -378,7 +378,8 @@ process.stdout.write(JSON.stringify(out));
     def test_curve_reference_is_the_template_scaled_to_the_deck(self):
         ref = self.out["ref"]
         self.assertEqual(len(ref), 8)
-        self.assertEqual(ref, [0, 4, 18, 12, 10, 7, 4, 3])  # 65 non-land cards = the template itself
+        self.assertEqual(ref, [0, 4, 18, 12, 10, 7, 4, 3])  # 58 non-land cards (the template's sum) = the template itself
+        self.assertAlmostEqual(sum(self.out["ref65"]), 65, delta=0.5)  # normalised: the line sums to the deck's non-land count
         self.assertEqual(ref.index(max(ref)), 2)  # most at 2, tapering
         self.assertEqual(self.out["ref0"], [0] * 8)
         self.assertEqual(self.out["curve"], [1, 0, 0, 1, 0, 0, 0, 1])

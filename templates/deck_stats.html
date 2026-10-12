@@ -100,7 +100,7 @@
         <header class="hud-panel-head"><h3 class="hud-panel-title">Pillar fit</h3><div class="hud-panel-meta"><a class="hud-btn hud-btn--sm" href="/deck/{{ deck_name | urlencode }}/identity">Edit pillars</a></div></header>
         <div class="hud-panel-body" id="fit">{{ hud.empty("Loading…") }}</div>
     </section>
-    <section class="hud-panel hud-panel--flush">
+    <section class="hud-panel">
         <header class="hud-panel-head"><h3 class="hud-panel-title">Least on-plan</h3><div class="hud-panel-meta">fit score</div></header>
         <div class="hud-panel-body" id="lowfit">{{ hud.empty("Loading…") }}</div>
     </section>
@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var loops = eng ? eng.engines.filter(function (e) { return e.kind === "loop"; }).length : 0;
         var cards = g ? g.nodes.length : 0;
         $("statStrip").innerHTML = [
-            H.stat("On-plan", ident && ident.fit && ident.fit.on_plan_pct != null ? ident.fit.on_plan_pct : "—", { unit: ident && ident.fit && ident.fit.on_plan_pct != null ? "%" : "", foot: ident && ident.pillars.length ? "fits a pillar or is glue" : "no pillars yet", mod: "hero signal" }),
+            H.stat("On-plan", ident && ident.fit && ident.fit.on_plan_pct != null ? ident.fit.on_plan_pct : "—", { unit: ident && ident.fit && ident.fit.on_plan_pct != null ? "%" : "", foot: ident && ident.pillars.length ? "pillar or glue" : "no pillars yet", mod: "hero signal" }),
             H.stat("Engines", eng ? eng.engines.length : "—", { foot: eng ? loops + " loops · " + (eng.engines.length - loops) + " chains" : "" }),
             H.stat("Edges", g ? g.edges.length : "—", { foot: g && cards ? (g.edges.length / cards).toFixed(1) + " per card" : "" }),
             H.stat("EDHREC overlap", ed && ed.overlap_pct != null ? ed.overlap_pct : "—", { unit: ed && ed.overlap_pct != null ? "%" : "", foot: "lower = more yours" }),
@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function () {
         $("edhrec").innerHTML = H.barChart(e.buckets.map(function (b) { return { label: b.label, value: b.count }; }), { hl: 0, height: 120, title: "Cards by EDHREC inclusion %" }) +
             '<div class="hud-rank-compact stats-rarest"><span class="hud-label">Your rarest picks</span>' + H.rankList((e.rarest || []).map(function (x) {
                 var pct = x.inclusion == null ? 0 : Math.round(x.inclusion * 100);
-                return { label: x.name, value: pct, display: x.inclusion == null ? "not listed" : pct + "%" };
+                return { label: x.name, value: pct, display: x.inclusion == null ? "—" : pct + "%", sub: x.inclusion == null ? "not on EDHREC" : "" };
             }), { max: 100, numbered: false }) + "</div>";
     }
 

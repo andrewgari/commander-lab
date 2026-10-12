@@ -48,6 +48,11 @@
         .card-modal-body { grid-template-columns: minmax(0, 1fr); }
         .card-modal-body .hud-art { max-width: 16rem; }
     }
+    /* Phone: one column. Two columns crushed the main column to ~70px and the
+       page scrolled sideways to 531px at 390 (AN-4R). */
+    @media (max-width: 640px) {
+        .deck-hero { grid-template-columns: minmax(0, 1fr); }
+    }
 </style>
 {% endblock %}
 
