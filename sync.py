@@ -7,6 +7,7 @@ from collections import defaultdict
 import time
 
 import cards as card_store
+import registry
 
 # Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
 # that the legacy card:{name} inventory keys have been purged. sync.py checks
@@ -318,7 +319,12 @@ def sync_inventory():
     else:
         print("Migration marker found -- skipping legacy card:{name} write.")
         
-    r.set("decks", json.dumps(sorted(deck_names, key=lambda d: d["name"])))
+    # Merge into the registry instead of replacing the whole key. A plain
+    # r.set("decks", deck_names) used to drop every field this pull doesn't
+    # produce (links, source/registry_id, cards, moxfield_id) and every deck
+    # it didn't fetch (Moxfield copies). See registry.merge_full_sync.
+    existing_decks = registry.list_decks(r)
+    r.set(registry.DECKS_KEY, json.dumps(registry.merge_full_sync(existing_decks, deck_names)))
         
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 

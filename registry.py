@@ -26,6 +26,8 @@ vocabulary — same field, same mechanism, just relabeled):
     testing   — being brewed/tested (was "test").
 """
 import json
+import re
+import unicodedata
 from typing import Optional
 
 import instances as instance_store
@@ -81,6 +83,143 @@ def is_deck_physical(r, registry_id: str) -> bool:
     return bool(deck) and deck.get("status") == "physical"
 
 
+_PROVIDER_DECK_URLS = {
+    "archidekt": "https://archidekt.com/decks/{}",
+    "moxfield": "https://moxfield.com/decks/{}",
+}
+
+
+def provider_link(normalized: dict) -> dict:
+    """The deck_links.py-shaped link entry for a normalized provider deck:
+    {"identifier": <deck url>, "deck_id": <provider-native id>}."""
+    source = normalized["source"]
+    source_id = str(normalized["source_id"])
+    url = normalized.get("url") or _PROVIDER_DECK_URLS.get(source, "{}").format(source_id)
+    return {"identifier": url, "deck_id": source_id}
+
+
+def merge_link(links: Optional[dict], provider: str, entry: dict) -> dict:
+    """Return a copy of `links` with `provider` set to `entry`. Other
+    providers' links are always kept."""
+    out = dict(links or {})
+    out[provider] = dict(entry)
+    return out
+
+
+def _norm_text(s: Optional[str]) -> str:
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+
+def _commander_key(commanders) -> frozenset:
+    # Front face only: providers disagree on whether MDFC commanders carry
+    # the " // Back Face" suffix.
+    return frozenset(_norm_text((c or "").split(" // ")[0]) for c in commanders or [] if c)
+
+
+def match_provider_deck(decks: list, normalized: dict) -> tuple:
+    """Find the existing registry deck a provider deck (normally Moxfield)
+    is a copy of. Returns (index, None) on a match or (None, reason).
+
+    Order: an existing link/moxfield_id for this exact provider deck id
+    wins; otherwise exactly one deck with the same commander set AND the
+    same normalized name. Anything else (no candidate, several candidates,
+    or the one candidate already linked to a different deck on this
+    provider) is left unmatched so a human can link it by hand.
+    """
+    provider = normalized["source"]
+    pid = str(normalized["source_id"])
+    for idx, d in enumerate(decks):
+        link = (d.get("links") or {}).get(provider) or {}
+        if str(link.get("deck_id") or "") == pid:
+            return idx, None
+        if provider == "moxfield" and str(d.get("moxfield_id") or "") == pid:
+            return idx, None
+
+    ckey = _commander_key(normalized.get("commanders"))
+    nkey = _norm_text(normalized.get("name"))
+    if not ckey:
+        return None, "no commanders on the provider deck"
+    same_cmd = [i for i, d in enumerate(decks)
+                if d.get("source") != provider and _commander_key(d.get("commanders")) == ckey]
+    if not same_cmd:
+        return None, "no registry deck with these commanders"
+    hits = [i for i in same_cmd if _norm_text(decks[i].get("name")) == nkey]
+    if not hits:
+        names = ", ".join(sorted(decks[i].get("name", "") for i in same_cmd))
+        return None, f"same commanders but different name ({names})"
+    if len(hits) > 1:
+        return None, f"ambiguous: {len(hits)} registry decks with these commanders and name"
+    idx = hits[0]
+    other = ((decks[idx].get("links") or {}).get(provider) or {}).get("deck_id")
+    if other and str(other) != pid:
+        return None, f"'{decks[idx].get('name')}' is already linked to {provider} deck {other}"
+    return idx, None
+
+
+def attach_provider_deck(r, normalized: dict, apply: bool = True) -> dict:
+    """Attach a provider deck to the registry deck it matches (see
+    match_provider_deck): sets links[provider] (and moxfield_id for
+    Moxfield) on that deck and touches nothing else -- no cards, status,
+    instances, journal, identity, or deck_status key changes.
+
+    A deck already registered under this provider's own registry id (a
+    Moxfield-native /api/import) is refreshed with upsert_deck as before.
+
+    Returns {"result": "matched"|"upserted"|"unmatched", "deck": deck|None,
+    "reason": str|None}. With apply=False nothing is written (dry run).
+    """
+    reg_id = f"{normalized['source']}:{normalized['source_id']}"
+    decks = _load_decks(r)
+    if any(registry_id_of(d) == reg_id for d in decks):
+        if not apply:
+            return {"result": "upserted", "deck": find_deck(r, reg_id), "reason": None}
+        return {"result": "upserted", "deck": upsert_deck(r, normalized), "reason": None}
+
+    idx, reason = match_provider_deck(decks, normalized)
+    if idx is None:
+        return {"result": "unmatched", "deck": None, "reason": reason}
+
+    target = decks[idx]
+    target["links"] = merge_link(target.get("links"), normalized["source"], provider_link(normalized))
+    if normalized["source"] == "moxfield":
+        target["moxfield_id"] = str(normalized["source_id"])
+    if apply:
+        _save_decks(r, decks)
+    return {"result": "matched", "deck": target, "reason": None}
+
+
+def merge_full_sync(existing: list, fetched: list) -> list:
+    """Merge a full-account Archidekt pull (sync.py) into the existing
+    registry instead of replacing it. Each fetched deck updates the stored
+    deck with the same id, keeping every field the pull doesn't produce
+    (links, source/registry_id, cards, moxfield_id, ...); stored decks the
+    pull didn't return (Moxfield imports, decks deleted upstream) are kept.
+    """
+    by_id = {str(d.get("id")): i for i, d in enumerate(existing)}
+    out = [dict(d) for d in existing]
+    for f in fetched:
+        f = dict(f)
+        sid = str(f["id"])
+        f.setdefault("source", "archidekt")
+        f.setdefault("source_id", sid)
+        f.setdefault("registry_id", f"archidekt:{sid}")
+        f.setdefault("url", _PROVIDER_DECK_URLS["archidekt"].format(sid))
+        if sid in by_id:
+            cur = out[by_id[sid]]
+            links = cur.get("links")
+            cur.update(f)
+            cur["links"] = links or {}
+            target = cur
+        else:
+            out.append(f)
+            target = f
+        if "archidekt" not in (target.get("links") or {}):
+            target["links"] = merge_link(target.get("links"), "archidekt",
+                                         {"identifier": target["url"], "deck_id": sid})
+    return sorted(out, key=lambda d: d.get("name") or "")
+
+
 def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     """Insert or update a deck from a normalized provider payload
     (see providers/__init__.py NORMALIZED_DECK_SHAPE). Preserves an
@@ -123,6 +262,14 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     }
     if normalized["source"] == "moxfield":
         deck_obj["moxfield_id"] = normalized["source_id"]
+
+    # Record where this deck was pulled from, so the deck modal's Sync
+    # Sources fields and deck_sync.sync_deck (which only fetches linked
+    # providers) can find it. Merged into existing links; never clobbers
+    # another provider's link.
+    deck_obj["links"] = merge_link(
+        (existing or {}).get("links"), normalized["source"], provider_link(normalized)
+    )
 
     if existing_idx is not None:
         # Preserve any Archidekt-account-sync-only fields (e.g. description
