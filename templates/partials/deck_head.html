@@ -29,12 +29,15 @@
     {"key": "tune", "label": "Tune", "href": base ~ "/tune", "n": "5", "count": head.tune},
 ] -%}
 <header class="hud-deckhead">
-    <div class="hud-deckhead-art">
-        {%- if head.art_uid -%}
-        {%- set uid = head.art_uid | lower -%}
+    {#- Partner decks: both commanders share the same fixed frame (split in
+        halves) so the title column never loses width to a second portrait. -#}
+    {%- set uids = head.art_uids or ([head.art_uid] if head.art_uid else []) -%}
+    <div class="hud-deckhead-art{% if uids | length > 1 %} hud-deckhead-art--multi{% endif %}">
+        {%- for raw in uids -%}
+        {%- set uid = raw | lower -%}
         <img alt="" src="https://cards.scryfall.io/art_crop/front/{{ uid[0] }}/{{ uid[1] }}/{{ uid | urlencode }}.jpg"
              data-fallback="https://api.scryfall.com/cards/{{ uid | urlencode }}?format=image&amp;version=art_crop">
-        {%- endif -%}
+        {%- endfor -%}
     </div>
     <div>
         <span class="hud-label" id="deckEyebrow">Commander deck{% if head.commanders %} · {{ head.commanders | join(" + ") }}{% endif %}</span>
