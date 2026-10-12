@@ -182,6 +182,26 @@ class TestOracleRules(unittest.TestCase):
         p, q = self.tags(card("Plains", "Basic Land — Plains", "({T}: Add {W}.)"))
         self.assertEqual((p, q), (set(), set()))
 
+    def test_nonbasic_mana_lands_are_trivial(self):
+        for c in (
+            card("Clifftop Retreat", "Land", "This land enters tapped unless you control a Mountain or a Plains.\n{T}: Add {R} or {W}."),
+            card("Godless Shrine", "Land — Plains Swamp", "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped."),
+            card("Rugged Prairie", "Land", "{T}: Add {C}.\n{R/W}, {T}: Add {R}{R}, {R}{W}, or {W}{W}."),
+        ):
+            self.assertTrue(oracle_rules.is_trivial(c), c["name"])
+        self.assertFalse(oracle_rules.is_trivial(card("Homeward Path", "Land", "{T}: Add {C}.\n{T}: Each player gains control of all creatures they own.")))
+
+    def test_opponent_draws_is_not_card_draw_for_you(self):
+        p, _ = self.tags(card("Smothering Tithe", "Enchantment",
+                              "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token."))
+        self.assertNotIn("cards", p)
+        self.assertIn("mana", p)
+
+    def test_x_in_rules_text_is_not_a_mana_sink(self):
+        _, q = self.tags(card("Esper Sentinel", "Artifact Creature — Human Soldier",
+                              "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature's power."))
+        self.assertNotIn("mana", q)
+
     def test_attack_trigger_and_haste(self):
         p, q = self.tags(card("Kaalia of the Vast", "Legendary Creature — Human Cleric",
                               "Flying\nWhenever Kaalia of the Vast attacks an opponent, you may put an Angel, Demon, or Dragon creature card from your hand onto the battlefield tapped and attacking that opponent."))
@@ -303,15 +323,29 @@ class TestLLMPass(unittest.TestCase):
 
 
 class TestProviders(unittest.TestCase):
+    def test_keys_can_come_from_a_secrets_dir(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "GOOGLE_API_KEY"), "w") as fh:
+                fh.write('"from-file"\n')
+            env = llm_mod.resolve_env({"INTERACTIONS_SECRETS_DIR": d})
+            self.assertEqual(env["GOOGLE_API_KEY"], "from-file")
+            self.assertNotIn("NOUS_API_KEY", env)
+            env = llm_mod.resolve_env({"INTERACTIONS_SECRETS_DIR": d, "GOOGLE_API_KEY": "from-env"})
+            self.assertEqual(env["GOOGLE_API_KEY"], "from-env")
+            chain = llm_mod.default_chain(env={"INTERACTIONS_SECRETS_DIR": d})
+            self.assertEqual([p.name for p in chain.available()], ["gemini"])
+
     def test_default_chain_is_gemini_then_nous_then_anthropic_slot(self):
-        chain = llm_mod.default_chain(env={"GOOGLE_API_KEY": "k", "NOUS_API_KEY": "n"})
+        chain = llm_mod.default_chain(env={"GOOGLE_API_KEY": "k", "NOUS_API_KEY": "n",
+                                           "INTERACTIONS_SECRETS_DIR": "/nonexistent"})
         self.assertEqual([p.name for p in chain.providers], ["gemini", "nous", "anthropic"])
         self.assertTrue(chain.providers[0].is_configured())
         self.assertTrue(chain.providers[1].is_configured())
         self.assertFalse(chain.providers[2].is_configured())  # empty slot
 
     def test_unconfigured_providers_are_skipped(self):
-        chain = llm_mod.default_chain(env={})
+        chain = llm_mod.default_chain(env={"INTERACTIONS_SECRETS_DIR": "/nonexistent"})
         self.assertEqual(chain.available(), [])
 
     def test_anthropic_slot_raises_not_implemented(self):
@@ -420,7 +454,7 @@ class TestDeckGraph(unittest.TestCase):
         self.assertEqual(nodes["Plains"]["degree"], 0)
         self.assertEqual(self.g["counts"]["nodes"], 5)
         self.assertEqual(self.g["counts"]["edges"], len(self.g["edges"]))
-        self.assertEqual(self.g["counts"]["untagged"], 1)
+        self.assertEqual(self.g["counts"]["untagged"], 0)  # Plains is tagged (as producing nothing)
         n = nodes["Viscera Seer"]
         self.assertEqual(n["degree"], n["in_degree"] + n["out_degree"])
         self.assertEqual(n["reason_counts"]["death"]["out"], 2)

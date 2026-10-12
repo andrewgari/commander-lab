@@ -25,6 +25,7 @@ from deck_sync import DeckSyncError
 from version import __version__, VERSION
 import httpx
 from repo_status import enrich_decks_with_repo_status
+from analytics.interactions import service as interactions_service
 
 app = FastAPI()
 
@@ -259,6 +260,7 @@ async def import_deck(request: Request):
         return {"success": False, "error": f"fetch failed: {e}"}
 
     deck = registry.upsert_deck(r, normalized, default_status="testing")
+    interactions_service.start_rebuild(r, trigger="sync", deck_ids=[registry.registry_id_of(deck)])
     return {"success": True, "deck": deck}
 
 
@@ -315,6 +317,7 @@ async def sync_deck(deck_id: str):
         report = deck_sync.sync_deck(r, deck_id)
     except DeckSyncError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    interactions_service.start_rebuild(r, trigger="sync", deck_ids=[deck_id])
     return {"success": True, "report": report.to_dict()}
 
 @app.get("/api/inventory")
@@ -1011,6 +1014,7 @@ async def sync_linked_account(account_id: str):
         account = linked_accounts.sync_account(r, account_id)
     except LinkedAccountError as e:
         return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    interactions_service.start_rebuild(r, trigger="sync")
     return {"success": True, "account": account}
 
 
@@ -1018,6 +1022,7 @@ async def sync_linked_account(account_id: str):
 async def sync_all_linked_accounts():
     """Manually resync every enabled linked account."""
     accounts = linked_accounts.sync_all(r)
+    interactions_service.start_rebuild(r, trigger="sync")
     return {"success": True, "accounts": accounts, "count": len(accounts)}
 
 
@@ -1247,5 +1252,81 @@ async def api_get_deck_review(deck_id: str):
         return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
 
 
+# ---------------------------------------------------------------------------
+# Card interaction graph (AN-1) -- see docs/INTERACTION_GRAPH.md
+# ---------------------------------------------------------------------------
 
+
+def _find_deck_any(deck_id: str):
+    """Deck by id, registry_id, or display name."""
+    try:
+        return registry.find_deck(r, deck_id) or next(
+            (d for d in registry.list_decks(r) if d.get("name") == deck_id), None
+        )
+    except Exception:
+        return None
+
+
+@app.get("/api/decks/{deck_id}/interactions")
+async def api_deck_interactions(deck_id: str):
+    """Interaction graph for one deck: nodes (produces/consumes, in/out/total
+    degree, per-reason counts), labeled edges (reasons, weight), resource
+    labels and the most-connected cards. `deck_id` may be the id,
+    registry_id or deck name."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    return {"success": True, "graph": graph}
+
+
+@app.post("/api/decks/{deck_id}/interactions/refresh")
+async def api_refresh_deck_interactions(deck_id: str):
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
+    reg_id = deck.get("registry_id") or registry.registry_id_of(deck)
+    started = interactions_service.start_rebuild(r, trigger="manual", deck_ids=[reg_id])
+    return JSONResponse(status_code=202, content={"success": True, **started})
+
+
+@app.post("/api/interactions/refresh")
+async def api_refresh_interactions(wait: bool = False):
+    """Manual rebuild of every deck graph + the collection graph. Runs in the
+    background (202) unless ?wait=true, which returns the run log."""
+    if wait:
+        run = await asyncio.to_thread(interactions_service.rebuild, r, "manual")
+        return {"success": run.get("status") in ("ok", "deferred"), "run": run}
+    started = interactions_service.start_rebuild(r, trigger="manual")
+    return JSONResponse(status_code=202, content={"success": True, **started})
+
+
+@app.get("/api/interactions/runs")
+async def api_interaction_runs(limit: int = 20):
+    """Per-run call/cost log (newest first)."""
+    return {"success": True, "runs": interactions_service.list_runs(r, limit=limit)}
+
+
+@app.get("/api/interactions/collection")
+async def api_collection_interactions(card: Optional[str] = None):
+    """Whole-collection graph: nodes with degrees + resource index. With
+    ?card=NAME, returns that card's labeled in/out edges across the collection."""
+    coll = interactions_service.get_collection_graph(r)
+    if coll is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "collection graph not built yet; POST /api/interactions/refresh"})
+    if card:
+        from analytics.interactions.graph import collection_neighbors
+        return {"success": True, "card": collection_neighbors(coll, card)}
+    return {"success": True, "graph": coll}
+
+
+@app.get("/api/interactions/vocabulary")
+async def api_interaction_vocabulary():
+    from analytics.interactions.vocab import VOCAB_VERSION, vocab_payload
+    return {"success": True, "version": VOCAB_VERSION, "resources": vocab_payload()}
+
+
+@app.on_event("startup")
+async def _start_interactions_nightly():
+    interactions_service.start_nightly_thread(r)
 
