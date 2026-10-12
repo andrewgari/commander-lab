@@ -239,7 +239,7 @@
             items.push({ op: "out", name: s.cut.name, source: "" });
             items.push({ op: "in", name: o.name, source: tuneSource(o) });
             if (o.source === "buy") spend += o.price || 0;
-            if (o.source === "deck" && o.deck) moves.push({ name: o.name, from: o.deck });
+            if (o.source === "deck" && o.deck) moves.push({ name: o.name, from: o.deck, give: o.donor_replacement || null });
             on += (o.on_plan ? 1 : 0) - (s.cut.on_plan ? 1 : 0);
         });
         (adds || tune.adds || []).forEach(function (a) {

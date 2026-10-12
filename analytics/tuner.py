@@ -38,6 +38,12 @@ card, Scryfall; Journal override, else global default):
               unless the gap is >= GAP_SOFT_OVERRIDE
 Modes: owned_first (default), owned_only (no buys), best (higher score wins).
 
+Steal rule (AN-8, docs/TUNER.md): an owned card sleeved in another deck B is
+an option only when B gets a replacement Y (a free owned card, the card this
+deck cuts, or a basic in B's colours) that is legal in B and scores at least
+as well in B as the card taken, scored with B's own inputs (DonorBook).
+Otherwise the next-best option takes its place. One hop only.
+
 Redis:
     tuner:state:{registry_id}   {review_id, decisions{cut: {decision, add}}, adds[]}
                                 reset when a newer finished review exists
@@ -51,7 +57,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
 from . import composition as comp
 from . import journal as journal_mod
@@ -152,7 +158,7 @@ def _cap_of(price: Optional[float], caps: Mapping) -> Optional[str]:
     return None
 
 
-def _option(c: Mapping, s: float, buy: bool, caps: Mapping) -> dict:
+def _option(c: Mapping, s: float, buy: bool, caps: Mapping, steal: Optional[Mapping] = None) -> dict:
     o = {"name": c["name"], "score": s, "pillar": c.get("pillar"), "edges": c.get("edges", 0),
          "fit": c.get("fit"), "edhrec": c.get("inclusion"), "played": c.get("played"),
          "on_plan": bool(c.get("on_plan")), "combo": c.get("combo")}
@@ -162,7 +168,138 @@ def _option(c: Mapping, s: float, buy: bool, caps: Mapping) -> dict:
         free = (c.get("available") or 0) > 0
         o.update(source="free" if free else "deck", deck=None if free else ((c.get("decks") or [None])[0]),
                  price=0.0, list_price=c.get("price"), cap=None)
+        if steal and not free:
+            o.update(steal)
+            o["deck"] = steal["donor_deck"]
     return o
+
+
+# ---------------------------------------------------------------------------
+# Steal rule (AN-8): a card sleeved in another deck B is only suggested for
+# deck A when B gets a replacement Y that leaves B no worse off.
+# ---------------------------------------------------------------------------
+
+BASIC_LANDS = tuple(BASIC_BY_COLOR.values()) + ("Wastes",)
+BASIC_COLOR = {v: k for k, v in BASIC_BY_COLOR.items()}
+STEAL_EPS = 1e-9
+
+
+def _basic_ok(name: str, colors: str) -> bool:
+    """A basic B can take: one of its colours; Wastes only for a colourless deck."""
+    cols = set(colors or "") - {"C"}
+    if name == "Wastes":
+        return not cols
+    return BASIC_COLOR.get(name, "?") in cols
+
+
+def _is_land_input(inp: Mapping, name: str = "") -> bool:
+    return bool(inp.get("land")) or name in BASIC_LANDS
+
+
+def _y_role_ok(xin: Mapping, yin: Mapping, y: str) -> bool:
+    """Y keeps X's job in B (the same role rule as A's swaps): a land is
+    replaced by a land; a ramp/draw/removal card by a card in one of the same
+    rows; a plan card by any non-land."""
+    if _is_land_input(xin):
+        return _is_land_input(yin, y)
+    if _is_land_input(yin, y):
+        return False
+    return _role_ok(list(xin.get("rows") or []), {"rows": list(yin.get("rows") or []), "land": False})
+
+
+def _y_candidates(ctx: Mapping, cut: Optional[str]):
+    """(name, inputs) for every possible Y. `ctx["lookup"](names)` (optional,
+    the Redis-backed DonorBook) scores cards that aren't in `cands` yet, i.e.
+    A's cut card."""
+    cands = dict(ctx.get("cands") or {})
+    if cut is not None and cut not in cands and callable(ctx.get("lookup")):
+        cands.update(ctx["lookup"]([cut]) or {})
+    return sorted(cands.items())
+
+
+def _donor_score(ctx: Mapping, inp: Mapping) -> float:
+    """A card's score in the DONOR deck, with the donor's own p75, pillars,
+    EDHREC page and card2vec neutral (the same score() used for deck A)."""
+    played = None
+    if ctx.get("played_neutral") is not None:
+        played = inp.get("played") if inp.get("played") is not None else ctx["played_neutral"]
+    return score(inp.get("edges") or 0, ctx.get("p75") or 1.0, inp.get("fit"), inp.get("inclusion"),
+                 bool(ctx.get("has_pillars")), bool(ctx.get("has_edhrec")), played)
+
+
+def donor_trade(x: str, ctx: Optional[Mapping], cut: Optional[str] = None, used: Iterable[str] = ()) -> Optional[dict]:
+    """Best replacement Y for donor deck B (`ctx`) when deck A takes X from it.
+
+    Y is (1) an owned card in no deck, (2) `cut` (the card A cuts for X) or
+    (3) a basic land in B's colours; it must be in B's colour identity and not
+    already in B (singleton). X is never taken when it is a pet in B. Returns
+    the trade only when score_B(Y) >= score_B(X), else None. `ctx` (built by
+    donor_context() from Redis, or by hand in tests):
+        {name, colors, in_deck, pets, p75, has_pillars, has_edhrec, played_neutral,
+         cards: {name: inputs}   # every card in B (X's inputs)
+         cands: {name: inputs + color, owned, available}}   # possible Ys, scored against B
+    inputs = {edges, fit, inclusion, played, land}."""
+    if not ctx or x in set(ctx.get("pets") or ()):
+        return None
+    if x in set(ctx.get("commanders") or ()):
+        return None  # never pull a commander
+    xin = (ctx.get("cards") or {}).get(x)
+    if xin is None:
+        return None  # B's data doesn't have X: the trade can't be checked, so it isn't shown
+    before = _donor_score(ctx, xin)
+    in_b = set(ctx.get("in_deck") or ()) | {x}
+    used = set(used or ())
+    colors = ctx.get("colors") or ""
+    best = None
+    for name, inp in _y_candidates(ctx, cut):
+        if name in used or (name in in_b and name not in BASIC_LANDS):  # basics are exempt from singleton
+            continue
+        if name in BASIC_LANDS:
+            if not _basic_ok(name, colors):
+                continue
+            kind = "basic"
+        elif cut is not None and name == cut:
+            kind = "cut"
+        elif inp.get("owned") and (inp.get("available") or 0) > 0:
+            kind = "free"
+        else:
+            continue
+        if kind != "basic" and not in_identity(inp.get("color") or "C", colors):
+            continue
+        if not _y_role_ok(xin, inp, name):
+            continue
+        after = _donor_score(ctx, inp)
+        if after + STEAL_EPS < before:
+            continue
+        key = (after, {"free": 2, "cut": 1, "basic": 0}[kind])
+        if best is None or key > best[0]:  # names come sorted, so ties keep the first
+            best = (key, name, kind, after)
+    if best is None:
+        return None
+    _, name, kind, after = best
+    return {"donor_deck": ctx.get("name"), "donor_replacement": name, "donor_replacement_source": kind,
+            "donor_before": before, "donor_after": after, "donor_delta": round(after - before, 4)}
+
+
+def best_steal(c: Mapping, donors: Optional[Any], cut: Optional[str] = None,
+               used: Iterable[str] = ()) -> Optional[dict]:
+    """Best one-hop trade for candidate `c` over every deck it is sleeved in."""
+    if donors is None:
+        return None
+    best = None
+    for d in c.get("decks") or []:
+        t = donor_trade(c["name"], donors.get(d), cut=cut, used=used)
+        if t and (best is None or t["donor_delta"] > best["donor_delta"]):
+            best = t
+    return best
+
+
+def steal_line(x: str, steal: Mapping) -> str:
+    """One UI line: "Take X from B → B gets Y (+0.40)" (the delta is B's)."""
+    d = steal.get("donor_delta") or 0.0
+    sign = "+" if d >= 0 else "\u2212"
+    return f"Take {x} from {steal['donor_deck']} \u2192 {steal['donor_deck']} gets {steal['donor_replacement']} " \
+           f"({sign}{abs(d):.2f})"
 
 
 def soft_note(buy: Mapping, own: Optional[Mapping], gap: Optional[float], caps: Mapping, pick: str,
@@ -188,21 +325,38 @@ def _deck_colors(deck: Mapping) -> str:
     return "" if c == "C" else c
 
 
-def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: int = 3) -> List[dict]:
+def _signed(d: float) -> str:
+    return ("+" if d >= 0 else "\u2212") + f"{abs(d):.2f}"
+
+
+def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: int = 3,
+                donors: Optional[Any] = None, used_y: Optional[set] = None) -> List[dict]:
+    """Rows 2+ short. An owned card sleeved in another deck is listed only when
+    that deck gets a replacement that leaves it no worse off (AN-8)."""
     out = []
+    used_y = used_y if used_y is not None else set()
     for row in comp_rows or []:
         key = row.get("key")
         if key == "plan" or (row.get("delta") or 0) > -2:
             continue
         short = -int(row["delta"])
         mine = [c for c in cands if c.get("owned") and key in (c.get("rows") or [])]
-        free = sorted((c for c in mine if (c.get("available") or 0) > 0),
+        free = sorted((c for c in mine if (c.get("available") or 0) > 0 and c["name"] not in used_y),
                       key=lambda c: (-(c.get("score") or 0), c["name"]))
-        elsewhere = sorted((c for c in mine if (c.get("available") or 0) <= 0),
-                           key=lambda c: (-(c.get("score") or 0), c["name"]))
-        owned = free + elsewhere
+        elsewhere = []
+        for c in sorted((c for c in mine if (c.get("available") or 0) <= 0),
+                        key=lambda c: (-(c.get("score") or 0), c["name"])):
+            t = best_steal(c, donors, used=used_y)
+            if t:
+                elsewhere.append((c, t))
+        owned = free + [c for c, _ in elsewhere]
         names = [c["name"] for c in free[:limit]]
-        far = [f"{c['name']} (in {(c.get('decks') or ['another deck'])[0]})" for c in elsewhere[:max(0, limit - len(names))]]
+        far_pairs = elsewhere[:max(0, limit - len(names))]
+        for _, t in far_pairs:
+            if t["donor_replacement_source"] == "free":
+                used_y.add(t["donor_replacement"])
+        far = [f"{c['name']} (in {t['donor_deck']}; it gets {t['donor_replacement']}, {_signed(t['donor_delta'])})"
+               for c, t in far_pairs]
         label = row.get("label") or key
         listing = ""
         if names:
@@ -219,13 +373,18 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
             action = ({"kind": "filter", "row": key, "label": f"See {len(owned)} owned"} if owned else None)
         out.append({"key": key, "label": label, "actual": row.get("actual"), "target": row.get("target"),
                     "gap": row["delta"], "owned": [c["name"] for c in owned], "free": [c["name"] for c in free],
+                    "steals": [{"name": c["name"], **t, "steal_line": steal_line(c["name"], t)} for c, t in elsewhere],
                     "advice": advice, "action": action})
     return out
 
 
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
                p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "owned_first", sleeved: bool = True,
-               pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS) -> dict:
+               pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
+               donors: Optional[Any] = None) -> dict:
+    """`donors` (AN-8): {deck name: donor context} (see donor_trade), usually a
+    lazy DonorBook. A card sleeved in another deck is an option only when that
+    deck gets a no-worse replacement; with no donor data it is never offered."""
     if mode not in MODES:
         raise TunerError(f"mode must be one of {list(MODES)}")
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
@@ -258,6 +417,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     pool.sort(key=lambda c: (-c["score"], c["name"]))
 
     used = set()
+    used_y: set = set()  # free cards already promised to a donor deck
+    dropped: set = set()  # sleeved cards skipped: no fair trade for their deck
     swaps = []
     weak_rows = [w for w in weak.get("cards") or [] if w["name"] not in pets]
     weak_rows.sort(key=lambda w: (-w["weak_score"], w["name"]))
@@ -274,11 +435,24 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
                           _played(w.get("played")))
-        fits = [c for c in pool if c["name"] not in used and _role_ok(w.get("rows") or [], c)
+        fits = [c for c in pool if c["name"] not in used and c["name"] not in used_y
+                and _role_ok(w.get("rows") or [], c)
                 and c["score"] >= cut_score + MIN_UPGRADE]
         owned = [c for c in fits if c.get("owned")]
         buys = [c for c in fits if not c.get("owned")] if mode != "owned_only" else []
-        best_own = owned[0] if owned else None
+        # AN-8 steal rule: the best owned card that is free, or sleeved in a deck
+        # that gets a no-worse replacement. A sleeved card with no fair trade is
+        # skipped and the next-best option (free / sleeved / buy) takes its place.
+        best_own, steal = None, None
+        for c in owned:
+            if (c.get("available") or 0) > 0:
+                best_own = c
+                break
+            t = best_steal(c, donors, cut=w["name"], used=used | used_y)
+            if t:
+                best_own, steal = c, t
+                break
+            dropped.add(c["name"])
         base = best_own["score"] if best_own else cut_score
         need = 0.0 if mode == "best" else (GAP_WORTH if best_own else MIN_UPGRADE)
         allowed = [c for c in buys if _cap_of(c.get("price"), caps) != "hard"]
@@ -289,7 +463,12 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                         and (best_own is None or best_buy["score"] > best_own["score"]))
         if not best_own and not show_buy:
             continue
-        own_o = _option(best_own, best_own["score"], False, caps) if best_own else None
+        own_o = None
+        if best_own:
+            st = dict(steal, receiver_delta=round(best_own["score"] - cut_score, 4)) if steal else None
+            if st:
+                st["steal_line"] = steal_line(best_own["name"], st)
+            own_o = _option(best_own, best_own["score"], False, caps, steal=st)
         buy_o = _option(best_buy, best_buy["score"], True, caps) if show_buy else None
         gap = round(buy_o["score"] - own_o["score"], 4) if own_o and buy_o else None
         near = None
@@ -310,6 +489,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             pick, verdict = "own", ("keep_yours" if near else "owned")
         used.add((own_o or {}).get("name"))
         used.add((buy_o or {}).get("name"))
+        if steal and steal["donor_replacement_source"] == "free":
+            used_y.add(steal["donor_replacement"])  # a free card given to B isn't offered again
         row = {
             "cut": {"name": w["name"], "weak_score": w["weak_score"], "score": cut_score,
                     "why": {"edges": w.get("edges") or 0, "fit": w.get("fit"), "edhrec": w.get("edhrec_inclusion"),
@@ -341,13 +522,15 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         wr = next((w for w in weak.get("cards") or [] if w["name"] == notice["name"]), {})
         notice = {"name": notice["name"], "weak_score": notice.get("weak_score"), "edges": wr.get("edges"),
                   "fit": wr.get("fit")}
-    fixes = shape_fixes(composition.get("rows") or [], pool, deck)
+    fixes = shape_fixes(composition.get("rows") or [], pool, deck, donors=donors, used_y=used_y)
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
         "mode": mode, "sleeved": sleeved, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
         "weak": weak_table, "pet_notice": notice,
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
-                   "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool)},
+                   "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
+                   "steals": sum(1 for s in swaps if (s.get("own") or {}).get("donor_deck")),
+                   "steals_dropped": len(dropped - {(s.get("own") or {}).get("name") for s in swaps})},
         "constants": {"gap_worth": GAP_WORTH, "gap_soft_override": GAP_SOFT_OVERRIDE, "min_upgrade": MIN_UPGRADE,
                       "p75_degree": p75, "edhrec_full_at": EDHREC_FULL},
         "inputs": {"pillars": has_pillars, "edhrec": has_edhrec, "played": has_played and neutral is not None,
@@ -695,8 +878,162 @@ def candidate_pool(r, deck: Mapping, graph: Mapping, inclusion: Mapping, ident: 
     return out
 
 
+class DonorBook:
+    """Lazy {deck name: donor context} for the AN-8 steal rule. A deck's
+    context is built from Redis the first time a candidate sleeved in it is
+    checked, with that deck's own graph p75, pillars (local embeddings),
+    cached EDHREC page (never fetched here) and card2vec, so B is scored the
+    way B's own Tune tab would score it. Read only: nothing is written except
+    the embedding vector cache."""
+
+    def __init__(self, r, receiver: Mapping, embedder=None):
+        self.r = r
+        self.receiver = _rid(receiver)
+        self.embedder = embedder
+        self._ctx: Dict[str, Optional[dict]] = {}
+        self._decks = None
+        self._owned = None
+
+    def _deck(self, name: str) -> Optional[dict]:
+        if self._decks is None:
+            raw = _json(self.r.get("decks")) or []
+            self._decks = {}
+            for d in raw if isinstance(raw, list) else []:
+                self._decks.setdefault(d.get("name"), d)
+        return self._decks.get(name)
+
+    def owned(self) -> Dict[str, dict]:
+        if self._owned is None:
+            self._owned = _owned(self.r)
+        return self._owned
+
+    def get(self, name, default=None):
+        if name not in self._ctx:
+            try:
+                self._ctx[name] = self._build(name)
+            except Exception as exc:  # noqa: BLE001 - no donor data = no steal, never a crash
+                log.warning("tuner: donor context for %r failed: %s", name, exc)
+                self._ctx[name] = None
+        return self._ctx[name] if self._ctx[name] is not None else default
+
+    def _build(self, name: str) -> Optional[dict]:
+        from . import edhrec_inclusion
+        from . import embeddings
+        from . import identity
+        from . import insights
+        from . import pillar_fit
+        from .interactions import service as interactions_service
+
+        deck = self._deck(name)
+        if not deck or _rid(deck) == self.receiver:
+            return None
+        deck = dict(deck)
+        texts = insights.card_texts(self.r, deck)
+        ident = identity.load_identity(self.r, deck)
+        emb = self.embedder or embeddings.default_embedder()
+        try:
+            fit = pillar_fit.deck_fit(self.r, deck, ident, texts, emb)
+        except Exception as exc:  # noqa: BLE001
+            log.info("tuner: donor %r pillar fit unavailable: %s", name, exc)
+            fit = {"status": "error", "per_card": []}
+        graph = interactions_service.get_deck_graph(self.r, deck)
+        commanders = [c for c in deck.get("commanders") or [] if c]
+        page = None
+        try:
+            page = _json(self.r.get(edhrec_inclusion.cache_key(edhrec_inclusion.commander_slug(commanders))))
+        except Exception:  # noqa: BLE001 - no commander / bad slug
+            page = None
+        inc_by = {k: v.get("inclusion") for k, v in ((page or {}).get("cards") or {}).items()}
+        played = insights.deck_played(self.r, deck, texts)
+        deg = weak_mod.plan_degrees(graph)
+        by_card = comp.compute_composition(deck, texts)["by_card"]
+        nonland = [n for n in deg if n not in commanders and by_card.get(n) != ["lands"]]
+        p75 = weak_mod._p75([deg.get(n, 0) for n in nonland])
+        has_pillars = fit.get("status") == "ok"
+        played_by = {n: v.get("score") for n, v in (played.get("deck") or {}).items()
+                     if v.get("score") is not None} if played.get("status") == "ok" else {}
+        known = [played_by[n] for n in nonland if n in played_by]
+        neutral = round(weak_mod._median(known), 4) if known else None
+        fit_by = {row["name"]: row.get("score") for row in fit.get("per_card") or []}
+        cards = {}
+        for n in set(journal_mod.deck_entries(deck)) - set(commanders):
+            rows = by_card.get(n) or []
+            land = rows == ["lands"] or n in BASIC_LANDS
+            cards[n] = {"edges": deg.get(n, 0), "fit": fit_by.get(n), "rows": rows, "land": land,
+                        "inclusion": inc_by.get(edhrec_inclusion.name_key(n)) or 0.0,
+                        "played": None if land else played_by.get(n)}
+        ctx = {
+            "name": deck.get("name"), "registry_id": _rid(deck), "colors": _deck_colors(deck),
+            "commanders": commanders, "in_deck": set(journal_mod.deck_entries(deck)) | set(commanders),
+            "pets": set(insights.pet_cards(self.r, deck)), "p75": p75, "has_pillars": has_pillars,
+            "has_edhrec": bool(inc_by), "played_neutral": neutral, "cards": cards,
+        }
+        deck_tags = {n["name"]: {"produces": n.get("produces") or [], "consumes": n.get("consumes") or []}
+                     for n in graph.get("nodes") or []}
+        pillars = pillar_fit.live_pillars(ident) if has_pillars else []
+        pvecs = emb.embed([pillar_fit.pillar_text(p) for p in pillars], kind="query") if pillars else []
+
+        def lookup(names: List[str]) -> Dict[str, dict]:
+            return self._inputs(deck, ctx, names, deck_tags, pvecs, emb, inc_by, texts,
+                                played_on=played.get("status") == "ok")
+
+        ctx["lookup"] = lookup
+        free = [v["name"] for v in self.owned().values()
+                if (v.get("available") or 0) > 0 and v["name"] not in ctx["in_deck"]]
+        basics = [b for b in BASIC_LANDS if _basic_ok(b, ctx["colors"])]  # basics: any number of copies
+        ctx["cands"] = lookup(free + basics)
+        return ctx
+
+    def _inputs(self, deck, ctx, names, deck_tags, pvecs, emb, inc_by, deck_texts, played_on) -> Dict[str, dict]:
+        """Score inputs for cards NOT in the donor deck, against the donor deck."""
+        from . import edhrec_inclusion
+        from . import insights
+        from . import pillar_fit
+        from .interactions.tagger import tag_key
+
+        names = [n for n in dict.fromkeys(names) if n]
+        if not names:
+            return {}
+        metas = {n: _json(raw) or {} for n, raw in zip(names, _mget(self.r, [f"card_meta:{n}" for n in names]))}
+        keep = [n for n in names if n in BASIC_LANDS or in_identity(metas[n].get("color") or "C", ctx["colors"])]
+        tags = {n: _json(raw) or {} for n, raw in zip(keep, _mget(self.r, [tag_key(n) for n in keep]))}
+        texts = {}
+        for n in keep:
+            card = tags[n].get("card")
+            if not card and metas[n]:
+                m = metas[n]
+                card = {"type_line": " ".join((m.get("super_types") or []) + [m.get("type") or ""]).strip(),
+                        "oracle_text": m.get("oracle_text") or ""}
+            if not card and n in BASIC_LANDS:
+                card = {"type_line": f"Basic Land \u2014 {n}", "oracle_text": ""}
+            texts[n] = card or {}
+        fit_by: Dict[str, float] = {}
+        if pvecs and emb is not None and emb.available():
+            cvecs = pillar_fit.card_vectors(self.r, emb, {n: pillar_fit.card_text(n, texts[n]) for n in keep})
+            for n in keep:
+                v = cvecs.get(n)
+                if v is not None:
+                    fit_by[n] = emb.scale(max(sum(a * b for a, b in zip(v, pv)) for pv in pvecs))
+        played_by: Dict[str, float] = {}
+        if played_on:
+            got = insights.deck_played(self.r, deck, deck_texts, keep).get("candidates") or {}
+            played_by = {n: v["score"] for n, v in got.items() if v.get("score") is not None}
+        owned = self.owned()
+        out = {}
+        for n in keep:
+            rows = comp.classify_card(n, texts[n]) or ["plan"]
+            land = rows == ["lands"] or n in BASIC_LANDS
+            o = None if n in BASIC_LANDS else owned.get(n)
+            out[n] = {"edges": sum(edges_into(deck_tags, tags[n]).values()), "fit": fit_by.get(n),
+                      "inclusion": inc_by.get(edhrec_inclusion.name_key(n)) or 0.0, "rows": [] if land else rows,
+                      "land": land, "played": None if land else played_by.get(n),
+                      "color": metas[n].get("color") or "C", "owned": bool(o) or n in BASIC_LANDS,
+                      "available": (o or {}).get("available", 0)}
+        return out
+
+
 def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, embedder=None,
-            fetch_prices: Optional[Callable] = None, scryfall=None) -> dict:
+            fetch_prices: Optional[Callable] = None, scryfall=None, donors: Optional[Any] = None) -> dict:
     """Full Tune payload for one deck (GET /api/decks/{id}/tune)."""
     from . import embeddings
     from . import identity
@@ -725,7 +1062,8 @@ def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, e
     state = load_state(r, deck)
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,
-                     sleeved=sleeved, pets=pets, state=state)
+                     sleeved=sleeved, pets=pets, state=state,
+                     donors=donors if donors is not None else DonorBook(r, deck, embedder=emb))
     attach_cached_prose(r, deck, out)
     price_ages = []
     for raw in _mget(r, [f"price:card:{s['buy']['name']}" for s in out["swaps"] if s.get("buy")]):
