@@ -176,8 +176,8 @@ def soft_note(buy: Mapping, own: Optional[Mapping], gap: Optional[float], caps: 
         tail = (f" Picked anyway: the gap is at least {GAP_SOFT_OVERRIDE:.2f}, which is worth breaking your "
                 f"{money(caps.get('soft_cap'))} soft cap.")
     else:
-        tail = (f" Kept owned: it's over your {money(caps.get('soft_cap'))} soft cap, and breaking the soft cap"
-                f" takes a gap of {GAP_SOFT_OVERRIDE:.2f} or more.")
+        tail = (f" Kept owned: {buy['name']} is over your {money(caps.get('soft_cap'))} soft cap, and breaking"
+                f" the soft cap takes a gap of {GAP_SOFT_OVERRIDE:.2f} or more.")
     return head + tail
 
 
@@ -210,7 +210,7 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
         # The gap column already says "−3 · 35 / 38"; the advice line only names cards (AN-6R).
         if key == "lands":
             basics = basics_for(_deck_colors(deck), short)
-            advice = (listing + " Or add basics.").strip()
+            advice = (listing + " Or add basics.").strip() if listing else "Nothing you own fits: add basics."
             action = {"kind": "add_basics", "count": short, "basics": basics, "label": f"Add {short} lands"}
         else:
             advice = listing.strip() or "Nothing you own fits."
