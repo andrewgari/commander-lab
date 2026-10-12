@@ -2,8 +2,10 @@
 
 Reviewer: designer · Live build reviewed: 107f457 (v0.4.24) on :8020 · Deck: Holy Hellfire
 Docs used: `ef5c6036ce5e` (angels, kept) and `a49befd418ad` (dragons, kept), plus two docs generated for
-this review and deleted afterwards (demons, open to swap, where oracle kept Kaalia; merfolk, open to swap,
-to see the commander-change callout live).
+this review and deleted afterwards: demons and merfolk, both "open to swap". **Oracle kept Kaalia both
+times, even for off-colour merfolk**, so no live doc has a commander_change section yet.
+
+**Shipped:** PR #84 (merge a2f6c51), live as v0.4.25. Every fix below was checked in the live DOM at 1440 and 390.
 
 ## Verdict
 
@@ -37,15 +39,17 @@ Screenshots (before/after, 1440 and 390) are attached to the kanban card (t_37f1
   sections. It's the same section-head language as Stats, Journal and Tune.
 - **100-card list.** Role groups never split across columns (`break-inside: avoid`), the counts sum to
   100, and no card name wraps at 1440 or 390 (narrowest name column is 150px at 390).
-- **Commander-change callout.** A signal-tinted panel with the old commander struck → new commander and a
-  big reuse count. It matches the kit's signal-dim/indicator language and stacks at 390.
+- **Commander-change callout (template only, not seen live).** A signal-tinted panel with the old commander
+  struck → new commander, and a big reuse count. It uses the kit's signal-dim/indicator language and stacks
+  to one column at 390 (CSS). Unit tests cover it, but no real doc has exercised it. That gap is tracked in
+  TH-3F (t_10b438ba).
 - **Request form.** An empty submit focuses Theme and says "Enter a theme." The segmented Keep / Open to
   swap control fills the row on phone. The submit becomes `Writing…` and is disabled.
 - **Long wait.** Indeterminate bar (transform only, with a reduced-motion fallback), a live clock, and
   copy that says you can leave. The job resumed after navigating away and back (verified).
 - **390.** `scrollWidth` is 390 on both pages, and the stat strip stacks to one column.
 
-## Fix list (follow-up coder card, out of scope for CSS)
+## Fix list (follow-up coder card TH-3F, t_10b438ba)
 
 1. **Lock or echo the form while a job runs.** After a reload mid-job the form shows `Keep` and an empty
    theme while the card says "merfolk · open to swap". Make the inputs read-only and echo the in-flight
