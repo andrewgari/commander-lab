@@ -440,6 +440,31 @@
                  nodeEl: function (id) { return byId[id] ? byId[id].g : null; } };
     }
 
+    // Sticky doc index (hud.doc_index): mark the link of the section currently in view.
+    function initDocIndex() {
+        var nav = document.querySelector ? document.querySelector("[data-doc-index]") : null;
+        if (!nav || !("IntersectionObserver" in window)) return;
+        var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
+        var heads = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+        var mark = function (i) {
+            links.forEach(function (a, k) { if (k === i) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
+            var a = links[i];
+            if (a && a.scrollIntoView && nav.scrollWidth > nav.clientWidth) {
+                var over = a.getBoundingClientRect().right - nav.getBoundingClientRect().right;
+                var under = a.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+                if (over > 0) nav.scrollLeft += over; else if (under < 0) nav.scrollLeft += under;
+            }
+        };
+        var io = new IntersectionObserver(function () {
+            // The last head above the top third of the viewport is the current section.
+            var cur = 0, line = window.innerHeight / 3;
+            heads.forEach(function (h, i) { if (h && h.getBoundingClientRect().top <= line) cur = i; });
+            mark(cur);
+        }, { rootMargin: "0px 0px -66% 0px", threshold: [0, 1] });
+        heads.forEach(function (h) { if (h) io.observe(h); });
+        mark(0);
+    }
+
     window.HUD = {
         STATUS_TONES: STATUS_TONES,
         esc: esc,
@@ -456,12 +481,14 @@
         openModal: openModal,
         closeModal: closeModal,
         sortTable: sortTable,
-        initSortable: initSortable
+        initSortable: initSortable,
+        initDocIndex: initDocIndex
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { initSortable(); });
+        document.addEventListener("DOMContentLoaded", function () { initSortable(); initDocIndex(); });
     } else {
         initSortable();
+        initDocIndex();
     }
 })();

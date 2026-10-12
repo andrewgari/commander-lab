@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 PARTIAL_DIR = "partials/theory"
 FALLBACK = f"{PARTIAL_DIR}/_fallback.html"
@@ -134,5 +134,19 @@ def sections(doc: Mapping) -> List[Dict[str, Any]]:
     out = []
     for s in doc.get("sections") or []:
         if isinstance(s, Mapping):
-            out.append({"section": s, "template": section_template(s)})
+            out.append({"section": s, "template": section_template(s), "title": section_title(s)})
     return out
+
+
+def section_title(section: Mapping) -> str:
+    """The section head text (also the doc index label): oracle's title, else the type."""
+    title = section.get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+    return _label(section.get("type") or "Section")
+
+
+def doc_index(items: Sequence[Mapping]) -> List[Dict[str, str]]:
+    """TH-3F jump row: [{href: #secN, code: 0N, label}] for the sections() list, in order."""
+    return [{"href": f"#sec{i}", "code": "%02d" % i, "label": it.get("title") or "Section"}
+            for i, it in enumerate(items, 1)]

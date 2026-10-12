@@ -50,11 +50,16 @@
     </header>
     <p class="th-error" id="docError" role="alert"></p>
 
+    {#- TH-3F: sticky jump row to the section heads (sec1…secN). #}
+    {%- if sections | length > 1 %}
+    {{ hud.doc_index(tv.doc_index(sections)) }}
+    {%- endif %}
+
     {%- for item in sections %}
     {%- set section = item.section %}
     {%- set code = "%02d" | format(loop.index) %}
     <section class="hud-doc-section" data-type="{{ section.type }}" aria-labelledby="sec{{ loop.index }}">
-        <div class="hud-section-head"><span class="hud-section-id">{{ code }}</span><h2 id="sec{{ loop.index }}">{{ section.title or (section.type | replace("_", " ") | capitalize) }}</h2></div>
+        <div class="hud-section-head"><span class="hud-section-id">{{ code }}</span><h2 id="sec{{ loop.index }}">{{ item.title }}</h2></div>
         {% include item.template %}
     </section>
     {%- else %}

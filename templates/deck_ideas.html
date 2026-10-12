@@ -42,7 +42,7 @@
                     <div>
                         <a class="hud-idea-theme" href="{{ href }}">{{ d.theme or "Untitled theory" }}</a>
                         <div class="hud-idea-meta">
-                            <time class="hud-freshness" datetime="{{ d.created_at }}">{{ tv.when(d.created_at) }}</time>
+                            <time class="hud-freshness" datetime="{{ d.created_at }}" data-rel title="{{ tv.when(d.created_at) }}">{{ tv.when(d.created_at) }}</time>
                             {%- if d.commander_changed %}
                             {{ hud.chip(tv.commander_line(d), "signal", dot=true) }}
                             {%- else %}
@@ -69,6 +69,8 @@
         <section class="hud-panel" id="newTheory">
             <header class="hud-panel-head"><h3 class="hud-panel-title">New theory</h3><span class="hud-panel-meta">oracle · 30 s – minutes</span></header>
             <form class="hud-panel-body id-form" id="theoryForm" novalidate>
+                {#- TH-3F: while a job runs the inputs are read-only and echo the in-flight theme/mode. #}
+                <p class="hud-form-lock" id="formLock" hidden>Locked while this theory is being written. The form frees up when it's done.</p>
                 <div class="hud-field"><label for="theme">Theme</label>
                     <input id="theme" name="theme" maxlength="200" autocomplete="off" placeholder="e.g. superfriends, dragons, enchantress" required>
                     <span class="hud-field-hint">A massive thematic overhaul that reuses this deck's cards where it can.</span></div>
@@ -104,10 +106,16 @@ document.addEventListener("DOMContentLoaded", function () {
     var $ = function (id) { return document.getElementById(id); };
     var timer = null, clock = null;
 
-    // Local time for the server-rendered UTC stamps.
+    // TH-3F: relative time ("2h ago", the DeckAnalytics.age helper Identity/Stats use);
+    // the absolute local time goes in title.
+    var A = window.DeckAnalytics;
     document.querySelectorAll("time[datetime]").forEach(function (t) {
         var d = new Date(t.getAttribute("datetime"));
-        if (!isNaN(d)) t.textContent = d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        if (isNaN(d)) return;
+        var abs = d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        var rel = t.hasAttribute("data-rel") && A && A.age ? A.age(t.getAttribute("datetime")) : "";
+        t.textContent = rel || abs;
+        t.title = abs;
     });
     var fresh = new URLSearchParams(location.search).get("new");
     if (fresh) {
@@ -142,6 +150,19 @@ document.addEventListener("DOMContentLoaded", function () {
     function forget() { try { localStorage.removeItem(STORE); } catch (e) { /* ignore */ } }
     function mmss(ms) { var s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
     function busy(on) { $("submitBtn").disabled = on; $("submitBtn").textContent = on ? "Writing…" : "Write theory"; }
+    // TH-3F: while a job is in flight the form echoes its theme/mode read-only (after a reload it
+    // used to show Keep + an empty theme next to "merfolk · open to swap"). lock(null) frees it.
+    function lock(j) {
+        var on = !!j;
+        $("theoryForm").classList.toggle("is-locked", on);
+        $("formLock").hidden = !on;
+        $("theme").readOnly = on;
+        if (on) $("theme").value = j.theme || "";
+        document.querySelectorAll('input[name="commander_mode"]').forEach(function (r) {
+            if (on) r.checked = r.value === (j.mode === "open" ? "open" : "keep");
+            r.disabled = on;
+        });
+    }
 
     function showJob(state, j, msg) {
         var card = $("job");
@@ -151,6 +172,7 @@ document.addEventListener("DOMContentLoaded", function () {
         $("jobLabel").textContent = { queued: "Queued", running: "Writing", done: "Done", failed: "Failed" }[state] || state;
         $("jobTitle").textContent = (j.theme || "") + (j.mode === "open" ? " · commander open to swap" : " · commander kept");
         if (msg) $("jobMsg").textContent = msg;
+        lock(state === "queued" || state === "running" ? j : null);
         $("jobDismiss").hidden = state !== "failed";
         clearInterval(clock);
         var t0 = Date.parse(j.started) || Date.now();
@@ -229,7 +251,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }).catch(function (err) { b.disabled = false; $("listError").textContent = err.message; });
     });
 
-    $("newBtn").addEventListener("click", function (e) { e.preventDefault(); $("theme").focus(); });
+    // TH-3F: focus() alone doesn't reliably scroll on phones: center the form, then focus.
+    $("newBtn").addEventListener("click", function (e) {
+        e.preventDefault();
+        $("newTheory").scrollIntoView({ block: "center" });
+        $("theme").focus({ preventScroll: true });
+    });
 
     var pending = saved();
     if (pending && pending.job_id) { busy(true); showJob("running", pending); poll(pending); }

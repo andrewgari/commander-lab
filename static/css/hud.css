@@ -1978,3 +1978,50 @@ a.hud-idea-theme:hover { color: var(--signal); }
 @media (max-width: 640px) {
     .hud-doc-buy { text-align: left; }
 }
+
+/* =======================================================================
+   13. TH-3F follow-ups (docs/THEORY_UX_REVIEW.md fix list).
+   ======================================================================= */
+/* Sticky doc index (hud.doc_index): "01 Thesis · 02 Decklist …" under the
+   doc head. Scrolls sideways on phones; the section heads clear it. */
+.hud-doc-index {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: var(--sp-4) 0 0;
+    background: var(--surface-0);
+    border-bottom: var(--stroke);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+.hud-doc-index::-webkit-scrollbar { display: none; }
+.hud-doc-index ol { display: flex; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; white-space: nowrap; }
+.hud-doc-index a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    color: var(--text-3);
+    font: var(--fw-medium) var(--fs-xs) var(--font-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+}
+.hud-doc-index a:hover { color: var(--text-1); }
+.hud-doc-index a[aria-current="location"] { color: var(--text-1); }
+.hud-doc-index a[aria-current="location"]::after { content: ""; position: absolute; inset: auto 0 0 0; height: var(--indicator); background: var(--signal); }
+.hud-doc-index .hud-section-id { font-size: var(--fs-micro); }
+.hud-doc-section h2[id] { scroll-margin-top: calc(var(--topbar-h) + var(--sp-6)); }
+/* Salt severity: only high keeps the danger label; medium/low go quiet.
+   "unverified" stays in the visible label (a11y, Copilot on PR #84). */
+.hud-tcard-note.is-salt-medium b,
+.hud-tcard-note.is-salt-low b { color: var(--text-3); }
+/* Ideas form while a job runs: inputs echo the in-flight theme/mode, read-only. */
+.hud-form-lock { margin: 0; padding: var(--sp-2) var(--sp-3); border-left: var(--indicator) solid var(--signal); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-xs); }
+.hud-form-lock[hidden] { display: none; }
+.is-locked input[readonly] { color: var(--text-2); background: var(--surface-2); cursor: default; }
+.is-locked .hud-seg label { cursor: default; opacity: 0.7; }
+.is-locked .hud-seg label:hover { background: none; color: var(--text-2); }
+.is-locked .hud-seg input:checked + label { opacity: 1; }
