@@ -14,6 +14,7 @@ from typing import List, Optional
 import instances as instance_store
 from instances import InstanceError
 import registry
+import inventory_view
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -318,72 +319,10 @@ async def sync_deck(deck_id: str):
 
 @app.get("/api/inventory")
 async def get_inventory(query: str = "", deck: Optional[List[str]] = Query(None)):
-    # Fetch all keys (card names)
-    keys = r.keys("card:*")
-    inventory = []
-    
-    # Check if specific decks were filtered
-    target_decks = deck if deck else []
-    
-    # Also support the old comma-separated format just in case it's passed as a single string
-    if target_decks and len(target_decks) == 1 and "," in target_decks[0]:
-        # Only split if it's a known multi-deck comma string, but actually it's better to just trust the exact string if it's a valid deck name
-        pass
-        
-    core_tags_json = r.get("core_tags")
-    core_tags = set(json.loads(core_tags_json)) if core_tags_json else set()
-    
-    for key in keys:
-        card_name = key.replace("card:", "")
-        if query.lower() in card_name.lower():
-            val = r.get(key)
-            if not val: continue
-            
-            try:
-                card_data = json.loads(val)
-                card_type = card_data.get("type", "Unknown")
-                card_color = card_data.get("color", "C")
-                super_types = card_data.get("super_types", [])
-                sub_types = card_data.get("sub_types", [])
-                keywords = card_data.get("keywords", [])
-                oracle_text = card_data.get("oracle_text", "")
-                card_copies = card_data.get("copies", [])
-            except:
-                continue
-                
-            for copy in card_copies:
-                if not target_decks or copy.get("deck") in target_decks:
-                    copy_status = copy.get("status", "have")
-                    # Global inventory filters out virtual cards
-                    if not target_decks and copy_status == "virtual":
-                        continue
-                        
-                    inventory.append({
-                        "name": card_name,
-                        "deck": copy.get("deck", "Unknown Deck"),
-                        "type": card_type,
-                        "super_types": super_types,
-                        "sub_types": sub_types,
-                        "keywords": keywords,
-                        "oracle_text": oracle_text,
-                        "color": card_color,
-                        "set": copy.get("set", ""),
-                        "set_name": copy.get("set_name", ""),
-                        "modifier": copy.get("modifier", "Normal"),
-                        "categories": copy.get("categories", []),
-                        "primary_tag": copy.get("primary_tag", ""),
-                        "uid": copy.get("uid", ""),
-                        "alt_name": copy.get("alt_name", ""),
-                        "price": copy.get("price", 0.0),
-                        "is_commander": copy.get("is_commander", False),
-                        "cmc": copy.get("cmc", 0),
-                        "status": copy_status,
-                        "is_core": any(cat in core_tags for cat in copy.get("categories", []))
-                    })
-            
-    # Sort alphabetically by card name, then deck name
-    inventory.sort(key=lambda x: (x["name"], x["deck"]))
-    return {"inventory": inventory}
+    """Flat per-copy inventory rows, read from the instance registry
+    (instance:* + card_meta:*). See inventory_view.py. `deck` filters by
+    deck name (or id / registry_id) and may be repeated."""
+    return {"inventory": inventory_view.build_inventory(r, query=query, decks=deck)}
 
 @app.get("/api/tags")
 async def get_tags():
@@ -398,7 +337,7 @@ async def get_tags():
     
     return {"tags": sorted(all_tags)}
 
-@app.get("/api/card/{card_name}/tags")
+@app.get("/api/card/{card_name:path}/tags")
 async def get_card_tags(card_name: str):
     """Get Lab tags and Archidekt reference tags for a specific card"""
     # Lab tags (our source of truth)
@@ -415,14 +354,16 @@ async def get_card_tags(card_name: str):
     core_tags_json = r.get("core_tags")
     core_tags = json.loads(core_tags_json) if core_tags_json else []
     
-    # Get deck appearances for cardinality
-    card_data_json = r.get(f"card:{card_name}")
-    if not card_data_json:
-        return {"error": "Card not found"}, 404
-    
-    card_data = json.loads(card_data_json)
-    copies = card_data.get("copies", [])
-    total_decks = len(set(copy.get("deck") for copy in copies))
+    # Deck appearances for cardinality, from the instance registry (the
+    # legacy card:{name} blobs no longer exist on prod).
+    insts = instance_store.list_instances(r, card_name=card_name)
+    if not insts and card_name not in lab_tags_all and card_name not in vocabulary:
+        return JSONResponse(status_code=404, content={"error": "Card not found"})
+    total_decks = len({
+        str(i.get("deck_id") if i.get("ownership_status") == "in_deck" else i.get("considered_for_deck"))
+        for i in insts
+        if (i.get("deck_id") if i.get("ownership_status") == "in_deck" else i.get("considered_for_deck"))
+    })
     
     # Calculate confidence for Archidekt tags (reference only)
     archidekt_stats = []
@@ -471,7 +412,7 @@ async def toggle_core_tag(request: Request):
     r.set("core_tags", json.dumps(list(core_tags)))
     return {"success": True, "core_tags": list(core_tags)}
 
-@app.post("/api/card/{card_name}/tags")
+@app.post("/api/card/{card_name:path}/tags")
 async def update_card_tags(card_name: str, request: Request):
     """Add or remove Lab tags from a card"""
     data = await request.json()
@@ -650,7 +591,7 @@ async def remove_card_from_deck(deck_id: str, instance_id: str):
     if not instance:
         return JSONResponse(status_code=404, content={"success": False, "error": "Instance not found"})
 
-    if instance.get("ownership_status") != "in_deck" or str(instance.get("deck_id")) != str(registry_id):
+    if instance.get("ownership_status") != "in_deck" or str(instance.get("deck_id")) not in registry.deck_instance_ids(deck):
         return JSONResponse(
             status_code=404,
             content={"success": False, "error": "Instance is not bound to this deck"},
@@ -706,7 +647,7 @@ async def get_deck_resync_review(deck_id: str):
     pending_instances.sort(key=lambda x: x.get("card_name", ""))
 
     cards = deck.get("cards", [])
-    unbound_cards = instance_store.find_unbound_remote_cards(r, registry_id, cards)
+    unbound_cards = instance_store.find_unbound_remote_cards(r, registry.deck_instance_ids(deck), cards)
     unbound_card_names = [c["name"] for c in unbound_cards]
 
     return {
@@ -851,7 +792,9 @@ async def get_deck_manage(deck_id: str):
 
     registry_id = registry.registry_id_of(deck)
 
-    instances = instance_store.list_instances(r, deck_id=registry_id, ownership_status="in_deck")
+    instances = instance_store.list_deck_instances(
+        r, registry.deck_instance_ids(deck), ownership_status="in_deck"
+    )
 
     # Match the /api/decks/{deck_id}/categories endpoints, which key off the
     # raw URL deck_id (not registry_id) — otherwise overrides written via
@@ -1014,7 +957,7 @@ async def delete_instance(instance_id: str):
     return {"success": True}
 
 
-@app.get("/api/cards/{card_name}/instances")
+@app.get("/api/cards/{card_name:path}/instances")
 async def get_card_instances(card_name: str):
     """Ownership rollup for a card: counts by status and per-deck breakdown."""
     return instance_store.card_rollup(r, card_name)
@@ -1278,9 +1221,13 @@ async def api_deck_review(request: Request):
 
 @app.get("/api/decks/{deck_id}/review")
 async def api_get_deck_review(deck_id: str):
-    """Generate an actionable deck review for an existing deck in the library."""
+    """Generate an actionable deck review for an existing deck in the library.
+    `deck_id` may be the deck id, registry_id, or display name (the deck page
+    only knows the name)."""
     try:
-        deck_obj = registry.find_deck(r, deck_id)
+        deck_obj = registry.find_deck(r, deck_id) or next(
+            (d for d in registry.list_decks(r) if d.get("name") == deck_id), None
+        )
     except Exception:
         deck_obj = None
 

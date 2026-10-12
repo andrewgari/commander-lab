@@ -163,6 +163,15 @@
         </div>
     </section>
 </div>
+<div id="reviewModal" class="hud-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="reviewTitle">Deck review</h3>
+            <div class="hud-panel-meta"><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close">Close ✕</button></div>
+        </header>
+        <div class="hud-panel-body"><pre id="reviewBody" style="white-space: pre-wrap; max-height: 70vh; overflow: auto; margin: 0;"></pre></div>
+    </section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -526,9 +535,19 @@
         console.log("Sync deck to external triggered");
     }
 
-    function reviewDeck() {
-        console.log("Review deck triggered");
+    async function reviewDeck() {
+        const body = document.getElementById('reviewBody');
+        body.textContent = 'Generating review…';
+        HUD.openModal(document.getElementById('reviewModal'));
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(deckNameStr)}/review`);
+            const data = await res.json();
+            body.textContent = data.success ? data.markdown : ('Review failed: ' + (data.error || res.status));
+        } catch (e) {
+            body.textContent = 'Review failed: ' + e;
+        }
     }
+    if (new URLSearchParams(location.search).get('review') === '1') reviewDeck();
 
     // Card frames and table rows open the detail modal (click or Enter/Space).
     document.addEventListener('click', (ev) => {
