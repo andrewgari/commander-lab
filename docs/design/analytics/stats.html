@@ -124,6 +124,7 @@
 <script src="../../../static/js/hud.js"></script>
 <script src="vendor/d3-force-3.0.0.bundle.min.js"></script>
 <script src="mock.js"></script>
+<script src="fixtures/holy-hellfire-interactions.js"></script>
 <script src="graph.js"></script>
 <script>
 (function () {
@@ -143,6 +144,22 @@
     ].join("");
 
     // ---- Graph ----------------------------------------------------------
+    // ?data=real swaps in the REAL AN-1 payload (GET /api/decks/417707/interactions,
+    // snapshot 2026-10-12) to prove the layout holds at 87 nodes / 241 edges.
+    // Mana/lands-only edges are filtered by default (UX_SPEC §3.1.1).
+    var REAL = /[?&]data=real/.test(location.search) && window.REAL_GRAPH && window.REAL_GRAPH.graph;
+    if (REAL) {
+        var HIDE = { mana: 1, lands: 1 }, LBL = REAL.labels || {};
+        var es = REAL.edges.map(function (e) { return { source: e.source, target: e.target, reasons: e.reasons.filter(function (r) { return !HIDE[r]; }).map(function (r) { return (LBL[r] || r).toLowerCase(); }) }; })
+            .filter(function (e) { return e.reasons.length; });
+        var dg = {}; es.forEach(function (e) { dg[e.source] = (dg[e.source] || 0) + e.reasons.length; dg[e.target] = (dg[e.target] || 0) + e.reasons.length; });
+        M.EDGES = es.map(function (e) { return [e.source, e.target, e.reasons]; });
+        // Real payload has no engines yet (AN-1 ships the graph; engine detection is a later pass): fake one from the top hub.
+        var hub = Object.keys(dg).sort(function (a, b) { return dg[b] - dg[a]; })[0];
+        var mem = [hub].concat(es.filter(function (e) { return e.source === hub || e.target === hub; }).map(function (e) { return e.source === hub ? e.target : e.source; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 11));
+        M.ENGINES = [{ id: "hub", name: hub.split(",")[0] + " hub", flow: "(real data · engines not detected yet)", kind: "cluster", pillar: null, cards: mem }].concat(M.ENGINES.slice(1, 1));
+        document.querySelector(".hud-graph-toolbar .hud-freshness").innerHTML = "<b>" + Object.keys(dg).length + "</b> cards · <b>" + es.length + "</b> edges · REAL AN-1 data";
+    }
     var deg = {}; M.EDGES.forEach(function (e) { deg[e[0]] = (deg[e[0]] || 0) + e[2].length; deg[e[1]] = (deg[e[1]] || 0) + e[2].length; });
     var nodes = Object.keys(deg).map(function (id) { return { id: id, degree: deg[id] }; });
     var edges = M.EDGES.map(function (e) { return { source: e[0], target: e[1], reasons: e[2] }; });

@@ -597,9 +597,21 @@ where they're used (`.hud-kbd`), not in a help modal.
 The UI reads these. The field names are suggestions; the shapes aren't.
 
 ```
-GET /api/decks/{id}/graph?mana=0
-  { built_at, nodes:[{id,degree,produces[],consumes[]}], edges:[{source,target,reasons[]}],
-    engines:[{id,name,flow,kind:"loop"|"cluster",pillar_id|null,cards[]}] }
+GET /api/decks/{id}/interactions          ← SHIPPED by AN-1 (PR #66). Use as-is:
+  { graph: { built_at, vocab_version, counts:{nodes,edges,isolated,untagged}, labels:{key:"Label"},
+    nodes:[{name,is_commander,produces[],consumes[],degree,in_degree,out_degree,reason_counts}],
+    edges:[{source,target,reasons:[key],weight,label,explanations[]}], top_connected:[...] } }
+  UI mapping: node.id = name; edge label text = reasons.map(k => labels[k]).join(" · ");
+  inspector "why" rows may show explanations[0] as a tooltip. Default filter drops
+  edges whose reasons ⊆ {mana, lands} (client-side; add ?mana=1 server-side later if needed).
+  Verified: shots/stats_real-an1-data_1440.png renders the real Holy Hellfire payload
+  (87 nodes/241 edges → 50/190 after the filter) through graph.js. Open stats.html?data=real.
+  MISSING for the UI (ask AN-1/AN-2 owner): engines[{id,name,flow,kind,pillar_id,cards[]}].
+  Until it exists, AN-4 ships the Engines column empty-state: "Engines appear after the
+  next rebuild" and the inspector defaults to Overview.
+```
+
+```
 GET /api/decks/{id}/composition
   { template:{name,"lands":38,...,"plan":22, overridden:bool}, actual:{...}, by_card:{name:[rows]} }
 GET /api/decks/{id}/identity
