@@ -32,7 +32,9 @@
                 {%- set sr = card.salt_flag.reason %}{% set sr = "" if sr is none else (sr if sr is string else sr | string) %}
                 {%- set sp = sr.split("; salt:", 1) %}
                 {%- set sv = (sp[1].strip().split(" ", 1)[0] if sp | length > 1 else "") %}
-                <span class="hud-tcard-note is-salt" title="{{ sr }}"><b>Salt · {{ card.salt_flag.level }}{% if sv %} · {{ sv }}{% endif %}</b> {{ sp[0] }}</span>
+                {#- TH-3F: the level is a class; only high keeps the danger label (hud.css section 13). #}
+                {%- set sl = card.salt_flag.level if card.salt_flag.level in tv.SALT_TONES else none %}
+                <span class="hud-tcard-note is-salt{% if sl %} is-salt-{{ sl }}{% endif %}" title="{{ sr }}"><b>Salt · {{ card.salt_flag.level }}{% if sv %} · {{ sv }}{% endif %}</b> {{ sp[0] }}</span>
                 {%- endif %}
             </li>
             {%- endfor %}

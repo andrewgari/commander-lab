@@ -169,6 +169,16 @@
 </ol></nav>
 {%- endmacro %}
 
+{# Sticky in-page jump row for long docs. items: [{"href": "#sec1", "code": "01", "label"}].
+   hud.js marks the link of the section in view with aria-current="location". #}
+{% macro doc_index(items, label="Sections") -%}
+<nav class="hud-doc-index" aria-label="{{ label }}" data-doc-index><ol>
+    {%- for it in items %}
+    <li><a href="{{ it.href }}"><span class="hud-section-id">{{ it.code }}</span>{{ it.label }}</a></li>
+    {%- endfor %}
+</ol></nav>
+{%- endmacro %}
+
 {# Key/value list. pairs: [(key, value), ...]. #}
 {% macro kv(pairs) -%}
 <dl class="hud-kv">{% for k, v in pairs %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>

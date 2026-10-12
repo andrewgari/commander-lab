@@ -184,6 +184,22 @@ class TestKnownPartials(unittest.TestCase):
         self.assertIn('hud-chip--neutral">0 owned', html)
         self.assertIn('hud-chip--signal">1 buy', html)
 
+    def test_th3f_salt_level_class_and_tone(self):
+        cards = [{"name": n, "source": "kept", "price": 1.0,
+                  "salt_flag": {"level": lv, "reason": "stax; salt: unverified [scryfall oracle]"}}
+                 for n, lv in (("A", "high"), ("B", "medium"), ("C", "low"), ("D", "<bogus>"))]
+        html = render_section({"type": "decklist", "data": {"groups": [{"role": "X", "cards": cards}]}})
+        notes = re.findall(r'<span class="(hud-tcard-note is-salt[^"]*)"[^>]*><b>([^<]+)</b>', html)
+        self.assertEqual([c for c, _ in notes], ["hud-tcard-note is-salt is-salt-high", "hud-tcard-note is-salt is-salt-medium",
+                                                 "hud-tcard-note is-salt is-salt-low", "hud-tcard-note is-salt"])
+        # "unverified" stays visible at every level (a11y).
+        self.assertTrue(all(lbl.endswith("· unverified") for _, lbl in notes), notes)
+        css = HUD_CSS.read_text()
+        # Base label is --danger (so high keeps it); medium + low are overridden to --text-3.
+        self.assertRegex(css, r"\.hud-tcard-note\.is-salt b \{ color: var\(--danger\)")
+        self.assertRegex(css, r"\.hud-tcard-note\.is-salt-medium b,\s*\.hud-tcard-note\.is-salt-low b \{ color: var\(--text-3\); \}")
+        self.assertNotRegex(css, r"\.is-salt-high[^{]*\{[^}]*--text-3")
+
     def test_th3r_hidden_buttons_stay_hidden(self):
         css = (ROOT / "static" / "css" / "hud.css").read_text()
         self.assertIn(".hud-btn[hidden] { display: none; }", css)
@@ -218,6 +234,14 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(theory_view.money(None), "—")
         self.assertEqual(theory_view.when("2026-10-12T22:10:49+00:00"), "2026-10-12 22:10 UTC")
         self.assertEqual(theory_view.when("garbage"), "garbage")
+
+    def test_section_title_and_doc_index(self):
+        items = theory_view.sections({"sections": [{"type": "decklist", "title": " Decklist "}, "junk",
+                                                   {"type": "buy_total"}, {"type": "x", "title": 7}]})
+        self.assertEqual([i["title"] for i in items], ["Decklist", "Buy total", "X"])
+        self.assertEqual(theory_view.doc_index(items), [
+            {"href": "#sec1", "code": "01", "label": "Decklist"}, {"href": "#sec2", "code": "02", "label": "Buy total"},
+            {"href": "#sec3", "code": "03", "label": "X"}])
 
     def test_commander_line(self):
         self.assertEqual(theory_view.commander_line({"commander_changed": False}), "Kept")
@@ -294,6 +318,43 @@ class TestIdeasPage(_IdeasPage, unittest.TestCase):
         for c in ["hud-ideas", "hud-idea", "hud-idea-list", "hud-idea-buy", "hud-job", "hud-seg", "hud-field", "hud-panel"]:
             self.assertIn(c, _classes(self.html), c)
 
+    def _script(self):
+        return self.body.rsplit("<script>", 1)[1].split("</script>", 1)[0]
+
+    def test_th3f_form_locks_and_echoes_the_inflight_job(self):
+        # The lock note ships hidden; lock(j) shows it, echoes theme/mode, makes inputs read-only.
+        self.assertRegex(self.body, r'<p class="hud-form-lock" id="formLock" hidden>Locked while')
+        js = self._script()
+        lock = js.split("function lock(j) {", 1)[1].split("\n    }\n", 1)[0]
+        self.assertIn('$("theme").readOnly = on', lock)
+        self.assertIn('$("theme").value = j.theme', lock)
+        self.assertIn('r.checked = r.value === (j.mode === "open" ? "open" : "keep")', lock)
+        self.assertIn("r.disabled = on", lock)
+        self.assertIn('$("formLock").hidden = !on', lock)
+        # Every job render locks while queued/running and frees on done/failed; resume goes through showJob.
+        show = js.split("function showJob(state, j, msg) {", 1)[1].split("\n    }\n", 1)[0]
+        self.assertIn('lock(state === "queued" || state === "running" ? j : null)', show)
+        self.assertIn('if (pending && pending.job_id) { busy(true); showJob("running", pending); poll(pending); }', js)
+        for c in ["hud-form-lock", "is-locked"]:
+            self.assertIn("." + c, self.css, c)
+
+    def test_th3f_new_theory_button_scrolls_then_focuses(self):
+        self.assertIn('href="#theme" id="newBtn">New theory</a>', self.body)
+        js = self._script()
+        handler = js.split('$("newBtn").addEventListener("click", function (e) {', 1)[1].split("\n    });", 1)[0]
+        scroll = handler.index('$("newTheory").scrollIntoView({ block: "center" })')
+        focus = handler.index('$("theme").focus({ preventScroll: true })')
+        self.assertLess(scroll, focus)
+        self.assertIn('id="newTheory"', self.body)
+
+    def test_th3f_relative_time_with_absolute_title(self):
+        first = self.body.split('data-doc="b2"', 1)[1].split("</li>", 1)[0]
+        self.assertIn('<time class="hud-freshness" datetime="2026-10-13T01:00:00+00:00" data-rel title="2026-10-13 01:00 UTC">', first)
+        js = self._script()
+        self.assertIn("A.age(t.getAttribute(\"datetime\"))", js)
+        self.assertIn("t.title = abs", js)
+        self.assertIn("age: age", (ROOT / "static" / "js" / "deck_analytics.js").read_text())
+
 
 class TestIdeasEmpty(_IdeasPage, unittest.TestCase):
     DOCS = ()
@@ -325,6 +386,21 @@ class TestDocPage(_IdeasPage, unittest.TestCase):
 
     def test_page_css_is_layout_only_and_classes_defined(self):
         self.assertNotRegex(_page_style(self.html), r"#[0-9a-fA-F]{3,8}\b")
+
+    def test_th3f_sticky_doc_index_links_every_section(self):
+        nav = self.body.split('<nav class="hud-doc-index"', 1)[1].split("</nav>", 1)[0]
+        links = re.findall(r'<a href="(#sec\d+)"><span class="hud-section-id">(\d\d)</span>([^<]+)</a>', nav)
+        self.assertEqual(links, [("#sec1", "01", "Thesis"), ("#sec2", "02", "Decklist"), ("#sec3", "03", "Cuts"),
+                                 ("#sec4", "04", "Buy total"), ("#sec5", "05", "Notes")])
+        for href, _, label in links:
+            self.assertIn(f'<h2 id="{href[1:]}">{label}</h2>', self.body)
+        # Between the doc head and the first section.
+        self.assertLess(self.body.index("hud-doc-index"), self.body.index('<section class="hud-doc-section"'))
+        self.assertIn("data-doc-index", nav)
+        self.assertRegex(self.css, r"\.hud-doc-index \{\s*position: sticky;")
+        self.assertIn("initDocIndex", (ROOT / "static" / "js" / "hud.js").read_text())
+        # Copilot (PR #86): a short final section must still become current at the page end.
+        self.assertIn("cur = heads.length - 1", (ROOT / "static" / "js" / "hud.js").read_text())
 
 
 class TestDocPageSwapped(_IdeasPage, unittest.TestCase):
