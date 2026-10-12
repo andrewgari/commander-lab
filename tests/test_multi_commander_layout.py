@@ -87,12 +87,18 @@ class TestDeckListMultiCommander(unittest.TestCase):
                 "process.stdout.write(JSON.stringify(decks.map(deckHeaderClass)));")
         decks = [PARTNER, SOLO,
                  {"name": "names only", "commanders": ["A", "B"]},
+                 {"name": "one commander, two printings", "commanders": ["A"], "commander_uids": [UID_A, UID_B]},
+                 {"name": "uids only", "commander_uids": [UID_A, UID_B]},
                  {"name": "none"}]
         res = subprocess.run(["node", "-e", code, json.dumps(decks)], capture_output=True, text=True, timeout=30)
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(json.loads(res.stdout), [
             "deck-header deck-header--multi", "deck-header",
+            "deck-header deck-header--multi", "deck-header",
             "deck-header deck-header--multi", "deck-header"])
+
+    def test_portraits_capped_to_commander_count(self):
+        self.assertIn("deck.commander_uids.slice(0, commanderCount(deck)).forEach", self.src)
 
 
 class TestDeckHeadMultiCommander(unittest.TestCase):
@@ -125,6 +131,19 @@ class TestDeckHeadMultiCommander(unittest.TestCase):
         self.assertIn('<div class="hud-deckhead-art">', head)
         self.assertNotIn("hud-deckhead-art--multi", head)
         self.assertEqual(head.count("<img"), 1)
+
+    def test_one_commander_two_printings_is_not_split(self):
+        dual = dict(SOLO, commander_uids=[UID_A, UID_B])
+        head = self._get("/deck/Holy%20Hellfire", [dual])
+        self.assertNotIn("hud-deckhead-art--multi", head)
+        self.assertEqual(head.count("<img"), 1)
+
+    def test_art_uids_helper(self):
+        from app import _commander_art_uids
+        self.assertEqual(_commander_art_uids(PARTNER), [UID_A, UID_B])
+        self.assertEqual(_commander_art_uids(dict(SOLO, commander_uids=[UID_A, UID_B])), [UID_A])
+        self.assertEqual(_commander_art_uids({"commander_uids": [UID_A, UID_B, "x"]}), [UID_A, UID_B])
+        self.assertEqual(_commander_art_uids({}), [])
 
     def test_multi_frame_css_keeps_frame_width(self):
         css = HUD_CSS.read_text()

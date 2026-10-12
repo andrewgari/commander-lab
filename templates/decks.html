@@ -1131,8 +1131,11 @@
     }
     
     // Partner / background decks get the stacked header (art row above the text).
+    // Count commanders by name: dual-source sync can leave two printing UIDs
+    // for one commander, so UIDs only decide the count when names are missing.
     function commanderCount(deck) {
-        return Math.max(((deck && deck.commander_uids) || []).length, ((deck && deck.commanders) || []).length);
+        const names = (deck && deck.commanders) || [];
+        return names.length ? names.length : ((deck && deck.commander_uids) || []).length;
     }
 
     function deckHeaderClass(deck) {
@@ -1627,7 +1630,7 @@
                 let iconsHtml = '';
                 
                 if (deck.commander_uids && deck.commander_uids.length > 0) {
-                    deck.commander_uids.forEach((uid, i) => {
+                    deck.commander_uids.slice(0, commanderCount(deck)).forEach((uid, i) => {
                         const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
                         iconsHtml += `<img src="${cropUrl}" class="commander-icon" alt="Commander Icon" loading="lazy">`;
                     });
