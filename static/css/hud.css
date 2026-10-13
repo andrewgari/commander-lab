@@ -365,6 +365,11 @@ button { font-family: inherit; font-size: inherit; }
 
 .nav-icon { flex-shrink: 0; width: 16px; height: 16px; opacity: 0.75; }
 
+/* Nav item that opens a .hud-menu flyout (Commander Decks). */
+.nav-caret { flex-shrink: 0; width: 12px; height: 12px; margin-left: auto; opacity: 0.6; transition: transform var(--dur-fast) var(--ease); }
+.nav-item[aria-expanded="true"] { background: var(--surface-2); color: var(--text-1); }
+.nav-item[aria-expanded="true"] .nav-caret { transform: rotate(90deg); opacity: 1; }
+
 .sidebar-footer {
     margin-top: auto;
     display: flex;
@@ -462,6 +467,7 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .brand { justify-content: center; padding: 0; }
     .brand-label,
     .nav-label,
+    .nav-caret,
     .nav-section-label,
     .sidebar-footer-label { display: none; }
     .nav-item { justify-content: center; padding: var(--sp-3) 0; }
@@ -798,6 +804,56 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
 .hud-btn--danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
 .hud-btn--sm { height: 1.5rem; padding: 0 var(--sp-2); font-size: var(--fs-micro); }
+
+/* Menu / flyout ------------------------------------------------------------------- */
+/* Disclosure-style flyout of links: a trigger with [data-hud-menu] +
+   aria-controls + aria-expanded opens a .hud-menu. hud.js positions it `fixed`
+   beside the trigger (so a scrolling parent such as the sidebar can't clip it)
+   and handles focus, arrow keys / Tab, Esc and outside click.
+   Macro: hud.menu(id, items, label). */
+.hud-menu {
+    position: fixed;
+    z-index: var(--z-overlay);
+    box-sizing: border-box;
+    min-width: 12rem;
+    max-width: calc(100vw - 2 * var(--sp-2));
+    padding: var(--sp-1) 0;
+    /* Raised surface + strong edge (no blur shadows in the kit) so it reads as
+       a layer over page panels of the same tone. */
+    background: var(--surface-2);
+    border: var(--hairline) solid var(--text-3);
+    border-radius: var(--radius-1);
+}
+.hud-menu[hidden] { display: none; }
+.hud-menu-list { margin: 0; padding: 0; list-style: none; }
+.hud-menu-label {
+    display: block;
+    padding: var(--sp-1) var(--sp-3) var(--sp-2);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.hud-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 2.25rem;
+    padding: 0 var(--sp-3);
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.hud-menu-item:hover, .hud-menu-item:focus { background: var(--surface-3); color: var(--text-1); }
+.hud-menu-item:focus { outline: none; }
+.hud-menu-item:focus-visible { outline: var(--focus-ring); outline-offset: calc(-1 * var(--hairline)); }
+.hud-menu-item[aria-current] { color: var(--text-1); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-menu-item .hud-chip-dot { color: var(--text-3); }
+.hud-menu-item[aria-current] .hud-chip-dot { color: var(--signal); }
 
 /* In-page nav: tabs + breadcrumb (the sidebar is section 4) ----------------- */
 .hud-tabs {

@@ -76,6 +76,17 @@ templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
 
+# Deck groups in the sidebar "Commander Decks" menu: each opens /decks filtered
+# to one existing status value (registry.VALID_STATUSES). Labels only; the
+# status values and their labels elsewhere in the app are unchanged.
+DECK_GROUPS = [
+    {"status": "physical", "label": "Physical Decks"},
+    {"status": "digital", "label": "Virtual Decks"},
+    {"status": "testing", "label": "WIP Decks"},
+    {"status": "retired", "label": "Retired Decks"},
+]
+templates.env.globals["deck_groups"] = DECK_GROUPS
+
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -88,9 +99,16 @@ async def index(request: Request):
     return templates.TemplateResponse(request=request, name="home.html")
 
 @app.get("/decks", response_class=HTMLResponse)
-async def decks(request: Request):
+async def decks(request: Request, status: Optional[str] = None):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
-    return templates.TemplateResponse(request=request, name="decks.html", context={"providers": providers})
+    # ?status=<value> shows one deck group; an unknown value falls back to all decks.
+    wanted = (status or "").strip().lower()
+    group = next((g for g in DECK_GROUPS if g["status"] == wanted), None)
+    return templates.TemplateResponse(request=request, name="decks.html", context={
+        "providers": providers,
+        "status_filter": group["status"] if group else None,
+        "status_label": group["label"] if group else None,
+    })
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory(request: Request):

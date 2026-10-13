@@ -359,3 +359,20 @@
 {% macro picker_chip(name) -%}
 <span class="hud-chip hud-chip--ghost" data-value="{{ name }}">{{ name }}<button class="hud-chip-remove" type="button" aria-label="Remove {{ name }}">×</button></span>
 {%- endmacro %}
+
+{#- Menu / flyout of links (disclosure pattern, not an ARIA menu: items stay
+    plain links). Pair with a trigger that has data-hud-menu,
+    aria-controls="{{ id }}" and aria-expanded="false"; hud.js opens and
+    positions it and handles the keyboard (Enter/Space/ArrowDown open,
+    arrows/Home/End/Tab move, Esc closes and returns focus, outside click or
+    tabbing away closes). items: [{"href", "label", "current": bool}]. -#}
+{% macro menu(id, items, label=none) -%}
+<div class="hud-menu" id="{{ id }}" hidden data-hud-menu-panel>
+    {% if label %}<span class="hud-menu-label" id="{{ id }}-label">{{ label }}</span>{% endif %}
+    <ul class="hud-menu-list"{% if label %} aria-labelledby="{{ id }}-label"{% endif %}>
+        {%- for it in items %}
+        <li><a class="hud-menu-item" href="{{ it.href }}"{% if it.current %} aria-current="page"{% endif %}><span class="hud-chip-dot" aria-hidden="true"></span>{{ it.label }}</a></li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- endmacro %}

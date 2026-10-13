@@ -217,6 +217,16 @@
         {{ hud.crumbs([{"label": "Decks", "href": "#nav"}, {"label": "Physical", "href": "#nav"}, {"label": "Atraxa, Praetors' Voice"}]) }}
         {{ hud.tabs([{"label": "Overview", "href": "#nav", "count": none}, {"label": "Cards", "href": "#nav-cards", "count": 100}, {"label": "Analytics", "href": "#nav-a"}, {"label": "Compare", "href": "#nav-c", "count": 2}], active="Overview") }}
         <p class="sg-note" style="margin:0">Sidebar = the app shell in <code>base.html</code> (collapses to an icon rail at ≤900px). Tabs and breadcrumbs: <code>hud.tabs()</code>, <code>hud.crumbs()</code>.</p>
+        <div class="sg-row">
+            <button class="hud-btn" type="button" data-hud-menu aria-controls="sg-menu" aria-expanded="false">Deck groups <span aria-hidden="true">▸</span></button>
+            {{ hud.menu("sg-menu", [
+                {"href": "#nav", "label": "Physical Decks", "current": true},
+                {"href": "#nav", "label": "Virtual Decks"},
+                {"href": "#nav", "label": "WIP Decks"},
+                {"href": "#nav", "label": "Retired Decks"},
+            ], label="Commander Decks") }}
+        </div>
+        <p class="sg-note" style="margin:0">Flyout menu: <code>hud.menu(id, items, label)</code> plus a trigger with <code>data-hud-menu aria-controls aria-expanded</code>. <code>hud.js</code> opens it beside the trigger; Enter/Space/↓ open and focus the first item, ↑/↓/Home/End/Tab move, Esc closes and returns focus, outside click closes. The sidebar's Commander Decks item uses it.</p>
     </div>
 </div>
 

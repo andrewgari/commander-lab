@@ -219,8 +219,108 @@
     });
     document.addEventListener("keydown", function (ev) {
         if (ev.key !== "Escape") return;
+        // An open flyout takes Esc first and hands focus back to its trigger.
+        if (openMenu) { ev.preventDefault(); closeMenu(true); return; }
         document.querySelectorAll(".hud-modal.is-open").forEach(closeModal);
     });
+
+    // --- Menu / flyout (hud.menu) ---------------------------------------
+    // Trigger: [data-hud-menu][aria-controls][aria-expanded]. The panel is
+    // position:fixed beside the trigger, so the scrolling sidebar can't clip it.
+    var openMenu = null; // { trigger, panel }
+
+    function menuItems(panel) {
+        return Array.prototype.slice.call(panel.querySelectorAll(".hud-menu-item"));
+    }
+    function placeMenu(trigger, panel) {
+        var r = trigger.getBoundingClientRect();
+        var gap = 4, edge = 8;
+        var w = panel.offsetWidth, h = panel.offsetHeight;
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var left = r.right + gap;
+        if (left + w > vw - edge) left = Math.max(edge, vw - w - edge);
+        var top = r.top;
+        if (top + h > vh - edge) top = Math.max(edge, vh - h - edge);
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+    }
+    function closeMenu(returnFocus) {
+        if (!openMenu) return;
+        var m = openMenu;
+        openMenu = null;
+        m.panel.hidden = true;
+        m.trigger.setAttribute("aria-expanded", "false");
+        if (returnFocus) m.trigger.focus();
+    }
+    function showMenu(trigger, focusIdx) {
+        var panel = document.getElementById(trigger.getAttribute("aria-controls"));
+        if (!panel) return;
+        if (openMenu && openMenu.trigger !== trigger) closeMenu(false);
+        panel.hidden = false;
+        trigger.setAttribute("aria-expanded", "true");
+        openMenu = { trigger: trigger, panel: panel };
+        placeMenu(trigger, panel);
+        if (focusIdx != null) {
+            var items = menuItems(panel);
+            var i = focusIdx < 0 ? items.length - 1 : focusIdx;
+            if (items[i]) items[i].focus();
+        }
+    }
+    function initMenus(root) {
+        (root || document).querySelectorAll("[data-hud-menu]").forEach(function (trigger) {
+            if (trigger.__hudMenu) return;
+            trigger.__hudMenu = true;
+            var panel = document.getElementById(trigger.getAttribute("aria-controls"));
+            if (!panel) return;
+            trigger.addEventListener("click", function (ev) {
+                // Modified clicks keep the link's own behaviour (open /decks in a new tab).
+                if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey || (ev.button && ev.button !== 0)) return;
+                ev.preventDefault();
+                if (openMenu && openMenu.trigger === trigger) closeMenu(false);
+                // Keyboard activation (detail 0) moves focus into the menu.
+                else showMenu(trigger, ev.detail === 0 ? 0 : null);
+            });
+            trigger.addEventListener("keydown", function (ev) {
+                if (ev.key === " " || ev.key === "Enter" || ev.key === "ArrowDown") {
+                    ev.preventDefault();
+                    showMenu(trigger, 0);
+                } else if (ev.key === "ArrowUp") {
+                    ev.preventDefault();
+                    showMenu(trigger, -1);
+                }
+            });
+            panel.addEventListener("keydown", function (ev) {
+                var items = menuItems(panel);
+                var i = items.indexOf(document.activeElement);
+                var next = null;
+                if (ev.key === "ArrowDown") next = (i + 1) % items.length;
+                else if (ev.key === "ArrowUp") next = (i - 1 + items.length) % items.length;
+                else if (ev.key === "Home") next = 0;
+                else if (ev.key === "End") next = items.length - 1;
+                else if (ev.key === " ") { ev.preventDefault(); if (items[i]) items[i].click(); return; }
+                if (next != null) { ev.preventDefault(); items[next].focus(); }
+            });
+            // Tabbing (or clicking) away from both the trigger and the panel closes it.
+            [trigger, panel].forEach(function (el) {
+                el.addEventListener("focusout", function (ev) {
+                    var to = ev.relatedTarget;
+                    if (openMenu && openMenu.trigger === trigger && to && !trigger.contains(to) && !panel.contains(to)) closeMenu(false);
+                });
+            });
+        });
+    }
+    document.addEventListener("click", function (ev) {
+        if (!openMenu) return;
+        if (openMenu.trigger.contains(ev.target) || openMenu.panel.contains(ev.target)) return;
+        closeMenu(false);
+    });
+    window.addEventListener && window.addEventListener("resize", function () {
+        if (openMenu) placeMenu(openMenu.trigger, openMenu.panel);
+    });
+    // Keep it beside the trigger if the sidebar (or page) scrolls underneath.
+    document.addEventListener("scroll", function () {
+        if (openMenu) placeMenu(openMenu.trigger, openMenu.panel);
+    }, true);
 
     // --- Sortable tables ---------------------------------------------------
     function cellKey(row, idx, kind) {
@@ -489,13 +589,17 @@
         closeModal: closeModal,
         sortTable: sortTable,
         initSortable: initSortable,
-        initDocIndex: initDocIndex
+        initDocIndex: initDocIndex,
+        initMenus: initMenus,
+        openMenu: function (trigger) { showMenu(typeof trigger === "string" ? document.getElementById(trigger) : trigger, null); },
+        closeMenu: closeMenu
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { initSortable(); initDocIndex(); });
+        document.addEventListener("DOMContentLoaded", function () { initSortable(); initDocIndex(); initMenus(); });
     } else {
         initSortable();
         initDocIndex();
+        initMenus();
     }
 })();

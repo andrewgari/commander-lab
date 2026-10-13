@@ -36,6 +36,7 @@ COMPONENTS = {
     "ranked-bar list": "hud-rank",
     "comparison": "hud-compare",
     "heatmap": "hud-heat",
+    "flyout menu": "hud-menu",
 }
 
 TOKEN_GROUPS = ["--surface-0", "--signal", "--data-5", "--mana-w", "--fs-micro", "--sp-4", "--stroke", "--radius-2"]
