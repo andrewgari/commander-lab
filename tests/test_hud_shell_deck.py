@@ -270,7 +270,8 @@ process.stdout.write(JSON.stringify(out));
         self.assertIn("75%", s)
 
     def test_modal_and_fallback_handlers_registered(self):
-        self.assertEqual(self.out["listeners"], ["click", "error", "keydown"])
+        # click/keydown: modals + flyout menus; error: image fallback; scroll: menu reposition.
+        self.assertEqual(self.out["listeners"], ["click", "error", "keydown", "scroll"])
 
 
 if __name__ == "__main__":

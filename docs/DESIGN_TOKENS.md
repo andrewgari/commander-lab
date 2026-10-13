@@ -199,6 +199,7 @@ Live reference with sample data: **`/styleguide`**.
 | Comparison | `compare(entities, groups)` | `.hud-compare` | 2–3 columns; row `lead: max\|min` marks the best value |
 | Heatmap | `heatmap(rows, cols, matrix, max, self_diag, fmt, hl)` | `.hud-heat` | cells bucketed onto `--data-0..5` (`data-level`) |
 | Modal | (markup) + `HUD.openModal(id)` | `.hud-modal` > `.hud-panel.hud-modal-dialog` | flat `--scrim`, no blur; scrim click / `[data-hud-close]` / Esc closes |
+| Flyout menu | `menu(id, items, label)` + trigger `[data-hud-menu][aria-controls][aria-expanded]` | `.hud-menu` > `.hud-menu-item` | disclosure of links, `position: fixed` beside the trigger; Enter/Space/↓ open + focus first item, ↑↓ Home End Tab move, Esc closes and refocuses the trigger, outside click / tabbing away closes; `current` item gets `aria-current`. Used by the sidebar's Commander Decks item (deck groups → `/decks?status=`) |
 
 ### Analytics II (hud.css section 7, AN-4)
 

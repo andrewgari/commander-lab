@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
 
-{% block title %}Commander Decks | Commander Lab{% endblock %}
+{% block title %}{% if status_label %}{{ status_label }} | {% endif %}Commander Decks | Commander Lab{% endblock %}
 
 {% block extra_css %}
 <style>
     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .deck-filter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: calc(-1 * var(--sp-4)) 0 var(--sp-6); }
+    .deck-filter-count { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
     .folder-toggle { display: flex; align-items: center; gap: 0.5rem; }
     .folder-toggle input { cursor: pointer; }
     
@@ -775,13 +778,25 @@
 <div class="controls">
     <h1>Commander Decks</h1>
     <div style="display: flex; align-items: center; gap: 1.5rem;">
+        {% if not status_filter %}
         <div class="folder-toggle">
             <input type="checkbox" id="showAllFolders" onchange="renderDecks()">
             <label for="showAllFolders">Show all decks</label>
         </div>
+        {% endif %}
         <button class="btn btn-primary" onclick="openImportModal()">Import Deck</button>
     </div>
 </div>
+
+{% if status_filter %}
+{#- Active deck-group filter (?status=…, picked from the sidebar menu). -#}
+<div class="deck-filter" id="deckFilter" data-status="{{ status_filter }}">
+    <span class="hud-label">Showing</span>
+    {{ hud.status_chip(status_filter, status_label) }}
+    <span class="deck-filter-count" id="deckFilterCount" aria-live="polite"></span>
+    <a class="hud-btn hud-btn--sm" href="/decks" id="clearDeckFilter">Clear filter <span aria-hidden="true">×</span></a>
+</div>
+{% endif %}
 
 <div id="decksContainer">
     <!-- Folders and decks will be rendered here -->
@@ -1585,19 +1600,31 @@
         console.log("Trade clicked");
     }
 
+    // Deck group from /decks?status=<value> (validated server-side; null = all).
+    const STATUS_FILTER = {{ status_filter | tojson }};
+
     function renderDecks() {
         const container = document.getElementById('decksContainer');
-        const showAll = document.getElementById('showAllFolders').checked;
+        const toggle = document.getElementById('showAllFolders');
+        // A status filter shows that group's decks regardless of the toggle.
+        const showAll = STATUS_FILTER ? true : Boolean(toggle && toggle.checked);
         
         // Group decks by status
         const statuses = {};
         allDecks.forEach(deck => {
             const status = deck.status || 'testing';
+            if (STATUS_FILTER && status !== STATUS_FILTER) return;
             if (!statuses[status]) statuses[status] = [];
             statuses[status].push(deck);
         });
         
         container.innerHTML = '';
+
+        if (STATUS_FILTER) {
+            const n = (statuses[STATUS_FILTER] || []).length;
+            const countEl = document.getElementById('deckFilterCount');
+            if (countEl) countEl.textContent = `${n} deck${n === 1 ? '' : 's'}`;
+        }
         
         // Sort status names (Physical first, then Virtual, Test, Retired)
         const order = { 'physical': 1, 'digital': 2, 'testing': 3, 'retired': 4 };
@@ -1670,7 +1697,8 @@
             `}).join('');
             
             let headerHtml = '';
-            if (statusName !== 'physical') {
+            // With a filter the page is one group; the indicator above names it.
+            if (statusName !== 'physical' && !STATUS_FILTER) {
                 headerHtml = `
                 <div class="folder-header" onclick="toggleFolder('${safeId}')">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -1690,7 +1718,11 @@
             container.appendChild(section);
         });
         
-        if (sortedStatuses.length === 0 || (sortedStatuses.filter(f => f === 'physical').length === 0 && !showAll)) {
+        if (STATUS_FILTER) {
+            if (sortedStatuses.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted);">No decks in this group. <a href="/decks">Show all decks</a>.</p>';
+            }
+        } else if (sortedStatuses.length === 0 || (sortedStatuses.filter(f => f === 'physical').length === 0 && !showAll)) {
             container.innerHTML = '<p style="color: var(--text-muted);">No decks found matching the current filters.</p>';
         }
     }
