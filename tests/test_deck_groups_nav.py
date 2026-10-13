@@ -71,7 +71,8 @@ class TestFlyoutMarkup(unittest.TestCase):
         self.assertIn("data-hud-menu", trig)
         self.assertIn('aria-controls="nav-menu-decks"', trig)
         self.assertIn('aria-expanded="false"', trig)
-        self.assertIn('role="button"', trig)
+        # Stays a link (no role override): without JS it navigates to /decks.
+        self.assertNotIn("role=", trig)
 
     def test_menu_starts_hidden_with_four_entries(self):
         html = self.client.get("/").text
@@ -158,7 +159,10 @@ class TestDecksStatusFilter(unittest.TestCase):
                 self.assertNotIn("<script>;", res.text)
 
     def test_status_is_case_insensitive(self):
-        self.assertEqual(_status_filter(self.client.get("/decks?status=Physical").text), "physical")
+        html = self.client.get("/decks", params={"status": " Physical "}).text
+        self.assertEqual(_status_filter(html), "physical")
+        current = [href for href, attrs, _ in _entries(html) if 'aria-current="page"' in attrs]
+        self.assertEqual(current, ["/decks?status=physical"])
 
     def test_render_applies_filter(self):
         html = self.client.get("/decks?status=testing").text
