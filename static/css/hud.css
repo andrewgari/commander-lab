@@ -1511,6 +1511,10 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-field-hint { color: var(--text-3); font-size: var(--fs-xs); }
 .hud-field textarea { min-height: 5.5rem; resize: vertical; line-height: var(--lh-base); }
 .hud-field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-4); }
+/* Deck status control (HUD.deckStatusControl): physical decks are locked. */
+.hud-status-field select { width: max-content; min-width: 9rem; max-width: 100%; }
+.hud-status-field.is-locked select { opacity: 1; color: var(--text-2); cursor: not-allowed; border-style: dashed; }
+.hud-status-msg:empty { display: none; }
 .hud-money { display: flex; align-items: stretch; }
 .hud-money span { display: grid; place-items: center; padding: 0 var(--sp-2); border: var(--stroke); border-right: 0; border-radius: var(--radius-1) 0 0 var(--radius-1); background: var(--surface-2); color: var(--text-3); font: var(--fs-sm) var(--font-mono); }
 .hud-money input { flex: 1; border-radius: 0 var(--radius-1) var(--radius-1) 0; font-family: var(--font-mono); width: 100%; }

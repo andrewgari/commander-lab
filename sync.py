@@ -79,7 +79,8 @@ def sync_inventory():
     # Track which cards appear in which decks for cardinality calculation
     card_deck_appearances = defaultdict(set)
     
-    # Known folders for user 35025
+    # Display names for the account's folders. Display only: which decks are
+    # physical comes from the folder id (registry.physical_folder_id()).
     FOLDER_MAP = {
         588380: "Commander Decks",
         656395: "Test Decks",
@@ -99,17 +100,18 @@ def sync_inventory():
         if not color_code:
             color_code = "C"
             
-        parent_id = deck.get("parentFolderId") or deck.get("parentFolder")
-        folder_name = FOLDER_MAP.get(parent_id, f"Folder {parent_id}" if parent_id else "Loose Decks")
+        parent_id = registry.folder_id_of(deck.get("parentFolderId", deck.get("parentFolder")))
+        folder_name = deck.get("parentFolderName") or FOLDER_MAP.get(
+            parent_id, f"Folder {parent_id}" if parent_id else "Loose Decks")
         
-        # Determine status (lifecycle vocabulary: physical | digital | retired | testing)
+        # Lifecycle status (physical | digital | retired | testing) follows the
+        # physical-folder rule, applied after the merge below through
+        # registry.apply_folder_rules -> set_status (auto-bind on entering the
+        # folder, pending_removal on leaving it). A deck new to the registry
+        # starts with only its saved non-physical status, if any, so entering
+        # the folder is a real transition.
         saved_status = r.get(f"deck_status:{deck_id}")
-        if saved_status:
-            status = saved_status
-        elif folder_name == "Commander Decks":
-            status = "physical"
-        else:
-            status = "testing"
+        status = saved_status if saved_status in registry.EDITABLE_STATUSES else None
         
         deck_obj = {
             "id": deck_id,
@@ -119,7 +121,9 @@ def sync_inventory():
             "commander_uids": [],
             "folder": folder_name,
             "status": status,
-            "description": ""
+            "description": "",
+            "parent_folder_id": parent_id,
+            "theorycrafted": bool(deck.get("theorycrafted")),
         }
         deck_names.append(deck_obj)
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
@@ -325,6 +329,8 @@ def sync_inventory():
     # it didn't fetch (Moxfield copies). See registry.merge_full_sync.
     existing_decks = registry.list_decks(r)
     r.set(registry.DECKS_KEY, json.dumps(registry.merge_full_sync(existing_decks, deck_names)))
+    changed = registry.apply_folder_rules(r)
+    print(f"Physical-folder rule: {len(changed)} deck status change(s).")
         
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 

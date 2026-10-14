@@ -107,6 +107,12 @@ def fetch_deck(identifier: str) -> dict:
 
     color_code = "".join(c for c in _WUBRG_ORDER if c in color_letters) or "C"
 
+    # Folder data for the physical-folder rule (registry.apply_folder_rule).
+    # The detail endpoint calls it parentFolder; list rows call it parentFolderId.
+    parent = data.get("parentFolderId", data.get("parentFolder"))
+    if isinstance(parent, dict):
+        parent = parent.get("id")
+
     return {
         "source": "archidekt",
         "source_id": deck_id,
@@ -118,4 +124,6 @@ def fetch_deck(identifier: str) -> dict:
         "description": data.get("description", ""),
         "cards": cards,
         "url": f"https://archidekt.com/decks/{deck_id}",
+        "parent_folder_id": parent,
+        "theorycrafted": bool(data.get("theorycrafted")),
     }

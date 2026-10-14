@@ -218,4 +218,10 @@ def sync_deck(r, registry_id: str) -> SyncReport:
         color=color,
     )
 
+    # The Archidekt pull carries the deck's folder: refresh it and apply the
+    # physical-folder rule (registry.apply_folder_rule -> set_status).
+    arch = fetched.get("archidekt")
+    if arch and "parent_folder_id" in arch:
+        registry.set_folder_data(r, registry_id, arch.get("parent_folder_id"), arch.get("theorycrafted"))
+
     return report

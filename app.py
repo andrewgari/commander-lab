@@ -406,24 +406,37 @@ async def get_decks():
     decks_json = r.get("decks")
     decks = json.loads(decks_json) if decks_json else []
     decks = enrich_decks_with_repo_status(decks)
+    for d in decks:
+        d["status_locked"] = registry.is_locked(d)
     return {"decks": decks}
 
 @app.post("/api/decks/{deck_id}/status")
 async def update_deck_status(deck_id: str, request: Request):
-    """Update a deck's lifecycle status: physical | digital | retired | testing.
-    Flipping to "physical" auto-binds one Instance per decklist card (see
-    instances.auto_bind_physical); the report is returned so the UI can show
-    what got created vs. reused.
+    """Update a deck's lifecycle status: digital | testing | retired.
+
+    Physical is never set here: a deck is physical only while it is in the
+    Archidekt physical folder (registry.physical_folder_id(), synced by
+    sync.py / linked-account sync). Physical decks are locked. Errors:
+    400 bad body or a status that isn't allowed (including physical),
+    404 unknown deck, 409 locked deck.
     """
-    data = await request.json()
-    status = data.get("status")
-    if status not in registry.VALID_STATUSES:
-        return {"success": False, "error": f"invalid status, must be one of {sorted(registry.VALID_STATUSES)}"}
     try:
-        result = registry.set_status(r, deck_id, status)
+        data = await request.json()
+    except Exception:
+        data = None
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"success": False, "error": "Request body must be a JSON object"})
+    status = data.get("status")
+    try:
+        result = registry.set_user_status(r, deck_id, status)
+    except registry.StatusLockedError as e:
+        return JSONResponse(status_code=409, content={"success": False, "locked": True, "error": str(e)})
+    except registry.StatusNotAllowedError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     except ValueError as e:
-        return {"success": False, "error": str(e)}
-    return {"success": True, "status": status, "auto_bind": result["auto_bind"]}
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, "status": status, "auto_bind": result["auto_bind"],
+            "pending_removal": result["pending_removal"]}
 
 
 @app.post("/api/import")

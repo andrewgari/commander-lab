@@ -572,7 +572,68 @@
         update();
     }
 
+    // --- Deck status control -------------------------------------------
+    // Physical decks are locked (their status comes from the Archidekt
+    // Commander Decks folder): a disabled select plus a note. Every other
+    // deck gets Virtual/WIP/Retired, mapped to digital/testing/retired.
+    var DECK_STATUS_OPTIONS = [["digital", "Virtual"], ["testing", "WIP"], ["retired", "Retired"]];
+    var DECK_LOCK_NOTE = "Physical: managed by your Archidekt Commander Decks folder";
+    function deckStatusControl(deck, opts) {
+        opts = opts || {};
+        var id = opts.id || "deckStatusSelect";
+        var noteId = id + "Note";
+        var locked = Boolean(deck && (deck.status_locked || deck.status === "physical"));
+        var status = (deck && deck.status) || "digital";
+        var options = locked
+            ? '<option value="physical" selected>Physical</option>'
+            : DECK_STATUS_OPTIONS.map(function (o) {
+                return '<option value="' + o[0] + '"' + (o[0] === status ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+            }).join("");
+        return '<div class="hud-field hud-status-field' + (locked ? " is-locked" : "") + '">' +
+            '<label class="hud-field-label" for="' + esc(id) + '">Status</label>' +
+            '<select id="' + esc(id) + '" data-deck-status' + (locked ? ' disabled aria-describedby="' + esc(noteId) + '"' : "") + ">" +
+            options + "</select>" +
+            (locked ? '<span class="hud-field-hint" id="' + esc(noteId) + '">' + esc(DECK_LOCK_NOTE) + "</span>" : "") +
+            '<span class="hud-field-hint hud-status-msg" role="status" aria-live="polite"></span>' +
+            "</div>";
+    }
+
+    // Wire a deckStatusControl inside `root`: change -> POST
+    // /api/decks/{id}/status. On a rejection the select goes back to the
+    // saved value and the server's message is shown.
+    function bindDeckStatus(root, deck, onSaved) {
+        var sel = root && root.querySelector("[data-deck-status]");
+        if (!sel || sel.disabled) return;
+        var msg = root.querySelector(".hud-status-msg");
+        sel.addEventListener("change", function () {
+            var prev = deck.status, next = sel.value;
+            if (msg) msg.textContent = "Saving…";
+            fetch("/api/decks/" + encodeURIComponent(deck.registry_id || deck.id) + "/status", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: next })
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, data: data }; });
+            }).then(function (out) {
+                if (out.ok && out.data.success) {
+                    deck.status = next;
+                    if (msg) msg.textContent = "Saved";
+                    if (onSaved) onSaved(deck);
+                } else {
+                    sel.value = prev;
+                    if (msg) msg.textContent = (out.data && out.data.error) || "Could not change status";
+                }
+            }).catch(function () {
+                sel.value = prev;
+                if (msg) msg.textContent = "Could not change status";
+            });
+        });
+    }
+
     window.HUD = {
+        DECK_STATUS_OPTIONS: DECK_STATUS_OPTIONS,
+        DECK_LOCK_NOTE: DECK_LOCK_NOTE,
+        deckStatusControl: deckStatusControl,
+        bindDeckStatus: bindDeckStatus,
         STATUS_TONES: STATUS_TONES,
         esc: esc,
         pips: pips,

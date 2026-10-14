@@ -168,11 +168,14 @@ class TestDecksStatusFilter(unittest.TestCase):
         html = self.client.get("/decks?status=testing").text
         self.assertIn("if (STATUS_FILTER && status !== STATUS_FILTER) return;", html)
 
-    def test_existing_status_labels_unchanged(self):
-        # Labels only: the deck modal's status select keeps its values/labels.
+    def test_modal_status_control_uses_the_kit(self):
+        # LOCK (t_e9ec412a) replaced the static 4-option select: the modal
+        # renders HUD.deckStatusControl (Virtual/WIP/Retired, or a locked
+        # Physical). Status values are unchanged.
         html = self.client.get("/decks").text
-        for value in ["physical", "digital", "testing", "retired"]:
-            self.assertRegex(html, r'<option value="' + value + r'"')
+        self.assertIn("HUD.deckStatusControl(deck", html)
+        self.assertIn("HUD.bindDeckStatus(", html)
+        self.assertNotIn('<option value="physical">Physical</option>', html)
 
 
 class TestMenuBehaviour(unittest.TestCase):

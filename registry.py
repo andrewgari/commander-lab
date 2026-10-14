@@ -24,8 +24,19 @@ vocabulary — same field, same mechanism, just relabeled):
     digital   — exists only as a decklist (was "virtual").
     retired   — no longer played/maintained.
     testing   — being brewed/tested (was "test").
+
+Physical lock (docs/PHYSICAL_FOLDER_LOCK.md): Archidekt is the source of
+truth for which decks are physical. A deck is physical if and only if its
+Archidekt parent folder is the configured physical folder
+(ARCHIDEKT_PHYSICAL_FOLDER_ID, default 588380). Such decks are locked: their
+status can't be changed in Commander Lab. Every other deck is editable
+between digital, testing and retired, and can never be set physical by hand.
+Each Archidekt deck carries the folder data it was synced with:
+    parent_folder_id  Archidekt parentFolderId (int | None)
+    theorycrafted     Archidekt theorycrafted flag (bool | None)
 """
 import json
+import os
 import re
 import unicodedata
 from typing import Optional
@@ -33,8 +44,86 @@ from typing import Optional
 import instances as instance_store
 
 VALID_STATUSES = {"physical", "digital", "retired", "testing"}
+# Statuses a user may pick for a deck outside the physical folder.
+EDITABLE_STATUSES = ("digital", "testing", "retired")
 
 DECKS_KEY = "decks"
+
+PHYSICAL_FOLDER_ENV = "ARCHIDEKT_PHYSICAL_FOLDER_ID"
+DEFAULT_PHYSICAL_FOLDER_ID = 588380
+
+# pending_removal reason used when a deck leaves the physical folder: every
+# instance still bound to it waits for keep/toss in the resync review panel.
+LEFT_PHYSICAL_FOLDER = "left_physical_folder"
+
+
+class StatusLockedError(ValueError):
+    """The deck is physical (in the Archidekt physical folder); its status
+    is managed by Archidekt and can't be changed here."""
+
+
+class StatusNotAllowedError(ValueError):
+    """The requested status can't be set by hand (physical comes only from
+    the Archidekt folder)."""
+
+
+def physical_folder_id() -> int:
+    raw = (os.getenv(PHYSICAL_FOLDER_ENV) or "").strip()
+    try:
+        return int(raw) if raw else DEFAULT_PHYSICAL_FOLDER_ID
+    except ValueError:
+        return DEFAULT_PHYSICAL_FOLDER_ID
+
+
+def folder_id_of(value) -> Optional[int]:
+    """Normalise an Archidekt parentFolder/parentFolderId value (int, numeric
+    string, or {"id": ...} object) to an int, or None."""
+    if isinstance(value, dict):
+        value = value.get("id")
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def in_physical_folder(parent_folder_id) -> bool:
+    fid = folder_id_of(parent_folder_id)
+    return fid is not None and fid == physical_folder_id()
+
+
+def seed_status(theorycrafted) -> str:
+    """Status for a deck outside the physical folder that has none saved."""
+    return "testing" if theorycrafted else "digital"
+
+
+def derive_status(previous: Optional[str], in_folder: bool, theorycrafted) -> str:
+    """The folder rule. In the folder -> physical. Outside it -> the saved
+    non-physical status if there is one, otherwise the seed (a deck that
+    just left the folder has "physical" saved, so it falls back to the seed)."""
+    if in_folder:
+        return "physical"
+    if previous in EDITABLE_STATUSES:
+        return previous
+    return seed_status(theorycrafted)
+
+
+def is_locked(deck: Optional[dict]) -> bool:
+    """True when the deck's status can't be changed in Commander Lab.
+
+    An Archidekt deck is locked when its synced folder is the physical
+    folder. One that hasn't been synced since the folder rule shipped (no
+    parent_folder_id yet) is locked while it is physical, so nothing can
+    flip it before the next sync decides. A Moxfield copy matched to an
+    Archidekt deck is stored on that Archidekt deck (links.moxfield), so it
+    inherits the lock. Moxfield-only decks are never locked.
+    """
+    if not deck or (deck.get("source") or "archidekt") != "archidekt":
+        return False
+    if "parent_folder_id" in deck:
+        return in_physical_folder(deck.get("parent_folder_id"))
+    return deck.get("status") == "physical"
 
 
 def _load_decks(r) -> list:
@@ -171,12 +260,20 @@ def attach_provider_deck(r, normalized: dict, apply: bool = True) -> dict:
     """
     reg_id = f"{normalized['source']}:{normalized['source_id']}"
     decks = _load_decks(r)
-    if any(registry_id_of(d) == reg_id for d in decks):
+
+    # Archidekt wins: a provider deck that matches an Archidekt deck is
+    # attached to it (and so takes its status and lock) even if an older
+    # import also registered it under its own provider id. That older entry
+    # is left in place, never deleted.
+    others = [i for i, d in enumerate(decks) if (d.get("source") or "archidekt") != normalized["source"]]
+    sub_idx, reason = match_provider_deck([decks[i] for i in others], normalized)
+    idx = others[sub_idx] if sub_idx is not None else None
+
+    if idx is None and any(registry_id_of(d) == reg_id for d in decks):
         if not apply:
             return {"result": "upserted", "deck": find_deck(r, reg_id), "reason": None}
         return {"result": "upserted", "deck": upsert_deck(r, normalized), "reason": None}
 
-    idx, reason = match_provider_deck(decks, normalized)
     if idx is None:
         return {"result": "unmatched", "deck": None, "reason": reason}
 
@@ -208,6 +305,11 @@ def merge_full_sync(existing: list, fetched: list) -> list:
         if sid in by_id:
             cur = out[by_id[sid]]
             links = cur.get("links")
+            # Status changes for known decks go through set_status
+            # (registry.apply_folder_rules, run by sync.py after the merge),
+            # never through a raw field overwrite here.
+            if "status" in cur:
+                f.pop("status", None)
             cur.update(f)
             cur["links"] = links or {}
             target = cur
@@ -262,7 +364,11 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     }
     if normalized["source"] == "moxfield":
         deck_obj["moxfield_id"] = normalized["source_id"]
-
+    # Archidekt folder data (providers/archidekt.fetch_deck) drives the
+    # physical-folder rule below.
+    for key in ("parent_folder_id", "theorycrafted"):
+        if key in normalized:
+            deck_obj[key] = normalized[key]
     # Record where this deck was pulled from, so the deck modal's Sync
     # Sources fields and deck_sync.sync_deck (which only fetches linked
     # providers) can find it. Merged into existing links; never clobbers
@@ -283,7 +389,11 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
     _save_decks(r, decks)
     r.set(f"deck_status:{deck_id}", status)
 
-    result_deck = decks[existing_idx] if existing_idx is not None else decks[-1]
+    # Physical-folder rule: entering/leaving the Archidekt physical folder
+    # goes through set_status (auto-bind in, pending_removal out) before the
+    # resync diff below looks at the status.
+    apply_folder_rule(r, reg_id)
+    result_deck = find_deck(r, reg_id) or deck_obj
     # Instance creation is NOT triggered here at all, for any deck status.
     # Non-physical decks (digital/testing/retired) are hypothetical/wishlist
     # decklists that exist purely as deck.cards[] metadata and must have
@@ -381,31 +491,156 @@ def add_card_to_decklist(r, registry_id: str, card_name: str) -> dict:
     return target
 
 
-def set_status(r, registry_id: str, new_status: str) -> dict:
+def _find_index(decks: list, registry_id: str) -> Optional[int]:
+    for idx, d in enumerate(decks):
+        if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id:
+            return idx
+    return None
+
+
+def _bound_instances(r, deck: dict) -> list:
+    return instance_store.list_deck_instances(r, deck_instance_ids(deck), ownership_status="in_deck")
+
+
+def set_status(r, registry_id: str, new_status: str, origin: Optional[str] = None) -> dict:
+    """The status transition path. Every status change (the folder rule on
+    sync, and user edits via set_user_status) goes through here.
+
+    - into physical: instances.auto_bind_physical binds the decklist, and any
+      instance still flagged from an earlier exit from the folder has that
+      flag cleared (it never left the deck).
+    - out of physical: nothing is unbound or deleted. Every instance still
+      bound to the deck is flagged pending_removal (reason
+      LEFT_PHYSICAL_FOLDER) for keep/toss in the resync review panel.
+
+    `origin` records why the deck has this status ("archidekt_folder",
+    "seed", "user"); see derive/apply_folder_rule.
+    """
     if new_status not in VALID_STATUSES:
         raise ValueError(f"invalid status: {new_status}")
 
     decks = _load_decks(r)
-    target = None
-    for d in decks:
-        if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id:
-            target = d
-            break
-    if not target:
+    idx = _find_index(decks, registry_id)
+    if idx is None:
         raise ValueError(f"deck not found: {registry_id}")
+    target = decks[idx]
 
     was_physical = target.get("status") == "physical"
     target["status"] = new_status
+    if origin:
+        target["status_origin"] = origin
     _save_decks(r, decks)
     r.set(f"deck_status:{target['id']}", new_status)
 
     bind_report = None
+    flagged = []
     if new_status == "physical" and not was_physical:
+        for inst in _bound_instances(r, target):
+            marker = inst.get("pending_removal") or {}
+            if marker.get("reason") == LEFT_PHYSICAL_FOLDER:
+                instance_store.clear_pending_removal(r, inst["id"])
         bind_report = instance_store.auto_bind_physical(
             r,
             deck_registry_id=target["id"],
             deck_name=target["name"],
             decklist=target.get("cards", []),
         )
+    elif was_physical and new_status != "physical":
+        for inst in _bound_instances(r, target):
+            rec = instance_store.set_pending_removal(
+                r, inst["id"], str(inst.get("deck_id")), reason=LEFT_PHYSICAL_FOLDER)
+            if rec:
+                flagged.append(rec["id"])
 
-    return {"deck": target, "auto_bind": bind_report}
+    return {"deck": target, "auto_bind": bind_report, "pending_removal": flagged}
+
+
+def set_user_status(r, registry_id: str, new_status: str) -> dict:
+    """A status change asked for by the user (POST /api/decks/{id}/status).
+    Raises StatusNotAllowedError for physical (set only by the Archidekt
+    folder) or an unknown status, StatusLockedError for a physical deck, and
+    ValueError("deck not found: ...") for an unknown deck."""
+    if new_status == "physical":
+        raise StatusNotAllowedError(
+            "Physical can't be set here: a deck is physical only when it is in your "
+            "Archidekt Commander Decks folder.")
+    if new_status not in EDITABLE_STATUSES:
+        raise StatusNotAllowedError(
+            f"invalid status {new_status!r}: must be one of {list(EDITABLE_STATUSES)}")
+    deck = find_deck(r, registry_id)
+    if not deck:
+        raise ValueError(f"deck not found: {registry_id}")
+    if is_locked(deck):
+        raise StatusLockedError(
+            f"'{deck.get('name')}' is physical: its status is managed by your Archidekt "
+            "Commander Decks folder. Move the deck out of that folder on Archidekt to change it.")
+    return set_status(r, registry_id, new_status, origin="user")
+
+
+def derive_for_deck(deck: dict) -> str:
+    """derive_status for a stored deck (Archidekt or Moxfield-only).
+
+    Saved statuses written before the folder rule carry no status_origin.
+    Of those, "testing" was the old automatic default for every deck
+    outside the folder (sync.py, /api/import), not a choice, so it is
+    re-seeded. Legacy digital/retired could only come from a user and are
+    kept. Moxfield-only decks have no folder and no theorycrafted flag, so
+    they are never physical and seed to digital.
+    """
+    previous = deck.get("status")
+    if not deck.get("status_origin") and previous == "testing":
+        previous = None
+    archidekt = (deck.get("source") or "archidekt") == "archidekt"
+    in_folder = archidekt and in_physical_folder(deck.get("parent_folder_id"))
+    return derive_status(previous, in_folder, deck.get("theorycrafted") if archidekt else None)
+
+
+def apply_folder_rule(r, registry_id: str) -> Optional[dict]:
+    """Apply the physical-folder rule to one stored deck, through set_status
+    (so entering the folder auto-binds and leaving it flags pending_removal).
+    Archidekt decks with no folder data yet are left alone until a sync
+    brings it. Returns the set_status report, or None when nothing changed.
+    """
+    deck = find_deck(r, registry_id)
+    if not deck:
+        return None
+    if (deck.get("source") or "archidekt") == "archidekt" and "parent_folder_id" not in deck:
+        return None
+    new_status = derive_for_deck(deck)
+    current, current_origin = deck.get("status"), deck.get("status_origin")
+    if new_status == "physical":
+        origin = "archidekt_folder"
+    elif new_status == current and current_origin in ("user", "seed"):
+        origin = current_origin
+    elif new_status == current and not current_origin and current in ("digital", "retired"):
+        origin = "user"    # legacy digital/retired: only a user could have set it
+    else:
+        origin = "seed"
+    if new_status == current and origin == current_origin:
+        return None
+    return set_status(r, registry_id, new_status, origin=origin)
+
+
+def set_folder_data(r, registry_id: str, parent_folder_id, theorycrafted) -> Optional[dict]:
+    """Store a deck's Archidekt folder data and apply the folder rule.
+    Returns the apply_folder_rule report (None when the status didn't change)."""
+    decks = _load_decks(r)
+    idx = _find_index(decks, registry_id)
+    if idx is None:
+        raise ValueError(f"deck not found: {registry_id}")
+    decks[idx]["parent_folder_id"] = folder_id_of(parent_folder_id)
+    decks[idx]["theorycrafted"] = bool(theorycrafted)
+    _save_decks(r, decks)
+    return apply_folder_rule(r, registry_id)
+
+
+def apply_folder_rules(r) -> dict:
+    """apply_folder_rule over every deck. Returns {registry_id: new_status}
+    for the decks that changed."""
+    changed = {}
+    for deck in list_decks(r):
+        rid = registry_id_of(deck)
+        res = apply_folder_rule(r, rid)
+        if res:
+            changed[rid] = res["deck"]["status"]
+    return changed

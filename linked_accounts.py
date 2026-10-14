@@ -210,6 +210,12 @@ def sync_account(r, account_id: str) -> dict:
         except Exception as exc:  # noqa: BLE001 - one bad deck must not abort the sync
             failures.append({"deck_id": deck_id, "error": str(exc)})
 
+    # Physical-folder rule over the whole registry (Moxfield-only decks are
+    # never physical; Archidekt decks follow their synced folder).
+    try:
+        registry.apply_folder_rules(r)
+    except Exception as exc:  # noqa: BLE001 - recorded, sync result still saved
+        failures.append({"deck_id": None, "error": f"folder rule failed: {exc}"})
     account["last_synced_at"] = _now()
     account["last_sync_result"] = {"decks_synced": synced, "failures": failures, "unmatched": unmatched}
     accounts[idx] = account
