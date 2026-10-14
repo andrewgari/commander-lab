@@ -15,6 +15,13 @@
     }
     .deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-commanders { display: grid; gap: var(--sp-3); }
+    /* Commander roles (commander_roles.py): partners full width, a Doctor's
+       companion a bit smaller tucked right under its Doctor, a true
+       companion small and set apart. */
+    .deck-cmdr { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+    .deck-cmdr--doctors-companion { width: 82%; margin-top: calc(var(--sp-1) - var(--sp-3)); }
+    .deck-cmdr--companion { width: 60%; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: var(--stroke); }
+    .deck-cmdr.is-cbc .hud-art { border-color: var(--signal-line); }
     .deck-links { display: flex; flex-direction: column; gap: var(--sp-2); }
     .deck-links .hud-btn { justify-content: space-between; }
     .deck-prose { max-width: 75ch; color: var(--text-2); line-height: var(--lh-base); }
@@ -258,11 +265,28 @@
 
     function renderCommanders() {
         const el = document.getElementById('commanderShowcase');
-        const cmdrs = inventoryCards.map((c, i) => [c, i]).filter(([c]) => c.is_commander);
+        // Role per card from the shared helper (commander_roles.py via /api/decks).
+        const roles = HUD.commanderRoles(currentDeck || {});
+        const roleOf = Object.fromEntries(roles.map((r, i) => [r.name, Object.assign({ order: i }, r)]));
+        const cmdrs = inventoryCards.map((c, i) => [c, i]).filter(([c]) => c.is_commander)
+            .sort((a, b) => ((roleOf[a[0].name] || {}).order ?? 9) - ((roleOf[b[0].name] || {}).order ?? 9));
         const names = cmdrs.length ? cmdrs.map(([c]) => c.name) : ((currentDeck && currentDeck.commanders) || []);
         document.getElementById('deckCommanderNames').textContent = names.length ? names.join(' + ') : '—';
+        // Commanders with no inventory row (a true companion lives outside the
+        // 100) still show, straight from their Scryfall printing.
+        const missing = cmdrs.length ? roles.filter(r => r.uid && !cmdrs.some(([c]) => c.name === r.name)) : [];
         if (cmdrs.length) {
-            el.innerHTML = cmdrs.map(([c, i]) => cardArt(c, i, 'large', 'card')).join('');
+            el.innerHTML = cmdrs.map(([c, i]) => {
+                const r = roleOf[c.name] || { role: 'commander' };
+                let html = cardArt(c, i, 'large', 'card');
+                if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media">' + HUD.chip(r.type_label || 'Commander', 'neutral', false));
+                const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
+                return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}${r.can_be_commander ? ' is-cbc' : ''}">${tag}${html}</div>`;
+            }).join('') + missing.map(r => {
+                const img = HUD.scryfall(r.uid, 'large');
+                const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
+                return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}">${tag}${HUD.art(r.name, img.src, { kind: 'card', fallback: img.fallback })}</div>`;
+            }).join('');
         } else {
             el.innerHTML = '<div class="hud-empty">' + (names.length ? esc(names.join(', ')) : 'No commander specified') + '</div>';
         }

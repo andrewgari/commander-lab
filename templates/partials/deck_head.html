@@ -31,18 +31,14 @@
     {"key": "ideas", "label": "Ideas", "href": base ~ "/ideas", "n": "6", "count": head.ideas},
 ] -%}
 <header class="hud-deckhead">
-    {#- Partner decks: both commanders share the same fixed frame (split in
-        halves) so the title column never loses width to a second portrait. -#}
-    {%- set uids = head.art_uids or ([head.art_uid] if head.art_uid else []) -%}
-    <div class="hud-deckhead-art{% if uids | length > 1 %} hud-deckhead-art--multi{% endif %}">
-        {%- for raw in uids -%}
-        {%- set uid = raw | lower -%}
-        <img alt="" src="https://cards.scryfall.io/art_crop/front/{{ uid[0] }}/{{ uid[1] }}/{{ uid | urlencode }}.jpg"
-             data-fallback="https://api.scryfall.com/cards/{{ uid | urlencode }}?format=image&amp;version=art_crop">
-        {%- endfor -%}
-    </div>
+    {#- Commander art by role (commander_roles.py). Two partners shrink to
+        keep the title column wide; companions are smaller still. -#}
+    {{ hud.commanders(head.commander_roles, "hud-deckhead-art") }}
     <div>
-        <span class="hud-label" id="deckEyebrow">Commander deck{% if head.commanders %} · {{ head.commanders | join(" + ") }}{% endif %}</span>
+        {%- set mains = head.commander_roles | rejectattr("role", "equalto", "companion") | map(attribute="name") | select | list -%}
+        {%- set comps = head.commander_roles | selectattr("role", "equalto", "companion") | map(attribute="name") | list -%}
+        {%- set cnames = mains if head.commander_roles else head.commanders -%}
+        <span class="hud-label" id="deckEyebrow">Commander deck{% if cnames %} · {{ cnames | join(" + ") }}{% endif %}{% if comps %} · companion {{ comps | join(", ") }}{% endif %}</span>
         <h1 id="deckTitle">{{ head.name }}</h1>
         <div class="hud-deckhead-meta">
             <span id="deckColors">{% if head.found %}{{ hud.pips(head.colors, "sm") }}{% endif %}</span>

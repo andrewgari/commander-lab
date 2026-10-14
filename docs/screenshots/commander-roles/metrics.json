@@ -1,0 +1,280 @@
+{
+ "decks@1280": [
+  {
+   "name": "Adventure After Elevensies",
+   "card_w": 310,
+   "title_w": 262,
+   "title_lines": 1,
+   "art_w": 200,
+   "roles": [
+    "hud-cmdr--partner",
+    "hud-cmdr--partner"
+   ],
+   "round": false
+  },
+  {
+   "name": "The Laws of Time are Mine!!",
+   "card_w": 310,
+   "title_w": 262,
+   "title_lines": 1,
+   "art_w": 173,
+   "roles": [
+    "hud-cmdr--doctor",
+    "hud-cmdr--doctors-companion"
+   ],
+   "round": false
+  },
+  {
+   "name": "The Gift that Keeps on Giving and Giving and Giving",
+   "card_w": 310,
+   "title_w": 262,
+   "title_lines": 2,
+   "art_w": 192,
+   "roles": [
+    "hud-cmdr--commander",
+    "hud-cmdr--companion"
+   ],
+   "round": false
+  },
+  {
+   "name": "Go For The Eyes",
+   "card_w": 310,
+   "title_w": 134,
+   "title_lines": 1,
+   "art_w": 112,
+   "roles": [
+    "hud-cmdr--commander is-cbc"
+   ],
+   "round": false
+  },
+  {
+   "name": "Just who the hell do you think I am!?",
+   "card_w": 310,
+   "title_w": 134,
+   "title_lines": 3,
+   "art_w": 112,
+   "roles": [
+    "hud-cmdr--commander is-cbc"
+   ],
+   "round": false
+  }
+ ],
+ "decks@1280_any_round": false,
+ "decks@1280_scrollW": 1280,
+ "deck-partner@1280": {
+  "title_w": 491,
+  "title_lines": 1,
+  "roles": [
+   "hud-cmdr--partner",
+   "hud-cmdr--partner"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--partner",
+    272
+   ],
+   [
+    "deck-cmdr deck-cmdr--partner",
+    272
+   ]
+  ],
+  "scrollW": 1280
+ },
+ "deck-doctor@1280": {
+  "title_w": 512,
+  "title_lines": 1,
+  "roles": [
+   "hud-cmdr--doctor",
+   "hud-cmdr--doctors-companion"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--doctor",
+    272
+   ],
+   [
+    "deck-cmdr deck-cmdr--doctors-companion",
+    223
+   ]
+  ],
+  "scrollW": 1280
+ },
+ "deck-keruga@1280": {
+  "title_w": 451,
+  "title_lines": 2,
+  "roles": [
+   "hud-cmdr--commander",
+   "hud-cmdr--companion"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--commander",
+    272
+   ],
+   [
+    "deck-cmdr deck-cmdr--companion",
+    163
+   ]
+  ],
+  "scrollW": 1280
+ },
+ "deck-minsc@1280": {
+  "title_w": 547,
+  "title_lines": 1,
+  "roles": [
+   "hud-cmdr--commander is-cbc"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--commander is-cbc",
+    272
+   ]
+  ],
+  "scrollW": 1280
+ },
+ "inventory-keruga@1280": [
+  [
+   "Helga, Skittish Seer Creature",
+   "Commander"
+  ]
+ ],
+ "decks@400": [
+  {
+   "name": "Adventure After Elevensies",
+   "card_w": 302,
+   "title_w": 254,
+   "title_lines": 1,
+   "art_w": 200,
+   "roles": [
+    "hud-cmdr--partner",
+    "hud-cmdr--partner"
+   ],
+   "round": false
+  },
+  {
+   "name": "The Laws of Time are Mine!!",
+   "card_w": 302,
+   "title_w": 254,
+   "title_lines": 1,
+   "art_w": 173,
+   "roles": [
+    "hud-cmdr--doctor",
+    "hud-cmdr--doctors-companion"
+   ],
+   "round": false
+  },
+  {
+   "name": "The Gift that Keeps on Giving and Giving and Giving",
+   "card_w": 302,
+   "title_w": 254,
+   "title_lines": 2,
+   "art_w": 192,
+   "roles": [
+    "hud-cmdr--commander",
+    "hud-cmdr--companion"
+   ],
+   "round": false
+  },
+  {
+   "name": "Go For The Eyes",
+   "card_w": 302,
+   "title_w": 126,
+   "title_lines": 2,
+   "art_w": 112,
+   "roles": [
+    "hud-cmdr--commander is-cbc"
+   ],
+   "round": false
+  },
+  {
+   "name": "Just who the hell do you think I am!?",
+   "card_w": 302,
+   "title_w": 126,
+   "title_lines": 3,
+   "art_w": 112,
+   "roles": [
+    "hud-cmdr--commander is-cbc"
+   ],
+   "round": false
+  }
+ ],
+ "decks@400_any_round": false,
+ "decks@400_scrollW": 400,
+ "deck-partner@400": {
+  "title_w": 304,
+  "title_lines": 2,
+  "roles": [
+   "hud-cmdr--partner",
+   "hud-cmdr--partner"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--partner",
+    304
+   ],
+   [
+    "deck-cmdr deck-cmdr--partner",
+    304
+   ]
+  ],
+  "scrollW": 400
+ },
+ "deck-doctor@400": {
+  "title_w": 304,
+  "title_lines": 2,
+  "roles": [
+   "hud-cmdr--doctor",
+   "hud-cmdr--doctors-companion"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--doctor",
+    304
+   ],
+   [
+    "deck-cmdr deck-cmdr--doctors-companion",
+    249
+   ]
+  ],
+  "scrollW": 400
+ },
+ "deck-keruga@400": {
+  "title_w": 304,
+  "title_lines": 3,
+  "roles": [
+   "hud-cmdr--commander",
+   "hud-cmdr--companion"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--commander",
+    304
+   ],
+   [
+    "deck-cmdr deck-cmdr--companion",
+    182
+   ]
+  ],
+  "scrollW": 400
+ },
+ "deck-minsc@400": {
+  "title_w": 228,
+  "title_lines": 1,
+  "roles": [
+   "hud-cmdr--commander is-cbc"
+  ],
+  "showcase": [
+   [
+    "deck-cmdr deck-cmdr--commander is-cbc",
+    304
+   ]
+  ],
+  "scrollW": 400
+ },
+ "inventory-keruga@400": [
+  [
+   "Helga, Skittish Seer Creature",
+   "Commander"
+  ]
+ ]
+}

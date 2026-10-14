@@ -297,6 +297,14 @@
     {{ hud.art(n, CARD ~ n|urlencode, colors=c, kind="card") }}
     {% endfor %}
 </div>
+<span class="hud-label" style="margin: var(--sp-5) 0 var(--sp-2);">Commanders by role (hud.commanders / HUD.commanders)</span>
+<div style="display: flex; flex-wrap: wrap; gap: var(--sp-6); align-items: flex-end;">
+    {{ hud.commanders([{"name": "Frodo, Adventurous Hobbit", "role": "partner"}, {"name": "Sam, Loyal Attendant", "role": "partner"}]) }}
+    {{ hud.commanders([{"name": "The Tenth Doctor", "role": "doctor"}, {"name": "Rose Tyler", "role": "doctors_companion"}]) }}
+    {{ hud.commanders([{"name": "Helga, Skittish Seer", "role": "commander"}, {"name": "Keruga, the Macrosage", "role": "companion"}]) }}
+    {{ hud.commanders([{"name": "Minsc & Boo, Timeless Heroes", "role": "commander", "can_be_commander": true, "type_label": "Planeswalker"}]) }}
+</div>
+<p class="sg-note">Roles come from <code>commander_roles.py</code> (Scryfall oracle text / keywords / type line) via <code>deck.commander_roles</code>. Partners: equal. Doctor's companion: smaller, tucked against the Doctor. Companion: small, set apart, labelled. Not-a-legendary-creature commanders get a quiet type badge.</p>
 
 {#- ========================================================= ANALYTICS -#}
 {{ hud.section_head("Bar / curve chart", "13", "chart") }}
