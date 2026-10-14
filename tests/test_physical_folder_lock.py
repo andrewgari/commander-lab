@@ -195,6 +195,18 @@ class TestFolderMoves(unittest.TestCase):
         self.assertFalse(any(i.get("pending_removal") for i in back))
         self.assertEqual(len(instance_store.list_instances(self.r)), 2)
 
+    def test_entering_folder_counts_copies_bound_under_registry_id(self):
+        # The manual add-card path binds under the registry id ("archidekt:34");
+        # auto_bind_physical binds under the raw id (34). Entering the folder
+        # must count the existing copy, not add a duplicate (Copilot #88).
+        registry.upsert_deck(self.r, arch(34, folder=TEST_FOLDER))
+        inst = instance_store.create_instance(self.r, card_name="Sol Ring", ownership_status="in_collection")
+        instance_store.transition_status(self.r, inst["id"], "in_deck", deck_id="archidekt:34", deck_name="Deck")
+        registry.upsert_deck(self.r, arch(34, folder=PHYS))
+        sol = [i for i in bound(self.r, "archidekt:34") if i["card_name"] == "Sol Ring"]
+        self.assertEqual([i["id"] for i in sol], [inst["id"]])
+        self.assertEqual(len(instance_store.list_instances(self.r, card_name="Sol Ring")), 1)
+
 
 class TestUserStatus(unittest.TestCase):
     def setUp(self):
@@ -353,7 +365,10 @@ class TestSyncPy(unittest.TestCase):
             elif "v3" in url:
                 resp.json = lambda: {"results": rows}
             else:
-                resp.json = lambda: {"description": "", "cards": []}
+                resp.json = lambda: {"description": "", "cards": [
+                    {"quantity": 1, "categories": [], "card": {"oracleCard": {"name": "Sol Ring"}}},
+                    {"quantity": 2, "categories": ["Maybeboard"], "card": {"oracleCard": {"name": "Maybe"}}},
+                ]}
             return resp
 
         with mock.patch.object(sync, "r", r), mock.patch.object(sync.requests, "get", fake_get), \
@@ -364,6 +379,9 @@ class TestSyncPy(unittest.TestCase):
                              {"101": "physical", "102": "testing", "103": "digital", "104": "digital"})
             self.assertEqual(by["101"]["parent_folder_id"], PHYS)
             self.assertIs(by["102"]["theorycrafted"], True)
+            # A new deck in the folder is bound from the synced mainboard (Copilot #88).
+            self.assertEqual(by["101"]["cards"], [{"name": "Sol Ring", "quantity": 1}])
+            self.assertEqual([i["card_name"] for i in bound(r, "archidekt:101")], ["Sol Ring"])
 
             # Deck moves out of the folder on Archidekt -> seed rule on the next sync.
             rows[0] = dict(rows[0], parentFolderId=ROOT_FOLDER)
@@ -381,6 +399,25 @@ class TestArchidektProvider(unittest.TestCase):
             d = archidekt.fetch_deck("417707")
         self.assertEqual(d["parent_folder_id"], PHYS)
         self.assertIs(d["theorycrafted"], True)
+
+    def test_folder_name_from_list_rows_reaches_fetch_deck(self):
+        from providers import archidekt
+
+        def get(url, *a, **k):
+            resp = mock.Mock()
+            resp.raise_for_status = lambda: None
+            if "users" in url:
+                resp.json = lambda: {"results": [{"id": 1}]}
+            elif "v3" in url:
+                resp.json = lambda: {"results": [{"id": 9, "parentFolderId": PHYS, "parentFolderName": "Commander Decks"}],
+                                     "next": None}
+            else:
+                resp.json = lambda: {"name": "X", "cards": [], "parentFolder": PHYS, "theorycrafted": False}
+            return resp
+        with mock.patch.object(archidekt.requests, "get", get):
+            archidekt.list_decks("CovaDax")
+            d = archidekt.fetch_deck("9")
+        self.assertEqual(d["folder"], "Commander Decks")
 
 
 HUD_JS = Path(ROOT) / "static" / "js" / "hud.js"

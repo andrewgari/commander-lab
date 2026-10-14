@@ -310,6 +310,11 @@ def merge_full_sync(existing: list, fetched: list) -> list:
             # never through a raw field overwrite here.
             if "status" in cur:
                 f.pop("status", None)
+            # A known deck's cardlist changes only through the resync paths
+            # (upsert_deck / update_deck_cards) that apply the physical-deck
+            # diff; the full pull fills it in only when the deck has none.
+            if cur.get("cards"):
+                f.pop("cards", None)
             cur.update(f)
             cur["links"] = links or {}
             target = cur
@@ -381,6 +386,8 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
         # Preserve any Archidekt-account-sync-only fields (e.g. description
         # already set) unless the new payload provides a better value.
         merged = dict(existing or {})
+        if deck_obj.get("folder") == "Imported" and merged.get("folder"):
+            deck_obj["folder"] = merged["folder"]  # don't replace a real folder name with the placeholder
         merged.update(deck_obj)
         decks[existing_idx] = merged
     else:
@@ -544,6 +551,7 @@ def set_status(r, registry_id: str, new_status: str, origin: Optional[str] = Non
             deck_registry_id=target["id"],
             deck_name=target["name"],
             decklist=target.get("cards", []),
+            alias_ids=deck_instance_ids(target),
         )
     elif was_physical and new_status != "physical":
         for inst in _bound_instances(r, target):
@@ -621,15 +629,18 @@ def apply_folder_rule(r, registry_id: str) -> Optional[dict]:
     return set_status(r, registry_id, new_status, origin=origin)
 
 
-def set_folder_data(r, registry_id: str, parent_folder_id, theorycrafted) -> Optional[dict]:
-    """Store a deck's Archidekt folder data and apply the folder rule.
-    Returns the apply_folder_rule report (None when the status didn't change)."""
+def set_folder_data(r, registry_id: str, parent_folder_id, theorycrafted, folder_name: Optional[str] = None) -> Optional[dict]:
+    """Store a deck's Archidekt folder data (and display folder name, when
+    known) and apply the folder rule. Returns the apply_folder_rule report
+    (None when the status didn't change)."""
     decks = _load_decks(r)
     idx = _find_index(decks, registry_id)
     if idx is None:
         raise ValueError(f"deck not found: {registry_id}")
     decks[idx]["parent_folder_id"] = folder_id_of(parent_folder_id)
     decks[idx]["theorycrafted"] = bool(theorycrafted)
+    if folder_name:
+        decks[idx]["folder"] = folder_name
     _save_decks(r, decks)
     return apply_folder_rule(r, registry_id)
 

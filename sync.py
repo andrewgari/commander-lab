@@ -137,7 +137,19 @@ def sync_inventory():
         time.sleep(0.5)
         
         cards = deck_data.get("cards", [])
-        
+
+        # Normalized mainboard cardlist (same shape as providers.archidekt
+        # fetch_deck): the folder rule's auto-bind needs it when a deck
+        # enters the physical folder during this sync.
+        mainboard = {}
+        for card in cards:
+            cats = card.get("categories") or []
+            if "Maybeboard" in cats or "Sideboard" in cats:
+                continue
+            nm = card.get("card", {}).get("oracleCard", {}).get("name")
+            if nm:
+                mainboard[nm] = mainboard.get(nm, 0) + (card.get("quantity", 1) or 1)
+        deck_obj["cards"] = [{"name": n, "quantity": q} for n, q in mainboard.items()]
         for card in cards:
             categories = card.get("categories") or []
             if "Commander" in categories:
