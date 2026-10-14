@@ -1,0 +1,182 @@
+/* ==========================================================================
+   Deck-list card options: mockup styles. Loads after static/css/hud.css and
+   uses only its tokens. Raw values live in the --dc-* block below, nowhere
+   else. Not loaded by the app.
+   ========================================================================== */
+:root {
+    /* A · compact card */
+    --dc-a-col-min:   16.5rem;  /* 264px: 4 across at 1440 (was 3 at 300px + 1.5rem gaps) */
+    --dc-a-h:         6.5rem;   /* 104px fixed card height = art height */
+    --dc-a-art-w:     6.5rem;   /* square art frame, flush left */
+
+    /* B · dense rows */
+    --dc-b-row-h:     2.5rem;   /* 40px: one line per cell, ~16 rows per 1440x900 screen */
+    --dc-b-thumb-w:   3.25rem;  /* 52px, close to Scryfall art_crop ratio at 32px tall */
+    --dc-b-pips-w:    7rem;     /* 5 pips at 18px + gaps */
+    --dc-b-status-w:  7rem;
+    --dc-b-inv-w:     2.5rem;
+
+    /* C · art tile */
+    --dc-c-col-min:   13.25rem; /* 212px: 5 across at 1440 */
+    --dc-c-ratio:     4 / 3;    /* fixed tile shape; art fills it */
+    --dc-c-plate-pad: var(--sp-2) var(--sp-3);
+    --dc-c-zoom:      1.04;     /* art scale on hover / focus */
+    --dc-c-split:     58%;      /* partner diagonal: top edge of the seam */
+
+    /* shared */
+    --dc-gap:         var(--sp-3);
+    --dc-inv-size:    1.75rem;  /* 28px icon button; 32px on touch */
+    --dc-press:       0.985;    /* press scale */
+    --dc-seam:        2px;      /* gutter between partner portraits */
+}
+
+/* --- Mock chrome --------------------------------------------------------- */
+.dc-switch { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4); margin-bottom: var(--sp-6); padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.dc-switch a { color: var(--text-3); font: var(--fw-medium) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; text-decoration: none; }
+.dc-switch a:hover { color: var(--text-1); }
+.dc-switch a[aria-current="page"] { color: var(--signal); box-shadow: inset 0 calc(-1 * var(--indicator)) 0 var(--signal); }
+.dc-toggle { display: inline-flex; align-items: center; gap: var(--sp-2); height: 2rem; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.dc-toggle input { accent-color: var(--signal); }
+.dc-section { margin-bottom: var(--sp-8); }
+.dc-section .hud-section-head { margin-top: 0; }
+.dc-count { order: 3; color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.dc-section .hud-section-head::after { order: 2; }
+.dc-toast { position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: var(--z-toast); padding: var(--sp-2) var(--sp-3); background: var(--surface-3); border: var(--stroke-strong); border-radius: var(--radius-1); color: var(--text-1); font: var(--fs-xs) var(--font-mono); opacity: 0; transform: translateY(var(--sp-2)); transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); pointer-events: none; }
+.dc-toast.is-on { opacity: 1; transform: none; }
+.dc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* --- Shared pieces ------------------------------------------------------- */
+.dc-item { position: relative; min-width: 0; }
+/* Stretched quick-view button: covers the item, sits under the real links. */
+.dc-open { all: unset; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
+.dc-item a, .dc-item .dc-inv { position: relative; z-index: 2; }
+.dc-item:has(.dc-open:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* One art frame per deck, whatever the commander count. Partners split it
+   with a --dc-seam gutter in the page colour so the pair reads as two. */
+.dc-art { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--dc-seam); overflow: hidden; background: var(--surface-0); }
+.dc-art img { display: block; width: 100%; height: 100%; min-width: 0; object-fit: cover; background: var(--surface-2); transition: transform var(--dur-base) var(--ease); }
+.dc-art-none { display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--text-4); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; text-align: center; padding: var(--sp-1); }
+
+.dc-title { margin: 0; color: var(--text-1); font-family: var(--font-card); font-weight: var(--fw-semibold); line-height: var(--lh-tight); text-wrap: pretty; overflow-wrap: break-word; }
+.dc-title a { color: inherit; text-decoration: none; }
+.dc-title a:hover { color: var(--signal-strong); text-decoration: underline; text-decoration-color: currentColor; }
+.dc-clamp2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.dc-cmdr { margin: 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-item:hover .dc-title, .dc-item:has(.dc-open:focus-visible) .dc-title { color: var(--signal-strong); }
+
+.dc-inv { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); flex-shrink: 0; box-sizing: border-box; min-width: var(--dc-inv-size); height: var(--dc-inv-size); padding: 0 var(--sp-1); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); text-decoration: none; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
+.dc-inv:hover { color: var(--signal-strong); border-color: var(--signal-line); background: var(--signal-dim); }
+.dc-inv--text { padding: 0 var(--sp-2); font: var(--fw-medium) var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* --- A · Compact card ---------------------------------------------------- */
+.dc-a-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--dc-a-col-min), 100%), 1fr)); gap: var(--dc-gap); }
+.dc-a { display: grid; grid-template-columns: var(--dc-a-art-w) minmax(0, 1fr); height: var(--dc-a-h); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-2); overflow: hidden; transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.dc-a:hover { border-color: var(--line-strong); }
+.dc-a:active { transform: scale(var(--dc-press)); }
+.dc-a .dc-art { height: 100%; border-right: var(--stroke); }
+.dc-a:hover .dc-art img { transform: scale(var(--dc-c-zoom)); }
+.dc-a-body { display: grid; grid-template-rows: auto auto 1fr; gap: 2px; min-width: 0; padding: var(--sp-2) var(--sp-3); }
+.dc-a .dc-title { font-size: var(--fs-md); }
+.dc-a-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-width: 0; align-self: end; }
+/* Status rides on the art (kit pattern: .hud-art-media .hud-chip), so the
+   meta row only has to fit pips + one icon, even at five colours. */
+.dc-a-media { position: relative; display: block; height: 100%; min-width: 0; border-right: var(--stroke); }
+.dc-a-media .dc-art { border-right: 0; }
+.dc-a-media .hud-chip { position: absolute; left: var(--sp-1); bottom: var(--sp-1); z-index: 1; }
+
+/* --- B · Dense rows ------------------------------------------------------ */
+.dc-b-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin-bottom: var(--sp-6); }
+.dc-b-filter { position: relative; flex: 1 1 18rem; max-width: 28rem; }
+.dc-b-filter input { box-sizing: border-box; width: 100%; height: 2rem; padding: 0 var(--sp-3) 0 var(--sp-3); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-1); font: var(--fs-sm) var(--font-sans); }
+.dc-b-filter input:focus { border-color: var(--signal-line); outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.dc-b-filter .hud-kbd { position: absolute; right: var(--sp-2); top: 50%; transform: translateY(-50%); pointer-events: none; }
+.dc-b-keys { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.dc-b-table { table-layout: fixed; }
+.dc-b-table col.c-art { width: calc(var(--dc-b-thumb-w) + var(--sp-3) * 2); }
+.dc-b-table col.c-name { width: 55%; }
+.dc-b-table col.c-cmdr { width: 45%; }
+.dc-b-table col.c-pips { width: var(--dc-b-pips-w); }
+.dc-b-table col.c-status { width: var(--dc-b-status-w); }
+.dc-b-table col.c-inv { width: var(--dc-b-inv-w); }
+.dc-b-table td { height: var(--dc-b-row-h); }
+.dc-b-table th, .dc-b-table td { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+.dc-b-table th.c-inv, .dc-b-table td.c-inv { padding: 0 var(--sp-2) 0 0; text-align: right; }
+.dc-b-table td.c-cmdr .dc-cmdr { display: block; font-size: var(--fs-sm); color: var(--text-2); }
+.dc-b-cmdr-inline { display: none; }
+.dc-b-table tr.dc-item { position: relative; transition: background-color var(--dur-fast) var(--ease); }
+.dc-b-table tr.dc-item:has(.dc-open:focus-visible) { outline-offset: calc(-1 * var(--hairline)); }
+.dc-b-table tr.dc-item:has(.dc-open:focus-visible) td { background: var(--surface-2); }
+.dc-b-table tr.dc-item:has(.dc-open:focus-visible) td:first-child { box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.dc-b .dc-art { width: var(--dc-b-thumb-w); height: calc(var(--dc-b-row-h) - var(--sp-2)); border: var(--stroke); border-radius: var(--radius-1); }
+.dc-b-name { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.dc-b .dc-title { font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-b-mobile-meta { display: none; }
+
+/* --- C · Art tile -------------------------------------------------------- */
+.dc-c-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--dc-c-col-min), 100%), 1fr)); gap: var(--dc-gap); }
+.dc-c { aspect-ratio: var(--dc-c-ratio); overflow: hidden; background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-2); transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.dc-c:hover { border-color: var(--line-strong); }
+.dc-c:active { transform: scale(var(--dc-press)); }
+.dc-c .dc-art { position: absolute; inset: 0; display: block; background: var(--surface-2); }
+.dc-c .dc-art img { position: absolute; inset: 0; }
+/* Partners: one frame cut on a diagonal instead of two overlapping circles.
+   ::after draws the seam as a --dc-seam strip along the same diagonal. */
+.dc-c .dc-art[data-n="2"] img + img { clip-path: polygon(var(--dc-c-split) 0, 100% 0, 100% 100%, calc(100% - var(--dc-c-split)) 100%); }
+.dc-c .dc-art[data-n="2"]::after { content: ""; position: absolute; inset: 0; z-index: 1; background: var(--surface-0); clip-path: polygon(calc(var(--dc-c-split) - var(--dc-seam)) 0, var(--dc-c-split) 0, calc(100% - var(--dc-c-split)) 100%, calc(100% - var(--dc-c-split) - var(--dc-seam)) 100%); transition: transform var(--dur-base) var(--ease); }
+.dc-c:hover .dc-art[data-n="2"]::after { transform: scale(var(--dc-c-zoom)); }
+.dc-c:hover .dc-art img, .dc-c:has(.dc-open:focus-visible) .dc-art img { transform: scale(var(--dc-c-zoom)); }
+.dc-c-top { position: absolute; top: var(--sp-2); left: var(--sp-2); right: var(--sp-2); z-index: 2; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); pointer-events: none; }
+.dc-c-top .hud-pips { margin-left: auto; padding: 2px; background: var(--scrim); border-radius: var(--radius-1); }
+/* Solid plate (scrim token), not a gradient: legible on any art. */
+.dc-c-plate { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--sp-2); padding: var(--dc-c-plate-pad); background: var(--scrim); border-top: var(--stroke); pointer-events: none; transition: background-color var(--dur-base) var(--ease); }
+.dc-c-plate a, .dc-c-plate .dc-inv { pointer-events: auto; }
+.dc-c-text { min-width: 0; }
+.dc-c .dc-title { font-size: var(--fs-md); }
+.dc-c .dc-cmdr { color: var(--text-2); }
+.dc-c:hover .dc-c-plate { background: var(--surface-1); }
+
+/* --- Quick-view stand-in -------------------------------------------------- */
+.dc-modal { max-width: 40rem; }
+.dc-modal-body { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.dc-modal-art { aspect-ratio: var(--art-ratio); border: var(--stroke); border-radius: var(--radius-2); }
+.dc-modal-title { margin: 0 0 var(--sp-1); font: var(--fw-semibold) var(--fs-lg) var(--font-card); line-height: var(--lh-tight); }
+.dc-modal-title a { color: var(--text-1); text-decoration: none; }
+.dc-modal-cmdr { color: var(--text-3); font-size: var(--fs-sm); }
+.dc-modal-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+
+/* --- Tablet / phone ------------------------------------------------------- */
+@media (max-width: 900px) {
+    :root { --dc-inv-size: 2rem; }
+}
+@media (max-width: 600px) {
+    .hud-page-head h1 { font-size: var(--fs-lg); }
+    .dc-modal-body { grid-template-columns: minmax(0, 1fr); }
+
+    /* A: one column, same 104px card: ~6 decks per phone screen (was ~2).
+       Art keeps its 104px width so the status chip fits on it. */
+
+    /* B: the table becomes a two-line list; status + pips move under the name. */
+    .dc-b-table, .dc-b-table tbody { display: block; }
+    .dc-b-table colgroup, .dc-b-table thead { display: none; }
+    .dc-b-table tr.dc-item { display: grid; grid-template-columns: var(--dc-b-thumb-w) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3); border-bottom: var(--stroke-faint); }
+    .dc-b-table tr.dc-item td { display: block; height: auto; padding: 0; border: 0; }
+    .dc-b-table tr.dc-item td.c-pips, .dc-b-table tr.dc-item td.c-status, .dc-b-table tr.dc-item td.c-cmdr { display: none; }
+    .dc-b-cmdr-inline { display: block; }
+    .dc-b .dc-art { width: var(--dc-b-thumb-w); height: auto; aspect-ratio: var(--art-ratio); }
+    :root { --dc-b-thumb-w: 4rem; }
+    .dc-b-mobile-meta { display: flex; align-items: center; gap: var(--sp-2); margin-top: 2px; }
+
+    /* C: two columns, smaller title. */
+    :root { --dc-c-col-min: 8.5rem; --dc-c-ratio: 3 / 4; --dc-c-plate-pad: var(--sp-2); }
+    .dc-c .dc-title { font-size: var(--fs-sm); }
+    .dc-c-plate { grid-template-columns: minmax(0, 1fr); }
+    .dc-c-plate .dc-inv { display: none; }   /* inventory lives in the quick view on phone */
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dc-item.hud-enter { animation: none !important; }
+    .dc-item, .dc-art img, .dc-c-plate, .dc-toast { transition: none !important; }
+    .dc-a:hover .dc-art img, .dc-c:hover .dc-art img, .dc-c:has(.dc-open:focus-visible) .dc-art img { transform: none; }
+    .dc-a:active, .dc-c:active { transform: none; }
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A · Compact card · Deck list options · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="deck-cards.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="main-content" id="main"></main>
+<script src="../../../static/js/hud.js"></script>
+<script src="data.js"></script>
+<script src="deck-cards.js"></script>
+<script>
+/* Option A: compact card. The same card, with the fat taken out.
+   Square art flush left (one frame for 1 or 2 commanders), title clamped to
+   2 lines, commander on 1 line, one meta row: pips · status · inventory.
+   Fixed height, so every card in a row is the same and nothing is left blank. */
+DC.boot({
+    option: "a",
+    wrap: function (items) { return '<div class="dc-a-grid">' + items + "</div>"; },
+    render: function (d) {
+        return '<article class="dc-item dc-a" title="' + DC.esc(d.name + " · " + DC.cmdrFull(d)) + '">' +
+            '<span class="dc-a-media">' + DC.art(d) + DC.chip(d) + "</span>" +
+            '<div class="dc-a-body">' +
+                '<h3 class="dc-title dc-clamp2">' + DC.titleLink(d) + "</h3>" +
+                '<p class="dc-cmdr">' + DC.esc(DC.cmdrLine(d) || "No commander set") + "</p>" +
+                '<div class="dc-a-meta">' + DC.pips(d) + DC.invLink(d) + "</div>" +
+            "</div>" + DC.openBtn(d) + "</article>";
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Dense rows · Deck list options · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="deck-cards.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="main-content" id="main"></main>
+<script src="../../../static/js/hud.js"></script>
+<script src="data.js"></script>
+<script src="deck-cards.js"></script>
+<script>
+/* Option B: dense rows. The deck list as a HUD table (sortable, filterable,
+   keyboard-first). One 48px row per deck: thumb · title + commander · pips ·
+   status · inventory. The title is one line with an ellipsis (full name in
+   the title attribute). Phone: the same rows as a two-line list. */
+var app = DC.boot({
+    option: "b",
+    flat: true,
+    filterInput: "dcFilter",
+    filter: function () { var el = document.getElementById("dcFilter"); return el ? el.value : ""; },
+    toolbar:
+        '<div class="dc-b-toolbar">' +
+            '<label class="dc-b-filter"><span class="dc-sr">Filter decks</span>' +
+            '<input id="dcFilter" type="search" placeholder="Filter by deck or commander" autocomplete="off"><span class="hud-kbd">/</span></label>' +
+            '<span class="dc-b-keys"><span class="hud-kbd">j</span>/<span class="hud-kbd">k</span> move · <span class="hud-kbd">Enter</span> quick view · <span class="hud-kbd">i</span> inventory</span>' +
+        "</div>",
+    wrap: function (items) {
+        return '<div class="hud-table-wrap"><table class="hud-table dc-b-table" data-hud-sortable>' +
+            '<colgroup><col class="c-art"><col class="c-name"><col class="c-cmdr"><col class="c-pips"><col class="c-status"><col class="c-inv"></colgroup>' +
+            "<thead><tr>" +
+                '<th scope="col"><span class="dc-sr">Art</span></th>' +
+                '<th scope="col" data-sort="text"><button type="button" class="hud-sort">Deck</button></th>' +
+                '<th scope="col" class="c-cmdr" data-sort="text"><button type="button" class="hud-sort">Commander</button></th>' +
+                '<th scope="col" class="c-pips" data-sort="num"><button type="button" class="hud-sort">Colours</button></th>' +
+                '<th scope="col" class="c-status" data-sort="text"><button type="button" class="hud-sort">Status</button></th>' +
+                '<th scope="col" class="c-inv"><span class="dc-sr">Inventory</span></th>' +
+            "</tr></thead><tbody>" + items + "</tbody></table></div>";
+    },
+    render: function (d) {
+        var meta = '<span class="dc-b-mobile-meta">' + DC.pips(d, "sm") + DC.chip(d) + "</span>";
+        return '<tr class="dc-item dc-b" title="' + DC.esc(d.name + " · " + DC.cmdrFull(d)) + '">' +
+            "<td>" + DC.art(d) + "</td>" +
+            '<td data-value="' + DC.esc(d.name.toLowerCase()) + '"><div class="dc-b-name">' +
+                '<h3 class="dc-title">' + DC.titleLink(d) + "</h3>" +
+                '<p class="dc-cmdr dc-b-cmdr-inline">' + DC.esc(DC.cmdrFull(d)) + "</p>" + meta +
+            "</div>" + DC.openBtn(d) + "</td>" +
+            '<td class="c-cmdr" data-value="' + DC.esc(DC.cmdrFull(d).toLowerCase()) + '"><span class="dc-cmdr">' + DC.esc(DC.cmdrFull(d)) + "</span></td>" +
+            '<td class="c-pips" data-value="' + (d.color || "").length + '">' + DC.pips(d) + "</td>" +
+            '<td class="c-status" data-value="' + DC.esc(DC.LABEL[d.status] || "") + '">' + DC.chip(d) + "</td>" +
+            '<td class="c-inv">' + DC.invLink(d) + "</td></tr>";
+    },
+    after: function () { HUD.initSortable(document.getElementById("dcList")); }
+});
+document.getElementById("dcFilter").addEventListener("input", app.rerender);
+</script>
+</body>
+</html>
