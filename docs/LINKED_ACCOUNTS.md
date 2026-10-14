@@ -4,6 +4,14 @@ Commander Lab can sync a user's entire deck collection from Archidekt or
 Moxfield by "linking" that user's provider account via **username**, rather
 than importing decks one at a time by URL/id.
 
+## Where it lives in the UI
+
+The account manager (account list, Link Account form, Sync All, per-account
+sync and unlink) is the **Sync** section of `/settings` (`templates/settings.html`,
+sidebar: Configure → Settings). It used to sit above the deck list on `/decks`.
+The per-deck controls (modal "Sync Sources" editor, per-deck Sync button and
+provider link buttons) stay on `/decks` and the deck pages.
+
 ## Design
 
 - **Username-based linking.** A linked account is just `(provider, username)`.

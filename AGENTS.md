@@ -10,7 +10,7 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 - Containerization: Docker & Docker Compose
 
 ## Repository Structure
-- `app.py`: Core FastAPI application and REST endpoints (`/`, `/decks`, `/inventory`, `/tags`, `/deck/{deck_name}`, `/api/*`).
+- `app.py`: Core FastAPI application and REST endpoints (`/`, `/decks`, `/inventory`, `/tags`, `/settings`, `/deck/{deck_name}`, `/api/*`).
 - `sync.py`: Sync script pulling decks and cards from Archidekt v3 API and Scryfall into Redis.
 - `templates/`: Jinja2 HTML templates (`base.html`, `decks.html`, `deck.html`, `inventory.html`, `tags.html`).
 - `docs/`: Architecture and feature implementation documentation.

@@ -57,6 +57,7 @@ class TestShell(unittest.TestCase):
             "/inventory": ["Inventory"],
             "/changelog": ["Changelog"],
             "/styleguide": ["Styleguide"],
+            "/settings": ["Settings"],
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
