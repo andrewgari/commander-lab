@@ -6,10 +6,9 @@ Bug (t_96b8867c): on /decks the two 160px portraits sat side by side (only
 deck name wrapped every 1-2 letters and the PHYSICAL chip got clipped.
 
 Fix under test:
-- /decks: a deck with 2+ commanders gets `deck-header deck-header--multi`
-  (art row stacked above the text, full width, smaller overlapping
-  portraits). Single-commander decks keep the plain `deck-header`. The
-  inline `margin-left: -64px` is gone; overlap lives in CSS.
+- /decks: every deck is the same art tile (option C, t_bb6c7c79). Two
+  commanders split one frame on a diagonal (no overlapping portraits); a
+  true companion is a small inset. The inline `margin-left: -64px` is gone.
 - shared deck header (every deck tab): both commanders share the one fixed
   art frame (`hud-deckhead-art--multi`), so the title column keeps its width.
 """
@@ -28,6 +27,7 @@ from app import app
 ROOT = Path(__file__).resolve().parent.parent
 DECKS_HTML = ROOT / "templates" / "decks.html"
 HUD_CSS = ROOT / "static" / "css" / "hud.css"
+HUD_JS = ROOT / "static" / "js" / "hud.js"
 
 UID_A = "0a1b2c3d-1111-4222-8333-444455556666"
 UID_B = "9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff"
@@ -65,40 +65,57 @@ class TestDeckListMultiCommander(unittest.TestCase):
     def test_no_inline_portrait_overlap(self):
         self.assertNotIn("margin-left: -64px", self.src)
 
-    def test_card_header_uses_layout_class_helper(self):
-        self.assertIn('<div class="${deckHeaderClass(deck)}">', self.src)
-        self.assertNotIn('<div class="deck-header">', self.src)
-
-    def test_multi_header_css_stacks_art_above_text(self):
-        m = re.search(r"\.deck-header--multi\s*\{([^}]*)\}", self.src)
-        self.assertIsNotNone(m, "missing .deck-header--multi rule")
-        self.assertIn("flex-direction: column", m.group(1))
-        # Smaller rectangular portraits than the single-commander frame, no overlap.
-        self.assertRegex(self.src, r"\.deck-header--multi \.hud-cmdrs\s*\{[^}]*--cmdr-w:")
+    def test_tile_uses_one_art_frame(self):
+        """Option C (t_bb6c7c79): every deck gets the same tile; 1 or 2
+        commanders share one art frame, so there's no second card shape."""
+        self.assertIn("${deckArt(deck)}", self.src)
+        self.assertNotIn("deck-header--multi", self.src)
         self.assertNotIn("commander-icon", self.src)
-        # Chips never wrap/clip; names wrap at word boundaries, not per letter.
-        self.assertRegex(self.src, r"\.deck-status\s*\{[^}]*white-space:\s*nowrap")
-        self.assertRegex(self.src, r"\.deck-header--multi \.deck-name\s*\{[^}]*word-break:\s*normal")
+
+    def test_split_css_is_a_diagonal_not_overlap(self):
+        m = re.search(r"\.deck-art--split img \+ img\s*\{([^}]*)\}", self.src)
+        self.assertIsNotNone(m, "missing partner split rule")
+        self.assertIn("clip-path: polygon(", m.group(1))
+        self.assertRegex(self.src, r"\.deck-art--split::after\s*\{[^}]*clip-path")
+        # Doctor's companion gets the smaller wedge (role sizing).
+        self.assertRegex(self.src, r"\.deck-art--doctors-companion\s*\{[^}]*--tile-split:")
+        # Pips wrap under the chip on narrow tiles instead of clipping.
+        self.assertRegex(self.src, r"\.deck-top\s*\{[^}]*flex-wrap:\s*wrap")
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
-    def test_header_class_for_one_and_two_commanders(self):
-        code = (_js_function(self.src, "commanderCount") + "\n" + _js_function(self.src, "deckHeaderClass") + "\n"
+    def test_deck_art_for_roles(self):
+        hud = HUD_JS.read_text()
+        code = ("global.window = {}; global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []}};\n"
+                + hud + "\nconst HUD = window.HUD;\n"
+                + _js_function(self.src, "deckArtClass") + "\n" + _js_function(self.src, "deckArtImg") + "\n"
+                + _js_function(self.src, "deckArt") + "\n"
                 "const decks = JSON.parse(process.argv[1]);\n"
-                "process.stdout.write(JSON.stringify(decks.map(deckHeaderClass)));")
-        decks = [PARTNER, SOLO,
-                 {"name": "names only", "commanders": ["A", "B"]},
+                "process.stdout.write(JSON.stringify(decks.map(deckArt)));")
+        doctor = dict(PARTNER, commander_roles=[{"name": "The Tenth Doctor", "uid": UID_A, "role": "doctor"},
+                                                {"name": "Rose Tyler", "uid": UID_B, "role": "doctors_companion"}])
+        companion = dict(SOLO, commander_roles=[{"name": "Kaalia of the Vast", "uid": UID_A, "role": "commander"},
+                                                {"name": "Lurrus", "uid": UID_B, "role": "companion"}])
+        decks = [PARTNER, SOLO, doctor, companion,
                  {"name": "one commander, two printings", "commanders": ["A"], "commander_uids": [UID_A, UID_B]},
-                 {"name": "uids only", "commander_uids": [UID_A, UID_B]},
                  {"name": "none"}]
         res = subprocess.run(["node", "-e", code, json.dumps(decks)], capture_output=True, text=True, timeout=30)
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertEqual(json.loads(res.stdout), [
-            "deck-header deck-header--multi", "deck-header",
-            "deck-header deck-header--multi", "deck-header",
-            "deck-header deck-header--multi", "deck-header"])
+        partner, solo, doc, comp, printings, none = json.loads(res.stdout)
+        self.assertIn('class="deck-art deck-art--split"', partner)
+        self.assertEqual(partner.count("<img"), 2)
+        self.assertIn('class="deck-art"', solo)
+        self.assertEqual(solo.count("<img"), 1)
+        self.assertIn("deck-art--split deck-art--doctors-companion", doc)
+        self.assertIn('class="deck-art"', comp)
+        self.assertIn('<div class="deck-companion"', comp)
+        self.assertEqual(printings.count("<img"), 1)
+        self.assertIn("No commander", none)
+        for html in (partner, solo, doc, comp):
+            self.assertIn("cards.scryfall.io/art_crop/", html)
+            self.assertIn("data-fallback=", html)
 
     def test_portraits_come_from_shared_role_helper(self):
-        self.assertIn("HUD.commanders(HUD.commanderRoles(deck))", self.src)
+        self.assertIn("const roles = HUD.commanderRoles(deck);", self.src)
 
 
 class TestDeckHeadMultiCommander(unittest.TestCase):
