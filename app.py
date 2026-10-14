@@ -125,6 +125,12 @@ async def instances_view(request: Request):
     return templates.TemplateResponse(request=request, name="instances.html")
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_view(request: Request):
+    """Settings page. Sync section: linked Archidekt/Moxfield accounts (/api/linked-accounts)."""
+    return templates.TemplateResponse(request=request, name="settings.html")
+
+
 @app.get("/styleguide", response_class=HTMLResponse)
 async def styleguide(request: Request):
     """Living reference for the HUD tokens and component kit (static sample data)."""
