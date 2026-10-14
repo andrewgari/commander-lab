@@ -704,7 +704,7 @@ def ensure_wishlist_instances(r, registry_id: "DeckId", decklist: list) -> list:
     return created
 
 
-def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list) -> dict:
+def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list, alias_ids=None) -> dict:
     """Called when a deck transitions to status="physical". For every card in
     `decklist` (list of {"name", "quantity"}), ensure exactly `quantity`
     instances are bound in_deck to this deck: reuse existing in_collection
@@ -720,6 +720,12 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
     deck_id is treated as an opaque string key end-to-end here (instances.py
     itself never assumes it's numeric).
 
+    `alias_ids` are the deck's other deck_id spellings (registry.deck_instance_ids:
+    the raw id and the "source:source_id" registry id). Copies already bound
+    under any alias count toward `quantity`, so a deck whose cards were bound
+    by the manual add-card path (registry id) isn't given duplicates under
+    the raw id.
+
     Returns a report: {"card_name": {"bound": n, "created": n}, ...} plus a
     top-level "shortfalls": [{"card_name", "missing"}] for cards where even
     after creating new in_collection instances we still could not reach the
@@ -734,8 +740,10 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
         if not card_name or quantity <= 0:
             continue
 
+        bind_ids = [deck_registry_id] + [a for a in (alias_ids or []) if str(a) != str(deck_registry_id)]
         already_bound = [
-            inst for inst in list_instances(r, card_name=card_name, deck_id=deck_registry_id)
+            inst for did in bind_ids
+            for inst in list_instances(r, card_name=card_name, deck_id=did)
             if inst.get("ownership_status") == "in_deck"
         ]
         bound_count = len(already_bound)

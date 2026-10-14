@@ -70,6 +70,7 @@
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
         {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>{% endcall %}
+        {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
     </aside>
 
     <div class="deck-hero-main">
@@ -209,6 +210,7 @@
                 buildFooterLinks(currentDeck);
             } else {
                 document.getElementById('deckStatus').innerHTML = HUD.chip('Not synced', 'neutral', true);
+                document.getElementById('deckStatusField').innerHTML = '<span class="hud-muted">No deck metadata.</span>';
                 document.getElementById('footerLinks').innerHTML = '<span class="hud-muted">No deck metadata.</span>';
             }
             renderCommanders();
@@ -228,6 +230,12 @@
         const folder = deck.folder || 'Loose Decks';
         document.getElementById('deckColors').innerHTML = HUD.pips(deck.color === 'C' ? '' : (deck.color || ''));
         document.getElementById('deckStatus').innerHTML = HUD.statusChip(deck.status || 'physical');
+        // Status control: locked for physical decks (Archidekt folder), else Virtual/WIP/Retired.
+        const statusField = document.getElementById('deckStatusField');
+        statusField.innerHTML = HUD.deckStatusControl(deck, { id: 'deckStatusSelect' });
+        HUD.bindDeckStatus(statusField, deck, d => {
+            document.getElementById('deckStatus').innerHTML = HUD.statusChip(d.status);
+        });
         document.getElementById('deckFolder').textContent = folder;
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 

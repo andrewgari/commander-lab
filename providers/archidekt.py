@@ -36,6 +36,11 @@ class ArchidektUserNotFound(ValueError):
     """Raised when an Archidekt username has no matching account."""
 
 
+# folder id -> display name, learned from list rows (the detail endpoint only
+# returns the folder id). Display only: the physical rule uses the id.
+_FOLDER_NAMES: dict = {}
+
+
 def list_decks(username: str) -> list:
     """Return every Archidekt deck id owned by `username`.
 
@@ -67,7 +72,10 @@ def list_decks(username: str) -> list:
         res = requests.get(url, params=params, timeout=20)
         res.raise_for_status()
         data = res.json()
-        deck_ids.extend(str(d["id"]) for d in data.get("results", []))
+        for d in data.get("results", []):
+            deck_ids.append(str(d["id"]))
+            if d.get("parentFolderId") is not None and d.get("parentFolderName"):
+                _FOLDER_NAMES[d["parentFolderId"]] = d["parentFolderName"]
         url = data.get("next")
         params = None  # `next` is already a fully-qualified URL with querystring
 
@@ -107,6 +115,15 @@ def fetch_deck(identifier: str) -> dict:
 
     color_code = "".join(c for c in _WUBRG_ORDER if c in color_letters) or "C"
 
+    # Folder data for the physical-folder rule (registry.apply_folder_rule).
+    # The detail endpoint calls it parentFolder; list rows call it parentFolderId.
+    parent = data.get("parentFolderId", data.get("parentFolder"))
+    folder_name = data.get("parentFolderName")
+    if isinstance(parent, dict):
+        folder_name = folder_name or parent.get("name")
+        parent = parent.get("id")
+    folder_name = folder_name or _FOLDER_NAMES.get(parent)
+
     return {
         "source": "archidekt",
         "source_id": deck_id,
@@ -114,8 +131,10 @@ def fetch_deck(identifier: str) -> dict:
         "color": color_code,
         "commanders": commanders,
         "commander_uids": commander_uids,
-        "folder": "Imported",
+        "folder": folder_name or "Imported",
         "description": data.get("description", ""),
         "cards": cards,
         "url": f"https://archidekt.com/decks/{deck_id}",
+        "parent_folder_id": parent,
+        "theorycrafted": bool(data.get("theorycrafted")),
     }

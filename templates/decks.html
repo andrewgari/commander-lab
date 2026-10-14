@@ -843,15 +843,7 @@
             <p style="display: flex; align-items: center;"><strong>Color:</strong> <span id="modalColors"></span></p>
             <p><strong>Folder:</strong> <span id="modalFolderName"></span></p>
             
-            <div style="margin-top: 1rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
-                <strong>Status:</strong>
-                <select id="modalDeckStatus" onchange="updateDeckStatus(this.value)" style="width: auto; min-width: 120px; padding: 0.4rem;">
-                    <option value="physical">Physical</option>
-                    <option value="digital">Digital</option>
-                    <option value="retired">Retired</option>
-                    <option value="testing">Testing</option>
-                </select>
-            </div>
+            <div id="modalDeckStatusField" style="margin-top: 1rem; margin-bottom: 2rem;"></div>
             
             <hr style="border-color: #333; margin: 0.8rem 0; width: 100%;">
 
@@ -1374,8 +1366,10 @@
         document.getElementById('modalColors').innerHTML = createColorPips(deck.color);
         document.getElementById('modalFolderName').textContent = deck.folder || 'Uncategorized';
         
-        const statusSelect = document.getElementById('modalDeckStatus');
-        statusSelect.value = deck.status || 'testing';
+        // Status: locked (disabled + note) for physical decks; Virtual/WIP/Retired otherwise.
+        const statusField = document.getElementById('modalDeckStatusField');
+        statusField.innerHTML = HUD.deckStatusControl(deck, { id: 'modalDeckStatus' });
+        HUD.bindDeckStatus(statusField, deck, () => renderDecks());
         
         // Build Links
         const linksContainer = document.getElementById('modalLinksContainer');
@@ -1505,26 +1499,6 @@
         }
     }
     
-    async function updateDeckStatus(newStatus) {
-        if (currentDeckIndex === -1) return;
-        const deck = allDecks[currentDeckIndex];
-        deck.status = newStatus;
-        
-        try {
-            const res = await fetch(`/api/decks/${deck.id}/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            });
-            const data = await res.json();
-            if (data.success) {
-                renderDecks();
-            }
-        } catch (err) {
-            console.error("Failed to update status", err);
-        }
-    }
-    
     async function saveDeckLink(provider) {
         if (currentDeckIndex === -1) return;
         const deck = allDecks[currentDeckIndex];
@@ -1602,6 +1576,9 @@
 
     // Deck group from /decks?status=<value> (validated server-side; null = all).
     const STATUS_FILTER = {{ status_filter | tojson }};
+    // Status value -> label (values stay physical/digital/testing/retired).
+    const DECK_GROUP_LABELS = Object.fromEntries({{ deck_groups | tojson }}.map(g => [g.status, g.label]));
+    const STATUS_LABELS = { physical: 'Physical', digital: 'Virtual', testing: 'WIP', retired: 'Retired' };
 
     function renderDecks() {
         const container = document.getElementById('decksContainer');
@@ -1642,8 +1619,8 @@
             const decks = statuses[statusName];
             const safeId = statusName.replace(/[^a-zA-Z0-9]/g, '-');
             
-            // Capitalize for display
-            const displayTitle = statusName.charAt(0).toUpperCase() + statusName.slice(1) + ' Decks';
+            // Group label from DECK_GROUPS (Physical / Virtual / WIP / Retired Decks).
+            const displayTitle = (DECK_GROUP_LABELS[statusName] || (statusName.charAt(0).toUpperCase() + statusName.slice(1) + ' Decks'));
             
             const section = document.createElement('div');
             section.className = 'folder-section';
@@ -1682,7 +1659,7 @@
                             <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
                             <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
                             <div class="deck-status-row">
-                                <span class="deck-status status-${deck.status || 'digital'}">${deck.status || 'Digital'}</span>
+                                <span class="deck-status status-${deck.status || 'digital'}">${STATUS_LABELS[deck.status] || 'Virtual'}</span>
                                 ${renderRepoBadge(deck)}
                             </div>
                         </div>

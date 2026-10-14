@@ -23,6 +23,8 @@ services:
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
       - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}
+      # Archidekt folder whose decks are Physical (locked). See docs/PHYSICAL_FOLDER_LOCK.md.
+      - ARCHIDEKT_PHYSICAL_FOLDER_ID=${ARCHIDEKT_PHYSICAL_FOLDER_ID:-588380}
       # LLM keys for the interaction-graph tagger. Either set them on the
       # Portainer stack, or drop one file per key (GOOGLE_API_KEY, NOUS_API_KEY)
       # into the root-only secrets dir mounted below. See docs/GITOPS.md.

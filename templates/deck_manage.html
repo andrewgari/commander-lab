@@ -581,6 +581,7 @@
                         <div>
                             <strong>${escapeHtml(inst.card_name)}</strong>
                             <span style="color: var(--text-muted); font-size: 0.8rem;">(${escapeHtml(inst.set_name || inst.set || '')})</span>
+                            ${(inst.pending_removal && inst.pending_removal.reason === 'left_physical_folder') ? '<span style="color: var(--text-muted); font-size: 0.8rem;"> · deck left the Archidekt Commander Decks folder</span>' : ''}
                         </div>
                         <div class="review-actions">
                             <button class="btn btn-review-keep" onclick="resolveReview('${escapeAttr(inst.id)}', 'keep')">Keep</button>
