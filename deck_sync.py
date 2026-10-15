@@ -101,13 +101,16 @@ def merge_normalized_decks(fetched: dict) -> tuple:
     conflicts) where conflicts is a list[CardConflict].
 
     Merge strategy: union of card names; quantity = max across sources.
-    Commanders/commander_uids: union, first-seen order, Archidekt before
+    commander_uids: index-aligned with commanders (one printing per name,
+    first source wins); empty when any commander has no pairable printing.
+    Commanders: union, first-seen order, Archidekt before
     Moxfield when both list a deck (dict iteration order follows the
     providers.PROVIDERS/SYNCABLE_PROVIDERS declaration order upstream).
     Color: union of every WUBRG letter seen across sources, "C" if none.
     """
     quantities_by_card = {}  # card_name -> {provider: qty}
     commanders, commander_uids = [], []
+    uid_by_name, loose_uids = {}, []
     color_letters = set()
 
     for provider_name, normalized in fetched.items():
@@ -118,16 +121,33 @@ def merge_normalized_decks(fetched: dict) -> tuple:
             qty = card.get("quantity", 1)
             quantities_by_card.setdefault(name, {})[provider_name] = qty
 
-        for commander_name in normalized.get("commanders", []) or []:
+        names = normalized.get("commanders", []) or []
+        uids = normalized.get("commander_uids", []) or []
+        for commander_name in names:
             if commander_name not in commanders:
                 commanders.append(commander_name)
-        for uid in normalized.get("commander_uids", []) or []:
-            if uid not in commander_uids:
-                commander_uids.append(uid)
+        # Providers list names and uids in parallel; pair them only when the
+        # lengths agree, so a printing never lands on the wrong commander.
+        if len(names) == len(uids):
+            for commander_name, uid in zip(names, uids):
+                if uid:
+                    uid_by_name.setdefault(commander_name, uid)
+        for uid in uids:
+            if uid and uid not in loose_uids:
+                loose_uids.append(uid)
 
         for letter in normalized.get("color", "") or "":
             if letter != "C":
                 color_letters.add(letter)
+
+    # commander_uids stays index-aligned with commanders: one printing per
+    # name, first source wins. If any commander's printing can't be paired,
+    # drop the uids so views fall back to name-based images, never mis-pair.
+    if commanders:
+        if all(n in uid_by_name for n in commanders):
+            commander_uids = [uid_by_name[n] for n in commanders]
+    else:
+        commander_uids = loose_uids
 
     cards = []
     conflicts = []
