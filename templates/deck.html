@@ -288,7 +288,8 @@
                     const img = HUD.scryfall(p.uid, 'large');
                     html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
                 }
-                if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media">' + HUD.chip(r.type_label || 'Commander', 'neutral', false));
+                // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.
+                if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media"><span class="hud-cmdr-badge">' + esc(r.type_label || 'Commander') + '</span>');
                 const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
                 return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}${r.can_be_commander ? ' is-cbc' : ''}">${tag}${html}</div>`;
             }).join('');
