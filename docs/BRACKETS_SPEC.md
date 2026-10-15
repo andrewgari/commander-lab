@@ -199,6 +199,77 @@ note warns the minimum may be higher. 3+ extra-turn cards with no loop add a
 judgement). `check_deck_brackets_live(r, deck)` gathers the live inputs
 (Game Changers, cached Spellbook combos, the tagger's cached oracle text).
 
+## Bracket evaluator (BR-4)
+
+`analytics/bracket_eval.py`: `evaluate_bracket(deck, journal, metadata) ->
+BracketEvaluation` (pydantic). Pure and deterministic, no LLM, no network.
+`evaluate_bracket_live(r, deck)` gathers the inputs for one deck (BR-3 live
+findings, stored journal, engine power estimate, prices, EDHREC, Commander
+Salt if it has ingested the deck); any input that fails is left out.
+
+Inputs. `journal`: `target_bracket`, `target_power_level.scale`, `pet_cards`,
+`novelties`, `deck_vision.description` (None = no journal). `metadata` (all
+optional): `findings` (BR-3; computed from `game_changers` / `combos` /
+`oracle` if absent), `commandersalt` (`MetaScores` or `{power, salt,
+bracket_rating}`), `power_estimate` (engine playfeel estimate), `edhrec`
+(`deck_inclusion()`), `price`, `tags`.
+
+### Signal -> bracket
+
+| Signal | Source | Effect on estimated bracket |
+|--------|--------|-----------------------------|
+| BR-3 hard floors (Game Changers, MLD, extra turns, two-card combos) | BR-3 data | `minimum_bracket` = highest floor; the estimate never goes below it |
+| Minimum 1 | spec ("Exhibition is the user's call") | shown as 2 unless the journal targets 1 |
+| Commander Salt power | Commander Salt | `bracket_for_power(power)`; raises the estimate if higher (never lowers) |
+| Our engine power estimate | `analytics/engine.py` | none (the heuristic starts every deck at 6.0) |
+| Tutors, Commander Salt `bracket_rating` and salt, EDHREC overlap, price, tags | various | none: context in the explanation only |
+
+`estimated_bracket` is capped at 4: 4 vs 5 is intent, so 5 is never estimated.
+
+Power bands (`POWER_BANDS`, inclusive, community convention): 1: 1-4, 2: 4-6,
+3: 6-8, 4: 8-10, 5: 9-10. `bracket_for_power` = lowest of 1-4 whose band
+reaches the power.
+
+### Signal -> power level (1-10)
+
+1. Commander Salt power if present (`power_source: commandersalt`).
+2. Else our engine estimate, clamped into the estimated bracket's band
+   (`our_estimate`).
+3. Else the midpoint of the estimated bracket's band (`bracket_band`).
+
+`power_delta` = estimated - journal target power; `power_aligned` =
+`|delta| <= engine.POWER_ALIGN_TOLERANCE` (1.5, the same constant
+`engine.power_aligned` uses).
+
+### Conflicts `{severity, rule, message, cards}`
+
+Only when `target_bracket` is set (otherwise `no_target: true`, `aligned:
+null`, no bracket conflicts), except `power_target`, which needs only a target
+power.
+
+| Rule | Severity | When |
+|------|----------|------|
+| `game_changers` / `mass_land_denial` / `extra_turns` / `two_card_combos` | hard | the BR-3 floor for that rule is above the target |
+| `pet_card` | advisory | a journal pet card is one of the cards behind a hard conflict; worded as "your call" |
+| `journal_card` | advisory | same, for a card named in novelties / deck vision |
+| `bracket_mismatch` | advisory | `estimated_bracket != target_bracket`: "plays above target" / "plays below target" (target 5: "we never estimate Bracket 5") |
+| `power_band` | advisory | Commander Salt power is outside the target bracket's band |
+| `power_target` | advisory | `|estimated power - target power| > POWER_ALIGN_TOLERANCE` |
+
+`aligned` = estimated == target and no hard conflict.
+
+### Explanation
+
+`explanation.signals`: ordered list of `{signal, value, effect, source}`:
+hard floors (highest first), the hard rules with no floor, tutors, the
+Exhibition rule, Commander Salt power, our power estimate (or the band
+fallback), then context (Commander Salt bracket rating and salt, EDHREC
+overlap, price, tags). `explanation.summary` is one plain paragraph, e.g.
+"1 Game Changer (Thassa's Oracle) + 3 two-card combos (...) + extra-turn loop
+(...) -> Bracket 4 (Optimized). Commander Salt power 7.8 -> power 7.8/10 vs
+target 7. Commander Salt salt 42.5; ...; deck price $1,234.50. Target
+Bracket 3: 2 hard conflicts, 1 advisory."
+
 ## The BR chain
 
 | Card | Scope |
@@ -206,7 +277,7 @@ judgement). `check_deck_brackets_live(r, deck)` gathers the live inputs
 | BR-1 | This spec, `analytics/brackets.py` table + helpers, Game Changers from Scryfall with cache and snapshot, `/api/brackets`. |
 | BR-2 | Hard-check data: mass-land-denial and extra-turn card lists (Scryfall queries + curated overrides, snapshot like BR-1), with "chained/looped" detection rules. |
 | BR-3 | Shipped as the deterministic deck check (`analytics/bracket_check.py`): Game Changers, mass land denial and extra-turn lists (Tagger snapshot + overrides), Spellbook two-card combos by tag, tutors (advisory), `minimum_bracket` with per-floor cards. Covers what BR-2/BR-4 described for data and evaluation. |
-| BR-4 | Deterministic evaluator: deck -> per-constraint floors with the cards that caused them, computed minimum bracket. Pure function over the BR-1..3 data, fully unit tested. |
+| BR-4 | Shipped as the evaluator (`analytics/bracket_eval.py`, section below): BR-3 findings + journal targets + Commander Salt / our power estimate / EDHREC / price -> estimated bracket and power level, hard vs advisory conflicts, ordered explanation. |
 | BR-5 | Advisory signals next to it: tutors, Commander Salt `bracket_rating`, Spellbook estimate, turn expectation vs the deck's speed; plus the user's declared bracket per deck (stored, with "not intentional" overrides). Advisory never changes the BR-4 number. |
 | BR-6 | API + deck page / decks list: bracket badge next to the 1-10 power level, with the floors and advisories on hover/expand. |
 | BR-7 | "To reach bracket N, cut these" suggestions and Tuner integration (a target bracket constrains suggested adds). |
