@@ -98,6 +98,18 @@ class TestAssignRoles(unittest.TestCase):
     def test_true_companion(self):
         self.assertEqual(roles(KERUGA, HELGA), ["companion", "commander"])
         self.assertEqual(roles(HELGA, KERUGA), ["commander", "companion"])
+        # Two Companion-capable cards (Jegantha + Keruga): never partners.
+        JEGANTHA = {"type_line": "Legendary Creature \u2014 Elemental Elk", "keywords": ["Companion"],
+                    "oracle_text": "Companion \u2014 No card in your starting deck has more than one of the same mana symbol in its mana cost.\n"
+                                   "This spell costs {1} less to cast for each of its mana symbols."}
+        self.assertEqual(roles(JEGANTHA, KERUGA), ["commander", "commander"])
+        # The mainboard decides: the one outside the 100 is the chosen companion.
+        self.assertEqual([r for r, _ in cr.assign_roles([JEGANTHA, KERUGA], [False, True])], ["commander", "companion"])
+        deck = {"commanders": ["Keruga, the Macrosage", "Jegantha, the Wellspring"],
+                "cards": [{"name": "Jegantha, the Wellspring", "quantity": 1}, {"name": "Forest", "quantity": 30}]}
+        rows = cr.deck_commanders(deck, {"Keruga, the Macrosage": KERUGA, "Jegantha, the Wellspring": JEGANTHA})
+        self.assertEqual([(r["name"], r["role"]) for r in rows],
+                         [("Jegantha, the Wellspring", "commander"), ("Keruga, the Macrosage", "companion")])
         # Keruga alone is just the commander.
         self.assertEqual(roles(KERUGA), ["commander"])
 
@@ -302,6 +314,9 @@ class TestNoRoundCommanderArt(unittest.TestCase):
                 "currentDeck = {commander_roles: roles}; inventoryCards = [{name:'Rose Tyler', is_commander:true}];\n"
                 "renderCommanders(); out.mixed = els.commanderShowcase.innerHTML;\n"
                 "inventoryCards = []; renderCommanders(); out.none = els.commanderShowcase.innerHTML;\n"
+                "currentDeck = {commander_roles: [{name:'Shorikai',uid:'s',role:'commander',can_be_commander:true,type_label:'Vehicle'}]};\n"
+                "inventoryCards = [{name:'Shorikai', is_commander:true, is_core:true}];\n"
+                "renderCommanders(); out.cbc = els.commanderShowcase.innerHTML;\n"
                 "process.stdout.write(JSON.stringify(out));")
         res = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
         self.assertEqual(res.returncode, 0, res.stderr)
@@ -311,6 +326,9 @@ class TestNoRoundCommanderArt(unittest.TestCase):
         # No inventory rows at all: both portraits from Scryfall, no empty state.
         self.assertNotIn("hud-empty", out["none"])
         self.assertEqual(out["none"].count("deck-cmdr deck-cmdr--"), 2)
+        # Type label uses the bottom-left badge, not a second top-left chip.
+        self.assertIn('<span class="hud-cmdr-badge">Vehicle</span>', out["cbc"])
+        self.assertNotIn(">Vehicle</span></span>", out["cbc"].replace('<span class="hud-cmdr-badge">Vehicle</span>', ""))
 
     def test_no_round_portraits(self):
         decks = (ROOT / "templates" / "decks.html").read_text()

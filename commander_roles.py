@@ -68,17 +68,25 @@ def card_flags(card):
     }
 
 
-def assign_roles(cards):
-    """cards: [card dict or None] in deck order -> [(role, flags)] same order."""
+def assign_roles(cards, outside=None):
+    """cards: [card dict or None] in deck order -> [(role, flags)] same order.
+    outside: optional [bool] per card, True when the card is not in the
+    deck's mainboard (a chosen companion sits outside the 100)."""
     flags = [card_flags(c) for c in cards]
     roles = ["commander"] * len(cards)
     if len(cards) < 2:
         return list(zip(roles, flags))
     # A true companion only when someone else is the commander.
     comp = [i for i, f in enumerate(flags) if f["companion"]]
-    if len(comp) < len(cards):
-        for i in comp:
-            roles[i] = "companion"
+    if comp and len(comp) == len(cards):
+        # Every card has Companion (Jegantha + Keruga): only the mainboard
+        # tells which one is chosen. Undecidable -> plain commanders, no
+        # partner claim.
+        comp = [i for i in comp if outside and outside[i]]
+        if not comp or len(comp) == len(cards):
+            return list(zip(roles, flags))
+    for i in comp:
+        roles[i] = "companion"
     main = [i for i in range(len(cards)) if roles[i] != "companion"]
     if len(main) >= 2:
         doctors = [i for i in main if flags[i]["doctor"]]
@@ -168,7 +176,9 @@ def deck_commanders(deck, cards):
     if not names:
         names = [""] * min(len(uids), 2)
     rows = []
-    for i, (role, f) in enumerate(assign_roles([cards.get(n) for n in names])):
+    board = {c.get("name") for c in deck.get("cards") or [] if isinstance(c, dict)}
+    outside = [bool(board) and n not in board for n in names]
+    for i, (role, f) in enumerate(assign_roles([cards.get(n) for n in names], outside)):
         rows.append({"name": names[i], "uid": uids[i] if i < len(uids) else None, "role": role,
                      "can_be_commander": f["can_be_commander"], "type_label": f["type_label"]})
     rows.sort(key=lambda c: _ORDER[c["role"]])  # stable: partners keep deck order
