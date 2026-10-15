@@ -180,13 +180,35 @@ class TestLoadCards(unittest.TestCase):
         # A complete cached Scryfall type line wins over the partial metadata.
         r = FakeRedis({
             "card_meta:Golem Lord": json.dumps(dict(meta, keywords=["Flying"])),
-            "card_interactions:Golem Lord": json.dumps({"card": {"type_line": "Legendary Artifact Creature \u2014 Construct",
-                                                                 "oracle_text": "Flying"}}),
+            "card_interactions:Golem Lord": json.dumps({"oracle_id": "oid-g", "card": {
+                "type_line": "Legendary Artifact Creature \u2014 Construct", "oracle_text": "Flying"}}),
         })
         card = cr.load_cards(r, ["Golem Lord"])["Golem Lord"]
         self.assertEqual(card["type_line"], "Legendary Artifact Creature \u2014 Construct")
         self.assertEqual(card["keywords"], ["Flying"])
         self.assertFalse(cr.card_flags(card)["can_be_commander"])
+
+    def test_interaction_metadata_fallback_does_not_override(self):
+        # tagger._card_meta_fallback caches oracle_id null + a type line without subtypes.
+        def fb(name, meta):
+            return json.dumps({"oracle_id": None, "card": {"type_line": " ".join(meta["super_types"] + [meta["type"]]),
+                                                           "oracle_text": meta.get("oracle_text", "")}})
+        doc = {"type": "Creature", "super_types": ["Legendary"], "sub_types": ["Time Lord", "Doctor"], "oracle_text": ""}
+        rose = {"type": "Creature", "super_types": ["Legendary"], "sub_types": ["Human"],
+                "keywords": ["Doctor's companion"], "oracle_text": ROSE["oracle_text"]}
+        golem = {"type": "Artifact", "super_types": ["Legendary"], "sub_types": ["Construct"], "oracle_text": "Flying"}
+        r = FakeRedis({"card_meta:The Tenth Doctor": json.dumps(doc), "card_interactions:The Tenth Doctor": fb("d", doc),
+                       "card_meta:Rose Tyler": json.dumps(rose), "card_interactions:Rose Tyler": fb("r", rose),
+                       "card_interactions:Golem Lord": fb("g", golem)})
+        cards = cr.load_cards(r, ["The Tenth Doctor", "Rose Tyler", "Golem Lord"])
+        rows = cr.deck_commanders({"commanders": ["Rose Tyler", "The Tenth Doctor"]}, cards)
+        self.assertEqual([(c["name"], c["role"]) for c in rows],
+                         [("The Tenth Doctor", "doctor"), ("Rose Tyler", "doctors_companion")])
+        # No metadata, only the fallback cache: used, but partial -> no Artifact badge.
+        self.assertTrue(cards["Golem Lord"]["type_partial"])
+        f = cr.card_flags(cards["Golem Lord"])
+        self.assertFalse(f["can_be_commander"])
+        self.assertIsNone(f["type_label"])
 
 
 UID_H, UID_K = "768ef947-85fc-4fb2-bda9-e0e446cd8886", "814cd870-a4da-4987-a69b-5ba6cee136c1"
