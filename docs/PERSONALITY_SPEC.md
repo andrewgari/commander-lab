@@ -579,7 +579,7 @@ names quoted and cut at 34 characters on a word boundary.
 | `average_vs_count` | the highest-average axis isn't the most common lean | sort axis |
 | `none` / `rarest_lean` | axes no deck leans ("0 / 6 decks lean Johnny or Melvin"); if every axis has one, the rarest lean when it's below the top | sort / filter axis |
 | `balanced_count` | some decks are balanced | filter balanced |
-| `outlier` (≤ 2, different decks) | deck score ≥ 70 and ≥ 30 above the axis average, biggest gap first | open deck |
-| `group` | ≥ 2 tribal (or universe) decks and ≥ 1 other; the axis whose group average beats the rest by most, if by ≥ 10 ("your Vorthos is highest in tribal decks") | filter group |
+| `outlier` (≤ 2, different decks and axes) | deck score ≥ 70 and ≥ 30 above the axis average, biggest gap first; "ties N others as your most X deck" when the top score is shared | open deck |
+| `group` (one per axis) | ≥ 2 tribal (or universe) decks and ≥ 1 other; the axis whose group average beats the rest by most, if by ≥ 10 ("your Vorthos is highest in tribal decks") | filter group |
 | `spread` | widest axis range ≥ 40 whose extreme decks aren't already named for that axis | sort axis |
-| `journal_coverage` | always: decks with a journal | filter no_journal |
+| `journal_coverage` | always, and always kept when the 8-cap trims | filter no_journal |

@@ -271,6 +271,38 @@ class Trends(unittest.TestCase):
         self.assertNotIn("average_vs_count", kinds(p))
 
 
+class LiveRegressions(unittest.TestCase):
+    """Found on the live 39-deck profile after deploy (v0.4.40)."""
+
+    def rows(self):
+        # two decks tie at Vorthos 96 (both tribal), plus tribal+universe decks also high on Vorthos
+        rows = [entry(1, "Critically Acclaimed Commander", scores(30, 30, 30, 96, 30, v1="type Bat 20/25; set X 5/50")),
+                entry(2, "Everything is permitted.", scores(30, 30, 30, 96, 30, v1="type Assassin 20/25; set ACR 40/55")),
+                entry(3, "Celes", scores(30, 40, 90, 10, 30)),
+                entry(4, "Tribal Three", scores(40, 30, 30, 70, 30, v1="type Elf 20/25; set Y 30/55")),
+                entry(5, "Universe Two", scores(40, 30, 30, 75, 30, v1="type None 0/0; set WHO 41/55"))]
+        rows += [entry(10 + i, f"Plain {i}", scores(50 + i, 40, 40, 10, 20 + i * 10)) for i in range(5)]
+        rows.append(entry(30, "Bal", scores(39, 70, 65, 63, 31)))
+        return rows
+
+    def test_tied_outliers_not_both_called_most(self):
+        p = pp.build_player_profile(self.rows())
+        outs = [t for t in p.trends if t.kind == "outlier"]
+        self.assertEqual(len({t.axis for t in outs}), len(outs), "one outlier per axis")
+        v = next(t for t in outs if t.axis == "vorthos")
+        self.assertIn("ties 1 other", v.text)
+
+    def test_one_group_callout_per_axis(self):
+        p = pp.build_player_profile(self.rows())
+        groups = [t for t in p.trends if t.kind == "group"]
+        self.assertEqual(len({t.axis for t in groups}), len(groups))
+
+    def test_journal_coverage_survives_the_cap(self):
+        p = pp.build_player_profile(self.rows())
+        self.assertLessEqual(len(p.trends), 8)
+        self.assertEqual(p.trends[-1].kind, "journal_coverage")
+
+
 class Scope(unittest.TestCase):
     def test_scope_filter_physical(self):
         rows = REAL + [entry(77, "Draft", scores(10, 90, 10, 10, 10), status="testing")]
