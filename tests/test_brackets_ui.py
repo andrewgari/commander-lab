@@ -62,6 +62,13 @@ def _scenarios():
         "running": _api(evaluate(gc3, jr(bracket=1, power=3), power_estimate=6.5), stale=True),
         "failed": _api(evaluate(gc3, jr(bracket=3, power=7), power_estimate=7.0), status="error",
                        error="Commander Spellbook timed out", error_at="2026-10-15T10:05:00+00:00"),
+        # Failed after a change: the API keeps the old result, stale=True, pending=False.
+        "failed_stale": _api(evaluate(gc3, jr(bracket=3, power=7), power_estimate=7.0), status="error", stale=True,
+                             error="boom", error_at="2026-10-15T10:05:00+00:00"),
+        "failed_queued": _api(evaluate(gc3, jr(bracket=3, power=7), power_estimate=7.0), status="error", stale=True,
+                              pending=True, error="boom", error_at="2026-10-15T10:05:00+00:00"),
+        # 4 GCs at target 3: Upgraded allows 3, so "not allowed" would contradict the definition.
+        "gc4_t3": _api(evaluate(load("gc_heavy")[0], jr(bracket=3, power=7), power_estimate=7.0)),
         # power_target threshold (engine.POWER_ALIGN_TOLERANCE = 1.5): 7.5 vs 6 inside, 7.6 vs 6 outside.
         "pw_in": _api(evaluate(spicy, jr(bracket=3, power=6), combos=spicy_combos, power_estimate=7.5)),
         "pw_out": _api(evaluate(spicy, jr(bracket=3, power=6), combos=spicy_combos, power_estimate=7.6)),
@@ -105,7 +112,7 @@ out.unavailable = { state: B.state(null, 503), banner: B.banner(null, 503, opts)
 out.copy = [1, 2, 3, 4, 5].map(n => B.COPY[n]);
 out.defs = [null, 1, 2, 3, 4, 5].map(n => B.definition(n));
 out.warn = { b1: B.belowFloor(1, S.b1.evaluation), b3: B.belowFloor(3, S.b1.evaluation), off: B.belowFloor(null, S.b1.evaluation),
-             noEval: B.belowFloor(1, null) };
+             noEval: B.belowFloor(1, null), gc4t3: B.belowFloor(3, S.gc4_t3.evaluation) };
 out.xss = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
   conflicts: [{ severity: 'hard', rule: 'game_changers', message: '<img src=x onerror=1>', cards: ['<b>x</b>'] }] }) }, 200, opts);
 process.stdout.write(JSON.stringify(out));
@@ -232,6 +239,17 @@ process.stdout.write(JSON.stringify(out));
         self.assertIn("data-bracket-evaluate", e["banner"])
         self.assertIn("unavailable", self.out["unavailable"]["banner"].lower())
 
+    def test_a_failure_after_a_change_is_not_shown_as_re_evaluating(self):
+        # Copilot on PR #104: status=error + stale=true + pending=false is final
+        # until the next change or a retry; "Re-evaluating" would never clear.
+        s = self.sc["failed_stale"]
+        self.assertEqual(s["state"], "ok")
+        self.assertNotIn("aria-busy", s["banner"])
+        self.assertNotIn("Re-evaluating", s["banner"])
+        self.assertIn("Last check failed", s["banner"])
+        self.assertIn("data-bracket-evaluate", s["banner"])
+        self.assertEqual(self.sc["failed_queued"]["state"], "running")
+
     # ---- power advisory threshold (engine.POWER_ALIGN_TOLERANCE) ------------------
     def test_power_target_inside_threshold_is_quiet(self):
         s = self.sc["pw_in"]
@@ -287,6 +305,11 @@ process.stdout.write(JSON.stringify(out));
         self.assertIn("Game Changers", w["b1"])
         self.assertIn("Exhibition", w["b1"])
         self.assertIn("Saving will flag it on the deck page", w["b1"])
+        self.assertNotIn("aren't allowed", w["b1"])
+        self.assertIn("break the Exhibition rules", w["b1"])
+        # Upgraded allows 3 Game Changers: describe the rule break, not a ban.
+        self.assertIn("break the Upgraded rules", w["gc4t3"])
+        self.assertNotIn("allowed", w["gc4t3"])
         self.assertEqual(w["b3"], "")
         self.assertEqual(w["off"], "")
         self.assertEqual(w["noEval"], "")
@@ -396,6 +419,39 @@ class TestJournalBracketPicker(_JournalPage, unittest.TestCase):
     def test_bracket_checkin_row_now_has_an_inline_change(self):
         rows = self.body.split("var ROWS = {", 1)[1].split("};", 1)[0]
         self.assertIn("bracket:", rows)
+
+    def test_shared_section_shows_only_the_opened_rows_field(self):
+        # Copilot on PR #104: Power and Bracket rows both open j-power, but
+        # Save change / Cancel only cover that row's keys.
+        self.assertRegex(self.body, r'<div class="hud-field" data-row="power">')
+        self.assertRegex(self.body, r'<div class="hud-field" data-row="bracket">')
+        script = self.body.split("function openChange", 1)[1].split("function saveChange", 1)[0]
+        self.assertIn('x.hidden = x.getAttribute("data-row") !== field', script)
+        self.assertIn("x.hidden = false", script.split("function closeChange", 1)[1])
+        self.assertIn(".hud-field[hidden] { display: none; }", HUD_CSS.read_text())
+
+
+class TestDeckPagePolling(unittest.TestCase):
+    """Copilot on PR #104: polling must follow an explicit request to completion
+    and must not rebuild unchanged content (open tray, focus)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with patch("app.registry.list_decks", return_value=[DECK]), \
+                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+            cls.body = TestClient(app).get("/deck/Holy%20Hellfire").text.split("<body", 1)[1]
+        cls.script = cls.body.split("// ---- Bracket evaluation", 1)[1].split("async function loadDeckData", 1)[0]
+
+    def test_request_tracks_completion_by_stamp(self):
+        self.assertIn("awaitFrom = stampOf(bracketRes)", self.script)
+        self.assertIn("stampOf(bracketRes) !== awaitFrom", self.script)
+        self.assertIn("awaitFrom !== null) && bracketPoll < 30", self.script)
+
+    def test_unchanged_results_do_not_rebuild(self):
+        self.assertIn("if (key === bracketKey) return;", self.script)
+        self.assertIn("if (fk === flagsKey) return;", self.script)
+        self.assertIn(".hud-bracket-why[open]", self.script)
+        self.assertIn("focus({ preventScroll: true })", self.script)
 
 
 class TestJournalUnsetBracket(_JournalPage, unittest.TestCase):

@@ -54,7 +54,13 @@
     // httpStatus 200 + evaluation -> ok | running (stale/pending) ; 404 -> pending
     // (not evaluated) | error ; anything else -> unavailable.
     function state(res, httpStatus) {
-        if (httpStatus === 200 && res && res.evaluation) return (res.stale || res.pending) ? "running" : "ok";
+        // A failed check keeps the last result (stale): show it as failed, not
+        // "re-evaluating", unless a new check is actually queued.
+        if (httpStatus === 200 && res && res.evaluation) {
+            if (res.pending) return "running";
+            if (res.status === "error") return "ok";
+            return res.stale ? "running" : "ok";
+        }
         if (httpStatus === 404 && res && res.status === "error") return "error";
         if (httpStatus === 404 && res && res.status === "not_evaluated") return "pending";
         return "unavailable";
@@ -245,7 +251,7 @@
         var why = ((ev.findings && ev.findings.floors) || []).filter(function (f) { return f.floor > target; })
             .map(function (f) { var l = RULE_LABELS[f.rule] || f.rule; return f.rule === "game_changers" ? l : l.toLowerCase(); });
         var what = why.length ? "its " + why.join(" and ") : "its hard-rule hits";
-        return "This list is <b>Bracket " + esc(ev.minimum_bracket) + " today</b>: " + esc(what) + " aren't allowed in " + esc(name(target)) +
+        return "This list is <b>Bracket " + esc(ev.minimum_bracket) + " today</b>: " + esc(what) + " break the " + esc(name(target)) + " rules" +
             ". Saving will flag it on the deck page.";
     }
 

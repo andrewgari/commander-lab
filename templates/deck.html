@@ -215,6 +215,8 @@
     const POWER_TOL = {{ power_tol | tojson }};  // engine.POWER_ALIGN_TOLERANCE (power_aligned)
     const DECK_URL = '/deck/' + encodeURIComponent(deckNameStr);
     let bracketRes = null, bracketHttp = 0, bracketFlags = {}, bracketPoll = 0;
+    let bracketKey = '', flagsKey = '', awaitFrom = null;  // awaitFrom: stamps before an Evaluate now / retry
+    const stampOf = (res) => res ? [res.evaluated_at || '', res.error_at || '', res.input_hash || ''].join('|') : '';
     const cardKey = (n) => String(n || '').split(' // ')[0].trim().toLowerCase();
     const flagOf = (card) => bracketFlags[cardKey(card.name)] || null;
     function flagWhy(f) {
@@ -234,27 +236,54 @@
         } catch (e) {
             bracketHttp = 0; bracketRes = null;
         }
+        // A new result or failure has landed since an explicit request: stop awaiting it.
+        if (awaitFrom !== null && stampOf(bracketRes) !== awaitFrom) awaitFrom = null;
         renderBracket();
-        // Re-evaluating (stale/pending): poll until the worker catches up (~2s per BR-5), max ~1 min.
+        // Keep polling (every 2s, max ~1 min) while the stored result is stale or
+        // queued, and after an explicit request until a new result or failure
+        // lands: the worker drops the pending flag before it evaluates.
         const st = Brackets.state(bracketRes, bracketHttp);
-        if ((st === 'running' || (bracketRes && bracketRes.pending)) && bracketPoll < 30) {
+        if ((st === 'running' || awaitFrom !== null) && bracketPoll < 30) {
             bracketPoll += 1;
             setTimeout(loadBracket, 2000);
         } else {
-            bracketPoll = 0;
+            const wasAwaiting = awaitFrom !== null;
+            bracketPoll = 0; awaitFrom = null;
+            if (wasAwaiting) renderBracket();  // timed out: drop the "Evaluating…" chip
         }
     }
     function renderBracket() {
         const ev = bracketRes && bracketRes.evaluation;
-        document.getElementById('bracketBanner').innerHTML = Brackets.banner(bracketRes, bracketHttp, { deckUrl: DECK_URL, tolerance: POWER_TOL });
+        // Unchanged response: leave the DOM alone (open tray, focus, scroll survive polling).
+        const key = bracketHttp + ' ' + JSON.stringify(bracketRes) + ' ' + (awaitFrom !== null);
+        if (key === bracketKey) return;
+        bracketKey = key;
+        const banner = document.getElementById('bracketBanner');
+        const wasOpen = !!banner.querySelector('.hud-bracket-why[open]');
+        const act = document.activeElement, inBanner = act && banner.contains(act) && act !== banner;
+        const focusSel = inBanner ? (act.matches('summary') ? '.hud-bracket-why > summary'
+            : act.dataset.show ? '[data-show="' + CSS.escape(act.dataset.show) + '"]'
+            : act.hasAttribute('data-bracket-evaluate') ? '[data-bracket-evaluate]' : act.id ? '#' + CSS.escape(act.id) : null) : null;
+        let html = Brackets.banner(bracketRes, bracketHttp, { deckUrl: DECK_URL, tolerance: POWER_TOL });
+        if (awaitFrom !== null && Brackets.state(bracketRes, bracketHttp) !== 'running') {
+            html = html.replace('<span class="hud-label">', '<span class="hud-label"><span class="hud-chip hud-chip--data"><span class="hud-chip-dot" aria-hidden="true"></span>Evaluating…</span> ');
+        }
+        banner.innerHTML = html;
+        if (wasOpen) { const t = banner.querySelector('.hud-bracket-why'); if (t) t.open = true; }
+        if (focusSel) { const f = banner.querySelector(focusSel); if (f) f.focus({ preventScroll: true }); }
         const chip = Brackets.metaChip(bracketRes, bracketHttp), slot = document.getElementById('deckBracket');
         slot.innerHTML = chip; slot.hidden = !chip;
         const off = ev ? Brackets.offenders(ev) : {};
         bracketFlags = {};
         Object.keys(off).forEach(n => { bracketFlags[cardKey(n)] = Object.assign({ caption: Brackets.caption(off[n], ev) }, off[n]); });
+        // Only rebuild the decklist when the flags actually changed.
+        const fk = JSON.stringify(bracketFlags);
+        if (fk === flagsKey) return;
+        flagsKey = fk;
         if (deckLoaded) renderCards();
     }
     async function requestEvaluation() {
+        awaitFrom = stampOf(bracketRes);
         try { await fetch('/api/deck/' + encodeURIComponent(DECK_RID) + '/bracket', { method: 'POST' }); } catch (e) { /* the worker's own scan still runs */ }
         bracketPoll = 0;
         loadBracket();

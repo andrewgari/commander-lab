@@ -95,7 +95,7 @@
     {% endcall %}
 
     {% call hud.form_section("j-power", "Power & bracket", "Power is the 1–10 feel. Bracket is WotC's 1–5 rulebook: a promise to the pod. Set both; neither is derived from the other.") %}
-        <div class="hud-field"><span class="hud-field-label" id="pwL">Power · <span class="jr-power-now" id="powerNow">{{ scale }} · {{ j.target_power_level.tier }}</span></span>
+        <div class="hud-field" data-row="power"><span class="hud-field-label" id="pwL">Power · <span class="jr-power-now" id="powerNow">{{ scale }} · {{ j.target_power_level.tier }}</span></span>
             {{ hud.seg("power", power_opts, scale, label_id="pwL", mod="scale", id_prefix="pw") }}
             <div class="hud-scale-tiers" id="tierRail" aria-hidden="true">
                 {%- for t, label in [("casual", "Casual"), ("focused", "Focused"), ("optimized", "Optimized"), ("competitive", "cEDH")] -%}
@@ -103,7 +103,7 @@
                 {%- endfor -%}
             </div>
             <span class="hud-field-hint" id="powerHint">Current estimate: computing…</span></div>
-        <div class="hud-field"><span class="hud-field-label" id="bkL">Bracket · <span class="jr-power-now" id="bracketNow">{% if tb %}{{ tb }} · {{ ns.tb_name }}{% else %}unset{% endif %}</span></span>
+        <div class="hud-field" data-row="bracket"><span class="hud-field-label" id="bkL">Bracket · <span class="jr-power-now" id="bracketNow">{% if tb %}{{ tb }} · {{ ns.tb_name }}{% else %}unset{% endif %}</span></span>
             {{ hud.seg("bracket", bracket_opts, tb if tb else "off", label_id="bkL", mod="scale bracket", id_prefix="bk", describedby="bkDef") }}
             <span class="hud-field-hint" id="bracketHint">Current estimate: computing…</span>
             <div class="hud-bracket-def" id="bkDef" aria-live="polite">{% if tb %}<b>{{ tb }} · {{ ns.tb_name }}</b>{% else %}<b>Unset</b><span>No target, so no bracket checks. The deck page still shows the estimate.</span>{% endif %}</div>
@@ -470,13 +470,17 @@ document.addEventListener("DOMContentLoaded", function () {
         box.innerHTML = '<div class="hud-form"></div><div class="jr-change-actions"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="save-change">Save change <span class="hud-kbd jr-kbd-on-primary">⌘↵</span></button>' +
             '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel-change">Cancel</button><span class="jr-error" role="alert"></span></div>';
         box.firstChild.appendChild(sec); box.hidden = false; openRow = field;
+        // A section shared by several rows (Power & bracket) shows only this row's
+        // field, so Save change / Cancel cover exactly what's visible.
+        sec.querySelectorAll("[data-row]").forEach(function (x) { x.hidden = x.getAttribute("data-row") !== field; });
         var btn = li.querySelector('[data-act="change"]'); if (btn) btn.setAttribute("aria-expanded", "true");
-        var first = sec.querySelector("input:not([type=hidden]), textarea"); if (first) first.focus();
+        var first = sec.querySelector(".hud-field:not([hidden]) input:checked, .hud-field:not([hidden]) input:not([type=hidden]), textarea"); if (first) first.focus();
     }
     function closeChange(restore) {
         if (!openRow) return;
         var keys = ROWS[openRow][1], sec = $(ROWS[openRow][0]);
         marker.parentNode.insertBefore(sec, marker); marker.remove(); marker = null;
+        sec.querySelectorAll("[data-row]").forEach(function (x) { x.hidden = false; });
         if (restore) fill(base, keys);
         var li = $("ciRows").querySelector('[data-field="' + openRow + '"]');
         if (li) { var box = li.querySelector(".hud-check-form"); box.hidden = true; box.innerHTML = ""; }

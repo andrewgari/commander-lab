@@ -1532,6 +1532,7 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-form-section > header p { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
 .hud-form-section > div { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6) 0; border-bottom: var(--stroke); min-width: 0; }
 .hud-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-field[hidden] { display: none; }
 .hud-field > label, .hud-field > .hud-field-label { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
 .hud-field-hint { color: var(--text-3); font-size: var(--fs-xs); }
 .hud-field textarea { min-height: 5.5rem; resize: vertical; line-height: var(--lh-base); }
