@@ -91,6 +91,17 @@
             {{ hud.stat("Value", "—") }}
         </div>
 
+        {#- Ability scores (PS-4, UX_SPEC §3.2 "B · Character sheet"). Rendered
+            from GET /api/decks/{id}/personality by static/js/personality.js. -#}
+        <section class="hud-panel hud-ps-panel" id="psPanel" aria-labelledby="psH">
+            <header class="hud-panel-head">
+                <h3 class="hud-panel-title" id="psH">Ability scores</h3>
+                <div class="hud-panel-meta" id="psMeta"></div>
+            </header>
+            <div class="hud-panel-body" id="psBody" aria-live="polite"></div>
+            <div class="hud-panel-foot" id="psFoot" hidden></div>
+        </section>
+
         <div class="hud-grid hud-grid--2">
             {% call hud.panel("Mana curve", meta="Non-land") %}<div id="deckCurve">{{ hud.empty("Loading…") }}</div>{% endcall %}
             {% call hud.panel("Card types") %}<div id="deckTypes">{{ hud.empty("Loading…") }}</div>{% endcall %}
@@ -698,7 +709,104 @@
         if (hit && hit === ev.target) { ev.preventDefault(); openCardModal(Number(hit.dataset.cardIndex)); }
     });
 
+    // ---- Ability scores panel (PS-4) -------------------------------------
+    const psDeckId = {{ (head.registry_id or deck_name) | tojson }};
+    const psApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality';
+    let psEv = null, psPoll = null, psPollN = 0;
+    const PS_HINT = '<span class="hud-ps-hint">Evidence: click a score or press</span>' +
+        ['T', 'J', 'S', 'V', 'M'].map(k => '<span class="hud-kbd">' + k + '</span>').join('');
+
+    function psRender(state, info) {
+        const body = document.getElementById('psBody'), foot = document.getElementById('psFoot');
+        body.innerHTML = PSUI.deckPanelBody(state, info);
+        document.getElementById('psMeta').innerHTML = state === 'ok' ? PS_HINT : '';
+        body.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+        if (state === 'ok') {
+            foot.innerHTML = PSUI.deckPanelFoot(info);
+            foot.hidden = false;
+            psEv = PSUI.bindEvidence(document.getElementById('psPanel'), info.d, {
+                onCard: name => { const i = inventoryCards.findIndex(c => c.name === name); if (i !== -1) openCardModal(i); }
+            });
+        } else {
+            foot.hidden = true;
+            psEv = null;
+        }
+        const retry = body.querySelector('[data-ps-retry]');
+        if (retry) retry.addEventListener('click', () => loadPersonality());
+        const score = body.querySelector('[data-ps-score]');
+        if (score) score.addEventListener('click', psRequestScore);
+    }
+
+    async function psAverage() {
+        // "Your average" tick = the physical-deck profile average (UX_SPEC §3).
+        try {
+            const res = await fetch('/api/profile/personality?scope=physical');
+            const data = await res.json();
+            const p = data.profile || {};
+            return p.average && p.decks_scored >= 1 ? { ref: p.average, refN: p.decks_scored } : {};
+        } catch (e) { return {}; }
+    }
+
+    async function loadPersonality() {
+        if (!document.getElementById('psBody').innerHTML.trim()) psRender('loading');
+        let res, data;
+        try {
+            [res, data] = await fetch(psApi).then(async r => [r, await r.json().catch(() => ({}))]);
+        } catch (e) {
+            psRender('error', { status_line: 'GET ' + psApi + ' failed: ' + (e.message || 'network error') + '.' });
+            return;
+        }
+        if (res.ok && data.personality) {
+            psStopPoll();
+            const avg = await psAverage();
+            psRender('ok', Object.assign({ d: PSUI.deckModel(data.personality), computed_at: data.computed_at,
+                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null }, avg));
+            return;
+        }
+        if (res.status === 404 && data.status === 'not_scored') {
+            if (data.pending || psPoll) { psRender('queued'); psStartPoll(); } else psRender('not_scored');
+            return;
+        }
+        if (res.status === 404) { psRender('not_scored', { can_score: false }); return; }
+        psStopPoll();
+        const line = res.status === 500 && data.status === 'error'
+            ? 'Scoring failed' + (data.error ? ': ' + data.error : '') + '.'
+            : 'GET ' + psApi + ' returned ' + res.status + (data.error ? ' (' + data.error + ')' : '') + '.';
+        psRender('error', { status_line: line, can_score: res.status === 500 });
+    }
+
+    async function psRequestScore() {
+        try {
+            const res = await fetch(psApi, { method: 'POST' });
+            if (!res.ok) throw new Error('POST returned ' + res.status);
+        } catch (e) {
+            psRender('error', { status_line: 'Couldn\'t queue a rescore: ' + (e.message || 'network error') + '.' });
+            return;
+        }
+        psRender('queued');
+        psStartPoll();
+    }
+    function psStartPoll() {
+        if (psPoll) return;
+        psPollN = 0;
+        psPoll = setInterval(() => { if (++psPollN > 24) { psStopPoll(); loadPersonality(); } else loadPersonality(); }, 5000);
+    }
+    function psStopPoll() { if (psPoll) { clearInterval(psPoll); psPoll = null; } }
+
+    // T J S V M open that axis' evidence; Esc closes it (never while typing or with the card modal open).
+    document.addEventListener('keydown', (ev) => {
+        if (!psEv || ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || PSUI.typing(document.activeElement)) return;
+        if (document.querySelector('.hud-modal.is-open, .hud-modal[aria-hidden="false"]')) return;
+        if (ev.key === 'Escape' && psEv.isOpen()) { psEv.hide(true); return; }
+        const a = PSUI.axisForKey(ev.key);
+        if (!a) return;
+        const t = document.querySelector('#psPanel [data-axis="' + a + '"][aria-controls]');
+        if (t) { t.focus(); if (psEv.isOpen() !== a) psEv.show(a); }
+    });
+
     // hud.js is deferred: start once it (and the DOM) is ready.
     document.addEventListener('DOMContentLoaded', () => { loadDeckData(); loadBracket(); });
+    document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
+<script src="/static/js/personality.js?v={{ version }}" defer></script>
 {% endblock %}

@@ -131,6 +131,16 @@ async def instances_view(request: Request):
     return templates.TemplateResponse(request=request, name="instances.html")
 
 
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_view(request: Request, scope: str = "physical"):
+    """Player profile (PS-4): the average of every deck's ability scores, trend
+    callouts and a per-deck table. Rendered client-side from
+    /api/profile/personality; ?scope=physical (default) | all."""
+    if scope not in ("physical", "all"):
+        scope = "physical"
+    return templates.TemplateResponse(request=request, name="profile.html", context={"scope": scope})
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_view(request: Request):
     """Settings page. Sync section: linked Archidekt/Moxfield accounts (/api/linked-accounts)."""
