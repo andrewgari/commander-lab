@@ -137,13 +137,23 @@ def load_cards(r, names):
                 metas[n] = _meta_card(meta)
     out = dict(metas)
     for n, raw in zip(names, mget([f"card_interactions:{n}" for n in names])):
-        card = (_loads(raw) or {}).get("card")
+        rec = _loads(raw) or {}
+        card = rec.get("card")
         if not card or not card.get("type_line"):
             continue
         meta = metas.get(n) or {}
+        # Only a Scryfall-fetched record (it carries oracle_id) has a complete
+        # type line. The tagger's card_meta fallback (tagger._card_meta_fallback)
+        # stores `oracle_id: null` and a type line with no subtypes: keep the
+        # richer metadata then, or use it marked partial.
+        complete = bool(rec.get("oracle_id"))
+        if not complete and meta:
+            continue
         out[n] = {"type_line": card["type_line"],
                   "oracle_text": card.get("oracle_text") or meta.get("oracle_text") or "",
                   "keywords": card.get("keywords") or meta.get("keywords") or []}
+        if not complete:
+            out[n]["type_partial"] = True
     return out
 
 
