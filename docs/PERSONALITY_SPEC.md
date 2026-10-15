@@ -12,7 +12,7 @@ plain pile can be low on all five. One label, `leans_toward`, sums them up.
 |---|---|---|
 | Timmy | wants big, splashy moments | big creatures, splashy effects, creature count, ramp, little interaction |
 | Johnny | wants to show off a build | combos, synergy density, off-meta picks, cards built around the commander, engines |
-| Spike | wants to win | power estimate, tutors, fast mana, interaction, low curve, compact combos |
+| Spike | wants to win | power estimate, Game Changers, tutors, fast mana, interaction, low curve, compact combos |
 | Vorthos | wants the deck to tell a story | one shared creature type or set/universe, named characters, cards that reference the commander, story links |
 | Melvin | enjoys the mechanics themselves | unusual keywords, rules-object manipulation (counters, phasing, copies, suspend), loops, cantrips, odd card types |
 
@@ -57,6 +57,7 @@ routes doesn't change.
 | `engines` | `analytics.interactions.service.get_deck_engines(r, deck, graph)` (`engines.detect_engines`) | `engines[].kind` (`chain` / `loop`), `engines[].cards`, `engines[].signature` |
 | `edhrec` | cache record at `analytics.edhrec_inclusion.cache_key(slug)`, turned into `per_card` rows like `analytics.edhrec_inclusion.deck_inclusion` does (what `/api/decks/{id}/edhrec` returns; read cache-only, see above) | `status`, `per_card[].name/inclusion/land` |
 | `power` | `deck_review.review_deck(deck=deck).playfeel_summary.power_level_estimate` (`analytics.engine.DeckAnalysisEngine._analyze_playfeel`), same call as `analytics.journal.collect_context` | float 1.0–10.0 |
+| `brackets` | `analytics.bracket_check.check_deck_brackets(deck, combos=<cached combos or None>, oracle={name: {oracle_text}})` (BR-3, pure) | `game_changers.cards` |
 | `journal` | `analytics.journal.load_journal(r, deck)` (store) passed through `analytics.journal.public` (`user_intent.resolve_intent_defaults`) | fields from `schemas/user_intent.schema.json` (see §4) |
 
 **One row per card name.** `build_inventory` can return several rows for one
@@ -147,15 +148,21 @@ so they don't separate anything.
 
 | # | Signal | Exact rule | Ramp lo → hi | Weight |
 |---|---|---|---|---|
-| S1 | Power estimate | `power_level_estimate` | 5.0 → 9.0 | 25 |
+| S1 | Power estimate | `power_level_estimate` (it sits at 6.5 on 45 of 55 real decks, so it carries little weight) | 5.0 → 9.0 | 10 |
 | S2 | Tutors | cards in `NL` matching `TUTOR` (§6): "search your library for a/an … card" where the clause doesn't mention a land | 0 → 5 | 15 |
 | S3 | Fast mana | `FAST_MANA` names (§6) plus any card in `composition.cards_by_row.ramp` with `mv <= 1` | 0 → 4 | 15 |
 | S4 | Interaction | `targeted_disruption + mass_disruption` | 6 → 16 | 15 |
 | S5 | Efficiency | `1 − ramp(mean mv of NL\C, 2.5, 4.0)` | inverted | 15 |
 | S6 | Compact combos | `combos.included` entries with `len(card_names) <= 3` | 0 → 3 | 15 |
+| S7 | Game Changers | `analytics.bracket_check.check_deck_brackets(deck, combos=..., oracle=...).game_changers.cards` (BR-3; pure, Game Changers from `analytics.brackets` / the BR-1 snapshot, no network) | 0 → 4 | 15 |
 
 S4 and T5 read the same number in opposite directions, on purpose: a
-removal-heavy deck is Spikier and less Timmy.
+removal-heavy deck is Spikier and less Timmy. S2 keeps its own `TUTOR`
+regex rather than BR-3's advisory `tutors` list (Tagger `otag:tutor mv<=3`),
+because BR-3 also counts creature tutors like Rory/Amy partner fetches. S7
+counts Game Changers no matter which bracket they push the deck to;
+`minimum_bracket` itself is not a signal, since one Worldfire (mass land
+denial) already sets it to 4.
 
 ### Vorthos
 
@@ -188,12 +195,10 @@ in 38 of 39 real decks.
    with no extra scaling.
 3. **Across axes**: the ramp bands were set so each axis has a similar
    spread over the real collection. On the 39 complete decks the final
-   medians are Timmy 40, Johnny 44, Spike 50, Vorthos 29, Melvin 37, and
-   the leans split is spike 10, johnny 9, vorthos 8, timmy 6, melvin 4,
-   balanced 2 (§5.2). Every axis except Spike
-   spans more than 50 points; Spike spans 49 (32–81) because S1 and S4
-   never reach zero on a real deck. That's expected: every deck wants to
-   win a bit.
+   medians are Timmy 40, Johnny 44, Spike 47, Vorthos 29, Melvin 37. Every
+   axis spans at least 54 points (Timmy 20–74, Johnny 6–95, Spike 25–90,
+   Vorthos 0–96, Melvin 8–79). The leans split is johnny 9, spike 8,
+   vorthos 8, timmy 6, melvin 4, balanced 4 (§5.2, §8).
 4. **Rounding**: the final score is `floor(x + 0.5)`, an int 0–100. Python's
    `round()` rounds to even, so don't use it.
 5. **No relative scaling**: scores don't depend on the other decks in the
@@ -213,6 +218,7 @@ midrange, power 7) must not nudge anything.
 | Field (`schemas/user_intent.schema.json`) | Nudge |
 |---|---|
 | `target_power_level.scale` | Spike `clamp((scale − 6) × 2.5, −5, +5)` |
+| `target_bracket` (1–5 or null) | Spike: 1 → −3, 2 → −1, 3 → 0, 4 → +2, 5 → +4, null → 0. Counts toward the same ±10 cap as the power nudge |
 | `preferred_win_conditions.primary` | combat: Timmy +4 · commander_damage: Timmy +2 · combo: Johnny +3, Spike +2 · alternate_wincon: Melvin +3, Johnny +2 · lockout: Spike +3 |
 | `preferred_win_conditions.secondary[]` | half the primary value, per entry |
 | `preferred_win_conditions.disliked_or_excluded[]` | minus half the primary value, per entry |
@@ -236,9 +242,9 @@ Worked example, real journal on Holy Hellfire (Kaalia, `archidekt:417707`):
 primary combat (Timmy +4), secondary commander_damage (Timmy +1), text has
 "fatty", "swing", "swarm" (Timmy +3), so Timmy gets +8. Excluded combo
 (Johnny −1.5, Spike −1), excluded lockout (Spike −1.5), novelties set
-(Johnny +2), scale 8 (Spike +5). Final: Timmy 65→73, Johnny 24→25, Spike
-47→50. The cards alone already lean Timmy; the journal makes it clearer
-without being able to flip a deck by itself.
+(Johnny +2), scale 8 (Spike +5), no target_bracket (0). Final: Timmy
+65→73, Johnny 24→25, Spike 53→55. The cards alone already lean Timmy; the
+journal makes it clearer without being able to flip a deck by itself.
 
 ## 5. Control deck: The Tenth Doctor + Rose Tyler
 
@@ -247,9 +253,11 @@ commanders are The Tenth Doctor (doctor) and Rose Tyler (doctors_companion),
 with 95 names / 100 cards: 31 lands and 64 nonland. It has **no saved
 journal** (`exists: false`), so this is a cards-only score. Inputs are a
 snapshot of the live app (v0.4.31 on :8020, 2026-10-15): `/api/decks`,
-`/api/inventory`, and `/api/decks/5620189/{composition,combos,engines,interactions,edhrec,review}`.
-Power estimate 6.5, interaction graph built 2026-10-15T08:00Z (95 nodes, 402
-edges), Spellbook fetched 2026-10-12.
+`/api/inventory`, and `/api/decks/5620189/{composition,combos,engines,interactions,edhrec,review}`,
+plus `check_deck_brackets` run locally on main (v0.4.34) over the same
+deck and combos. Power estimate 6.5, interaction graph built
+2026-10-15T08:00Z (95 nodes, 402 edges), Spellbook fetched 2026-10-12,
+Game Changers from the BR-1 snapshot.
 
 ### 5.1 Result
 
@@ -257,7 +265,7 @@ edges), Spellbook fetched 2026-10-12.
 |---|---|
 | Timmy | **51** |
 | Johnny | **31** |
-| Spike | **37** |
+| Spike | **39** |
 | Vorthos | **76** |
 | Melvin | **79** |
 
@@ -266,7 +274,7 @@ edges), Spellbook fetched 2026-10-12.
 That fits the deck: it's built on time counters, suspend, vanishing and
 time travel, the mechanic itself is the point (Melvin), and it's an almost
 pure Doctor Who deck full of companions (Vorthos). It has no combos and runs
-at power 6.5 (low Johnny, low Spike), with a few big suspend creatures
+at power 6.5 with 2 Game Changers (low Johnny, low Spike), with a few big suspend creatures
 (middling Timmy).
 
 Per signal (sub-score → points):
@@ -285,13 +293,14 @@ Per signal (sub-score → points):
 | J4 around the commander | 0.44 of non-commander nonland touches a commander in the graph | 0.816 | 12.24 |
 | J5 engine coverage | 0.83 | 0.570 | 8.55 |
 | **Johnny** | | | **30.53** |
-| S1 power | 6.5 | 0.375 | 9.38 |
+| S1 power | 6.5 | 0.375 | 3.75 |
 | S2 tutors | 1: Mystical Tutor | 0.200 | 3.00 |
 | S3 fast mana | 2: Sol Ring, Sol Talisman | 0.500 | 7.50 |
 | S4 interaction | 13 | 0.700 | 10.50 |
 | S5 efficiency | mean mv 3.29 | 0.473 | 7.10 |
 | S6 compact combos | 0 | 0 | 0 |
-| **Spike** | | | **37.47** |
+| S7 Game Changers | 2: Farewell, Mystical Tutor | 0.500 | 7.50 |
+| **Spike** | | | **39.35** |
 | V1 shared theme | set WHO: 41 / 55 non-ramp nonland = 0.75 (type: Alien 5/22 = 0.23) | 0.891 | 31.18 |
 | V2 named characters | 16 legendary / 64 | 0.500 | 12.50 |
 | V3 commander-linked | 7: Donna Noble, Amy Pond, An Unearthly Child, The War Doctor, TARDIS, The Eleventh Doctor, K-9 Mark I | 0.500 | 7.50 |
@@ -334,19 +343,24 @@ Then the rules were run over the whole collection (55 decks; the 16 with
 more than 5 cards missing from inventory were left out, leaving 39). Three
 problems showed up and were fixed: Johnny's mean was 55 (J2/J5 bands too
 low), Timmy's was 36 (T1/T4 bands too high), and M3 loops saturated on 29
-decks (weight cut to 10, M5 raised to 20). After that, the other real decks
-read as expected, which is the check that the rules aren't tuned to the
-control deck alone:
+decks (weight cut to 10, M5 raised to 20). A fourth fix came after main
+gained the bracket work (BR-1..3): the power estimate is 6.5 on 45 of 55
+decks, so S1 barely separated anything, and Spike only spanned 32–81. S1
+went from 25 to 10 and S7 (Game Changers, from `check_deck_brackets`) was
+added at 15. For the control deck that moves Spike from 37 to 39 (Farewell
+and Mystical Tutor are Game Changers) and nothing else. After that, the
+other real decks read as expected, which is the check that the rules
+aren't tuned to the control deck alone:
 
 | Deck | T | J | S | V | M | Leans |
 |---|---|---|---|---|---|---|
-| The Laws of Time are Mine!! (Tenth Doctor/Rose), control | 51 | 31 | 37 | 76 | 79 | melvin |
-| My Big, Fat, Dead Wedding (Edgar Markov, vampires) | 44 | 24 | 48 | 79 | 21 | vorthos |
-| Everything is permitted. (Ezio, Assassin's Creed) | 36 | 6 | 35 | 96 | 43 | vorthos |
-| Batteries Not Included (Urza, artifacts) | 37 | 65 | 36 | 22 | 10 | johnny |
-| The world is slowly ebbing away... (Celes) | 34 | 45 | 81 | 4 | 39 | spike |
-| The Word is 'Gamer' (Unfinity attractions) | 33 | 49 | 63 | 10 | 73 | melvin |
-| Holy Hellfire (Kaalia, with journal) | 73 | 25 | 50 | 33 | 8 | timmy |
+| The Laws of Time are Mine!! (Tenth Doctor/Rose), control | 51 | 31 | 39 | 76 | 79 | melvin |
+| My Big, Fat, Dead Wedding (Edgar Markov, vampires) | 44 | 24 | 46 | 79 | 21 | vorthos |
+| Everything is permitted. (Ezio, Assassin's Creed) | 36 | 6 | 29 | 96 | 43 | vorthos |
+| Batteries Not Included (Urza, artifacts) | 37 | 65 | 30 | 22 | 10 | johnny |
+| The world is slowly ebbing away... (Celes, 4 Game Changers) | 34 | 45 | 90 | 4 | 39 | spike |
+| The Word is 'Gamer' (Unfinity attractions) | 33 | 49 | 58 | 10 | 73 | melvin |
+| Holy Hellfire (Kaalia, with journal) | 73 | 25 | 55 | 33 | 8 | timmy |
 
 PS-2 must reproduce the control row exactly from the same inputs. Small
 drift is fine when the caches move (a new graph build or a Spellbook
@@ -453,6 +467,7 @@ them, the model doesn't.
 | `graph` empty or `counts.untagged > 25%` of nodes | J2, J4, J5, M3 score 0 | `"interaction graph missing or stale"` |
 | `edhrec.status != "ok"` | J3 scores 0 | `"EDHREC unavailable"` |
 | `power` failed | S1 scores 0 | `"power estimate unavailable"` |
+| `check_deck_brackets` raised | S7 scores 0 | `"bracket check unavailable"` |
 | card metadata missing for more than 5 cards | score anyway | `"N cards without metadata"` (16 of 55 real decks hit this today, mostly testing/digital decks whose cards aren't in inventory) |
 
 The scores stay comparable because a missing source scores 0 and isn't
@@ -471,10 +486,12 @@ timmy, johnny, spike, vorthos, melvin.
   second Vorthos". Two axes tied at the top are not "balanced": the tie
   order picks one and the other is `runner_up`.
 
-On the 39 real decks this gives 2 balanced and 8 with a runner-up. The two
-balanced decks are "Bird UP!!!!" (Choco: 39/70/64/63/31, where Johnny,
-Spike and Vorthos sit within 7 points) and "Uncharted: Lara's Legacy"
-(50/56/54/29/36, where Timmy, Johnny and Spike sit within 6).
+On the 39 real decks this gives 4 balanced and 5 with a runner-up. The
+balanced decks: "Bird UP!!!!" (Choco, 39/70/65/63/31: Johnny, Spike and
+Vorthos within 7), "Uncharted: Lara's Legacy" (50/56/52/29/36: Timmy,
+Johnny and Spike within 6), "Where the Wild Things Will Be" (24/34/34/4/9:
+top below 35) and "For Cheese and Country" (Mabel, 24/19/38/38/32: Spike,
+Vorthos and Melvin within 6).
 
 ## 9. Non-goals
 
