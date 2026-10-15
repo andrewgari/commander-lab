@@ -21,6 +21,9 @@
     .jr-change-actions { display: flex; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); }
     .jr-power-now { color: var(--signal); font-family: var(--font-mono); }
     .jr-kbd-on-primary { border-color: var(--text-on-signal); color: var(--text-on-signal); }
+    /* Anchor-nav target (BR-7): focused programmatically, ring only for keyboard. */
+    .hud-form-section > header:focus { outline: none; }
+    .hud-form-section > header:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>
 {% endblock %}
 
@@ -371,11 +374,16 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!head) return false;
         var nav = document.querySelector(".jr-anchor"), off = nav ? nav.offsetHeight : 0;
         var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+        // Keyboard users continue from the section, not the nav (Copilot on #109).
+        if (!head.hasAttribute("tabindex")) head.setAttribute("tabindex", "-1");
+        head.focus({ preventScroll: true });
         window.scrollTo({ top: head.getBoundingClientRect().top + window.scrollY - off, behavior: smooth && !reduce ? "smooth" : "auto" });
         return true;
     }
     anchors.forEach(function (a) {
         a.addEventListener("click", function (e) {
+            // Leave Ctrl/Cmd/Shift/middle clicks to the browser (new tab / window).
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             if (goToSection(a.getAttribute("href"), true)) { e.preventDefault(); history.replaceState(null, "", a.getAttribute("href")); }
         });
     });

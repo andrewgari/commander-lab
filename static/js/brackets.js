@@ -222,7 +222,12 @@
             // which used to read "Two-card combos. 2 two-card combos …".
             var tt = title(x, ev), msg = String(x.message || ""), lead;
             var num = (msg.match(/^\d+ /) || [""])[0];
-            if (num && msg.slice(num.length).toLowerCase().indexOf(tt.toLowerCase()) === 0) tt = msg.slice(0, num.length + tt.length);
+            if (num) {
+                // Singular counts ("1 two-card combo") lose the title's plural "s" (Copilot on #109).
+                var rest = msg.slice(num.length).toLowerCase(), t0 = tt.toLowerCase(), t1 = t0.replace(/s$/, "");
+                var hit = rest.indexOf(t0) === 0 ? t0 : rest.indexOf(t1) === 0 ? t1 : "";
+                if (hit) tt = msg.slice(0, num.length + hit.length);
+            }
             if (msg.toLowerCase().indexOf(tt.toLowerCase()) === 0) lead = "<b>" + esc(msg.slice(0, tt.length)) + "</b>" + esc(msg.slice(tt.length));
             else lead = "<b>" + esc(tt) + ".</b> " + esc(msg);
             return "<li>" + sevChip(x.severity) + "<div><p>" + lead + "</p>" +
