@@ -301,19 +301,29 @@ def _trends(decks: List[ProfileDeck], avg_exact: Dict[str, float], avg: Dict[str
                 cands.append((-gap, AXES.index(a), d.name, d.id, a))
     cands.sort()
     used_decks: set = set()
+    used_axes: set = set()
     shown = 0
     for _, _, name, did, a in cands:
-        if shown >= MAX_OUTLIERS or did in used_decks:
+        if shown >= MAX_OUTLIERS or did in used_decks or a in used_axes:
             continue
         score = next(x.scores[a] for x in decks if x.id == did)
+        tied = sum(1 for x in decks if x.scores[a] == score)
+        top = max(x.scores[a] for x in decks)
+        if score == top and tied == 1:
+            lead = f"your most {_title(a)} deck is {_deck_name(name)}"
+        elif score == top:
+            lead = f"{_deck_name(name)} ties {tied - 1} other{'s' if tied > 2 else ''} as your most {_title(a)} deck"
+        else:
+            lead = f"{_deck_name(name)} is one of your most {_title(a)} decks"
         if add(TrendCallout(kind="outlier", number=score, unit=_title(a), axis=a, deck_id=did, deck_ids=[did],
-                            text=(f"your most {_title(a)} deck is {_deck_name(name)}, "
-                                  f"{score - avg[a]} points above your average."),
+                            text=f"{lead}, {score - avg[a]} points above your average.",
                             action={"type": "open", "value": did})):
             used_decks.add(did)
+            used_axes.add(a)
             shown += 1
 
-    # 6. groups: "your Vorthos is highest in tribal decks"
+    # 6. groups: "your Vorthos is highest in tribal decks" (one callout per axis)
+    group_axes: set = set()
     for g in ("tribal", "universe"):
         ins = [d for d in decks if g in d.groups]
         rest = [d for d in decks if g not in d.groups]
@@ -325,9 +335,13 @@ def _trends(decks: List[ProfileDeck], avg_exact: Dict[str, float], avg: Dict[str
             ro = sum(d.scores[a] for d in rest) / len(rest)
             lift.append((-(gi - ro), AXES.index(a), a, gi, ro))
         lift.sort()
+        lift = [x for x in lift if x[2] not in group_axes]
+        if not lift:
+            continue
         neg, _, a, gi, ro = lift[0]
         if -neg < GROUP_MIN_LIFT:
             continue
+        group_axes.add(a)
         label = "tribal" if g == "tribal" else "single-universe"
         add(TrendCallout(kind="group", number=_round(gi), of=len(ins), unit="avg", axis=a, group=g,
                          text=(f"avg {_b(a)} in your {len(ins)} {label} decks, vs {_round(ro)} in the rest: "
@@ -359,7 +373,9 @@ def _trends(decks: List[ProfileDeck], avg_exact: Dict[str, float], avg: Dict[str
                 "by up to 10 points.")
     add(TrendCallout(kind="journal_coverage", number=journal_count, of=n, text=text,
                      action={"type": "filter", "value": "no_journal"}))
-    return out[:MAX_TRENDS]
+    if len(out) > MAX_TRENDS:  # keep journal coverage (always last); drop from the optional middle
+        out = out[:MAX_TRENDS - 1] + [out[-1]]
+    return out
 
 
 # ---------------------------------------------------------------------------
