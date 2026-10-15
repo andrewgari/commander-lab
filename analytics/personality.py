@@ -43,6 +43,7 @@ class AxisEvidence(BaseModel):
     value: Union[int, float, str, None] = None
     sub_score: float = 0.0             # 0..1 after the ramp (journal rows: 0)
     points: float = 0.0                # weight * sub_score, or the journal nudge (+/-)
+    weight: Optional[float] = None     # the signal's weight (max points); None on journal rows
     cards: List[str] = Field(default_factory=list)
     fields: List[str] = Field(default_factory=list)
 
@@ -65,6 +66,7 @@ class PersonalityScores(BaseModel):
     runner_up: Optional[str] = None
     journal_used: bool
     notes: List[str] = Field(default_factory=list)
+    computed_at: Optional[str] = None  # set when stored (PS-3); the pure scorer leaves it None
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +285,7 @@ class _Axis:
     def add(self, signal: str, label: str, weight: float, sub: float, value=None, cards=(), fields=()):
         self.total += weight * sub
         self.evidence.append(AxisEvidence(signal=signal, label=label, value=value, sub_score=round(sub, 4),
-                                          points=round(weight * sub, 4), cards=sorted(set(cards)),
+                                          points=round(weight * sub, 4), weight=float(weight), cards=sorted(set(cards)),
                                           fields=list(fields)))
         return weight * sub
 

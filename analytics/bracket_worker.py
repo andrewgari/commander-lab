@@ -5,6 +5,10 @@ request path and stores the result per deck.
     python -m analytics.bracket_worker          # compose service `bracket-worker`
     python -m analytics.bracket_worker --once   # one pass, then exit
 
+Each tick also runs the PS-3 personality pass
+(analytics.personality_store.recompute_all) after the bracket evaluations,
+so deck personality scores follow syncs and journal saves the same way.
+
 Every pass (a "tick") hashes each deck's input = its decklist (commanders +
 card names/quantities) + its Deck Journal (without the _journal bookkeeping).
 A deck is evaluated when that hash differs from the stored one, or when it was
@@ -278,12 +282,33 @@ def _wait_for_wake(r, timeout: int, clock: Callable[[], float] = time.monotonic)
             return False
 
 
+def run_personality(r) -> dict:
+    """PS-3: rescore deck personalities whose input hash changed. Runs in this
+    process for the same reason bracket evaluation does (a few hundred ms
+    per deck). Never raises, so it can't stop a bracket tick."""
+    try:
+        from analytics import personality_store
+        return personality_store.recompute_all(r)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("personality pass failed: %s", exc)
+        return {"error": str(exc)[:200]}
+
+
+def run_tick(r, evaluator: Optional[Evaluator] = None) -> dict:
+    """One worker tick: bracket evaluations, then the personality pass."""
+    stats = run_once(r, evaluator)
+    p = run_personality(r)
+    stats["personality"] = p
+    log.info("bracket worker tick: %d decks, %d evaluated, %d skipped, %d failed; personality %s computed, "
+             "%s skipped, %s failed", stats.get("decks", 0), stats.get("evaluated", 0), stats.get("skipped", 0),
+             stats.get("failed", 0), p.get("computed"), p.get("skipped"), p.get("failed"))
+    return stats
+
+
 def run_forever(r, interval: int, evaluator: Optional[Evaluator] = None) -> None:
     log.info("bracket worker started (pid %s, interval %ss)", os.getpid(), interval)
     while True:
-        stats = run_once(r, evaluator)
-        log.info("bracket worker tick: %d decks, %d evaluated, %d skipped, %d failed",
-                 stats.get("decks", 0), stats.get("evaluated", 0), stats.get("skipped", 0), stats.get("failed", 0))
+        run_tick(r, evaluator)
         _wait_for_wake(r, interval)
 
 
@@ -299,7 +324,7 @@ def main(argv: Optional[List[str]] = None) -> None:
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
     if args.once:
-        print(json.dumps(run_once(r)))
+        print(json.dumps(run_tick(r)))
         return
     run_forever(r, args.interval)
 
