@@ -57,7 +57,7 @@ routes doesn't change.
 | `engines` | `analytics.interactions.service.get_deck_engines(r, deck, graph)` (`engines.detect_engines`) | `engines[].kind` (`chain` / `loop`), `engines[].cards`, `engines[].signature` |
 | `edhrec` | cache record at `analytics.edhrec_inclusion.cache_key(slug)`, turned into `per_card` rows like `analytics.edhrec_inclusion.deck_inclusion` does (what `/api/decks/{id}/edhrec` returns; read cache-only, see above) | `status`, `per_card[].name/inclusion/land` |
 | `power` | `deck_review.review_deck(deck=deck).playfeel_summary.power_level_estimate` (`analytics.engine.DeckAnalysisEngine._analyze_playfeel`), same call as `analytics.journal.collect_context` | float 1.0–10.0 |
-| `brackets` | `analytics.bracket_check.check_deck_brackets(deck, combos=<cached combos or None>, oracle={name: {oracle_text}})` (BR-3, pure) | `game_changers.cards` |
+| `brackets` | `analytics.bracket_check.check_deck_brackets(deck, game_changers=<list>, combos=<cached combos or None>, oracle={name: {oracle_text}})` (BR-3, pure). `<list>` is `analytics.brackets._read_cache(r)` (the `CACHE_KEY` Redis copy) when present, else omitted so it uses the checked-in snapshot (`brackets.load_fallback`). Never `get_game_changers`, which can fetch from Scryfall | `game_changers.cards` |
 | `journal` | `analytics.journal.load_journal(r, deck)` (store) passed through `analytics.journal.public` (`user_intent.resolve_intent_defaults`) | fields from `schemas/user_intent.schema.json` (see §4) |
 
 **One row per card name.** `build_inventory` can return several rows for one
