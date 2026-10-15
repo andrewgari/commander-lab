@@ -879,6 +879,15 @@
         else if (!ev.shiftKey && (document.activeElement === last || !inside)) { ev.preventDefault(); first.focus(); }
     });
 
+    // Repo badges sit above the stretched quick-view button (for their
+    // tooltip), so forward their clicks to it: quick view + focus return work.
+    document.addEventListener('click', (ev) => {
+        const badge = ev.target.closest && ev.target.closest('.deck-card .repo-badge');
+        if (!badge) return;
+        const open = badge.closest('.deck-card').querySelector('.deck-open');
+        if (open) { ev.preventDefault(); open.click(); }
+    });
+
     function openImportModal() {
         document.getElementById('importUrl').value = '';
         document.getElementById('importStatus').textContent = '';

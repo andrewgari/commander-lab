@@ -44,6 +44,8 @@ class TestDeckNamecardUI(unittest.TestCase):
         self.assertIn("b.dataset.deckKey === deckModalReturnKey", html)
         self.assertIn("document.querySelector('#deckModal .modal-close').focus();", html)
         self.assertIn("deckModalFocusables()", html)
+        # Repo badge clicks forward to the tile's quick-view button.
+        self.assertIn("closest('.deck-card .repo-badge')", html)
         # Title clamps to 2 lines; commander line is one ellipsized line.
         self.assertRegex(html, r"\.deck-name \{[^}]*-webkit-line-clamp: 2")
         self.assertRegex(html, r"\.deck-commanders \{[^}]*white-space: nowrap[^}]*text-overflow: ellipsis")
