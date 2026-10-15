@@ -714,14 +714,20 @@
     // ---- Ability scores panel (PS-4) -------------------------------------
     const psDeckId = {{ (head.registry_id or deck_name) | tojson }};
     const psApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality';
-    let psEv = null, psPoll = null, psPollN = 0;
+    const psReadApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality/read';
+    let psEv = null, psPoll = null, psPollN = 0, psOraclePoll = null, psOraclePollN = 0;
     const PS_HINT = '<span class="hud-ps-hint">Evidence: click a score or press</span>' +
         ['T', 'J', 'S', 'V', 'M'].map(k => '<span class="hud-kbd">' + k + '</span>').join('');
 
     function psRender(state, info) {
         const body = document.getElementById('psBody'), foot = document.getElementById('psFoot');
         body.innerHTML = PSUI.deckPanelBody(state, info);
-        document.getElementById('psMeta').innerHTML = state === 'ok' ? PS_HINT : '';
+        let metaHtml = '';
+        if (state === 'ok') {
+            const btnLabel = (info.d && info.d.oracle_used) ? 'Re-read with Oracle' : 'Oracle read';
+            metaHtml = PS_HINT + ' <button type="button" class="hud-btn hud-btn--sm" id="psOracleBtn" data-ps-oracle>' + btnLabel + '</button>';
+        }
+        document.getElementById('psMeta').innerHTML = metaHtml;
         body.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
         if (state === 'ok') {
             foot.innerHTML = PSUI.deckPanelFoot(info);
@@ -729,6 +735,8 @@
             psEv = PSUI.bindEvidence(document.getElementById('psPanel'), info.d, {
                 onCard: name => { const i = inventoryCards.findIndex(c => c.name === name); if (i !== -1) openCardModal(i); }
             });
+            const obtn = document.getElementById('psOracleBtn');
+            if (obtn) obtn.addEventListener('click', psRequestOracleRead);
         } else {
             foot.hidden = true;
             psEv = null;
@@ -761,8 +769,10 @@
         if (res.ok && data.personality) {
             psStopPoll();
             const avg = await psAverage();
-            psRender('ok', Object.assign({ d: PSUI.deckModel(data.personality), computed_at: data.computed_at,
-                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null }, avg));
+            const dModel = PSUI.deckModel(data.personality, data.read || data.oracle_read);
+            psRender('ok', Object.assign({ d: dModel, computed_at: data.computed_at,
+                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null,
+                oracle_status: data.oracle_status }, avg));
             return;
         }
         if (res.status === 404 && data.status === 'not_scored') {
@@ -794,6 +804,80 @@
         psPoll = setInterval(() => { if (++psPollN > 24) { psStopPoll(); loadPersonality(); } else loadPersonality(); }, 5000);
     }
     function psStopPoll() { if (psPoll) { clearInterval(psPoll); psPoll = null; } }
+
+    async function psRequestOracleRead() {
+        const obtn = document.getElementById('psOracleBtn');
+        if (obtn) { obtn.disabled = true; obtn.textContent = 'Oracle reading…'; }
+        try {
+            const res = await fetch(psReadApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force: true })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 200 && data.cached) {
+                await loadPersonality();
+                return;
+            }
+            if (res.status === 202 && data.job_id) {
+                psStartOraclePoll(data.job_id);
+                return;
+            }
+            if (res.status === 503) {
+                psShowOracleOffline();
+                return;
+            }
+            throw new Error(data.error || ('HTTP ' + res.status));
+        } catch (e) {
+            psShowOracleOffline(e.message);
+        }
+    }
+
+    function psStartOraclePoll(jobId) {
+        if (psOraclePoll) clearInterval(psOraclePoll);
+        psOraclePollN = 0;
+        psOraclePoll = setInterval(async () => {
+            if (++psOraclePollN > 60) {
+                clearInterval(psOraclePoll);
+                psOraclePoll = null;
+                psShowOracleOffline('Oracle timed out');
+                return;
+            }
+            try {
+                const r = await fetch(psReadApi + '/jobs/' + encodeURIComponent(jobId));
+                const data = await r.json();
+                if (data.job && data.job.status === 'done') {
+                    clearInterval(psOraclePoll);
+                    psOraclePoll = null;
+                    await loadPersonality();
+                } else if (data.job && data.job.status === 'failed') {
+                    clearInterval(psOraclePoll);
+                    psOraclePoll = null;
+                    psShowOracleOffline(data.job.error || 'Oracle read failed');
+                }
+            } catch (e) {
+                clearInterval(psOraclePoll);
+                psOraclePoll = null;
+                psShowOracleOffline(e.message);
+            }
+        }, 3000);
+    }
+
+    function psShowOracleOffline(detail) {
+        const obtn = document.getElementById('psOracleBtn');
+        if (obtn) { obtn.disabled = false; obtn.textContent = 'Oracle read'; }
+        const foot = document.getElementById('psFoot');
+        if (foot && !foot.hidden) {
+            const notes = foot.querySelector('.hud-ps-notes');
+            if (notes && !notes.querySelector('[data-ps-offline]')) {
+                const chip = document.createElement('span');
+                chip.className = 'hud-chip hud-chip--neutral';
+                chip.setAttribute('data-ps-offline', 'true');
+                chip.textContent = 'oracle offline, showing rulebook';
+                notes.prepend(chip);
+            }
+        }
+    }
 
     // T J S V M open that axis' evidence; Esc closes it (never while typing or with the card modal open).
     document.addEventListener('keydown', (ev) => {
