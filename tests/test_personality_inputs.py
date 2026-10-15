@@ -117,6 +117,21 @@ class LoadInputs(unittest.TestCase):
         self.assertTrue(out.journal_used)
         self.assertEqual(out.johnny.journal_nudge, 3.0)
 
+    def test_complete_type_line_enriches_inventory_row(self):
+        meta = dict(META)
+        meta["Steel Golem"] = {"type": "Artifact", "super_types": [], "sub_types": ["Golem"], "keywords": [],
+                               "oracle_text": "", "cmc": 7}
+        deck = dict(DECK, cards=DECK["cards"] + [{"name": "Steel Golem", "quantity": 1}])
+        r = redis_with()
+        r.data["decks"] = json.dumps([deck])
+        r.data["card_meta:Steel Golem"] = json.dumps(meta["Steel Golem"])
+        r.data["instance:99"] = json.dumps({"id": "i99", "card_name": "Steel Golem", "ownership_status": "in_deck",
+                                            "deck_id": "archidekt:7", "set": "TST"})
+        r.data["card_interactions:Steel Golem"] = json.dumps(
+            {"oracle_id": "oid-g", "card": {"type_line": "Artifact Creature \u2014 Golem", "oracle_text": ""}})
+        out = ps.score_deck(r, deck)
+        self.assertIn("Steel Golem", next(e for e in out.timmy.evidence if e.signal == "T1").cards)
+
     def test_source_failure_is_isolated(self):
         r = redis_with()
         with mock.patch("deck_review.review_deck", side_effect=RuntimeError("boom")):

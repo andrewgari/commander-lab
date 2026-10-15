@@ -377,5 +377,61 @@ class LeansRule(unittest.TestCase):
         self.assertEqual(ps._round(100.7), 100)
 
 
+class CopilotRegressions(unittest.TestCase):
+    def test_half_up_uses_exact_total(self):
+        """63 nonland, 15 creatures (4 big), 6 splashy, 5 ramp, 7 interaction: Timmy is exactly 46.5 -> 47."""
+        cmd = card("Cmd", "Enchantment", 2, sup=["Legendary"])
+        rows = [card(f"Big {i}", cmc=7) for i in range(4)] + [card(f"Small {i}", cmc=2) for i in range(11)]
+        rows += [card(f"Splash {i}", "Sorcery", 3, "Take an extra turn after this one.") for i in range(6)]
+        rows += [card(f"Plain {i}", "Sorcery", 3) for i in range(63 - 1 - 15 - 6)]
+        deck, cards = build(cmd, rows)
+        comp = {"actual": {"ramp": 5, "targeted_disruption": 7, "mass_disruption": 0}, "cards_by_row": {}}
+        out = ps.score_deck_personality(deck, cards=cards, composition=comp)
+        exact = 30 * 3 / 7 + 15 * ramp_(15 / 63, 0.20, 0.45) + 0 + 25 * 5 / 7 + 15 * (1 - 0.1)
+        self.assertAlmostEqual(exact, 46.5, places=9)
+        self.assertEqual(out.timmy.score, 47)
+
+    def test_full_type_line_wins_over_primary_type(self):
+        row = card("Steel Golem", "Artifact", 7, sub=["Golem"])
+        row["type_line"] = "Artifact Creature \u2014 Golem"
+        deck, cards = build(card("Cmd", "Enchantment", 2, sup=["Legendary"]), [row])
+        out = ps.score_deck_personality(deck, cards=cards)
+        self.assertIn("Steel Golem", next(e for e in out.timmy.evidence if e.signal == "T1").cards)
+        dryad = card("Dryad Arbor", "Land", 0, sub=["Forest", "Dryad"])
+        dryad["type_line"] = "Land Creature \u2014 Forest Dryad"
+        deck, cards = build(card("Cmd", "Enchantment", 2, sup=["Legendary"]), [dryad])
+        out = ps.score_deck_personality(deck, cards=cards)
+        self.assertEqual(next(e for e in out.timmy.evidence if e.signal == "T2").value, "1/2")
+
+    def test_j3_uses_edhrec_rows_without_inventory(self):
+        deck = {"name": "digital", "commanders": ["Cmd"], "cards": [{"name": f"C{i}", "quantity": 1}
+                                                                     for i in range(10)]}
+        ed = {"status": "ok", "per_card": [{"name": f"C{i}", "inclusion": 0.01 if i < 5 else 0.5, "land": False}
+                                           for i in range(10)] + [{"name": "Cmd", "inclusion": 0.0, "land": False}]}
+        out = ps.score_deck_personality(deck, edhrec=ed)
+        j3 = next(e for e in out.johnny.evidence if e.signal == "J3")
+        self.assertEqual(j3.value, "5/10")
+        self.assertEqual(j3.points, 20.0)
+
+    def test_j4_commander_without_metadata(self):
+        rows = [card(f"N{i}") for i in range(4)]
+        deck = {"name": "x", "commanders": ["Ghost Cmd"],
+                "cards": [{"name": "Ghost Cmd", "quantity": 1}] + [{"name": r["name"], "quantity": 1} for r in rows]}
+        graph = {"counts": {"nodes": 5, "edges": 2, "untagged": 0},
+                 "edges": [{"source": "Ghost Cmd", "target": "N0"}, {"source": "N1", "target": "Ghost Cmd"}]}
+        out = ps.score_deck_personality(deck, cards={r["name"]: r for r in rows}, graph=graph, engines=[])
+        self.assertEqual(next(e for e in out.johnny.evidence if e.signal == "J4").cards, ["N0", "N1"])
+
+    def test_empty_set_is_not_a_shared_set(self):
+        rows = [card(f"N{i}", "Sorcery", 3, set_="") for i in range(10)]
+        deck, cards = build(card("Cmd", "Enchantment", 2, sup=["Legendary"], set_=""), rows)
+        out = ps.score_deck_personality(deck, cards=cards)
+        self.assertEqual(next(e for e in out.vorthos.evidence if e.signal == "V1").points, 0)
+
+
+def ramp_(x, lo, hi):
+    return max(0.0, min(1.0, (x - lo) / (hi - lo)))
+
+
 if __name__ == "__main__":
     unittest.main()

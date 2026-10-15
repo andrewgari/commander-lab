@@ -198,7 +198,7 @@ class _Card:
 
     def __init__(self, row: Mapping):
         self.name = row["name"]
-        if row.get("type_line") and not row.get("type"):
+        if row.get("type_line"):  # a complete type line (when supplied) beats the primary-type-only row
             tl = row["type_line"].split(" // ")[0]
             front, _, subs = tl.partition(" \u2014 ")
             if not subs:
@@ -271,18 +271,19 @@ def _engine_list(engines: Any) -> Optional[List[dict]]:
 
 
 class _Axis:
+    """Evidence rows show rounded numbers; the axis total sums the exact ones,
+    so display rounding can never move the final half-up score."""
+
     def __init__(self):
         self.evidence: List[AxisEvidence] = []
+        self.total = 0.0
 
     def add(self, signal: str, label: str, weight: float, sub: float, value=None, cards=(), fields=()):
+        self.total += weight * sub
         self.evidence.append(AxisEvidence(signal=signal, label=label, value=value, sub_score=round(sub, 4),
                                           points=round(weight * sub, 4), cards=sorted(set(cards)),
                                           fields=list(fields)))
         return weight * sub
-
-    @property
-    def total(self) -> float:
-        return sum(e.points for e in self.evidence)
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +395,8 @@ def score_deck_personality(
         notes.append(f"{len(missing)} cards without metadata")
 
     C = {n: _Card(rows[n]) for n in names if n in rows}
-    cmdrs = {c for c in deck.get("commanders") or [] if c in C}
+    cmd_names = {c for c in deck.get("commanders") or [] if c}  # graph/EDHREC need no metadata
+    cmdrs = {c for c in cmd_names if c in C}
     NL = [n for n in C if not C[n].is_land]
     N = len(NL)
     NLC = [n for n in NL if n not in cmdrs]
@@ -457,7 +459,8 @@ def score_deck_personality(
         j.add("J2", "Synergy density", 25, 0.0, None, fields=[NOTE_GRAPH])
     if edh_ok:
         inc = {x["name"]: x.get("inclusion") for x in edhrec.get("per_card") or [] if not x.get("land")}
-        pool = [n for n in NLC if n in inc]
+        # EDHREC's own nonland, non-commander rows (spec J3): no inventory metadata needed
+        pool = sorted(n for n in inc if n not in cmd_names)
         rare = [n for n in pool if (inc[n] or 0.0) < 0.15]
         j.add("J3", "Off-meta picks", 20, ramp(len(rare) / len(pool), 0.05, 0.30) if pool else 0.0,
               f"{len(rare)}/{len(pool)}", rare)
@@ -466,9 +469,9 @@ def score_deck_personality(
     if graph_ok:
         nb = set()
         for e in graph.get("edges") or []:
-            if e.get("source") in cmdrs:
+            if e.get("source") in cmd_names:
                 nb.add(e.get("target"))
-            if e.get("target") in cmdrs:
+            if e.get("target") in cmd_names:
                 nb.add(e.get("source"))
         linked = [n for n in NLC if n in nb]
         frac = len(linked) / len(NLC) if NLC else 0.0
@@ -531,7 +534,8 @@ def score_deck_personality(
     set_pool = [n for n in NL if n not in ramp_cards]
     set_count: Dict[str, int] = {}
     for n in set_pool:
-        set_count[C[n].set] = set_count.get(C[n].set, 0) + 1
+        if C[n].set:  # unknown printing is not a shared set; still counts in the denominator
+            set_count[C[n].set] = set_count.get(C[n].set, 0) + 1
     top_set = max(set_count.items(), key=lambda kv: (kv[1], kv[0])) if set_count else (None, 0)
     type_sub = ramp(top_sub[1] / len(creatures), 0.25, 0.60) if creatures else 0.0
     set_sub = ramp(top_set[1] / len(set_pool), 0.30, 0.80) if set_pool else 0.0
@@ -644,6 +648,23 @@ class _RefuseEDHRec:
         raise EDHRecError("cache-only: no EDHREC fetch")
 
 
+def enrich_type_lines(r, rows: List[Mapping]) -> List[dict]:
+    """Inventory rows keep only the primary card type (an artifact creature
+    reads "Artifact"). Add the complete type line from the tagger's cached
+    Scryfall copy (commander_roles.load_cards, Redis-only) where one exists;
+    printing fields (set, instance) stay from the row."""
+    import commander_roles
+
+    full = commander_roles.load_cards(r, [row.get("name") for row in rows])
+    out = []
+    for row in rows:
+        rec = full.get(row.get("name")) or {}
+        if rec.get("type_line") and not rec.get("type_partial"):
+            row = {**row, "type_line": rec["type_line"]}
+        out.append(dict(row))
+    return out
+
+
 def load_inputs(r, deck: Mapping) -> Dict[str, Any]:
     """Gather score_deck_personality inputs from Redis. Each failed source is None."""
     deck = dict(deck)
@@ -662,6 +683,8 @@ def load_inputs(r, deck: Mapping) -> Dict[str, Any]:
     from .interactions import combos as combos_mod, service
 
     attempt("cards", lambda: inventory_view.build_inventory(r, decks=[str(ref)]))
+    if out["cards"]:
+        attempt("cards", lambda: enrich_type_lines(r, out["cards"]))
     attempt("composition", lambda: compute_composition(deck, insights.card_texts(r, deck)))
 
     def _combos():
