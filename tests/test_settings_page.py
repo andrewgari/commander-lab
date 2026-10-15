@@ -94,7 +94,8 @@ class TestDecksPageWithoutAccounts(unittest.TestCase):
                        "saveDeckLink('archidekt')", 'onclick="syncDeck()"', "Import Deck"]:
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.html)
-        self.assertRegex(self.html, r"\n\s*loadDecks\(\);\s*</script>")
+        # Startup load still runs (after deferred hud.js, which renderDecks needs).
+        self.assertRegex(self.html, r"\n\s*document\.addEventListener\('DOMContentLoaded', loadDecks\);\s*</script>")
 
 
 class TestSettingsNav(unittest.TestCase):

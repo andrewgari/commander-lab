@@ -366,17 +366,20 @@
         });
     }
     
-    loadDecks().then(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const deckParam = urlParams.get('deck');
-        if (deckParam) {
-            // Need to handle if allDecks is loaded, which it is because loadDecks finished
-            if (allDecks.includes(deckParam) && !selectedDecks.includes(deckParam)) {
-                selectedDecks.push(deckParam);
-                renderPills();
+    // Start once deferred hud.js has run (loadDecks uses HUD).
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDecks().then(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const deckParam = urlParams.get('deck');
+            if (deckParam) {
+                // Need to handle if allDecks is loaded, which it is because loadDecks finished
+                if (allDecks.includes(deckParam) && !selectedDecks.includes(deckParam)) {
+                    selectedDecks.push(deckParam);
+                    renderPills();
+                }
             }
-        }
-        fetchInventory();
+            fetchInventory();
+        });
     });
 </script>
 {% endblock %}

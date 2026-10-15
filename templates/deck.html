@@ -268,24 +268,29 @@
         // Role per card from the shared helper (commander_roles.py via /api/decks).
         const roles = HUD.commanderRoles(currentDeck || {});
         const roleOf = Object.fromEntries(roles.map((r, i) => [r.name, Object.assign({ order: i }, r)]));
-        const cmdrs = inventoryCards.map((c, i) => [c, i]).filter(([c]) => c.is_commander)
-            .sort((a, b) => ((roleOf[a[0].name] || {}).order ?? 9) - ((roleOf[b[0].name] || {}).order ?? 9));
-        const names = cmdrs.length ? cmdrs.map(([c]) => c.name) : ((currentDeck && currentDeck.commanders) || []);
-        document.getElementById('deckCommanderNames').textContent = names.length ? names.join(' + ') : '—';
+        const cmdrs = inventoryCards.map((c, i) => [c, i]).filter(([c]) => c.is_commander);
         // Commanders with no inventory row (a true companion lives outside the
-        // 100) still show, straight from their Scryfall printing.
-        const missing = cmdrs.length ? roles.filter(r => r.uid && !cmdrs.some(([c]) => c.name === r.name)) : [];
-        if (cmdrs.length) {
-            el.innerHTML = cmdrs.map(([c, i]) => {
-                const r = roleOf[c.name] || { role: 'commander' };
-                let html = cardArt(c, i, 'large', 'card');
+        // 100, or the deck has no inventory yet) still show, straight from
+        // their Scryfall printing. Both sources merge, then sort by role order.
+        const missing = roles.filter(r => r.uid && !cmdrs.some(([c]) => c.name === r.name));
+        const portraits = cmdrs.map(([c, i]) => ({ name: c.name, card: c, i }))
+            .concat(missing.map(r => ({ name: r.name, uid: r.uid })))
+            .sort((a, b) => ((roleOf[a.name] || {}).order ?? 9) - ((roleOf[b.name] || {}).order ?? 9));
+        const names = portraits.length ? portraits.map(p => p.name) : ((currentDeck && currentDeck.commanders) || []);
+        document.getElementById('deckCommanderNames').textContent = names.length ? names.join(' + ') : '—';
+        if (portraits.length) {
+            el.innerHTML = portraits.map(p => {
+                const r = roleOf[p.name] || { role: 'commander' };
+                let html;
+                if (p.card) {
+                    html = cardArt(p.card, p.i, 'large', 'card');
+                } else {
+                    const img = HUD.scryfall(p.uid, 'large');
+                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
+                }
                 if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media">' + HUD.chip(r.type_label || 'Commander', 'neutral', false));
                 const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
                 return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}${r.can_be_commander ? ' is-cbc' : ''}">${tag}${html}</div>`;
-            }).join('') + missing.map(r => {
-                const img = HUD.scryfall(r.uid, 'large');
-                const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
-                return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}">${tag}${HUD.art(r.name, img.src, { kind: 'card', fallback: img.fallback })}</div>`;
             }).join('');
         } else {
             el.innerHTML = '<div class="hud-empty">' + (names.length ? esc(names.join(', ')) : 'No commander specified') + '</div>';

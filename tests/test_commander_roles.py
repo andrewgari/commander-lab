@@ -156,6 +156,38 @@ class TestLoadCards(unittest.TestCase):
         self.assertTrue(cr.card_flags(cards["The Tenth Doctor"])["doctor"])
         self.assertTrue(cr.card_flags(cards["Keruga, the Macrosage"])["companion"])
 
+    def test_reads_canonical_oracle_card(self):
+        # sync writes canonical cards at card:{oracle_id} (cards.py).
+        r = FakeRedis({
+            "idx:card_name_to_oracle:The Tenth Doctor": "oid-10",
+            "card:oid-10": json.dumps({"oracle_id": "oid-10", "name": "The Tenth Doctor", "type": "Creature",
+                                       "super_types": ["Legendary"], "sub_types": ["Time Lord", "Doctor"]}),
+        })
+        cards = cr.load_cards(r, ["The Tenth Doctor"])
+        self.assertTrue(cr.card_flags(cards["The Tenth Doctor"])["doctor"])
+
+    def test_primary_type_only_is_not_noncreature_evidence(self):
+        # sync keeps card_types[0]: a legendary artifact creature is stored as "Artifact".
+        meta = {"type": "Artifact", "super_types": ["Legendary"], "sub_types": ["Construct"], "oracle_text": "Flying"}
+        f = cr.card_flags(cr._meta_card(meta))
+        self.assertFalse(f["can_be_commander"])
+        self.assertIsNone(f["type_label"])
+        # Types that survive the truncation still count.
+        pw = cr.card_flags(cr._meta_card({"type": "Planeswalker", "super_types": ["Legendary"], "sub_types": ["Minsc"]}))
+        self.assertTrue(pw["can_be_commander"])
+        veh = cr.card_flags(cr._meta_card({"type": "Artifact", "super_types": ["Legendary"], "sub_types": ["Vehicle"]}))
+        self.assertEqual(veh["type_label"], "Vehicle")
+        # A complete cached Scryfall type line wins over the partial metadata.
+        r = FakeRedis({
+            "card_meta:Golem Lord": json.dumps(dict(meta, keywords=["Flying"])),
+            "card_interactions:Golem Lord": json.dumps({"card": {"type_line": "Legendary Artifact Creature \u2014 Construct",
+                                                                 "oracle_text": "Flying"}}),
+        })
+        card = cr.load_cards(r, ["Golem Lord"])["Golem Lord"]
+        self.assertEqual(card["type_line"], "Legendary Artifact Creature \u2014 Construct")
+        self.assertEqual(card["keywords"], ["Flying"])
+        self.assertFalse(cr.card_flags(card)["can_be_commander"])
+
 
 UID_H, UID_K = "768ef947-85fc-4fb2-bda9-e0e446cd8886", "814cd870-a4da-4987-a69b-5ba6cee136c1"
 KERUGA_DECK = {"id": 9100, "name": "The Gift", "color": "GU", "status": "physical", "registry_id": "archidekt:9100",
@@ -226,6 +258,38 @@ class TestViewsUseRoles(unittest.TestCase):
 
 
 class TestNoRoundCommanderArt(unittest.TestCase):
+    def test_pages_wait_for_deferred_hud(self):
+        # base.html loads hud.js with defer; pages calling HUD.* at startup must wait for it.
+        for page, call in (("decks.html", "document.addEventListener('DOMContentLoaded', loadDecks);"),
+                           ("inventory.html", "document.addEventListener('DOMContentLoaded', () => {\n        loadDecks()")):
+            self.assertIn(call, (ROOT / "templates" / page).read_text(), page)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_deck_showcase_merges_sources_in_role_order(self):
+        src = (ROOT / "templates" / "deck.html").read_text()
+        fn = src[src.index("    function renderCommanders()"):src.index("    function renderStats()")]
+        js = (ROOT / "static" / "js" / "hud.js").read_text()
+        code = ("global.window = {}; const els = {};\n"
+                "global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []},"
+                " getElementById(id){ return els[id] || (els[id] = {}); }};\n"
+                + js + "\nconst HUD = window.HUD; const esc = HUD.esc;\n"
+                "const cardArt = (c) => '<div class=\"hud-art-media\">INV:' + c.name + '</div>';\n"
+                "let inventoryCards, currentDeck;\n" + fn +
+                "\nconst roles = [{name:'The Tenth Doctor',uid:'t',role:'doctor'},{name:'Rose Tyler',uid:'r',role:'doctors_companion'}];\n"
+                "const out = {};\n"
+                "currentDeck = {commander_roles: roles}; inventoryCards = [{name:'Rose Tyler', is_commander:true}];\n"
+                "renderCommanders(); out.mixed = els.commanderShowcase.innerHTML;\n"
+                "inventoryCards = []; renderCommanders(); out.none = els.commanderShowcase.innerHTML;\n"
+                "process.stdout.write(JSON.stringify(out));")
+        res = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        out = json.loads(res.stdout)
+        # Doctor (Scryfall-only) still renders before Rose (inventory-backed).
+        self.assertLess(out["mixed"].index("deck-cmdr--doctor\""), out["mixed"].index("INV:Rose Tyler"))
+        # No inventory rows at all: both portraits from Scryfall, no empty state.
+        self.assertNotIn("hud-empty", out["none"])
+        self.assertEqual(out["none"].count("deck-cmdr deck-cmdr--"), 2)
+
     def test_no_round_portraits(self):
         decks = (ROOT / "templates" / "decks.html").read_text()
         self.assertNotIn("commander-icon", decks)
