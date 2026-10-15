@@ -1540,6 +1540,20 @@ async def api_interaction_vocabulary():
 
 
 # ---------------------------------------------------------------------------
+# Commander Brackets reference (BR-1) -- see docs/BRACKETS_SPEC.md
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/brackets")
+async def api_brackets(refresh: bool = False):
+    """The official bracket table plus the current Game Changers list
+    (Redis cache -> Scryfall is:gamechanger -> checked-in snapshot)."""
+    from analytics import brackets as br
+    gc = await br.get_game_changers(r, refresh=refresh)
+    return {"success": True, **br.brackets_payload(), "game_changers": gc.to_dict()}
+
+
+# ---------------------------------------------------------------------------
 # Engines + Commander Spellbook combos (AN-2) -- see docs/ENGINES_AND_COMBOS.md
 # ---------------------------------------------------------------------------
 
