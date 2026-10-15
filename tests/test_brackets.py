@@ -347,7 +347,12 @@ class BracketsRouteTests(unittest.TestCase):
         async def fake_get(r, client=None, refresh=False):
             return fake
 
-        with patch.object(br, "get_game_changers", fake_get):
+        # Stub app.r so the version middleware sees a cached version and does
+        # not start a GitHub release sync that writes to the shared CI Redis
+        # (that breaks tests/test_version.py later in the run).
+        stub_r = FakeRedis()
+        stub_r.store["github_latest_version"] = "test"
+        with patch.object(br, "get_game_changers", fake_get), patch.object(app_module, "r", stub_r):
             resp = TestClient(app_module.app).get("/api/brackets")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
