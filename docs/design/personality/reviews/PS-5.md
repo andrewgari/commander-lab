@@ -34,10 +34,11 @@ and every interaction does what the spec says.
 ## Fixed in this PR (small, CSS / template only)
 
 1. **Runner-up isn't marked in the heat cells** (flagged by PS-4). The chip said "Melvin · V" but only
-   the Melvin cell was ringed. The runner-up cell now gets a **1px dashed `--text-1` ring**: neutral,
+   the Melvin cell was ringed. The runner-up cell now gets a **1px dashed ring in `currentColor`**: neutral,
    quieter than the solid 2px signal ring, so signal still means the lean and nothing else (spec §2.2).
-   It's applied to both the table and the phone card list. `--text-1` rather than `--text-2` because
-   `--text-2` on `--data-4` is about 2:1, which fails the 3:1 non-text minimum.
+   It's applied to both the table and the phone card list. `currentColor` follows each cell's
+   contrast-aware ink, so the ring is never below 3:1: level 0 is 8.7, level 3 is 4.9, level 5 is 7.5. A
+   fixed `--text-1` drops to 2.1:1 on `--data-5` (caught by Copilot).
 2. **The "All" filter tooltip read "All decks (0)"**, which looks like a count of zero. The `(0)` is
    the keyboard shortcut. All the seg tooltips now read "Leans Johnny · key J", "All decks · key 0".
 

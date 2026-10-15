@@ -2446,7 +2446,7 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-h[data-level="4"] > span { background: var(--data-4); color: var(--surface-0); font-weight: var(--fw-semibold); }
 .hud-ps-h[data-level="5"] > span { background: var(--data-5); color: var(--surface-0); font-weight: var(--fw-semibold); }
 .hud-ps-h.is-lean > span { outline: 2px solid var(--ps-lean); outline-offset: -3px; font-weight: var(--fw-semibold); }
-.hud-ps-h.is-runner > span { outline: 1px dashed var(--text-1); outline-offset: -3px; }
+.hud-ps-h.is-runner > span { outline: 1px dashed currentColor; outline-offset: -3px; }
 .hud-ps-table td:last-child, .hud-ps-table th:last-child { width: 8.5rem; min-width: 8.5rem; white-space: nowrap; }
 .hud-ps-table tr.is-hot td { background: var(--surface-2); }
 .hud-ps-table tr.is-failed td { color: var(--text-3); }
