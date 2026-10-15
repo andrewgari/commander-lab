@@ -22,6 +22,18 @@ plus four AN-5 fields, which are also in `schemas/user_intent.schema.json`:
 tier is derived from the 1–10 scale and never picked separately. Pillars
 live on Identity; the journal links to them.
 
+`target_bracket` (BR-2) is the deck's target official Commander Bracket,
+an integer 1–5 (`docs/BRACKETS_SPEC.md`), or `null` (the default) for unset,
+which means no bracket checks. It is a top-level field stored beside
+`target_power_level`, and it is never derived from the power level. Journals
+saved before BR-2 load with it as `null`. PUT `{"target_bracket": N}` sets
+it, PUT `{"target_bracket": null}` clears it, and a PUT without the key keeps
+the stored value. 0, 6, strings, floats and booleans are rejected with a 400.
+The check-in has a **Target bracket** row (`bracket`) right after Target power.
+Until the BR-6 picker lands, the row has no inline form, so it shows ✓ Still
+true only; PATCH `checkin/rows/bracket` with `{answer: "changed", journal:
+{target_bracket: N}}` works through the API.
+
 Every review opens with a check-in, "is this still true?". It shows the
 change since the last review (+/− cards, power estimate, price, on-plan %)
 and then one row per field. A row's evidence line is computed: deck price
@@ -53,8 +65,8 @@ the history, and the next check-in diffs against it.
 | POST | `/api/decks/{id}/checkin/finish` | `{skipped?: bool}` returns `{review, next}`; 409 if nothing is open |
 | GET | `/api/decks/{id}/reviews` | history, newest first |
 
-The check-in fields, in order, are `vision`, `win_cons`, `power`, `budget`,
-`pets`, `novelties`, `pillars` and `cards`. Each row may only change its own
+The check-in fields, in order, are `vision`, `win_cons`, `power`, `bracket`,
+`budget`, `pets`, `novelties`, `pillars` and `cards`. Each row may only change its own
 section(s). `pillars` links to Identity, and `cards` is context only
 ("✓ Seen").
 

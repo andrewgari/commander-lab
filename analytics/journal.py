@@ -2,7 +2,9 @@
 Deck Journal + review check-in (AN-5, UX_SPEC.md §3.3, ANALYTICS_SPEC Layer 2).
 
 The journal is the user_intent.py schema for one deck plus the AN-5 fields
-(pet_cards[], novelties, budget_constraints.hard_cap / soft_cap). It is
+(pet_cards[], novelties, budget_constraints.hard_cap / soft_cap) and the BR-2
+target_bracket (official Commander Bracket 1-5, or null = no bracket checks;
+stored beside target_power_level, never derived from it). It is
 filled once and editable anytime. Every review opens with a check-in:
 "since the last review: +/- cards, power, price, on-plan; is this still
 true?", one row per field, each with optional computed evidence.
@@ -33,7 +35,11 @@ from urllib.parse import quote
 
 from user_intent import POWER_SCALE_TIER_MAP, resolve_intent_defaults, validate_intent
 
+from .brackets import BRACKETS
+
 log = logging.getLogger("commander_lab.journal")
+
+BRACKET_NAMES = {b.number: b.name for b in BRACKETS}  # BR-2 check-in row label (BR-1 is the source)
 
 KEY_PREFIX = "journal:deck:"
 DEFAULTS_KEY = "journal:defaults"
@@ -43,15 +49,17 @@ HISTORY_MAX = 50
 DEFAULT_CAPS = {"hard_cap": 30.0, "soft_cap": 10.0}
 POWER_EVIDENCE_GAP = 1.5  # same tolerance as analytics.engine's power_aligned
 
-FIELDS = ["vision", "win_cons", "power", "budget", "pets", "novelties", "pillars", "cards"]
-LABELS = {"vision": "Vision", "win_cons": "Win cons", "power": "Target power", "budget": "Budget",
-          "pets": "Pet cards", "novelties": "Novelties", "pillars": "Pillars", "cards": "Card changes"}
+FIELDS = ["vision", "win_cons", "power", "bracket", "budget", "pets", "novelties", "pillars", "cards"]
+LABELS = {"vision": "Vision", "win_cons": "Win cons", "power": "Target power", "bracket": "Target bracket",
+          "budget": "Budget", "pets": "Pet cards", "novelties": "Novelties", "pillars": "Pillars",
+          "cards": "Card changes"}
 # Journal sections a "Change" on each row may write. Pillars live on Identity; card changes are context.
 SECTIONS = {"vision": ("deck_vision",), "win_cons": ("preferred_win_conditions",),
-            "power": ("target_power_level",), "budget": ("budget_constraints",), "pets": ("pet_cards",),
-            "novelties": ("novelties", "freeform_notes"), "pillars": (), "cards": ()}
-SECTION_KEYS = ("deck_vision", "target_power_level", "budget_constraints", "preferred_win_conditions",
-                "archetype_preferences", "pet_cards", "novelties", "freeform_notes", "metadata")
+            "power": ("target_power_level",), "bracket": ("target_bracket",), "budget": ("budget_constraints",),
+            "pets": ("pet_cards",), "novelties": ("novelties", "freeform_notes"), "pillars": (), "cards": ()}
+SECTION_KEYS = ("deck_vision", "target_power_level", "target_bracket", "budget_constraints",
+                "preferred_win_conditions", "archetype_preferences", "pet_cards", "novelties", "freeform_notes",
+                "metadata")
 
 INTENT_LABELS = {"new_build": "New build", "tune_up": "Tune-up", "overhaul": "Overhaul"}
 WINCON_LABELS = {"combat": "Combat", "combo": "Combo", "attrition": "Attrition",
@@ -284,6 +292,12 @@ def _value(field: str, rec: Mapping, ctx: Mapping, caps: Mapping) -> dict:
     if field == "power":
         pl = rec["target_power_level"]
         return {"value": f"{pl['scale']} · {POWER_SCALE_TIER_MAP.get(pl['scale'], pl.get('tier'))}"}
+    if field == "bracket":
+        tb = rec.get("target_bracket")
+        if tb is None:
+            return {"value": "Not set (no bracket checks)."}
+        name = BRACKET_NAMES.get(tb)
+        return {"value": f"Bracket {tb} · {name}" if name else f"Bracket {tb}"}
     if field == "budget":
         bc = rec["budget_constraints"]
         if bc.get("no_budget"):

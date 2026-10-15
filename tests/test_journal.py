@@ -221,7 +221,8 @@ class TestDeltasAndRows(unittest.TestCase):
         rows = journal.build_rows(resolve_intent_defaults(FULL), ctx(), {}, journal.effective_caps(FakeRedis(),
                                   resolve_intent_defaults(FULL)), DECK)
         self.assertEqual([r["field"] for r in rows], journal.FIELDS)
-        self.assertEqual([r["label"] for r in rows], ["Vision", "Win cons", "Target power", "Budget", "Pet cards",
+        self.assertEqual([r["label"] for r in rows], ["Vision", "Win cons", "Target power", "Target bracket", "Budget",
+                                                      "Pet cards",
                                                       "Novelties", "Pillars", "Card changes"])
 
     def test_values(self):
@@ -279,7 +280,7 @@ class TestReviewLifecycle(unittest.TestCase):
         self.assertEqual(view["deltas"]["removed"], ["Reliquary Tower"])
         self.assertIn("Necropotence", view["deltas"]["added"])
         self.assertEqual(view["deltas"]["power"], [6.0, 6.5])
-        self.assertEqual(view["progress"], {"total": 8, "answered": 0, "changed": 0})
+        self.assertEqual(view["progress"], {"total": 9, "answered": 0, "changed": 0})
         self.assertIn("journal:review:open:archidekt:417707", self.r.store)
 
     def test_start_resumes_the_open_review(self):
@@ -311,7 +312,7 @@ class TestReviewLifecycle(unittest.TestCase):
         self.assertEqual(row["answer"], "changed")
         self.assertEqual(row["value"], "8 · optimized")
         self.assertEqual(row["was"], "was 7 · optimized")
-        self.assertEqual(view["progress"], {"total": 8, "answered": 1, "changed": 1})
+        self.assertEqual(view["progress"], {"total": 9, "answered": 1, "changed": 1})
         self.assertEqual(journal.load_journal(self.r, DECK)["target_power_level"]["scale"], 8)
         view = journal.answer_row(self.r, DECK, "power", None)
         self.assertEqual(journal.load_journal(self.r, DECK)["target_power_level"]["scale"], 7)
@@ -350,6 +351,108 @@ class TestReviewLifecycle(unittest.TestCase):
     def test_finish_without_open_review(self):
         with self.assertRaises(journal.NoOpenReview):
             journal.finish_review(self.r, DECK)
+
+
+class TestTargetBracket(unittest.TestCase):
+    """BR-2: optional target_bracket (1-5 or null), separate from the 1-10 power level."""
+
+    def setUp(self):
+        self.r = FakeRedis()
+
+    def test_schema_declares_target_bracket(self):
+        tb = load_schema()["properties"]["target_bracket"]
+        self.assertEqual(tb["type"], ["integer", "null"])
+        self.assertEqual((tb["minimum"], tb["maximum"]), (1, 5))
+        self.assertIsNone(tb["default"])
+        self.assertIn("target_bracket", journal.SECTION_KEYS)
+
+    def test_valid_values_and_null(self):
+        for v in (1, 2, 3, 4, 5, None):
+            with self.subTest(v=v):
+                ok, errs = validate_intent({"target_bracket": v})
+                self.assertTrue(ok, errs)
+                rec = journal.save_journal(self.r, DECK, {"target_bracket": v})
+                self.assertEqual(rec["target_bracket"], v)
+                self.assertEqual(parse_user_intent({"target_bracket": v}).target_bracket, v)
+
+    def test_invalid_values_rejected(self):
+        for v in (0, 6, -1, "x", "3", 3.0, 2.5, True, [3], {"n": 3}):
+            with self.subTest(v=v):
+                ok, errs = validate_intent({"target_bracket": v})
+                self.assertFalse(ok)
+                self.assertTrue(any("target_bracket" in e for e in errs), errs)
+                with self.assertRaises(journal.JournalError):
+                    journal.save_journal(self.r, DECK, {"target_bracket": v})
+        self.assertIsNone(journal.load_journal(self.r, DECK))
+
+    def test_default_is_unset_and_never_derived_from_power(self):
+        self.assertIsNone(resolve_intent_defaults({})["target_bracket"])
+        res = resolve_intent_defaults({"target_power_level": {"scale": 10}})
+        self.assertIsNone(res["target_bracket"])
+        self.assertNotIn("target_bracket", res["metadata"])
+        rec = journal.save_journal(self.r, DECK, {"target_power_level": {"scale": 2}, "target_bracket": 4})
+        self.assertEqual((rec["target_power_level"]["scale"], rec["target_bracket"]), (2, 4))
+
+    def test_old_journal_without_the_field_loads(self):
+        old = resolve_intent_defaults(FULL)
+        old.pop("target_bracket", None)
+        old["_journal"] = {"created_at": "2026-09-14T00:00:00+00:00", "updated_at": "2026-09-14T00:00:00+00:00"}
+        self.r.set(journal.KEY_PREFIX + "archidekt:417707", json.dumps(old))
+        self.assertIsNone(journal.public(journal.load_journal(self.r, DECK))["target_bracket"])
+        self.assertIsNone(journal.journal_view(self.r, DECK)["journal"]["target_bracket"])
+        rec = journal.save_journal(self.r, DECK, {"novelties": "still loads"})
+        self.assertIsNone(rec["target_bracket"])
+        self.assertEqual(rec["pet_cards"], FULL["pet_cards"])
+        rec = journal.save_journal(self.r, DECK, {"target_bracket": 3})
+        self.assertEqual(rec["target_bracket"], 3)
+        self.assertEqual(rec["deck_vision"], old["deck_vision"])
+
+    def test_put_merges_and_null_clears(self):
+        journal.save_journal(self.r, DECK, dict(FULL, target_bracket=2))
+        rec = journal.save_journal(self.r, DECK, {"target_power_level": {"scale": 8}})
+        self.assertEqual(rec["target_bracket"], 2)
+        rec = journal.save_journal(self.r, DECK, {"target_bracket": None})
+        self.assertIsNone(rec["target_bracket"])
+        self.assertEqual(rec["target_power_level"]["scale"], 8)
+
+    def _rows(self, payload):
+        rec = resolve_intent_defaults(payload)
+        rows = journal.build_rows(rec, ctx(), {}, journal.effective_caps(self.r, rec), DECK)
+        return {row["field"]: row for row in rows}, rows
+
+    def test_appears_in_checkin_rows(self):
+        by, rows = self._rows(dict(FULL, target_bracket=3))
+        self.assertEqual([r["field"] for r in rows][2:4], ["power", "bracket"])
+        self.assertEqual(by["bracket"]["label"], "Target bracket")
+        self.assertEqual(by["bracket"]["value"], "Bracket 3 · Upgraded")
+        self.assertEqual(by["bracket"]["sections"], ["target_bracket"])
+        self.assertTrue(by["bracket"]["editable"])
+        self.assertIsNone(by["bracket"]["evidence"])  # no evaluation in BR-2
+        self.assertEqual(by["power"]["value"], "7 · optimized")  # power row untouched
+        by, _ = self._rows(FULL)
+        self.assertEqual(by["bracket"]["value"], "Not set (no bracket checks).")
+
+    def test_checkin_change_and_undo(self):
+        journal.save_journal(self.r, DECK, dict(FULL, target_bracket=2))
+        journal.start_review(self.r, DECK, ctx())
+        view = journal.answer_row(self.r, DECK, "bracket", "changed", {"target_bracket": 4})
+        row = next(r for r in view["rows"] if r["field"] == "bracket")
+        self.assertEqual((row["answer"], row["value"], row["was"]),
+                         ("changed", "Bracket 4 · Optimized", "was Bracket 2 · Core"))
+        self.assertEqual(journal.load_journal(self.r, DECK)["target_bracket"], 4)
+        with self.assertRaises(journal.JournalError):
+            journal.answer_row(self.r, DECK, "bracket", "changed", {"target_power_level": {"scale": 3}})
+        with self.assertRaises(journal.JournalError):
+            journal.answer_row(self.r, DECK, "bracket", "changed", {"target_bracket": 6})
+        journal.answer_row(self.r, DECK, "bracket", None)
+        self.assertEqual(journal.load_journal(self.r, DECK)["target_bracket"], 2)
+
+    def test_undo_restores_unset(self):
+        journal.save_journal(self.r, DECK, FULL)
+        journal.start_review(self.r, DECK, ctx())
+        journal.answer_row(self.r, DECK, "bracket", "changed", {"target_bracket": 1})
+        journal.answer_row(self.r, DECK, "bracket", None)
+        self.assertIsNone(journal.load_journal(self.r, DECK)["target_bracket"])
 
 
 class FakeFetch:
@@ -475,12 +578,40 @@ class TestJournalRoutes(unittest.TestCase):
         self.assertEqual(self.client.put("/api/journal/defaults", json={"hard_cap": 50, "soft_cap": 60}).status_code, 400)
         self.assertEqual(self.client.put("/api/journal/defaults", json={"hard_cap": 50, "soft_cap": 20}).status_code, 200)
 
+    def test_target_bracket_round_trips_through_the_api(self):
+        self.assertIsNone(self.client.get("/api/decks/archidekt:417707/journal").json()["journal"]["target_bracket"])
+        res = self.client.put("/api/decks/archidekt:417707/journal", json=dict(FULL, target_bracket=3))
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["journal"]["target_bracket"], 3)
+        body = self.client.get("/api/decks/Holy Hellfire/journal").json()
+        self.assertEqual(body["journal"]["target_bracket"], 3)
+        self.assertEqual(body["journal"]["target_power_level"]["scale"], 7)
+        for bad in (0, 6, "x"):
+            with self.subTest(bad=bad):
+                res = self.client.put("/api/decks/archidekt:417707/journal", json={"target_bracket": bad})
+                self.assertEqual(res.status_code, 400)
+                self.assertTrue(any("target_bracket" in e for e in res.json()["errors"]))
+        self.assertEqual(self.client.get("/api/decks/archidekt:417707/journal").json()["journal"]["target_bracket"], 3)
+        res = self.client.put("/api/decks/archidekt:417707/journal", json={"target_bracket": None})
+        self.assertIsNone(res.json()["journal"]["target_bracket"])
+        # The journal form's PUT (no target_bracket key) keeps a stored bracket: PUT merges sections.
+        self.client.put("/api/decks/archidekt:417707/journal", json={"target_bracket": 2})
+        form_save = {k: v for k, v in FULL.items()}
+        res = self.client.put("/api/decks/archidekt:417707/journal", json=form_save)
+        self.assertEqual(res.json()["journal"]["target_bracket"], 2)
+        view = self.client.post("/api/decks/archidekt:417707/checkin").json()["checkin"]
+        self.assertIn("bracket", [r["field"] for r in view["rows"]])
+        res = self.client.patch("/api/decks/archidekt:417707/checkin/rows/bracket",
+                                json={"answer": "changed", "journal": {"target_bracket": 5}})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(self.client.get("/api/decks/archidekt:417707/journal").json()["journal"]["target_bracket"], 5)
+
     def test_checkin_flow(self):
         self.assertEqual(self.client.post("/api/decks/archidekt:417707/checkin").status_code, 409)  # no journal yet
         self.client.put("/api/decks/archidekt:417707/journal", json=FULL)
         self.assertIsNone(self.client.get("/api/decks/archidekt:417707/checkin").json()["checkin"])
         view = self.client.post("/api/decks/archidekt:417707/checkin").json()["checkin"]
-        self.assertEqual(len(view["rows"]), 8)
+        self.assertEqual(len(view["rows"]), 9)
         res = self.client.patch("/api/decks/archidekt:417707/checkin/rows/power",
                                 json={"answer": "changed", "journal": {"target_power_level": {"scale": 8}}})
         self.assertEqual(res.status_code, 200, res.text)
