@@ -58,7 +58,7 @@
 
 {#- ===== The form (Journal tab, or "Change" from the check-in) ===== #}
 {{ hud.section_head("Deck journal", "01") }}
-<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-win">Win cons</a><a href="#j-power">Target power</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
 
 {%- set dv = j.deck_vision -%}
 {%- set wc = j.preferred_win_conditions -%}
@@ -66,6 +66,9 @@
 {%- set scale = j.target_power_level.scale -%}
 {%- set wc_opts = [] -%}{%- for k in wincons %}{%- set _ = wc_opts.append((k, wincon_labels[k])) -%}{%- endfor -%}
 {%- set power_opts = [] -%}{%- for n in range(1, 11) %}{%- set _ = power_opts.append((n, n)) -%}{%- endfor -%}
+{%- set tb = j.target_bracket -%}
+{%- set bracket_opts = [("off", "Off")] -%}{%- set ns = namespace(tb_name="") -%}
+{%- for n, nm in brackets %}{%- set _ = bracket_opts.append((n, n)) -%}{%- if n == tb %}{%- set ns.tb_name = nm -%}{%- endif -%}{%- endfor -%}
 {%- set hard_deck = caps and caps.hard_source == "deck" -%}
 {%- set soft_deck = caps and caps.soft_source == "deck" -%}
 
@@ -91,8 +94,8 @@
         </div>
     {% endcall %}
 
-    {% call hud.form_section("j-power", "Target power", "The 1–10 scale. The tier is derived, so you don't pick it twice.") %}
-        <div class="hud-field"><span class="hud-field-label" id="pwL">Power · <span class="jr-power-now" id="powerNow">{{ scale }} · {{ j.target_power_level.tier }}</span></span>
+    {% call hud.form_section("j-power", "Power & bracket", "Power is the 1–10 feel. Bracket is WotC's 1–5 rulebook: a promise to the pod. Set both; neither is derived from the other.") %}
+        <div class="hud-field" data-row="power"><span class="hud-field-label" id="pwL">Power · <span class="jr-power-now" id="powerNow">{{ scale }} · {{ j.target_power_level.tier }}</span></span>
             {{ hud.seg("power", power_opts, scale, label_id="pwL", mod="scale", id_prefix="pw") }}
             <div class="hud-scale-tiers" id="tierRail" aria-hidden="true">
                 {%- for t, label in [("casual", "Casual"), ("focused", "Focused"), ("optimized", "Optimized"), ("competitive", "cEDH")] -%}
@@ -100,6 +103,11 @@
                 {%- endfor -%}
             </div>
             <span class="hud-field-hint" id="powerHint">Current estimate: computing…</span></div>
+        <div class="hud-field" data-row="bracket"><span class="hud-field-label" id="bkL">Bracket · <span class="jr-power-now" id="bracketNow">{% if tb %}{{ tb }} · {{ ns.tb_name }}{% else %}unset{% endif %}</span></span>
+            {{ hud.seg("bracket", bracket_opts, tb if tb else "off", label_id="bkL", mod="scale bracket", id_prefix="bk", describedby="bkDef") }}
+            <span class="hud-field-hint" id="bracketHint">Current estimate: computing…</span>
+            <div class="hud-bracket-def" id="bkDef" aria-live="polite">{% if tb %}<b>{{ tb }} · {{ ns.tb_name }}</b>{% else %}<b>Unset</b><span>No target, so no bracket checks. The deck page still shows the estimate.</span>{% endif %}</div>
+            <span class="hud-bracket-warn" id="bracketWarn" role="note" hidden></span></div>
     {% endcall %}
 
     {% call hud.form_section("j-budget", "Budget", "Per-card caps drive the tuner. Hard = never suggested. Soft = allowed, flagged, needs a reason.") %}
@@ -145,7 +153,9 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
-    var H = window.HUD, A = window.DeckAnalytics, esc = H.esc;
+    var H = window.HUD, A = window.DeckAnalytics, Br = window.Brackets, esc = H.esc;
+    var POWER_TOL = {{ power_tol | tojson }};  // engine.POWER_ALIGN_TOLERANCE (power_aligned)
+    var est = { power: null, ev: null };        // live estimates: journal metrics + stored bracket eval
     var DECK_ID = {{ deck_id | tojson }}, DECK_NAME = {{ deck_name | tojson }};
     var CARDS = {{ deck_cards | tojson }};
     var DEFAULTS = {{ defaults | tojson }};
@@ -156,7 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var form = $("journalForm");
     // Row field -> form section id + journal keys it may write (analytics/journal.py SECTIONS).
     var ROWS = { vision: ["j-vision", ["deck_vision"]], win_cons: ["j-win", ["preferred_win_conditions"]],
-                 power: ["j-power", ["target_power_level"]], budget: ["j-budget", ["budget_constraints"]],
+                 power: ["j-power", ["target_power_level"]], bracket: ["j-power", ["target_bracket"]], budget: ["j-budget", ["budget_constraints"]],
                  pets: ["j-pets", ["pet_cards"]], novelties: ["j-pets", ["novelties", "freeform_notes"]] };
     var extras = { custom_win_conditions: {{ j.preferred_win_conditions.custom_win_conditions | tojson }} };
 
@@ -178,11 +188,14 @@ document.addEventListener("DOMContentLoaded", function () {
         return isFinite(n) ? n : v;   // a non-number goes to the server, which explains it
     }
     function pets() { return Array.prototype.map.call($("petPicker").querySelectorAll(".hud-chip[data-value]"), function (c) { return c.getAttribute("data-value"); }); }
+    // Off = null (no bracket checks), else 1-5 (BR-2 journal target_bracket).
+    function bracketValue() { var v = radio("bracket"); return v && v !== "off" ? Number(v) : null; }
     function collect() {
         var ttw = num("ttw");
         return {
             deck_vision: { intent: radio("intent") || "tune_up", description: $("vision").value, target_turn_win: ttw === null ? null : (typeof ttw === "number" ? Math.round(ttw) : ttw) },
             target_power_level: { scale: Number(radio("power") || 7) },
+            target_bracket: bracketValue(),
             budget_constraints: $("noBudget").checked ? { no_budget: true, total_budget: null, hard_cap: null, soft_cap: null, currency: "USD" }
                 : { no_budget: false, total_budget: num("totalBudget"), hard_cap: num("hardCap"), soft_cap: num("softCap"), currency: "USD" },
             preferred_win_conditions: { primary: radio("wc_primary") || "combat", secondary: checks("wc_secondary"),
@@ -197,6 +210,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var has = function (k) { return !keys || keys.indexOf(k) !== -1; };
         if (has("deck_vision") && j.deck_vision) { setRadio("intent", j.deck_vision.intent); $("vision").value = j.deck_vision.description || ""; $("ttw").value = val(j.deck_vision.target_turn_win); }
         if (has("target_power_level") && j.target_power_level) setRadio("power", j.target_power_level.scale);
+        if (has("target_bracket") && j.target_bracket !== undefined) setRadio("bracket", j.target_bracket == null ? "off" : j.target_bracket);
         if (has("budget_constraints") && j.budget_constraints) {
             var b = j.budget_constraints; $("noBudget").checked = !!b.no_budget;
             $("totalBudget").value = val(b.total_budget); $("hardCap").value = val(b.hard_cap); $("softCap").value = val(b.soft_cap);
@@ -216,6 +230,18 @@ document.addEventListener("DOMContentLoaded", function () {
         var s = Number(radio("power") || 7), tier = A.tierOf(s);
         $("powerNow").textContent = s + " · " + tier;
         $("tierRail").querySelectorAll("span").forEach(function (x) { x.classList.toggle("is-on", x.getAttribute("data-tier") === tier); });
+        // Bracket: label, live definition card, below-the-floor note (never blocks saving).
+        var bk = bracketValue();
+        $("bracketNow").textContent = bk ? bk + " · " + Br.name(bk) : "unset";
+        $("bkDef").innerHTML = Br.definition(bk);
+        var warn = Br.belowFloor(bk, est.ev);
+        $("bracketWarn").innerHTML = warn; $("bracketWarn").hidden = !warn;
+        if (est.power != null) {
+            var d = Math.round((est.power - s) * 10) / 10;
+            $("powerHint").innerHTML = "Current estimate: " + esc(est.power) + " (computed)" + (Math.abs(d) > POWER_TOL
+                ? ' · <span class="hud-bracket-out">' + (d > 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + " from target (over " + POWER_TOL + ")</span>"
+                : " · within " + POWER_TOL + " of target");
+        }
         [["hardCap", "hardHint", "hard_cap"], ["softCap", "softHint", "soft_cap"]].forEach(function (c) {
             var d = A.money(DEFAULTS[c[2]]);
             $(c[1]).textContent = $(c[0]).value.trim() === "" ? "Using global default · " + d : "Global default " + d + " · overridden";
@@ -295,7 +321,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ---- Dirty tracking + save ------------------------------------------------------
-    var KEYS = ["deck_vision", "target_power_level", "budget_constraints", "preferred_win_conditions", "pet_cards", "novelties", "freeform_notes"];
+    var KEYS = ["deck_vision", "target_power_level", "target_bracket", "budget_constraints", "preferred_win_conditions", "pet_cards", "novelties", "freeform_notes"];
     var base = collect();
     function dirtyKeys() { var cur = collect(); return KEYS.filter(function (k) { return JSON.stringify(cur[k]) !== JSON.stringify(base[k]); }); }
     function rebase(keys) { var cur = collect(); (keys || KEYS).forEach(function (k) { base[k] = cur[k]; }); }
@@ -308,6 +334,8 @@ document.addEventListener("DOMContentLoaded", function () {
             var s = "Unsaved";
             var a = base.target_power_level.scale, b = collect().target_power_level.scale;
             if (a !== b) s += " · power " + a + " → " + b;
+            var ba = base.target_bracket, bb = collect().target_bracket;
+            if (ba !== bb) s += " · bracket " + (ba || "off") + " → " + (bb || "off");
             $("saveSummary").innerHTML = "<b>" + esc(s) + "</b>";
         }
     }
@@ -344,11 +372,32 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ---- Live metrics (estimate, price) --------------------------------------------
+    function markEstimate(name, n) {
+        document.querySelectorAll('input[name="' + name + '"] + label').forEach(function (l) {
+            var on = n != null && l.previousElementSibling.value === String(n);
+            l.classList.toggle("is-est", on);
+            if (on) l.title = "Estimate"; else l.removeAttribute("title");
+        });
+    }
     send("GET", "/journal").then(function (j) {
         var m = j.metrics || {};
+        est.power = m.power != null ? m.power : null;
         $("powerHint").textContent = m.power != null ? "Current estimate: " + m.power + " (computed)." : "No estimate yet.";
+        markEstimate("power", m.power != null ? Math.min(10, Math.max(1, Math.floor(m.power))) : null);
         $("totalHint").textContent = m.price != null ? "Now " + A.money(m.price) + (m.unpriced ? " · " + m.unpriced + " unpriced" : "") : "";
+        syncDerived();
     }).catch(function () { $("powerHint").textContent = "Estimate unavailable."; });
+    // Stored bracket evaluation (BR-5): the estimate notch + the below-the-floor note.
+    fetch("/api/deck/" + encodeURIComponent(DECK_ID) + "/bracket").then(function (r) {
+        return r.json().then(function (b) { return { ok: r.ok, b: b }; });
+    }).then(function (x) {
+        if (!x.ok || !x.b.evaluation) { $("bracketHint").textContent = "No estimate yet: the bracket check hasn't run for this deck."; return; }
+        est.ev = x.b.evaluation;
+        $("bracketHint").innerHTML = "Current estimate: Bracket " + esc(est.ev.estimated_bracket) + " · " + esc(est.ev.estimated_bracket_name) +
+            ' (computed). <span class="hud-bracket-estkey" aria-hidden="true"></span> marks it on the scale.';
+        markEstimate("bracket", est.ev.estimated_bracket);
+        syncDerived();
+    }).catch(function () { $("bracketHint").textContent = "Estimate unavailable."; });
 
     // ---- Check-in ---------------------------------------------------------------------
     var checkin = null, cur = 0, openRow = null, marker = null, busy = false;
@@ -368,7 +417,7 @@ document.addEventListener("DOMContentLoaded", function () {
         else {
             acts = '<button class="hud-btn hud-btn--sm" type="button" data-act="true" aria-pressed="' + done + '">✓ Still true</button>';
             acts += r.link ? '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + esc(r.link) + '">Open Identity</a>'
-                           : !ROWS[r.field] ? ""  // no form section for this field on the page yet (e.g. bracket until BR-6)
+                           : !ROWS[r.field] ? ""  // no form section for this field on the page
                            : '<button class="hud-btn hud-btn--sm' + (r.evidence ? "" : " hud-btn--ghost") + '" type="button" data-act="change" aria-expanded="false">Change</button>';
         }
         return '<li class="hud-check' + (done || ch ? " is-done" : "") + (i === cur ? " is-current" : "") + '" tabindex="-1" data-field="' + esc(r.field) + '">' +
@@ -421,13 +470,17 @@ document.addEventListener("DOMContentLoaded", function () {
         box.innerHTML = '<div class="hud-form"></div><div class="jr-change-actions"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="save-change">Save change <span class="hud-kbd jr-kbd-on-primary">⌘↵</span></button>' +
             '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel-change">Cancel</button><span class="jr-error" role="alert"></span></div>';
         box.firstChild.appendChild(sec); box.hidden = false; openRow = field;
+        // A section shared by several rows (Power & bracket) shows only this row's
+        // field, so Save change / Cancel cover exactly what's visible.
+        sec.querySelectorAll("[data-row]").forEach(function (x) { x.hidden = x.getAttribute("data-row") !== field; });
         var btn = li.querySelector('[data-act="change"]'); if (btn) btn.setAttribute("aria-expanded", "true");
-        var first = sec.querySelector("input:not([type=hidden]), textarea"); if (first) first.focus();
+        var first = sec.querySelector(".hud-field:not([hidden]) input:checked, .hud-field:not([hidden]) input:not([type=hidden]), textarea"); if (first) first.focus();
     }
     function closeChange(restore) {
         if (!openRow) return;
         var keys = ROWS[openRow][1], sec = $(ROWS[openRow][0]);
         marker.parentNode.insertBefore(sec, marker); marker.remove(); marker = null;
+        sec.querySelectorAll("[data-row]").forEach(function (x) { x.hidden = false; });
         if (restore) fill(base, keys);
         var li = $("ciRows").querySelector('[data-field="' + openRow + '"]');
         if (li) { var box = li.querySelector(".hud-check-form"); box.hidden = true; box.innerHTML = ""; }
@@ -484,6 +537,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (REVIEW) startCheckin();
     if (params.get("reviewed") === "1") $("saveSummary").textContent = "Review saved";
+    // "Raise target to N" on the deck page lands here with ?bracket=N preselected (unsaved).
+    var want = params.get("bracket");
+    if (want && /^(off|[1-5])$/.test(want)) { setRadio("bracket", want); changed(); }
     syncDerived();
 });
 </script>

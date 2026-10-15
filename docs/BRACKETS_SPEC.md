@@ -322,11 +322,44 @@ API (deck id = registry id, raw id or deck name; `/api/decks/...` works too):
 | BR-3 | Shipped as the deterministic deck check (`analytics/bracket_check.py`): Game Changers, mass land denial and extra-turn lists (Tagger snapshot + overrides), Spellbook two-card combos by tag, tutors (advisory), `minimum_bracket` with per-floor cards. Covers what BR-2/BR-4 described for data and evaluation. |
 | BR-4 | Shipped as the evaluator (`analytics/bracket_eval.py`, section below): BR-3 findings + journal targets + Commander Salt / our power estimate / EDHREC / price -> estimated bracket and power level, hard vs advisory conflicts, ordered explanation. |
 | BR-5 | Advisory signals next to it: tutors, Commander Salt `bracket_rating`, Spellbook estimate, turn expectation vs the deck's speed; plus the user's declared bracket per deck (stored, with "not intentional" overrides). Advisory never changes the BR-4 number. |
-| BR-6 | API + deck page / decks list: bracket badge next to the 1-10 power level, with the floors and advisories on hover/expand. |
+| BR-6 | Shipped as the UI (section below): Journal bracket picker beside power, deck-page banner + decklist flags from the stored BR-5 result. |
 | BR-7 | "To reach bracket N, cut these" suggestions and Tuner integration (a target bracket constrains suggested adds). |
 | BR-8 | Calibration and upkeep: compare BR-4 with Commander Salt / Spellbook across our decks, document gaps, schedule the snapshot refresh and an alert when the official list changes. |
 
 Non-goals for BR-1: no UI, no journal changes, no deck evaluation.
+
+## UI: Journal picker + deck page (BR-6)
+
+Direction A (Inline) of the BR-D designer spec (draft PR #97, reference only).
+View models and renderers: `static/js/brackets.js` (`window.Brackets`), loaded
+on every deck tab by `partials/deck_head.html`; styles: `hud.css` section 9
+(`--bracket-*` tokens, `.hud-bracket*` classes).
+
+- **Journal** (`/deck/{name}/journal`): the "Target power" section is now
+  "Power & bracket". Under the power scale: an `Off 1 2 3 4 5` `hud-seg--scale`
+  (`name="bracket"`, Off = `target_bracket: null`), a live definition card
+  (`aria-live`), and an advisory note when the pick is below today's hard-rule
+  minimum (never blocks saving). A data notch marks the estimate on both scales;
+  the power hint says when it's more than `POWER_ALIGN_TOLERANCE` from target.
+  Saves through `PUT /api/decks/{id}/journal`; the check-in's Bracket row now has
+  an inline Change. `?bracket=N` preselects N (unsaved): the deck page's
+  "Raise target to N" link.
+- **Deck page**: header chips (target, always neutral, + a "■ N conflicts" button
+  that focuses the banner; "Est. B3" when unset), and a banner between the tabs
+  and the hero with the estimated bracket and power against the targets (delta
+  coloured by `power_aligned` / bracket ≠ target, never by sign), one row per
+  conflict (hard ■ / advisory ▲, bold title, message, card buttons that jump to
+  and pulse the card), and the "How this was decided" tray (summary, signals
+  table, evaluated-at + input hash). States: conflicts, clean, unset, not
+  evaluated (Evaluate now = POST), re-evaluating (stale/pending: last result +
+  chip, polls every 2s), failed (last result + "Last check failed · retry").
+- **Decklist**: flagged cards get a severity frame + top bar + caption
+  (`■ Game Changer · Over Bracket 1`), hard wins; group headers link to the first
+  flagged card; the List view shows the same caption as a chip.
+- Signals have no kind/drives in BR-4, so the tray table is Signal · Value ·
+  Effect · Source. Conflict titles are derived from the rule (first sentence of
+  the message otherwise). The power-vs-target advisory is BR-4's `power_target`
+  conflict (`engine.POWER_ALIGN_TOLERANCE`); the UI only renders it.
 
 ## Target bracket in the Deck Journal (BR-2)
 

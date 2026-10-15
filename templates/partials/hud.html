@@ -363,14 +363,14 @@
 {# Segmented control over native radios/checkboxes. options: [(value, label)].
    selected: a value (radio) or a list (multi). mod: "multi", "exclude", "scale".
    `visible` options show; the rest sit behind a More… button (expanded when one is selected). #}
-{% macro seg(name, options, selected=none, label_id=none, multi=false, mod=none, visible=none, more_id=none, id_prefix=none) -%}
+{% macro seg(name, options, selected=none, label_id=none, multi=false, mod=none, visible=none, more_id=none, id_prefix=none, describedby=none) -%}
 {%- set kind = "checkbox" if multi else "radio" -%}
 {%- set sel = (selected if selected is iterable and selected is not string else [selected]) if selected is not none else [] -%}
 {%- set pre = id_prefix or name -%}
 {%- set head = options[:visible] if visible else options -%}
 {%- set rest = options[visible:] if visible else [] -%}
 {%- macro opt(o) -%}<input type="{{ kind }}" name="{{ name }}" value="{{ o[0] }}" id="{{ pre }}-{{ o[0] }}"{% if o[0] in sel %} checked{% endif %}><label for="{{ pre }}-{{ o[0] }}">{{ o[1] }}</label>{%- endmacro -%}
-<span class="hud-seg{% for m in (mod or "").split() %} hud-seg--{{ m }}{% endfor %}" role="{{ "group" if multi else "radiogroup" }}"{% if label_id %} aria-labelledby="{{ label_id }}"{% endif %}>
+<span class="hud-seg{% for m in (mod or "").split() %} hud-seg--{{ m }}{% endfor %}" role="{{ "group" if multi else "radiogroup" }}"{% if label_id %} aria-labelledby="{{ label_id }}"{% endif %}{% if describedby %} aria-describedby="{{ describedby }}"{% endif %}>
     {%- for o in head %}{{ opt(o) }}{% endfor -%}
     {%- if rest -%}
     {%- set open = (rest | map(attribute=0) | select("in", sel) | list | length) > 0 -%}

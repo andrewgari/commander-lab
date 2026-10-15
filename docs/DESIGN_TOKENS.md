@@ -108,6 +108,8 @@ Fonts load from Google Fonts in `base.html`.
 | `--graph-h` | 36rem, interaction-graph plot height (desktop) |
 | `--graph-node-min` / `-max` | 5 / 18, node radius px by √degree (unitless: read by `HUD.graph`) |
 | `--graph-edge` / `--graph-dim` | `var(--line-strong)` resting edge / 0.14 opacity of non-neighbours while focused |
+| `--bracket-hard` / `-adv` / `-ok` (+ `-hard-dim`, `-adv-dim`) | aliases of `--danger` / `--signal` / `--ok`: bracket severity, always paired with a shape (■ ▲ ●) |
+| `--bracket-flag-h` / `--bracket-pulse` | 4px severity bar on a flagged card / 1.035 jump-to-card pulse scale (outline under reduced motion) |
 
 ## Layout and layers
 
@@ -230,3 +232,13 @@ edit needs the rescored payload anyway). Journal (AN-5) gets macros.
 
 `HUD.barChart(bars, {ref: [...]})` now draws the dashed reference step line
 like the `bar_chart` macro (Stats uses it for the template curve).
+
+### Brackets (hud.css section 9, BR-6)
+
+| Component | Builder | Root class | Notes |
+|---|---|---|---|
+| Bracket banner | `Brackets.banner(res, httpStatus, {deckUrl, tolerance})` (`static/js/brackets.js`) | `.hud-bracket` (`is-hard is-adv is-ok is-quiet`), `.hud-bracket-est`, `.hud-bracket-vs`, `.hud-bracket-delta` (`is-out is-in`), `.hud-bracket-list`, `.hud-bracket-why` (a `.hud-tray`) | from `GET /api/deck/{id}/bracket`; left edge = worst severity |
+| Severity chip | `Brackets.sevChip(sev)` | `.hud-bracket-sev--hard` / `--adv` | ■ Hard rule / ▲ Advisory |
+| Header chips | `Brackets.metaChip(res, status)` | `.hud-bracket-chip`, `.hud-bracket-chipbtn` | target chip always neutral |
+| Card flag | (markup on `HUD.art`) | `.hud-bracket-flag` (`--adv`), `.hud-bracket-flag-why`, `.hud-bracket-count` | frame + top bar + caption, nothing on the art; `.is-pulse` on jump |
+| Journal picker | `seg("bracket", …, mod="scale bracket", describedby="bkDef")` + `Brackets.definition(n)` / `belowFloor(n, ev)` | `.hud-seg--bracket`, `.hud-bracket-def`, `.hud-bracket-warn`, `label.is-est` | Off = null |

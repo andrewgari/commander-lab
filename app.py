@@ -35,6 +35,8 @@ from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
 from analytics import bracket_worker
+from analytics import brackets as brackets_mod
+from analytics import engine as engine_mod
 from analytics import personality_profile, personality_store
 import urllib.parse
 
@@ -145,7 +147,8 @@ async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     return templates.TemplateResponse(request=request, name="deck.html", context={
-        "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview"})
+        "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview",
+        "power_tol": engine_mod.POWER_ALIGN_TOLERANCE})  # BR-6: the power_aligned threshold, shown as-is
 
 
 def _deck_head_context(deck_name: str) -> dict:
@@ -285,7 +288,9 @@ def _journal_page_context(deck_name: str) -> dict:
     """Server-rendered Journal form data. Never raises (Redis down = empty form)."""
     out = {"j": journal_mod.public(None), "exists": False, "caps": None, "deck_cards": [], "pillars": [],
            "money": journal_mod.money, "wincons": list(journal_mod.WINCON_ORDER),
-           "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items())}
+           "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items()),
+           "brackets": [(b.number, b.name) for b in brackets_mod.BRACKETS],
+           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE}
     defaults = dict(journal_mod.DEFAULT_CAPS)
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
