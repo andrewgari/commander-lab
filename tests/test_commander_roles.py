@@ -136,6 +136,10 @@ class TestAssignRoles(unittest.TestCase):
         # One commander, two printings: one portrait.
         self.assertEqual(len(cr.deck_commanders({"commanders": ["A"], "commander_uids": ["x", "y"]}, {})), 1)
         self.assertEqual(len(cr.deck_commanders({"commander_uids": ["x", "y", "z"]}, {})), 2)
+        # Legacy dual-source shape: 2 names, 3 independently merged uids -> no uids.
+        rows = cr.deck_commanders({"commanders": ["Doctor", "Rose"], "commander_uids": ["da", "db", "rr"]}, {})
+        self.assertEqual([r["uid"] for r in rows], [None, None])
+        self.assertEqual(cr.deck_commanders({"commanders": ["A"], "commander_uids": ["x", "y"]}, {})[0]["uid"], "x")
         self.assertEqual(cr.deck_commanders({}, {}), [])
 
 
@@ -288,6 +292,7 @@ class TestViewsUseRoles(unittest.TestCase):
         self.assertIn("hud-cmdr--doctors-companion", out["doc"])
         self.assertIn('<span class="hud-cmdr-badge">Planeswalker</span>', out["minsc"])
         self.assertEqual([c["role"] for c in out["legacy"]], ["partner", "partner"])
+        self.assertEqual([c["uid"] for c in out["legacy"]], [None, None])  # 2 names, 3 uids: unpaired
         self.assertEqual([c["uid"] for c in out["one"]], ["x"])
 
 

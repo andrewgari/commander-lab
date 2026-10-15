@@ -272,7 +272,7 @@
         // Commanders with no inventory row (a true companion lives outside the
         // 100, or the deck has no inventory yet) still show, straight from
         // their Scryfall printing. Both sources merge, then sort by role order.
-        const missing = roles.filter(r => r.uid && !cmdrs.some(([c]) => c.name === r.name));
+        const missing = roles.filter(r => (r.uid || r.name) && !cmdrs.some(([c]) => c.name === r.name));
         const portraits = cmdrs.map(([c, i]) => ({ name: c.name, card: c, i }))
             .concat(missing.map(r => ({ name: r.name, uid: r.uid })))
             .sort((a, b) => ((roleOf[a.name] || {}).order ?? 9) - ((roleOf[b.name] || {}).order ?? 9));
@@ -285,7 +285,9 @@
                 if (p.card) {
                     html = cardArt(p.card, p.i, 'large', 'card');
                 } else {
-                    const img = HUD.scryfall(p.uid, 'large');
+                    // No printing UID: Scryfall's named-card image instead.
+                    const img = p.uid ? HUD.scryfall(p.uid, 'large')
+                        : { src: 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.name) + '&format=image&version=large', fallback: '' };
                     html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
                 }
                 // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.

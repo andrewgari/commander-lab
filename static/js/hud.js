@@ -181,6 +181,9 @@
     function commanderRoles(deck) {
         if (deck && deck.commander_roles) return deck.commander_roles;
         var names = (deck && deck.commanders) || [], uids = ((deck && deck.commander_uids) || []).filter(Boolean);
+        // Several names with a different uid count: pairing unknown (legacy
+        // dual-source record), so fall back to name-based images.
+        if (names.length > 1 && uids.length !== names.length) uids = [];
         var n = names.length || Math.min(uids.length, 2), out = [];
         for (var i = 0; i < n; i++) out.push({ name: names[i] || "", uid: uids[i] || null, role: n > 1 ? "partner" : "commander" });
         return out;

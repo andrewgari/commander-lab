@@ -173,6 +173,11 @@ def deck_commanders(deck, cards):
     plus a companion)."""
     names = list(deck.get("commanders") or [])
     uids = [u for u in (deck.get("commander_uids") or []) if u]
+    # Legacy dual-source records unioned names and uids separately, so with
+    # several names a count mismatch means the pairing is unknown: drop the
+    # uids and let views use name-based images instead of the wrong art.
+    if len(names) > 1 and len(uids) != len(names):
+        uids = []
     if not names:
         names = [""] * min(len(uids), 2)
     rows = []
