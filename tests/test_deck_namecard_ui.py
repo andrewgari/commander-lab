@@ -38,6 +38,12 @@ class TestDeckNamecardUI(unittest.TestCase):
                      '<div class="deck-header-info">', 'class="deck-inv"', 'class="deck-open"',
                      "HUD.statusChip(", "HUD.pips("):
             self.assertIn(frag, html)
+        # Quick view a11y: focus returns via a stable deck key (tiles re-render),
+        # focus moves into the dialog on open, and Tab is contained.
+        self.assertIn('data-deck-key="', html)
+        self.assertIn("b.dataset.deckKey === deckModalReturnKey", html)
+        self.assertIn("document.querySelector('#deckModal .modal-close').focus();", html)
+        self.assertIn("deckModalFocusables()", html)
         # Title clamps to 2 lines; commander line is one ellipsized line.
         self.assertRegex(html, r"\.deck-name \{[^}]*-webkit-line-clamp: 2")
         self.assertRegex(html, r"\.deck-commanders \{[^}]*white-space: nowrap[^}]*text-overflow: ellipsis")

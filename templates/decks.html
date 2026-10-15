@@ -437,8 +437,8 @@
 
 <!-- Deck Details Modal -->
 <div id="deckModal" class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <button class="modal-close" onclick="closeModal()">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalDeckName" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         <div id="modalImagesContainer" class="modal-images-container">
@@ -746,10 +746,12 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
-    let deckModalTrigger = null;
+    // Status changes and Sync re-render the tiles, so remember a stable deck
+    // key (not the DOM node) and resolve the current tile button on close.
+    let deckModalReturnKey = null;
     function openDeckModal(deckIndex, trigger) {
         currentDeckIndex = deckIndex;
-        if (trigger) deckModalTrigger = trigger;
+        if (trigger) deckModalReturnKey = trigger.dataset.deckKey || null;
         const deck = allDecks[deckIndex];
         
         document.getElementById('modalDeckName').innerHTML = `<a href="/deck/${encodeURIComponent(deck.name)}" style="color: inherit; text-decoration: none;">${deck.name}</a>`;
@@ -837,17 +839,42 @@
         }
         
         document.getElementById('deckModal').style.display = 'flex';
+        // Move focus into the dialog; Tab is contained below until it closes.
+        document.querySelector('#deckModal .modal-close').focus();
     }
 
     function closeModal(event) {
         if (!event || event.target.classList.contains('modal-overlay') || !event.target.closest('.modal-content')) {
             document.getElementById('deckModal').style.display = 'none';
-            if (deckModalTrigger) { deckModalTrigger.focus(); deckModalTrigger = null; }
+            if (deckModalReturnKey !== null) {
+                const btn = Array.from(document.querySelectorAll('.deck-open'))
+                    .find(b => b.dataset.deckKey === deckModalReturnKey);
+                // Filtering may have removed the tile: fall back to the first deck link or main.
+                const target = btn || document.querySelector('.deck-name a') || document.querySelector('main');
+                if (target) {
+                    if (target.tagName === 'MAIN' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                    target.focus();
+                }
+                deckModalReturnKey = null;
+            }
         }
     }
 
+    function deckModalFocusables() {
+        return Array.from(document.querySelectorAll('#deckModal .modal-content a[href], #deckModal .modal-content button, #deckModal .modal-content input, #deckModal .modal-content select, #deckModal .modal-content textarea, #deckModal .modal-content [tabindex]:not([tabindex="-1"])'))
+            .filter(el => !el.disabled && el.offsetParent !== null);
+    }
+
     document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape' && document.getElementById('deckModal').style.display === 'flex') closeModal();
+        if (document.getElementById('deckModal').style.display !== 'flex') return;
+        if (ev.key === 'Escape') { closeModal(); return; }
+        if (ev.key !== 'Tab') return;
+        const els = deckModalFocusables();
+        if (!els.length) return;
+        const first = els[0], last = els[els.length - 1];
+        const inside = document.querySelector('#deckModal .modal-content').contains(document.activeElement);
+        if (ev.shiftKey && (document.activeElement === first || !inside)) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && (document.activeElement === last || !inside)) { ev.preventDefault(); first.focus(); }
     });
 
     function openImportModal() {
@@ -1052,7 +1079,7 @@
                         </div>
                         <a class="deck-inv" href="/inventory?deck=${href}" title="Inventory for ${HUD.esc(deck.name)}" aria-label="Inventory for ${HUD.esc(deck.name)}">${INV_ICON}</a>
                     </div>
-                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
+                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
                 </article>
             `}).join('');
             
