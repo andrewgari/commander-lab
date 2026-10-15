@@ -35,6 +35,7 @@ from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
 from analytics import bracket_worker
+from analytics import personality_profile, personality_store
 import urllib.parse
 
 app = FastAPI()
@@ -1847,6 +1848,82 @@ async def api_request_deck_bracket(deck_id: str):
         return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
                                                       "registry_id": rid, "error": str(exc)[:200]})
     return JSONResponse(status_code=202, content={"success": True, "queued": True, "registry_id": rid})
+
+
+# ---------------------------------------------------------------------------
+# Personality scores (PS-3): stored per deck by the worker process
+# (analytics/personality_store.py, run each bracket-worker tick). These
+# routes read personality:deck:{registry_id}; they never score.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/personality")
+async def api_deck_personality(deck_id: str):
+    """Stored PersonalityScores. 404 status=not_scored until the worker has
+    scored the deck; 500 status=error when scoring failed and no earlier
+    scores exist; stale=true when the inputs changed since (the worker
+    rescores on its own)."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    try:
+        rec = personality_store.load_record(r, rid)
+        queued = rid in personality_store.pending(r)
+        current = await asyncio.to_thread(personality_store.current_input_hash, r, deck)
+    except Exception as exc:  # noqa: BLE001 - Redis trouble: say so, don't 500
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    base = {"registry_id": rid, "deck_name": deck.get("name"), "pending": queued}
+    if not rec or not rec.get("scores"):
+        if rec and rec.get("status") == "error":
+            return JSONResponse(status_code=500, content={
+                "success": False, **base, "status": "error", "error": rec.get("error"),
+                "error_at": rec.get("error_at"), "personality": None})
+        return JSONResponse(status_code=404, content={
+            "success": False, **base, "status": "not_scored", "error": "Not scored yet.", "personality": None})
+    result_hash = rec.get("result_hash") or rec.get("input_hash")
+    return {"success": True, **base, "status": rec.get("status") or "ok", "computed_at": rec.get("computed_at"),
+            "stale": result_hash != current, "error": rec.get("error"), "error_at": rec.get("error_at"),
+            "personality": rec["scores"]}
+
+
+@app.post("/api/decks/{deck_id}/personality")
+async def api_request_deck_personality(deck_id: str):
+    """Queue a rescore for the worker (202). Returns immediately."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    try:
+        personality_store.request(r, rid)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    return JSONResponse(status_code=202, content={"success": True, "queued": True, "registry_id": rid})
+
+
+@app.get("/api/profile/personality")
+async def api_profile_personality(scope: str = "physical"):
+    """PlayerProfile over every stored deck score (analytics.personality_profile).
+    ?scope=physical (default) | all. Failed decks are listed, never averaged."""
+    if scope not in ("physical", "all"):
+        return JSONResponse(status_code=400, content={"success": False, "error": "scope must be physical or all"})
+    try:
+        decks = registry.list_decks(r)
+        scored, failed, missing = personality_store.load_all(r, decks)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "error": str(exc)[:200]})
+    in_scope = [d for d in decks if scope == "all" or d.get("status") == "physical"]
+    profile = personality_profile.build_player_profile(scored, failed=failed, scope=scope,
+                                                       decks_total=len(in_scope))
+    body = profile.model_dump()
+    body["not_scored"] = sum(1 for d in missing if scope == "all" or d.get("status") == "physical")
+    body["scope_counts"] = {"physical": sum(1 for d in decks if d.get("status") == "physical"), "all": len(decks)}
+    return {"success": True, "profile": body}
 
 
 @app.on_event("startup")

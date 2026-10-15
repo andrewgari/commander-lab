@@ -495,6 +495,91 @@ Vorthos and Melvin within 6).
 
 ## 9. Non-goals
 
-No API route, no storage, no UI, no player-level aggregation (PS-D and later
-cards), no LLM, and no per-user calibration. The bands are fixed numbers in
-code, not percentiles of the current collection.
+No UI, no LLM, and no per-user calibration. The bands are fixed numbers in
+code, not percentiles of the current collection. Storage, the API and the
+player profile were added by PS-3 (§10).
+
+## 10. Storage, API and player profile (PS-3)
+
+### 10.1 Storage
+
+`analytics/personality_store.py`. The scorer runs in the worker process
+(`python -m analytics.bracket_worker`, compose service `bracket-worker`):
+every tick runs the bracket pass, then `personality_store.recompute_all`.
+The worker is woken by every sync path and every Deck Journal save, and
+ticks every `BRACKET_EVAL_INTERVAL_S` anyway, so scores follow a sync or a
+journal edit within seconds. Nothing scores in the web request path.
+
+* `personality:deck:{registry_id}`: `{registry_id, deck_name, status: ok|error,
+  version, input_hash, result_hash, computed_at, scores, error, error_at, duration_ms}`.
+  `scores` is `PersonalityScores.model_dump()` with `computed_at` filled in.
+* `personality:pending`: registry_ids requested for a rescore (`POST`).
+* `personality:heartbeat`: last pass summary.
+
+**Input hash** (sha256): `PERSONALITY_VERSION` + decklist (commanders, card
+names and quantities) + Deck Journal content without `_journal` bookkeeping
++ the stamps of every cache the scorer reads: interaction graph
+`built_at`, Spellbook `fetched_at`, EDHREC `fetched_at`, Game Changers
+`fetched_at`. Same hash as the stored record: skipped. So an idle
+collection costs one hash per deck per tick; a new graph build, a
+Spellbook refresh or a version bump rescores.
+
+**Failure isolation.** A deck whose inputs can't be read or whose scorer
+raises gets `status: error` with the reason; its last good `scores` stay;
+the failed hash is recorded, so it isn't retried every tick, only when
+something changes or it's requested. The pass moves on. A failing
+personality pass never stops the bracket tick.
+
+### 10.2 API
+
+`GET /api/decks/{id}/personality` (`id` = id, registry_id or name):
+
+| Status | Body |
+|---|---|
+| 200 | `{success, registry_id, deck_name, status: ok|error, computed_at, stale, pending, error, error_at, personality}` (`status: error` with 200 = last pass failed, older scores shown) |
+| 404 | `status: deck_not_found` or `status: not_scored` (the worker hasn't got to it) |
+| 500 | `status: error`: scoring failed and there are no earlier scores |
+| 503 | `status: unavailable`: Redis trouble |
+
+`POST /api/decks/{id}/personality` queues a rescore (202).
+`AxisEvidence.weight` is the signal's weight (`points / weight` = share of
+the max); journal rows have `weight: null`.
+
+`GET /api/profile/personality?scope=physical|all` (default physical):
+`{success, profile}` where `profile` is `PlayerProfile` plus `not_scored`
+(decks in scope with no record) and `scope_counts {physical, all}`.
+
+### 10.3 Player profile rules
+
+`analytics.personality_profile.build_player_profile(all_scores, *, failed,
+scope, decks_total)`. Pure: same stored scores, same profile, in any
+order. Failed decks (no scores at all) are listed in `failed[]` and never
+averaged.
+
+* `average`: per axis, the mean of the decks' final scores, half up.
+* `low_data`: fewer than 3 scored decks. Averages still shown, headline
+  "Early read: X, so far.", `trends: []`, `decks_to_unlock_trends = 3 − n`.
+* Headline from the averages ranked high to low (ties in axis order):
+  top − third < 3 → `even` (`dominant: "balanced"`, "You play a bit of
+  everything."); top − second ≤ 5 → `close` (`dominant_runner_up` set);
+  else `clear`. No decks → `none`.
+* `why` reconciles average vs count ("By count, Vorthos and Melvin tie…").
+* `groups` per deck, from the V1 evidence: `tribal` when the top creature
+  subtype is ≥ 50% of creatures; `universe` when the top set is ≥ 60% of
+  non-ramp nonland cards.
+
+Trends, at most 8, in this order; none may name the same deck + axis as an
+earlier one (a later one is dropped or moves to the next candidate). Text is
+the sentence after the number; `<b>` only around axis and deck names, deck
+names quoted and cut at 34 characters on a word boundary.
+
+| Kind | Rule | Action |
+|---|---|---|
+| `most_common_lean` | the axis (or tied axes) most decks lean; "3 / 6 decks lean Spike" | filter axis |
+| `average_vs_count` | the highest-average axis isn't the most common lean | sort axis |
+| `none` / `rarest_lean` | axes no deck leans ("0 / 6 decks lean Johnny or Melvin"); if every axis has one, the rarest lean when it's below the top | sort / filter axis |
+| `balanced_count` | some decks are balanced | filter balanced |
+| `outlier` (≤ 2, different decks) | deck score ≥ 70 and ≥ 30 above the axis average, biggest gap first | open deck |
+| `group` | ≥ 2 tribal (or universe) decks and ≥ 1 other; the axis whose group average beats the rest by most, if by ≥ 10 ("your Vorthos is highest in tribal decks") | filter group |
+| `spread` | widest axis range ≥ 40 whose extreme decks aren't already named for that axis | sort axis |
+| `journal_coverage` | always: decks with a journal | filter no_journal |
