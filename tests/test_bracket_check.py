@@ -213,6 +213,49 @@ class Rules(unittest.TestCase):
                                    snapshot={"mass_land_denial": [], "extra_turns": [], "tutors": []})
         self.assertEqual(f.mass_land_denial.count, 2)
 
+    def test_extra_turn_card_plus_other_infinite_is_not_a_loop(self):
+        # Gonti's Aether Heart + Decoction Module + Whirler Virtuoso: infinite tokens, but the Heart exiles itself.
+        v = {"id": "g", "card_names": ["Gonti's Aether Heart", "Whirler Virtuoso"], "requires": [],
+             "bracket_tag": "S", "produces": ["Infinite colorless thopter tokens"]}
+        f = bc.check_deck_brackets(["Gonti's Aether Heart", "Whirler Virtuoso"], game_changers=[], combos=[v])
+        self.assertEqual(f.extra_turns.loops, [])
+        self.assertEqual(f.extra_turns.floor, 2)
+
+    def test_infinite_turns_with_unverified_template_is_a_note_not_a_floor(self):
+        v = {"id": "t", "card_names": ["Sage of Hours"], "requires": [{"template": "Proliferate engine"}],
+             "bracket_tag": "R", "produces": ["Infinite turns"]}
+        f = bc.check_deck_brackets(["Sage of Hours"], game_changers=[], combos=[v])
+        self.assertEqual(f.extra_turns.loops, [])
+        self.assertEqual(f.extra_turns.floor, 2)
+        self.assertEqual(f.minimum_bracket, 2)
+        self.assertTrue(any("Proliferate engine" in n for n in f.notes))
+
+    def test_live_helper_uses_find_my_combos_not_ownership_scan(self):
+        import asyncio
+        from unittest.mock import patch
+        from analytics.interactions import combos as cm
+        deck, combos = load("spicy_only")
+
+        class R:
+            def get(self, k):
+                return None
+
+            def mget(self, ks):
+                return [None] * len(ks)
+
+            def keys(self, pattern):
+                raise AssertionError("KEYS must not be called")
+
+        async def gc(_r):
+            return br.GameChangerList(cards=GC, source="cache", fetched_at="x")
+
+        with patch.object(br, "get_game_changers", gc), \
+                patch.object(cm.SpellbookClient, "find_my_combos",
+                             lambda self, c, m, refresh=False: {"included": combos, "fetched_at": "t"}):
+            f = asyncio.run(bc.check_deck_brackets_live(R(), deck))
+        self.assertEqual(f.two_card_combos.count, 1)
+        self.assertEqual(f.data["game_changers_source"], "cache")
+
     def test_many_extra_turns_without_a_loop_note_but_floor_2(self):
         f = bc.check_deck_brackets(["Time Warp", "Temporal Manipulation", "Time Stretch"], game_changers=[], combos=[])
         self.assertEqual(f.extra_turns.floor, 2)

@@ -12,7 +12,8 @@ where every HARD rule passes. Tutors are advisory and never move it. Bracket
 Hard rules and floors (from analytics/brackets.BRACKETS):
   game_changers     count -> brackets.min_bracket_for_game_changers (0 -> 1, 1-3 -> 3, 4+ -> 4)
   mass_land_denial  any card -> 4
-  extra_turns       any card -> 2; an in-deck Spellbook combo that loops extra turns -> 4
+  extra_turns       any card -> 2; an in-deck Spellbook combo producing "Infinite turns"
+                    (no unverified template requirement) -> 4
   two_card_combos   any Spellbook combo of <= 2 cards and no extra requirements -> 3;
                     tagged Ruthless (R) or Banned (B) = "early" -> 4
 
@@ -64,7 +65,7 @@ EARLY_COMBO_TAGS = frozenset({"R", "B"})   # spec: "early" = Ruthless; Banned is
 
 EXTRA_TURN_RE = re.compile(r"\btakes? an extra turn\b|\bextra turns? after this one\b", re.I)
 LAND_WIPE_RE = re.compile(r"\bdestroy all lands\b|\bsacrifices? all lands\b|\bexile all lands\b", re.I)
-EXTRA_TURN_LOOP_RE = re.compile(r"infinite (extra )?turns|extra turns?", re.I)
+INFINITE_TURNS_RE = re.compile(r"\binfinite (extra )?turns\b", re.I)
 
 NameList = Union[Mapping[str, Any], Sequence[Any]]
 
@@ -256,15 +257,18 @@ def is_two_card(v: Mapping[str, Any]) -> bool:
     return 1 <= n <= 2 and not (v.get("requires") or [])
 
 
-def is_extra_turn_loop(v: Mapping[str, Any], extra_turn_keys: Iterable[str]) -> bool:
-    """A combo that repeats extra turns: it produces turns, or it uses an
-    extra-turn card and produces something infinite."""
-    produces = [p or "" for p in v.get("produces") or []]
-    if any("infinite" in p.lower() and EXTRA_TURN_LOOP_RE.search(p) for p in produces):
-        return True
-    keys = set(extra_turn_keys)
-    uses_et = any(name_key(n) in keys for n in v.get("card_names") or [])
-    return uses_et and any("infinite" in p.lower() for p in produces)
+def is_extra_turn_loop(v: Mapping[str, Any]) -> bool:
+    """A Spellbook combo whose result is explicitly infinite turns, with no
+    template requirement (find-my-combos doesn't verify templates, and an
+    extra-turn card plus some other infinite isn't a turn loop: Gonti's Aether
+    Heart exiles itself)."""
+    if v.get("requires"):
+        return False
+    return produces_infinite_turns(v)
+
+
+def produces_infinite_turns(v: Mapping[str, Any]) -> bool:
+    return any(INFINITE_TURNS_RE.search(p or "") for p in v.get("produces") or [])
 
 
 def check_deck_brackets(
@@ -320,8 +324,12 @@ def check_deck_brackets(
 
     # Extra turns: cards, plus loops from Spellbook combos.
     et_hits = _hits(names, lists["extra_turns"], oracle, EXTRA_TURN_RE)
-    et_keys = set(lists["extra_turns"]) | {name_key(h.name) for h in et_hits}
-    loops = [_combo_hit(v) for v in variants if is_extra_turn_loop(v, et_keys)]
+    loops = [_combo_hit(v) for v in variants if is_extra_turn_loop(v)]
+    for v in variants:
+        if v.get("requires") and produces_infinite_turns(v):
+            needs = ", ".join(t.get("template") or "?" for t in v["requires"])
+            notes.append(f"Possible extra-turn loop {' + '.join(v.get('card_names') or [])} (Spellbook {v.get('id')}) "
+                         f"also needs: {needs}. Not verified, so it doesn't move the minimum.")
     et_floor = 4 if loops else (2 if et_hits else 1)
     et = ExtraTurnFinding(count=len(et_hits), cards=et_hits, loops=loops, floor=et_floor)
     if len(et_hits) >= 3 and not loops:
@@ -375,20 +383,28 @@ async def check_deck_brackets_live(r, deck: Mapping[str, Any], refresh: bool = F
     from analytics.interactions.tagger import tag_key
 
     gc = await br.get_game_changers(r)
+    # find_my_combos directly (same cache key as deck_combos), not deck_combos:
+    # that one also builds the ownership index with KEYS instance:*, unused here.
+    client = combos_mod.SpellbookClient(r)
+    commanders = [c for c in deck.get("commanders") or [] if c]
     try:
-        combo_data = await asyncio.to_thread(combos_mod.deck_combos, r, dict(deck), refresh=refresh)
+        combo_data = await asyncio.to_thread(client.find_my_combos, commanders,
+                                             combos_mod._deck_names(dict(deck)), refresh)
     except combos_mod.SpellbookError:
         combo_data = None
     oracle: Dict[str, Dict[str, Any]] = {}
-    for n in deck_card_names(deck):
+    names = deck_card_names(deck)
+    try:
+        raws = r.mget([tag_key(n) for n in names]) if names else []
+    except Exception:  # noqa: BLE001 - oracle text is only a fallback
+        raws = []
+    for n, raw in zip(names, raws):
         try:
-            raw = r.get(tag_key(n))
-            if raw:
-                card = (json.loads(raw) or {}).get("card") or {}
-                if card.get("oracle_text"):
-                    oracle[n] = card
-        except Exception:  # noqa: BLE001 - oracle text is only a fallback
+            card = (json.loads(raw) or {}).get("card") or {} if raw else {}
+        except (TypeError, ValueError):
             continue
+        if card.get("oracle_text"):
+            oracle[n] = card
     out = check_deck_brackets(deck, game_changers=gc.cards, combos=combo_data, oracle=oracle)
     out.data["game_changers_source"] = gc.source
     if combo_data is not None:

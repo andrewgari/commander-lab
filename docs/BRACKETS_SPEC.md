@@ -183,7 +183,7 @@ only ever declared.
 |------|------|-------|
 | Game Changers | `game_changers` arg (live list from `get_game_changers`), default the BR-1 snapshot; commanders count | `min_bracket_for_game_changers(n)`: 0 -> 1, 1-3 -> 3, 4+ -> 4 |
 | Mass land denial | `analytics/data/bracket_cards.json` `mass_land_denial` (Scryfall `otag:mass-land-denial`) + WotC's examples pinned; oracle-text fallback "destroy/sacrifice/exile all lands" | any -> 4 |
-| Extra turns | `extra_turns` (`otag:extra-turn`); oracle fallback "take an extra turn" | any card -> 2; an in-deck Spellbook combo producing infinite turns (or an extra-turn card + something infinite) -> 4 |
+| Extra turns | `extra_turns` (`otag:extra-turn`); oracle fallback "take an extra turn" | any card -> 2; an in-deck Spellbook combo whose result is explicitly "Infinite turns" and has no template requirement -> 4 (an extra-turn card plus some other infinite isn't a loop; a template-bearing "Infinite turns" combo is only a note, since find-my-combos doesn't verify templates) |
 | Two-card combos | Commander Spellbook in-deck combos (`combos.deck_combos` / `find_my_combos`) with <= 2 cards and no template requirements | any -> 3; tag Ruthless (R) or Banned (B) -> 4 |
 | Tutors (advisory) | `tutors` (`otag:tutor -otag:tutor-land -otag:tutor-seek mv<=3`) | never |
 
