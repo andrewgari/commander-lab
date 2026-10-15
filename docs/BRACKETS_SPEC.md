@@ -270,6 +270,49 @@ overlap, price, tags). `explanation.summary` is one plain paragraph, e.g.
 target 7. Commander Salt salt 42.5; ...; deck price $1,234.50. Target
 Bracket 3: 2 hard conflicts, 1 advisory."
 
+## Stored evaluations: the bracket worker (BR-5)
+
+The evaluator never runs in the web request path. `analytics/bracket_worker.py`
+runs as its own process: compose service `bracket-worker`, container
+`commander-lab-bracket-worker`, same image, `python -m analytics.bracket_worker`
+(`--once` for a single pass).
+
+- Each tick reads the `decks` registry and computes an input hash per deck:
+  sha256 over the decklist (sorted commanders, card names with quantities) and
+  the Deck Journal minus its `_journal` bookkeeping (so a no-op save doesn't
+  re-run). A deck is evaluated only when its hash differs from the stored one
+  or it was requested. Decklist changes from any sync path and journal changes
+  are both caught this way.
+- Ticks run every `BRACKET_EVAL_INTERVAL_S` (default 300) or sooner: the
+  worker `BLPOP`s `bracket:eval:wake`, which the app pushes after a journal
+  save / check-in change, a per-deck sync, an import, a linked-account sync
+  and `sync.py`. The wake-up is only a latency hint and every push is wrapped
+  so it can never fail the caller.
+- It stores `evaluate_bracket_live(r, deck).model_dump()` (BR-3 findings,
+  `estimated_bracket`, `estimated_power_level`, conflicts and the full
+  explanation). `BRACKET_EVAL_COMMANDERSALT=0` skips the Commander Salt call.
+- One deck failing stores `status: "error"` with the message, keeps the last
+  good `result`, records the failed hash (no retry every tick; it re-runs on
+  the next input change or request), and the tick moves on.
+
+Redis keys:
+
+| Key | Value |
+|-----|-------|
+| `bracket:eval:{registry_id}` | `{registry_id, deck_name, status: ok\|error, evaluated_at, input_hash, result_hash, result, error, error_at, duration_ms}` |
+| `bracket:eval:pending` | set of registry ids requested for re-evaluation |
+| `bracket:eval:wake` | wake-up list (worker drains it) |
+| `bracket:eval:heartbeat` | last tick summary `{at, decks, evaluated, skipped, failed, pid}` |
+
+API (deck id = registry id, raw id or deck name; `/api/decks/...` works too):
+
+- `GET /api/deck/{id}/bracket` -> 200 `{status, evaluated_at, input_hash, stale, pending, evaluation}`;
+  `stale` is true when the decklist/journal changed since that evaluation.
+  404 `{status: "not_evaluated" | "error", pending, evaluation: null}` before
+  the first good evaluation; 404 `deck_not_found`; 503 if Redis is down.
+- `POST /api/deck/{id}/bracket` -> 202 `{queued: true}`. Queues the deck and
+  wakes the worker; it does not evaluate in the request.
+
 ## The BR chain
 
 | Card | Scope |

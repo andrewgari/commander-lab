@@ -47,6 +47,28 @@ services:
       net.unraid.docker.managed: compose-manager
       net.unraid.docker.webui: "http://[IP]:8020"
 
+  # BR-5: bracket evaluation runs here, never in the web request path.
+  # Same image as app; evaluates decks whose decklist/journal hash changed
+  # and stores bracket:eval:{registry_id}. See docs/BRACKETS_SPEC.md (BR-5).
+  bracket-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: commander-lab-bracket-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - BRACKET_EVAL_INTERVAL_S=${BRACKET_EVAL_INTERVAL_S:-300}
+      - BRACKET_EVAL_COMMANDERSALT=${BRACKET_EVAL_COMMANDERSALT:-1}
+      - INTERACTIONS_DISABLED=1
+    depends_on:
+      - redis
+    command: python -m analytics.bracket_worker
+    networks:
+      - internal
+    labels:
+      net.unraid.docker.managed: compose-manager
+
 networks:
   internal:
     driver: bridge
