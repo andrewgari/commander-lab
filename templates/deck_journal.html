@@ -360,15 +360,34 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ---- Anchor nav: highlight the section in view ------------------------------------
+    // BR-7: .hud-form-section is display:contents (its header + body sit in the
+    // form's 2-col grid), so it has no box: the browser can't scroll to #j-power
+    // and an IntersectionObserver on it never fires. Scroll to / observe the
+    // section's <header> instead, offset by the sticky anchor nav.
     var anchors = document.querySelectorAll(".jr-anchor a");
+    function goToSection(hash, smooth) {
+        var sec = hash && hash.length > 1 ? document.getElementById(hash.slice(1)) : null;
+        var head = sec && sec.classList.contains("hud-form-section") ? sec.querySelector(":scope > header") : null;
+        if (!head) return false;
+        var nav = document.querySelector(".jr-anchor"), off = nav ? nav.offsetHeight : 0;
+        var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: head.getBoundingClientRect().top + window.scrollY - off, behavior: smooth && !reduce ? "smooth" : "auto" });
+        return true;
+    }
+    anchors.forEach(function (a) {
+        a.addEventListener("click", function (e) {
+            if (goToSection(a.getAttribute("href"), true)) { e.preventDefault(); history.replaceState(null, "", a.getAttribute("href")); }
+        });
+    });
     if ("IntersectionObserver" in window) {
         var io = new IntersectionObserver(function (entries) {
             entries.forEach(function (en) {
                 if (!en.isIntersecting) return;
-                anchors.forEach(function (a) { a.classList.toggle("is-on", a.getAttribute("href") === "#" + en.target.id); });
+                var id = en.target.parentElement.id;
+                anchors.forEach(function (a) { a.classList.toggle("is-on", a.getAttribute("href") === "#" + id); });
             });
         }, { rootMargin: "-20% 0px -70% 0px" });
-        document.querySelectorAll(".hud-form-section").forEach(function (s) { io.observe(s); });
+        document.querySelectorAll(".hud-form-section > header").forEach(function (h) { io.observe(h); });
     }
 
     // ---- Live metrics (estimate, price) --------------------------------------------
@@ -394,7 +413,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!x.ok || !x.b.evaluation) { $("bracketHint").textContent = "No estimate yet: the bracket check hasn't run for this deck."; return; }
         est.ev = x.b.evaluation;
         $("bracketHint").innerHTML = "Current estimate: Bracket " + esc(est.ev.estimated_bracket) + " · " + esc(est.ev.estimated_bracket_name) +
-            ' (computed). <span class="hud-bracket-estkey" aria-hidden="true"></span> marks it on the scale.';
+            ' (computed), marked <span class="hud-bracket-estkey" aria-hidden="true"></span> on the scale.';
         markEstimate("bracket", est.ev.estimated_bracket);
         syncDerived();
     }).catch(function () { $("bracketHint").textContent = "Estimate unavailable."; });
@@ -541,6 +560,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var want = params.get("bracket");
     if (want && /^(off|[1-5])$/.test(want)) { setRadio("bracket", want); changed(); }
     syncDerived();
+    // BR-7: deep links (#j-power from the deck page's bracket banner) land on the section.
+    if (location.hash) requestAnimationFrame(function () { goToSection(location.hash, false); });
 });
 </script>
 {% endblock %}

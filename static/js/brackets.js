@@ -144,9 +144,12 @@
         if (s < 129600) return Math.round(s / 3600) + " h ago";
         return Math.round(s / 86400) + " days ago";
     }
-    function fmtValue(v) {
+    function fmtValue(v, signal) {
         if (v == null) return "\u2014";
         if (Array.isArray(v)) return v.join(", ");
+        // BR-7: units the summary uses ("EDHREC overlap 35%", "$599.11").
+        if (typeof v === "number" && signal === "price") return "$" + v.toFixed(2);
+        if (typeof v === "number" && signal === "edhrec_overlap") return Math.round(v) + "%";
         if (typeof v === "number") return String(Math.round(v * 100) / 100);
         return String(v);
     }
@@ -157,13 +160,14 @@
         var ev = res && res.evaluation, ex = (ev && ev.explanation) || { signals: [], summary: "" };
         var rows = (ex.signals || []).map(function (g) {
             return '<tr><th scope="row">' + esc(SIGNAL_LABELS[g.signal] || g.signal) + "</th>" +
-                '<td class="is-num">' + esc(fmtValue(g.value)) + "</td><td>" + esc(g.effect) + "</td>" +
+                '<td class="is-num">' + esc(fmtValue(g.value, g.signal)) + "</td><td>" + esc(g.effect) + "</td>" +
                 '<td class="hud-muted">' + esc(g.source) + "</td></tr>";
         }).join("");
         var stamp = [res && res.evaluated_at ? "Evaluated " + age(res.evaluated_at) : "", res && res.input_hash ? "input " + String(res.input_hash).slice(0, 6) : ""].filter(Boolean).join(" \u00b7 ");
         return '<details class="hud-tray hud-bracket-why"><summary>How this was decided <span class="hud-muted">\u00b7 ' + plural((ex.signals || []).length, "signal") + "</span></summary>" +
+            // BR-7: estimated_bracket_reason is not repeated here; the summary
+            // already says it (and the clean banner shows it as its sub-line).
             '<div class="hud-bracket-why-body"><p class="hud-bracket-why-summary">' + esc(ex.summary) + "</p>" +
-            (ev && ev.estimated_bracket_reason ? '<p class="hud-field-hint">' + esc(ev.estimated_bracket_reason) + "</p>" : "") +
             '<div class="hud-table-wrap"><table class="hud-table hud-bracket-why-table"><thead><tr><th scope="col">Signal</th><th scope="col" class="is-num">Value</th><th scope="col">Effect</th><th scope="col">Source</th></tr></thead><tbody>' +
             rows + "</tbody></table></div>" +
             '<p class="hud-field-hint">Hard signals set a floor (the lowest bracket the deck can be). Advisory signals never move the bracket.' + (stamp ? " " + esc(stamp) + "." : "") + "</p></div></details>";
@@ -172,7 +176,8 @@
     function estBlock(label, big, unit, tgt, delta) {
         return '<div class="hud-bracket-vs"><span class="hud-label">' + esc(label) + '</span><div class="hud-bracket-vs-row"><span class="hud-bracket-vs-big">' + esc(big) +
             (unit ? "<small>" + esc(unit) + "</small>" : "") + "</span>" +
-            '<span class="hud-bracket-vs-tgt">target <b>' + (tgt == null ? "\u2014" : esc(tgt)) + "</b></span>" + delta + "</div></div>";
+            // BR-7: no dangling "target —" when nothing is set.
+            '<span class="hud-bracket-vs-tgt">' + (tgt == null ? "no target" : "target <b>" + esc(tgt) + "</b>") + "</span>" + delta + "</div></div>";
     }
 
     // Banner (BR-D §2 deck page). opts: {deckUrl, tolerance}.
@@ -203,7 +208,7 @@
         }
         var tally = c.all ? '<p class="hud-bracket-tally">' + (c.hard ? '<span class="hud-bracket-t-hard">\u25a0 ' + plural(c.hard, "hard rule") + " broken</span>" : "") +
             (c.adv ? '<span class="hud-bracket-t-adv">\u25b2 ' + plural(c.adv, "advisory", "advisories") + "</span>" : "") + "</p>" : "";
-        var sub = t == null ? '<p class="hud-field-hint">No target set, so nothing is checked. <a href="' + esc(journalUrl) + '#j-power">Set a target bracket</a> in the Journal.</p>'
+        var sub = t == null ? '<p class="hud-field-hint">No target bracket, so no bracket rules are checked. <a href="' + esc(journalUrl) + '#j-power">Set a target bracket</a> in the Journal.</p>'
             : !c.all ? '<p class="hud-field-hint">' + esc(ev.estimated_bracket_reason) + "</p>" : tally;
         var list = (ev.conflicts || []).map(function (x) {
             var acts = "";
@@ -213,7 +218,11 @@
             }
             // Bold title, then the message; when the message already opens with the
             // title ("3 Game Changers in the deck; …"), bold that part instead of repeating it.
+            // BR-7: also when it opens with a count + the title ("2 two-card combos (…)"),
+            // which used to read "Two-card combos. 2 two-card combos …".
             var tt = title(x, ev), msg = String(x.message || ""), lead;
+            var num = (msg.match(/^\d+ /) || [""])[0];
+            if (num && msg.slice(num.length).toLowerCase().indexOf(tt.toLowerCase()) === 0) tt = msg.slice(0, num.length + tt.length);
             if (msg.toLowerCase().indexOf(tt.toLowerCase()) === 0) lead = "<b>" + esc(msg.slice(0, tt.length)) + "</b>" + esc(msg.slice(tt.length));
             else lead = "<b>" + esc(tt) + ".</b> " + esc(msg);
             return "<li>" + sevChip(x.severity) + "<div><p>" + lead + "</p>" +
