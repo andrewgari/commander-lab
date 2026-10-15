@@ -33,3 +33,7 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+
+docs/screenshots/*
+templates/partials/*
+static/*
