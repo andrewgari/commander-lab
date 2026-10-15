@@ -1333,10 +1333,26 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
    0. Deck sub-navigation. One header for every deck surface.
    ======================================================================= */
 .hud-deckhead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-4); align-items: end; padding-bottom: var(--sp-4); }
-.hud-deckhead-art { width: 5.5rem; aspect-ratio: var(--art-ratio); border: var(--stroke); border-radius: var(--radius-2); overflow: hidden; background: var(--surface-2); }
-.hud-deckhead-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hud-deckhead-art--multi { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hairline); background: var(--line); }
-.hud-deckhead-art--multi img { min-width: 0; }
+/* Commander art group: decks list, deck header (every deck tab), deck overview.
+   Roles come from commander_roles.py (deck.commander_roles). Rectangular
+   art-crop frames, never round. --cmdr-w is the main portrait width; each
+   surface sets it. Partners: equal width. Doctor's companion: smaller,
+   tucked against its Doctor. True companion: small, set apart behind a
+   hairline, labelled. "Can be your commander" cards (not a legendary
+   creature): signal frame + type badge. */
+.hud-cmdrs { --cmdr-w: 5.5rem; display: flex; align-items: flex-end; gap: var(--sp-2); min-width: 0; }
+.hud-cmdrs--multi { --cmdr-w: 4.25rem; }
+.hud-cmdr { position: relative; flex: none; display: flex; flex-direction: column; gap: var(--sp-1); width: var(--cmdr-w); margin: 0; }
+.hud-cmdr--commander, .hud-cmdr--partner, .hud-cmdr--doctor { width: var(--cmdr-w); }
+.hud-cmdr-art { position: relative; display: block; aspect-ratio: var(--art-ratio); border: var(--stroke); border-radius: var(--radius-2); overflow: hidden; background: var(--surface-2); }
+.hud-cmdr-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hud-cmdr--doctors-companion { width: calc(var(--cmdr-w) * 0.78); margin-left: calc(var(--hairline) * 2 - var(--sp-2)); }
+.hud-cmdr--companion { width: auto; margin-left: var(--sp-1); padding-left: var(--sp-3); border-left: var(--stroke); }
+.hud-cmdr--companion .hud-cmdr-art { width: calc(var(--cmdr-w) * 0.58); }
+.hud-cmdr-tag { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; line-height: 1; white-space: nowrap; }
+.hud-cmdr.is-cbc .hud-cmdr-art { border-color: var(--signal-line); }
+.hud-cmdr-badge { position: absolute; left: var(--sp-1); bottom: var(--sp-1); max-width: calc(100% - var(--sp-2)); box-sizing: border-box; padding: 0 var(--sp-1); background: var(--surface-0); color: var(--text-2); font: var(--fs-micro) var(--font-mono); letter-spacing: 0.04em; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.9; }
+.hud-deckhead-art { align-self: end; }  /* the header's .hud-cmdrs group */
 .hud-deckhead h1, .hud-deckhead-meta { overflow-wrap: break-word; word-break: normal; }
 .hud-deckhead-meta .hud-chip { white-space: nowrap; }
 .hud-deckhead h1 { margin: var(--sp-1) 0 0; font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); color: var(--text-1); }
@@ -1750,6 +1766,11 @@ main.main-content { padding-bottom: var(--sp-16); }
     .app-topbar-meta { display: none; }
     .hud-crumbs { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
     .hud-deckhead .hud-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hud-deckhead .hud-cmdrs { --cmdr-w: 3.75rem; }
+    /* 2+ portraits get their own row so the title keeps the full width. */
+    .hud-deckhead:has(.hud-cmdrs--many) { grid-template-columns: minmax(0, 1fr); }
+    .hud-deckhead .hud-cmdrs--many { --cmdr-w: 4rem; }
+    .hud-deckhead .hud-cmdr-badge { display: none; }
     .hud-deckhead-actions { flex-wrap: wrap; }
     .hud-deckhead-actions .hud-btn { flex: 1 1 auto; }
     .hud-deck-tabs { scrollbar-width: none; }

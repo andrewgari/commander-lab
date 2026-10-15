@@ -73,9 +73,9 @@ class TestDeckListMultiCommander(unittest.TestCase):
         m = re.search(r"\.deck-header--multi\s*\{([^}]*)\}", self.src)
         self.assertIsNotNone(m, "missing .deck-header--multi rule")
         self.assertIn("flex-direction: column", m.group(1))
-        # Smaller portraits than the 160px single-commander icon, overlap in CSS.
-        self.assertRegex(self.src, r"\.deck-header--multi \.commander-icon\s*\{[^}]*width:")
-        self.assertRegex(self.src, r"\.deck-header--multi \.commander-icon \+ \.commander-icon\s*\{[^}]*margin-left:\s*-")
+        # Smaller rectangular portraits than the single-commander frame, no overlap.
+        self.assertRegex(self.src, r"\.deck-header--multi \.hud-cmdrs\s*\{[^}]*--cmdr-w:")
+        self.assertNotIn("commander-icon", self.src)
         # Chips never wrap/clip; names wrap at word boundaries, not per letter.
         self.assertRegex(self.src, r"\.deck-status\s*\{[^}]*white-space:\s*nowrap")
         self.assertRegex(self.src, r"\.deck-header--multi \.deck-name\s*\{[^}]*word-break:\s*normal")
@@ -97,8 +97,8 @@ class TestDeckListMultiCommander(unittest.TestCase):
             "deck-header deck-header--multi", "deck-header",
             "deck-header deck-header--multi", "deck-header"])
 
-    def test_portraits_capped_to_commander_count(self):
-        self.assertIn("deck.commander_uids.slice(0, commanderCount(deck)).forEach", self.src)
+    def test_portraits_come_from_shared_role_helper(self):
+        self.assertIn("HUD.commanders(HUD.commanderRoles(deck))", self.src)
 
 
 class TestDeckHeadMultiCommander(unittest.TestCase):
@@ -113,13 +113,16 @@ class TestDeckHeadMultiCommander(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         return res.text.split('<header class="hud-deckhead">', 1)[1].split("</header>", 1)[0]
 
-    def test_partner_deck_header_shares_one_frame(self):
+    def _art(self, head):
+        return head.split('class="hud-cmdrs', 1)[1].split("</div>", 1)[0]
+
+    def test_partner_deck_header_shows_both(self):
         name = "The%20Laws%20of%20Time%20are%20Mine!!"
         for path in ("/deck/" + name, "/deck/" + name + "/stats"):
             with self.subTest(path=path):
                 head = self._get(path, [PARTNER])
-                art = head.split('class="hud-deckhead-art', 1)[1].split("</div>", 1)[0]
-                self.assertTrue(art.startswith(' hud-deckhead-art--multi"'), art[:80])
+                art = self._art(head)
+                self.assertTrue(art.startswith(' hud-cmdrs--multi hud-cmdrs--many hud-deckhead-art"'), art[:80])
                 self.assertEqual(art.count("<img"), 2)
                 self.assertIn(UID_A, art)
                 self.assertIn(UID_B, art)
@@ -128,29 +131,20 @@ class TestDeckHeadMultiCommander(unittest.TestCase):
 
     def test_single_commander_header_unchanged(self):
         head = self._get("/deck/Holy%20Hellfire", [SOLO])
-        self.assertIn('<div class="hud-deckhead-art">', head)
-        self.assertNotIn("hud-deckhead-art--multi", head)
+        self.assertIn('<div class="hud-cmdrs hud-deckhead-art">', head)
+        self.assertNotIn("hud-cmdrs--multi", head)
         self.assertEqual(head.count("<img"), 1)
 
     def test_one_commander_two_printings_is_not_split(self):
         dual = dict(SOLO, commander_uids=[UID_A, UID_B])
         head = self._get("/deck/Holy%20Hellfire", [dual])
-        self.assertNotIn("hud-deckhead-art--multi", head)
+        self.assertNotIn("hud-cmdrs--multi", head)
         self.assertEqual(head.count("<img"), 1)
 
-    def test_art_uids_helper(self):
-        from app import _commander_art_uids
-        self.assertEqual(_commander_art_uids(PARTNER), [UID_A, UID_B])
-        self.assertEqual(_commander_art_uids(dict(SOLO, commander_uids=[UID_A, UID_B])), [UID_A])
-        self.assertEqual(_commander_art_uids({"commander_uids": [UID_A, UID_B, "x"]}), [UID_A, UID_B])
-        self.assertEqual(_commander_art_uids({}), [])
-
-    def test_multi_frame_css_keeps_frame_width(self):
+    def test_multi_frame_css_shrinks_portraits(self):
         css = HUD_CSS.read_text()
-        m = re.search(r"\.hud-deckhead-art--multi\s*\{([^}]*)\}", css)
-        self.assertIsNotNone(m)
-        self.assertIn("grid-template-columns", m.group(1))
-        self.assertNotIn("width", m.group(1))  # frame width comes from .hud-deckhead-art only
+        self.assertRegex(css, r"\.hud-cmdrs--multi\s*\{[^}]*--cmdr-w:")
+        self.assertRegex(css, r"\.hud-cmdr-art\s*\{[^}]*aspect-ratio:\s*var\(--art-ratio\)")
         self.assertRegex(css, r"\.hud-deckhead-meta \.hud-chip\s*\{[^}]*white-space:\s*nowrap")
 
 

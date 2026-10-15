@@ -84,44 +84,18 @@
         min-width: 0;
     }
 
-    .commander-icon {
-        width: 160px;
-        height: 160px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid var(--border);
-        background: #222;
-        flex-shrink: 0;
-        position: relative;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
+    /* Commander art: shared HUD group (hud.css "Commander art group"),
+       rectangular art-crop frames sized by role. One commander sits beside
+       the text; 2+ (partners, Doctor + companion, a true companion) stack
+       the art row above the text so the deck name keeps the full card
+       width. */
+    .deck-header .hud-cmdrs { --cmdr-w: 7rem; }
+    .deck-header--multi .hud-cmdrs { --cmdr-w: 6rem; }
+    .deck-card:hover .hud-cmdr:not(.is-cbc) .hud-cmdr-art { border-color: var(--accent); }
 
-    .deck-card:hover .commander-icon {
-        border-color: var(--accent);
-    }
-
-    /* Partner / background decks (2+ commanders): side-by-side 160px
-       portraits ate the text column (deck name wrapped every few letters,
-       the status chip clipped). Stack the art row above the text at full
-       width, with smaller overlapping portraits, so the text keeps the whole
-       card width. Single-commander cards are unchanged. */
     .deck-header--multi {
         flex-direction: column;
         align-items: stretch;
-    }
-
-    .deck-header--multi .deck-header-art {
-        justify-content: center;
-    }
-
-    .deck-header--multi .commander-icon {
-        width: 7.5rem;
-        height: 7.5rem;
-    }
-
-    .deck-header--multi .commander-icon + .commander-icon {
-        margin-left: -2.5rem;
     }
 
     .deck-header--multi .deck-name {
@@ -1042,27 +1016,17 @@
             const section = document.createElement('div');
             section.className = 'folder-section';
             
-            const cmdrsFormat = (commanders) => {
-                if (!commanders || commanders.length === 0) return 'No commanders set';
-                return commanders.join(' & ');
+            const cmdrsFormat = (deck) => {
+                // Role order (commander_roles.py): Doctor before companion; a true companion is named as such.
+                const roles = HUD.commanderRoles(deck).filter(c => c.name);
+                if (!roles.length) return 'No commanders set';
+                const comps = roles.filter(c => c.role === 'companion').map(c => c.name);
+                const mains = roles.filter(c => c.role !== 'companion').map(c => c.name);
+                return HUD.esc(mains.join(' & ')) + (comps.length ? ` <span style="white-space: nowrap">· companion ${HUD.esc(comps.join(', '))}</span>` : '');
             };
             
             let gridHtml = decks.map(deck => {
-                let iconsHtml = '';
-                
-                if (deck.commander_uids && deck.commander_uids.length > 0) {
-                    deck.commander_uids.slice(0, commanderCount(deck)).forEach((uid, i) => {
-                        const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" alt="Commander Icon" loading="lazy">`;
-                    });
-                } else if (deck.commanders && deck.commanders.length > 0) {
-                    deck.commanders.forEach((cname, i) => {
-                        const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" alt="Commander Icon" loading="lazy">`;
-                    });
-                } else {
-                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><rect width='160' height='160' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
-                }
+                const iconsHtml = HUD.commanders(HUD.commanderRoles(deck));
                 
                 const globalIndex = allDecks.indexOf(deck);
                 
@@ -1074,7 +1038,7 @@
                         </div>
                         <div class="deck-header-info">
                             <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
-                            <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
+                            <div class="deck-commanders">${cmdrsFormat(deck)}</div>
                             <div class="deck-status-row">
                                 <span class="deck-status status-${deck.status || 'digital'}">${STATUS_LABELS[deck.status] || 'Virtual'}</span>
                                 ${renderRepoBadge(deck)}
@@ -1121,7 +1085,7 @@
         }
     }
     
-    // Auto load on start
-    loadDecks();
+    // Auto load once deferred hud.js has run (renderDecks uses HUD).
+    document.addEventListener('DOMContentLoaded', loadDecks);
 </script>
 {% endblock %}

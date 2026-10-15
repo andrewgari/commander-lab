@@ -173,6 +173,46 @@
             "</" + tag + ">";
     }
 
+    // Commander art group (mirrors the `commanders` macro). roles:
+    // deck.commander_roles from /api/decks (commander_roles.py). Older payloads
+    // without roles fall back to plain commanders from names/uids.
+    var CMDR_ROLE_LABELS = { partner: "Partner", doctor: "Doctor", doctors_companion: "Doctor's companion",
+                             companion: "Companion", commander: "Commander" };
+    function commanderRoles(deck) {
+        if (deck && deck.commander_roles) return deck.commander_roles;
+        var names = (deck && deck.commanders) || [], uids = ((deck && deck.commander_uids) || []).filter(Boolean);
+        // Several names with a different uid count: pairing unknown (legacy
+        // dual-source record), so fall back to name-based images.
+        if (names.length > 1 && uids.length !== names.length) uids = [];
+        var n = names.length || Math.min(uids.length, 2), out = [];
+        for (var i = 0; i < n; i++) out.push({ name: names[i] || "", uid: uids[i] || null, role: n > 1 ? "partner" : "commander" });
+        return out;
+    }
+    function commanders(roles, cls) {
+        roles = roles || [];
+        var mains = roles.filter(function (c) { return c.role !== "companion"; }).length;
+        var items = roles.map(function (c) {
+            var label = CMDR_ROLE_LABELS[c.role] || "Commander";
+            var title = c.name + " · " + label + (c.can_be_commander ? " (" + (c.type_label || "card") + " that can be your commander)" : "");
+            var img = "";
+            if (c.uid) {
+                var s = scryfall(c.uid, "art_crop");
+                img = '<img alt="' + esc(c.name) + '" src="' + esc(s.src) + '" loading="lazy" data-fallback="' + esc(s.fallback) + '">';
+            } else if (c.name) {
+                img = '<img alt="' + esc(c.name) + '" loading="lazy" src="https://api.scryfall.com/cards/named?exact=' +
+                    encodeURIComponent(c.name) + '&amp;format=image&amp;version=art_crop">';
+            }
+            return '<figure class="hud-cmdr hud-cmdr--' + esc(String(c.role || "commander").replace("_", "-")) + (c.can_be_commander ? " is-cbc" : "") +
+                '" title="' + esc(title) + '">' +
+                (c.role === "companion" ? '<span class="hud-cmdr-tag">Companion</span>' : "") +
+                '<span class="hud-cmdr-art">' + img +
+                (c.can_be_commander ? '<span class="hud-cmdr-badge">' + esc(c.type_label || "Commander") + "</span>" : "") +
+                "</span></figure>";
+        });
+        if (!items.length) items.push('<figure class="hud-cmdr hud-cmdr--commander"><span class="hud-cmdr-art"></span></figure>');
+        return '<div class="hud-cmdrs' + (mains > 1 ? " hud-cmdrs--multi" : "") + (roles.length > 1 ? " hud-cmdrs--many" : "") + (cls ? " " + esc(cls) : "") + '">' + items.join("") + "</div>";
+    }
+
     // Scryfall image for a card (printing) id. Uses the image CDN, which is not
     // rate-limited like the api.scryfall.com ?format=image redirect (that one
     // starts returning 429 when a 100-card deck loads at once). version:
@@ -644,6 +684,8 @@
         barChart: barChart,
         rankList: rankList,
         art: art,
+        commanders: commanders,
+        commanderRoles: commanderRoles,
         scryfall: scryfall,
         graph: graph,
         openModal: openModal,

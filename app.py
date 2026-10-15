@@ -14,6 +14,7 @@ from typing import List, Optional
 import instances as instance_store
 from instances import InstanceError
 import registry
+import commander_roles
 import inventory_view
 from providers import fetch_deck, ProviderError
 import linked_accounts
@@ -144,20 +145,11 @@ async def deck_view(request: Request, deck_name: str):
         "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview"})
 
 
-def _commander_art_uids(deck: dict) -> list:
-    """One art UID per commander, at most two (partner decks). Dual-source sync
-    can leave two printing UIDs for one commander, so the commander names set
-    the count; UIDs alone decide only when names are missing."""
-    uids = [u for u in (deck.get("commander_uids") or []) if u]
-    n = len(deck.get("commanders") or []) or len(uids)
-    return uids[:min(n, 2)]
-
-
 def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "art_uids": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -166,8 +158,11 @@ def _deck_head_context(deck_name: str) -> dict:
         return out
     out.update(found=True, commanders=deck.get("commanders") or [], status=deck.get("status") or None,
                colors="" if deck.get("color") == "C" else (deck.get("color") or ""),
-               art_uid=(deck.get("commander_uids") or [None])[0], registry_id=registry.registry_id_of(deck),
-               art_uids=_commander_art_uids(deck))
+               art_uid=(deck.get("commander_uids") or [None])[0], registry_id=registry.registry_id_of(deck))
+    try:
+        out["commander_roles"] = commander_roles.roles_for_decks(r, [dict(deck)])[0]["commander_roles"]
+    except Exception:
+        out["commander_roles"] = commander_roles.deck_commanders(deck, {})
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
@@ -414,6 +409,11 @@ async def get_decks():
     decks = enrich_decks_with_repo_status(decks)
     for d in decks:
         d["status_locked"] = registry.is_locked(d)
+    try:
+        commander_roles.roles_for_decks(r, decks)
+    except Exception:  # Redis hiccup: views fall back to plain commanders
+        for d in decks:
+            d["commander_roles"] = commander_roles.deck_commanders(d, {})
     return {"decks": decks}
 
 @app.post("/api/decks/{deck_id}/status")

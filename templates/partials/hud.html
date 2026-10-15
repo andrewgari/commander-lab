@@ -150,6 +150,36 @@
 </{{ tag }}>
 {%- endmacro %}
 
+{#- Commander art group (hud.css "Commander art group"; JS mirror HUD.commanders).
+    roles: deck.commander_roles from commander_roles.py, [{name, uid, role,
+    can_be_commander, type_label}]. No roles -> one empty frame. -#}
+{% set CMDR_ROLE_LABELS = {"partner": "Partner", "doctor": "Doctor", "doctors_companion": "Doctor's companion",
+                           "companion": "Companion", "commander": "Commander"} %}
+{% macro commanders(roles, cls=none) -%}
+{%- set roles = roles or [] -%}
+{%- set mains = roles | rejectattr("role", "equalto", "companion") | list -%}
+<div class="hud-cmdrs{% if mains | length > 1 %} hud-cmdrs--multi{% endif %}{% if roles | length > 1 %} hud-cmdrs--many{% endif %}{% if cls %} {{ cls }}{% endif %}">
+    {%- for c in roles %}
+    {%- set uid = (c.uid or "") | lower -%}
+    {%- set label = CMDR_ROLE_LABELS[c.role] or "Commander" -%}
+    <figure class="hud-cmdr hud-cmdr--{{ c.role | replace('_', '-') }}{% if c.can_be_commander %} is-cbc{% endif %}" title="{{ c.name }} · {{ label }}{% if c.can_be_commander %} ({{ c.type_label or 'card' }} that can be your commander){% endif %}">
+        {%- if c.role == "companion" %}<span class="hud-cmdr-tag">Companion</span>{% endif -%}
+        <span class="hud-cmdr-art">
+            {%- if uid -%}
+            <img alt="{{ c.name }}" src="https://cards.scryfall.io/art_crop/front/{{ uid[0] }}/{{ uid[1] }}/{{ uid | urlencode }}.jpg"
+                 data-fallback="https://api.scryfall.com/cards/{{ uid | urlencode }}?format=image&amp;version=art_crop">
+            {%- elif c.name -%}
+            <img alt="{{ c.name }}" src="https://api.scryfall.com/cards/named?exact={{ c.name | urlencode }}&amp;format=image&amp;version=art_crop">
+            {%- endif -%}
+            {%- if c.can_be_commander %}<span class="hud-cmdr-badge">{{ c.type_label or "Commander" }}</span>{% endif -%}
+        </span>
+    </figure>
+    {%- else %}
+    <figure class="hud-cmdr hud-cmdr--commander"><span class="hud-cmdr-art"></span></figure>
+    {%- endfor %}
+</div>
+{%- endmacro %}
+
 {# In-page tabs. items: [{"label", "href", "count"}]; active: label or href. #}
 {% macro tabs(items, active=none, label="Sections") -%}
 <nav class="hud-tabs" aria-label="{{ label }}">
