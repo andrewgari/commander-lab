@@ -213,3 +213,13 @@ judgement). `check_deck_brackets_live(r, deck)` gathers the live inputs
 | BR-8 | Calibration and upkeep: compare BR-4 with Commander Salt / Spellbook across our decks, document gaps, schedule the snapshot refresh and an alert when the official list changes. |
 
 Non-goals for BR-1: no UI, no journal changes, no deck evaluation.
+
+## Target bracket in the Deck Journal (BR-2)
+
+Each deck's journal has an optional top-level `target_bracket`: an integer
+1-5, or `null` (unset, the default), which means no bracket checks. It is
+stored beside `target_power_level` (1-10) and never derived from it; the two
+are independent inputs. Validation is in `user_intent.validate_intent`, and
+the field is declared in `schemas/user_intent.schema.json`. The check-in row
+`bracket` shows `Bracket N · Name` from `BRACKETS`. See `docs/DECK_JOURNAL.md`
+for the API.
