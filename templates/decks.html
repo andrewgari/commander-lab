@@ -70,10 +70,11 @@
         background: var(--surface-2);
         border: var(--stroke);
         border-radius: var(--radius-2);
-        transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+        transition: border-color var(--dur-fast) var(--ease), scale var(--dur-fast) var(--ease);
     }
     .deck-card:hover { border-color: var(--line-strong); }
-    .deck-card:active { transform: scale(0.985); }
+    /* `scale`, not `transform`: hud-enter's fill-mode keeps owning transform. */
+    .deck-card:active { scale: 0.985; }
     .deck-card:has(.deck-open:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
     /* Stretched quick-view button: a click anywhere opens the deck modal;
@@ -135,7 +136,8 @@
     }
     @media (prefers-reduced-motion: reduce) {
         .deck-card, .deck-art img, .deck-art::after, .deck-plate { transition: none !important; }
-        .deck-card:active, .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
+        .deck-card:active { scale: none; }
+        .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
         .deck-card:has(.deck-open:focus-visible) .deck-art img { transform: none; }
     }
 
