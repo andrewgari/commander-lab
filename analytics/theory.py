@@ -43,6 +43,7 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Mapping, Option
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from . import journal as journal_mod
+from . import mech_similar as mech_similar_mod
 
 log = logging.getLogger("commander_lab.theory")
 
@@ -241,6 +242,9 @@ def build_request(r, deck: Mapping, theme: str, commander_mode: str, owned: Opti
         agents = _filter_identity(r, agents, _deck_colors(deck))
     commanders = list(deck.get("commanders") or [])
     decklist = [{"name": n, "qty": q} for n, q in sorted(journal_mod.deck_entries(deck).items())]
+    pets = list(rec.get("pet_cards") or [])
+    mech = mech_similar_mod.oracle_feed(
+        list(commanders) + pets + [d["name"] for d in decklist], [d["name"] for d in decklist])
     return {
         "schema_version": SCHEMA_VERSION,
         "deck_id": _rid(deck),
@@ -254,8 +258,9 @@ def build_request(r, deck: Mapping, theme: str, commander_mode: str, owned: Opti
             "thesis": ((ident.get("thesis") or {}).get("text")) or ((rec.get("deck_vision") or {}).get("description")) or "",
             "pillars": [{"name": p.get("name"), "description": p.get("description")}
                         for p in identity.live_pillars(ident)],
-            "pet_cards": list(rec.get("pet_cards") or []),
+            "pet_cards": pets,
         },
+        "mechanically_similar": mech,
         "free_agent_owned": agents,
         "caps": {"no_budget": bool(caps.get("no_budget")), "hard_cap": caps.get("hard_cap"),
                  "soft_cap": caps.get("soft_cap"), "currency": "USD"},
