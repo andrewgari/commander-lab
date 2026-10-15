@@ -1,0 +1,444 @@
+/* PS-D mockups: ability scores (deck page) + /profile. Docs only, NOT app code.
+   Everything new is a `ps-` class on top of hud.css. The `--ps-*` block is the
+   whole token surface of the proposal: if it ships, it moves into hud.css
+   section 1 and the classes become `hud-ps-*` (or `hud-ability-*`). */
+:root {
+    /* Colour: the kit has one cool chart colour and one warm accent. Five axes
+       do NOT get five colours (mana colours are WUBRG only, and a rainbow would
+       make "Timmy = red" read as red mana). Axes are told apart by position,
+       name and monogram; colour only says "this is the lean". */
+    --ps-axis:        var(--data);         /* every score meter / polygon */
+    --ps-axis-dim:    var(--data-dim);
+    --ps-lean:        var(--signal);       /* the leans_toward axis */
+    --ps-lean-dim:    var(--signal-dim);
+    --ps-ref:         var(--text-1);       /* reference tick: your average */
+    --ps-journal:     var(--ok);           /* +N journal nudge */
+    --ps-journal-neg: var(--danger);       /* -N journal nudge */
+    /* Size */
+    --ps-meter-h:     0.5rem;              /* 8px: score track */
+    --ps-tile-min:    8.5rem;              /* B: ability tile min width */
+    --ps-score:       var(--fs-hero);      /* B: big score (44px) */
+    --ps-score-sm:    var(--fs-stat);      /* B on phone / profile rows (32px) */
+    --ps-mono:        1.375rem;            /* monogram badge (22px) */
+    --ps-radar:       17rem;               /* C: radar plot size (desktop) */
+    --ps-sigil:       1.5rem;              /* C: tiny pentagon in table rows */
+    --ps-dot:         7px;                 /* profile spread-strip dot */
+    --ps-strip-h:     1.75rem;             /* profile spread-strip row height */
+    /* Motion: one vocabulary. Meters grow, the lean lights up after, drawers rise. */
+    --ps-grow:        var(--dur-slow);     /* 320ms meter / polygon grow */
+    --ps-lean-delay:  calc(5 * var(--stagger) + var(--dur-slow)); /* lean lights after the 5th meter lands */
+}
+
+/* ---- Mock-only bar (dashed so it never reads as product UI) ------------- */
+.ps-mockbar { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3); border: 1px dashed var(--line-strong); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.ps-mockbar select { font: inherit; padding: 2px var(--sp-1); max-width: 16rem; }
+.ps-mockbar a { color: var(--text-2); }
+.ps-mockbar a[aria-current] { color: var(--signal); }
+.ps-mockbar-links { display: inline-flex; gap: var(--sp-3); margin-left: auto; }
+
+/* ---- Deck page bits copied from templates/deck.html (layout only) ------- */
+.deck-hero { display: grid; grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.ps-ghost { opacity: 0.45; }   /* existing panels, de-emphasised in the mock */
+.ps-ghost .hud-panel-body { min-height: 6rem; }
+@media (max-width: 900px) { .deck-hero { grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr); gap: var(--sp-4); } .deck-hero-main .hud-grid--2 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .deck-hero { grid-template-columns: minmax(0, 1fr); } }
+
+/* =======================================================================
+   Shared pieces (all three directions + profile)
+   ======================================================================= */
+.ps-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Monogram: the axis' identity. Never coloured by axis; signal only on the lean. */
+.ps-mono { display: inline-grid; place-items: center; flex: none; width: var(--ps-mono); height: var(--ps-mono); border: var(--stroke-strong); border-radius: var(--radius-1); color: var(--text-2); font: var(--fw-semibold) var(--fs-xs)/1 var(--font-mono); }
+.is-lean .ps-mono { background: var(--ps-lean); border-color: var(--ps-lean); color: var(--text-on-signal); }
+
+/* Lean headline: the panel's one sentence. */
+.ps-lean { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); margin: 0 0 var(--sp-4); }
+.ps-lean-label { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.ps-lean-name { margin: 0; color: var(--text-1); font-size: var(--fs-lg); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
+.ps-lean-name em { font-style: normal; color: var(--ps-lean); }
+.ps-lean-why { color: var(--text-2); font-size: var(--fs-sm); }
+.ps-lean-why b { color: var(--text-1); font-weight: var(--fw-medium); }
+
+/* Meter: 0-100 track, data fill, optional reference tick (your average). */
+.ps-meter { position: relative; height: var(--ps-meter-h); background: var(--surface-2); }
+.ps-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--ps-axis); transform-origin: left; }
+.is-lean .ps-meter-fill { background: var(--ps-lean); }
+.ps-meter-ref { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ps-ref); box-shadow: 0 0 0 1px var(--surface-0); } /* hard 1px keyline, no blur: stays visible on the data fill */
+.ps-meter-q { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--surface-0); } /* 25/50/75 notches */
+
+/* Journal nudge chip-ish: "+8 journal" */
+.ps-nudge { font: var(--fs-micro) var(--font-mono); letter-spacing: 0.02em; white-space: nowrap; }
+.ps-nudge.is-up { color: var(--ps-journal); }
+.ps-nudge.is-down { color: var(--ps-journal-neg); }
+.ps-nudge.is-none { color: var(--text-3); }   /* text-4 fails AA as text */
+
+/* Notes (degraded inputs) live in the panel foot, never on the scores. */
+.ps-notes { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; min-width: 0; }
+.ps-notes .hud-chip { max-width: 100%; height: auto; min-height: var(--chip-h); white-space: normal; overflow-wrap: anywhere; }
+.ps-foot { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; justify-content: space-between; }
+.ps-foot a { color: var(--text-2); }
+.ps-foot a:hover { color: var(--signal-strong); }
+
+/* Evidence drawer: one axis' signals, opened from a tile / bar / vertex. */
+.ps-evidence { margin-top: var(--sp-4); border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-0); }
+.ps-evidence[hidden] { display: none; }
+.ps-ev-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: baseline; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
+.ps-ev-head h4 { margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.ps-ev-head p { margin: 0; color: var(--text-3); font-size: var(--fs-xs); }
+.ps-ev-sum { margin-left: auto; color: var(--text-2); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
+.ps-ev-sum b { color: var(--text-1); font-weight: var(--fw-medium); }
+.ps-ev-close { margin-left: var(--sp-2); }
+.ps-ev-list { list-style: none; margin: 0; padding: 0; }
+/* Row: code | label + value | track (points out of weight) | pts */
+.ps-ev-row { display: grid; grid-template-columns: 2.25rem minmax(10rem, 16rem) minmax(0, 1fr) 4.5rem; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); border-top: var(--stroke-faint); }
+.ps-ev-row:first-child { border-top: 0; }
+.ps-ev-code { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.ps-ev-label { display: flex; flex-direction: column; min-width: 0; }
+.ps-ev-label b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.ps-ev-label span { color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-ev-track { position: relative; height: 0.375rem; background: var(--surface-2); }
+.ps-ev-track i { position: absolute; inset: 0 auto 0 0; background: var(--ps-axis); transform-origin: left; }
+.ps-ev-pts { color: var(--text-1); font: var(--fs-sm) var(--font-mono); text-align: right; white-space: nowrap; }
+.ps-ev-pts small { color: var(--text-3); font-size: var(--fs-micro); }
+.ps-ev-row.is-zero .ps-ev-label b, .ps-ev-row.is-zero .ps-ev-pts { color: var(--text-3); }
+.ps-ev-cards { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ps-ev-more { cursor: pointer; }
+.ps-ev-more:hover { color: var(--text-1); border-color: var(--line-strong); }
+.ps-ev-more:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.ps-ev-row.is-journal .ps-ev-code { color: var(--ps-journal); }
+.ps-ev-foot { padding: var(--sp-2) var(--sp-4); border-top: var(--stroke); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+
+/* States */
+.ps-state { display: grid; gap: var(--sp-3); justify-items: start; padding: var(--sp-6) var(--sp-4); border: var(--hairline) dashed var(--line-strong); }
+.ps-state h4 { margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.ps-state p { margin: 0; max-width: 60ch; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.ps-state.is-error { border: var(--hairline) solid var(--danger); border-left: var(--indicator) solid var(--danger); background: var(--danger-dim); }
+.ps-state.is-error h4 { color: var(--danger); }
+.ps-skel .ps-meter-fill, .ps-skel .ps-b-num { visibility: hidden; }
+.ps-skel .ps-meter { background: repeating-linear-gradient(90deg, var(--surface-2) 0 6px, var(--surface-1) 6px 12px); } /* hatch = "not measured", not a gradient fill */
+
+/* =======================================================================
+   A · Stat bars (conservative): five ranked-bar rows, kit `hud-rank` shape.
+   ======================================================================= */
+.ps-a { list-style: none; margin: 0; padding: 0; }
+.ps-a-row { border-top: var(--stroke-faint); }
+.ps-a-row:first-child { border-top: 0; }
+.ps-a-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: var(--ps-mono) minmax(11rem, 14rem) minmax(0, 1fr) 2.75rem 5.5rem; gap: var(--sp-3); align-items: center; width: 100%; min-height: 2.75rem; padding: var(--sp-1) var(--sp-2); }
+.ps-a-btn:hover { background: var(--surface-2); }
+.ps-a-btn:focus-visible { outline: var(--focus-ring); outline-offset: calc(-1 * var(--focus-offset) - 1px); }
+.ps-a-btn[aria-expanded="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--ps-lean); }
+.ps-a-name { display: flex; flex-direction: column; min-width: 0; }
+.ps-a-name b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.ps-a-name span { color: var(--text-3); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-a-val { color: var(--text-1); font: var(--fw-medium) var(--fs-md) var(--font-mono); text-align: right; }
+.ps-hint { color: var(--text-3); }
+@media (hover: none), (max-width: 640px) { .ps-hint, .hud-panel-meta .hud-kbd { display: none; } }
+.is-lean .ps-a-val { color: var(--ps-lean); }
+.ps-a-nudge { text-align: right; }
+.ps-a-desc { display: none; }
+
+/* =======================================================================
+   B · Character sheet (recommended): five ability tiles, D&D stat-block feel.
+   ======================================================================= */
+.ps-b { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.ps-b-tile { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); background: var(--surface-1); transition: background-color var(--dur-base) var(--ease), transform var(--dur-fast) var(--ease); }
+.ps-b-tile:hover { background: var(--surface-2); }
+.ps-b-tile:active { transform: scale(0.985); }
+.ps-b-tile:focus-visible { outline: var(--focus-ring); outline-offset: -2px; z-index: 1; }
+.ps-b-top { display: flex; align-items: center; gap: var(--sp-2); }
+.ps-b-top .hud-label { color: var(--text-2); }
+.ps-b-top .ps-nudge { margin-left: auto; }
+.ps-b-num { color: var(--text-1); font: var(--fw-medium) var(--ps-score)/1 var(--font-mono); letter-spacing: var(--tracking-tight); }
+.ps-b-num small { color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0; }
+.ps-b-desc { color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); min-height: 2.4em; }
+/* Lean tile: solid signal, like the Identity hero pillar. One per sheet. */
+.ps-b-tile.is-lean { background: var(--ps-lean); }
+.ps-b-tile.is-lean:hover { background: var(--signal-strong); }
+.ps-b-tile.is-lean .hud-label, .ps-b-tile.is-lean .ps-b-num, .ps-b-tile.is-lean .ps-b-desc, .ps-b-tile.is-lean .ps-b-num small { color: var(--text-on-signal); }
+.ps-b-tile.is-lean .ps-mono { background: var(--text-on-signal); border-color: var(--text-on-signal); color: var(--ps-lean); }
+.ps-b-tile.is-lean .ps-meter { background: var(--signal-line); }
+.ps-b-tile.is-lean .ps-meter-fill { background: var(--text-on-signal); }
+.ps-b-tile.is-lean .ps-meter-ref { background: var(--signal-strong); }
+.ps-b-tile.is-lean .ps-nudge { color: var(--text-on-signal); }
+.ps-b-tile.is-lean .ps-meter-q { background: var(--ps-lean); }
+/* Close lean (runner_up set, ≤5 points): no solid hero. Signal number + top bar on
+   the lean, "2nd" tag on the runner-up. Solid fill is reserved for a clear lean so
+   a 3-point lead never looks like a landslide. */
+.ps-b.is-close .ps-b-tile.is-lean { background: var(--ps-lean-dim); box-shadow: inset 0 var(--indicator) 0 var(--ps-lean); }
+.ps-b.is-close .ps-b-tile.is-lean:hover { background: var(--surface-3); }
+.ps-b.is-close .ps-b-tile.is-lean .hud-label { color: var(--text-1); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-b-num { color: var(--ps-lean); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-b-desc { color: var(--text-2); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-b-num small { color: var(--text-4); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-mono { background: var(--ps-lean); border-color: var(--ps-lean); color: var(--text-on-signal); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-meter { background: var(--surface-2); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-meter-fill { background: var(--ps-lean); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-meter-ref { background: var(--ps-ref); }
+.ps-b.is-close .ps-b-tile.is-lean .ps-nudge.is-up { color: var(--ps-journal); }
+/* Runner-up: a "2nd" tag in the tile top (never a second hero, never the lean colour fill). */
+.ps-2nd { margin-left: auto; padding: 0 var(--sp-1); border: var(--hairline) solid var(--line-strong); border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-micro)/1.5 var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.ps-2nd + .ps-nudge { margin-left: var(--sp-2); }
+.ps-key { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.ps-key i { display: inline-block; width: 2px; height: 0.875rem; background: var(--ps-ref); }
+.ps-ev-label.is-wrap span { white-space: normal; }
+.ps-ev-tags { grid-column: 2 / -1; }
+.ps-b-tile[aria-expanded="true"]:not(.is-lean) { background: var(--surface-2); }
+.ps-b-tile[aria-expanded="true"]::after { content: ""; position: absolute; left: 50%; bottom: -1px; width: 0.75rem; height: 0.75rem; margin-left: -0.375rem; background: var(--surface-0); border-left: var(--stroke); border-top: var(--stroke); transform: translateY(50%) rotate(45deg); }
+.ps-b + .ps-evidence { margin-top: var(--sp-3); }
+.ps-b.is-balanced .ps-b-tile.is-top { box-shadow: inset 0 var(--indicator) 0 var(--line-strong); }
+
+/* =======================================================================
+   C · Pentagon (radical): radar + side legend. Polygon in data, lean vertex
+   in signal, your average as a dashed ghost.
+   ======================================================================= */
+.ps-c { display: grid; grid-template-columns: var(--ps-radar) minmax(0, 1fr); gap: var(--sp-6); align-items: center; }
+.ps-c-svg { width: 100%; height: auto; overflow: visible; }
+.ps-c-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.ps-c-ring.is-50 { stroke: var(--line-strong); }
+.ps-c-spoke { stroke: var(--line); stroke-width: 1; }
+.ps-c-ref { fill: none; stroke: var(--ps-ref); stroke-width: 1.25; stroke-dasharray: 4 3; }
+.ps-c-shape { fill: var(--ps-axis-dim); fill-opacity: 0.7; stroke: var(--ps-axis); stroke-width: 2; stroke-linejoin: miter; transform-origin: 0 0; }
+.ps-c-vtx { fill: var(--ps-axis); }
+.ps-c-vtx.is-lean { fill: var(--ps-lean); }
+.ps-c-hit { fill: transparent; cursor: pointer; }
+.ps-c-axis { cursor: pointer; }
+.ps-c-axis:focus-visible { outline: none; }
+.ps-c-axis:focus-visible .ps-c-lbl-box { stroke: var(--signal); stroke-width: 1; }
+.ps-c-lbl-box { fill: var(--surface-1); stroke: var(--line); }
+.ps-c-axis.is-lean .ps-c-lbl-box { fill: var(--ps-lean); stroke: var(--ps-lean); }
+.ps-c-axis[aria-expanded="true"] .ps-c-lbl-box { stroke: var(--text-1); }
+.ps-c-lbl { fill: var(--text-1); font: var(--fw-semibold) 11px var(--font-mono); letter-spacing: 0.06em; }
+.ps-c-lbl-n { fill: var(--text-1); font: var(--fw-medium) 15px var(--font-mono); }
+.ps-c-axis.is-lean .ps-c-lbl, .ps-c-axis.is-lean .ps-c-lbl-n { fill: var(--text-on-signal); }
+.ps-c-side { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.ps-c-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.ps-c-legend i { display: inline-block; width: 14px; height: 0; margin-right: var(--sp-1); vertical-align: middle; border-top: 2px solid var(--ps-axis); }
+.ps-c-legend i.is-ref { border-top: 1px dashed var(--ps-ref); }
+.ps-c-table { width: 100%; max-width: 24rem; border-collapse: collapse; font-size: var(--fs-sm); }
+.ps-c-table th, .ps-c-table td { padding: var(--sp-1) var(--sp-2); border-top: var(--stroke-faint); text-align: left; }
+.ps-c-table thead th { border-top: 0; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.ps-c-table th.is-num { text-align: right; }
+.ps-c-table td.is-num { font-family: var(--font-mono); text-align: right; color: var(--text-1); width: 4rem; }
+.ps-c-table td.ps-c-avg { color: var(--text-3); }
+.ps-c-table tr.is-lean td.ps-c-deck { color: var(--ps-lean); font-weight: var(--fw-semibold); }
+.ps-c-table tbody th { color: var(--text-2); font-weight: var(--fw-medium); display: flex; gap: var(--sp-2); align-items: center; }
+.ps-c-sw { display: inline-block; width: 12px; height: 0; margin-right: var(--sp-1); vertical-align: middle; border-top: 2px solid var(--ps-axis); }
+.ps-c-sw.is-ref { border-top: 1px dashed var(--ps-ref); }
+.ps-c-refv { fill: var(--surface-0); stroke: var(--ps-ref); stroke-width: 1.25; }
+/* Tiny pentagon "sigil" (deck shape at a glance) for list rows. */
+.ps-sigil { width: var(--ps-sigil); height: var(--ps-sigil); flex: none; overflow: visible; }
+.ps-sigil .ps-c-ring { stroke: var(--line-strong); }
+.ps-sigil .ps-c-shape { stroke-width: 1.25; }
+
+/* =======================================================================
+   Profile (/profile)
+   ======================================================================= */
+.ps-prof { max-width: 72rem; }
+.ps-prof-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4) var(--sp-8); align-items: end; padding-bottom: var(--sp-6); border-bottom: var(--stroke); }
+.ps-prof-head .hud-thesis { padding: 0; }
+.ps-thesis-sub { margin: var(--sp-3) 0 0; max-width: 62ch; color: var(--text-2); font-size: var(--fs-md); line-height: var(--lh-base); }
+.ps-thesis-sub b { color: var(--text-1); font-weight: var(--fw-medium); }
+.ps-scope { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-end; }
+.ps-scope .hud-freshness { text-align: right; }
+.ps-prof-sec { padding-top: var(--sp-8); }
+.ps-prof-sec > .hud-section-head { margin-top: 0; }
+.ps-prof-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--sp-4); align-items: start; }
+
+/* Spread strip: one row per axis, every deck a dot on 0-100, your average a tick. */
+.ps-spread { list-style: none; margin: 0; padding: 0; }
+.ps-spread-row { display: grid; grid-template-columns: var(--ps-mono) 5.5rem minmax(0, 1fr) 6.5rem; gap: var(--sp-3); align-items: center; min-height: var(--ps-strip-h); border-top: var(--stroke-faint); padding: var(--sp-1) 0; }
+.ps-spread-row:first-child { border-top: 0; }
+.ps-spread-name { color: var(--text-1); font-size: var(--fs-sm); }
+.ps-spread-track { position: relative; height: var(--ps-strip-h); }
+.ps-spread-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: var(--stroke); }
+.ps-spread-dot { all: unset; cursor: pointer; position: absolute; top: calc(50% + var(--jy, 0) * var(--ps-strip-h)); width: var(--ps-dot); height: var(--ps-dot); margin: calc(var(--ps-dot) / -2) 0 0 calc(var(--ps-dot) / -2); background: var(--ps-axis); border-radius: 50%; opacity: 0.55; transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease); }
+.ps-spread-dot.is-lean { background: var(--ps-lean); opacity: 0.9; }
+.ps-spread-dot:hover, .ps-spread-dot:focus-visible, .ps-spread-dot.is-hot { opacity: 1; transform: scale(1.7); z-index: 1; }
+.ps-spread-dot:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.ps-spread-avg { position: absolute; top: 5%; bottom: 5%; width: 2px; margin-left: -1px; background: var(--ps-ref); box-shadow: 0 0 0 1px var(--surface-1); z-index: 2; pointer-events: none; }
+.ps-spread-track::after { content: ""; position: absolute; top: 0; bottom: 0; left: 25%; right: 25%; border-left: var(--hairline) solid var(--line-faint); border-right: var(--hairline) solid var(--line-faint); pointer-events: none; } /* 25 / 75 gridlines */
+.ps-spread-val { color: var(--text-3); font: var(--fs-xs) var(--font-mono); text-align: right; white-space: nowrap; }
+.ps-spread-val b { color: var(--text-1); font-weight: var(--fw-medium); }
+.ps-spread-axis { display: grid; grid-template-columns: var(--ps-mono) 5.5rem minmax(0, 1fr) 6.5rem; gap: var(--sp-3); color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.ps-spread-axis span:nth-child(3) { display: flex; justify-content: space-between; }
+.ps-tip { position: fixed; z-index: var(--z-toast); pointer-events: none; padding: var(--sp-1) var(--sp-2); background: var(--surface-3); border: var(--stroke-strong); color: var(--text-1); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
+.ps-tip[hidden] { display: none; }
+
+/* Callouts: rule-based trend sentences. Number left, sentence, action right. */
+.ps-callouts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.ps-callout { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-1); }
+.ps-callout-n { color: var(--text-1); font: var(--fw-medium) var(--fs-stat)/1 var(--font-mono); letter-spacing: var(--tracking-tight); }
+.ps-callout-n small { color: var(--text-3); font-size: var(--fs-sm); letter-spacing: 0; }
+.ps-callout p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.ps-callout p b { color: var(--text-1); font-weight: var(--fw-medium); }
+.ps-callout .hud-btn { align-self: flex-start; margin-top: auto; }
+.ps-callout.is-lead { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--text-1); } /* neutral: signal stays reserved for "the lean" */
+.ps-dname { color: var(--text-1); font-weight: var(--fw-medium); }
+.ps-legend { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); align-items: center; }
+.ps-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.ps-lg-dot { display: inline-block; width: var(--ps-dot); height: var(--ps-dot); border-radius: 50%; background: var(--ps-axis); opacity: 0.7; }
+.ps-lg-dot.is-lean { background: var(--ps-lean); opacity: 1; }
+.ps-lg-avg { display: inline-block; width: 2px; height: 0.75rem; background: var(--ps-ref); }
+
+/* Deck table: heat cells for the five scores (kit --data-0..5 ramp). */
+.ps-table .ps-h { width: 3.25rem; padding: 0 !important; text-align: center; }
+.ps-table .ps-h > span { display: grid; place-items: center; height: var(--row-h); color: var(--text-1); font: var(--fs-sm) var(--font-mono); }
+.ps-table .ps-h[data-level="0"] > span { background: var(--data-0); color: var(--text-3); }
+.ps-table .ps-h[data-level="1"] > span { background: var(--data-1); }
+.ps-table .ps-h[data-level="2"] > span { background: var(--data-2); }
+.ps-table .ps-h[data-level="3"] > span { background: var(--data-3); color: var(--surface-0); }
+.ps-table .ps-h[data-level="4"] > span { background: var(--data-4); color: var(--surface-0); }
+.ps-table .ps-h[data-level="5"] > span { background: var(--data-5); color: var(--surface-0); }
+.ps-table .ps-h.is-lean > span { box-shadow: inset 0 0 0 2px var(--ps-lean); font-weight: var(--fw-semibold); }
+.ps-table th.ps-h { text-align: center; }
+.ps-table th.ps-h .hud-sort { justify-content: center; }
+.ps-deckcell { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ps-deckcell > span { display: flex; flex-direction: column; min-width: 0; }
+.ps-deckcell a { color: var(--text-1); font-weight: var(--fw-medium); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22rem; }
+.ps-deckcell a:hover { color: var(--signal-strong); }
+.ps-deckcell small { color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22rem; }
+.ps-table tr.is-hot td { background: var(--surface-2); }
+.ps-table tr.is-failed td { color: var(--text-3); }
+.ps-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin-bottom: var(--sp-3); }
+.ps-filters .ps-count { margin-left: auto; color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.ps-cards { display: none; list-style: none; margin: 0; padding: 0; }
+
+/* =======================================================================
+   Motion (transform + opacity only). Reduced motion: everything is static.
+   ======================================================================= */
+@keyframes ps-grow { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes ps-pop { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ps-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ps-light { from { opacity: 0; } to { opacity: 1; } }
+.ps-meter-fill, .ps-ev-track i { animation: ps-grow var(--ps-grow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.ps-c-shape { animation: ps-pop var(--ps-grow) var(--ease) both; }
+.ps-evidence:not([hidden]), .ps-callout { animation: ps-rise var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+/* The lean lights up only after the meters land: cause, then verdict. */
+.ps-b-tile.is-lean::after, .ps-lean-name em { animation: ps-light var(--dur-base) var(--ease) both; animation-delay: var(--ps-lean-delay); }
+@media (prefers-reduced-motion: reduce) {
+    .ps-meter-fill, .ps-ev-track i, .ps-c-shape, .ps-evidence, .ps-callout, .ps-b-tile.is-lean::after, .ps-lean-name em { animation: none !important; }
+    .ps-b-tile, .ps-spread-dot { transition: none !important; }
+    .ps-b-tile:active { transform: none; }
+}
+
+/* =======================================================================
+   Responsive. 390 = ~300px content next to the 56px icon rail.
+   ======================================================================= */
+@media (max-width: 1180px) {
+    .ps-prof-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+    .ps-c { grid-template-columns: minmax(0, 14rem) minmax(0, 1fr); gap: var(--sp-4); }
+}
+@media (max-width: 640px) {
+    /* A: drop the description, keep monogram | name | bar | value | nudge */
+    .ps-a-btn { grid-template-columns: var(--ps-mono) 4.75rem minmax(0, 1fr) 2rem; gap: var(--sp-2); }
+    .ps-a-name span { display: none; }
+    .ps-a-nudge { grid-column: 2 / -1; text-align: left; margin-top: calc(-1 * var(--sp-1)); }
+    .ps-a-nudge:empty { display: none; }
+    /* B: tiles restack into rows: [mono name nudge] [num] / [meter] */
+    .ps-b { grid-template-columns: minmax(0, 1fr); }
+    .ps-b-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "top num" "meter meter"; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+    .ps-b-top { grid-area: top; }
+    .ps-b-num { grid-area: num; font-size: var(--ps-score-sm); }
+    .ps-b-tile .ps-meter { grid-area: meter; }
+    .ps-b-desc { display: none; }
+    .ps-b-tile[aria-expanded="true"]::after { display: none; }
+    .ps-b-tile[aria-expanded="true"]:not(.is-lean) { box-shadow: inset var(--indicator) 0 0 var(--text-1); }
+    /* C: radar on top, table below */
+    .ps-c { grid-template-columns: minmax(0, 1fr); }
+    .ps-c-plot { max-width: 18rem; justify-self: center; width: 100%; }
+    /* Evidence rows: code+label / track+pts / cards */
+    .ps-ev-row { grid-template-columns: 2rem minmax(0, 1fr) 3.75rem; }
+    .ps-ev-track { grid-column: 2 / 3; }
+    .ps-ev-label { grid-column: 2 / -1; }
+    .ps-ev-pts { grid-column: 3; grid-row: 2; }
+    .ps-ev-cards { grid-column: 2 / -1; }
+    .ps-ev-sum { margin-left: 0; width: 100%; white-space: normal; }
+    .ps-ev-head { padding: var(--sp-3); }
+    .ps-ev-row { padding: var(--sp-2) var(--sp-3); }
+    .ps-lean-name { font-size: var(--fs-md); }
+    /* Profile */
+    .ps-prof-head { grid-template-columns: minmax(0, 1fr); }
+    .ps-scope { align-items: flex-start; }
+    .ps-scope .hud-freshness { text-align: left; }
+    .ps-thesis-sub { font-size: var(--fs-sm); }
+    .ps-spread-row, .ps-spread-axis { grid-template-columns: var(--ps-mono) minmax(0, 1fr) 3.25rem; gap: var(--sp-2); }
+    .ps-spread-name, .ps-spread-axis span:nth-child(2) { display: none; }
+    .ps-spread-val .ps-lean-n { display: none; }  /* phone: just "avg 49"; lean counts live in the callouts */
+    .ps-prof-head .hud-label { white-space: normal; }
+    .ps-legend { gap: var(--sp-1) var(--sp-3); }
+    .hud-panel-head:has(.ps-legend) { flex-wrap: wrap; padding-block: var(--sp-2); }
+    .hud-panel-head:has(.ps-legend) .hud-panel-meta { margin-left: 0; white-space: normal; }
+    .ps-callouts { grid-template-columns: minmax(0, 1fr); }
+    /* Table becomes a card list (tables don't fit 300px with 5 score columns + deck) */
+    .ps-table-wrap { display: none; }
+    .ps-cards { display: grid; gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+    .ps-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-3); background: var(--surface-1); }
+    .ps-card .ps-deckcell a, .ps-card .ps-deckcell small { max-width: 100%; }
+    .ps-card-scores { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--hairline); }
+    .ps-card-scores > span { display: grid; place-items: center; height: 2.25rem; font: var(--fs-sm) var(--font-mono); color: var(--text-1); }
+    .ps-card-scores > span small { display: block; color: inherit; opacity: 0.75; font-size: var(--fs-micro); line-height: 1; }
+    .ps-filters .ps-count { margin-left: 0; width: 100%; }
+}
+
+/* ---- Review pass 2 (measured fixes) ------------------------------------- */
+/* Spread: map 0-100 inside the track (half a dot of inset each side) so 0 and 100 never clip. */
+.ps-spread-dot, .ps-spread-avg { left: calc(var(--ps-dot) / 2 + (100% - var(--ps-dot)) * var(--x) / 100); }
+/* Callouts: auto-fit (not auto-fill) so a short last row stretches instead of leaving a grey hole. */
+.ps-callouts { grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+.ps-callout .hud-btn { margin-left: calc(-1 * var(--sp-2)); }  /* ghost btn padding: align its text to the card's text edge */
+.ps-callout-n small { font-family: var(--font-mono); color: var(--text-3); }
+/* Table: deck column takes the slack; names use it before truncating. */
+.ps-table { table-layout: auto; width: 100%; }
+.ps-table td:first-child { width: 100%; max-width: 0; }
+.ps-deckcell a, .ps-deckcell small { max-width: 100%; }
+.ps-table td { padding-block: var(--sp-2); vertical-align: middle; }
+.ps-deckcell > span { gap: 2px; }
+/* Thumbnail fallback: an empty frame with the commander's initial instead of a black hole. */
+.ps-thumb { position: relative; flex: none; display: grid; place-items: center; width: 2.5rem; aspect-ratio: var(--art-ratio); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow: hidden; }
+.ps-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border: 0; }  /* sits over the initial; alt="" so a failed image shows the initial, not a broken icon */
+/* Heat cells: text colour flips on the light end of the ramp; mid steps get the darkest ink for AA. */
+.ps-table .ps-h[data-level="2"] > span { color: var(--text-1); }
+.ps-table .ps-h[data-level="3"] > span, .ps-table .ps-h[data-level="4"] > span, .ps-table .ps-h[data-level="5"] > span { color: var(--surface-0); font-weight: var(--fw-semibold); }
+/* The mock bar's file links never break mid-label. */
+.ps-mockbar-links a { white-space: nowrap; }
+/* Heat cells: measured WCAG (contrast.py). data-0..2 → text-1 (≥7.6:1), data-3 → text-1 (4.9:1),
+   data-4/5 → surface-0 (5.0 / 7.5:1). surface-0 on data-3 was 3.2:1, so it's text-1 there. */
+.ps-table .ps-h[data-level="0"] > span { color: var(--text-2); }       /* 8.7:1 (was text-3, which read as "disabled") */
+.ps-table .ps-h[data-level="3"] > span { color: var(--text-1); }
+.ps-table .ps-h[data-level="4"] > span, .ps-table .ps-h[data-level="5"] > span { color: var(--surface-0); }
+/* Lean cell: inset ring with a 1px surface gap so it never bleeds into the neighbour cell. */
+.ps-table .ps-h.is-lean > span { box-shadow: inset 0 0 0 1px var(--surface-0), inset 0 0 0 3px var(--ps-lean); }
+/* Sort buttons in the narrow score columns: letter centred, arrow tucked after it. */
+.ps-table th.ps-h .hud-sort { width: 100%; justify-content: center; gap: 2px; padding: 0; }
+/* LEANS column: fixed width so the chips form a clean edge. */
+.ps-table td:last-child, .ps-table th:last-child { width: 8.5rem; white-space: nowrap; }
+/* Evidence: labels wrap (values are short, a clipped value is worse than a 2nd line). */
+.ps-ev-label span { white-space: normal; overflow: visible; }
+/* Journal rows: diverging bar from the centre (+ right in ok, − left in danger). */
+.ps-ev-track.is-diverge { background: var(--surface-2); }
+.ps-ev-track.is-diverge::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line-strong); }
+.ps-ev-track.is-diverge i { left: 50%; background: var(--ps-journal); }
+.ps-ev-track.is-diverge i.is-neg { left: auto; right: 50%; background: var(--ps-journal-neg); transform-origin: right; }
+.ps-ev-row.is-journal .ps-ev-code { color: var(--text-3); }
+/* Evidence head: Esc stays top-right on phone too. */
+.ps-ev-head { position: relative; }
+@media (max-width: 640px) {
+    .ps-ev-head { padding-right: 3.5rem; }
+    .ps-ev-close { position: absolute; top: var(--sp-2); right: var(--sp-2); margin: 0; }
+    .ps-2nd { margin-left: var(--sp-2); }
+}
+/* Footer: a visible 4px gap between the average key and the freshness text, and a real tick swatch. */
+.ps-key i { height: 0.75rem; box-shadow: 0 0 0 1px var(--surface-1); }
+/* No glyph separator: the flex gap separates key and freshness, so a wrap never strands a "·". */
+/* Radar: the average outline sits on top of the deck fill, so it needs to beat the teal: text-1 + 1.5px. */
+.ps-c-ref { stroke-width: 1.5; }
+@media (max-width: 640px) {
+    /* Lean filter: one scrollable row (no orphaned "No journal" chip). */
+    .ps-filters .hud-seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+    .ps-filters .hud-seg label { flex: none; }
+    .ps-filters input[type=search] { max-width: none !important; width: 100%; }
+}
