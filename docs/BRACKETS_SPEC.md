@@ -174,13 +174,38 @@ only ever declared.
 - `scripts/refresh_game_changers.py [--check]`: rewrites the snapshot from
   Scryfall (`--check` exits 1 if it's out of date).
 
+## Deck check (BR-3)
+
+`analytics/bracket_check.py`: `check_deck_brackets(deck, game_changers=, combos=, oracle=)
+-> BracketFindings` (pydantic). Pure and deterministic, no LLM, no network.
+
+| Rule | Data | Floor |
+|------|------|-------|
+| Game Changers | `game_changers` arg (live list from `get_game_changers`), default the BR-1 snapshot; commanders count | `min_bracket_for_game_changers(n)`: 0 -> 1, 1-3 -> 3, 4+ -> 4 |
+| Mass land denial | `analytics/data/bracket_cards.json` `mass_land_denial` (Scryfall `otag:mass-land-denial`) + WotC's examples pinned; oracle-text fallback "destroy/sacrifice/exile all lands" | any -> 4 |
+| Extra turns | `extra_turns` (`otag:extra-turn`); oracle fallback "take an extra turn" | any card -> 2; an in-deck Spellbook combo whose result is explicitly "Infinite turns" and has no template requirement -> 4 (an extra-turn card plus some other infinite isn't a loop; a template-bearing "Infinite turns" combo is only a note, since find-my-combos doesn't verify templates) |
+| Two-card combos | Commander Spellbook in-deck combos (`combos.deck_combos` / `find_my_combos`) with <= 2 cards and no template requirements | any -> 3; tag Ruthless (R) or Banned (B) -> 4 |
+| Tutors (advisory) | `tutors` (`otag:tutor -otag:tutor-land -otag:tutor-seek mv<=3`) | never |
+
+The three card lists use the same Tagger queries Commander Spellbook uses for
+its own `massLandDenial` / `extraTurn` / `tutor` card flags. Refresh with
+`python scripts/refresh_bracket_cards.py [--check]`; curated overrides are the
+`*_INCLUDE` / `*_EXCLUDE` tuples in `bracket_check.py`.
+
+`minimum_bracket` = highest floor (never 5). `floors` lists each rule above 1
+with its cards. If `combos` is None the combo rule says `checked: false` and a
+note warns the minimum may be higher. 3+ extra-turn cards with no loop add a
+"check by hand" note but don't move the floor (chaining without a combo needs
+judgement). `check_deck_brackets_live(r, deck)` gathers the live inputs
+(Game Changers, cached Spellbook combos, the tagger's cached oracle text).
+
 ## The BR chain
 
 | Card | Scope |
 |------|-------|
 | BR-1 | This spec, `analytics/brackets.py` table + helpers, Game Changers from Scryfall with cache and snapshot, `/api/brackets`. |
 | BR-2 | Hard-check data: mass-land-denial and extra-turn card lists (Scryfall queries + curated overrides, snapshot like BR-1), with "chained/looped" detection rules. |
-| BR-3 | Two-card combo check: reuse Commander Spellbook combos (`combos.py`), classify two-card combos by bracket tag into "any" / "early" per the definitions above. |
+| BR-3 | Shipped as the deterministic deck check (`analytics/bracket_check.py`): Game Changers, mass land denial and extra-turn lists (Tagger snapshot + overrides), Spellbook two-card combos by tag, tutors (advisory), `minimum_bracket` with per-floor cards. Covers what BR-2/BR-4 described for data and evaluation. |
 | BR-4 | Deterministic evaluator: deck -> per-constraint floors with the cards that caused them, computed minimum bracket. Pure function over the BR-1..3 data, fully unit tested. |
 | BR-5 | Advisory signals next to it: tutors, Commander Salt `bracket_rating`, Spellbook estimate, turn expectation vs the deck's speed; plus the user's declared bracket per deck (stored, with "not intentional" overrides). Advisory never changes the BR-4 number. |
 | BR-6 | API + deck page / decks list: bracket badge next to the 1-10 power level, with the floors and advisories on hover/expand. |
