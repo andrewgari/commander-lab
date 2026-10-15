@@ -609,7 +609,7 @@ reference-only branch `commander-lab/t_d48e34bb-…`, PR #102), direction
   trends locked), partial-failure (failed rows last, **Retry** each) and
   API-error states.
 * Code: `static/js/personality.js` (`window.PSUI`, pure string builders +
-  two binders), `hud.css` section 14 (`hud-ps-*`, tokens `--ps-*` in
+  two binders), `hud.css` section 10 (`hud-ps-*`, tokens `--ps-*` in
   section 1). The UI never re-decides `leans_toward`; it only labels it.
   Tests: `tests/test_personality_ui.py` runs the builders in node on real
   prod payloads (`tests/fixtures/ps4/`).

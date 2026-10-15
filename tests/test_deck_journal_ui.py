@@ -123,10 +123,9 @@ class TestJournalPage(_JournalPage, unittest.TestCase):
         self.assertRegex(self.body, r'class="hud-progress"[^>]*aria-live="polite"')
 
     def test_rows_without_a_form_section_get_no_change_button(self):
-        # BR-2 adds the target_bracket check-in row before BR-6 adds its picker:
-        # the row must not offer an inline Change that has no form to open.
+        # A check-in row with no form section must not offer an inline Change
+        # (BR-2's bracket row until BR-6 added the picker; any future row too).
         self.assertIn("!ROWS[r.field] ?", self.body)
-        self.assertNotIn("bracket:", self.body.split("var ROWS = {", 1)[1].split("};", 1)[0])
 
     def test_review_button_in_header(self):
         actions = self.body.split('class="hud-deckhead-actions"', 1)[1].split("</div>", 1)[0]

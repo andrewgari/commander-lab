@@ -114,7 +114,7 @@ class TestStylesheet(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.css = HUD_CSS.read_text()
-        cls.section = cls.css.split("14. Ability scores (PS-4)", 1)[1]
+        cls.section = cls.css.split("10. ABILITY SCORES (PS-4)", 1)[1]
         cls.js = PS_JS.read_text()
 
     def test_section_and_tokens(self):
