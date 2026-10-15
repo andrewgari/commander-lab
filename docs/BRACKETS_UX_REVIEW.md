@@ -1,7 +1,8 @@
 # BR-7: Designer review of the live bracket UI
 
 **Reference only. Do not merge this doc to main** (repo convention for designer docs).
-The small CSS/template fixes in the same PR are meant to ship.
+**Shipped:** the fixes went out in #109 (merge aaf5d3f), with the Copilot follow-ups in #110 (merge da12334).
+They are live as v0.4.46 and were re-verified on prod. The journal was restored afterwards.
 
 Reviewed: prod v0.4.44 (6d4480b) at `tower:8020`, on Holy Hellfire (`archidekt:417707`), at 1440×900 and 390×844 in headless Chromium (Playwright).
 States were driven through the real journal API, then re-evaluated by the live bracket-worker:
