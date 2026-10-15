@@ -583,3 +583,33 @@ names quoted and cut at 34 characters on a word boundary.
 | `group` (one per axis) | ≥ 2 tribal (or universe) decks and ≥ 1 other; the axis whose group average beats the rest by most, if by ≥ 10 ("your Vorthos is highest in tribal decks") | filter group |
 | `spread` | widest axis range ≥ 40 whose extreme decks aren't already named for that axis | sort axis |
 | `journal_coverage` | always, and always kept when the 8-cap trims | filter no_journal |
+
+## 11. UI (PS-4)
+
+Built to the PS-D spec (`docs/design/personality/UX_SPEC.md` on the
+reference-only branch `commander-lab/t_d48e34bb-…`, PR #102), direction
+**B · Character sheet**.
+
+* **Deck page** (`templates/deck.html`): an "Ability scores" panel in the
+  hero's main column, straight under the stat strip. Five tiles (T J S V M),
+  44px score, meter with the physical-profile average as a tick, the lean
+  sentence above. Clear lean = solid signal tile; close lean (`runner_up`) =
+  dim tile + a neutral `2nd` tag; balanced = no signal. Click a tile (or
+  press `T J S V M`) to open its evidence; `Esc` closes and refocuses. States:
+  loading, not scored (404 `not_scored`, **Score now** → POST), queued (polls
+  every 5s for up to 2 min), failed (500 `error` / 503 / network, **Retry**),
+  plus foot chips for degraded-input notes, a failed rescore over older
+  scores, and stale inputs.
+* **`/profile`** (`templates/profile.html`, nav "Player Profile"): the PS-3
+  headline + why, scope toggle (`?scope=physical|all`), the averaged tiles,
+  a strip plot of every deck on every axis, the PS-3 trend callouts (their
+  actions filter / sort the table or open the deck), and a sortable deck
+  table (a card list at ≤ 640px) with heat cells. Keys: `T J S V M` / `B` /
+  `0` filter, `/` focuses the name filter. Empty, low-data (no strip plot,
+  trends locked), partial-failure (failed rows last, **Retry** each) and
+  API-error states.
+* Code: `static/js/personality.js` (`window.PSUI`, pure string builders +
+  two binders), `hud.css` section 14 (`hud-ps-*`, tokens `--ps-*` in
+  section 1). The UI never re-decides `leans_toward`; it only labels it.
+  Tests: `tests/test_personality_ui.py` runs the builders in node on real
+  prod payloads (`tests/fixtures/ps4/`).
