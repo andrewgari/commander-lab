@@ -19,6 +19,10 @@ ALLOWED_POWER_TIERS: Set[str] = {"casual", "focused", "optimized", "competitive"
 
 ALLOWED_CURRENCIES: Set[str] = {"USD", "EUR", "GBP", "CAD", "AUD"}
 
+# Official Commander Brackets (analytics/brackets.py, docs/BRACKETS_SPEC.md).
+MIN_BRACKET = 1
+MAX_BRACKET = 5
+
 ALLOWED_WIN_CONDITIONS: Set[str] = {
     "combat",
     "combo",
@@ -120,6 +124,9 @@ class UserDeckIntent:
     )
     pet_cards: List[str] = field(default_factory=list)
     novelties: str = ""
+    # Official Commander Bracket 1-5 (BR-2); None = unset, no bracket checks.
+    # Separate from target_power_level and never derived from it.
+    target_bracket: Optional[int] = None
     freeform_notes: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -206,6 +213,9 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
     resolved["pet_cards"] = list(payload.get("pet_cards") or [])
     resolved["novelties"] = payload.get("novelties") or ""
 
+    # 7. Commander Bracket target (BR-2): optional, never derived from power level.
+    resolved["target_bracket"] = payload.get("target_bracket")
+
     # Freeform & metadata
     resolved["freeform_notes"] = payload.get("freeform_notes", "")
     metadata = dict(payload.get("metadata", {}))
@@ -219,6 +229,7 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
         "archetype_preferences",
         "pet_cards",
         "novelties",
+        "target_bracket",
         "freeform_notes",
         "metadata",
     }
@@ -538,6 +549,19 @@ def validate_intent(
     if nov is not None and not isinstance(nov, str):
         errors.append("novelties must be a string.")
 
+    # 7. Commander Bracket target (BR-2): integer 1-5 or null (unset).
+    tb = payload.get("target_bracket")
+    if tb is not None:
+        if not isinstance(tb, int) or isinstance(tb, bool):
+            errors.append(
+                f"target_bracket must be an integer between {MIN_BRACKET} and {MAX_BRACKET} or null, "
+                f"got {type(tb).__name__}"
+            )
+        elif tb < MIN_BRACKET or tb > MAX_BRACKET:
+            errors.append(
+                f"target_bracket must be an integer between {MIN_BRACKET} and {MAX_BRACKET} or null, got {tb}"
+            )
+
     return (len(errors) == 0, errors)
 
 
@@ -596,6 +620,7 @@ def parse_user_intent(
         ),
         pet_cards=resolved["pet_cards"],
         novelties=resolved["novelties"],
+        target_bracket=resolved["target_bracket"],
         freeform_notes=resolved["freeform_notes"],
         metadata=resolved["metadata"],
     )

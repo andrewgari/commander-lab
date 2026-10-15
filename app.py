@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 import redis
 import os
 import asyncio
+import logging
 import github_sync
 import json
 import time
@@ -33,6 +34,10 @@ from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
+from analytics import bracket_worker
+from analytics import brackets as brackets_mod
+from analytics import engine as engine_mod
+from analytics import personality_profile, personality_store
 import urllib.parse
 
 app = FastAPI()
@@ -126,6 +131,16 @@ async def instances_view(request: Request):
     return templates.TemplateResponse(request=request, name="instances.html")
 
 
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_view(request: Request, scope: str = "physical"):
+    """Player profile (PS-4): the average of every deck's ability scores, trend
+    callouts and a per-deck table. Rendered client-side from
+    /api/profile/personality; ?scope=physical (default) | all."""
+    if scope not in ("physical", "all"):
+        scope = "physical"
+    return templates.TemplateResponse(request=request, name="profile.html", context={"scope": scope})
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_view(request: Request):
     """Settings page. Sync section: linked Archidekt/Moxfield accounts (/api/linked-accounts)."""
@@ -142,7 +157,8 @@ async def deck_view(request: Request, deck_name: str):
     providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     return templates.TemplateResponse(request=request, name="deck.html", context={
-        "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview"})
+        "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview",
+        "power_tol": engine_mod.POWER_ALIGN_TOLERANCE})  # BR-6: the power_aligned threshold, shown as-is
 
 
 def _deck_head_context(deck_name: str) -> dict:
@@ -282,7 +298,9 @@ def _journal_page_context(deck_name: str) -> dict:
     """Server-rendered Journal form data. Never raises (Redis down = empty form)."""
     out = {"j": journal_mod.public(None), "exists": False, "caps": None, "deck_cards": [], "pillars": [],
            "money": journal_mod.money, "wincons": list(journal_mod.WINCON_ORDER),
-           "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items())}
+           "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items()),
+           "brackets": [(b.number, b.name) for b in brackets_mod.BRACKETS],
+           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE}
     defaults = dict(journal_mod.DEFAULT_CAPS)
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
@@ -474,6 +492,7 @@ async def import_deck(request: Request):
     if deck is None:
         deck = registry.upsert_deck(r, normalized, default_status="testing")
     interactions_service.start_rebuild(r, trigger="sync", deck_ids=[registry.registry_id_of(deck)])
+    _wake_bracket_worker(registry.registry_id_of(deck))
     return {"success": True, "deck": deck}
 
 
@@ -531,6 +550,7 @@ async def sync_deck(deck_id: str):
     except DeckSyncError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     interactions_service.start_rebuild(r, trigger="sync", deck_ids=[deck_id])
+    _wake_bracket_worker(deck_id)
     return {"success": True, "report": report.to_dict()}
 
 @app.get("/api/inventory")
@@ -1228,6 +1248,7 @@ async def sync_linked_account(account_id: str):
     except LinkedAccountError as e:
         return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
     interactions_service.start_rebuild(r, trigger="sync")
+    _wake_bracket_worker()
     return {"success": True, "account": account}
 
 
@@ -1236,6 +1257,7 @@ async def sync_all_linked_accounts():
     """Manually resync every enabled linked account."""
     accounts = linked_accounts.sync_all(r)
     interactions_service.start_rebuild(r, trigger="sync")
+    _wake_bracket_worker()
     return {"success": True, "accounts": accounts, "count": len(accounts)}
 
 
@@ -1612,6 +1634,16 @@ async def _json_body(request: Request):
         return None
 
 
+def _wake_bracket_worker(deck_id: str = "") -> None:
+    """Latency hint for the separate bracket-evaluation process (BR-5). The
+    worker also re-checks every deck's input hash on its own schedule, so a
+    lost wake-up only delays the evaluation; it must never fail the caller."""
+    try:
+        bracket_worker.wake(r, deck_id)
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("commander_lab.app").warning("bracket worker wake failed: %s", exc)
+
+
 @app.get("/api/decks/{deck_id}/composition")
 async def api_deck_composition(deck_id: str):
     """Cards classified into Lands / Ramp / Card advantage / Targeted disruption /
@@ -1770,6 +1802,145 @@ async def api_card2vec(card: Optional[str] = None, n: int = 10):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Bracket evaluation (BR-5): stored results from the separate worker process
+# (analytics/bracket_worker.py, compose service bracket-worker). These routes
+# never evaluate; they read bracket:eval:{registry_id} or queue a request.
+# ---------------------------------------------------------------------------
+
+
+def _bracket_deck(deck_id: str):
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return None, JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    return deck, None
+
+
+@app.get("/api/deck/{deck_id}/bracket")
+@app.get("/api/decks/{deck_id}/bracket")
+async def api_deck_bracket(deck_id: str):
+    """The stored bracket evaluation (estimated bracket + power level,
+    conflicts, explanation). 404 with status "not_evaluated" until the
+    worker has evaluated the deck; stale=true when the decklist or journal
+    changed since (the worker picks that up on its own)."""
+    deck, err = _bracket_deck(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    try:
+        rec = bracket_worker.load_result(r, rid)
+        queued = bracket_worker.is_pending(r, rid)
+        current = bracket_worker.current_input_hash(r, deck)
+    except Exception as exc:  # noqa: BLE001 - Redis trouble: say so, don't 500
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    base = {"registry_id": rid, "deck_name": deck.get("name"), "pending": queued}
+    if not rec or not rec.get("result"):
+        status = "error" if rec and rec.get("status") == "error" else "not_evaluated"
+        body = {"success": False, **base, "status": status,
+                "error": (rec or {}).get("error") or "Not evaluated yet.", "evaluation": None}
+        return JSONResponse(status_code=404, content=body)
+    result_hash = rec.get("result_hash") or rec.get("input_hash")
+    return {"success": True, **base, "status": rec.get("status") or "ok",
+            "evaluated_at": rec.get("evaluated_at"), "input_hash": result_hash,
+            "stale": result_hash != current,
+            "error": rec.get("error"), "error_at": rec.get("error_at"),
+            "evaluation": rec["result"]}
+
+
+@app.post("/api/deck/{deck_id}/bracket")
+@app.post("/api/decks/{deck_id}/bracket")
+async def api_request_deck_bracket(deck_id: str):
+    """Queue a re-evaluation for the worker (202). Returns immediately."""
+    deck, err = _bracket_deck(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    try:
+        bracket_worker.request_evaluation(r, rid)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    return JSONResponse(status_code=202, content={"success": True, "queued": True, "registry_id": rid})
+
+
+# ---------------------------------------------------------------------------
+# Personality scores (PS-3): stored per deck by the worker process
+# (analytics/personality_store.py, run each bracket-worker tick). These
+# routes read personality:deck:{registry_id}; they never score.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/personality")
+async def api_deck_personality(deck_id: str):
+    """Stored PersonalityScores. 404 status=not_scored until the worker has
+    scored the deck; 500 status=error when scoring failed and no earlier
+    scores exist; stale=true when the inputs changed since (the worker
+    rescores on its own)."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    try:
+        rec = personality_store.load_record(r, rid)
+        queued = rid in personality_store.pending(r)
+        current = await asyncio.to_thread(personality_store.current_input_hash, r, deck)
+    except Exception as exc:  # noqa: BLE001 - Redis trouble: say so, don't 500
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    base = {"registry_id": rid, "deck_name": deck.get("name"), "pending": queued}
+    if not rec or not rec.get("scores"):
+        if rec and rec.get("status") == "error":
+            return JSONResponse(status_code=500, content={
+                "success": False, **base, "status": "error", "error": rec.get("error"),
+                "error_at": rec.get("error_at"), "personality": None})
+        return JSONResponse(status_code=404, content={
+            "success": False, **base, "status": "not_scored", "error": "Not scored yet.", "personality": None})
+    result_hash = rec.get("result_hash") or rec.get("input_hash")
+    return {"success": True, **base, "status": rec.get("status") or "ok", "computed_at": rec.get("computed_at"),
+            "stale": result_hash != current, "error": rec.get("error"), "error_at": rec.get("error_at"),
+            "personality": rec["scores"]}
+
+
+@app.post("/api/decks/{deck_id}/personality")
+async def api_request_deck_personality(deck_id: str):
+    """Queue a rescore for the worker (202). Returns immediately."""
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    try:
+        personality_store.request(r, rid)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "registry_id": rid, "error": str(exc)[:200]})
+    return JSONResponse(status_code=202, content={"success": True, "queued": True, "registry_id": rid})
+
+
+@app.get("/api/profile/personality")
+async def api_profile_personality(scope: str = "physical"):
+    """PlayerProfile over every stored deck score (analytics.personality_profile).
+    ?scope=physical (default) | all. Failed decks are listed, never averaged."""
+    if scope not in ("physical", "all"):
+        return JSONResponse(status_code=400, content={"success": False, "error": "scope must be physical or all"})
+    try:
+        decks = registry.list_decks(r)
+        scored, failed, missing = personality_store.load_all(r, decks)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=503, content={"success": False, "status": "unavailable",
+                                                      "error": str(exc)[:200]})
+    in_scope = [d for d in decks if scope == "all" or d.get("status") == "physical"]
+    profile = personality_profile.build_player_profile(scored, failed=failed, scope=scope,
+                                                       decks_total=len(in_scope))
+    body = profile.model_dump()
+    body["not_scored"] = sum(1 for d in missing if scope == "all" or d.get("status") == "physical")
+    body["scope_counts"] = {"physical": sum(1 for d in decks if d.get("status") == "physical"), "all": len(decks)}
+    return {"success": True, "profile": body}
+
+
 @app.on_event("startup")
 async def _start_interactions_nightly():
     interactions_service.start_nightly_thread(r)
@@ -1833,6 +2004,7 @@ async def api_save_deck_journal(deck_id: str, request: Request):
         rec = journal_mod.save_journal(r, deck, body, snapshot=snap)
     except journal_mod.JournalError as exc:
         return _journal_error(exc)
+    _wake_bracket_worker(registry.registry_id_of(deck))
     return {"success": True, "journal": journal_mod.public(rec), "caps": journal_mod.effective_caps(r, rec)}
 
 
@@ -1877,6 +2049,7 @@ async def api_answer_checkin_row(deck_id: str, field: str, request: Request):
         return _journal_error(exc, 409)
     except journal_mod.JournalError as exc:
         return _journal_error(exc)
+    _wake_bracket_worker(registry.registry_id_of(deck))
     return {"success": True, "checkin": view}
 
 

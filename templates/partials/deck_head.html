@@ -46,6 +46,7 @@
             {%- if head.cards %}
             <span class="hud-freshness">{{ head.cards }} cards{% if head.lands is not none %} · {{ head.lands }} lands{% endif %}</span>
             {%- endif %}
+            <span id="deckBracket" class="hud-chips" hidden></span>
         </div>
     </div>
     <div class="hud-deckhead-actions">{% if caller %}{{ caller() }}{% endif %}</div>
@@ -56,4 +57,5 @@
     {%- endfor %}
 </nav>
 <script src="/static/js/deck_analytics.js?v={{ version }}"></script>
+<script src="/static/js/brackets.js?v={{ version }}"></script>
 {%- endmacro %}

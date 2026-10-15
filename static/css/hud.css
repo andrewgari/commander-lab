@@ -165,6 +165,15 @@
     --graph-edge:     var(--line-strong);
     --graph-dim:      0.14;   /* opacity of non-neighbours while focused */
 
+    /* --- Brackets (section 9, BR-6): severity = shape + colour --------- */
+    --bracket-hard:     var(--danger);   /* ■ a WotC hard rule is broken */
+    --bracket-hard-dim: var(--danger-dim);
+    --bracket-adv:      var(--signal);   /* ▲ worth a look, never moves the bracket */
+    --bracket-adv-dim:  var(--signal-dim);
+    --bracket-ok:       var(--ok);       /* ● nothing to do */
+    --bracket-flag-h:   4px;             /* severity bar across a flagged card */
+    --bracket-pulse:    1.035;           /* jump-to-card pulse scale */
+
     /* --- Layout ---------------------------------------------------------- */
     --sidebar-w:           232px;
     --sidebar-w-collapsed: 56px;
@@ -194,6 +203,26 @@
     --col-min:        15rem;     /* comparison column min width */
     --modal-w:        56rem;     /* modal dialog max width */
     --topbar-h:       2.5rem;    /* in-page shell bar (crumbs + page meta) */
+
+    /* --- Ability scores (PS-4, docs/design/personality/UX_SPEC.md §2.1) --
+       Five axes do NOT get five colours: data = a score, signal = the lean. */
+    --ps-axis:        var(--data);
+    --ps-axis-dim:    var(--data-dim);
+    --ps-lean:        var(--signal);
+    --ps-lean-dim:    var(--signal-dim);
+    --ps-ref:         var(--text-1);       /* "your average" tick */
+    --ps-journal:     var(--ok);           /* +N journal nudge */
+    --ps-journal-neg: var(--danger);       /* -N journal nudge */
+    --ps-meter-h:     0.5rem;
+    --ps-score:       var(--fs-hero);      /* tile number, desktop */
+    --ps-score-sm:    var(--fs-stat);      /* tile number, phone */
+    --ps-mono:        1.375rem;            /* T J S V M monogram badge */
+    --ps-dot:         7px;                 /* profile strip-plot dot */
+    --ps-strip-h:     1.75rem;             /* profile strip-plot row */
+    --ps-grow:        var(--dur-slow);
+    --ps-lean-delay:  calc(5 * var(--stagger) + var(--dur-slow)); /* lean lights after the 5th meter lands */
+    --x:              0;       /* strip-plot position 0-100, set inline per dot */
+    --jy:             0;       /* strip-plot vertical jitter, set inline per dot */
 
     /* --- Scrim behind modals: flat, no blur ---------------------------- */
     --scrim: rgba(8, 11, 14, 0.84);
@@ -1523,6 +1552,7 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-form-section > header p { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
 .hud-form-section > div { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6) 0; border-bottom: var(--stroke); min-width: 0; }
 .hud-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-field[hidden] { display: none; }
 .hud-field > label, .hud-field > .hud-field-label { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
 .hud-field-hint { color: var(--text-3); font-size: var(--fs-xs); }
 .hud-field textarea { min-height: 5.5rem; resize: vertical; line-height: var(--lh-base); }
@@ -2106,3 +2136,389 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .is-locked .hud-seg label { cursor: default; opacity: 0.7; }
 .is-locked .hud-seg label:hover { background: none; color: var(--text-2); }
 .is-locked .hud-seg input:checked + label { opacity: 1; }
+
+/* 9. BRACKETS ============================================================== */
+/* BR-6, direction A (Inline) of the BR-D spec. Severity is shape + colour:
+   ■ hard (--bracket-hard), ▲ advisory (--bracket-adv), ● clean (--bracket-ok).
+   The target bracket chip stays neutral; severity rides as a separate count.
+   Nothing ever sits on card art: flags are a frame bar + a caption line. */
+.hud-bracket-sev { display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--chip-h); padding: 0 var(--sp-2); border: var(--hairline) solid; border-radius: var(--radius-1); font: var(--fw-medium) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap; }
+.hud-bracket-sev--hard { color: var(--bracket-hard); background: var(--bracket-hard-dim); border-color: var(--bracket-hard); }
+.hud-bracket-sev--adv  { color: var(--bracket-adv);  background: var(--bracket-adv-dim);  border-color: var(--signal-line); }
+.hud-bracket-chip { text-transform: none; letter-spacing: 0.02em; }
+.hud-bracket-chipbtn { cursor: pointer; font: inherit; font-family: var(--font-mono); font-size: var(--fs-micro); }
+.hud-bracket-chipbtn:focus-visible, .hud-bracket-link:focus-visible, .hud-bracket-count:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket-link { all: unset; cursor: pointer; color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+.hud-bracket-link:hover { color: var(--text-1); }
+
+/* Banner between the deck tabs and the hero. Left edge = worst severity. */
+.hud-bracket { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-6); align-items: start; margin: var(--sp-6) 0; padding: var(--sp-4) var(--sp-5); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--line-strong); border-radius: var(--radius-1); }
+.hud-bracket.is-hard { border-left-color: var(--bracket-hard); }
+.hud-bracket.is-adv { border-left-color: var(--bracket-adv); }
+.hud-bracket.is-ok { border-left-color: var(--bracket-ok); }
+.hud-bracket .hud-label { white-space: normal; }
+.hud-bracket .hud-label .hud-chip { margin-left: var(--sp-2); }
+.hud-bracket h2 { margin: var(--sp-1) 0 0; color: var(--text-1); font-size: var(--fs-lg); letter-spacing: var(--tracking-tight); }
+.hud-bracket h2:focus { outline: none; }
+.hud-bracket h2:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket h2 em { font-style: normal; color: var(--text-1); }
+.hud-bracket.is-hard h2 em { color: var(--bracket-hard); }
+.hud-bracket.is-adv h2 em { color: var(--bracket-adv); }
+.hud-bracket.is-ok h2 em { color: var(--bracket-ok); }
+.hud-bracket .hud-field-hint { margin: var(--sp-2) 0 0; max-width: 70ch; }
+.hud-bracket-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.hud-bracket-tally { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin: var(--sp-2) 0 0; font: var(--fw-medium) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-bracket-t-hard { color: var(--bracket-hard); }
+.hud-bracket-t-adv { color: var(--bracket-adv); }
+.hud-bracket-est { display: flex; gap: var(--sp-6); }
+.hud-bracket-vs { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.hud-bracket-vs-row { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.hud-bracket-vs-big { color: var(--text-1); font: var(--fw-medium) var(--fs-stat)/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.hud-bracket-vs-big small { color: var(--text-3); font-size: var(--fs-sm); margin-left: var(--sp-1); }
+.hud-bracket-vs-tgt { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-bracket-vs-tgt b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-bracket-delta { font: var(--fw-medium) var(--fs-xs) var(--font-mono); }
+.hud-bracket-delta.is-out { color: var(--bracket-adv); }
+.hud-bracket-delta.is-in { color: var(--bracket-ok); }
+.hud-bracket-list { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.hud-bracket-list li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.hud-bracket-list li > div { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-bracket-list p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.hud-bracket-list b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-bracket-row-cards { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.hud-bracket-row-acts { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); margin-left: var(--sp-2); }
+
+/* "How this was decided": a hud-tray (<details>), collapsed by default. */
+.hud-bracket-why { grid-column: 1 / -1; border: 0; border-top: var(--stroke-faint); border-radius: 0; background: none; }
+.hud-bracket-why > summary { padding: 0; min-height: 2rem; color: var(--text-2); }
+.hud-bracket-why > summary:hover { color: var(--text-1); }
+.hud-bracket-why > summary:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket-why-body { padding: var(--sp-2) 0 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.hud-bracket-why-summary { margin: 0; max-width: 80ch; color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-bracket-why-table th[scope="row"] { color: var(--text-1); font-weight: var(--fw-medium); white-space: nowrap; }
+.hud-bracket-why-table td, .hud-bracket-why-table th { font-size: var(--fs-xs); }
+
+/* Flagged card in the decklist: severity frame + top bar + caption line. */
+.hud-bracket-flag { position: relative; border-color: var(--bracket-hard); --bracket-flag-c: var(--bracket-hard); }
+.hud-bracket-flag::before { content: ""; position: absolute; top: 0; left: 0; right: 0; z-index: 1; height: var(--bracket-flag-h); background: var(--bracket-flag-c); pointer-events: none; }
+.hud-bracket-flag--adv { border-color: var(--signal-line); --bracket-flag-c: var(--bracket-adv); }
+.hud-bracket-flag-why { display: block; margin-top: 2px; color: var(--bracket-hard); font: var(--fw-medium) var(--fs-micro)/1.3 var(--font-mono); letter-spacing: 0.02em; text-transform: uppercase; white-space: normal; }
+.hud-bracket-flag--adv .hud-bracket-flag-why { color: var(--bracket-adv); }
+.hud-bracket-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hud-bracket-count { all: unset; cursor: pointer; color: var(--bracket-hard); text-decoration: underline; text-underline-offset: 2px; }
+.hud-bracket-count.is-adv { color: var(--bracket-adv); }
+.hud-art:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-art.is-pulse { animation: hud-bracket-pulse var(--dur-slow) var(--ease) 2; }
+@keyframes hud-bracket-pulse { 50% { transform: scale(var(--bracket-pulse)); } }
+
+/* Journal: bracket scale under power, definition card, below-floor note. */
+.hud-seg--bracket label:first-of-type { font-size: var(--fs-micro); letter-spacing: 0; }
+.hud-seg--scale label { position: relative; }
+.hud-seg--scale label.is-est::after, .hud-bracket-estkey { content: ""; display: inline-block; width: 0.75rem; height: 3px; background: var(--data-strong); }
+.hud-seg--scale label.is-est::after { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); }
+.hud-bracket-def { display: flex; flex-direction: column; gap: 2px; width: 25rem; max-width: 100%; box-sizing: border-box; padding: var(--sp-3); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-bracket-def b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.hud-bracket-def span { color: var(--text-2); font-size: var(--fs-sm); }
+.hud-bracket-def small { color: var(--text-1); font-size: var(--fs-xs); padding-top: var(--sp-1); margin-top: var(--sp-1); border-top: var(--stroke-faint); }
+.hud-bracket-warn { display: block; width: 25rem; max-width: 100%; box-sizing: border-box; padding: var(--sp-2) var(--sp-3); background: var(--bracket-adv-dim); border-left: var(--indicator) solid var(--bracket-adv); color: var(--text-1); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.hud-bracket-warn[hidden] { display: none; }
+.hud-bracket-warn::before { content: "▲ "; color: var(--bracket-adv); }
+.hud-bracket-warn b { color: var(--bracket-adv); font-weight: var(--fw-medium); }
+.hud-bracket-out { color: var(--bracket-adv); }
+
+@media (max-width: 640px) {
+    .hud-bracket { grid-template-columns: minmax(0, 1fr); padding: var(--sp-4); }
+    .hud-bracket-est { flex-direction: column; gap: var(--sp-3); }
+    .hud-bracket-list li { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    /* BR-7: stacked, the severity chip keeps its own width (it was stretched into a full-width bar). */
+    .hud-bracket-list li > .hud-bracket-sev { justify-self: start; }
+    /* BR-7: Optimized (9 mono chars) overflows its 2-track cell at 390 and ran into cEDH. */
+    .hud-scale-tiers span:last-child { text-align: right; }
+    .hud-bracket-row-acts { margin-left: 0; }
+    .hud-bracket-why > summary { flex-wrap: wrap; }
+    /* The 4-column table becomes stacked rows: no sideways scroll at 390. */
+    .hud-bracket-why-table thead { display: none; }
+    .hud-bracket-why-table, .hud-bracket-why-table tbody, .hud-bracket-why-table td, .hud-bracket-why-table th { display: block; }
+    .hud-bracket-why-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-2); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); }
+    .hud-bracket-why-table td, .hud-bracket-why-table th { padding: 0; border: 0; background: none; white-space: normal; overflow-wrap: anywhere; }
+    .hud-bracket-why-table th[scope="row"] { text-transform: none; letter-spacing: 0; font-family: var(--font-sans); font-size: var(--fs-sm); }
+    .hud-bracket-why-table td.is-num { text-align: right; }
+    .hud-bracket-why-table td:nth-child(3), .hud-bracket-why-table td:nth-child(4) { grid-column: 1 / -1; }
+    .hud-bracket-why-table tbody tr:hover td { background: none; }
+    .hud-seg--scale.hud-seg--bracket { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hud-art.is-pulse { animation: none; outline: var(--focus-ring); }
+}
+
+/* =======================================================================
+   10. ABILITY SCORES (PS-4): deck-page character sheet + /profile review.
+   Ported from the PS-D mock (docs/design/personality/ps.css, reference-only
+   branch); `ps-` became `hud-ps-`, tokens are in section 1. Direction B.
+   Colour has two meanings only: --ps-axis = a score, --ps-lean = the lean.
+   ======================================================================= */
+.hud-ps-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Monogram: the axis' identity. Never coloured by axis; signal only on the lean. */
+.hud-ps-mono { display: inline-grid; place-items: center; flex: none; width: var(--ps-mono); height: var(--ps-mono); border: var(--stroke-strong); border-radius: var(--radius-1); color: var(--text-2); font: var(--fw-semibold) var(--fs-xs)/1 var(--font-mono); }
+.is-lean .hud-ps-mono { background: var(--ps-lean); border-color: var(--ps-lean); color: var(--text-on-signal); }
+
+/* Lean headline: the panel's one sentence. */
+.hud-ps-lean { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); margin: 0 0 var(--sp-4); }
+.hud-ps-lean-name { margin: 0; color: var(--text-1); font-size: var(--fs-lg); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
+.hud-ps-lean-name em { font-style: normal; color: var(--ps-lean); }
+.hud-ps-lean-why { color: var(--text-2); font-size: var(--fs-sm); }
+.hud-ps-lean-why b { color: var(--text-1); font-weight: var(--fw-medium); }
+
+/* Meter: 0-100 track, data fill, optional reference tick (your average). */
+.hud-ps-meter { position: relative; height: var(--ps-meter-h); background: var(--surface-2); }
+.hud-ps-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--ps-axis); transform-origin: left; }
+.hud-ps-meter-ref { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ps-ref); outline: var(--hairline) solid var(--surface-0); }
+
+/* Journal nudge on a tile: "+8" / "−2" / "±0". */
+.hud-ps-nudge { font: var(--fs-micro) var(--font-mono); letter-spacing: 0.02em; white-space: nowrap; }
+.hud-ps-nudge.is-up { color: var(--ps-journal); }
+.hud-ps-nudge.is-down { color: var(--ps-journal-neg); }
+.hud-ps-nudge.is-none { color: var(--text-3); }
+
+/* Panel foot: notes (degraded inputs), average key, freshness, profile link. */
+.hud-ps-foot { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; justify-content: space-between; }
+.hud-ps-foot a { color: var(--text-2); }
+.hud-ps-foot a:hover { color: var(--signal-strong); }
+.hud-ps-notes { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; min-width: 0; }
+.hud-ps-notes .hud-chip { max-width: 100%; height: auto; min-height: var(--chip-h); white-space: normal; overflow-wrap: anywhere; }
+.hud-ps-key { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-ps-key i { display: inline-block; width: 2px; height: 0.75rem; background: var(--ps-ref); }
+.hud-ps-hint { color: var(--text-3); }
+@media (hover: none), (max-width: 640px) { .hud-ps-hint, .hud-ps-panel .hud-panel-meta .hud-kbd { display: none; } }
+
+/* Character sheet: five tiles in a hairline-joined strip (stat-strip grid). */
+.hud-ps-b { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-ps-tile { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); background: var(--surface-1); transition: background-color var(--dur-base) var(--ease), transform var(--dur-fast) var(--ease); }
+.hud-ps-tile:hover { background: var(--surface-2); }
+.hud-ps-tile:active { transform: scale(0.985); }
+.hud-ps-tile:focus-visible { outline: var(--focus-ring); outline-offset: -2px; z-index: 1; }
+.hud-ps-b.is-static .hud-ps-tile { cursor: default; }
+.hud-ps-b.is-static .hud-ps-tile:hover { background: var(--surface-1); }
+.hud-ps-b.is-static .hud-ps-tile:active { transform: none; }
+.hud-ps-top { display: flex; align-items: center; gap: var(--sp-2); }
+.hud-ps-top .hud-label { color: var(--text-2); }
+.hud-ps-top .hud-ps-nudge { margin-left: auto; }
+.hud-ps-num { color: var(--text-1); font: var(--fw-medium) var(--ps-score)/1 var(--font-mono); letter-spacing: var(--tracking-tight); }
+.hud-ps-desc { color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); min-height: 2.4em; }
+/* Clear lean: solid signal tile (the Identity hero-pillar treatment). */
+.hud-ps-tile.is-lean { background: var(--ps-lean); }
+.hud-ps-tile.is-lean:hover { background: var(--signal-strong); }
+.hud-ps-b.is-static .hud-ps-tile.is-lean:hover { background: var(--ps-lean); }
+.hud-ps-tile.is-lean .hud-label, .hud-ps-tile.is-lean .hud-ps-num, .hud-ps-tile.is-lean .hud-ps-desc, .hud-ps-tile.is-lean .hud-ps-nudge { color: var(--text-on-signal); }
+.hud-ps-tile.is-lean .hud-ps-mono { background: var(--text-on-signal); border-color: var(--text-on-signal); color: var(--ps-lean); }
+.hud-ps-tile.is-lean .hud-ps-meter { background: var(--signal-line); }
+.hud-ps-tile.is-lean .hud-ps-meter-fill { background: var(--text-on-signal); }
+.hud-ps-tile.is-lean .hud-ps-meter-ref { background: var(--signal-strong); outline-color: var(--text-on-signal); }
+/* Close lean (runner_up set): dim tile + signal top bar + signal number; never a landslide. */
+.hud-ps-b.is-close .hud-ps-tile.is-lean { background: var(--ps-lean-dim); box-shadow: inset 0 var(--indicator) 0 var(--ps-lean); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean:hover { background: var(--surface-3); }
+.hud-ps-b.is-close.is-static .hud-ps-tile.is-lean:hover { background: var(--ps-lean-dim); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-label { color: var(--text-1); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-num { color: var(--ps-lean); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-desc { color: var(--text-2); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-mono { background: var(--ps-lean); border-color: var(--ps-lean); color: var(--text-on-signal); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-meter { background: var(--surface-2); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-meter-fill { background: var(--ps-lean); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-meter-ref { background: var(--ps-ref); outline-color: var(--surface-0); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-nudge.is-up { color: var(--ps-journal); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-nudge.is-down { color: var(--ps-journal-neg); }
+.hud-ps-b.is-close .hud-ps-tile.is-lean .hud-ps-nudge.is-none { color: var(--text-3); }
+/* Balanced: no signal anywhere; the top axis gets a neutral top bar. */
+.hud-ps-b.is-balanced .hud-ps-tile.is-top { box-shadow: inset 0 var(--indicator) 0 var(--line-strong); }
+/* Runner-up: a neutral "2nd" tag (never signal). */
+.hud-ps-2nd { margin-left: auto; padding: 0 var(--sp-1); border: var(--hairline) solid var(--line-strong); border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-micro)/1.5 var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-ps-2nd + .hud-ps-nudge { margin-left: var(--sp-2); }
+/* Open tile: caret notch into the drawer below. */
+.hud-ps-tile[aria-expanded="true"]:not(.is-lean) { background: var(--surface-2); }
+.hud-ps-tile[aria-expanded="true"]::after { content: ""; position: absolute; left: 50%; bottom: -1px; width: 0.75rem; height: 0.75rem; margin-left: -0.375rem; background: var(--surface-0); border-left: var(--stroke); border-top: var(--stroke); transform: translateY(50%) rotate(45deg); }
+
+/* Evidence drawer: one axis' signals. */
+.hud-ps-evidence { position: relative; margin-top: var(--sp-3); border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-0); }
+.hud-ps-evidence[hidden] { display: none; }
+.hud-ps-ev-head { position: relative; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: baseline; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
+.hud-ps-ev-head h4 { margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.hud-ps-ev-head p { margin: 0; color: var(--text-3); font-size: var(--fs-xs); }
+.hud-ps-ev-sum { margin-left: auto; color: var(--text-2); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
+.hud-ps-ev-sum b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-ps-ev-close { margin-left: var(--sp-2); }
+.hud-ps-ev-list { list-style: none; margin: 0; padding: 0; }
+.hud-ps-ev-row { display: grid; grid-template-columns: 2.25rem minmax(10rem, 16rem) minmax(0, 1fr) 4.5rem; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); border-top: var(--stroke-faint); }
+.hud-ps-ev-row:first-child { border-top: 0; }
+.hud-ps-ev-code { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-ps-ev-label { display: flex; flex-direction: column; min-width: 0; }
+.hud-ps-ev-label b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.hud-ps-ev-label span { color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow-wrap: anywhere; }
+.hud-ps-ev-track { position: relative; height: 0.375rem; background: var(--surface-2); }
+.hud-ps-ev-track i { position: absolute; inset: 0 auto 0 0; background: var(--ps-axis); transform-origin: left; }
+.hud-ps-ev-track.is-diverge::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line-strong); }
+.hud-ps-ev-track.is-diverge i { left: 50%; background: var(--ps-journal); }
+.hud-ps-ev-track.is-diverge i.is-neg { left: auto; right: 50%; background: var(--ps-journal-neg); transform-origin: right; }
+.hud-ps-ev-pts { color: var(--text-1); font: var(--fs-sm) var(--font-mono); text-align: right; white-space: nowrap; }
+.hud-ps-ev-pts small { color: var(--text-3); font-size: var(--fs-micro); }
+.hud-ps-ev-row.is-zero .hud-ps-ev-label b, .hud-ps-ev-row.is-zero .hud-ps-ev-pts { color: var(--text-3); }
+.hud-ps-ev-cards { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.hud-ps-ev-more { cursor: pointer; }
+.hud-ps-ev-more:hover { color: var(--text-1); border-color: var(--line-strong); }
+.hud-ps-ev-more:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-ps-ev-foot { padding: var(--sp-2) var(--sp-4); border-top: var(--stroke); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+
+/* States: not scored (dashed), failed (danger), loading (dashed meters). */
+.hud-ps-state { display: grid; gap: var(--sp-3); justify-items: start; padding: var(--sp-6) var(--sp-4); border: var(--hairline) dashed var(--line-strong); }
+.hud-ps-state h4 { margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.hud-ps-state p { margin: 0; max-width: 60ch; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); overflow-wrap: anywhere; }
+.hud-ps-state.is-error { border: var(--hairline) solid var(--danger); border-left: var(--indicator) solid var(--danger); background: var(--danger-dim); }
+.hud-ps-state.is-error h4 { color: var(--danger); }
+.hud-ps-state-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.hud-ps-skel .hud-ps-meter-fill, .hud-ps-skel .hud-ps-num { visibility: hidden; }
+.hud-ps-skel .hud-ps-meter { background: none; border: var(--hairline) dashed var(--line-strong); } /* dashed = "not measured" (UX_SPEC §4 hatched; the kit bans gradients) */
+@keyframes hud-ps-pulse { from { opacity: 1; } to { opacity: 0.45; } }
+.hud-ps-skel .hud-ps-tile { animation: hud-ps-pulse 0.9s var(--ease) infinite alternate; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+@media (prefers-reduced-motion: reduce) { .hud-ps-skel .hud-ps-tile { animation: none; } }
+
+/* ---- /profile ------------------------------------------------------------ */
+.hud-ps-prof { max-width: 72rem; }
+.hud-ps-prof-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4) var(--sp-8); align-items: end; padding-bottom: var(--sp-6); border-bottom: var(--stroke); }
+.hud-ps-prof-head h1 { margin: var(--sp-1) 0 0; }
+.hud-ps-prof-head .hud-thesis { padding: 0; }
+.hud-ps-thesis-bar { background: var(--signal); }
+.hud-ps-thesis-sub { margin: var(--sp-3) 0 0; max-width: 62ch; color: var(--text-2); font-size: var(--fs-md); line-height: var(--lh-base); }
+.hud-ps-thesis-sub b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-ps-thesis blockquote b { font-weight: inherit; color: var(--signal); }
+.hud-ps-scope { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-end; }
+.hud-ps-scope .hud-freshness { text-align: right; }
+.hud-ps-scope .is-danger { color: var(--danger); }
+.hud-ps-sec { padding-top: var(--sp-8); }
+.hud-ps-sec > .hud-section-head { margin-top: 0; }
+.hud-ps-sec > .hud-panel { margin-top: var(--sp-4); }
+
+/* Strip plot: one row per axis, every deck a dot on 0-100, average a tick. */
+.hud-ps-spread { list-style: none; margin: 0; padding: 0; }
+.hud-ps-spread-row, .hud-ps-spread-axis { display: grid; grid-template-columns: var(--ps-mono) 5.5rem minmax(0, 1fr) 6.5rem; gap: var(--sp-3); align-items: center; }
+.hud-ps-spread-row { min-height: var(--ps-strip-h); border-top: var(--stroke-faint); padding: var(--sp-1) 0; }
+.hud-ps-spread-row:first-child { border-top: 0; }
+.hud-ps-spread-name { color: var(--text-1); font-size: var(--fs-sm); }
+.hud-ps-spread-track { position: relative; height: var(--ps-strip-h); }
+.hud-ps-spread-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: var(--stroke); }
+.hud-ps-spread-track::after { content: ""; position: absolute; top: 0; bottom: 0; left: 25%; right: 25%; border-left: var(--hairline) solid var(--line-faint); border-right: var(--hairline) solid var(--line-faint); pointer-events: none; }
+.hud-ps-dot { all: unset; cursor: pointer; position: absolute; left: calc(var(--ps-dot) / 2 + (100% - var(--ps-dot)) * var(--x) / 100); top: calc(50% + var(--jy, 0) * var(--ps-strip-h)); width: var(--ps-dot); height: var(--ps-dot); margin: calc(var(--ps-dot) / -2) 0 0 calc(var(--ps-dot) / -2); background: var(--ps-axis); border-radius: 50%; opacity: 0.55; transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease); }
+.hud-ps-dot.is-lean { background: var(--ps-lean); opacity: 0.9; }
+.hud-ps-dot:hover, .hud-ps-dot:focus-visible, .hud-ps-dot.is-hot { opacity: 1; transform: scale(1.7); z-index: 1; }
+.hud-ps-dot:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.hud-ps-avg { position: absolute; left: calc(var(--ps-dot) / 2 + (100% - var(--ps-dot)) * var(--x) / 100); top: 5%; bottom: 5%; width: 2px; margin-left: -1px; background: var(--ps-ref); outline: var(--hairline) solid var(--surface-1); z-index: 2; pointer-events: none; }
+.hud-ps-spread-val { color: var(--text-3); font: var(--fs-xs) var(--font-mono); text-align: right; white-space: nowrap; }
+.hud-ps-spread-val b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-ps-spread-axis { color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.hud-ps-spread-axis > span:nth-child(3) { display: flex; justify-content: space-between; }
+.hud-ps-legend { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); align-items: center; }
+.hud-ps-legend > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.hud-ps-lg-dot { display: inline-block; width: var(--ps-dot); height: var(--ps-dot); border-radius: 50%; background: var(--ps-axis); opacity: 0.7; }
+.hud-ps-lg-dot.is-lean { background: var(--ps-lean); opacity: 1; }
+.hud-ps-lg-avg { display: inline-block; width: 2px; height: 0.75rem; background: var(--ps-ref); }
+.hud-ps-tip { position: fixed; z-index: var(--z-toast); pointer-events: none; padding: var(--sp-1) var(--sp-2); background: var(--surface-3); border: var(--stroke-strong); color: var(--text-1); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
+.hud-ps-tip[hidden] { display: none; }
+
+/* Trend callouts: number, one sentence, one action that acts on the table. */
+.hud-ps-callouts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-ps-callout { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-1); }
+.hud-ps-callout-n { color: var(--text-1); font: var(--fw-medium) var(--fs-stat)/1 var(--font-mono); letter-spacing: var(--tracking-tight); }
+.hud-ps-callout-n small { color: var(--text-3); font: var(--fs-sm) var(--font-mono); letter-spacing: 0; }
+.hud-ps-callout p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-ps-callout p b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-ps-callout .hud-btn { align-self: flex-start; margin-top: auto; margin-left: calc(-1 * var(--sp-2)); }
+.hud-ps-callout.is-lead { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--ps-ref); } /* neutral (text-1): signal is the lean only */
+
+/* Deck table: heat cells on the kit --data-0..5 ramp; lean cell ringed in signal. */
+.hud-ps-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin-bottom: var(--sp-3); }
+.hud-ps-filters input[type=search] { max-width: 16rem; }
+.hud-ps-count { margin-left: auto; color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-ps-table { table-layout: auto; width: 100%; }
+.hud-ps-table td:first-child { width: 100%; max-width: 0; }
+.hud-ps-table td { padding-block: var(--sp-2); vertical-align: middle; }
+.hud-ps-table .hud-ps-h { width: 3.25rem; min-width: 3.25rem; padding: 0; text-align: center; }
+.hud-ps-table th.hud-ps-h .hud-sort { width: 100%; justify-content: center; gap: 2px; padding: 0; }
+.hud-ps-h > span { display: grid; place-items: center; height: var(--row-h); color: var(--text-1); font: var(--fs-sm) var(--font-mono); }
+.hud-ps-h[data-level="0"] > span { background: var(--data-0); color: var(--text-2); }
+.hud-ps-h[data-level="1"] > span { background: var(--data-1); }
+.hud-ps-h[data-level="2"] > span { background: var(--data-2); }
+.hud-ps-h[data-level="3"] > span { background: var(--data-3); }
+.hud-ps-h[data-level="4"] > span { background: var(--data-4); color: var(--surface-0); font-weight: var(--fw-semibold); }
+.hud-ps-h[data-level="5"] > span { background: var(--data-5); color: var(--surface-0); font-weight: var(--fw-semibold); }
+.hud-ps-h.is-lean > span { outline: 2px solid var(--ps-lean); outline-offset: -3px; font-weight: var(--fw-semibold); }
+.hud-ps-h.is-runner > span { outline: 1px dashed currentColor; outline-offset: -3px; }
+.hud-ps-table td:last-child, .hud-ps-table th:last-child { width: 8.5rem; min-width: 8.5rem; white-space: nowrap; }
+.hud-ps-table tr.is-hot td { background: var(--surface-2); }
+.hud-ps-table tr.is-failed td { color: var(--text-3); }
+.hud-ps-failed tr:first-child td { border-top: var(--stroke-strong); }
+.hud-ps-deckcell { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.hud-ps-deckcell > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hud-ps-deckcell a { color: var(--text-1); font-weight: var(--fw-medium); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.hud-ps-deckcell a:hover { color: var(--signal-strong); }
+.hud-ps-deckcell small { color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.hud-ps-thumb { position: relative; flex: none; display: grid; place-items: center; width: 2.5rem; aspect-ratio: var(--art-ratio); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow: hidden; }
+.hud-ps-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border: 0; }
+.hud-ps-cards { display: none; list-style: none; margin: 0; padding: 0; }
+
+/* Motion: transform + opacity only. Reduced motion: static final state. */
+@keyframes hud-ps-grow { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes hud-ps-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes hud-ps-light { from { opacity: 0; } to { opacity: 1; } }
+.hud-ps-meter-fill, .hud-ps-ev-track i { animation: hud-ps-grow var(--ps-grow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.hud-ps-evidence:not([hidden]), .hud-ps-callout { animation: hud-ps-rise var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.hud-ps-lean-name em { animation: hud-ps-light var(--dur-base) var(--ease) both; animation-delay: var(--ps-lean-delay); }
+@media (prefers-reduced-motion: reduce) {
+    .hud-ps-meter-fill, .hud-ps-ev-track i, .hud-ps-evidence, .hud-ps-callout, .hud-ps-lean-name em { animation: none !important; }
+    .hud-ps-tile, .hud-ps-dot { transition: none !important; }
+    .hud-ps-tile:active { transform: none; }
+}
+
+/* Phone (390 = ~300px content beside the 56px rail). */
+@media (max-width: 640px) {
+    .hud-ps-b { grid-template-columns: minmax(0, 1fr); }
+    .hud-ps-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "top num" "meter meter"; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+    .hud-ps-top { grid-area: top; }
+    .hud-ps-num { grid-area: num; font-size: var(--ps-score-sm); }
+    .hud-ps-tile .hud-ps-meter { grid-area: meter; }
+    .hud-ps-desc { display: none; }
+    .hud-ps-2nd { margin-left: var(--sp-2); }
+    .hud-ps-tile[aria-expanded="true"]::after { display: none; }
+    .hud-ps-tile[aria-expanded="true"]:not(.is-lean) { box-shadow: inset var(--indicator) 0 0 var(--ps-ref); }
+    .hud-ps-lean-name { font-size: var(--fs-md); }
+    .hud-ps-ev-head { padding: var(--sp-3) 3.5rem var(--sp-3) var(--sp-3); }
+    .hud-ps-ev-close { position: absolute; top: var(--sp-2); right: var(--sp-2); margin: 0; }
+    .hud-ps-ev-sum { margin-left: 0; width: 100%; white-space: normal; }
+    .hud-ps-ev-row { grid-template-columns: 2rem minmax(0, 1fr) 3.75rem; padding: var(--sp-2) var(--sp-3); }
+    .hud-ps-ev-label { grid-column: 2 / -1; }
+    .hud-ps-ev-track { grid-column: 2 / 3; }
+    .hud-ps-ev-pts { grid-column: 3; grid-row: 2; }
+    .hud-ps-ev-cards { grid-column: 2 / -1; }
+    .hud-ps-prof-head { grid-template-columns: minmax(0, 1fr); }
+    .hud-ps-prof-head .hud-label { white-space: normal; }
+    .hud-ps-scope { align-items: flex-start; }
+    .hud-ps-scope .hud-freshness { text-align: left; }
+    .hud-ps-thesis-sub { font-size: var(--fs-sm); }
+    .hud-ps-spread-row, .hud-ps-spread-axis { grid-template-columns: var(--ps-mono) minmax(0, 1fr) 3.25rem; gap: var(--sp-2); }
+    .hud-ps-spread-name, .hud-ps-spread-axis > span:nth-child(2), .hud-ps-lean-n { display: none; }
+    .hud-ps-prof .hud-ps-callout-n small { white-space: nowrap; }
+    .hud-ps-panel-legend .hud-panel-head { flex-wrap: wrap; padding-block: var(--sp-2); }
+    .hud-ps-panel-legend .hud-panel-meta { margin-left: 0; white-space: normal; }
+    .hud-ps-callouts { grid-template-columns: minmax(0, 1fr); }
+    .hud-ps-table-wrap { display: none; }
+    .hud-ps-cards { display: grid; gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+    .hud-ps-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-3); background: var(--surface-1); }
+    .hud-ps-card[hidden] { display: none; }
+    .hud-ps-card .hud-ps-deckcell small { white-space: normal; }
+    .hud-ps-card-retry { grid-column: 1 / -1; }
+    .hud-ps-card-scores { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--hairline); }
+    .hud-ps-card-scores > span > span { height: 2.25rem; display: grid; place-items: center; line-height: 1.1; }
+    .hud-ps-card-scores small { display: block; color: inherit; opacity: 0.75; font-size: var(--fs-micro); line-height: 1; }
+    .hud-ps-filters .hud-seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+    .hud-ps-filters .hud-seg label { flex: none; }
+    .hud-ps-filters input[type=search] { max-width: none; width: 100%; }
+    .hud-ps-count { margin-left: 0; width: 100%; }
+}

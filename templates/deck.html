@@ -73,6 +73,9 @@
     <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
 {% endcall %}
 
+{#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
+<div id="bracketBanner" aria-live="polite"></div>
+
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
@@ -87,6 +90,17 @@
             {{ hud.stat("Lands", "—") }}
             {{ hud.stat("Value", "—") }}
         </div>
+
+        {#- Ability scores (PS-4, UX_SPEC §3.2 "B · Character sheet"). Rendered
+            from GET /api/decks/{id}/personality by static/js/personality.js. -#}
+        <section class="hud-panel hud-ps-panel" id="psPanel" aria-labelledby="psH">
+            <header class="hud-panel-head">
+                <h3 class="hud-panel-title" id="psH">Ability scores</h3>
+                <div class="hud-panel-meta" id="psMeta"></div>
+            </header>
+            <div class="hud-panel-body" id="psBody" aria-live="polite"></div>
+            <div class="hud-panel-foot" id="psFoot" hidden></div>
+        </section>
 
         <div class="hud-grid hud-grid--2">
             {% call hud.panel("Mana curve", meta="Non-land") %}<div id="deckCurve">{{ hud.empty("Loading…") }}</div>{% endcall %}
@@ -181,6 +195,7 @@
     let currentDeck = null;
     let inventoryCards = [];
     let decklistView = 'visual';
+    let deckLoaded = false;  // the bracket result can arrive before the inventory
 
     const esc = (s) => HUD.esc(s);
     const isLand = (c) => !!(c.type && c.type.includes("Land"));
@@ -189,17 +204,112 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
-    function cardArt(card, index, version, kind) {
+    function cardArt(card, index, version, kind, flag) {
         const img = HUD.scryfall(card.uid, version);
         const cmc = !isLand(card) && card.cmc > 0 ? String(card.cmc) : '';
-        return HUD.art(card.name, img.src, {
+        let html = HUD.art(card.name, img.src, {
             kind: kind || 'card',
             fallback: img.fallback,
             meta: cmc ? 'CMC ' + cmc : (isLand(card) ? 'Land' : ''),
             colors: isLand(card) ? null : (card.color || ''),
             chip: card.is_core ? ['Core', 'signal'] : null,
-            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, title: card.name }
+            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, 'data-card-name': card.name, title: card.name }
         });
+        if (!flag) return html;
+        // BR-6 flag: severity frame + top bar + a caption line. Nothing on the art.
+        html = html.replace('class="hud-art hud-art--card"', 'class="hud-art hud-art--card hud-bracket-flag' + (flag.sev === 'hard' ? '' : ' hud-bracket-flag--adv') + '"');
+        return html.replace('</figcaption>', flagWhy(flag) + '</figcaption>');
+    }
+
+    // ---- Bracket evaluation (BR-6; stored BR-5 result) --------------------------
+    const DECK_RID = {{ head.registry_id | tojson }};
+    const POWER_TOL = {{ power_tol | tojson }};  // engine.POWER_ALIGN_TOLERANCE (power_aligned)
+    const DECK_URL = '/deck/' + encodeURIComponent(deckNameStr);
+    let bracketRes = null, bracketHttp = 0, bracketFlags = {}, bracketPoll = 0;
+    let bracketKey = '', flagsKey = '', awaitFrom = null;  // awaitFrom: stamps before an Evaluate now / retry
+    const stampOf = (res) => res ? [res.evaluated_at || '', res.error_at || '', res.input_hash || ''].join('|') : '';
+    const cardKey = (n) => String(n || '').split(' // ')[0].trim().toLowerCase();
+    const flagOf = (card) => bracketFlags[cardKey(card.name)] || null;
+    function flagWhy(f) {
+        // BR-7: "Two-card combo\u00a0· Over Bracket 1" so a wrap never starts a line with "·".
+        const cap = esc(f.caption).replace(/ · /g, '\u00a0· ');
+        return '<span class="hud-bracket-flag-why"><span aria-hidden="true">' + (f.sev === 'hard' ? '■' : '▲') + '</span> ' +
+            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + cap + '</span>';
+    }
+    function flagChip(f) {
+        return ' <span class="hud-chip ' + (f.sev === 'hard' ? 'hud-chip--danger' : 'hud-chip--signal') + '">' + (f.sev === 'hard' ? '■ ' : '▲ ') +
+            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + esc(f.caption) + '</span>';
+    }
+    async function loadBracket() {
+        if (!DECK_RID) return;
+        try {
+            const res = await fetch('/api/deck/' + encodeURIComponent(DECK_RID) + '/bracket');
+            bracketHttp = res.status;
+            bracketRes = await res.json().catch(() => null);
+        } catch (e) {
+            bracketHttp = 0; bracketRes = null;
+        }
+        // A new result or failure has landed since an explicit request: stop awaiting it.
+        if (awaitFrom !== null && stampOf(bracketRes) !== awaitFrom) awaitFrom = null;
+        renderBracket();
+        // Keep polling (every 2s, max ~1 min) while the stored result is stale or
+        // queued, and after an explicit request until a new result or failure
+        // lands: the worker drops the pending flag before it evaluates.
+        const st = Brackets.state(bracketRes, bracketHttp);
+        if ((st === 'running' || awaitFrom !== null) && bracketPoll < 30) {
+            bracketPoll += 1;
+            setTimeout(loadBracket, 2000);
+        } else {
+            const wasAwaiting = awaitFrom !== null;
+            bracketPoll = 0; awaitFrom = null;
+            if (wasAwaiting) renderBracket();  // timed out: drop the "Evaluating…" chip
+        }
+    }
+    function renderBracket() {
+        const ev = bracketRes && bracketRes.evaluation;
+        // Unchanged response: leave the DOM alone (open tray, focus, scroll survive polling).
+        const key = bracketHttp + ' ' + JSON.stringify(bracketRes) + ' ' + (awaitFrom !== null);
+        if (key === bracketKey) return;
+        bracketKey = key;
+        const banner = document.getElementById('bracketBanner');
+        const wasOpen = !!banner.querySelector('.hud-bracket-why[open]');
+        const act = document.activeElement, inBanner = act && banner.contains(act) && act !== banner;
+        const focusSel = inBanner ? (act.matches('summary') ? '.hud-bracket-why > summary'
+            : act.dataset.show ? '[data-show="' + CSS.escape(act.dataset.show) + '"]'
+            : act.hasAttribute('data-bracket-evaluate') ? '[data-bracket-evaluate]' : act.id ? '#' + CSS.escape(act.id) : null) : null;
+        let html = Brackets.banner(bracketRes, bracketHttp, { deckUrl: DECK_URL, tolerance: POWER_TOL });
+        if (awaitFrom !== null && Brackets.state(bracketRes, bracketHttp) !== 'running') {
+            html = html.replace('<span class="hud-label">', '<span class="hud-label"><span class="hud-chip hud-chip--data"><span class="hud-chip-dot" aria-hidden="true"></span>Evaluating…</span> ');
+        }
+        banner.innerHTML = html;
+        if (wasOpen) { const t = banner.querySelector('.hud-bracket-why'); if (t) t.open = true; }
+        if (focusSel) { const f = banner.querySelector(focusSel); if (f) f.focus({ preventScroll: true }); }
+        const chip = Brackets.metaChip(bracketRes, bracketHttp), slot = document.getElementById('deckBracket');
+        slot.innerHTML = chip; slot.hidden = !chip;
+        const off = ev ? Brackets.offenders(ev) : {};
+        bracketFlags = {};
+        Object.keys(off).forEach(n => { bracketFlags[cardKey(n)] = Object.assign({ caption: Brackets.caption(off[n], ev) }, off[n]); });
+        // Only rebuild the decklist when the flags actually changed.
+        const fk = JSON.stringify(bracketFlags);
+        if (fk === flagsKey) return;
+        flagsKey = fk;
+        if (deckLoaded) renderCards();
+    }
+    async function requestEvaluation() {
+        awaitFrom = stampOf(bracketRes);
+        try { await fetch('/api/deck/' + encodeURIComponent(DECK_RID) + '/bracket', { method: 'POST' }); } catch (e) { /* the worker's own scan still runs */ }
+        bracketPoll = 0;
+        loadBracket();
+    }
+    // Jump to a card in the decklist: scroll, focus, pulse (outline under reduced motion).
+    function showCard(name) {
+        const key = cardKey(name);
+        const el = Array.from(document.querySelectorAll('#decklistContainer [data-card-name]')).find(x => cardKey(x.dataset.cardName) === key);
+        if (!el) return;
+        const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        el.classList.remove('is-pulse'); void el.offsetWidth; el.classList.add('is-pulse');
+        el.focus({ preventScroll: true });
     }
 
     async function loadDeckData() {
@@ -223,6 +333,7 @@
             renderCommanders();
             renderStats();
             renderCards();
+            deckLoaded = true;
             // ?card=NAME (the Stats inspector's "Open card") opens the card modal.
             const want = new URLSearchParams(location.search).get('card');
             const wantIdx = want ? inventoryCards.findIndex(c => c.name === want) : -1;
@@ -441,11 +552,16 @@
             HUD.initSortable(container);
             return;
         }
-        container.innerHTML = GROUP_ORDER.filter(g => groups[g].length).map(g => `
+        container.innerHTML = GROUP_ORDER.filter(g => groups[g].length).map(g => {
+            const flagged = groups[g].filter(flagOf);
+            const hard = flagged.some(c => flagOf(c).sev === 'hard');
+            const link = flagged.length ? ` · <button type="button" class="hud-bracket-count${hard ? '' : ' is-adv'}" data-show="${esc(flagged[0].name)}">${flagged.length} flagged ↓</button>` : '';
+            return `
             <section class="deck-group">
-                <div class="hud-section-head"><h2>${esc(g)}</h2><span class="deck-group-count">${groups[g].length}</span></div>
-                <div class="deck-card-grid">${groups[g].map(c => cardArt(c, inventoryCards.indexOf(c), 'normal', 'card')).join('')}</div>
-            </section>`).join('');
+                <div class="hud-section-head"><h2>${esc(g)}</h2><span class="deck-group-count">${groups[g].length}${link}</span></div>
+                <div class="deck-card-grid">${groups[g].map(c => cardArt(c, inventoryCards.indexOf(c), 'normal', 'card', flagOf(c))).join('')}</div>
+            </section>`;
+        }).join('');
     }
 
     function renderTable(groups) {
@@ -453,8 +569,8 @@
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
             const cmc = isLand(c) ? '' : (c.cmc || 0);
-            return `<tr data-card-index="${i}" tabindex="0">
-                <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}</td>
+            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" tabindex="0">
+                <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
                 <td data-value="${esc(c.color || '')}">${isLand(c) ? '<span class="hud-muted">—</span>' : HUD.pips(c.color || '', 'sm')}</td>
@@ -571,6 +687,21 @@
     document.addEventListener('click', (ev) => {
         const tab = ev.target.closest('#decklistViews .hud-tab');
         if (tab) { setDecklistView(tab.dataset.view); return; }
+        // Bracket banner + decklist pointers (BR-6).
+        const show = ev.target.closest('[data-show]');
+        if (show) { ev.preventDefault(); showCard(show.dataset.show); return; }
+        if (ev.target.closest('[data-bracket-show-first]')) {
+            const first = document.querySelector('#decklistContainer .hud-bracket-flag:not(.hud-bracket-flag--adv), #decklistContainer .hud-bracket-flag, #decklistContainer tr[data-card-name] .hud-chip--danger');
+            const el = first && (first.closest('[data-card-name]') || first);
+            if (el) showCard(el.dataset.cardName);
+            return;
+        }
+        if (ev.target.closest('[data-bracket-evaluate]')) { requestEvaluation(); return; }
+        if (ev.target.closest('[data-bracket-jump]')) {
+            const h = document.getElementById('brH');
+            if (h) { h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); }
+            return;
+        }
         const hit = ev.target.closest('[data-card-index]');
         if (hit && !ev.target.closest('.hud-modal')) openCardModal(Number(hit.dataset.cardIndex));
     });
@@ -580,7 +711,104 @@
         if (hit && hit === ev.target) { ev.preventDefault(); openCardModal(Number(hit.dataset.cardIndex)); }
     });
 
+    // ---- Ability scores panel (PS-4) -------------------------------------
+    const psDeckId = {{ (head.registry_id or deck_name) | tojson }};
+    const psApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality';
+    let psEv = null, psPoll = null, psPollN = 0;
+    const PS_HINT = '<span class="hud-ps-hint">Evidence: click a score or press</span>' +
+        ['T', 'J', 'S', 'V', 'M'].map(k => '<span class="hud-kbd">' + k + '</span>').join('');
+
+    function psRender(state, info) {
+        const body = document.getElementById('psBody'), foot = document.getElementById('psFoot');
+        body.innerHTML = PSUI.deckPanelBody(state, info);
+        document.getElementById('psMeta').innerHTML = state === 'ok' ? PS_HINT : '';
+        body.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+        if (state === 'ok') {
+            foot.innerHTML = PSUI.deckPanelFoot(info);
+            foot.hidden = false;
+            psEv = PSUI.bindEvidence(document.getElementById('psPanel'), info.d, {
+                onCard: name => { const i = inventoryCards.findIndex(c => c.name === name); if (i !== -1) openCardModal(i); }
+            });
+        } else {
+            foot.hidden = true;
+            psEv = null;
+        }
+        const retry = body.querySelector('[data-ps-retry]');
+        if (retry) retry.addEventListener('click', () => loadPersonality());
+        const score = body.querySelector('[data-ps-score]');
+        if (score) score.addEventListener('click', psRequestScore);
+    }
+
+    async function psAverage() {
+        // "Your average" tick = the physical-deck profile average (UX_SPEC §3).
+        try {
+            const res = await fetch('/api/profile/personality?scope=physical');
+            const data = await res.json();
+            const p = data.profile || {};
+            return p.average && p.decks_scored >= 1 ? { ref: p.average, refN: p.decks_scored } : {};
+        } catch (e) { return {}; }
+    }
+
+    async function loadPersonality() {
+        if (!document.getElementById('psBody').innerHTML.trim()) psRender('loading');
+        let res, data;
+        try {
+            [res, data] = await fetch(psApi).then(async r => [r, await r.json().catch(() => ({}))]);
+        } catch (e) {
+            psRender('error', { status_line: 'GET ' + psApi + ' failed: ' + (e.message || 'network error') + '.' });
+            return;
+        }
+        if (res.ok && data.personality) {
+            psStopPoll();
+            const avg = await psAverage();
+            psRender('ok', Object.assign({ d: PSUI.deckModel(data.personality), computed_at: data.computed_at,
+                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null }, avg));
+            return;
+        }
+        if (res.status === 404 && data.status === 'not_scored') {
+            if (data.pending || psPoll) { psRender('queued'); psStartPoll(); } else psRender('not_scored');
+            return;
+        }
+        if (res.status === 404) { psRender('not_scored', { can_score: false }); return; }
+        psStopPoll();
+        const line = res.status === 500 && data.status === 'error'
+            ? 'Scoring failed' + (data.error ? ': ' + data.error : '') + '.'
+            : 'GET ' + psApi + ' returned ' + res.status + (data.error ? ' (' + data.error + ')' : '') + '.';
+        psRender('error', { status_line: line, can_score: res.status === 500 });
+    }
+
+    async function psRequestScore() {
+        try {
+            const res = await fetch(psApi, { method: 'POST' });
+            if (!res.ok) throw new Error('POST returned ' + res.status);
+        } catch (e) {
+            psRender('error', { status_line: 'Couldn\'t queue a rescore: ' + (e.message || 'network error') + '.' });
+            return;
+        }
+        psRender('queued');
+        psStartPoll();
+    }
+    function psStartPoll() {
+        if (psPoll) return;
+        psPollN = 0;
+        psPoll = setInterval(() => { if (++psPollN > 24) { psStopPoll(); loadPersonality(); } else loadPersonality(); }, 5000);
+    }
+    function psStopPoll() { if (psPoll) { clearInterval(psPoll); psPoll = null; } }
+
+    // T J S V M open that axis' evidence; Esc closes it (never while typing or with the card modal open).
+    document.addEventListener('keydown', (ev) => {
+        if (!psEv || ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || PSUI.typing(document.activeElement)) return;
+        if (document.querySelector('.hud-modal.is-open, .hud-modal[aria-hidden="false"]')) return;
+        if (ev.key === 'Escape' && psEv.isOpen()) { psEv.hide(true); return; }
+        const a = PSUI.axisForKey(ev.key);
+        if (!a) return;
+        const t = document.querySelector('#psPanel [data-axis="' + a + '"][aria-controls]');
+        if (t) { t.focus(); if (psEv.isOpen() !== a) psEv.show(a); }
+    });
+
     // hud.js is deferred: start once it (and the DOM) is ready.
-    document.addEventListener('DOMContentLoaded', loadDeckData);
+    document.addEventListener('DOMContentLoaded', () => { loadDeckData(); loadBracket(); });
+    document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
+<script src="/static/js/personality.js?v={{ version }}" defer></script>
 {% endblock %}
