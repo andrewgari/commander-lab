@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Ledger · Brackets · Commander Lab mockup (BR-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="brackets.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="main-content" id="main"></main>
+<script src="../../../static/js/hud.js"></script>
+<script src="deck.js"></script>
+<script src="brackets.js"></script>
+<script>
+/* B · Ledger (middle). The Journal gets a 5-rung ladder that reads like the
+   rulebook; the deck page gets a Bracket panel in the hero (where Profile sits)
+   and a "Conflicts only" filter on the decklist. Nothing above the fold moves. */
+(function () {
+    var esc = BR.esc, H = window.HUD;
+
+    function flagFor(s) {
+        var off = BR.offenders(s);
+        return function (name) {
+            var o = off[name]; if (!o) return null;
+            var pet = o.reasons.some(function (r) { return r.rule === "pet_card"; });
+            return { sev: o.sev, chip: "GC" + (pet ? " · pet" : ""), label: "Over Bracket " + s.target + (pet ? " · your call" : "") };
+        };
+    }
+
+    // ---------- Journal: the ladder ----------
+    function ladder(s) {
+        var floor = 3; // computed minimum (BR-4 hard floors); real for Holy Hellfire
+        var rungs = BR.BRACKETS.map(function (b) {
+            var tags = [], sel = s.target === b.n, below = b.n < floor;
+            if (s.est === b.n) tags.push(H.chip("Estimate", "data"));
+            if (below) tags.push(sel ? '<span class="br-sev br-sev--hard br-sev--sm">■ Needs cuts</span>' : '<span class="br-rung-below" title="This list breaks a hard rule here today">needs cuts</span>');
+            var detail = sel && below ? '<em class="br-rung-detail">■ 3 Game Changers (Demonic Tutor, Necropotence, Teferi\'s Protection). ' + b.name + " allows " + (b.gc || "none") + ".</em>" : "";
+            return '<label><input type="radio" name="bracket" value="' + b.n + '"' + (sel ? " checked" : "") + ">" +
+                '<span class="br-rung"><span class="br-rung-n">' + b.n + "</span>" +
+                '<span class="br-rung-t"><b>' + b.name + " <span>· " + esc(b.line) + "</span></b><small>" + esc(b.rules) + "</small>" + detail + "</span>" +
+                '<span class="br-rung-tags">' + tags.join("") + "</span></span></label>";
+        }).join("");
+        var unset = '<label><input type="radio" name="bracket" value=""' + (!s.target ? " checked" : "") + ">" +
+            '<span class="br-rung br-rung--unset"><span class="br-rung-n">Off</span><span class="br-rung-t"><b>No target</b><span>No bracket checks. The deck page still shows the estimate.</span></span><span class="br-rung-tags"></span></span></label>';
+        return '<div class="hud-field"><span class="hud-field-label" id="bkL">Target bracket · <span class="jr-power-now">' + (s.target ? s.target + " · " + BR.br(s.target).name : "unset") + "</span></span>" +
+            '<div class="br-ladder" role="radiogroup" aria-labelledby="bkL">' + rungs + unset + "</div>" +
+            '<span class="hud-field-hint">↑/↓ to move. Official WotC Commander Brackets (rules as of 2026-10-15). "Needs cuts" = this list breaks a hard rule there today.</span></div>';
+    }
+
+    // ---------- Deck page: Bracket panel ----------
+    function cell(label, big, unit, tgt, delta) {
+        return '<div class="br-vs"><span class="hud-label">' + label + '</span><div class="br-vs-row"><span class="br-vs-big">' + big + (unit ? "<small>" + unit + "</small>" : "") + "</span></div>" +
+            '<span class="br-vs-tgt">target <b>' + tgt + "</b></span>" + delta + "</div>";
+    }
+    function panel(s) {
+        if (s.pending) {
+            return '<section class="hud-panel br-panel"><header class="hud-panel-head"><h3 class="hud-panel-title">Bracket</h3><div class="hud-panel-meta">target 2 · Core</div></header>' +
+                '<div class="hud-panel-body"><div class="hud-empty">Not evaluated yet. It runs in the background after a sync or a journal edit.</div>' +
+                '<div><button class="hud-btn hud-btn--sm" type="button">Evaluate now</button></div></div></section>';
+        }
+        var c = BR.counts(s);
+        var meta = s.running ? '<span class="hud-chip hud-chip--data"><span class="hud-chip-dot" aria-hidden="true"></span>Re-evaluating…</span>'
+            : '<span>evaluated 4 min ago</span>';
+        var grid = '<div class="br-panel-grid">' +
+            cell("Estimated bracket", s.est, BR.br(s.est).name, s.target ? s.target + " · " + BR.br(s.target).name : "—", BR.deltaHtml(BR.brDelta(s))) +
+            cell("Estimated power", s.pw, "/10", s.tpw, BR.deltaHtml(BR.pwDelta(s))) + "</div>";
+        var head;
+        if (!s.target) head = '<p class="br-why-summary">No target set. This deck plays like <b>Bracket ' + s.est + " · " + BR.br(s.est).name + '</b>. <a href="#s=unset&v=journal">Set a target</a> to get conflict checks.</p>';
+        else if (!c.all) head = '<p class="br-why-summary"><span class="br-t-ok">● No conflicts with Bracket ' + s.target + ".</span> 3 Game Changers, within the limit of 3.</p>";
+        else head = '<p class="br-banner-tally" style="margin:0"><span class="' + (c.hard ? "br-t-hard" : "br-t-adv") + '">' + c.all + " conflict" + (c.all > 1 ? "s" : "") + " with Bracket " + s.target + "</span>" +
+            (c.hard ? '<span class="br-t-hard">■ ' + c.hard + " hard</span>" : "") + (c.adv ? '<span class="br-t-adv">▲ ' + c.adv + " advisory</span>" : "") + "</p>";
+        var rows = BR.real(s.conflicts).map(function (x) {
+            return "<li>" + BR.sevChip(x.severity) + "<div><b>" + esc(x.title) + "</b><p>" + esc(x.message) + "</p>" +
+                (x.cards.length ? '<div class="br-ledger-cards">' + BR.cardLinks(x.cards) + "</div>" : "") + "</div></li>";
+        }).join("");
+        return '<section class="hud-panel br-panel" aria-labelledby="brH"><header class="hud-panel-head"><h3 class="hud-panel-title" id="brH">Bracket</h3><div class="hud-panel-meta">' + meta + "</div></header>" +
+            '<div class="hud-panel-body">' + grid + head + (rows ? '<ul class="br-ledger">' + rows + "</ul>" : "") + BR.explanation(s, false) + "</div></section>";
+    }
+
+    function deckPage(s, only) {
+        var flag = flagFor(s), c = BR.counts(s), nCards = Object.keys(BR.offenders(s)).length;
+        var meta = s.pending ? "" : s.target ? BR.bracketChip(s.target, "neutral") : BR.bracketChip(s.est, "neutral", "Est.");
+        var filter = nCards ? '<span class="br-filter"><button type="button" class="hud-btn hud-btn--sm" id="onlyBtn" aria-pressed="' + (only ? "true" : "false") + '">Conflicts only · ' + nCards + '</button><span class="hud-kbd" title="Toggle with x">x</span></span>' : "";
+        return BR.deckhead("overview", meta, '<a class="hud-btn" href="#">Manage</a><a class="hud-btn" href="#">Review</a><a class="hud-btn hud-btn--primary" href="#">Sync to External</a>') +
+            '<div class="deck-hero"><aside class="deck-hero-side"><div class="hud-panel"><div class="hud-panel-body hud-muted">Commander art · External · Lifecycle (unchanged)</div></div></aside>' +
+            '<div class="deck-hero-main"><div class="hud-stat-strip">' + H.stat("Cards", "100", { foot: "65 spells" }) + H.stat("Avg CMC", "4.69", { foot: "non-land" }) + H.stat("Lands", "35", { foot: "35% of deck" }) + H.stat("Value", "—", { foot: "no price data" }) + "</div>" +
+            panel(s) +
+            '<div class="hud-panel"><div class="hud-panel-body hud-muted">Mana curve · Card types · Colour identity · Profile (unchanged, below the Bracket panel)</div></div></div></div>' +
+            '<div class="deck-list-head"><div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count">' + (only ? nCards + " of 100 cards" : "100 cards") + "</span></div>" + filter +
+            '<nav class="hud-tabs" aria-label="Decklist view"><button type="button" class="hud-tab active" aria-current="page">Visual</button><button type="button" class="hud-tab">List</button></nav></div>' +
+            '<div id="dl">' + BR.decklist(flag, { only: only }) + "</div>";
+    }
+
+    var only = false;
+    function render(s, v) {
+        if (v === "journal") {
+            return BR.deckhead("journal", "", '<a class="hud-btn hud-btn--primary" href="#">Review</a>') +
+                BR.journalPage(s, ladder(s), "Power & bracket", "Power is the 1–10 feel. Bracket is WotC's 1–5 rulebook: a promise to the pod. Set both; neither is derived from the other.");
+        }
+        return deckPage(s, only);
+    }
+    render.after = function (root, s, v) {
+        if (v === "journal") {
+            root.querySelectorAll('input[name="bracket"]').forEach(function (i) {
+                i.addEventListener("change", function () {
+                    var n = Number(i.value) || null;
+                    root.querySelector("#bkL .jr-power-now").textContent = n ? n + " · " + BR.br(n).name : "unset";
+                });
+            });
+            return;
+        }
+        function toggle() { only = !only; window.dispatchEvent(new HashChangeEvent("hashchange")); var b = document.getElementById("onlyBtn"); if (b) b.focus(); }
+        var b = root.querySelector("#onlyBtn"); if (b) b.addEventListener("click", toggle);
+        document.onkeydown = function (e) {
+            var t = e.target.tagName; if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key === "x" && root.querySelector("#onlyBtn")) toggle();
+        };
+    };
+    BR.boot("B · Ledger", render);
+})();
+</script>
+</body>
+</html>
