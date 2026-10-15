@@ -165,6 +165,15 @@
     --graph-edge:     var(--line-strong);
     --graph-dim:      0.14;   /* opacity of non-neighbours while focused */
 
+    /* --- Brackets (section 9, BR-6): severity = shape + colour --------- */
+    --bracket-hard:     var(--danger);   /* ■ a WotC hard rule is broken */
+    --bracket-hard-dim: var(--danger-dim);
+    --bracket-adv:      var(--signal);   /* ▲ worth a look, never moves the bracket */
+    --bracket-adv-dim:  var(--signal-dim);
+    --bracket-ok:       var(--ok);       /* ● nothing to do */
+    --bracket-flag-h:   4px;             /* severity bar across a flagged card */
+    --bracket-pulse:    1.035;           /* jump-to-card pulse scale */
+
     /* --- Layout ---------------------------------------------------------- */
     --sidebar-w:           232px;
     --sidebar-w-collapsed: 56px;
@@ -2106,3 +2115,113 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .is-locked .hud-seg label { cursor: default; opacity: 0.7; }
 .is-locked .hud-seg label:hover { background: none; color: var(--text-2); }
 .is-locked .hud-seg input:checked + label { opacity: 1; }
+
+/* 9. BRACKETS ============================================================== */
+/* BR-6, direction A (Inline) of the BR-D spec. Severity is shape + colour:
+   ■ hard (--bracket-hard), ▲ advisory (--bracket-adv), ● clean (--bracket-ok).
+   The target bracket chip stays neutral; severity rides as a separate count.
+   Nothing ever sits on card art: flags are a frame bar + a caption line. */
+.hud-bracket-sev { display: inline-flex; align-items: center; gap: var(--sp-1); height: var(--chip-h); padding: 0 var(--sp-2); border: var(--hairline) solid; border-radius: var(--radius-1); font: var(--fw-medium) var(--fs-micro)/1 var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap; }
+.hud-bracket-sev--hard { color: var(--bracket-hard); background: var(--bracket-hard-dim); border-color: var(--bracket-hard); }
+.hud-bracket-sev--adv  { color: var(--bracket-adv);  background: var(--bracket-adv-dim);  border-color: var(--signal-line); }
+.hud-bracket-chip { text-transform: none; letter-spacing: 0.02em; }
+.hud-bracket-chipbtn { cursor: pointer; font: inherit; font-family: var(--font-mono); font-size: var(--fs-micro); }
+.hud-bracket-chipbtn:focus-visible, .hud-bracket-link:focus-visible, .hud-bracket-count:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket-link { all: unset; cursor: pointer; color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+.hud-bracket-link:hover { color: var(--text-1); }
+
+/* Banner between the deck tabs and the hero. Left edge = worst severity. */
+.hud-bracket { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-6); align-items: start; margin: var(--sp-6) 0; padding: var(--sp-4) var(--sp-5); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--line-strong); border-radius: var(--radius-1); }
+.hud-bracket.is-hard { border-left-color: var(--bracket-hard); }
+.hud-bracket.is-adv { border-left-color: var(--bracket-adv); }
+.hud-bracket.is-ok { border-left-color: var(--bracket-ok); }
+.hud-bracket .hud-label { white-space: normal; }
+.hud-bracket .hud-label .hud-chip { margin-left: var(--sp-2); }
+.hud-bracket h2 { margin: var(--sp-1) 0 0; color: var(--text-1); font-size: var(--fs-lg); letter-spacing: var(--tracking-tight); }
+.hud-bracket h2:focus { outline: none; }
+.hud-bracket h2:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket h2 em { font-style: normal; color: var(--text-1); }
+.hud-bracket.is-hard h2 em { color: var(--bracket-hard); }
+.hud-bracket.is-adv h2 em { color: var(--bracket-adv); }
+.hud-bracket.is-ok h2 em { color: var(--bracket-ok); }
+.hud-bracket .hud-field-hint { margin: var(--sp-2) 0 0; max-width: 70ch; }
+.hud-bracket-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.hud-bracket-tally { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin: var(--sp-2) 0 0; font: var(--fw-medium) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-bracket-t-hard { color: var(--bracket-hard); }
+.hud-bracket-t-adv { color: var(--bracket-adv); }
+.hud-bracket-est { display: flex; gap: var(--sp-6); }
+.hud-bracket-vs { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.hud-bracket-vs-row { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.hud-bracket-vs-big { color: var(--text-1); font: var(--fw-medium) var(--fs-stat)/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.hud-bracket-vs-big small { color: var(--text-3); font-size: var(--fs-sm); margin-left: var(--sp-1); }
+.hud-bracket-vs-tgt { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-bracket-vs-tgt b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-bracket-delta { font: var(--fw-medium) var(--fs-xs) var(--font-mono); }
+.hud-bracket-delta.is-out { color: var(--bracket-adv); }
+.hud-bracket-delta.is-in { color: var(--bracket-ok); }
+.hud-bracket-list { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.hud-bracket-list li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.hud-bracket-list li > div { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-bracket-list p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.hud-bracket-list b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-bracket-row-cards { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.hud-bracket-row-acts { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); margin-left: var(--sp-2); }
+
+/* "How this was decided": a hud-tray (<details>), collapsed by default. */
+.hud-bracket-why { grid-column: 1 / -1; border: 0; border-top: var(--stroke-faint); border-radius: 0; background: none; }
+.hud-bracket-why > summary { padding: 0; min-height: 2rem; color: var(--text-2); }
+.hud-bracket-why > summary:hover { color: var(--text-1); }
+.hud-bracket-why > summary:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bracket-why-body { padding: var(--sp-2) 0 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.hud-bracket-why-summary { margin: 0; max-width: 80ch; color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-bracket-why-table th[scope="row"] { color: var(--text-1); font-weight: var(--fw-medium); white-space: nowrap; }
+.hud-bracket-why-table td, .hud-bracket-why-table th { font-size: var(--fs-xs); }
+
+/* Flagged card in the decklist: severity frame + top bar + caption line. */
+.hud-bracket-flag { position: relative; border-color: var(--bracket-hard); --bracket-flag-c: var(--bracket-hard); }
+.hud-bracket-flag::before { content: ""; position: absolute; top: 0; left: 0; right: 0; z-index: 1; height: var(--bracket-flag-h); background: var(--bracket-flag-c); pointer-events: none; }
+.hud-bracket-flag--adv { border-color: var(--signal-line); --bracket-flag-c: var(--bracket-adv); }
+.hud-bracket-flag-why { display: block; margin-top: 2px; color: var(--bracket-hard); font: var(--fw-medium) var(--fs-micro)/1.3 var(--font-mono); letter-spacing: 0.02em; text-transform: uppercase; white-space: normal; }
+.hud-bracket-flag--adv .hud-bracket-flag-why { color: var(--bracket-adv); }
+.hud-bracket-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hud-bracket-count { all: unset; cursor: pointer; color: var(--bracket-hard); text-decoration: underline; text-underline-offset: 2px; }
+.hud-bracket-count.is-adv { color: var(--bracket-adv); }
+.hud-art:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-art.is-pulse { animation: hud-bracket-pulse var(--dur-slow) var(--ease) 2; }
+@keyframes hud-bracket-pulse { 50% { transform: scale(var(--bracket-pulse)); } }
+
+/* Journal: bracket scale under power, definition card, below-floor note. */
+.hud-seg--bracket label:first-of-type { font-size: var(--fs-micro); letter-spacing: 0; }
+.hud-seg--scale label { position: relative; }
+.hud-seg--scale label.is-est::after, .hud-bracket-estkey { content: ""; display: inline-block; width: 0.75rem; height: 3px; background: var(--data-strong); }
+.hud-seg--scale label.is-est::after { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); }
+.hud-bracket-def { display: flex; flex-direction: column; gap: 2px; width: 25rem; max-width: 100%; box-sizing: border-box; padding: var(--sp-3); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-bracket-def b { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.hud-bracket-def span { color: var(--text-2); font-size: var(--fs-sm); }
+.hud-bracket-def small { color: var(--text-1); font-size: var(--fs-xs); padding-top: var(--sp-1); margin-top: var(--sp-1); border-top: var(--stroke-faint); }
+.hud-bracket-warn { display: block; width: 25rem; max-width: 100%; box-sizing: border-box; padding: var(--sp-2) var(--sp-3); background: var(--bracket-adv-dim); border-left: var(--indicator) solid var(--bracket-adv); color: var(--text-1); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.hud-bracket-warn[hidden] { display: none; }
+.hud-bracket-warn::before { content: "▲ "; color: var(--bracket-adv); }
+.hud-bracket-warn b { color: var(--bracket-adv); font-weight: var(--fw-medium); }
+.hud-bracket-out { color: var(--bracket-adv); }
+
+@media (max-width: 640px) {
+    .hud-bracket { grid-template-columns: minmax(0, 1fr); padding: var(--sp-4); }
+    .hud-bracket-est { flex-direction: column; gap: var(--sp-3); }
+    .hud-bracket-list li { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    .hud-bracket-row-acts { margin-left: 0; }
+    .hud-bracket-why > summary { flex-wrap: wrap; }
+    /* The 4-column table becomes stacked rows: no sideways scroll at 390. */
+    .hud-bracket-why-table thead { display: none; }
+    .hud-bracket-why-table, .hud-bracket-why-table tbody, .hud-bracket-why-table td, .hud-bracket-why-table th { display: block; }
+    .hud-bracket-why-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-2); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); }
+    .hud-bracket-why-table td, .hud-bracket-why-table th { padding: 0; border: 0; background: none; white-space: normal; overflow-wrap: anywhere; }
+    .hud-bracket-why-table th[scope="row"] { text-transform: none; letter-spacing: 0; font-family: var(--font-sans); font-size: var(--fs-sm); }
+    .hud-bracket-why-table td.is-num { text-align: right; }
+    .hud-bracket-why-table td:nth-child(3), .hud-bracket-why-table td:nth-child(4) { grid-column: 1 / -1; }
+    .hud-bracket-why-table tbody tr:hover td { background: none; }
+    .hud-seg--scale.hud-seg--bracket { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hud-art.is-pulse { animation: none; outline: var(--focus-ring); }
+}

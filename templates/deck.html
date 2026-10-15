@@ -73,6 +73,9 @@
     <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
 {% endcall %}
 
+{#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
+<div id="bracketBanner" aria-live="polite"></div>
+
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
@@ -181,6 +184,7 @@
     let currentDeck = null;
     let inventoryCards = [];
     let decklistView = 'visual';
+    let deckLoaded = false;  // the bracket result can arrive before the inventory
 
     const esc = (s) => HUD.esc(s);
     const isLand = (c) => !!(c.type && c.type.includes("Land"));
@@ -189,17 +193,81 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
-    function cardArt(card, index, version, kind) {
+    function cardArt(card, index, version, kind, flag) {
         const img = HUD.scryfall(card.uid, version);
         const cmc = !isLand(card) && card.cmc > 0 ? String(card.cmc) : '';
-        return HUD.art(card.name, img.src, {
+        let html = HUD.art(card.name, img.src, {
             kind: kind || 'card',
             fallback: img.fallback,
             meta: cmc ? 'CMC ' + cmc : (isLand(card) ? 'Land' : ''),
             colors: isLand(card) ? null : (card.color || ''),
             chip: card.is_core ? ['Core', 'signal'] : null,
-            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, title: card.name }
+            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, 'data-card-name': card.name, title: card.name }
         });
+        if (!flag) return html;
+        // BR-6 flag: severity frame + top bar + a caption line. Nothing on the art.
+        html = html.replace('class="hud-art hud-art--card"', 'class="hud-art hud-art--card hud-bracket-flag' + (flag.sev === 'hard' ? '' : ' hud-bracket-flag--adv') + '"');
+        return html.replace('</figcaption>', flagWhy(flag) + '</figcaption>');
+    }
+
+    // ---- Bracket evaluation (BR-6; stored BR-5 result) --------------------------
+    const DECK_RID = {{ head.registry_id | tojson }};
+    const POWER_TOL = {{ power_tol | tojson }};  // engine.POWER_ALIGN_TOLERANCE (power_aligned)
+    const DECK_URL = '/deck/' + encodeURIComponent(deckNameStr);
+    let bracketRes = null, bracketHttp = 0, bracketFlags = {}, bracketPoll = 0;
+    const cardKey = (n) => String(n || '').split(' // ')[0].trim().toLowerCase();
+    const flagOf = (card) => bracketFlags[cardKey(card.name)] || null;
+    function flagWhy(f) {
+        return '<span class="hud-bracket-flag-why"><span aria-hidden="true">' + (f.sev === 'hard' ? '■' : '▲') + '</span> ' +
+            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + esc(f.caption) + '</span>';
+    }
+    function flagChip(f) {
+        return ' <span class="hud-chip ' + (f.sev === 'hard' ? 'hud-chip--danger' : 'hud-chip--signal') + '">' + (f.sev === 'hard' ? '■ ' : '▲ ') +
+            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + esc(f.caption) + '</span>';
+    }
+    async function loadBracket() {
+        if (!DECK_RID) return;
+        try {
+            const res = await fetch('/api/deck/' + encodeURIComponent(DECK_RID) + '/bracket');
+            bracketHttp = res.status;
+            bracketRes = await res.json().catch(() => null);
+        } catch (e) {
+            bracketHttp = 0; bracketRes = null;
+        }
+        renderBracket();
+        // Re-evaluating (stale/pending): poll until the worker catches up (~2s per BR-5), max ~1 min.
+        const st = Brackets.state(bracketRes, bracketHttp);
+        if ((st === 'running' || (bracketRes && bracketRes.pending)) && bracketPoll < 30) {
+            bracketPoll += 1;
+            setTimeout(loadBracket, 2000);
+        } else {
+            bracketPoll = 0;
+        }
+    }
+    function renderBracket() {
+        const ev = bracketRes && bracketRes.evaluation;
+        document.getElementById('bracketBanner').innerHTML = Brackets.banner(bracketRes, bracketHttp, { deckUrl: DECK_URL, tolerance: POWER_TOL });
+        const chip = Brackets.metaChip(bracketRes, bracketHttp), slot = document.getElementById('deckBracket');
+        slot.innerHTML = chip; slot.hidden = !chip;
+        const off = ev ? Brackets.offenders(ev) : {};
+        bracketFlags = {};
+        Object.keys(off).forEach(n => { bracketFlags[cardKey(n)] = Object.assign({ caption: Brackets.caption(off[n], ev) }, off[n]); });
+        if (deckLoaded) renderCards();
+    }
+    async function requestEvaluation() {
+        try { await fetch('/api/deck/' + encodeURIComponent(DECK_RID) + '/bracket', { method: 'POST' }); } catch (e) { /* the worker's own scan still runs */ }
+        bracketPoll = 0;
+        loadBracket();
+    }
+    // Jump to a card in the decklist: scroll, focus, pulse (outline under reduced motion).
+    function showCard(name) {
+        const key = cardKey(name);
+        const el = Array.from(document.querySelectorAll('#decklistContainer [data-card-name]')).find(x => cardKey(x.dataset.cardName) === key);
+        if (!el) return;
+        const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+        el.classList.remove('is-pulse'); void el.offsetWidth; el.classList.add('is-pulse');
+        el.focus({ preventScroll: true });
     }
 
     async function loadDeckData() {
@@ -223,6 +291,7 @@
             renderCommanders();
             renderStats();
             renderCards();
+            deckLoaded = true;
             // ?card=NAME (the Stats inspector's "Open card") opens the card modal.
             const want = new URLSearchParams(location.search).get('card');
             const wantIdx = want ? inventoryCards.findIndex(c => c.name === want) : -1;
@@ -441,11 +510,16 @@
             HUD.initSortable(container);
             return;
         }
-        container.innerHTML = GROUP_ORDER.filter(g => groups[g].length).map(g => `
+        container.innerHTML = GROUP_ORDER.filter(g => groups[g].length).map(g => {
+            const flagged = groups[g].filter(flagOf);
+            const hard = flagged.some(c => flagOf(c).sev === 'hard');
+            const link = flagged.length ? ` · <button type="button" class="hud-bracket-count${hard ? '' : ' is-adv'}" data-show="${esc(flagged[0].name)}">${flagged.length} flagged ↓</button>` : '';
+            return `
             <section class="deck-group">
-                <div class="hud-section-head"><h2>${esc(g)}</h2><span class="deck-group-count">${groups[g].length}</span></div>
-                <div class="deck-card-grid">${groups[g].map(c => cardArt(c, inventoryCards.indexOf(c), 'normal', 'card')).join('')}</div>
-            </section>`).join('');
+                <div class="hud-section-head"><h2>${esc(g)}</h2><span class="deck-group-count">${groups[g].length}${link}</span></div>
+                <div class="deck-card-grid">${groups[g].map(c => cardArt(c, inventoryCards.indexOf(c), 'normal', 'card', flagOf(c))).join('')}</div>
+            </section>`;
+        }).join('');
     }
 
     function renderTable(groups) {
@@ -453,8 +527,8 @@
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
             const cmc = isLand(c) ? '' : (c.cmc || 0);
-            return `<tr data-card-index="${i}" tabindex="0">
-                <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}</td>
+            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" tabindex="0">
+                <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
                 <td data-value="${esc(c.color || '')}">${isLand(c) ? '<span class="hud-muted">—</span>' : HUD.pips(c.color || '', 'sm')}</td>
@@ -571,6 +645,21 @@
     document.addEventListener('click', (ev) => {
         const tab = ev.target.closest('#decklistViews .hud-tab');
         if (tab) { setDecklistView(tab.dataset.view); return; }
+        // Bracket banner + decklist pointers (BR-6).
+        const show = ev.target.closest('[data-show]');
+        if (show) { ev.preventDefault(); showCard(show.dataset.show); return; }
+        if (ev.target.closest('[data-bracket-show-first]')) {
+            const first = document.querySelector('#decklistContainer .hud-bracket-flag:not(.hud-bracket-flag--adv), #decklistContainer .hud-bracket-flag, #decklistContainer tr[data-card-name] .hud-chip--danger');
+            const el = first && (first.closest('[data-card-name]') || first);
+            if (el) showCard(el.dataset.cardName);
+            return;
+        }
+        if (ev.target.closest('[data-bracket-evaluate]')) { requestEvaluation(); return; }
+        if (ev.target.closest('[data-bracket-jump]')) {
+            const h = document.getElementById('brH');
+            if (h) { h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); }
+            return;
+        }
         const hit = ev.target.closest('[data-card-index]');
         if (hit && !ev.target.closest('.hud-modal')) openCardModal(Number(hit.dataset.cardIndex));
     });
@@ -581,6 +670,6 @@
     });
 
     // hud.js is deferred: start once it (and the DOM) is ready.
-    document.addEventListener('DOMContentLoaded', loadDeckData);
+    document.addEventListener('DOMContentLoaded', () => { loadDeckData(); loadBracket(); });
 </script>
 {% endblock %}
