@@ -323,6 +323,13 @@
       "default": "",
       "description": "Things the user wants to see happen with this deck (scored as a bonus, never a requirement)."
     },
+    "target_bracket": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 5,
+      "default": null,
+      "description": "Target official Commander Bracket (1 Exhibition, 2 Core, 3 Upgraded, 4 Optimized, 5 cEDH; see docs/BRACKETS_SPEC.md). null = unset, no bracket checks. Separate from target_power_level and never derived from it."
+    },
     "freeform_notes": {
       "type": "string",
       "default": "",

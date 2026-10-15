@@ -368,6 +368,7 @@ document.addEventListener("DOMContentLoaded", function () {
         else {
             acts = '<button class="hud-btn hud-btn--sm" type="button" data-act="true" aria-pressed="' + done + '">✓ Still true</button>';
             acts += r.link ? '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + esc(r.link) + '">Open Identity</a>'
+                           : !ROWS[r.field] ? ""  // no form section for this field on the page yet (e.g. bracket until BR-6)
                            : '<button class="hud-btn hud-btn--sm' + (r.evidence ? "" : " hud-btn--ghost") + '" type="button" data-act="change" aria-expanded="false">Change</button>';
         }
         return '<li class="hud-check' + (done || ch ? " is-done" : "") + (i === cur ? " is-current" : "") + '" tabindex="-1" data-field="' + esc(r.field) + '">' +
