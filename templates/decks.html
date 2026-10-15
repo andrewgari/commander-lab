@@ -41,125 +41,107 @@
         color: var(--text-muted);
     }
     
+    /* ==========================================================================
+       Deck tiles (design option C, docs/DECK_LIST_CARDS.md): the commander art
+       is the card. Fixed-shape tile; status + pips pinned top; a solid --scrim
+       plate (no gradient) carries the title (2-line clamp), the commander line
+       (1 line) and inventory. Partners / Doctor + companion share one frame,
+       cut on a diagonal; a true companion gets a small framed inset. Tile
+       sizes live in the --tile-* block; everything else is HUD tokens.
+       ========================================================================== */
     .deck-grid {
+        --tile-col-min: 13.25rem;   /* 212px: 5 across at 1440 */
+        --tile-ratio:   4 / 3;
+        --tile-pad:     var(--sp-2) var(--sp-3);
+        --tile-zoom:    1.04;       /* art scale on hover / focus */
+        --tile-split:   58%;        /* diagonal seam, top edge (partners) */
+        --tile-seam:    2px;
+        --tile-inv:     1.75rem;    /* 28px inventory icon button */
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(var(--tile-col-min), 100%), 1fr));
+        gap: var(--sp-3);
     }
-    
+
     .deck-card {
-        background: var(--nav-bg);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.5rem;
-        transition: transform 0.2s ease, border-color 0.2s ease;
-        display: flex;
-        flex-direction: column;
-        cursor: pointer;
         position: relative;
-        overflow: hidden;
-    }
-    
-    .deck-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--accent);
-    }
-    
-    .deck-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .deck-header-art {
-        display: flex;
-        align-items: center;
-        position: relative;
-        flex-shrink: 0;
-    }
-
-    .deck-header-info {
-        flex: 1;
         min-width: 0;
+        aspect-ratio: var(--tile-ratio);
+        overflow: hidden;
+        background: var(--surface-2);
+        border: var(--stroke);
+        border-radius: var(--radius-2);
+        transition: border-color var(--dur-fast) var(--ease), scale var(--dur-fast) var(--ease);
     }
+    .deck-card:hover { border-color: var(--line-strong); }
+    /* `scale`, not `transform`: hud-enter's fill-mode keeps owning transform. */
+    .deck-card:active { scale: 0.985; }
+    .deck-card:has(.deck-open:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
-    /* Commander art: shared HUD group (hud.css "Commander art group"),
-       rectangular art-crop frames sized by role. One commander sits beside
-       the text; 2+ (partners, Doctor + companion, a true companion) stack
-       the art row above the text so the deck name keeps the full card
-       width. */
-    .deck-header .hud-cmdrs { --cmdr-w: 7rem; }
-    .deck-header--multi .hud-cmdrs { --cmdr-w: 6rem; }
-    .deck-card:hover .hud-cmdr:not(.is-cbc) .hud-cmdr-art { border-color: var(--accent); }
+    /* Stretched quick-view button: a click anywhere opens the deck modal;
+       Tab + Enter reach it. Real links sit above it. */
+    .deck-open { all: unset; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
 
-    .deck-header--multi {
-        flex-direction: column;
-        align-items: stretch;
-    }
+    /* One art frame per deck. Role sizing (commander_roles.py): partners split
+       it evenly; a Doctor's companion gets the smaller wedge. */
+    .deck-art { position: absolute; inset: 0; background: var(--surface-2); }
+    .deck-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform var(--dur-base) var(--ease); }
+    .deck-art--doctors-companion { --tile-split: 68%; }
+    .deck-art--split img + img { clip-path: polygon(var(--tile-split) 0, 100% 0, 100% 100%, calc(100% - var(--tile-split)) 100%); }
+    .deck-art--split::after { content: ""; position: absolute; inset: 0; background: var(--surface-0); transition: transform var(--dur-base) var(--ease);
+        clip-path: polygon(calc(var(--tile-split) - var(--tile-seam)) 0, var(--tile-split) 0, calc(100% - var(--tile-split)) 100%, calc(100% - var(--tile-split) - var(--tile-seam)) 100%); }
+    .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
+    .deck-card:has(.deck-open:focus-visible) .deck-art img { transform: scale(var(--tile-zoom)); }
+    .deck-art-none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-4); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
 
-    .deck-header--multi .deck-name {
-        word-break: normal;
-        overflow-wrap: break-word;
-    }
-    
+    /* True companion (outside the 100): small framed inset, set apart. */
+    .deck-companion { position: absolute; right: var(--sp-2); top: 34%; z-index: 2; width: 28%; aspect-ratio: var(--art-ratio); border: var(--stroke-strong); border-radius: var(--radius-2); overflow: hidden; background: var(--surface-2); pointer-events: none; }
+    .deck-companion img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+    .deck-top { position: absolute; top: var(--sp-2); left: var(--sp-2); right: var(--sp-2); z-index: 2; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); pointer-events: none; }
+    .deck-top .hud-pips { margin-left: auto; padding: 2px; background: var(--scrim); border-radius: var(--radius-1); }
+    .deck-top .hud-chip { background: var(--scrim); }
+    .deck-top .repo-badge { pointer-events: auto; }
+
+    .deck-plate { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--sp-2); padding: var(--tile-pad); background: var(--scrim); border-top: var(--stroke); pointer-events: none; transition: background-color var(--dur-base) var(--ease); }
+    .deck-card:hover .deck-plate { background: var(--surface-1); }
+    .deck-plate a { pointer-events: auto; position: relative; z-index: 2; }
+    .deck-header-info { min-width: 0; }
+
     .deck-name {
-        font-family: 'EB Garamond', serif;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--text-heading);
         margin: 0;
-        line-height: 1.2;
-        word-break: break-word;
+        color: var(--text-1);
+        font-family: var(--font-card);
+        font-size: var(--fs-md);
+        font-weight: var(--fw-semibold);
+        line-height: var(--lh-tight);
+        overflow-wrap: break-word;
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
     }
-    
-    .deck-status {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-top: 0.4rem;
-        white-space: nowrap;
+    .deck-name a { color: inherit; text-decoration: none; }
+    .deck-card:hover .deck-name, .deck-card:has(.deck-open:focus-visible) .deck-name { color: var(--signal-strong); }
+    .deck-commanders { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .deck-inv { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: var(--tile-inv); height: var(--tile-inv); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); text-decoration: none; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
+    .deck-inv:hover { color: var(--signal-strong); border-color: var(--signal-line); background: var(--signal-dim); }
+
+    @media (max-width: 900px) { .deck-grid { --tile-inv: 2rem; } }
+    /* Phone: two portrait tiles per row, smaller title; inventory lives in
+       the quick view. */
+    @media (max-width: 600px) {
+        .deck-grid { --tile-col-min: 8.5rem; --tile-ratio: 3 / 4; --tile-pad: var(--sp-2); }
+        .deck-name { font-size: var(--fs-sm); }
+        .deck-plate { grid-template-columns: minmax(0, 1fr); }
+        .deck-plate .deck-inv { display: none; }
+        .deck-companion { top: 40%; width: 36%; }
     }
-    
-    .status-physical { background: transparent; color: #4ade80; border: 1px solid #4ade80; border-radius: 4px; }
-    .status-digital { background: #1e3a8a; color: #dbeafe; border: 1px solid #1e40af; }
-    .status-retired { background: #7f1d1d; color: #fee2e2; border: 1px solid #991b1b; }
-    .status-testing { background: #713f12; color: #fef3c7; border: 1px solid #854d0e; }
-    
-    .deck-commanders {
-        font-size: 0.9rem;
-        color: var(--text-muted);
-        margin-top: 0.25rem;
-        margin-bottom: 0.5rem;
-        word-break: break-word;
+    @media (prefers-reduced-motion: reduce) {
+        .deck-card, .deck-art img, .deck-art::after, .deck-plate { transition: none !important; }
+        .deck-card:active { scale: none; }
+        .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
+        .deck-card:has(.deck-open:focus-visible) .deck-art img { transform: none; }
     }
-    
+
     .mana-pip { width: 16px; height: 16px; vertical-align: middle; margin-right: 2px; }
-    .deck-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border);
-    }
-    
-    .deck-actions a {
-        color: var(--accent);
-        text-decoration: none;
-        font-size: 0.875rem;
-        font-weight: 500;
-        position: relative;
-        z-index: 2;
-    }
-    
-    .deck-actions a:hover {
-        text-decoration: underline;
-    }
 
     /* Modal Styles */
     .modal-overlay {
@@ -290,12 +272,7 @@
         align-items: center;
         flex-wrap: wrap;
         gap: 0.4rem;
-        margin-top: 0.4rem;
         min-height: 22px; /* Preserves card height across clean/dirty states */
-    }
-
-    .deck-status-row .deck-status {
-        margin-top: 0;
     }
 
     /* Base Repository Status Badge */
@@ -462,8 +439,8 @@
 
 <!-- Deck Details Modal -->
 <div id="deckModal" class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <button class="modal-close" onclick="closeModal()">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalDeckName" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         <div id="modalImagesContainer" class="modal-images-container">
@@ -528,17 +505,40 @@
         renderDecks();
     }
     
-    // Partner / background decks get the stacked header (art row above the text).
-    // Count commanders by name: dual-source sync can leave two printing UIDs
-    // for one commander, so UIDs only decide the count when names are missing.
-    function commanderCount(deck) {
-        const names = (deck && deck.commanders) || [];
-        return names.length ? names.length : ((deck && deck.commander_uids) || []).length;
+    // Deck tile art (option C): one frame per deck, sized by role
+    // (commander_roles.py). Two main commanders split it on a diagonal (a
+    // Doctor's companion gets the smaller wedge); a true companion is a
+    // small framed inset. No circles, no overlap.
+    function deckArtClass(roles) {
+        const mains = (roles || []).filter(c => c.role !== 'companion');
+        let cls = 'deck-art';
+        if (mains.length > 1) cls += ' deck-art--split';
+        if (mains.some(c => c.role === 'doctors_companion')) cls += ' deck-art--doctors-companion';
+        return cls;
     }
 
-    function deckHeaderClass(deck) {
-        return commanderCount(deck) > 1 ? 'deck-header deck-header--multi' : 'deck-header';
+    function deckArtImg(c) {
+        if (c.uid) {
+            const s = HUD.scryfall(c.uid, 'art_crop');
+            return `<img src="${HUD.esc(s.src)}" data-fallback="${HUD.esc(s.fallback)}" alt="" loading="lazy" decoding="async">`;
+        }
+        if (c.name) {
+            return `<img src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(c.name)}&amp;format=image&amp;version=art_crop" alt="" loading="lazy" decoding="async">`;
+        }
+        return '';
     }
+
+    function deckArt(deck) {
+        const roles = HUD.commanderRoles(deck);
+        const mains = roles.filter(c => c.role !== 'companion').slice(0, 2);
+        const comp = roles.find(c => c.role === 'companion');
+        const imgs = mains.map(deckArtImg).join('') || '<span class="deck-art-none">No commander</span>';
+        return `<div class="${deckArtClass(roles)}" aria-hidden="true">${imgs}</div>` +
+            (comp ? `<div class="deck-companion" aria-hidden="true">${deckArtImg(comp)}</div>` : '');
+    }
+
+    // Same glyph as the sidebar's Inventory item.
+    const INV_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
 
     function createColorPips(colorString) {
         if (!colorString || colorString === 'C') {
@@ -748,8 +748,12 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
-    function openDeckModal(deckIndex) {
+    // Status changes and Sync re-render the tiles, so remember a stable deck
+    // key (not the DOM node) and resolve the current tile button on close.
+    let deckModalReturnKey = null;
+    function openDeckModal(deckIndex, trigger) {
         currentDeckIndex = deckIndex;
+        if (trigger) deckModalReturnKey = trigger.dataset.deckKey || null;
         const deck = allDecks[deckIndex];
         
         document.getElementById('modalDeckName').innerHTML = `<a href="/deck/${encodeURIComponent(deck.name)}" style="color: inherit; text-decoration: none;">${deck.name}</a>`;
@@ -837,13 +841,52 @@
         }
         
         document.getElementById('deckModal').style.display = 'flex';
+        // Move focus into the dialog; Tab is contained below until it closes.
+        document.querySelector('#deckModal .modal-close').focus();
     }
 
     function closeModal(event) {
         if (!event || event.target.classList.contains('modal-overlay') || !event.target.closest('.modal-content')) {
             document.getElementById('deckModal').style.display = 'none';
+            if (deckModalReturnKey !== null) {
+                const btn = Array.from(document.querySelectorAll('.deck-open'))
+                    .find(b => b.dataset.deckKey === deckModalReturnKey);
+                // Filtering may have removed the tile: fall back to the first deck link or main.
+                const target = btn || document.querySelector('.deck-name a') || document.querySelector('main');
+                if (target) {
+                    if (target.tagName === 'MAIN' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                    target.focus();
+                }
+                deckModalReturnKey = null;
+            }
         }
     }
+
+    function deckModalFocusables() {
+        return Array.from(document.querySelectorAll('#deckModal .modal-content a[href], #deckModal .modal-content button, #deckModal .modal-content input, #deckModal .modal-content select, #deckModal .modal-content textarea, #deckModal .modal-content [tabindex]:not([tabindex="-1"])'))
+            .filter(el => !el.disabled && el.offsetParent !== null);
+    }
+
+    document.addEventListener('keydown', (ev) => {
+        if (document.getElementById('deckModal').style.display !== 'flex') return;
+        if (ev.key === 'Escape') { closeModal(); return; }
+        if (ev.key !== 'Tab') return;
+        const els = deckModalFocusables();
+        if (!els.length) return;
+        const first = els[0], last = els[els.length - 1];
+        const inside = document.querySelector('#deckModal .modal-content').contains(document.activeElement);
+        if (ev.shiftKey && (document.activeElement === first || !inside)) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && (document.activeElement === last || !inside)) { ev.preventDefault(); first.focus(); }
+    });
+
+    // Repo badges sit above the stretched quick-view button (for their
+    // tooltip), so forward their clicks to it: quick view + focus return work.
+    document.addEventListener('click', (ev) => {
+        const badge = ev.target.closest && ev.target.closest('.deck-card .repo-badge');
+        if (!badge) return;
+        const open = badge.closest('.deck-card').querySelector('.deck-open');
+        if (open) { ev.preventDefault(); open.click(); }
+    });
 
     function openImportModal() {
         document.getElementById('importUrl').value = '';
@@ -1022,36 +1065,33 @@
                 if (!roles.length) return 'No commanders set';
                 const comps = roles.filter(c => c.role === 'companion').map(c => c.name);
                 const mains = roles.filter(c => c.role !== 'companion').map(c => c.name);
-                return HUD.esc(mains.join(' & ')) + (comps.length ? ` <span style="white-space: nowrap">· companion ${HUD.esc(comps.join(', '))}</span>` : '');
+                return HUD.esc(mains.join(' & ')) + (comps.length ? ` · companion ${HUD.esc(comps.join(', '))}` : '');
             };
             
             let gridHtml = decks.map(deck => {
-                const iconsHtml = HUD.commanders(HUD.commanderRoles(deck));
-                
                 const globalIndex = allDecks.indexOf(deck);
+                const href = encodeURIComponent(deck.name);
+                const tip = `${deck.name} · ${HUD.commanderRoles(deck).map(c => c.name).filter(Boolean).join(' & ') || 'No commanders set'}`;
                 
                 return `
-                <div class="deck-card" onclick="openDeckModal(${globalIndex})">
-                    <div class="${deckHeaderClass(deck)}">
-                        <div class="deck-header-art">
-                            ${iconsHtml}
+                <article class="deck-card hud-enter" style="--i: ${Math.min(decks.indexOf(deck), 15)}" title="${HUD.esc(tip)}">
+                    ${deckArt(deck)}
+                    <div class="deck-top">
+                        <div class="deck-status-row">
+                            ${HUD.statusChip(deck.status || 'digital', STATUS_LABELS[deck.status] || 'Virtual')}
+                            ${renderRepoBadge(deck)}
                         </div>
+                        ${HUD.pips(deck.color || '')}
+                    </div>
+                    <div class="deck-plate">
                         <div class="deck-header-info">
-                            <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
-                            <div class="deck-commanders">${cmdrsFormat(deck)}</div>
-                            <div class="deck-status-row">
-                                <span class="deck-status status-${deck.status || 'digital'}">${STATUS_LABELS[deck.status] || 'Virtual'}</span>
-                                ${renderRepoBadge(deck)}
-                            </div>
+                            <h3 class="deck-name"><a href="/deck/${href}">${HUD.esc(deck.name)}</a></h3>
+                            <p class="deck-commanders">${cmdrsFormat(deck)}</p>
                         </div>
+                        <a class="deck-inv" href="/inventory?deck=${href}" title="Inventory for ${HUD.esc(deck.name)}" aria-label="Inventory for ${HUD.esc(deck.name)}">${INV_ICON}</a>
                     </div>
-                    <div class="deck-footer">
-                        <div>${createColorPips(deck.color)}</div>
-                        <div class="deck-actions">
-                            <a href="/inventory?deck=${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()">View Inventory &rarr;</a>
-                        </div>
-                    </div>
-                </div>
+                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
+                </article>
             `}).join('');
             
             let headerHtml = '';
