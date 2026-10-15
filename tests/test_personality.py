@@ -403,6 +403,21 @@ class CopilotRegressions(unittest.TestCase):
         out = ps.score_deck_personality(deck, cards=cards)
         self.assertEqual(next(e for e in out.timmy.evidence if e.signal == "T2").value, "1/2")
 
+    def test_control_deck_with_complete_type_lines(self):
+        """Enriched rows (complete type line) must keep "Time Lord" as one subtype."""
+        d = load_real("5620189")
+        cards = {}
+        for n, row in d["cards"].items():
+            head = " ".join(list(row["super_types"] or []) + [row["type"] or ""])
+            subs = " ".join(row["sub_types"] or [])
+            cards[n] = dict(row, type_line=head + (" \u2014 " + subs if subs else ""))
+        self.assertIn("Time Lord", d["cards"]["The Tenth Doctor"]["sub_types"])
+        out = score_real("5620189", cards=cards)
+        self.assertEqual(scores(out), {"timmy": 51, "johnny": 31, "spike": 39, "vorthos": 76, "melvin": 79})
+        v3 = next(e for e in out.vorthos.evidence if e.signal == "V3")
+        self.assertEqual(v3.value, 7)
+        self.assertNotIn("time", " ".join(v3.fields).split(": ")[1].split(", "))
+
     def test_j3_uses_edhrec_rows_without_inventory(self):
         deck = {"name": "digital", "commanders": ["Cmd"], "cards": [{"name": f"C{i}", "quantity": 1}
                                                                      for i in range(10)]}

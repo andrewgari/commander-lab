@@ -204,7 +204,9 @@ class _Card:
             if not subs:
                 front, _, subs = tl.partition(" - ")
             self.front = front
-            self.subs = set(subs.split())
+            # Subtypes from the structured list when the row has one: splitting the
+            # line on spaces would break multi-word subtypes ("Time Lord").
+            self.subs = set(row.get("sub_types") or []) or set(subs.split())
         else:
             self.front = " ".join(list(row.get("super_types") or []) + [row.get("type") or ""])
             self.subs = set(row.get("sub_types") or [])
