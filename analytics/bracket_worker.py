@@ -252,15 +252,30 @@ def run_once(r, evaluator: Optional[Evaluator] = None) -> dict:
     return asyncio.run(run_once_async(r, evaluator))
 
 
-def _wait_for_wake(r, timeout: int) -> None:
+# Each BLPOP must return before the client's socket read timeout (redis-py
+# 8 defaults to 5s), or it raises "Timeout reading from socket". So the
+# wait is a series of short BLPOPs.
+WAIT_CHUNK_S = 3
+
+
+def _wait_for_wake(r, timeout: int, clock: Callable[[], float] = time.monotonic) -> bool:
     """Block until a wake-up arrives or `timeout` seconds pass, then drain
-    the rest of the wake list so a burst of saves costs one tick."""
-    try:
-        r.blpop(WAKE_KEY, timeout=max(1, timeout))
-        r.delete(WAKE_KEY)
-    except Exception as exc:  # noqa: BLE001 - Redis down: just sleep
-        log.warning("bracket worker wait failed: %s", exc)
-        time.sleep(min(timeout, 10))
+    the rest of the wake list so a burst of saves costs one tick. Returns
+    True when woken."""
+    deadline = clock() + max(1, timeout)
+    while True:
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return False
+        try:
+            got = r.blpop(WAKE_KEY, timeout=max(1, min(WAIT_CHUNK_S, int(remaining))))
+            if got:
+                r.delete(WAKE_KEY)
+                return True
+        except Exception as exc:  # noqa: BLE001 - Redis down: back off, next tick retries
+            log.warning("bracket worker wait failed: %s", exc)
+            time.sleep(min(max(remaining, 0), 10))
+            return False
 
 
 def run_forever(r, interval: int, evaluator: Optional[Evaluator] = None) -> None:

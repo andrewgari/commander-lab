@@ -243,6 +243,39 @@ class WorkerRuns(unittest.TestCase):
         self.assertIn("error", stats)
 
 
+class WaitForWake(unittest.TestCase):
+    """Found live: redis-py 8 has a 5s socket timeout, so one long BLPOP
+    raised 'Timeout reading from socket' and the worker ticked every ~15s."""
+
+    class Clock:
+        def __init__(self):
+            self.t = 0.0
+
+        def __call__(self):
+            return self.t
+
+    def test_waits_in_chunks_shorter_than_the_socket_timeout(self):
+        clock = self.Clock()
+        timeouts = []
+
+        class R(FakeRedis):
+            def blpop(self, key, timeout=0):
+                timeouts.append(timeout)
+                clock.t += timeout
+                return None
+
+        self.assertFalse(bw._wait_for_wake(R(), 300, clock=clock))
+        self.assertTrue(all(0 < t < 5 for t in timeouts), set(timeouts))
+        self.assertGreaterEqual(clock.t, 300)
+
+    def test_wakes_early_and_drains(self):
+        r = FakeRedis()
+        bw.wake(r, "archidekt:1")
+        bw.wake(r, "archidekt:2")
+        self.assertTrue(bw._wait_for_wake(r, 300, clock=self.Clock()))
+        self.assertFalse(r.lists.get(bw.WAKE_KEY))
+
+
 class DefaultEvaluator(unittest.TestCase):
     def test_stores_the_br4_model_dump(self):
         from analytics import bracket_eval as be
