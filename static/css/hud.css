@@ -2230,6 +2230,10 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-bracket { grid-template-columns: minmax(0, 1fr); padding: var(--sp-4); }
     .hud-bracket-est { flex-direction: column; gap: var(--sp-3); }
     .hud-bracket-list li { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    /* BR-7: stacked, the severity chip keeps its own width (it was stretched into a full-width bar). */
+    .hud-bracket-list li > .hud-bracket-sev { justify-self: start; }
+    /* BR-7: Optimized (9 mono chars) overflows its 2-track cell at 390 and ran into cEDH. */
+    .hud-scale-tiers span:last-child { text-align: right; }
     .hud-bracket-row-acts { margin-left: 0; }
     .hud-bracket-why > summary { flex-wrap: wrap; }
     /* The 4-column table becomes stacked rows: no sideways scroll at 390. */

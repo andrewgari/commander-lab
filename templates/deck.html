@@ -231,8 +231,10 @@
     const cardKey = (n) => String(n || '').split(' // ')[0].trim().toLowerCase();
     const flagOf = (card) => bracketFlags[cardKey(card.name)] || null;
     function flagWhy(f) {
+        // BR-7: "Two-card combo\u00a0· Over Bracket 1" so a wrap never starts a line with "·".
+        const cap = esc(f.caption).replace(/ · /g, '\u00a0· ');
         return '<span class="hud-bracket-flag-why"><span aria-hidden="true">' + (f.sev === 'hard' ? '■' : '▲') + '</span> ' +
-            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + esc(f.caption) + '</span>';
+            '<span class="hud-bracket-sr">' + (f.sev === 'hard' ? 'Hard rule: ' : 'Advisory: ') + '</span>' + cap + '</span>';
     }
     function flagChip(f) {
         return ' <span class="hud-chip ' + (f.sev === 'hard' ? 'hud-chip--danger' : 'hud-chip--signal') + '">' + (f.sev === 'hard' ? '■ ' : '▲ ') +

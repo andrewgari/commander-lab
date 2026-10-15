@@ -115,6 +115,12 @@ out.warn = { b1: B.belowFloor(1, S.b1.evaluation), b3: B.belowFloor(3, S.b1.eval
              noEval: B.belowFloor(1, null), gc4t3: B.belowFloor(3, S.gc4_t3.evaluation) };
 out.xss = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
   conflicts: [{ severity: 'hard', rule: 'game_changers', message: '<img src=x onerror=1>', cards: ['<b>x</b>'] }] }) }, 200, opts);
+// BR-7: a count-led combo message must not repeat its title.
+out.combo = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
+  conflicts: [{ severity: 'hard', rule: 'two_card_combos', message: '2 two-card combos (A + B; C + D); Bracket 1 (Exhibition) allows none.', cards: ['A', 'B'] }] }) }, 200, opts);
+out.units = B.explanation({ evaluation: Object.assign({}, S.b1.evaluation, { explanation: { summary: 's', signals: [
+  { signal: 'price', value: 599.1, effect: 'context only', source: 'Scryfall prices' },
+  { signal: 'edhrec_overlap', value: 35, effect: 'context only', source: 'EDHREC' }] } }) });
 process.stdout.write(JSON.stringify(out));
 """
 
@@ -286,6 +292,24 @@ process.stdout.write(JSON.stringify(out));
         self.assertNotIn("<b>x</b>", x)
         self.assertIn("&lt;img src=x", x)
 
+    # ---- BR-7 live-review fixes -------------------------------------------------------
+    def test_unset_target_reads_no_target_not_a_dash(self):
+        u = self.sc["unset"]["banner"]
+        self.assertIn("no target</span>", u)
+        self.assertNotIn("target <b>\u2014</b>", u)
+        self.assertIn("no bracket rules are checked", u)  # power is still compared, so not "nothing"
+
+    def test_count_led_message_bolds_once(self):
+        c = self.out["combo"]
+        self.assertIn("<b>2 two-card combos</b> (A + B; C + D)", c)
+        self.assertNotIn("Two-card combos.</b>", c)
+
+    def test_tray_does_not_repeat_the_reason_and_shows_units(self):
+        ev = self.S["b1"]["evaluation"]
+        self.assertNotIn(ev["estimated_bracket_reason"].replace("'", "&#39;"), self.sc["b1"]["why"])
+        self.assertIn(">$599.10<", self.out["units"])
+        self.assertIn(">35%<", self.out["units"])
+
     # ---- Journal helpers -------------------------------------------------------------
     def test_plain_language_copy_for_each_bracket(self):
         names = [c["name"] for c in self.out["copy"]]
@@ -419,6 +443,15 @@ class TestJournalBracketPicker(_JournalPage, unittest.TestCase):
     def test_bracket_checkin_row_now_has_an_inline_change(self):
         rows = self.body.split("var ROWS = {", 1)[1].split("};", 1)[0]
         self.assertIn("bracket:", rows)
+
+    def test_anchor_nav_and_deep_links_reach_display_contents_sections(self):
+        # BR-7: .hud-form-section is display:contents, so neither #j-power nor
+        # an IntersectionObserver on the section works; both go via its header.
+        self.assertIn(".hud-form-section { display: contents; }", HUD_CSS.read_text())
+        self.assertIn("function goToSection(", self.body)
+        self.assertIn('querySelectorAll(".hud-form-section > header").forEach(function (h) { io.observe(h); })', self.body)
+        self.assertIn("goToSection(location.hash, false)", self.body)
+        self.assertIn("marked <span class=\"hud-bracket-estkey\"", self.body)
 
     def test_shared_section_shows_only_the_opened_rows_field(self):
         # Copilot on PR #104: Power and Bracket rows both open j-power, but
