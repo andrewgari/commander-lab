@@ -350,32 +350,32 @@
     function rowAttrs(d) {
         return ' data-id="' + esc(d.id) + '" data-lean="' + esc(d.leans_toward) + '" data-journal="' + (d.journal_used ? 1 : 0) + '" data-groups="' + esc((d.groups || []).join(" ")) + '"';
     }
+    function failedRow(f) {
+        return '<tr class="is-failed" data-id="' + esc(f.id) + '" data-lean="failed"><td data-value="' + esc(f.name || f.id) + '"><span class="hud-ps-deckcell"><span class="hud-ps-thumb" aria-hidden="true">!</span><span>' +
+            (f.name ? '<a href="' + esc(deckHref(f.name)) + '">' + esc(f.name) + "</a>" : esc(f.id)) + "<small>" + esc(f.reason || "Scoring failed") + "</small></span></span></td>" +
+            '<td colspan="5">Not scored · ' + rescoreBtn(f) + "</td><td>" + chip("Couldn't score", "danger") + "</td></tr>";
+    }
+    function rescoreBtn(f) { return '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-ps-rescore="' + esc(f.id) + '">Retry</button>'; }
     function tableRows(p) {
-        var rows = (p.decks || []).map(function (d) {
+        return (p.decks || []).map(function (d) {
             var meta = [(d.commanders || []).join(" + ")].concat(deckFlags(d)).filter(Boolean).join(" · ");
             return "<tr" + rowAttrs(d) + '><td data-value="' + esc(d.name) + '"><span class="hud-ps-deckcell">' + thumb(d) +
                 '<span><a href="' + esc(deckHref(d.name)) + '" title="' + esc(d.name) + '">' + esc(d.name) + "</a><small>" + esc(meta) + "</small></span></span></td>" +
                 AX.map(function (a) { return '<td class="hud-ps-h' + (d.leans_toward === a ? " is-lean" : "") + '" data-level="' + level(d.scores[a]) + '" data-value="' + d.scores[a] + '"><span>' + d.scores[a] + "</span></td>"; }).join("") +
                 '<td data-value="' + esc(d.leans_toward) + '">' + leanChip(d) + "</td></tr>";
-        });
-        (p.failed || []).forEach(function (f) {
-            rows.push('<tr class="is-failed" data-id="' + esc(f.id) + '" data-lean="failed"><td data-value="' + esc(f.name || f.id) + '"><span class="hud-ps-deckcell"><span class="hud-ps-thumb" aria-hidden="true">!</span><span>' +
-                (f.name ? '<a href="' + esc(deckHref(f.name)) + '">' + esc(f.name) + "</a>" : esc(f.id)) + "<small>" + esc(f.reason || "Scoring failed") + "</small></span></span></td>" +
-                '<td colspan="5">Not scored · <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-ps-rescore="' + esc(f.id) + '">Retry</button></td><td>' + chip("Couldn't score", "danger") + "</td></tr>");
-        });
-        return rows.join("");
+        }).join("");
+    }
+    function failedCard(f) {
+        return '<li class="hud-ps-card is-failed" data-id="' + esc(f.id) + '" data-lean="failed"><span class="hud-ps-deckcell"><span>' + (f.name ? '<a href="' + esc(deckHref(f.name)) + '">' + esc(f.name) + "</a>" : esc(f.id)) +
+            "<small>" + esc(f.reason || "Scoring failed") + "</small></span></span>" + chip("Couldn't score", "danger") +
+            '<span class="hud-ps-card-retry">' + rescoreBtn(f) + "</span></li>";
     }
     function cardRows(p) {
-        var out = (p.decks || []).map(function (d) {
+        return (p.decks || []).map(function (d) {
             var meta = [(d.commanders || []).join(" + ")].concat(deckFlags(d)).filter(Boolean).join(" · ");
             return '<li class="hud-ps-card"' + rowAttrs(d) + '><span class="hud-ps-deckcell"><span><a href="' + esc(deckHref(d.name)) + '">' + esc(d.name) + "</a><small>" + esc(meta) + "</small></span></span>" + leanChip(d) +
                 '<span class="hud-ps-card-scores">' + AX.map(function (a) { return '<span class="hud-ps-h' + (d.leans_toward === a ? " is-lean" : "") + '" data-level="' + level(d.scores[a]) + '"><span>' + d.scores[a] + "<small>" + AXIS[a].mono + "</small></span></span>"; }).join("") + "</span></li>";
-        });
-        (p.failed || []).forEach(function (f) {
-            out.push('<li class="hud-ps-card" data-id="' + esc(f.id) + '" data-lean="failed"><span class="hud-ps-deckcell"><span>' + (f.name ? '<a href="' + esc(deckHref(f.name)) + '">' + esc(f.name) + "</a>" : esc(f.id)) +
-                "<small>" + esc(f.reason || "Scoring failed") + "</small></span></span>" + chip("Couldn't score", "danger") + "</li>");
-        });
-        return out.join("");
+        }).join("");
     }
     function filterOpts(p) {
         var o = [["all", "All", "All decks (0)"]].concat(AX.map(function (a) { return [a, AXIS[a].mono, "Leans " + AXIS[a].name + " (" + AXIS[a].key.toUpperCase() + ")"]; }))
@@ -395,9 +395,19 @@
         var head = '<th scope="col" data-sort="text" aria-sort="ascending"><button type="button" class="hud-sort">Deck</button></th>' +
             AX.map(function (a) { return '<th scope="col" class="hud-ps-h" data-sort="num" aria-sort="none" data-axis-col="' + a + '"><button type="button" class="hud-sort" title="' + AXIS[a].name + '">' + AXIS[a].mono + '<span class="hud-ps-sr"> ' + AXIS[a].name + "</span></button></th>"; }).join("") +
             '<th scope="col" data-sort="text" aria-sort="none"><button type="button" class="hud-sort">Leans</button></th>';
+        // Failed decks sit in their own tbody / list: HUD.sortTable only sorts tBodies[0], so
+        // they stay last under every header or callout sort (Copilot, PR #106).
+        var fails = p.failed || [];
         return '<div class="hud-ps-filters">' + seg + '<input type="search" id="psFind" placeholder="Filter decks  /" aria-label="Filter decks by name or commander"><span class="hud-ps-count" id="psCount" aria-live="polite">' + n + " " + plural(n, "deck") + "</span></div>" +
-            '<div class="hud-table-wrap hud-ps-table-wrap"><table class="hud-table hud-ps-table" data-hud-sortable id="psTable"><thead><tr>' + head + "</tr></thead><tbody>" + tableRows(p) + "</tbody></table></div>" +
-            '<ul class="hud-ps-cards" id="psCards">' + cardRows(p) + "</ul>";
+            '<div class="hud-table-wrap hud-ps-table-wrap"><table class="hud-table hud-ps-table" data-hud-sortable id="psTable"><thead><tr>' + head + "</tr></thead><tbody>" + tableRows(p) + "</tbody>" +
+            (fails.length ? '<tbody class="hud-ps-failed">' + fails.map(failedRow).join("") + "</tbody>" : "") + "</table></div>" +
+            '<ul class="hud-ps-cards" id="psCards">' + cardRows(p) + fails.map(failedCard).join("") + "</ul>";
+    }
+    function failedList(p) {
+        var fails = p.failed || [];
+        if (!fails.length) return "";
+        return '<div class="hud-table-wrap hud-ps-table-wrap"><table class="hud-table hud-ps-table" id="psTable"><tbody class="hud-ps-failed">' + fails.map(failedRow).join("") + "</tbody></table></div>" +
+            '<ul class="hud-ps-cards" id="psCards">' + fails.map(failedCard).join("") + "</ul>";
     }
     function spread(p) {
         var rows = AX.map(function (a) {
@@ -464,7 +474,8 @@
                 "Your profile is the average of your decks' ability scores. Scores are worked out in the background after a sync." + failedNote,
                 '<a class="hud-btn hud-btn--primary hud-btn--sm" href="/decks">Sync decks</a><button type="button" class="hud-btn hud-btn--sm" data-ps-what aria-expanded="false" aria-controls="psWhat">What are these?</button>') +
                 '<p class="hud-ps-thesis-sub" id="psWhat" hidden>' + esc(WHAT) + "</p>" +
-                (p.scope !== "all" && (p.scope_counts || {}).all ? '<p class="hud-ps-thesis-sub"><a href="/profile?scope=all">Include testing and digital decks →</a></p>' : "") + "</div>";
+                (p.scope !== "all" && (p.scope_counts || {}).all ? '<p class="hud-ps-thesis-sub"><a href="/profile?scope=all">Include testing and digital decks →</a></p>' : "") + "</div>" +
+                ((p.failed || []).length ? sec("psSecDecks", "03", "Decks that failed to score", failedList(p)) : "");
         }
         var html = profHead(p);
         var avg = sec("psSecAvg", "01", "Your average", tiles(avgModel(p), null, { static: true }) +
@@ -495,10 +506,23 @@
             count.textContent = shown + " " + plural(shown, "deck");
         }
         function setLean(v) { var el = root.querySelector("#psLean-" + v); if (el) { el.checked = true; apply(); } }
+        // Phone card list mirrors the table order after every sort (header click or callout),
+        // so a sort done on desktop still holds after a resize (Copilot, PR #106).
+        function syncCards() {
+            var list = root.querySelector("#psCards"), table = root.querySelector("#psTable");
+            if (!list || !table || !table.tBodies[0]) return;
+            var byId = {};
+            Array.prototype.forEach.call(list.children, function (li) { byId[li.getAttribute("data-id")] = li; });
+            Array.prototype.forEach.call(table.tBodies[0].rows, function (tr) { var li = byId[tr.getAttribute("data-id")]; if (li) list.appendChild(li); });
+            list.querySelectorAll("li.is-failed").forEach(function (li) { list.appendChild(li); });
+        }
         if (find) {
             root.querySelectorAll("input[name=psLean]").forEach(function (i) { i.addEventListener("change", apply); });
             find.addEventListener("input", apply);
             if (H) H.initSortable(root);
+            var tbl = root.querySelector("#psTable");
+            // After HUD's own (earlier-registered) sort handler on the table has run.
+            if (tbl) tbl.addEventListener("click", function (ev) { if (ev.target.closest(".hud-sort")) syncCards(); });
         }
         root.querySelectorAll("input[name=psScope]").forEach(function (i) {
             i.addEventListener("change", function () { if (opts.onScope) opts.onScope(i.value); });
@@ -528,7 +552,7 @@
                 if (t === "sort") {
                     setLean("all");
                     var th = root.querySelector("th[data-axis-col='" + v + "']");
-                    if (th && H) { th.setAttribute("aria-sort", "none"); H.sortTable(root.querySelector("#psTable"), th); }
+                    if (th && H) { th.setAttribute("aria-sort", "none"); H.sortTable(root.querySelector("#psTable"), th); syncCards(); }
                 }
                 scrollToDecks();
             });
@@ -565,7 +589,7 @@
             if (a) setLean(a); else if (ev.key.toLowerCase() === "b") setLean("balanced"); else if (ev.key === "0") setLean("all");
         }
         document.addEventListener("keydown", onKey);
-        return { setLean: setLean, apply: apply };
+        return { setLean: setLean, apply: apply, syncCards: syncCards };
     }
 
     window.PSUI = {

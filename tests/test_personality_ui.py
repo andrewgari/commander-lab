@@ -109,6 +109,16 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("window.PSUI", res.text)
 
+    def test_profile_page_guards(self):
+        # Copilot #106: a late response for an old scope never renders; a failed rescore POST stays retryable.
+        html = self.client.get("/profile").text
+        self.assertIn("const seq = ++psSeq;", html)
+        self.assertIn("if (seq !== psSeq) return;", html)
+        self.assertIn("b.disabled = ok;", html)
+        js = PS_JS.read_text()
+        self.assertIn("H.sortTable(root.querySelector(\"#psTable\"), th); syncCards();", js)
+        self.assertIn('if (ev.target.closest(".hud-sort")) syncCards();', js)
+
 
 class TestStylesheet(unittest.TestCase):
     @classmethod
@@ -213,6 +223,8 @@ class TestPersonalityJs(unittest.TestCase):
         empty = _profile_variant(decks_scored=0, low_data=True, decks_to_unlock_trends=3, average=None, dominant=None,
                                  headline_kind="none", headline="No decks scored yet.", trends=[], decks=[], journal_count=0)
         partial = _profile_variant(failed=[{"id": "archidekt:1", "name": "Knights <b>&", "reason": "No commander on the decklist", "status": "physical"}])
+        only_failed = copy.deepcopy(empty)
+        only_failed["failed"] = [{"id": "archidekt:1", "name": "Knights", "reason": "No commander on the decklist", "status": "physical"}]
         cases = {
             "doctor": {"fn": "deck", "p": DOCTOR["personality"], "ref": PROFILE["average"], "computed_at": DOCTOR["computed_at"]},
             "kaalia": {"fn": "deck", "p": KAALIA["personality"], "computed_at": KAALIA["computed_at"], "stale": True},
@@ -230,6 +242,7 @@ class TestPersonalityJs(unittest.TestCase):
             "p_low": {"fn": "profile", "state": "ok", "p": low},
             "p_empty": {"fn": "profile", "state": "ok", "p": empty},
             "p_partial": {"fn": "profile", "state": "ok", "p": partial},
+            "p_only_failed": {"fn": "profile", "state": "ok", "p": only_failed},
             "p_error": {"fn": "profile", "state": "error", "p": None, "info": {"status_line": "GET /api/profile/personality returned 503."}},
             "p_loading": {"fn": "profile", "state": "loading", "p": None},
             "misc": {"fn": "misc",
@@ -433,6 +446,25 @@ class TestPersonalityJs(unittest.TestCase):
         self.assertGreater(h.index('class="is-failed"'), h.index('data-id="archidekt:5620189"'))
         self.assertEqual(re.findall(r'class="hud-ps-num">(\d+)<', h)[:5], ["43", "45", "48", "35", "38"])
         self.assertIn("40 decks", h)
+        # Copilot #106: failed rows live in their own tbody, outside the sortable first tbody.
+        table = h.split('id="psTable"', 1)[1].split("</table>", 1)[0]
+        bodies = re.findall(r"<tbody[^>]*>(.*?)</tbody>", table, re.S)
+        self.assertEqual(len(bodies), 2)
+        self.assertNotIn("is-failed", bodies[0])
+        self.assertIn('<tbody class="hud-ps-failed">', table)
+        # Copilot #106: the phone card list has the same Retry.
+        cards = h.split('id="psCards"', 1)[1].split("</ul>", 1)[0]
+        card = cards.split('class="hud-ps-card is-failed"', 1)[1].split("</li>", 1)[0]
+        self.assertIn('data-ps-rescore="archidekt:1"', card)
+
+    def test_profile_only_failed_decks_lists_them(self):
+        # Copilot #106: 0 scored + N failed still shows each failure with its reason and Retry.
+        h = self.out["p_only_failed"]
+        self.assertIn("No decks scored yet", h)
+        self.assertIn("1 deck failed to score.", h)
+        self.assertIn("Decks that failed to score", h)
+        self.assertIn("No commander on the decklist", h)
+        self.assertEqual(h.count('data-ps-rescore="archidekt:1"'), 2)  # table + phone list
 
     def test_profile_error_and_loading(self):
         e = self.out["p_error"]

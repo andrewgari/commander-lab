@@ -2449,6 +2449,7 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-table td:last-child, .hud-ps-table th:last-child { width: 8.5rem; min-width: 8.5rem; white-space: nowrap; }
 .hud-ps-table tr.is-hot td { background: var(--surface-2); }
 .hud-ps-table tr.is-failed td { color: var(--text-3); }
+.hud-ps-failed tr:first-child td { border-top: var(--stroke-strong); }
 .hud-ps-deckcell { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .hud-ps-deckcell > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hud-ps-deckcell a { color: var(--text-1); font-weight: var(--fw-medium); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
@@ -2507,6 +2508,7 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-ps-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-3); background: var(--surface-1); }
     .hud-ps-card[hidden] { display: none; }
     .hud-ps-card .hud-ps-deckcell small { white-space: normal; }
+    .hud-ps-card-retry { grid-column: 1 / -1; }
     .hud-ps-card-scores { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--hairline); }
     .hud-ps-card-scores > span > span { height: 2.25rem; display: grid; place-items: center; line-height: 1.1; }
     .hud-ps-card-scores small { display: block; color: inherit; opacity: 0.75; font-size: var(--fs-micro); line-height: 1; }

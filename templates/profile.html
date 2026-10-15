@@ -18,6 +18,7 @@
 <script src="/static/js/personality.js?v={{ version }}" defer></script>
 <script>
     let psScope = {{ scope | tojson }};
+    let psSeq = 0;  // only the newest request may render (a late All must not overwrite Physical)
     function psFresh(p) {
         const times = (p.decks || []).map(d => d.computed_at).filter(Boolean).sort();
         const last = times[times.length - 1];
@@ -25,6 +26,7 @@
     }
     async function psLoad() {
         const root = document.getElementById('psProf');
+        const seq = ++psSeq;
         const url = '/api/profile/personality?scope=' + encodeURIComponent(psScope);
         if (!root.innerHTML.trim()) root.innerHTML = PSUI.profileHtml('loading');
         let res, data;
@@ -34,6 +36,7 @@
         } catch (e) {
             res = null; data = { error: e.message || 'network error' };
         }
+        if (seq !== psSeq) return;
         if (!res || !res.ok || !data.profile) {
             const line = res ? 'GET ' + url + ' returned ' + res.status + (data.error ? ' (' + data.error + ')' : '') + '.'
                 : 'GET ' + url + ' failed: ' + data.error + '.';
@@ -54,10 +57,16 @@
             },
             onRescore: async (id, btn) => {
                 btn.disabled = true;
+                let ok = false;
                 try {
                     const r = await fetch('/api/decks/' + encodeURIComponent(id) + '/personality', { method: 'POST' });
-                    btn.textContent = r.ok ? 'Queued' : 'Retry failed';
-                } catch (e) { btn.textContent = 'Retry failed'; btn.disabled = false; }
+                    ok = r.ok;
+                } catch (e) { ok = false; }
+                // Same id in the table and the phone list: update both.
+                document.querySelectorAll('[data-ps-rescore="' + CSS.escape(id) + '"]').forEach(b => {
+                    b.textContent = ok ? 'Queued' : 'Retry failed · try again';
+                    b.disabled = ok;  // a failed POST (network or non-2xx) stays retryable
+                });
             }
         });
     }
