@@ -45,6 +45,10 @@ from user_intent import (
     parse_user_intent,
 )
 
+# Estimated vs target power (1-10) further apart than this = not aligned.
+# Shared by power_aligned below, the journal check-in and the bracket evaluator.
+POWER_ALIGN_TOLERANCE = 1.5
+
 # =============================================================================
 # Domain Models for Analysis Engine
 # =============================================================================
@@ -1654,7 +1658,7 @@ class DeckAnalysisEngine:
 
         # 1. Power level alignment
         target_scale = intent.target_power_level.scale
-        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= 1.5
+        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= POWER_ALIGN_TOLERANCE
         if power_aligned:
             details.append(f"Power level {playfeel.power_level_estimate} matches target {target_scale}.")
         else:

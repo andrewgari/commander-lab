@@ -343,6 +343,13 @@ def sync_inventory():
     r.set(registry.DECKS_KEY, json.dumps(registry.merge_full_sync(existing_decks, deck_names)))
     changed = registry.apply_folder_rules(r)
     print(f"Physical-folder rule: {len(changed)} deck status change(s).")
+    # BR-5: nudge the bracket worker (separate process) to re-check decklists
+    # now. Best effort: the worker finds changed decks by input hash anyway.
+    try:
+        from analytics import bracket_worker
+        bracket_worker.wake(r)
+    except Exception as exc:  # noqa: BLE001 - must never fail the sync
+        print(f"Bracket worker wake skipped: {exc}")
         
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 
