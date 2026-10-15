@@ -1087,7 +1087,7 @@
         }
     }
     
-    // Auto load on start
-    loadDecks();
+    // Auto load once deferred hud.js has run (renderDecks uses HUD).
+    document.addEventListener('DOMContentLoaded', loadDecks);
 </script>
 {% endblock %}

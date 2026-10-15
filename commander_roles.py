@@ -45,7 +45,15 @@ def card_flags(card):
     types, _, subs = front.partition("\u2014")
     subtypes = subs.split()
     legendary_creature = "Legendary" in types and "Creature" in types
-    commands = bool(front) and not legendary_creature and "Background" not in subtypes
+    # A partial type line (primary type only) can't prove "not a creature"
+    # (an artifact creature reads "Artifact"): only types that survive the
+    # truncation and imply non-creature commanding count (Planeswalker,
+    # Vehicle / Spacecraft); the rest is unknown, leaving the oracle text.
+    if card.get("type_partial"):
+        commands = bool(front) and not legendary_creature and (
+            "Planeswalker" in types.split() or bool({"Vehicle", "Spacecraft"} & set(subtypes)))
+    else:
+        commands = bool(front) and not legendary_creature and "Background" not in subtypes
     label = None
     if commands or "can be your commander" in low:
         label = next((s for s in subtypes if s in ("Vehicle", "Spacecraft")), None) or next(
@@ -86,11 +94,14 @@ def assign_roles(cards):
 
 
 def _meta_card(meta):
-    """card_meta:* record -> {type_line, oracle_text, keywords}."""
+    """card_meta:* / card:{oracle_id} record -> {type_line, oracle_text,
+    keywords, type_partial}. sync keeps only the primary card type
+    (`card_types[0]`), so the rebuilt type line may miss secondary types
+    (an artifact creature reads "Artifact"): flagged partial."""
     head = " ".join(list(meta.get("super_types") or []) + [meta.get("type") or ""]).strip()
     subs = " ".join(meta.get("sub_types") or [])
     return {"type_line": head + (" \u2014 " + subs if subs else ""), "oracle_text": meta.get("oracle_text") or "",
-            "keywords": meta.get("keywords") or []}
+            "keywords": meta.get("keywords") or [], "type_partial": True}
 
 
 def _loads(raw):
@@ -101,32 +112,38 @@ def _loads(raw):
 
 
 def load_cards(r, names):
-    """{name: card} from what sync already stored: card_meta:{name}, then the
-    oracle-keyed card_meta, then the interaction tagger's Scryfall copy
-    (card_interactions:{name}.card, which has no keywords). Unknown -> absent."""
+    """{name: card} from what sync already stored. Metadata: card_meta:{name},
+    then the canonical card:{oracle_id} (legacy card_meta:{oracle_id} too).
+    The interaction tagger's Scryfall copy (card_interactions:{name}.card) has
+    the complete type line but no keywords, so its type line wins and the
+    metadata fills keywords / text. Unknown -> absent."""
     names = sorted({n for n in names if n})
     if not names:
         return {}
     mget = r.mget if hasattr(r, "mget") else (lambda ks: [r.get(k) for k in ks])
-    out = {}
+    metas = {}
     for n, raw in zip(names, mget([f"card_meta:{n}" for n in names])):
         meta = _loads(raw)
         if meta:
-            out[n] = _meta_card(meta)
-    rest = [n for n in names if n not in out]
+            metas[n] = _meta_card(meta)
+    rest = [n for n in names if n not in metas]
     if rest:
         oids = mget([f"idx:card_name_to_oracle:{n}" for n in rest])
-        for n, raw in zip(rest, mget([f"card_meta:{o}" if o else "card_meta:" for o in oids])):
-            meta = _loads(raw)
+        keys = [k for o in oids for k in ((f"card:{o}", f"card_meta:{o}") if o else ("card:", "card_meta:"))]
+        raws = mget(keys)
+        for j, n in enumerate(rest):
+            meta = _loads(raws[2 * j]) or _loads(raws[2 * j + 1])
             if meta:
-                out[n] = _meta_card(meta)
-    rest = [n for n in names if n not in out]
-    if rest:
-        for n, raw in zip(rest, mget([f"card_interactions:{n}" for n in rest])):
-            card = (_loads(raw) or {}).get("card")
-            if card:
-                out[n] = {"type_line": card.get("type_line") or "", "oracle_text": card.get("oracle_text") or "",
-                          "keywords": card.get("keywords") or []}
+                metas[n] = _meta_card(meta)
+    out = dict(metas)
+    for n, raw in zip(names, mget([f"card_interactions:{n}" for n in names])):
+        card = (_loads(raw) or {}).get("card")
+        if not card or not card.get("type_line"):
+            continue
+        meta = metas.get(n) or {}
+        out[n] = {"type_line": card["type_line"],
+                  "oracle_text": card.get("oracle_text") or meta.get("oracle_text") or "",
+                  "keywords": card.get("keywords") or meta.get("keywords") or []}
     return out
 
 
