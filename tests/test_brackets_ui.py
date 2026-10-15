@@ -118,6 +118,11 @@ out.xss = B.banner({ success: true, status: 'ok', stale: false, evaluation: Obje
 // BR-7: a count-led combo message must not repeat its title.
 out.combo = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
   conflicts: [{ severity: 'hard', rule: 'two_card_combos', message: '2 two-card combos (A + B; C + D); Bracket 1 (Exhibition) allows none.', cards: ['A', 'B'] }] }) }, 200, opts);
+// Singular counts (Copilot on #109): bracket_eval._plural(1, ...) drops the "s".
+out.combo1 = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
+  conflicts: [{ severity: 'hard', rule: 'two_card_combos', message: '1 two-card combo (A + B); Bracket 1 (Exhibition) allows none.', cards: ['A', 'B'] }] }) }, 200, opts);
+out.early1 = B.banner({ success: true, status: 'ok', stale: false, evaluation: Object.assign({}, S.b1.evaluation, {
+  conflicts: [{ severity: 'hard', rule: 'two_card_combos', message: '1 early two-card combo (Spellbook Ruthless/Banned: A + B); Bracket 3 (Upgraded) only allows late-game two-card combos.', cards: ['A', 'B'] }] }) }, 200, opts);
 out.units = B.explanation({ evaluation: Object.assign({}, S.b1.evaluation, { explanation: { summary: 's', signals: [
   { signal: 'price', value: 599.1, effect: 'context only', source: 'Scryfall prices' },
   { signal: 'edhrec_overlap', value: 35, effect: 'context only', source: 'EDHREC' }] } }) });
@@ -303,6 +308,10 @@ process.stdout.write(JSON.stringify(out));
         c = self.out["combo"]
         self.assertIn("<b>2 two-card combos</b> (A + B; C + D)", c)
         self.assertNotIn("Two-card combos.</b>", c)
+        self.assertIn("<b>1 two-card combo</b> (A + B)", self.out["combo1"])
+        self.assertNotIn("combos.</b>", self.out["combo1"])
+        self.assertIn("<b>1 early two-card combo</b> (Spellbook", self.out["early1"])
+        self.assertNotIn("combos.</b>", self.out["early1"])
 
     def test_tray_does_not_repeat_the_reason_and_shows_units(self):
         ev = self.S["b1"]["evaluation"]
@@ -452,6 +461,12 @@ class TestJournalBracketPicker(_JournalPage, unittest.TestCase):
         self.assertIn('querySelectorAll(".hud-form-section > header").forEach(function (h) { io.observe(h); })', self.body)
         self.assertIn("goToSection(location.hash, false)", self.body)
         self.assertIn("marked <span class=\"hud-bracket-estkey\"", self.body)
+        # Copilot on #109: focus moves to the section; modified clicks stay native.
+        go = self.body.split("function goToSection(", 1)[1].split("anchors.forEach", 1)[0]
+        self.assertIn('head.setAttribute("tabindex", "-1")', go)
+        self.assertIn("head.focus({ preventScroll: true })", go)
+        self.assertIn("e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;", self.body)
+        self.assertIn(".hud-form-section > header:focus-visible", self.html)
 
     def test_shared_section_shows_only_the_opened_rows_field(self):
         # Copilot on PR #104: Power and Bracket rows both open j-power, but
