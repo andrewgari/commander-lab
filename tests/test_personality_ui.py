@@ -411,6 +411,10 @@ class TestPersonalityJs(unittest.TestCase):
         doc = h.split('data-id="archidekt:5620189"', 1)[1].split("</tr>", 1)[0]
         self.assertIn('class="hud-ps-h is-lean" data-level="4" data-value="79"', doc)
         self.assertIn("Melvin · V", doc)
+        # PS-5: the runner-up cell is marked (neutral dashed ring) so cells agree with the chip.
+        self.assertIn('class="hud-ps-h is-runner" data-level="4" data-value="76"', doc)
+        self.assertEqual(h.count('<td class="hud-ps-h is-runner"'), 5)  # 5 physical decks have a runner_up
+        self.assertIn('title="All decks · key 0"', h)
         # Filters: lean seg + group options present because some decks are tribal.
         for v in ("all", "timmy", "balanced", "no_journal", "tribal"):
             self.assertIn(f'id="psLean-{v}"', h)

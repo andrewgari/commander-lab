@@ -355,13 +355,16 @@
             (f.name ? '<a href="' + esc(deckHref(f.name)) + '">' + esc(f.name) + "</a>" : esc(f.id)) + "<small>" + esc(f.reason || "Scoring failed") + "</small></span></span></td>" +
             '<td colspan="5">Not scored · ' + rescoreBtn(f) + "</td><td>" + chip("Couldn't score", "danger") + "</td></tr>";
     }
+    // Heat cell state: the lean is ringed in signal; a close runner-up gets a neutral dashed
+    // ring so the cells agree with the "Melvin · V" chip (signal stays on the lean only).
+    function heatCls(d, a) { return d.leans_toward === a ? " is-lean" : d.runner_up === a ? " is-runner" : ""; }
     function rescoreBtn(f) { return '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-ps-rescore="' + esc(f.id) + '">Retry</button>'; }
     function tableRows(p) {
         return (p.decks || []).map(function (d) {
             var meta = [(d.commanders || []).join(" + ")].concat(deckFlags(d)).filter(Boolean).join(" · ");
             return "<tr" + rowAttrs(d) + '><td data-value="' + esc(d.name) + '"><span class="hud-ps-deckcell">' + thumb(d) +
                 '<span><a href="' + esc(deckHref(d.name)) + '" title="' + esc(d.name) + '">' + esc(d.name) + "</a><small>" + esc(meta) + "</small></span></span></td>" +
-                AX.map(function (a) { return '<td class="hud-ps-h' + (d.leans_toward === a ? " is-lean" : "") + '" data-level="' + level(d.scores[a]) + '" data-value="' + d.scores[a] + '"><span>' + d.scores[a] + "</span></td>"; }).join("") +
+                AX.map(function (a) { return '<td class="hud-ps-h' + heatCls(d, a) + '" data-level="' + level(d.scores[a]) + '" data-value="' + d.scores[a] + '"><span>' + d.scores[a] + "</span></td>"; }).join("") +
                 '<td data-value="' + esc(d.leans_toward) + '">' + leanChip(d) + "</td></tr>";
         }).join("");
     }
@@ -374,12 +377,12 @@
         return (p.decks || []).map(function (d) {
             var meta = [(d.commanders || []).join(" + ")].concat(deckFlags(d)).filter(Boolean).join(" · ");
             return '<li class="hud-ps-card"' + rowAttrs(d) + '><span class="hud-ps-deckcell"><span><a href="' + esc(deckHref(d.name)) + '">' + esc(d.name) + "</a><small>" + esc(meta) + "</small></span></span>" + leanChip(d) +
-                '<span class="hud-ps-card-scores">' + AX.map(function (a) { return '<span class="hud-ps-h' + (d.leans_toward === a ? " is-lean" : "") + '" data-level="' + level(d.scores[a]) + '"><span>' + d.scores[a] + "<small>" + AXIS[a].mono + "</small></span></span>"; }).join("") + "</span></li>";
+                '<span class="hud-ps-card-scores">' + AX.map(function (a) { return '<span class="hud-ps-h' + heatCls(d, a) + '" data-level="' + level(d.scores[a]) + '"><span>' + d.scores[a] + "<small>" + AXIS[a].mono + "</small></span></span>"; }).join("") + "</span></li>";
         }).join("");
     }
     function filterOpts(p) {
-        var o = [["all", "All", "All decks (0)"]].concat(AX.map(function (a) { return [a, AXIS[a].mono, "Leans " + AXIS[a].name + " (" + AXIS[a].key.toUpperCase() + ")"]; }))
-            .concat([["balanced", "Bal", "Balanced (B)"], ["no_journal", "No journal", "Cards-only decks"]]);
+        var o = [["all", "All", "All decks · key 0"]].concat(AX.map(function (a) { return [a, AXIS[a].mono, "Leans " + AXIS[a].name + " · key " + AXIS[a].key.toUpperCase()]; }))
+            .concat([["balanced", "Bal", "Balanced · key B"], ["no_journal", "No journal", "Cards-only decks"]]);
         // Trend callouts can filter by group (PS-3 action values tribal / universe): those
         // options appear only when some deck is in the group.
         ["tribal", "universe"].forEach(function (g) {
