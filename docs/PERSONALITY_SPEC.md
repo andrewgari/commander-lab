@@ -20,20 +20,59 @@ plain pile can be low on all five. One label, `leans_toward`, sums them up.
 
 The scorer is a pure function, `score_deck_personality(deck, journal=None)`
 (PS-2). It takes a context with these inputs. The I/O wrapper builds the
-context from the Redis caches listed here and never calls Scryfall, Spellbook,
-EDHREC or an LLM on its own.
+context from Redis only. It must never make a network call: no Scryfall,
+Spellbook, EDHREC or LLM.
+
+**Cache-only reads.** `deck_combos` and `deck_inclusion` are cache-first,
+not cache-only: on a miss or an expired entry they fetch
+(`SpellbookClient.find_my_combos` → `_fetch`, `edhrec_inclusion.commander_page`
+→ `EDHRecClient`). PS-2 must not call them as they are. It reads the raw
+cache records instead, at any age (stale is fine; the score is only as old
+as the cache):
+
+* combos: `r.get(analytics.interactions.combos.decklist_key(commanders, names))`
+  with `names` from `combos._deck_names(deck)`. The value is the normalized
+  `find_my_combos` record; `included` is the in-deck list (`counts.in_deck`
+  = its length). A missing key or bad JSON means **combos unavailable**.
+* EDHREC: `r.get(analytics.edhrec_inclusion.cache_key(commander_slug(commanders)))`,
+  then build the per-card rows the same way `deck_inclusion` does (pure
+  code after the `commander_page` call). Missing means **EDHREC
+  unavailable**.
+* graph and engines: `get_deck_graph` and `get_deck_engines` are already
+  Redis-only (`_NoScryfall`, empty `LLMChain`). Use them as they are.
+* power: `review_deck(deck=deck)` is offline (no `external_metrics`, no
+  client). Use it as is.
+
+PS-2 can add a small `cache_only=True` path to those two helpers instead of
+duplicating the reads, as long as the cache-first behaviour of the existing
+routes doesn't change.
 
 | Ctx key | Source on main | What we read |
 |---|---|---|
 | `deck` | `registry.list_decks` / Redis `decks` | `cards[].name`, `cards[].quantity`, `commanders`, `registry_id` |
-| `cards` | `inventory_view.build_inventory(r, decks=[deck_id])` (the `/api/inventory` rows the hand run used: `instance:*` joined with `card_meta:*`), one row per card name, preferring the row whose `deck` is this deck. `commander_roles.load_cards(r, names)` may supply the full `type_line` where the row's `type` is only the primary type | per card: `type` + `super_types` + `sub_types` (type line), `oracle_text`, `keywords`, `cmc`, `set` |
+| `cards` | `inventory_view.build_inventory(r, decks=[deck_id])` (the `/api/inventory` rows the hand run used: `instance:*` joined with `card_meta:*`). `commander_roles.load_cards(r, names)` may supply the full `type_line` where the row's `type` is only the primary type. One row per card name, chosen deterministically (below) | per card: `type` + `super_types` + `sub_types` (type line), `oracle_text`, `keywords`, `cmc`, `set` |
 | `composition` | `analytics.composition.compute_composition(deck, analytics.insights.card_texts(r, deck))` | `actual.ramp`, `actual.targeted_disruption`, `actual.mass_disruption`, `cards_by_row.ramp` (regexes `RAMP_PATTERNS`, `TARGETED_PATTERNS`, `MASS_PATTERNS`) |
-| `combos` | `analytics.interactions.combos.deck_combos(r, deck)` (Commander Spellbook, 7-day cache) | `counts.in_deck`, `in_deck[].card_names` |
+| `combos` | cache record at `analytics.interactions.combos.decklist_key(...)` (what `deck_combos` / Commander Spellbook writes; read cache-only, see above) | `included[]` (`len` = `counts.in_deck`), `included[].card_names` |
 | `graph` | `analytics.interactions.service.get_deck_graph(r, deck)` (`analytics.interactions.graph.build_graph`) | `counts.nodes`, `counts.edges`, `edges[].source/target` |
 | `engines` | `analytics.interactions.service.get_deck_engines(r, deck, graph)` (`engines.detect_engines`) | `engines[].kind` (`chain` / `loop`), `engines[].cards`, `engines[].signature` |
-| `edhrec` | `analytics.insights.deck_edhrec(r, deck)` (`analytics.edhrec_inclusion.deck_inclusion`) | `status`, `per_card[].name/inclusion/land` |
+| `edhrec` | cache record at `analytics.edhrec_inclusion.cache_key(slug)`, turned into `per_card` rows like `analytics.edhrec_inclusion.deck_inclusion` does (what `/api/decks/{id}/edhrec` returns; read cache-only, see above) | `status`, `per_card[].name/inclusion/land` |
 | `power` | `deck_review.review_deck(deck=deck).playfeel_summary.power_level_estimate` (`analytics.engine.DeckAnalysisEngine._analyze_playfeel`), same call as `analytics.journal.collect_context` | float 1.0–10.0 |
 | `journal` | `analytics.journal.load_journal(r, deck)` (store) passed through `analytics.journal.public` (`user_intent.resolve_intent_defaults`) | fields from `schemas/user_intent.schema.json` (see §4) |
+
+**One row per card name.** `build_inventory` can return several rows for one
+name: several copies, bound (`in_deck`) and considered (`not_owned`)
+copies, and different printings. Card text, keywords and `cmc` are the same
+on all of them; only `set` differs. Pick the row by this key, smallest
+first:
+
+1. bound before considered: `ownership_status == "in_deck"` first, then
+   `not_owned`.
+2. `set` ascending, empty last.
+3. `instance_id` ascending.
+
+That makes V1 depend only on which printings exist, never on Redis key
+order. (On today's prod data no deck in the sample has two printings of one
+name, so this changes no number in §5.)
 
 Not used on purpose: `lab_tags` / `tag_vocabulary` (learned Archidekt
 categories). They are free-form user labels ("Time Counters", "Board
@@ -56,12 +95,24 @@ Definitions used below:
   `—` turned into `-` and `’` into `'`. This is exactly
   `analytics.composition._norm`; reuse it.
 * **Flavor word**: a `keywords` entry that appears in the raw oracle text as
-  `"<word> —"` at the start of a line and is not in the CR 207.2c
-  ability-word list (`ABILITY_WORDS`, §6). Examples: "Allons-y!", "Bad Wolf",
-  "The Last Centurion". Scryfall puts these in `keywords`, so they must not
-  count as mechanics.
+  `"<word> —"` at the start of a line and is in neither the CR 207.2c
+  ability-word list (`ABILITY_WORDS`, §6) nor `DASH_RULES_KEYWORDS` (§6:
+  real rules keywords printed the same way, e.g. "Companion — …",
+  "Exhaust — …"). Examples: "Allons-y!", "Bad Wolf", "The Last Centurion".
+  Scryfall puts these in `keywords`, so they must not count as mechanics.
+  On today's data the only rules keywords that matched the dash pattern
+  were Companion (Keruga) and Exhaust; every other match was flavor.
 * **`ramp(x, lo, hi)`** = `clamp((x - lo) / (hi - lo), 0, 1)`. Every signal is
   one ramp, so each sub-score is in [0, 1].
+* **Undefined is 0.** When a rate or mean has an empty denominator, the
+  sub-score is 0, not a fallback value run through the ramp. This matters
+  most for the inverted signals: an empty `NL\C` must not give S5 a mean of
+  0 and so the full 15 points. The cases: V1 type part with no creatures in
+  `NL`, V1 set part with no non-ramp cards in `NL` (each part becomes 0 on
+  its own, before taking the max), J3 with no EDHREC rows, J4 and S5 with an
+  empty `NL\C`, and T2, V2, M2 and J5 with an empty `NL`. T5 is not a rate,
+  so an empty composition (0 interaction) still gives T5 its full value.
+  That's correct, and the "N cards without metadata" note (§7) flags it.
 
 ## 2. Signal table
 
@@ -83,7 +134,7 @@ calibrated on all 39 real decks with complete card data (§5.2).
 
 | # | Signal | Exact rule | Ramp lo → hi | Weight |
 |---|---|---|---|---|
-| J1 | Combos in deck | `combos.counts.in_deck` (Spellbook `included` bucket) | 0 → 4 | 25 |
+| J1 | Combos in deck | `len(combos.included)` (Spellbook `included` bucket; `/api/decks/{id}/combos` shows it as `counts.in_deck`) | 0 → 4 | 25 |
 | J2 | Synergy density | `graph.counts.edges / graph.counts.nodes` | 3 → 12 | 25 |
 | J3 | Off-meta picks | share of `edhrec.per_card` nonland, non-commander rows with `inclusion` < 0.15 (null = not listed = 0) | 0.05 → 0.30 | 20 |
 | J4 | Built around the commander | share of `NL\C` that has a graph edge to or from a commander | 0.15 → 0.50 | 15 |
@@ -101,7 +152,7 @@ so they don't separate anything.
 | S3 | Fast mana | `FAST_MANA` names (§6) plus any card in `composition.cards_by_row.ramp` with `mv <= 1` | 0 → 4 | 15 |
 | S4 | Interaction | `targeted_disruption + mass_disruption` | 6 → 16 | 15 |
 | S5 | Efficiency | `1 − ramp(mean mv of NL\C, 2.5, 4.0)` | inverted | 15 |
-| S6 | Compact combos | `combos.in_deck` entries with `len(card_names) <= 3` | 0 → 3 | 15 |
+| S6 | Compact combos | `combos.included` entries with `len(card_names) <= 3` | 0 → 3 | 15 |
 
 S4 and T5 read the same number in opposite directions, on purpose: a
 removal-heavy deck is Spikier and less Timmy.
@@ -330,6 +381,9 @@ contents the hand run used; PS-2 copies them as-is.
   tactics, paradox, parley, radiance, raid, rally, revolt, secret council,
   spell mastery, strive, survival, sweep, tempting offer, threshold,
   undergrowth, valiant, void, will of the council.
+* `DASH_RULES_KEYWORDS` (keyword abilities printed as "Keyword — cost", so
+  never flavor words): companion, exhaust, doctor's companion. Add new
+  keywords here when a set prints one that way.
 * `RULES`: `\b(?:time|lore|fade|age|charge|oil|verse|quest|level|loyalty) counters?\b`,
   `\bremove (?:a|an|one|x|that many|\w+) [^.]*counters?\b`, `\bproliferate\b`,
   `\bphases? (?:out|in)\b`,
@@ -417,7 +471,7 @@ timmy, johnny, spike, vorthos, melvin.
   second Vorthos". Two axes tied at the top are not "balanced": the tie
   order picks one and the other is `runner_up`.
 
-On the 39 real decks this gives 2 balanced and 9 with a runner-up. The two
+On the 39 real decks this gives 2 balanced and 8 with a runner-up. The two
 balanced decks are "Bird UP!!!!" (Choco: 39/70/64/63/31, where Johnny,
 Spike and Vorthos sit within 7 points) and "Uncharted: Lara's Legacy"
 (50/56/54/29/36, where Timmy, Johnny and Spike sit within 6).
