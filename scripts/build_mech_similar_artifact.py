@@ -78,7 +78,8 @@ def convert(parquet_path: str, out_path: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("out", help="output .npz path")
+    ap.add_argument("out", nargs="?", default=os.environ.get("MECH_SIMILAR_PATH", "/data/mech_similar.npz"),
+                    help="output .npz path (default: $MECH_SIMILAR_PATH or /data/mech_similar.npz)")
     ap.add_argument("--parquet", help="use this local parquet instead of downloading")
     a = ap.parse_args()
     if a.parquet:
