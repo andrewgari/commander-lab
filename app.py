@@ -267,6 +267,27 @@ def _ideas_page_context(deck_name: str) -> dict:
     return out
 
 
+@app.get("/deck/{deck_name}/review", response_class=HTMLResponse)
+async def deck_review_view(request: Request, deck_name: str):
+    """Review (RV-4, REVIEW_SPEC): the saved Deep Review. Read-only: never builds on page load."""
+    return await _deck_tab(request, deck_name, "deck_review.html", "review", extra=_review_page_context)
+
+
+def _review_page_context(deck_name: str) -> dict:
+    """Saved doc + view-model. Never raises (Redis down = a quiet error state)."""
+    from analytics import review_doc, review_view, theory_view
+
+    out = {"rv": review_view, "tv": theory_view, "meta": {"exists": False}, "sections": [], "load_error": False}
+    try:
+        deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+        if deck:
+            doc = review_doc.refresh_stale(r, {**deck, "registry_id": _theory_deck_id(deck)})
+            out.update(meta=review_view.doc_meta(doc), sections=review_view.sections(doc) if doc else [])
+    except Exception:
+        out["load_error"] = True
+    return out
+
+
 @app.get("/deck/{deck_name}/ideas/{doc_id}", response_class=HTMLResponse)
 async def deck_theory_view(request: Request, deck_name: str, doc_id: str):
     """One theory doc: one partial per section type, generic fallback for unknown types."""
