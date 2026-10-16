@@ -1,0 +1,25 @@
+{% import "partials/hud.html" as hud %}
+{#- combos_engines: {combos_available, combos_error, combos_in_deck[{id,cards,produces,url}], combos_one_away[{...,missing}], combos_one_away_total, engines[{signature,kind,cards,score,summary}], why} -#}
+{%- set d = section.data %}
+{%- macro combo_row(c, away) %}
+<li class="hud-rv-combo" data-combo="{{ c.id }}"><b>{{ (c.cards or []) | join(" + ") }}</b>
+    <span>{{ (c.produces or []) | join(", ") or "—" }}{% if away and c.missing %} · missing {{ c.missing | join(", ") }}{% if c.missing_owned %} (owned){% endif %}{% endif %}</span></li>
+{%- endmacro %}
+{%- if d.combos_error %}<p class="hud-rv-meta">Combo lookup failed: {{ d.combos_error }}</p>{% endif %}
+<section class="hud-panel hud-panel--flush">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Combos in the deck</h3><span class="hud-panel-meta">{{ d.combos_in_deck | length }}</span></header>
+    {%- if d.combos_in_deck %}<ul class="hud-rv-list hud-panel-body">{% for c in d.combos_in_deck %}{{ combo_row(c, false) }}{% endfor %}</ul>
+    {%- else %}<div class="hud-panel-body">{{ hud.empty("No complete combos.") }}</div>{% endif %}
+</section>
+<section class="hud-panel hud-panel--flush hud-rv-block">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">One card away</h3><span class="hud-panel-meta">{{ d.combos_one_away_total if d.combos_one_away_total is not none else d.combos_one_away | length }}</span></header>
+    {%- if d.combos_one_away %}<ul class="hud-rv-list hud-panel-body">{% for c in d.combos_one_away %}{{ combo_row(c, true) }}{% endfor %}</ul>
+    {%- else %}<div class="hud-panel-body">{{ hud.empty("None one card away.") }}</div>{% endif %}
+</section>
+<section class="hud-panel hud-panel--flush hud-rv-block">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Engines</h3><span class="hud-panel-meta">{{ d.engines | length }}</span></header>
+    {%- if d.engines %}<ul class="hud-rv-list hud-panel-body">{% for e in d.engines %}
+        <li class="hud-rv-combo" data-engine="{{ e.signature }}"><b>{{ (e.resources or []) | join(" → ") or e.signature }}</b><span>{{ e.summary or ((e.cards or []) | join(", ")) }}</span></li>{% endfor %}</ul>
+    {%- else %}<div class="hud-panel-body">{{ hud.empty("No engines detected.") }}</div>{% endif %}
+</section>
+{%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}

@@ -1,13 +1,19 @@
 {% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
 
-{% block title %}Commander Decks | Commander Lab{% endblock %}
+{% block title %}{% if status_label %}{{ status_label }} | {% endif %}Commander Decks | Commander Lab{% endblock %}
 
 {% block extra_css %}
 <style>
     .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .deck-filter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: calc(-1 * var(--sp-4)) 0 var(--sp-6); }
+    .deck-filter-count { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
     .folder-toggle { display: flex; align-items: center; gap: 0.5rem; }
     .folder-toggle input { cursor: pointer; }
     
+    /* ==========================================================================
+       Decks Section (existing styles preserved)
+       ========================================================================== */
     .folder-section { margin-bottom: 3rem; }
     .folder-header { 
         display: flex; 
@@ -35,102 +41,107 @@
         color: var(--text-muted);
     }
     
+    /* ==========================================================================
+       Deck tiles (design option C, docs/DECK_LIST_CARDS.md): the commander art
+       is the card. Fixed-shape tile; status + pips pinned top; a solid --scrim
+       plate (no gradient) carries the title (2-line clamp), the commander line
+       (1 line) and inventory. Partners / Doctor + companion share one frame,
+       cut on a diagonal; a true companion gets a small framed inset. Tile
+       sizes live in the --tile-* block; everything else is HUD tokens.
+       ========================================================================== */
     .deck-grid {
+        --tile-col-min: 13.25rem;   /* 212px: 5 across at 1440 */
+        --tile-ratio:   4 / 3;
+        --tile-pad:     var(--sp-2) var(--sp-3);
+        --tile-zoom:    1.04;       /* art scale on hover / focus */
+        --tile-split:   58%;        /* diagonal seam, top edge (partners) */
+        --tile-seam:    2px;
+        --tile-inv:     1.75rem;    /* 28px inventory icon button */
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(var(--tile-col-min), 100%), 1fr));
+        gap: var(--sp-3);
     }
-    
+
     .deck-card {
-        background: var(--nav-bg);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.5rem;
-        transition: transform 0.2s ease, border-color 0.2s ease;
-        display: flex;
-        flex-direction: column;
-        cursor: pointer;
         position: relative;
+        min-width: 0;
+        aspect-ratio: var(--tile-ratio);
         overflow: hidden;
+        background: var(--surface-2);
+        border: var(--stroke);
+        border-radius: var(--radius-2);
+        transition: border-color var(--dur-fast) var(--ease), scale var(--dur-fast) var(--ease);
     }
-    
-    .deck-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--accent);
-    }
-    
-    .deck-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .commander-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid var(--border);
-        background: #222;
-        flex-shrink: 0;
-        position: relative;
-    }
-    
+    .deck-card:hover { border-color: var(--line-strong); }
+    /* `scale`, not `transform`: hud-enter's fill-mode keeps owning transform. */
+    .deck-card:active { scale: 0.985; }
+    .deck-card:has(.deck-open:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+    /* Stretched quick-view button: a click anywhere opens the deck modal;
+       Tab + Enter reach it. Real links sit above it. */
+    .deck-open { all: unset; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
+
+    /* One art frame per deck. Role sizing (commander_roles.py): partners split
+       it evenly; a Doctor's companion gets the smaller wedge. */
+    .deck-art { position: absolute; inset: 0; background: var(--surface-2); }
+    .deck-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform var(--dur-base) var(--ease); }
+    .deck-art--doctors-companion { --tile-split: 68%; }
+    .deck-art--split img + img { clip-path: polygon(var(--tile-split) 0, 100% 0, 100% 100%, calc(100% - var(--tile-split)) 100%); }
+    .deck-art--split::after { content: ""; position: absolute; inset: 0; background: var(--surface-0); transition: transform var(--dur-base) var(--ease);
+        clip-path: polygon(calc(var(--tile-split) - var(--tile-seam)) 0, var(--tile-split) 0, calc(100% - var(--tile-split)) 100%, calc(100% - var(--tile-split) - var(--tile-seam)) 100%); }
+    .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
+    .deck-card:has(.deck-open:focus-visible) .deck-art img { transform: scale(var(--tile-zoom)); }
+    .deck-art-none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-4); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+    /* True companion (outside the 100): small framed inset, set apart. */
+    .deck-companion { position: absolute; right: var(--sp-2); top: 34%; z-index: 2; width: 28%; aspect-ratio: var(--art-ratio); border: var(--stroke-strong); border-radius: var(--radius-2); overflow: hidden; background: var(--surface-2); pointer-events: none; }
+    .deck-companion img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+    .deck-top { position: absolute; top: var(--sp-2); left: var(--sp-2); right: var(--sp-2); z-index: 2; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); pointer-events: none; }
+    .deck-top .hud-pips { margin-left: auto; padding: 2px; background: var(--scrim); border-radius: var(--radius-1); }
+    .deck-top .hud-chip { background: var(--scrim); }
+    .deck-top .repo-badge { pointer-events: auto; }
+
+    .deck-plate { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--sp-2); padding: var(--tile-pad); background: var(--scrim); border-top: var(--stroke); pointer-events: none; transition: background-color var(--dur-base) var(--ease); }
+    .deck-card:hover .deck-plate { background: var(--surface-1); }
+    .deck-plate a { pointer-events: auto; position: relative; z-index: 2; }
+    .deck-header-info { min-width: 0; }
+
     .deck-name {
-        font-family: 'EB Garamond', serif;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--text-heading);
         margin: 0;
-        line-height: 1.2;
+        color: var(--text-1);
+        font-family: var(--font-card);
+        font-size: var(--fs-md);
+        font-weight: var(--fw-semibold);
+        line-height: var(--lh-tight);
+        overflow-wrap: break-word;
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
     }
-    
-    .deck-status {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-top: 0.4rem;
+    .deck-name a { color: inherit; text-decoration: none; }
+    .deck-card:hover .deck-name, .deck-card:has(.deck-open:focus-visible) .deck-name { color: var(--signal-strong); }
+    .deck-commanders { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .deck-inv { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: var(--tile-inv); height: var(--tile-inv); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); text-decoration: none; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
+    .deck-inv:hover { color: var(--signal-strong); border-color: var(--signal-line); background: var(--signal-dim); }
+
+    @media (max-width: 900px) { .deck-grid { --tile-inv: 2rem; } }
+    /* Phone: two portrait tiles per row, smaller title; inventory lives in
+       the quick view. */
+    @media (max-width: 600px) {
+        .deck-grid { --tile-col-min: 8.5rem; --tile-ratio: 3 / 4; --tile-pad: var(--sp-2); }
+        .deck-name { font-size: var(--fs-sm); }
+        .deck-plate { grid-template-columns: minmax(0, 1fr); }
+        .deck-plate .deck-inv { display: none; }
+        .deck-companion { top: 40%; width: 36%; }
     }
-    
-    .status-physical { background: transparent; color: #4ade80; border: 1px solid #4ade80; border-radius: 4px; }
-    .status-digital { background: #1e3a8a; color: #dbeafe; border: 1px solid #1e40af; }
-    .status-retired { background: #7f1d1d; color: #fee2e2; border: 1px solid #991b1b; }
-    .status-testing { background: #713f12; color: #fef3c7; border: 1px solid #854d0e; }
-    
-    .deck-commanders {
-        font-size: 0.9rem;
-        color: var(--text-muted);
-        margin-bottom: 1rem;
-        flex-grow: 1;
+    @media (prefers-reduced-motion: reduce) {
+        .deck-card, .deck-art img, .deck-art::after, .deck-plate { transition: none !important; }
+        .deck-card:active { scale: none; }
+        .deck-card:hover .deck-art img, .deck-card:hover .deck-art::after,
+        .deck-card:has(.deck-open:focus-visible) .deck-art img { transform: none; }
     }
-    
+
     .mana-pip { width: 16px; height: 16px; vertical-align: middle; margin-right: 2px; }
-    .deck-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border);
-    }
-    
-    .deck-actions a {
-        color: var(--accent);
-        text-decoration: none;
-        font-size: 0.875rem;
-        font-weight: 500;
-        position: relative;
-        z-index: 2;
-    }
-    
-    .deck-actions a:hover {
-        text-decoration: underline;
-    }
 
     /* Modal Styles */
     .modal-overlay {
@@ -254,6 +265,122 @@
         background: var(--accent-hover);
         border-color: var(--accent-hover);
     }
+
+    /* Container for physical/digital status and repository badge */
+    .deck-status-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        min-height: 22px; /* Preserves card height across clean/dirty states */
+    }
+
+    /* Base Repository Status Badge */
+    .repo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        line-height: 1;
+        position: relative;
+        cursor: default;
+        transition: opacity 0.15s ease, background 0.15s ease;
+        user-select: none;
+    }
+
+    .repo-badge svg {
+        width: 12px;
+        height: 12px;
+        stroke-width: 2.2;
+        flex-shrink: 0;
+    }
+
+    /* State Variants */
+    .repo-badge--clean {
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #4ade80;
+    }
+
+    .repo-badge--dirty {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fbbf24;
+    }
+
+    .repo-badge--untracked {
+        background: rgba(56, 189, 248, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        color: #38bdf8;
+    }
+
+    .repo-badge--ahead {
+        background: rgba(168, 85, 247, 0.12);
+        border: 1px solid rgba(168, 85, 247, 0.4);
+        color: #c084fc;
+    }
+
+    .repo-badge--behind {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        color: #818cf8;
+    }
+
+    .repo-badge--diverged {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fbbf24;
+    }
+
+    .repo-badge--error {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #f87171;
+    }
+
+    /* Clean Mode Suppression (Optional class for minimal display) */
+    .repo-badge--clean-hidden {
+        display: none;
+    }
+
+    /* Tooltip Affordance */
+    .repo-badge[data-tooltip] {
+        position: relative;
+    }
+
+    .repo-badge[data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111827;
+        border: 1px solid #374151;
+        color: #f3f4f6;
+        font-size: 0.72rem;
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: normal;
+        padding: 0.35rem 0.55rem;
+        border-radius: 4px;
+        white-space: pre;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease, visibility 0.15s ease;
+        z-index: 40;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+    }
+
+    .repo-badge[data-tooltip]:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
 </style>
 {% endblock %}
 
@@ -261,13 +388,25 @@
 <div class="controls">
     <h1>Commander Decks</h1>
     <div style="display: flex; align-items: center; gap: 1.5rem;">
+        {% if not status_filter %}
         <div class="folder-toggle">
             <input type="checkbox" id="showAllFolders" onchange="renderDecks()">
             <label for="showAllFolders">Show all decks</label>
         </div>
+        {% endif %}
         <button class="btn btn-primary" onclick="openImportModal()">Import Deck</button>
     </div>
 </div>
+
+{% if status_filter %}
+{#- Active deck-group filter (?status=…, picked from the sidebar menu). -#}
+<div class="deck-filter" id="deckFilter" data-status="{{ status_filter }}">
+    <span class="hud-label">Showing</span>
+    {{ hud.status_chip(status_filter, status_label) }}
+    <span class="deck-filter-count" id="deckFilterCount" aria-live="polite"></span>
+    <a class="hud-btn hud-btn--sm" href="/decks" id="clearDeckFilter">Clear filter <span aria-hidden="true">×</span></a>
+</div>
+{% endif %}
 
 <div id="decksContainer">
     <!-- Folders and decks will be rendered here -->
@@ -300,8 +439,8 @@
 
 <!-- Deck Details Modal -->
 <div id="deckModal" class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <button class="modal-close" onclick="closeModal()">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalDeckName" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         <div id="modalImagesContainer" class="modal-images-container">
@@ -314,15 +453,7 @@
             <p style="display: flex; align-items: center;"><strong>Color:</strong> <span id="modalColors"></span></p>
             <p><strong>Folder:</strong> <span id="modalFolderName"></span></p>
             
-            <div style="margin-top: 1rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
-                <strong>Status:</strong>
-                <select id="modalDeckStatus" onchange="updateDeckStatus(this.value)" style="width: auto; min-width: 120px; padding: 0.4rem;">
-                    <option value="physical">Physical</option>
-                    <option value="digital">Digital</option>
-                    <option value="retired">Retired</option>
-                    <option value="testing">Testing</option>
-                </select>
-            </div>
+            <div id="modalDeckStatusField" style="margin-top: 1rem; margin-bottom: 2rem;"></div>
             
             <hr style="border-color: #333; margin: 0.8rem 0; width: 100%;">
 
@@ -330,12 +461,30 @@
             <div id="modalLinksContainer" style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
                 <!-- Links dynamically populated here -->
             </div>
-            
+
+            <div id="modalLinkEditor" style="margin-bottom: 1.5rem; padding-top: 0.75rem; border-top: 1px solid #111827;">
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Sync Sources</div>
+                <div style="display: flex; gap: 0.4rem; margin-bottom: 0.4rem;">
+                    <input type="text" id="modalArchidektUrl" placeholder="Archidekt URL or ID" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('archidekt')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div style="display: flex; gap: 0.4rem; margin-bottom: 0.4rem;">
+                    <input type="text" id="modalMoxfieldUrl" placeholder="Moxfield URL or ID" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('moxfield')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div style="display: flex; gap: 0.4rem;">
+                    <input type="text" id="modalCommanderSaltUrl" placeholder="Commander Salt URL (optional)" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
+                    <button class="btn" onclick="saveDeckLink('commandersalt')" style="padding: 0.4rem 0.7rem;">Save</button>
+                </div>
+                <div id="modalLinkStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
+            </div>
+
             <div class="modal-buttons" style="margin-top: auto; border-top: 1px solid #111827; padding-top: 1rem;">
                 <button class="btn btn-primary" onclick="syncDeck()">Sync</button>
                 <button class="btn" onclick="reviewDeck()">Review</button>
                 <button class="btn" onclick="tradeDeck()">Trade</button>
             </div>
+            <div id="modalSyncStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
         </div>
     </div>
 </div>
@@ -345,6 +494,10 @@
 <script>
     let allDecks = [];
     
+    // ==========================================================================
+    // Deck Functions (existing)
+    // ==========================================================================
+    
     async function loadDecks() {
         const res = await fetch(`/api/decks`);
         const data = await res.json();
@@ -352,6 +505,41 @@
         renderDecks();
     }
     
+    // Deck tile art (option C): one frame per deck, sized by role
+    // (commander_roles.py). Two main commanders split it on a diagonal (a
+    // Doctor's companion gets the smaller wedge); a true companion is a
+    // small framed inset. No circles, no overlap.
+    function deckArtClass(roles) {
+        const mains = (roles || []).filter(c => c.role !== 'companion');
+        let cls = 'deck-art';
+        if (mains.length > 1) cls += ' deck-art--split';
+        if (mains.some(c => c.role === 'doctors_companion')) cls += ' deck-art--doctors-companion';
+        return cls;
+    }
+
+    function deckArtImg(c) {
+        if (c.uid) {
+            const s = HUD.scryfall(c.uid, 'art_crop');
+            return `<img src="${HUD.esc(s.src)}" data-fallback="${HUD.esc(s.fallback)}" alt="" loading="lazy" decoding="async">`;
+        }
+        if (c.name) {
+            return `<img src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(c.name)}&amp;format=image&amp;version=art_crop" alt="" loading="lazy" decoding="async">`;
+        }
+        return '';
+    }
+
+    function deckArt(deck) {
+        const roles = HUD.commanderRoles(deck);
+        const mains = roles.filter(c => c.role !== 'companion').slice(0, 2);
+        const comp = roles.find(c => c.role === 'companion');
+        const imgs = mains.map(deckArtImg).join('') || '<span class="deck-art-none">No commander</span>';
+        return `<div class="${deckArtClass(roles)}" aria-hidden="true">${imgs}</div>` +
+            (comp ? `<div class="deck-companion" aria-hidden="true">${deckArtImg(comp)}</div>` : '');
+    }
+
+    // Same glyph as the sidebar's Inventory item.
+    const INV_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>';
+
     function createColorPips(colorString) {
         if (!colorString || colorString === 'C') {
             return `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`;
@@ -362,6 +550,186 @@
         }
         return pips;
     }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Render repository change indicator HTML for a deck card.
+     * @param {Object} deck - Deck payload from /api/decks
+     * @param {boolean} [showClean=true] - Whether to render badge for clean repos
+     * @returns {string} Safe HTML string for badge, or empty string
+     */
+    function renderRepoBadge(deck, showClean = true) {
+        const status = deck && deck.repo_status;
+        // No repo configured for this deck (the default for every deck
+        // today): render nothing rather than an error badge on all of them.
+        if (!status || status.error === 'Path not specified') {
+            return '';
+        }
+
+        // 1. Error / Unknown State
+        if (status.error) {
+            const errorMsg = escapeHtml(status.error);
+            const label = 'ERROR';
+            return `
+                <span class="repo-badge repo-badge--error" 
+                      data-tooltip="Git error: ${errorMsg}" 
+                      title="Git error: ${errorMsg}"
+                      role="status" 
+                      aria-label="Repository error: ${errorMsg}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <circle cx="12" cy="16" r="0.75" fill="currentColor"></circle>
+                    </svg>
+                    <span>${label}</span>
+                </span>
+            `;
+        }
+
+        const branch = status.branch ? escapeHtml(status.branch) : 'main';
+        const dirty = Boolean(status.dirty);
+        const staged = status.staged || 0;
+        const untracked = status.untracked || 0;
+        const ahead = status.ahead || 0;
+        const behind = status.behind || 0;
+
+        // 2. Dirty / Uncommitted State (Takes highest precedence among non-errors)
+        if (dirty || staged > 0) {
+            const parts = [];
+            if (staged > 0) parts.push(`${staged} staged`);
+            if (dirty) parts.push(`modified`);
+            if (untracked > 0) parts.push(`${untracked} untracked`);
+            if (ahead > 0) parts.push(`${ahead} ahead`);
+            const countText = staged > 0 && dirty ? `${staged + 1} DIRTY` : (staged > 0 ? `${staged} STAGED` : `MODIFIED`);
+            const tooltip = `${parts.join(', ')} • Branch: ${branch}`;
+            const aria = `Repository has uncommitted changes: ${parts.join(', ')} on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--dirty" 
+                      data-tooltip="${tooltip}" 
+                      title="${tooltip}"
+                      role="status" 
+                      aria-label="${aria}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <line x1="1.05" y1="12" x2="7" y2="12"></line>
+                        <line x1="17" y1="12" x2="22.95" y2="12"></line>
+                    </svg>
+                    <span>${countText}</span>
+                </span>
+            `;
+        }
+
+        // 3. Untracked Files Only
+        if (untracked > 0) {
+            const tooltip = `${untracked} untracked file${untracked > 1 ? 's' : ''}${ahead > 0 ? ', ' + ahead + ' ahead' : ''} • Branch: ${branch}`;
+            const aria = `Repository has ${untracked} untracked file(s) on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--untracked" 
+                      data-tooltip="${tooltip}" 
+                      title="${tooltip}"
+                      role="status" 
+                      aria-label="${aria}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>${untracked} UNTRACKED</span>
+                </span>
+            `;
+        }
+
+        // 4. Diverged (Both Ahead & Behind)
+        if (ahead > 0 && behind > 0) {
+            const tooltip = `${ahead} ahead, ${behind} behind upstream • Branch: ${branch}`;
+            const aria = `Repository diverged: ${ahead} ahead, ${behind} behind on branch ${branch}`;
+
+            return `
+                <span class="repo-badge repo-badge--diverged" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="7" y1="4" x2="7" y2="20"></line>
+                    <polyline points="4 7 7 4 10 7"></polyline>
+                    <line x1="17" y1="20" x2="17" y2="4"></line>
+                    <polyline points="14 17 17 20 20 17"></polyline>
+                </svg>
+                <span>↑${ahead} ↓${behind}</span>
+            </span>
+        `;
+    }
+
+    // 5. Ahead of Upstream Only
+    if (ahead > 0) {
+        const tooltip = `${ahead} commit${ahead > 1 ? 's' : ''} ahead of upstream (ready to push) • Branch: ${branch}`;
+        const aria = `Repository is ${ahead} commit(s) ahead of upstream on branch ${branch}`;
+
+        return `
+            <span class="repo-badge repo-badge--ahead" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5"></line>
+                    <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+                <span>${ahead} AHEAD</span>
+            </span>
+        `;
+    }
+
+    // 6. Behind Upstream Only
+    if (behind > 0) {
+        const tooltip = `${behind} commit${behind > 1 ? 's' : ''} behind upstream (pull needed) • Branch: ${branch}`;
+        const aria = `Repository is ${behind} commit(s) behind upstream on branch ${branch}`;
+
+        return `
+            <span class="repo-badge repo-badge--behind" 
+                  data-tooltip="${tooltip}" 
+                  title="${tooltip}"
+                  role="status" 
+                  aria-label="${aria}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="19 12 12 19 5 12"></polyline>
+                </svg>
+                <span>${behind} BEHIND</span>
+            </span>
+        `;
+    }
+
+    // 7. Clean State
+    if (!showClean) return '';
+
+    const tooltip = `Repository clean • Branch: ${branch}`;
+    return `
+        <span class="repo-badge repo-badge--clean" 
+              data-tooltip="${tooltip}" 
+              title="${tooltip}"
+              role="status" 
+              aria-label="Repository clean on branch ${branch}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>CLEAN</span>
+        </span>
+    `;
+}
     
     function toggleFolder(folderName) {
         const grid = document.getElementById(`grid-${folderName.replace(/\s+/g, '-')}`);
@@ -380,8 +748,12 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
-    function openDeckModal(deckIndex) {
+    // Status changes and Sync re-render the tiles, so remember a stable deck
+    // key (not the DOM node) and resolve the current tile button on close.
+    let deckModalReturnKey = null;
+    function openDeckModal(deckIndex, trigger) {
         currentDeckIndex = deckIndex;
+        if (trigger) deckModalReturnKey = trigger.dataset.deckKey || null;
         const deck = allDecks[deckIndex];
         
         document.getElementById('modalDeckName').innerHTML = `<a href="/deck/${encodeURIComponent(deck.name)}" style="color: inherit; text-decoration: none;">${deck.name}</a>`;
@@ -389,8 +761,10 @@
         document.getElementById('modalColors').innerHTML = createColorPips(deck.color);
         document.getElementById('modalFolderName').textContent = deck.folder || 'Uncategorized';
         
-        const statusSelect = document.getElementById('modalDeckStatus');
-        statusSelect.value = deck.status || 'testing';
+        // Status: locked (disabled + note) for physical decks; Virtual/WIP/Retired otherwise.
+        const statusField = document.getElementById('modalDeckStatusField');
+        statusField.innerHTML = HUD.deckStatusControl(deck, { id: 'modalDeckStatus' });
+        HUD.bindDeckStatus(statusField, deck, () => renderDecks());
         
         // Build Links
         const linksContainer = document.getElementById('modalLinksContainer');
@@ -433,6 +807,16 @@
         });
         
         linksContainer.innerHTML = linksHtml;
+
+        // Populate the sync-source link editor from deck.links (see
+        // deck_links.py) -- deck.id is used as the registry_id lookup key
+        // for the /api/decks/{id}/links and /sync endpoints.
+        const links = deck.links || {};
+        document.getElementById('modalArchidektUrl').value = (links.archidekt && links.archidekt.identifier) || '';
+        document.getElementById('modalMoxfieldUrl').value = (links.moxfield && links.moxfield.identifier) || '';
+        document.getElementById('modalCommanderSaltUrl').value = (links.commandersalt && links.commandersalt.identifier) || '';
+        document.getElementById('modalLinkStatus').textContent = '';
+        document.getElementById('modalSyncStatus').textContent = '';
         
         const imagesContainer = document.getElementById('modalImagesContainer');
         imagesContainer.innerHTML = '';
@@ -457,13 +841,52 @@
         }
         
         document.getElementById('deckModal').style.display = 'flex';
+        // Move focus into the dialog; Tab is contained below until it closes.
+        document.querySelector('#deckModal .modal-close').focus();
     }
 
     function closeModal(event) {
         if (!event || event.target.classList.contains('modal-overlay') || !event.target.closest('.modal-content')) {
             document.getElementById('deckModal').style.display = 'none';
+            if (deckModalReturnKey !== null) {
+                const btn = Array.from(document.querySelectorAll('.deck-open'))
+                    .find(b => b.dataset.deckKey === deckModalReturnKey);
+                // Filtering may have removed the tile: fall back to the first deck link or main.
+                const target = btn || document.querySelector('.deck-name a') || document.querySelector('main');
+                if (target) {
+                    if (target.tagName === 'MAIN' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                    target.focus();
+                }
+                deckModalReturnKey = null;
+            }
         }
     }
+
+    function deckModalFocusables() {
+        return Array.from(document.querySelectorAll('#deckModal .modal-content a[href], #deckModal .modal-content button, #deckModal .modal-content input, #deckModal .modal-content select, #deckModal .modal-content textarea, #deckModal .modal-content [tabindex]:not([tabindex="-1"])'))
+            .filter(el => !el.disabled && el.offsetParent !== null);
+    }
+
+    document.addEventListener('keydown', (ev) => {
+        if (document.getElementById('deckModal').style.display !== 'flex') return;
+        if (ev.key === 'Escape') { closeModal(); return; }
+        if (ev.key !== 'Tab') return;
+        const els = deckModalFocusables();
+        if (!els.length) return;
+        const first = els[0], last = els[els.length - 1];
+        const inside = document.querySelector('#deckModal .modal-content').contains(document.activeElement);
+        if (ev.shiftKey && (document.activeElement === first || !inside)) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && (document.activeElement === last || !inside)) { ev.preventDefault(); first.focus(); }
+    });
+
+    // Repo badges sit above the stretched quick-view button (for their
+    // tooltip), so forward their clicks to it: quick view + focus return work.
+    document.addEventListener('click', (ev) => {
+        const badge = ev.target.closest && ev.target.closest('.deck-card .repo-badge');
+        if (!badge) return;
+        const open = badge.closest('.deck-card').querySelector('.deck-open');
+        if (open) { ev.preventDefault(); open.click(); }
+    });
 
     function openImportModal() {
         document.getElementById('importUrl').value = '';
@@ -510,51 +933,109 @@
         }
     }
     
-    async function updateDeckStatus(newStatus) {
+    async function saveDeckLink(provider) {
         if (currentDeckIndex === -1) return;
         const deck = allDecks[currentDeckIndex];
-        deck.status = newStatus;
-        
+        const inputIds = {
+            archidekt: 'modalArchidektUrl',
+            moxfield: 'modalMoxfieldUrl',
+            commandersalt: 'modalCommanderSaltUrl',
+        };
+        const identifier = document.getElementById(inputIds[provider]).value.trim();
+        const statusEl = document.getElementById('modalLinkStatus');
+        statusEl.textContent = 'Saving...';
+        statusEl.style.color = 'var(--text-muted)';
         try {
-            const res = await fetch(`/api/decks/${deck.id}/status`, {
+            const res = await fetch(`/api/decks/${deck.id}/links`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({ provider, identifier })
             });
             const data = await res.json();
             if (data.success) {
-                renderDecks();
+                deck.links = data.links;
+                statusEl.textContent = identifier ? `${provider} link saved.` : `${provider} link cleared.`;
+                statusEl.style.color = '#4ade80';
+            } else {
+                statusEl.textContent = data.error || 'Failed to save link.';
+                statusEl.style.color = '#f87171';
             }
         } catch (err) {
-            console.error("Failed to update status", err);
+            statusEl.textContent = 'Failed to save link: ' + err;
+            statusEl.style.color = '#f87171';
+        }
+    }
+
+    async function syncDeck() {
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        const statusEl = document.getElementById('modalSyncStatus');
+        statusEl.textContent = 'Syncing...';
+        statusEl.style.color = 'var(--text-muted)';
+        try {
+            const res = await fetch(`/api/decks/${deck.id}/sync`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                const report = data.report;
+                const sourceSummary = report.sources
+                    .map(s => s.status === 'ok' ? `${s.provider}: ${s.card_count} cards` : `${s.provider}: FAILED (${s.error})`)
+                    .join(' | ');
+                let msg = `Synced ${report.merged_card_count} cards. ${sourceSummary}`;
+                if (report.conflicts.length > 0) {
+                    msg += ` -- ${report.conflicts.length} conflict(s) resolved by max quantity / union.`;
+                }
+                await loadDecks();
+                openDeckModal(currentDeckIndex);
+                statusEl.textContent = msg;
+                statusEl.style.color = report.warnings.length > 0 ? '#facc15' : '#4ade80';
+            } else {
+                statusEl.textContent = data.error || 'Sync failed.';
+                statusEl.style.color = '#f87171';
+            }
+        } catch (err) {
+            statusEl.textContent = 'Sync failed: ' + err;
+            statusEl.style.color = '#f87171';
         }
     }
     
-    function syncDeck() {
-        console.log("Sync clicked");
-    }
-    
     function reviewDeck() {
-        console.log("Review clicked");
+        if (currentDeckIndex === -1) return;
+        const deck = allDecks[currentDeckIndex];
+        window.location.href = `/deck/${encodeURIComponent(deck.name)}?review=1`;
     }
     
     function tradeDeck() {
         console.log("Trade clicked");
     }
 
+    // Deck group from /decks?status=<value> (validated server-side; null = all).
+    const STATUS_FILTER = {{ status_filter | tojson }};
+    // Status value -> label (values stay physical/digital/testing/retired).
+    const DECK_GROUP_LABELS = Object.fromEntries({{ deck_groups | tojson }}.map(g => [g.status, g.label]));
+    const STATUS_LABELS = { physical: 'Physical', digital: 'Virtual', testing: 'WIP', retired: 'Retired' };
+
     function renderDecks() {
         const container = document.getElementById('decksContainer');
-        const showAll = document.getElementById('showAllFolders').checked;
+        const toggle = document.getElementById('showAllFolders');
+        // A status filter shows that group's decks regardless of the toggle.
+        const showAll = STATUS_FILTER ? true : Boolean(toggle && toggle.checked);
         
         // Group decks by status
         const statuses = {};
         allDecks.forEach(deck => {
             const status = deck.status || 'testing';
+            if (STATUS_FILTER && status !== STATUS_FILTER) return;
             if (!statuses[status]) statuses[status] = [];
             statuses[status].push(deck);
         });
         
         container.innerHTML = '';
+
+        if (STATUS_FILTER) {
+            const n = (statuses[STATUS_FILTER] || []).length;
+            const countEl = document.getElementById('deckFilterCount');
+            if (countEl) countEl.textContent = `${n} deck${n === 1 ? '' : 's'}`;
+        }
         
         // Sort status names (Physical first, then Virtual, Test, Retired)
         const order = { 'physical': 1, 'digital': 2, 'testing': 3, 'retired': 4 };
@@ -572,61 +1053,50 @@
             const decks = statuses[statusName];
             const safeId = statusName.replace(/[^a-zA-Z0-9]/g, '-');
             
-            // Capitalize for display
-            const displayTitle = statusName.charAt(0).toUpperCase() + statusName.slice(1) + ' Decks';
+            // Group label from DECK_GROUPS (Physical / Virtual / WIP / Retired Decks).
+            const displayTitle = (DECK_GROUP_LABELS[statusName] || (statusName.charAt(0).toUpperCase() + statusName.slice(1) + ' Decks'));
             
             const section = document.createElement('div');
             section.className = 'folder-section';
             
-            const cmdrsFormat = (commanders) => {
-                if (!commanders || commanders.length === 0) return 'No commanders set';
-                return commanders.join(' & ');
+            const cmdrsFormat = (deck) => {
+                // Role order (commander_roles.py): Doctor before companion; a true companion is named as such.
+                const roles = HUD.commanderRoles(deck).filter(c => c.name);
+                if (!roles.length) return 'No commanders set';
+                const comps = roles.filter(c => c.role === 'companion').map(c => c.name);
+                const mains = roles.filter(c => c.role !== 'companion').map(c => c.name);
+                return HUD.esc(mains.join(' & ')) + (comps.length ? ` · companion ${HUD.esc(comps.join(', '))}` : '');
             };
             
             let gridHtml = decks.map(deck => {
-                let iconsHtml = '';
-                
-                if (deck.commander_uids && deck.commander_uids.length > 0) {
-                    deck.commander_uids.forEach((uid, i) => {
-                        const cropUrl = `https://api.scryfall.com/cards/${uid}?format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
-                    });
-                } else if (deck.commanders && deck.commanders.length > 0) {
-                    deck.commanders.forEach((cname, i) => {
-                        const cropUrl = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image&version=art_crop`;
-                        const style = i > 0 ? `margin-left: -20px; z-index: ${i};` : `z-index: 0;`;
-                        iconsHtml += `<img src="${cropUrl}" class="commander-icon" style="${style}" alt="Commander Icon" loading="lazy">`;
-                    });
-                } else {
-                    iconsHtml = `<img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' fill='%23222'/></svg>" class="commander-icon" alt="Commander Icon">`;
-                }
-                
                 const globalIndex = allDecks.indexOf(deck);
+                const href = encodeURIComponent(deck.name);
+                const tip = `${deck.name} · ${HUD.commanderRoles(deck).map(c => c.name).filter(Boolean).join(' & ') || 'No commanders set'}`;
                 
                 return `
-                <div class="deck-card" onclick="openDeckModal(${globalIndex})">
-                    <div class="deck-header">
-                        <div style="display: flex; align-items: center; position: relative;">
-                            ${iconsHtml}
+                <article class="deck-card hud-enter" style="--i: ${Math.min(decks.indexOf(deck), 15)}" title="${HUD.esc(tip)}">
+                    ${deckArt(deck)}
+                    <div class="deck-top">
+                        <div class="deck-status-row">
+                            ${HUD.statusChip(deck.status || 'digital', STATUS_LABELS[deck.status] || 'Virtual')}
+                            ${renderRepoBadge(deck)}
                         </div>
-                        <div>
-                            <h3 class="deck-name"><a href="/deck/${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()" style="color: inherit; text-decoration: none;">${deck.name}</a></h3>
-                            <div class="deck-commanders">${cmdrsFormat(deck.commanders)}</div>
-                            <span class="deck-status status-${deck.status || 'digital'}">${deck.status || 'Digital'}</span>
-                        </div>
+                        ${HUD.pips(deck.color || '')}
                     </div>
-                    <div class="deck-footer">
-                        <div>${createColorPips(deck.color)}</div>
-                        <div class="deck-actions">
-                            <a href="/inventory?deck=${encodeURIComponent(deck.name)}" onclick="event.stopPropagation()">View Inventory &rarr;</a>
+                    <div class="deck-plate">
+                        <div class="deck-header-info">
+                            <h3 class="deck-name"><a href="/deck/${href}">${HUD.esc(deck.name)}</a></h3>
+                            <p class="deck-commanders">${cmdrsFormat(deck)}</p>
                         </div>
+                        <a class="deck-inv" href="/inventory?deck=${href}" title="Inventory for ${HUD.esc(deck.name)}" aria-label="Inventory for ${HUD.esc(deck.name)}">${INV_ICON}</a>
                     </div>
-                </div>
+                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
+                </article>
             `}).join('');
             
             let headerHtml = '';
-            if (statusName !== 'physical') {
+            // With a filter the page is one group; the indicator above names it.
+            if (statusName !== 'physical' && !STATUS_FILTER) {
                 headerHtml = `
                 <div class="folder-header" onclick="toggleFolder('${safeId}')">
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
@@ -646,12 +1116,16 @@
             container.appendChild(section);
         });
         
-        if (sortedStatuses.length === 0 || (sortedStatuses.filter(f => f === 'physical').length === 0 && !showAll)) {
+        if (STATUS_FILTER) {
+            if (sortedStatuses.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted);">No decks in this group. <a href="/decks">Show all decks</a>.</p>';
+            }
+        } else if (sortedStatuses.length === 0 || (sortedStatuses.filter(f => f === 'physical').length === 0 && !showAll)) {
             container.innerHTML = '<p style="color: var(--text-muted);">No decks found matching the current filters.</p>';
         }
     }
     
-    // Auto load on start
-    loadDecks();
+    // Auto load once deferred hud.js has run (renderDecks uses HUD).
+    document.addEventListener('DOMContentLoaded', loadDecks);
 </script>
 {% endblock %}
