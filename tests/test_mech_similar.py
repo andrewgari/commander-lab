@@ -243,6 +243,13 @@ class OracleFeedTests(unittest.TestCase):
         self.assertTrue(all(len(v) == mech_similar.FEED_PER_CARD for v in feed.values()))
         self.assertEqual(list(feed)[0], "Rock 00")  # input order kept: commander first
 
+    def test_deck_cards_excluded_before_per_card_limit(self):
+        deck = self.names[:10]
+        feed = mech_similar.oracle_feed(["Rock 00"], deck, model=self.m)
+        got = [x["name"] for x in feed["Rock 00"]]
+        self.assertEqual(len(got), mech_similar.FEED_PER_CARD)  # slots not eaten by in-deck cards
+        self.assertFalse(set(got) & set(deck))
+
     def test_basics_unknown_and_low_similarity_are_left_out(self):
         feed = mech_similar.oracle_feed(["Island", "Not A Card", "Rock 00"], model=self.m)
         self.assertEqual(list(feed), ["Rock 00"])
@@ -257,7 +264,7 @@ class OracleFeedTests(unittest.TestCase):
         old = mech_similar._default
         mech_similar._default = self.m
         deck = dict(DECK, commanders=["Rock 00"],
-                    cards=[{"name": n, "quantity": 1} for n in self.names] + [{"name": "Island", "quantity": 70}])
+                    cards=[{"name": n, "quantity": 1} for n in self.names[:14]] + [{"name": "Island", "quantity": 70}])
         try:
             req = theory.build_request(FakeRedis(), deck, "rocks", "keep", owned={})
         finally:
@@ -268,6 +275,10 @@ class OracleFeedTests(unittest.TestCase):
         self.assertTrue(all(len(v) <= mech_similar.FEED_PER_CARD for v in feed.values()))
         self.assertEqual(set(next(iter(feed.values()))[0]), {"name", "sim"})
         json.dumps(req)  # still a plain JSON payload
+        in_deck = set(self.names[:14])
+        for v in feed.values():  # neighbours are out-of-deck swap candidates only
+            self.assertTrue(v)
+            self.assertFalse({x["name"] for x in v} & in_deck)
 
     def test_theory_request_has_field_even_without_artifact(self):
         old = mech_similar._default

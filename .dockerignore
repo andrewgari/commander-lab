@@ -19,5 +19,5 @@ tests/
 .DS_Store
 .idea/
 .vscode/
-*.parquet
-*.npz
+**/*.parquet
+**/mech_similar*.npz

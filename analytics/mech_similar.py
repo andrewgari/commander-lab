@@ -169,13 +169,14 @@ def oracle_feed(cards: Sequence[str], deck_cards: Iterable[str] = (), *, model: 
     m = model or default_model()
     if not m.available():
         return {}
+    in_deck = list(deck_cards or ())  # materialize once; excluded BEFORE the per-card limit
     out: Dict[str, List[dict]] = {}
     for c in cards:
         if len(out) >= max_cards:
             break
         if not c or c in BASICS or c in out:
             continue
-        nb = [x for x in m.neighbours(c, per_card) if x["sim"] >= min_sim]
+        nb = [x for x in m.neighbours(c, per_card, exclude=in_deck) if x["sim"] >= min_sim]
         if nb:
             out[c] = [{"name": x["name"], "sim": round(x["sim"], 2)} for x in nb]
     return out
