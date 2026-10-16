@@ -29,6 +29,7 @@ STATUS_BUILDING = "building"
 STATUS_DRAFTS_READY = "drafts_ready"
 STATUS_ACCEPTED = "accepted"
 STATUS_ABANDONED = "abandoned"
+STATUS_FAILED = "failed"
 
 VALID_STATUSES = {
     STATUS_PENDING_PREFERENCES,
@@ -36,6 +37,7 @@ VALID_STATUSES = {
     STATUS_DRAFTS_READY,
     STATUS_ACCEPTED,
     STATUS_ABANDONED,
+    STATUS_FAILED,
 }
 
 
@@ -213,7 +215,9 @@ class StubReconstructBuilder(BaseReconstructBuilder):
         return drafts
 
 
-_builder_instance: BaseReconstructBuilder = StubReconstructBuilder()
+from reconstruct_builder import ReconstructBuildError, ReconstructBuilder
+
+_builder_instance: BaseReconstructBuilder = ReconstructBuilder()
 
 
 def get_builder() -> BaseReconstructBuilder:
@@ -488,13 +492,22 @@ def execute_build(r: Any, session_id: str) -> dict:
         raise ValueError(f"session not found: {session_id}")
 
     builder = get_builder()
-    drafts = builder.build(session, r)
-
-    session["drafts"] = drafts
-    session["status"] = STATUS_DRAFTS_READY
-    session["updated_at"] = _now()
-    _save_session(r, session)
-    return session
+    try:
+        drafts = builder.build(session, r)
+        session["drafts"] = drafts
+        session["status"] = STATUS_DRAFTS_READY
+        session.pop("error", None)
+        session.pop("error_message", None)
+        session["updated_at"] = _now()
+        _save_session(r, session)
+        return session
+    except Exception as exc:
+        session["status"] = STATUS_FAILED
+        session["error"] = str(exc)
+        session["error_message"] = str(exc)
+        session["updated_at"] = _now()
+        _save_session(r, session)
+        raise
 
 
 def get_drafts(r: Any, session_id: str) -> list[dict]:

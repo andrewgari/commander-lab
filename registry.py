@@ -770,6 +770,8 @@ def apply_folder_rule(r, registry_id: str) -> Optional[dict]:
     deck = find_deck(r, registry_id)
     if not deck:
         return None
+    if (deck.get("source") or "archidekt") not in ("archidekt", "moxfield"):
+        return None
     if (deck.get("source") or "archidekt") == "archidekt" and "parent_folder_id" not in deck:
         return None
     new_status = derive_for_deck(deck)
