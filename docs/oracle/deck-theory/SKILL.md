@@ -26,6 +26,15 @@ zone), `journal` (`thesis`, `pillars[{name, description}]`, `pet_cards[]`), `fre
 USD per card, `no_budget`). If a field is missing, use an empty value and say so in the prose.
 Never guess what it should have been.
 
+`mechanically_similar` (optional, may be `{}`): `{card name: [{name, sim}, ...]}` for the
+commander, the pets and the first cards of the decklist, a few neighbours each (`sim` is cosine
+similarity, 0 to 1, best first). It means **similar rules text and mechanics**: cards that do the
+same thing (Sol Ring is near other mana rocks). It is **NOT synergy** and **NOT "played with"**
+(that is a different signal, card2vec). Use it to find like-for-like swaps (a cheaper or owned
+card that does the same job), never as evidence that two cards combine well. Cards newer than
+the dataset (after Aetherdrift) are simply absent. It is advice only; the legality, source and
+price checks below still apply to anything you pick from it.
+
 ## What the app checks afterwards (so don't fake it)
 Commander Lab re-derives every card's `source` from its own collection registry, re-prices every
 card from Scryfall USD, recomputes `cuts`, `buy_total` and `reuse_count`, and drops anything
