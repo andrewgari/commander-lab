@@ -179,6 +179,20 @@
         </div>
     </section>
 </div>
+<!-- Single Card Review (CR-F). Spec: docs/design/card-review/UX_SPEC.md -->
+<div id="cardReviewModal" class="hud-modal hud-cr-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="crTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Card review</h3>
+            <div class="hud-panel-meta">
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="back">← Card detail</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close review">Close ✕</button>
+            </div>
+        </header>
+        <p class="hud-cr-sr" role="status" aria-live="polite" data-cr-live></p>
+        <div class="hud-panel-body" data-cr-body></div>
+    </section>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -600,6 +614,26 @@
         renderCards();
     }
 
+    // ---- Single Card Review entry points (CR-F) ----------------------------
+    const isPhysicalDeck = () => !!currentDeck && currentDeck.status === 'physical';
+    function reviewActionRow(card, index) {
+        const block = CardReview.unreviewable(card);
+        const why = block ? block.h + '.' : isPhysicalDeck()
+            ? 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your want/buy list.'
+            : 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your Tune change list.';
+        return `<div class="hud-cr-detail-actions">
+            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Review card <span class="hud-kbd">R</span></button>
+            <p class="hud-cr-why" id="crWhy">${esc(why)}</p>
+        </div>`;
+    }
+    let cardReview = null;
+    function openReview(index) {
+        const card = inventoryCards[index];
+        if (!card || !cardReview) return;
+        HUD.closeModal('cardModal');
+        cardReview.open(card, index);
+    }
+
     function openCardModal(index) {
         const card = inventoryCards[index];
         if (!card) return;
@@ -626,7 +660,8 @@
                     <input type="text" id="modalNewTagInput" placeholder="Add tag…" aria-label="New tag">
                     <button type="submit" class="hud-btn hud-btn--primary">Add</button>
                 </form>
-            </div>`;
+            </div>
+            ${reviewActionRow(card, index)}`;
         HUD.openModal('cardModal');
 
         fetch(`/api/card/${encodeURIComponent(card.name)}/tags`)
@@ -702,8 +737,27 @@
             if (h) { h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); }
             return;
         }
+        const rv = ev.target.closest('[data-review-card]');
+        if (rv) { openReview(Number(rv.dataset.reviewCard)); return; }
         const hit = ev.target.closest('[data-card-index]');
         if (hit && !ev.target.closest('.hud-modal')) openCardModal(Number(hit.dataset.cardIndex));
+    });
+    // R reviews the focused card, or the card whose detail is open.
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'r' && ev.key !== 'R') return;
+        if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || ev.repeat) return;
+        const t = ev.target;
+        if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+        if (document.getElementById('cardReviewModal').classList.contains('is-open')) return;
+        const open = document.getElementById('cardModal').classList.contains('is-open');
+        const btn = open ? document.querySelector('#cardModal [data-review-card]') : null;
+        const hit = open ? null : (t && t.closest && t.closest('[data-card-index]'));
+        const idx = btn ? Number(btn.dataset.reviewCard) : hit ? Number(hit.dataset.cardIndex) : -1;
+        if (idx < 0 || (btn && btn.getAttribute('aria-disabled') === 'true')) return;
+        const card = inventoryCards[idx];
+        if (!card || CardReview.unreviewable(card)) return;
+        ev.preventDefault();
+        openReview(idx);
     });
     document.addEventListener('keydown', (ev) => {
         if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -898,8 +952,13 @@
     });
 
     // hud.js is deferred: start once it (and the DOM) is ready.
-    document.addEventListener('DOMContentLoaded', () => { loadDeckData(); loadBracket(); });
+    document.addEventListener('DOMContentLoaded', () => {
+        cardReview = CardReview.mount({ modalId: 'cardReviewModal', deckId: DECK_RID || deckNameStr, deckName: deckNameStr,
+            deckKind: () => isPhysicalDeck() ? 'physical' : 'digital', onBack: openCardModal });
+        loadDeckData(); loadBracket();
+    });
     document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
 <script src="/static/js/personality.js?v={{ version }}" defer></script>
+<script src="/static/js/card_review.js?v={{ version }}" defer></script>
 {% endblock %}

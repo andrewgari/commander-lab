@@ -1,0 +1,326 @@
+/* ==========================================================================
+   Commander Lab: Single Card Review (CR-D) kit additions.
+   Docs only, NOT app code. The mockup loads the REAL static/css/hud.css first,
+   so everything not defined here is the shipped HUD kit.
+
+   Coders: every rule below is a proposal for hud.css section "Card review".
+   Class names are final (hud-cr- prefix). Rules:
+     - The :root tokens below are NEW and move into the hud.css token block.
+     - Colour is tokens only. No gradients, no blur, no glow, 0-3px corners.
+     - Only transform and opacity animate. Every animation stops under
+       prefers-reduced-motion (block at the bottom).
+   See UX_SPEC.md for the full spec.
+   ========================================================================== */
+
+:root {
+    --cr-dialog-w:  64rem;   /* review dialog max width (card detail uses --modal-w 56rem) */
+    --cr-subject-w: 15rem;   /* left column: the card under review */
+    --cr-thumb-w:   6rem;    /* replacement thumbnail */
+    --cr-thumb-w-sm: 4.5rem; /* ... at <= 640px */
+    --cr-act-w:     13rem;   /* replacement action column */
+    --cr-touch:     2.75rem; /* 44px: primary actions on touch (kit default is 36px) */
+    /* ruling colour: keep = ok (green), remove = signal (amber). Never danger red:
+       "remove" deletes nothing and "weak" is advice, not an error (AN-D D8). */
+    --cr-keep:      var(--ok);
+    --cr-keep-dim:  var(--ok-dim);
+    --cr-remove:    var(--signal);
+    --cr-remove-dim: var(--signal-dim);
+}
+
+/* --- Mock-only chrome (not part of the design) ------------------------- */
+.mock-bar { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: var(--sp-4) 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-0); border: var(--hairline) dashed var(--line-strong); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.mock-bar select, .mock-bar button { font: inherit; }
+.mock-bar select { height: 1.75rem; padding: 0 var(--sp-2); background: var(--surface-1); color: var(--text-1); border: var(--stroke-strong); border-radius: var(--radius-1); text-transform: none; letter-spacing: 0; }
+.mock-note { display: inline-block; margin: var(--sp-8) 0 var(--sp-2); padding: var(--sp-1) var(--sp-2); background: var(--surface-3); border: var(--stroke-strong); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* =======================================================================
+   1. ENTRY POINTS
+   ======================================================================= */
+
+/* 1a. Corner "..." on a card frame. A SIBLING of the role=button frame (a
+   button inside role=button is invalid), positioned over its top-right.
+   Hidden until hover / focus-within on fine pointers; always visible on touch. */
+.hud-cr-cell { position: relative; min-width: 0; }
+.hud-cr-more {
+    position: absolute; top: var(--sp-2); right: var(--sp-2); z-index: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.75rem; height: 1.75rem; padding: 0;
+    background: var(--surface-1); border: var(--stroke-strong); border-radius: var(--radius-1);
+    color: var(--text-1); font: var(--fw-semibold) var(--fs-md)/1 var(--font-mono);
+    cursor: pointer; opacity: 0; transition: opacity var(--dur-fast) var(--ease);
+}
+.hud-cr-cell:hover .hud-cr-more, .hud-cr-cell:focus-within .hud-cr-more, .hud-cr-more[aria-expanded="true"] { opacity: 1; }
+.hud-cr-more:hover { background: var(--surface-3); border-color: var(--text-3); }
+.hud-cr-more:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+@media (hover: none), (pointer: coarse) {
+    .hud-cr-more { opacity: 1; width: var(--cr-touch); height: var(--cr-touch); top: 0; right: 0; background: var(--surface-1); border-width: 0 0 var(--hairline) var(--hairline); border-radius: 0 var(--radius-2) 0 var(--radius-1); }
+}
+
+/* 1b. Menu extras (the menu itself is the stock .hud-menu). */
+.hud-menu-item .hud-kbd { margin-left: auto; }
+/* The stock .hud-menu-item is styled for <a>. Menu actions are <button>s: reset them. */
+button.hud-menu-item { width: 100%; box-sizing: border-box; background: none; border: 0; border-radius: 0; font-family: inherit; text-align: left; cursor: pointer; }
+.hud-btn--primary .hud-kbd { color: var(--text-on-signal); border-color: var(--text-on-signal); }
+.hud-menu-item--primary { color: var(--signal-strong); }
+.hud-menu-item[aria-disabled="true"] { color: var(--text-4); cursor: not-allowed; }
+.hud-menu-item[aria-disabled="true"]:hover { background: transparent; color: var(--text-4); }
+.hud-menu-sep { height: 0; margin: var(--sp-1) 0; border-top: var(--stroke-faint); }
+.hud-menu-hint { display: block; padding: 0 var(--sp-3) var(--sp-2); color: var(--text-3); font-size: var(--fs-micro); white-space: normal; max-width: 15rem; }
+
+/* 1c. Result marker on a deck card after a review exists (optional, P2). */
+.hud-cr-mark { position: absolute; left: var(--sp-2); bottom: 3.9rem; z-index: 1; }
+
+/* 1d. Detail-modal action row: Review is the one primary action. */
+.hud-cr-detail-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); border-top: var(--stroke-faint); }
+.hud-cr-detail-actions .hud-cr-why { color: var(--text-3); font-size: var(--fs-xs); flex: 1 1 100%; margin: 0; }
+
+/* =======================================================================
+   2. DIALOG SHELL + SUBJECT COLUMN
+   ======================================================================= */
+.hud-cr-modal .hud-modal-dialog { max-width: var(--cr-dialog-w); }
+.hud-cr { display: grid; grid-template-columns: var(--cr-subject-w) minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.hud-cr-subject { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; position: sticky; top: var(--sp-4); }
+.hud-cr-subject .hud-kv { margin: 0; }
+.hud-cr-subject-id { display: none; } /* phone header only */
+.hud-cr-stage { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.hud-cr-scope { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.hud-cr-scope .hud-freshness { margin-left: auto; }
+
+/* =======================================================================
+   3. DELIBERATION (running)
+   ======================================================================= */
+/* Phase stepper: four segments, label under each. Sits inside .hud-job. */
+.hud-cr-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.hud-cr-step { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.hud-cr-step::before { content: ""; height: var(--bar-track-h); background: var(--surface-3); }
+.hud-cr-step span { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-cr-step.is-done::before { background: var(--ok); }
+.hud-cr-step.is-done span { color: var(--text-3); }
+.hud-cr-step.is-active::before { background: var(--signal); }
+.hud-cr-step.is-active span { color: var(--signal-strong); }
+.hud-job.is-failed .hud-cr-step.is-active::before { background: var(--danger); }
+.hud-job.is-failed .hud-cr-step.is-active span { color: var(--danger); }
+.hud-job-actions { display: flex; gap: var(--sp-2); align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+/* Evidence strip: three cells that resolve from dashed to solid. */
+.hud-cr-evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-cr-ev { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; padding: var(--sp-3); background: var(--surface-1); }
+.hud-cr-ev b { color: var(--text-1); font: var(--fw-medium) var(--fs-md)/var(--lh-tight) var(--font-mono); }
+.hud-cr-ev small { color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow-wrap: anywhere; }
+.hud-cr-ev.is-pending { background: var(--surface-0); }
+.hud-cr-ev.is-pending b { color: var(--text-4); }
+.hud-cr-ev.is-pending b::after { content: "…"; }
+.hud-cr-ev.is-miss b { color: var(--text-3); }
+.hud-cr-ev.is-enter { animation: cr-rise var(--dur-slow) var(--ease) both; }
+
+/* Debate: two sides on a 1px gutter, each side a list of arguments. */
+.hud-cr-debate { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-cr-side { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); background: var(--surface-1); box-shadow: inset 0 var(--indicator) 0 var(--side-c, var(--line)); }
+.hud-cr-side[data-side="keep"]   { --side-c: var(--cr-keep); }
+.hud-cr-side[data-side="remove"] { --side-c: var(--cr-remove); }
+.hud-cr-side-head { display: flex; gap: var(--sp-2); align-items: baseline; justify-content: space-between; padding-top: var(--sp-1); }
+.hud-cr-side-head h3 { margin: 0; color: var(--side-c); font: var(--fw-semibold) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-side-state { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-side.is-speaking .hud-cr-side-state { color: var(--side-c); }
+.hud-cr-side.is-speaking .hud-cr-side-state::after { content: " ●●●"; letter-spacing: 0.1em; animation: cr-pulse 0.9s var(--ease) infinite alternate; }
+.hud-cr-args { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.hud-cr-arg { display: flex; flex-direction: column; gap: var(--sp-1); padding-left: var(--sp-3); border-left: var(--hairline) solid var(--side-c); animation: cr-rise var(--dur-slow) var(--ease) both; }
+.hud-cr-arg-tag { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-arg p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); overflow-wrap: anywhere; }
+.hud-cr-arg.is-streaming p::after { content: "▍"; margin-left: 1px; color: var(--side-c); animation: cr-pulse 0.7s steps(2, jump-none) infinite; }
+.hud-cr-arg-wait { height: 3.25rem; border: var(--hairline) dashed var(--line-strong); border-radius: var(--radius-1); } /* dashed = "not said yet" (kit bans gradient skeletons) */
+.hud-cr-judge { display: flex; gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) var(--sp-3); background: var(--surface-0); border: var(--stroke); border-radius: var(--radius-1); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-judge b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-cr-judge.is-active b { color: var(--signal-strong); }
+
+/* =======================================================================
+   4. VERDICT
+   ======================================================================= */
+.hud-cr-verdict { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4) var(--sp-6); padding: var(--sp-4) var(--sp-5); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--v-c); border-radius: var(--radius-1); animation: cr-rise var(--dur-slow) var(--ease) both; }
+.hud-cr-verdict[data-ruling="keep"]   { --v-c: var(--cr-keep);   --v-dim: var(--cr-keep-dim); }
+.hud-cr-verdict[data-ruling="remove"] { --v-c: var(--cr-remove); --v-dim: var(--cr-remove-dim); }
+.hud-cr-ruling { margin: 0; display: flex; gap: var(--sp-3); align-items: baseline; color: var(--v-c); font: var(--fw-semibold) var(--fs-hero)/var(--lh-tight) var(--font-mono); letter-spacing: var(--tracking-tight); text-transform: uppercase; }
+.hud-cr-ruling small { color: var(--text-3); font: var(--fw-medium) var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); }
+.hud-cr-judgeline { margin: var(--sp-2) 0 0; color: var(--text-1); font-size: var(--fs-md); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.hud-cr-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.hud-cr-metrics { margin: 0; display: grid; gap: var(--sp-3); align-content: start; }
+.hud-cr-metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); align-items: baseline; }
+.hud-cr-metric dt { color: var(--text-3); font: var(--fw-medium) var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-metric dd { margin: 0; color: var(--text-1); font: var(--fw-medium) var(--fs-md) var(--font-mono); white-space: nowrap; }
+.hud-cr-metric dd small { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+.hud-cr-metric .hud-cr-meter { grid-column: 1 / -1; }
+.hud-cr-meter { position: relative; display: block; height: var(--bar-track-h); background: var(--surface-3); }
+.hud-cr-meter i { position: absolute; inset: 0; background: var(--m-c, var(--data)); transform-origin: left center; transform: scaleX(var(--v, 0)); animation: cr-grow var(--dur-slow) var(--ease) both; }
+.hud-cr-meter b { position: absolute; top: -3px; bottom: -3px; left: calc(var(--ref, 0) * 100%); width: 2px; background: var(--text-1); } /* tick: deck median */
+.hud-cr-meter--conf { --m-c: var(--v-c); }
+.hud-cr-metric .hud-cr-ref { grid-column: 1 / -1; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-metric .hud-cr-ref b { color: var(--text-1); font-weight: var(--fw-medium); }
+/* signals under the verdict (EDHREC / fit / synergy): the stock .hud-why rows */
+.hud-cr-signals { grid-column: 1 / -1; margin: 0; padding-top: var(--sp-3); border-top: var(--stroke-faint); }
+.hud-cr-signals .hud-why { margin-top: 0; grid-template-columns: 8rem minmax(0, 1fr) 4.5rem; }
+
+/* Cases: the two sides' key reasons. The side that won is raised. */
+.hud-cr-cases { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-cr-case { min-width: 0; background: var(--surface-1); box-shadow: inset 0 var(--indicator) 0 var(--side-c); }
+.hud-cr-case[data-side="keep"]   { --side-c: var(--cr-keep); }
+.hud-cr-case[data-side="remove"] { --side-c: var(--cr-remove); }
+.hud-cr-case.is-ruled { background: var(--surface-2); }
+.hud-cr-case > summary { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-3) var(--sp-4) var(--sp-2); list-style: none; cursor: default; }
+.hud-cr-case > summary::-webkit-details-marker { display: none; }
+.hud-cr-case > summary h3 { margin: 0; color: var(--side-c); font: var(--fw-semibold) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-case > summary .hud-chip { margin-left: auto; }
+.hud-cr-case > summary:focus-visible { outline: var(--focus-ring); outline-offset: calc(-1 * var(--hairline)); }
+.hud-cr-reasons { list-style: none; margin: 0; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.hud-cr-reasons li { display: flex; flex-direction: column; gap: var(--sp-1); color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-cr-reasons .hud-chip { align-self: flex-start; }
+
+/* Notes: degraded evidence, stale, close call. Inline, never a toast. */
+.hud-cr-note { display: flex; gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: var(--stroke); border-left: var(--indicator) solid var(--n-c, var(--data)); border-radius: var(--radius-1); color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.hud-cr-note--signal { --n-c: var(--signal); background: var(--signal-dim); border-color: var(--signal-line); border-left-color: var(--signal); color: var(--signal-strong); }
+.hud-cr-note .hud-btn { margin-left: auto; flex: none; }
+
+/* =======================================================================
+   5. REPLACEMENTS
+   ======================================================================= */
+.hud-cr-repl { display: flex; flex-direction: column; gap: var(--sp-3); }
+.hud-cr-repl-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: baseline; }
+.hud-cr-repl-head .hud-freshness { margin-left: auto; }
+.hud-cr-list { list-style: none; margin: 0; padding: 0; background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-cr-item { display: grid; grid-template-columns: var(--cr-thumb-w) minmax(0, 1fr) var(--cr-act-w); gap: var(--sp-4); align-items: start; padding: var(--sp-4); border-bottom: var(--stroke-faint); animation: cr-rise var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); transition: background-color var(--dur-fast) var(--ease); }
+.hud-cr-item:last-child { border-bottom: 0; }
+.hud-cr-item.is-current { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-cr-item.is-chosen { background: var(--ok-dim); box-shadow: inset var(--indicator) 0 0 var(--ok); }
+.hud-cr-item.is-skipped .hud-cr-thumb, .hud-cr-item.is-skipped .hud-cr-body { opacity: 0.45; } /* dim the card, never the buttons (AA) */
+.hud-cr-thumb { display: block; width: 100%; aspect-ratio: var(--card-ratio); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-2); overflow: hidden; }
+.hud-cr-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hud-cr-body { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-cr-name { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); align-items: center; }
+.hud-cr-name .hud-card-name { font-size: var(--fs-md); line-height: var(--lh-tight); }
+.hud-cr-name .hud-art-meta { display: inline-flex; margin: 0; }
+.hud-cr-kind { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); align-items: center; }
+.hud-cr-shift { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
+.hud-cr-shift s { color: var(--text-3); text-decoration-color: var(--text-4); }
+.hud-cr-body p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); max-width: 60ch; }
+.hud-cr-facts { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-facts b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-cr-facts .is-ok { color: var(--ok); }
+.hud-cr-oracle > summary { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; cursor: pointer; width: fit-content; }
+.hud-cr-oracle > summary:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-cr-oracle div { margin-top: var(--sp-1); padding: var(--sp-2) var(--sp-3); background: var(--surface-0); border: var(--stroke-faint); color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.hud-cr-act { display: flex; flex-direction: column; gap: var(--sp-1); }
+.hud-cr-act .hud-btn { width: 100%; white-space: normal; height: auto; min-height: 2rem; padding-top: var(--sp-1); padding-bottom: var(--sp-1); text-align: center; line-height: var(--lh-snug); }
+.hud-cr-act .hud-freshness { text-align: center; }
+/* One amber button at a time: only the current row's action is primary (keyboard cursor; the first row by default). */
+.hud-cr-item.is-current:not(.is-chosen) .hud-btn[data-cr="pick"] { background: var(--signal); border-color: var(--signal); color: var(--text-on-signal); }
+.hud-cr-item.is-current:not(.is-chosen) .hud-btn[data-cr="pick"]:hover { background: var(--signal-strong); border-color: var(--signal-strong); }
+.hud-cr-act .hud-chip { justify-content: center; height: 2rem; }
+.hud-cr-queued { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-4); background: var(--ok-dim); border: var(--hairline) solid var(--ok); border-radius: var(--radius-1); color: var(--text-1); font-size: var(--fs-sm); animation: cr-rise var(--dur-slow) var(--ease) both; }
+.hud-cr-queued .hud-btn { margin-left: auto; }
+.hud-cr-more-row { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-cr-keys { display: flex; flex-wrap: wrap; gap: var(--sp-3); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* Loading rows for the replacements fetch: dashed ghosts, same geometry. */
+.hud-cr-item--ghost { animation: none; }
+.hud-cr-item--ghost .hud-cr-thumb { background: none; border-style: dashed; border-color: var(--line-strong); }
+.hud-cr-ghost-line { height: 0.75rem; border: var(--hairline) dashed var(--line-strong); border-radius: var(--radius-1); }
+.hud-cr-item--ghost { animation: cr-fade 0.9s var(--ease) infinite alternate; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+
+/* =======================================================================
+   6. EMPTY + ERROR STATES
+   ======================================================================= */
+.hud-cr-state { display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-5); background: var(--surface-1); border: var(--hairline) dashed var(--line-strong); border-radius: var(--radius-1); }
+.hud-cr-state h3 { margin: 0; color: var(--text-1); font: var(--fw-medium) var(--fs-md)/var(--lh-snug) var(--font-sans); }
+.hud-cr-state p { margin: 0; max-width: 62ch; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-cr-state code { font: var(--fs-xs) var(--font-mono); color: var(--text-1); background: var(--surface-0); padding: 0 var(--sp-1); }
+.hud-cr-state-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.hud-cr-state--error { border-style: solid; border-color: var(--line); border-left: var(--indicator) solid var(--danger); }
+.hud-cr-state--error h3 { color: var(--danger); }
+.hud-cr-state--info { border-style: solid; border-color: var(--line); border-left: var(--indicator) solid var(--data); }
+
+/* Screen-reader live region (visually hidden, still announced). */
+.hud-cr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* =======================================================================
+   7. MOTION (transform + opacity only)
+   ======================================================================= */
+@keyframes cr-rise  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cr-grow  { from { transform: scaleX(0); } to { transform: scaleX(var(--v, 0)); } }
+@keyframes cr-pulse { from { opacity: 1; } to { opacity: 0.35; } }
+@keyframes cr-fade  { from { opacity: 1; } to { opacity: 0.5; } }
+@keyframes cr-sheet { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+/* =======================================================================
+   8. RESPONSIVE
+   ======================================================================= */
+@media (max-width: 900px) {
+    .hud-cr { grid-template-columns: minmax(0, 1fr); }
+    .hud-cr-subject { position: static; flex-direction: row; align-items: flex-start; }
+    .hud-cr-subject .hud-art { width: 8rem; flex: none; }
+    .hud-cr-subject .hud-kv { flex: 1 1 auto; }
+    .hud-cr-verdict { grid-template-columns: minmax(0, 1fr); }
+    .hud-cr-item { grid-template-columns: var(--cr-thumb-w) minmax(0, 1fr); }
+    .hud-cr-act { grid-column: 1 / -1; flex-direction: row; }
+    .hud-cr-act .hud-btn { flex: 1 1 0; }
+}
+
+/* Phone: the dialog becomes a full-height sheet. */
+@media (max-width: 640px) {
+    .hud-cr-modal { padding: 0; align-items: stretch; }
+    .hud-cr-modal .hud-modal-dialog { max-width: none; min-height: 100dvh; border: 0; border-radius: 0; animation: cr-sheet var(--dur-slow) var(--ease) both; }
+    .hud-cr-modal .hud-panel-head { position: sticky; top: 0; z-index: 3; min-height: 3.25rem; background: var(--surface-1); }
+    .hud-cr-modal .hud-panel-head .hud-btn { min-height: var(--cr-touch); }
+    .hud-cr-oracle > summary { display: flex; align-items: center; min-height: var(--cr-touch); }
+    .hud-cr-modal .hud-panel-body { padding: var(--sp-3); }
+    .hud-cr { gap: var(--sp-4); }
+
+    /* Subject collapses to a sticky one-line identity bar. */
+    .hud-cr-subject { position: sticky; top: 3.25rem; z-index: 2; margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border-bottom: var(--stroke); flex-direction: row; align-items: center; gap: var(--sp-3); }
+    .hud-cr-subject .hud-art, .hud-cr-subject .hud-kv { display: none; }
+    .hud-cr-subject-id { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; width: 100%; }
+    .hud-cr-subject-id img { width: 2.5rem; aspect-ratio: var(--card-ratio); object-fit: cover; border: var(--stroke); border-radius: var(--radius-1); flex: none; }
+    .hud-cr-subject-id > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+    .hud-cr-subject-id .hud-card-name { font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hud-cr-scope .hud-freshness { margin-left: 0; flex: 1 1 100%; }
+
+    .hud-cr-evidence { grid-template-columns: minmax(0, 1fr); }
+    .hud-cr-ev { flex-direction: row; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+    .hud-cr-ev small { text-align: right; }
+    .hud-cr-step span { font-size: 0.5625rem; letter-spacing: 0.04em; }
+
+    /* Debate = one chronological feed. Sides dissolve; --seq orders the args. */
+    .hud-cr-debate { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); background: var(--surface-1); }
+    .hud-cr-side { display: contents; }
+    .hud-cr-side-head { display: none; }
+    .hud-cr-args { display: contents; }
+    .hud-cr-arg { order: var(--seq, 0); padding: var(--sp-1) 0 var(--sp-1) var(--sp-3); border-left-width: var(--indicator); }
+    .hud-cr-arg-tag::before { content: attr(data-side) " · "; color: var(--side-c); font-weight: var(--fw-semibold); }
+    .hud-cr-arg-wait { order: 99; }
+
+    .hud-cr-verdict { padding: var(--sp-3); gap: var(--sp-3); }
+    .hud-cr-ruling { font-size: var(--fs-stat); }
+    .hud-cr-signals .hud-why { grid-template-columns: 5.5rem minmax(0, 1fr) 5rem; }
+    .hud-cr-cases { grid-template-columns: minmax(0, 1fr); }
+    .hud-cr-case > summary { cursor: pointer; min-height: var(--cr-touch); }
+    .hud-cr-case > summary::after { content: "+"; margin-left: var(--sp-2); color: var(--text-3); font-family: var(--font-mono); }
+    .hud-cr-case[open] > summary::after { content: "−"; }
+    .hud-cr-case.is-ruled { order: -1; }
+
+    .hud-cr-item { grid-template-columns: var(--cr-thumb-w-sm) minmax(0, 1fr); gap: var(--sp-3); padding: var(--sp-3); }
+    .hud-cr-act .hud-btn { min-height: var(--cr-touch); }
+    .hud-cr-queued .hud-btn { margin-left: 0; flex: 1 1 100%; min-height: var(--cr-touch); }
+    .hud-cr-keys { display: none; } /* no keyboard on a phone */
+    .hud-cr-more-row .hud-btn { flex: 1 1 auto; min-height: var(--cr-touch); }
+    .hud-cr-state { padding: var(--sp-4); }
+    .hud-cr-state-actions .hud-btn { flex: 1 1 auto; min-height: var(--cr-touch); }
+
+    /* Sticky action bar at the bottom of the card-detail sheet. */
+    .hud-cr-detail-actions { position: sticky; bottom: 0; margin: 0 calc(-1 * var(--sp-3)); padding: var(--sp-3); background: var(--surface-1); border-top: var(--stroke); }
+    .hud-cr-detail-actions .hud-btn { flex: 1 1 auto; min-height: var(--cr-touch); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hud-cr-arg, .hud-cr-item, .hud-cr-verdict, .hud-cr-queued, .hud-cr-ev.is-enter, .hud-cr-modal .hud-modal-dialog { animation: none; }
+    .hud-cr-item--ghost, .hud-cr-side.is-speaking .hud-cr-side-state::after, .hud-cr-arg.is-streaming p::after { animation: none; }
+    .hud-cr-meter i { animation: none; }
+    .hud-cr-more, .hud-cr-item { transition: none; }
+}
