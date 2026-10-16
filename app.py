@@ -464,6 +464,24 @@ async def changelog(request: Request):
         context={"releases": formatted_releases, "error_msg": error_msg},
     )
 
+@app.get("/reconstruct", response_class=HTMLResponse)
+async def reconstruct_landing_view(request: Request):
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    return templates.TemplateResponse(
+        request=request,
+        name="reconstruct.html",
+        context={"session_id": "", "providers": providers},
+    )
+
+@app.get("/reconstruct/{session_id}", response_class=HTMLResponse)
+async def reconstruct_view(session_id: str, request: Request):
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    return templates.TemplateResponse(
+        request=request,
+        name="reconstruct.html",
+        context={"session_id": session_id, "providers": providers},
+    )
+
 @app.get("/api/decks")
 async def get_decks():
     decks_json = r.get("decks")
