@@ -296,9 +296,12 @@
                 <div><strong>Main Archetype:</strong> <span id="mainArchetype" class="badge" style="background: #1e3a8a; color: #93c5fd;">Midrange / Value</span></div>
                 <div><strong>Sub-Archetypes:</strong> <span id="subArchetypes"><span class="badge" style="margin-right: 4px;">Synergy</span><span class="badge">Toolbox</span></span></div>
                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Folder: <span id="deckFolder">-</span> | Status: <span id="deckStatus">-</span></div>
-                <div style="margin-top: 0.5rem;">
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="btn" id="decommissionBtn" style="display: none; color: #fca5a5; border-color: #991b1b;" onclick="openDecommissionDialog()">
                         <i class="fa-solid fa-box-archive"></i> Decommission
+                    </button>
+                    <button class="btn" id="reconstructBtn" style="display: none; color: #93c5fd; border-color: #1e40af;" onclick="openReconstructDialog()">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Reconstruct
                     </button>
                 </div>
             </div>
@@ -359,10 +362,54 @@
             <strong id="decommissionDeckName" style="color: #e5e7eb;"></strong> will be retired and moved to the Retired category.
             Its cards will be returned to the owned pool as unassigned cards. No cards are deleted.
         </p>
+        <div style="font-size: 0.85rem; color: #94a3b8; border-top: 1px solid #1f2937; padding-top: 0.5rem;">
+            Want to build new decks from these cards? <a href="#" id="decommissionToReconstructLink" onclick="closeDecommissionDialog(); openReconstructDialog(); return false;" style="color: #60a5fa; text-decoration: underline;">Decommission & Reconstruct instead</a>
+        </div>
         <div id="decommissionError" role="alert" style="display: none; color: #fca5a5; font-size: 0.85rem;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
             <button class="btn" id="decommissionCancelBtn" onclick="closeDecommissionDialog()">Cancel</button>
             <button class="btn btn-primary" id="decommissionConfirmBtn" onclick="confirmDecommission()">Decommission</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reconstruct Confirmation Dialog -->
+<div id="reconstructModal" class="modal-overlay" onclick="closeReconstructDialog()">
+    <div class="modal-content" style="flex-direction: column; gap: 1rem; max-width: 520px;" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="reconstructTitle">
+        <h2 id="reconstructTitle" class="modal-deck-name" style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color: #60a5fa;"></i>
+            Decommission & Reconstruct
+        </h2>
+        <p style="color: #9ca3af; font-size: 0.9rem; margin: 0;">
+            Decommission <strong id="reconstructDeckName" style="color: #e5e7eb;"></strong> and use its cards to draft up to 2 new Commander decks with our deckbuilding agent.
+        </p>
+
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 6px; padding: 0.75rem;">
+            <label for="reconstructSecondDeckSelect" style="display: block; font-size: 0.85rem; color: #cbd5e1; font-weight: 500; margin-bottom: 0.35rem;">
+                Pool with a second physical deck (optional):
+            </label>
+            <select id="reconstructSecondDeckSelect" style="width: 100%; padding: 0.5rem; background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 4px; font-size: 0.85rem;">
+                <option value="">-- Single deck (Reconstruct from this deck only) --</option>
+            </select>
+            <div id="reconstructSecondDeckInfo" style="display: none; margin-top: 0.5rem; font-size: 0.8rem; color: #94a3b8;"></div>
+        </div>
+
+        <div style="background: rgba(180, 83, 9, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 0.75rem; color: #fde68a; font-size: 0.85rem;">
+            <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-top: 0.15rem; color: #f59e0b;"></i>
+                <div>
+                    <strong>Warning:</strong> Selected deck(s) will be retired and moved to the Retired category. Their cards will be returned to your inventory and form the free card pool for the new draft(s).
+                </div>
+            </div>
+        </div>
+
+        <div id="reconstructError" role="alert" style="display: none; color: #fca5a5; font-size: 0.85rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 0.5rem;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+            <button class="btn" id="reconstructCancelBtn" onclick="closeReconstructDialog()">Cancel</button>
+            <button class="btn btn-primary" id="reconstructConfirmBtn" onclick="confirmReconstruct()">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Decommission & Reconstruct
+            </button>
         </div>
     </div>
 </div>
@@ -390,6 +437,7 @@
     const enabledProviders = {{ providers | tojson }};
     let currentDeck = null;
     let inventoryCards = [];
+    let allDecks = [];
     
     function createColorPips(colorString) {
         if (!colorString || colorString === 'C') {
@@ -447,12 +495,88 @@
         }
     }
 
+    async function openReconstructDialog() {
+        if (!currentDeck) return;
+        document.getElementById('reconstructDeckName').textContent = currentDeck.name;
+        document.getElementById('reconstructError').style.display = 'none';
+
+        // Populate second deck select
+        const secondSelect = document.getElementById('reconstructSecondDeckSelect');
+        secondSelect.innerHTML = '<option value="">-- Single deck (Reconstruct from this deck only) --</option>';
+
+        try {
+            if (!allDecks || allDecks.length === 0) {
+                const res = await fetch('/api/decks');
+                const data = await res.json();
+                allDecks = data.decks || [];
+            }
+            const physicalDecks = allDecks.filter(d =>
+                String(d.id) !== String(currentDeck.id) &&
+                d.name !== currentDeck.name &&
+                (d.status || 'physical') === 'physical'
+            );
+            physicalDecks.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.registry_id || d.id;
+                opt.textContent = `${d.name} (${d.commanders && d.commanders.length ? d.commanders.join(' / ') : 'No Commander'})`;
+                secondSelect.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load physical decks for reconstruct:', e);
+        }
+
+        document.getElementById('reconstructModal').style.display = 'flex';
+    }
+
+    function closeReconstructDialog() {
+        if (document.getElementById('reconstructConfirmBtn').disabled) return;
+        document.getElementById('reconstructModal').style.display = 'none';
+    }
+
+    async function confirmReconstruct() {
+        const confirmBtn = document.getElementById('reconstructConfirmBtn');
+        const cancelBtn = document.getElementById('reconstructCancelBtn');
+        const errEl = document.getElementById('reconstructError');
+        errEl.style.display = 'none';
+
+        const deckIds = [currentDeck.registry_id || currentDeck.id];
+        const secondDeckId = document.getElementById('reconstructSecondDeckSelect').value;
+        if (secondDeckId) {
+            deckIds.push(secondDeckId);
+        }
+
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing Reconstruct...';
+
+        try {
+            const res = await fetch('/api/reconstruct/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deck_ids: deckIds, tag: 'removed' })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${res.status})`);
+            }
+            window.location.href = `/reconstruct/${encodeURIComponent(data.session_id)}`;
+        } catch (e) {
+            errEl.textContent = `Failed to start reconstruct: ${e.message}`;
+            errEl.style.display = 'block';
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Decommission & Reconstruct';
+        }
+    }
+
     async function loadDeckData() {
         try {
             // Fetch deck metadata
         const deckRes = await fetch('/api/decks');
         const deckData = await deckRes.json();
-        currentDeck = deckData.decks.find(d => d.name === deckNameStr);
+        allDecks = deckData.decks || [];
+        currentDeck = allDecks.find(d => d.name === deckNameStr);
         
         // Fetch cards first so we have commander UIDs and categories
         const invRes = await fetch(`/api/inventory?deck=${encodeURIComponent(deckNameStr)}`);
@@ -463,9 +587,11 @@
             document.getElementById('deckColors').innerHTML = createColorPips(currentDeck.color);
             document.getElementById('deckFolder').textContent = currentDeck.folder || 'Loose Decks';
             document.getElementById('deckStatus').textContent = (currentDeck.status || 'physical').toUpperCase();
-            // Decommission is only available for physical (non-retired) decks
-            document.getElementById('decommissionBtn').style.display =
-                (currentDeck.status || 'physical') === 'physical' ? '' : 'none';
+            // Decommission and Reconstruct are only available for physical (non-retired) decks
+            const isPhysical = (currentDeck.status || 'physical') === 'physical';
+            document.getElementById('decommissionBtn').style.display = isPhysical ? '' : 'none';
+            const reconBtn = document.getElementById('reconstructBtn');
+            if (reconBtn) reconBtn.style.display = isPhysical ? '' : 'none';
             
             // Render decorative commander showcase at the top
             const commanders = inventoryCards.filter(c => c.is_commander);
