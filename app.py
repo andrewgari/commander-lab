@@ -1467,30 +1467,62 @@ async def api_deck_review(request: Request):
 
 @app.get("/api/decks/{deck_id}/review")
 async def api_get_deck_review(deck_id: str):
-    """Generate an actionable deck review for an existing deck in the library.
-    `deck_id` may be the deck id, registry_id, or display name (the deck page
-    only knows the name)."""
+    """RV-3: the saved Deep Review doc (null when none yet). Read-only: never rebuilds; it only
+    refreshes the stale flag (decklist fingerprint / genre-registry version)."""
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    doc = await asyncio.to_thread(review_doc.refresh_stale, r, deck)
+    return {"success": True, "exists": doc is not None, "review": doc}
+
+
+@app.get("/api/decks/{deck_id}/review/history")
+async def api_deck_review_history(deck_id: str):
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    return {"success": True, "history": await asyncio.to_thread(review_doc.history, r, _theory_deck_id(deck))}
+
+
+@app.post("/api/decks/{deck_id}/review/rebuild")
+async def api_deck_review_rebuild(deck_id: str):
+    """RV-3: Rebuild click. Background job: RV-2 metrics, then oracle prose, saved as the latest
+    doc. Oracle offline still saves the math sections. Poll GET .../review/jobs/{job_id}."""
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
     try:
-        deck_obj = registry.find_deck(r, deck_id) or next(
-            (d for d in registry.list_decks(r) if d.get("name") == deck_id), None
-        )
+        job = review_doc.new_job(r, {**deck, "registry_id": _theory_deck_id(deck)})
+    except review_doc.ReviewBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    try:
+        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)}, _oracle_client)
     except Exception:
-        deck_obj = None
+        review_doc.release(job["deck_id"], job["job_id"])
+        raise
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/review/jobs/{job['job_id']}"})
 
-    if not deck_obj:
-        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
 
-    from deck_review import review_deck
-    try:
-        review = review_deck(deck=deck_obj)
-        return {
-            "success": True,
-            "review": review.model_dump(),
-            "markdown": review.to_markdown(),
-            "cli": review.to_cli(),
-        }
-    except Exception as e:
-        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
+@app.get("/api/decks/{deck_id}/review/jobs/{job_id}")
+async def api_deck_review_job(deck_id: str, job_id: str):
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    job = review_doc.load_job(r, job_id)
+    if not job or job.get("deck_id") != _theory_deck_id(deck):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": job}
 
 
 # ---------------------------------------------------------------------------

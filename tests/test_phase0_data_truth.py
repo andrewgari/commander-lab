@@ -194,7 +194,9 @@ class TestReviewEndpoint(Phase0Case):
         res = self.client.get("/api/decks/Holy Hellfire/review")
         self.assertEqual(res.status_code, 200, res.text)
         self.assertTrue(res.json()["success"])
-        self.assertIn("Holy Hellfire", res.json()["markdown"])
+        # RV-3: saved doc only; nothing saved yet and GET never rebuilds
+        self.assertFalse(res.json()["exists"])
+        self.assertIsNone(res.json()["review"])
 
     def test_unknown_deck_404(self):
         self.assertEqual(self.client.get("/api/decks/nope/review").status_code, 404)
