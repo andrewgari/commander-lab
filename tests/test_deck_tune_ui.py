@@ -43,7 +43,7 @@ class _TunePage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6"])
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7"])
         self.assertEqual(tabs[4][0], "/deck/Holy%20Hellfire/tune")
         active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
