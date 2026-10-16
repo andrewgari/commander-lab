@@ -1808,6 +1808,22 @@ async def api_card2vec(card: Optional[str] = None, n: int = 10):
     return out
 
 
+@app.get("/api/similar")
+async def api_similar(card: Optional[str] = None, n: int = 10):
+    """AN-8 'mechanically similar' (similar rules text, NOT synergy, NOT played-with):
+    model info; with ?card=, its nearest neighbours. Unknown card -> 200, empty list."""
+    from analytics import mech_similar as mech_similar_mod
+
+    m = mech_similar_mod.default_model()
+    info = await asyncio.to_thread(m.info)
+    out = {"success": True, "model": info}
+    if card:
+        out["card"] = card
+        out["known"] = m.has(card)
+        out["neighbours"] = await asyncio.to_thread(m.neighbours, card, max(1, min(n, 50)))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Bracket evaluation (BR-5): stored results from the separate worker process
 # (analytics/bracket_worker.py, compose service bracket-worker). These routes

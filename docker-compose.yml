@@ -27,6 +27,8 @@ services:
       - ORACLE_KEY=${ORACLE_KEY:-}
     depends_on:
       - redis
+    volumes:
+      - app_data:/data
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - internal
@@ -37,3 +39,4 @@ networks:
 
 volumes:
   redis_data:
+  app_data:

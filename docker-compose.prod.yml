@@ -38,6 +38,8 @@ services:
       - ORACLE_TIMEOUT_S=${ORACLE_TIMEOUT_S:-600}
     volumes:
       - /mnt/user/appdata/commander-lab/secrets:/run/commander-lab-secrets:ro
+      # AN-8: persistent /data holds mech_similar.npz (built off-box, docs/MECH_SIMILAR.md)
+      - /mnt/user/appdata/commander-lab/data:/data
     depends_on:
       - redis
     command: uvicorn app:app --host 0.0.0.0 --port 8000
