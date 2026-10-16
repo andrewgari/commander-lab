@@ -43,11 +43,14 @@
 
 <div class="hud-filterbar">
     <span class="hud-seg" role="radiogroup" aria-label="Source preference">
-        <input type="radio" name="src" id="src-owned_first" value="owned_first" checked><label for="src-owned_first">Owned first</label>
-        <input type="radio" name="src" id="src-owned_only" value="owned_only"><label for="src-owned_only">Owned only</label>
-        <input type="radio" name="src" id="src-best" value="best"><label for="src-best">Best regardless</label>
+        <input type="radio" name="src" id="src-free" value="free"><label for="src-free">Owned, not in a deck</label>
+        <input type="radio" name="src" id="src-flex" value="flex" checked><label for="src-flex">Owned, plus in-deck and/or buy</label>
+        <input type="radio" name="src" id="src-best" value="best"><label for="src-best">Best card</label>
     </span>
-    <label class="hud-toggle"><input type="checkbox" id="sleeved" checked> Include sleeved-elsewhere</label>
+    <span class="hud-toggles" id="flexToggles">
+        <label class="hud-toggle"><input type="checkbox" id="inDeck" checked> In a physical deck</label>
+        <label class="hud-toggle"><input type="checkbox" id="buy" checked> Would have to buy</label>
+    </span>
     <span class="hud-freshness" id="capsLine">Caps —</span>
 </div>
 
@@ -138,8 +141,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status));
                 return j; }); });
     }
-    function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "owned_first"; }
-    function query() { return "?mode=" + mode() + "&sleeved=" + ($("sleeved").checked ? "true" : "false"); }
+    // Saved/legacy values: owned_only -> free, owned_first -> flex (best is unchanged).
+    var LEGACY = { owned_only: "free", owned_first: "flex" };
+    function normMode(v) { v = LEGACY[v] || v; return v === "free" || v === "best" ? v : "flex"; }
+    function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "flex"; }
+    function opts() { return { mode: mode(), in_deck: $("inDeck").checked, buy: $("buy").checked }; }
+    function query() { var o = opts(); return "?mode=" + o.mode + "&in_deck=" + o.in_deck + "&buy=" + o.buy; }
+    function syncToggles() { $("flexToggles").hidden = mode() !== "flex"; }
+    (function restore() {
+        var saved = params.get("mode"); if (!saved) return;
+        var el = document.getElementById("src-" + normMode(saved)); if (el) el.checked = true;
+    })();
 
     // ---- Filter bar ------------------------------------------------------------------
     function capsLine(t) {
@@ -175,9 +187,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     function opt(o, picked, emptyText) {
         if (!o) return '<div class="hud-opt is-empty">' + emptyText + "</div>";
-        var srcText = o.source === "free" ? "box · free" : "in " + (o.deck || "another deck");
+        var srcText = o.source === "free" ? "free · not in a deck" : "in " + (o.deck || "another deck");
         var src = o.source === "buy" ? '<span class="hud-opt-src">Buy · <b style="color:var(--text-1)">' + esc(A.money(o.price)) + "</b></span>"
-            : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>";
+            : (o.source === "best" ? '<span class="hud-opt-src"><b>Best card</b></span>'
+            : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>");
         var cap = o.cap === "soft" ? H.chip("over soft cap " + A.money(T.caps.soft_cap), "signal") : "";
         return '<div class="hud-opt' + (picked ? " is-pick" : "") + (o.source === "buy" ? " is-buy" : "") + '">' + src +
             '<span class="hud-card-name">' + esc(o.name) + "</span>" +
@@ -188,7 +201,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var d = s.decision, accepted = d === "own" || d === "buy";
         var pick = accepted ? d : s.pick;
         var buyEmpty = s.hidden_hard && !s.near_buy ? "Best buy hidden: over your hard cap."
-            : (s.near_buy ? esc(A.keepYoursLine(s)) : (mode() === "owned_only" ? "Buys are off (Owned only)." : "No buy beats the owned pick by ≥ " + T.constants.gap_worth.toFixed(2) + ".<br>Good enough: keep it free."));
+            : (s.near_buy ? esc(A.keepYoursLine(s)) : (!$("buy").checked || mode() === "free" ? "Buys are off." : "No buy beats the owned pick by ≥ " + T.constants.gap_worth.toFixed(2) + ".<br>Good enough: keep it free."));
         var ownEmpty = '<div class="hud-opt is-empty">Nothing you own beats it by enough.</div>';
         var chip = A.verdictChip(s);
         var gap = s.gap != null ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.gap) + "</b> buy vs owned" + (chip ? H.chip(chip[0], chip[1]) : "") + "</div>"
@@ -210,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
             '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" +
             '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
-            '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + stealLine + whyLine + just + hard + "</div>" +
+            '<div class="hud-opts">' + (s.verdict === "best" ? opt(s.own, pick === "own") : (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty)) + gap + stealLine + whyLine + just + hard + "</div>" +
             '<div class="hud-swap-act">' + acts + "</div></li>";
     }
     function petRow(p) {
@@ -306,7 +319,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function askWhy() {
         if (whyAsked || !(T.swaps || []).some(function (s) { return !s.why; })) return;
         whyAsked = true;
-        send("POST", "/tune/why", { mode: mode(), sleeved: $("sleeved").checked }).then(function (j) {
+        send("POST", "/tune/why", opts()).then(function (j) {
             var by = {}; (j.tune.swaps || []).forEach(function (s) { by[s.cut.name] = s; });
             (T.swaps || []).forEach(function (s) { var n = by[s.cut.name]; if (n) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; } });
             renderSwaps(); go(cur, false);
@@ -365,8 +378,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     $("weakRows").addEventListener("click", function (e) { var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find")); });
-    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { whyAsked = false; load(); }); });
-    $("sleeved").addEventListener("change", function () { whyAsked = false; load(); });
+    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); whyAsked = false; load(); }); });
+    ["inDeck", "buy"].forEach(function (id) { $(id).addEventListener("change", function () { whyAsked = false; load(); }); });
+    syncToggles();
     $("recompute").addEventListener("click", function () { whyAsked = false; load(); });
     $("copyText").addEventListener("click", function () {
         var text = A.changeText(DECK_NAME, A.changeList(T, T.adds));

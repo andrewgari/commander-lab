@@ -159,7 +159,7 @@ class TestOwnedFirst(unittest.TestCase):
         s = swap(build(c, donors=donors), "Weak Plan")
         self.assertEqual(s["own"]["source"], "deck")
         self.assertEqual(s["own"]["deck"], "Dawnbringer")
-        self.assertIsNone(swap(build(c, sleeved=False, donors=donors), "Weak Plan"))
+        self.assertIsNone(swap(build(c, in_deck=False, donors=donors), "Weak Plan"))
         # AN-8: with no donor data the trade can't be checked, so it isn't offered.
         self.assertIsNone(swap(build(c), "Weak Plan"))
 
@@ -169,20 +169,21 @@ class TestOwnedFirst(unittest.TestCase):
         self.assertEqual(s["pick"], "buy")
         self.assertEqual(s["verdict"], "buy")
 
-    def test_owned_only_mode_drops_buys(self):
+    def test_free_mode_drops_buys(self):
         out = build([cand("Owned Meh", 2, 0.5, 0.1, owned=True, available=1),
-                     cand("Buy Bomb", 4, 0.9, 0.5, price=6.40)], mode="owned_only")
+                     cand("Buy Bomb", 4, 0.9, 0.5, price=6.40)], mode="free")
         s = swap(out, "Weak Plan")
         self.assertIsNone(s["buy"])
         self.assertIsNone(s["near_buy"])
         self.assertEqual(s["pick"], "own")
 
-    def test_best_regardless_picks_the_higher_score(self):
+    def test_best_card_picks_the_higher_score(self):
         out = build([cand("Owned Good", 4, 0.8, 0.4, owned=True, available=1),
                      cand("Buy Slightly Better", 4, 0.85, 0.45, price=12.0)], mode="best")
         s = swap(out, "Weak Plan")
-        self.assertEqual(s["buy"]["name"], "Buy Slightly Better")
-        self.assertEqual(s["pick"], "buy")
+        self.assertEqual(s["own"]["name"], "Buy Slightly Better")   # one option, ownership ignored
+        self.assertIsNone(s["buy"])
+        self.assertEqual(s["pick"], "own")
 
     def test_options_must_beat_the_cut(self):
         # Okay Plan scores well already; nothing here upgrades it.
@@ -194,6 +195,107 @@ class TestOwnedFirst(unittest.TestCase):
                           rows=("targeted_disruption",))])
         adds = [s["own"]["name"] for s in out["swaps"] if s["own"]]
         self.assertEqual(adds.count("Owned Bomb"), 1)
+
+
+def _donors():
+    return {"Dawnbringer": donor(cards={"In Deck Card": inp(2, 0.5, 0.2)}, cands={"Box Card": inp(2, 0.6, 0.25)}),
+            "Holy Hellfire": donor(name="Holy Hellfire", cards={"In Deck Card": inp(2, 0.5, 0.2)},
+                                   cands={"Box Card": inp(2, 0.6, 0.25)})}
+
+
+def _names(out):
+    return {s["cut"]["name"]: (s["own"] or {}).get("name") for s in out["swaps"]}
+
+
+def _srcs(out):
+    return sorted({o["source"] for s in out["swaps"] for o in (s["own"], s["buy"]) if o})
+
+
+class TestOwnershipModes(unittest.TestCase):
+    """Mode 1 free, mode 2 flex (in_deck x buy), mode 3 best."""
+
+    POOL = [cand("Free Card", 3, 0.7, 0.3, owned=True, available=1, rows=("plan",)),
+            cand("In Deck Card", 4, 0.95, 0.5, owned=True, available=0, decks=["Dawnbringer"], rows=("ramp",)),
+            cand("Buy Card", 4, 0.99, 0.5, price=5.0, rows=("targeted_disruption",))]
+
+    def run_mode(self, mode, **kw):
+        return build(self.POOL, mode=mode, donors=_donors(), **kw)
+
+    def sources(self, out):
+        return {s["cut"]["name"]: [o["source"] for o in (s["own"], s["buy"]) if o] for s in out["swaps"]}
+
+    def test_legacy_values_map_to_new_modes(self):
+        self.assertEqual(tuner.resolve_mode("owned_only")[0], "free")
+        self.assertEqual(tuner.resolve_mode("owned_first"), ("flex", True, True))
+        self.assertEqual(tuner.resolve_mode("best")[0], "best")
+        self.assertEqual(tuner.resolve_mode(None), ("flex", True, True))
+        with self.assertRaises(tuner.TunerError):
+            tuner.resolve_mode("nope")
+        self.assertEqual(self.run_mode("owned_only")["mode"], "free")
+
+    def test_mode1_only_cards_in_no_deck(self):
+        out = self.run_mode("free", in_deck=True, buy=True)  # toggles are ignored in mode 1
+        self.assertEqual(out["mode"], "free")
+        self.assertEqual(_srcs(out), ["free"])
+        self.assertNotIn("In Deck Card", json.dumps(out["swaps"]))
+        self.assertNotIn("Buy Card", json.dumps(out["swaps"]))
+
+    def test_mode2_toggle_combinations(self):
+        cases = {  # (in_deck, buy) -> sources that may appear
+            (False, False): {"free"},
+            (True, False): {"free", "deck"},
+            (False, True): {"free", "buy"},
+            (True, True): {"free", "deck", "buy"},
+        }
+        for (in_deck, buy), allowed in cases.items():
+            out = self.run_mode("flex", in_deck=in_deck, buy=buy)
+            got = set(_srcs(out))
+            self.assertIn("free", got, (in_deck, buy))               # free cards always included
+            self.assertEqual(got, allowed, (in_deck, buy))
+            body = json.dumps(out["swaps"])
+            self.assertEqual("In Deck Card" in body, in_deck, (in_deck, buy))
+            self.assertEqual("Buy Card" in body, buy, (in_deck, buy))
+            self.assertEqual((out["in_deck"], out["buy"]), (in_deck, buy))
+
+    def test_mode2_in_deck_option_names_its_deck(self):
+        out = self.run_mode("flex", in_deck=True, buy=False)
+        o = next(s["own"] for s in out["swaps"] if s["own"]["source"] == "deck")
+        self.assertEqual((o["name"], o["deck"]), ("In Deck Card", "Dawnbringer"))
+
+    def test_mode2_excludes_the_deck_being_tuned(self):
+        # Only "owned" in the deck we're tuning (stale inventory): not a source.
+        c = [cand("Stale", 4, 0.9, 0.4, owned=True, available=0, decks=["Holy Hellfire"])]
+        self.assertEqual(build(c, mode="flex", donors=_donors())["swaps"], [])
+        # Also in another deck: only that deck is named / considered.
+        c = [cand("Both", 4, 0.9, 0.4, owned=True, available=0, decks=["Holy Hellfire", "Dawnbringer"])]
+        c_donors = {"Dawnbringer": donor(cards={"Both": inp(2, 0.5, 0.2)}, cands={"Box Card": inp(2, 0.6, 0.25)})}
+        o = swap(build(c, mode="flex", donors=c_donors), "Weak Plan")["own"]
+        self.assertEqual(o["deck"], "Dawnbringer")
+
+    def test_mode3_ignores_ownership_and_never_mentions_other_decks(self):
+        out = self.run_mode("best")
+        self.assertEqual(out["mode"], "best")
+        names = {s["own"]["name"] for s in out["swaps"]}
+        self.assertTrue({"In Deck Card", "Buy Card"} & names)       # strongest wins whatever the owner
+        body = json.dumps({k: out[k] for k in ("swaps", "fixes", "counts")})
+        for bad in ("Dawnbringer", "steal", "donor", "sleeved", '"deck"', "another deck"):
+            self.assertNotIn(bad, body, bad)
+        for s in out["swaps"]:
+            self.assertIsNone(s["buy"])
+            self.assertEqual(s["verdict"], "best")
+            self.assertNotIn("steal_line", s["own"])
+        for f in out["fixes"]:
+            self.assertNotIn("elsewhere", f["advice"])
+            self.assertNotIn("another deck", f["advice"])
+
+    def test_mode3_still_charges_spend_for_unowned_picks(self):
+        out = build([cand("Buy Card", 4, 0.99, 0.5, price=5.0)], mode="best")
+        o = swap(out, "Weak Plan")["own"]
+        self.assertEqual((o["source"], o["price"]), ("buy", 5.0))
+
+    def test_unknown_mode_rejected(self):
+        with self.assertRaises(tuner.TunerError):
+            build(self.POOL, mode="owned_never")
 
 
 class TestPriceCaps(unittest.TestCase):

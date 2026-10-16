@@ -1583,6 +1583,8 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-picker input { flex: 1; min-width: 10rem; border: 0; padding: var(--sp-1); background: transparent; }
 .hud-picker .hud-chip { font-family: var(--font-card); font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
 .hud-toggle { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.hud-toggles { display: inline-flex; gap: var(--sp-3); align-items: center; }
+.hud-toggles[hidden] { display: none; }
 .hud-toggle input { width: 1rem; height: 1rem; accent-color: var(--signal); }
 
 /* Save bar (sticky, appears when dirty) */
