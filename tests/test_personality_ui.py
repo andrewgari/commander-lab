@@ -96,6 +96,9 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('const psDeckId = "archidekt:5620189"', body)
         self.assertIn("/personality'", body)
         self.assertIn("/api/profile/personality?scope=physical", body)
+        self.assertIn("psOracleVisible = !!dModel.oracle_used", body)
+        self.assertIn("Oracle offline; showing previous Oracle read", body)
+        self.assertIn("Oracle offline; showing rulebook", body)
         for hook in ("PSUI.deckPanelBody(", "PSUI.deckPanelFoot(", "PSUI.bindEvidence(", "PSUI.deckModel(", "method: 'POST'"):
             with self.subTest(hook=hook):
                 self.assertIn(hook, body)
@@ -175,10 +178,10 @@ const out = {};
 for (const [k, c] of Object.entries(cases)) {
   try {
     if (c.fn === 'deck') {
-      const d = P.deckModel(c.p);
+      const d = P.deckModel(c.p, c.read);
       out[k] = { d, lean: P.leanSentence(d), info: P.leanInfo(d), sr: P.srSummary(d),
-                 body: P.deckPanelBody('ok', { d, ref: c.ref || null, refN: 39 }),
-                 foot: P.deckPanelFoot({ d, ref: c.ref || null, refN: 39, computed_at: c.computed_at, stale: c.stale, error: c.error }),
+                 body: P.deckPanelBody('ok', { d, ref: c.ref || null, refN: 39, oracle_status: c.oracle_status }),
+                 foot: P.deckPanelFoot({ d, ref: c.ref || null, refN: 39, computed_at: c.computed_at, stale: c.stale, error: c.error, oracle_status: c.oracle_status }),
                  ev: Object.fromEntries(P.AX.map(a => [a, P.evidence(d, a)])) };
     } else if (c.fn === 'state') {
       out[k] = P.deckPanelBody(c.state, c.info || {});
@@ -233,6 +236,30 @@ class TestPersonalityJs(unittest.TestCase):
             "low": {"fn": "deck", "p": _scores(20, 34, 30, 12, 5, "balanced")},
             "degraded": {"fn": "deck", "p": dict(_scores(50, 40, 30, 20, 10, "timmy"), notes=["39 cards without metadata", "EDHREC unavailable", "no journal: cards-only score"]),
                          "error": "boom"},
+            "oracle": {
+                "fn": "deck",
+                "p": _scores(50, 40, 50, 60, 30, "vorthos"),
+                "read": {
+                    "schema_version": "1",
+                    "scores": {
+                        "timmy": {"score": 75, "justification": "Casts massive demons and angels like Lord of the Void.", "cards": ["Lord of the Void"]},
+                        "johnny": {"score": 40, "justification": "Avoids multi-card loops.", "cards": []},
+                        "spike": {"score": 85, "justification": "Tutors into fast mana.", "cards": ["Demonic Tutor"]},
+                        "vorthos": {"score": 80, "justification": "High narrative resonance.", "cards": []},
+                        "melvin": {"score": 35, "justification": "Straightforward combat triggers.", "cards": []}
+                    },
+                    "leans_toward": "spike",
+                    "runner_up": "vorthos",
+                    "summary": "Efficient Spike list with heavy Vorthos flavor.",
+                    "overrides": [{"axis": "spike", "rulebook_score": 50, "oracle_score": 85, "delta": 35, "reason": "Tutors and fast mana"}],
+                    "table_impact_flags": [{"card": "Master of Cruelties", "category": "combo", "severity": "high", "reason": "One-shot"}]
+                }
+            },
+            "oracle_offline": {
+                "fn": "deck",
+                "p": _scores(50, 40, 50, 60, 30, "vorthos"),
+                "oracle_status": "offline"
+            },
             "s_loading": {"fn": "state", "state": "loading"},
             "s_not_scored": {"fn": "state", "state": "not_scored"},
             "s_not_found": {"fn": "state", "state": "not_scored", "info": {"can_score": False}},
@@ -353,6 +380,42 @@ class TestPersonalityJs(unittest.TestCase):
         self.assertIn("Last rescore failed · showing earlier scores", foot)
         # Scores are still shown; notes never touch the tiles.
         self.assertEqual(len(re.findall(r'class="hud-ps-tile', self.out["degraded"]["body"])), 5)
+
+    def test_oracle_read_ui(self):
+        o = self.out["oracle"]
+        d = o["d"]
+        self.assertTrue(d["oracle_used"])
+        self.assertEqual(d["scores"]["spike"], 85)
+        self.assertEqual(d["rulebook_scores"]["spike"], 50)
+        self.assertEqual(d["scores"]["vorthos"], 80)
+        self.assertEqual(d["leans"], "spike")
+        self.assertEqual(d["runner"], "vorthos")
+
+        # Tile body shows delta
+        body = o["body"]
+        self.assertIn('class="hud-ps-delta is-up"', body)
+        self.assertIn('+35', body)
+
+        # Lean headline uses Oracle's summary
+        self.assertIn("Efficient Spike list with heavy Vorthos flavor.", o["lean"]["why"])
+
+        # Foot shows Oracle read chip
+        foot = o["foot"]
+        self.assertIn("Oracle read", foot)
+
+        # Evidence drawer shows Oracle's justification and rulebook evidence
+        ev_spike = o["ev"]["spike"]
+        self.assertIn("Oracle verdict", ev_spike)
+        self.assertIn("Tutors into fast mana.", ev_spike)
+        self.assertIn("Demonic Tutor", ev_spike)
+        self.assertIn("Rulebook override", ev_spike)
+        self.assertIn("Tutors and fast mana", ev_spike)
+        self.assertIn("Oracle <b>85</b> · Rulebook <b>50</b> (delta <b>+35</b>)", ev_spike)
+        self.assertIn("Oracle makes the final call", ev_spike)
+
+        # Offline fallback state in foot
+        offline_foot = self.out["oracle_offline"]["foot"]
+        self.assertIn("oracle offline, showing rulebook", offline_foot)
 
     # ---- deck panel: non-ok states -----------------------------------------
     def test_deck_states(self):

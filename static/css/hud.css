@@ -2281,6 +2281,14 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-nudge.is-down { color: var(--ps-journal-neg); }
 .hud-ps-nudge.is-none { color: var(--text-3); }
 
+/* Oracle vs rulebook delta on a tile: "+15" / "−10" / "±0" (PS-6). */
+.hud-ps-delta { font: var(--fs-micro) var(--font-mono); letter-spacing: 0.02em; white-space: nowrap; margin-left: auto; padding: 0 var(--sp-1); border-radius: var(--radius-1); }
+.hud-ps-delta.is-up { color: var(--signal-strong); background: var(--signal-dim); }
+.hud-ps-delta.is-down { color: var(--text-3); background: var(--surface-2); }
+.hud-ps-delta.is-none { color: var(--text-3); }
+.hud-ps-tile.is-lean .hud-ps-delta.is-up { color: var(--text-on-signal); outline: var(--hairline) solid var(--text-on-signal); }
+.hud-ps-tile.is-lean .hud-ps-delta.is-down { color: var(--text-on-signal); opacity: 0.75; }
+
 /* Panel foot: notes (degraded inputs), average key, freshness, profile link. */
 .hud-ps-foot { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; justify-content: space-between; }
 .hud-ps-foot a { color: var(--text-2); }
@@ -2347,6 +2355,16 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-ev-sum { margin-left: auto; color: var(--text-2); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
 .hud-ps-ev-sum b { color: var(--text-1); font-weight: var(--fw-medium); }
 .hud-ps-ev-close { margin-left: var(--sp-2); }
+
+/* Oracle justification & overrides in evidence drawer (PS-6). */
+.hud-ps-ev-oracle { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border-bottom: var(--stroke); }
+.hud-ps-ev-oracle-head { display: flex; align-items: center; gap: var(--sp-2); }
+.hud-ps-ev-oracle-score { font: var(--fs-xs) var(--font-mono); color: var(--text-2); margin-left: auto; }
+.hud-ps-ev-oracle-score b { color: var(--text-1); }
+.hud-ps-ev-oracle-why { margin: 0; color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-ps-ev-oracle-cards { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-1); }
+.hud-ps-ev-override { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); background: var(--surface-1); border-bottom: var(--stroke); font-size: var(--fs-xs); color: var(--text-2); }
+.hud-ps-ev-rulebook-head { padding: var(--sp-2) var(--sp-4) var(--sp-1); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
 .hud-ps-ev-list { list-style: none; margin: 0; padding: 0; }
 .hud-ps-ev-row { display: grid; grid-template-columns: 2.25rem minmax(10rem, 16rem) minmax(0, 1fr) 4.5rem; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); border-top: var(--stroke-faint); }
 .hud-ps-ev-row:first-child { border-top: 0; }
