@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card review · Holy Hellfire · Commander Lab mockup (CR-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="../analytics/analytics.css">
+<link rel="stylesheet" href="card-review.css">
+<style>
+    /* Verbatim from templates/deck.html: the existing grid + detail modal. */
+    .deck-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--sp-3); }
+    .deck-card-grid .hud-art-name { font-size: var(--fs-base); }
+    .card-modal-body { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: var(--sp-6); }
+    .card-modal-body .hud-art { align-self: start; }
+    .card-modal-info { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+    .card-modal-name { margin: 0; font-size: var(--fs-xl); }
+    .card-oracle p { margin: 0 0 var(--sp-2); color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+    @media (max-width: 640px) { .card-modal-body { grid-template-columns: minmax(0, 1fr); } .card-modal-body .hud-art { max-width: 16rem; } }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+
+    <div class="mock-bar" id="mockBar" aria-label="Mockup controls (not part of the design)">
+        <span>Mockup</span>
+        <label>State <select id="stateSel" aria-label="Jump to state"></select></label>
+        <span class="hud-seg" role="radiogroup" aria-label="Deck type">
+            <input type="radio" name="kind" id="kD" value="digital" checked><label for="kD">Digital deck</label>
+            <input type="radio" name="kind" id="kP" value="physical"><label for="kP">Physical deck</label>
+        </span>
+        <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="playBtn">▶ Play live</button>
+        <button type="button" class="hud-btn hud-btn--sm" id="menuBtn">Entry: menu</button>
+        <button type="button" class="hud-btn hud-btn--sm" id="detailBtn">Entry: detail</button>
+    </div>
+
+    <div class="hud-section-head"><h2>Creatures</h2><span class="deck-group-count">Right-click or <span class="hud-kbd">R</span> on a card. Phone: tap <b>⋯</b>.</span></div>
+    <div class="deck-card-grid" id="grid"></div>
+</main>
+
+<!-- Card context menu: the stock .hud-menu. -->
+<div class="hud-menu" id="crMenu" data-cr-menu hidden>
+    <span class="hud-menu-label" data-cr-menu-label>Steel Hellkite</span>
+    <ul class="hud-menu-list" role="menu">
+        <li role="none"><button type="button" class="hud-menu-item" role="menuitem" data-act="detail">Card detail<span class="hud-kbd">↵</span></button></li>
+        <li role="none"><button type="button" class="hud-menu-item hud-menu-item--primary" role="menuitem" data-act="review">Review card<span class="hud-kbd">R</span></button></li>
+        <li role="none"><div class="hud-menu-sep" role="separator"></div></li>
+        <li role="none"><button type="button" class="hud-menu-item" role="menuitem" data-act="tags">Edit tags…</button></li>
+        <li role="none"><a class="hud-menu-item" role="menuitem" href="#">View on EDHREC ↗</a></li>
+    </ul>
+</div>
+
+<!-- Existing card detail modal + the new Review action row. -->
+<div id="cardModal" class="hud-modal hud-cr-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalCardName">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title">Card detail</h3>
+            <div class="hud-panel-meta"><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close">Close ✕</button></div>
+        </header>
+        <div class="hud-panel-body card-modal-body">
+            <div id="modalCardArt"></div>
+            <div class="card-modal-info">
+                <h2 class="hud-card-name card-modal-name" id="modalCardName">Steel Hellkite</h2>
+                <div id="modalCardInfo" class="card-modal-info"></div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- The review dialog. -->
+<div id="reviewModal" class="hud-modal hud-cr-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="crTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Card review</h3>
+            <div class="hud-panel-meta">
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="back">← Card detail</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close review">Close ✕</button>
+            </div>
+        </header>
+        <p class="hud-cr-sr" role="status" aria-live="polite" data-cr-live></p>
+        <div class="hud-panel-body" data-cr-body></div>
+    </section>
+</div>
+
+<script src="../../../static/js/hud.js"></script>
+<script src="../analytics/mock.js"></script>
+<script src="card-review.js"></script>
+<script src="mock.js"></script>
+<script>
+(function () {
+    "use strict";
+    MOCK.shell();
+    var q = new URLSearchParams(location.search);
+    document.getElementById("deckhead").innerHTML = MOCK.deckhead("overview", '<button type="button" class="hud-btn">Sync</button><button type="button" class="hud-btn hud-btn--primary">Review deck</button>');
+
+    var kind = q.get("kind") === "physical" ? "physical" : "digital";
+    document.getElementById(kind === "physical" ? "kP" : "kD").checked = true;
+    var modal = document.getElementById("reviewModal"), cancelPlay = null;
+
+    // ---- Deck grid (real cards) ------------------------------------------
+    var NAMES = ["Akroma, Angel of Wrath", "Angel of Despair", "Baneslayer Angel", "Steel Hellkite", "Balefire Dragon", "Lyra Dawnbringer", "Hellkite Charger", "Lightning Greaves", "Platinum Angel", "Mother of Runes", "Rune-Scarred Demon", "Grand Abolisher"];
+    document.getElementById("grid").innerHTML = NAMES.map(function (n) {
+        var c = MOCK.CARDS[n], img = HUD.scryfall(c.uid, "normal");
+        var frame = HUD.art(n, img.src, { kind: "card", fallback: img.fallback, meta: "CMC " + c.cmc, colors: c.colors, attrs: { role: "button", tabindex: "0", "data-card": n } });
+        return '<div class="hud-cr-cell">' + frame + '<button type="button" class="hud-cr-more" data-hud-menu aria-controls="crMenu" aria-expanded="false" aria-haspopup="menu" data-card="' + HUD.esc(n) + '" aria-label="Actions for ' + HUD.esc(n) + '">⋯</button></div>';
+    }).join("");
+    // One menu per card. The stock HUD.initMenus() binds panel key handlers once PER TRIGGER, so
+    // N triggers sharing one panel make ArrowDown fire N times and land back on item 0
+    // (CR-D adversarial A13). Either clone like this, or guard the panel binding in hud.js.
+    var tpl = document.getElementById("crMenu");
+    document.querySelectorAll(".hud-cr-more").forEach(function (btn, i) {
+        var m = tpl.cloneNode(true); m.id = "crMenu-" + i; m.removeAttribute("hidden"); m.hidden = true;
+        m.querySelector("[data-cr-menu-label]").textContent = btn.getAttribute("data-card");
+        document.body.appendChild(m); btn.setAttribute("aria-controls", m.id);
+    });
+    tpl.remove();
+    HUD.initMenus();
+    var cur = "Steel Hellkite";
+    document.addEventListener("click", function (ev) {
+        var more = ev.target.closest(".hud-cr-more"); if (more) { cur = more.getAttribute("data-card"); }
+        var f = ev.target.closest(".hud-art[data-card]"); if (f) { cur = f.getAttribute("data-card"); openDetail(); }
+        var a = ev.target.closest("[data-cr-menu] [data-act]");
+        if (a) { a.closest("[data-cr-menu]").hidden = true; if (a.dataset.act === "review") startReview(); if (a.dataset.act === "detail") openDetail(); }
+    });
+    // Right-click and "R" are the power-user paths; both open the same menu / flow.
+    document.addEventListener("contextmenu", function (ev) {
+        var f = ev.target.closest(".hud-art[data-card]"); if (!f) return;
+        if (ev.shiftKey) return; /* Shift+right-click keeps the browser menu */
+        ev.preventDefault(); cur = f.getAttribute("data-card");
+        document.querySelectorAll("[data-cr-menu]").forEach(function (x) { x.hidden = true; });
+        var m = document.getElementById(f.parentNode.querySelector(".hud-cr-more").getAttribute("aria-controls")); m.hidden = false; m.style.left = ev.clientX + "px"; m.style.top = ev.clientY + "px";
+    });
+    document.addEventListener("keydown", function (ev) {
+        if (ev.key !== "r" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+        var f = document.activeElement && document.activeElement.closest && document.activeElement.closest(".hud-art[data-card]");
+        if (f) { ev.preventDefault(); cur = f.getAttribute("data-card"); startReview(); }
+    });
+    document.addEventListener("keydown", function (ev) { if ((ev.key === "Enter" || ev.key === " ") && document.activeElement && document.activeElement.matches(".hud-art[data-card]")) { ev.preventDefault(); cur = document.activeElement.getAttribute("data-card"); openDetail(); } });
+
+    // ---- Card detail with the Review action --------------------------------
+    function openDetail() {
+        var c = MOCK.CARDS[cur], img = HUD.scryfall(c.uid, "large"), phys = kind === "physical";
+        var unrev = c.name === "Kaalia of the Vast";
+        document.getElementById("modalCardName").textContent = cur;
+        document.getElementById("modalCardArt").innerHTML = HUD.art(cur, img.src, { kind: "card", fallback: img.fallback });
+        document.getElementById("modalCardInfo").innerHTML =
+            '<dl class="hud-kv"><dt>Type</dt><dd>' + c.type + '</dd><dt>CMC</dt><dd class="hud-num">' + c.cmc + '</dd><dt>Colour</dt><dd>' + HUD.pips(c.colors, "sm") + '</dd><dt>Price</dt><dd class="hud-num">$2.10</dd></dl>' +
+            '<div><span class="hud-label">Lab tags</span><div class="hud-chips" style="margin-top:var(--sp-2)"><span class="hud-chip hud-chip--ghost">top-end</span><span class="hud-chip hud-chip--ghost">dragon</span></div></div>' +
+            '<div class="hud-cr-detail-actions"><button type="button" class="hud-btn hud-btn--primary" id="detailReview"' + (unrev ? ' aria-disabled="true"' : "") + '>Review card <span class="hud-kbd">R</span></button>' +
+            '<button type="button" class="hud-btn">Edit tags</button>' +
+            '<p class="hud-cr-why">' + (unrev ? "Commanders can’t be reviewed." : "Two sides argue keep versus remove. If it’s a remove, you get replacements" + (phys ? " for your want/buy list." : ".")) + "</p></div>";
+        HUD.openModal("cardModal");
+        document.getElementById("detailReview").onclick = function () { startReview(); };
+    }
+
+    // ---- Review flow ------------------------------------------------------
+    function show(state) { if (cancelPlay) { cancelPlay(); cancelPlay = null; } CardReview.show(modal, state); HUD.closeModal("cardModal"); HUD.openModal(modal); CardReview.enter(modal); }
+    function startReview() {
+        if (cancelPlay) cancelPlay();
+        HUD.closeModal("cardModal"); HUD.openModal(modal); CardReview.enter(modal);
+        if (cur === "Kaalia of the Vast") { CardReview.show(modal, CRMOCK.STATES["blocked-cmdr"].fn(kind)); return; }
+        if (cur !== CRMOCK.CARD.name && cur !== "Steel Hellkite") { /* demo content is always Steel Hellkite */ }
+        cancelPlay = CRMOCK.play(modal, kind);
+    }
+    CardReview.onAction(function (act, name) {
+        var s = modal.__crState; if (!s) return;
+        var R = s.repl;
+        if (act === "pick") { R.chosen = name; R.skipped = (R.skipped || []).filter(function (n) { return n !== name; }); }
+        else if (act === "undo") R.chosen = null;
+        else if (act === "skip") { R.skipped = (R.skipped || []).concat(name); }
+        else if (act === "unskip") R.skipped = R.skipped.filter(function (n) { return n !== name; });
+        else if (act === "alts") s.repl = { state: "ready", items: CRMOCK.REPL, chosen: null, skipped: [], cursor: 0 };
+        else if (act === "retry-repl" || act === "widen" || act === "more") { s.repl = { state: "loading" }; CardReview.show(modal, s); setTimeout(function () { s.repl = { state: "ready", items: CRMOCK.REPL, chosen: null, skipped: [], cursor: 0 }; CardReview.show(modal, s); }, 1400); return; }
+        else if (act === "retry" || act === "rerun" || act === "retry-ruling") { startReview(); return; }
+        else if (act === "numbers") { s.error = { code: s.error.code }; return; }
+        else if (act === "back") { HUD.closeModal(modal); openDetail(); return; }
+        else if (act === "close") { HUD.closeModal(modal); return; }
+        else if (act === "cancel") { if (cancelPlay) cancelPlay(); HUD.closeModal(modal); return; }
+        CardReview.show(modal, s);
+    });
+
+    // ---- Mock controls ----------------------------------------------------
+    var sel = document.getElementById("stateSel");
+    sel.innerHTML = '<option value="">— pick a state —</option>' + Object.keys(CRMOCK.STATES).map(function (k) { return '<option value="' + k + '">' + CRMOCK.STATES[k].label + "</option>"; }).join("");
+    function jump(k) { if (!k) return; sel.value = k; show(CRMOCK.STATES[k].fn(kind)); }
+    sel.onchange = function () { jump(sel.value); };
+    document.querySelectorAll('input[name="kind"]').forEach(function (r) { r.onchange = function () { kind = r.value; if (sel.value) jump(sel.value); }; });
+    document.getElementById("playBtn").onclick = function () { cur = "Steel Hellkite"; startReview(); };
+    document.getElementById("menuBtn").onclick = function () { var b = document.querySelector('.hud-cr-more[data-card="Steel Hellkite"]'); b.focus(); b.click(); };
+    document.getElementById("detailBtn").onclick = function () { cur = "Steel Hellkite"; openDetail(); };
+
+    var st = q.get("state"), view = q.get("view");
+    if (st && CRMOCK.STATES[st]) jump(st);
+    else if (view === "detail") { cur = "Steel Hellkite"; openDetail(); }
+    else if (view === "menu") { var b = document.querySelector('.hud-cr-more[data-card="Steel Hellkite"]'); b.style.opacity = 1; b.click(); }
+    else if (view === "play") { cur = "Steel Hellkite"; startReview(); }
+})();
+</script>
+</body>
+</html>
