@@ -71,10 +71,22 @@ class MechSimilar:
                 import numpy as np
 
                 with np.load(self.path, allow_pickle=False) as z:
-                    self.keys = [str(k) for k in z["keys"]]
-                    self.names = [str(k) for k in z["names"]]
-                    self.vectors = z["vectors"].astype(np.float32)
-                    self.meta = json.loads(str(z["meta"]))
+                    keys = [str(k) for k in z["keys"]]
+                    names = [str(k) for k in z["names"]]
+                    vecs = z["vectors"].astype(np.float32)
+                    meta = json.loads(str(z["meta"]))
+                if not isinstance(meta, dict):
+                    raise ValueError("meta is not an object")
+                if vecs.ndim != 2 or vecs.shape[0] == 0 or vecs.shape[1] == 0:
+                    raise ValueError(f"bad vector shape {vecs.shape}")
+                if not (len(keys) == len(names) == vecs.shape[0]):
+                    raise ValueError("keys/names/vectors row counts differ")
+                if not np.isfinite(vecs).all():
+                    raise ValueError("non-finite vector values")
+                norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+                vecs = vecs / np.where(norms == 0, 1.0, norms)
+                self.keys, self.names, self.meta = keys, names, meta
+                self.vectors = vecs
                 self.index = {k: i for i, k in enumerate(self.keys)}
                 log.info("mech_similar: loaded %d cards x %d from %s", len(self.keys), self.vectors.shape[1], self.path)
             except FileNotFoundError:

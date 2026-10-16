@@ -116,6 +116,34 @@ class ModuleTests(unittest.TestCase):
         with self.assertLogs("commander_lab.mech_similar", level="WARNING"):
             self.assertEqual(m.neighbours("Sol Ring", 5), [])
 
+    def _write(self, name, **over):
+        d = dict(keys=np.array(["a", "b"]), names=np.array(["A", "B"]),
+                 vectors=np.array([[1, 0], [0, 1]], dtype=np.float16),
+                 meta=np.array(json.dumps({"dim": 2})))
+        d.update(over)
+        p = os.path.join(self.tmp.name, name)
+        np.savez(p, **d)
+        return p if p.endswith(".npz") else p + ".npz"
+
+    def test_malformed_artifacts_degrade(self):
+        cases = {
+            "mismatch": dict(names=np.array(["A"])),
+            "oned": dict(vectors=np.array([1, 0], dtype=np.float16)),
+            "empty": dict(keys=np.array([]), names=np.array([]), vectors=np.zeros((0, 2), dtype=np.float16)),
+            "nan": dict(vectors=np.array([[1, np.nan], [0, 1]], dtype=np.float16)),
+            "meta": dict(meta=np.array(json.dumps([1]))),
+        }
+        for name, over in cases.items():
+            m = mech_similar.MechSimilar(self._write(name, **over))
+            with self.assertLogs("commander_lab.mech_similar", level="WARNING"):
+                self.assertEqual(m.neighbours("a", 5), [], name)
+            self.assertIsNone(m.vectors, name)
+
+    def test_rows_are_renormalized(self):
+        m = mech_similar.MechSimilar(self._write("scaled", vectors=np.array([[3, 0], [0, 0.5]], dtype=np.float16)))
+        self.assertTrue(m.available())
+        self.assertTrue(np.allclose(np.linalg.norm(m.vectors, axis=1), 1.0, atol=1e-5))
+
     def test_env_var_path(self):
         old = os.environ.get("MECH_SIMILAR_PATH")
         os.environ["MECH_SIMILAR_PATH"] = self.path
