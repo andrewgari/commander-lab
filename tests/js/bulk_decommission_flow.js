@@ -126,6 +126,16 @@ let decks = [], calls = [], failIds = new Set(), gate = null;
   assert.strictEqual($('dlgConfirm').disabled, false);
   console.log('ok type-to-confirm');
 
+  // --- list refresh drops selected IDs for decks that no longer exist
+  await reset([mk(1), mk(2), mk(3)]);
+  w.toggleSelectMode(true); w.handleSelectAll(true);
+  assert.strictEqual(ev('selectedDeckIds.size'), 3);
+  decks = [mk(1), mk(3)];
+  await w.loadDecks(); await tick();
+  assert.deepStrictEqual(ev('[...selectedDeckIds].sort()'), ['archidekt:1', 'archidekt:3']);
+  assert.match($('bulkCount').textContent, /2 selected/);
+  console.log('ok selection pruned on refresh');
+
   // --- single-deck path reuses the dialog and the same endpoint
   await reset([mk(7)]);
   w.openDeckModal(0); assert.ok($('modalDecommissionBtn'));

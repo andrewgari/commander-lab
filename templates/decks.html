@@ -1310,10 +1310,18 @@
         }
     });
     
+    // Drop selected / failed IDs for decks that no longer exist after a list refresh.
+    function pruneSelection() {
+        const live = new Set((allDecks || []).map(d => String(d.id)));
+        for (const id of Array.from(selectedDeckIds)) if (!live.has(id)) selectedDeckIds.delete(id);
+        for (const id of Array.from(failedDeckIds.keys())) if (!live.has(id)) failedDeckIds.delete(id);
+    }
+
     async function loadDecks() {
         const res = await fetch(`/api/decks`);
         const data = await res.json();
         allDecks = data.decks;
+        pruneSelection();
         renderDecks();
         updateBulkBar();
     }
