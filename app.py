@@ -2307,6 +2307,18 @@ async def api_deck_tune_saved(deck_id: str):
     return {"success": True, "recommendation": rec}
 
 
+@app.get("/api/decks/{deck_id}/tune/state")
+async def api_deck_tune_state(deck_id: str):
+    """Decisions, extra adds and pet cards as of now. A saved recommendation is a snapshot;
+    the Tune page lays this over it so accepts, dismissals and pets survive a reload."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
+    pets = await asyncio.to_thread(insights.pet_cards, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets}
+
+
 @app.post("/api/decks/{deck_id}/tune/recompute")
 async def api_deck_tune_recompute(deck_id: str, request: Request):
     """Run the tuner, save the result as the deck's active recommendation and archive

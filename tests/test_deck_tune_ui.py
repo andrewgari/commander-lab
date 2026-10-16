@@ -116,6 +116,60 @@ class TestTunePage(_TunePage, unittest.TestCase):
         self.assertIn('"; put " + esc(m.give) + " in it"', self.body)
 
 
+class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
+    """Page loads the saved recommendation; Recompute is the only thing that computes."""
+
+    def test_page_loads_saved_then_state_and_never_the_unsaved_tune_route(self):
+        self.assertIn('fetch(API + "/tune/saved")', self.body)
+        self.assertIn('fetch(API + "/tune/state")', self.body)
+        self.assertIn('send("POST", "/tune/recompute"', self.body)
+        self.assertNotIn('fetch(API + "/tune" + query())', self.body)
+
+    def test_recompute_button_generated_stamp_and_error_slot(self):
+        self.assertRegex(self.body, r'<button class="hud-btn" type="button" id="recompute"[^>]*>Recompute</button>')
+        self.assertIn('id="tuneGenerated"', self.body)
+        self.assertIn('id="recomputeError"', self.body)
+        self.assertIn("archived, not deleted", self.body)
+        self.assertIn('"Generated " + A.age(REC.created_at)', self.body)
+
+    def test_failed_recompute_keeps_old_result(self):
+        # The catch branch only writes the error line when a result is on screen; it never re-renders.
+        catch = self.body.split("function recompute()", 1)[1].split("function loadSaved()", 1)[0].split(".catch", 1)[1]
+        self.assertIn("Still showing the result from", catch)
+        self.assertNotIn("renderAll", catch)
+
+    def test_filters_do_not_recompute(self):
+        self.assertIn('btn.addEventListener("click", recompute)', self.body)
+        self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
+
+
+class TestTuneStateAPI(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeRedis()
+        self.client = TestClient(app)
+        self.patches = [patch.object(app_mod, "r", self.fake),
+                        patch("app.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
+                        patch("app.registry.list_decks", return_value=[DECK])]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in self.patches])
+
+    def test_state_returns_decisions_adds_and_pets(self):
+        base = "/api/decks/archidekt:417707/tune"
+        self.assertEqual(self.client.get(base + "/state").json()["state"]["decisions"], {})
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": "own", "add": "Owned Ok"})
+        self.client.put(base + "/adds", json={"adds": [{"name": "Plains", "qty": 2, "source": "basic"}]})
+        journal.save_journal(self.fake, DECK, {"pet_cards": ["Pet Card"]})
+        j = self.client.get(base + "/state").json()
+        self.assertTrue(j["success"])
+        self.assertEqual(j["state"]["decisions"]["Weak Plan"]["add"], "Owned Ok")
+        self.assertEqual(j["state"]["adds"][0]["qty"], 2)
+        self.assertEqual(j["pet_cards"], ["Pet Card"])
+
+    def test_state_unknown_deck_404(self):
+        self.assertEqual(self.client.get("/api/decks/archidekt:999/tune/state").status_code, 404)
+
+
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
     def test_finish_button_label(self):
         with open(TEMPLATE.replace("deck_tune.html", "deck_journal.html"), encoding="utf-8") as fh:
