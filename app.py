@@ -34,6 +34,7 @@ from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
+from analytics import tune_store
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
@@ -2290,6 +2291,56 @@ async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool =
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
+
+
+@app.get("/api/decks/{deck_id}/tune/saved")
+async def api_deck_tune_saved(deck_id: str):
+    """The deck's saved (active) Tune recommendation. 404 with `recommendation: null`
+    when none has been computed yet. See docs/TUNER.md 'Saved recommendations'."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = await asyncio.to_thread(tune_store.get_active, r, tune_store.deck_key(deck))
+    if not rec:
+        return JSONResponse(status_code=404, content={"success": False, "recommendation": None,
+                                                      "error": "No saved tune recommendation for this deck"})
+    return {"success": True, "recommendation": rec}
+
+
+@app.post("/api/decks/{deck_id}/tune/recompute")
+async def api_deck_tune_recompute(deck_id: str, request: Request):
+    """Run the tuner, save the result as the deck's active recommendation and archive
+    the previous one (same MULTI/EXEC). Body (optional): {"mode": "owned_first|owned_only|best",
+    "sleeved": true}. If generation fails nothing is saved and the old one stays active."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "owned_first")
+    sleeved = body.get("sleeved", True)
+    if not isinstance(sleeved, bool):
+        return _bad_request(tuner_mod.TunerError("sleeved must be a boolean."))
+    try:
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, sleeved)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    except tune_store.TuneStoreError as exc:
+        return _bad_request(exc, 409)
+    archived = {k: v for k, v in old.items() if k != "payload"} if old else None
+    return {"success": True, "recommendation": new, "archived": archived}
+
+
+@app.get("/api/decks/{deck_id}/tune/history")
+async def api_deck_tune_history(deck_id: str, limit: int = 20, include_payload: bool = False):
+    """Archived recommendations, newest first (the active one is excluded). Payload
+    omitted unless include_payload=true."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    recs = await asyncio.to_thread(tune_store.list_history, r, tune_store.deck_key(deck),
+                                   max(1, min(limit, 100)), include_payload)
+    return {"success": True, "history": recs}
 
 
 @app.post("/api/decks/{deck_id}/tune/why")
