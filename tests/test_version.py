@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -13,6 +14,18 @@ import version
 
 class TestAppVersion(unittest.TestCase):
     def setUp(self):
+        # Hermetic: the middleware prefers the GitHub-cached latest tag from Redis over
+        # version.__version__; in CI that cache is filled from the live GitHub API and drifts.
+        # Pin it empty so the bundled version is what renders.
+        import app as app_module
+        fake_r = mock.MagicMock()
+        fake_r.get.return_value = None
+        for p in (
+            mock.patch.object(app_module, "r", fake_r),
+            mock.patch.object(app_module.github_sync, "update_github_data", mock.AsyncMock()),
+        ):
+            p.start()
+            self.addCleanup(p.stop)
         self.client = TestClient(app)
 
     def test_version_format_semver_with_date(self):
