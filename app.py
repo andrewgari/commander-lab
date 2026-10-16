@@ -125,6 +125,12 @@ async def tags(request: Request):
     return templates.TemplateResponse(request=request, name="tags.html")
 
 
+@app.get("/genres", response_class=HTMLResponse)
+async def genres_view(request: Request):
+    """Genre registry (RV-1): the list Deep Reviews label decks from."""
+    return templates.TemplateResponse(request=request, name="genres.html")
+
+
 @app.get("/instances", response_class=HTMLResponse)
 async def instances_view(request: Request):
     """Instance list view: ownership source of truth for physical card copies."""
@@ -2188,6 +2194,123 @@ def _oracle_preflight() -> Optional[JSONResponse]:
     except OracleError as exc:
         return _oracle_offline(str(exc)[:200])
     return None
+
+
+# ---------------------------------------------------------------------------
+# Genre registry (RV-1) -- see analytics/genres.py, docs/REVIEW_SPEC.md
+# ---------------------------------------------------------------------------
+
+GENRE_AUTOFILL_TIMEOUT_S = 300.0
+
+
+def _genre_payload(**extra):
+    from analytics import genres as genres_mod
+
+    return {"success": True, "version": genres_mod.get_version(r), **extra}
+
+
+@app.get("/api/genres")
+async def api_genres_list():
+    from analytics import genres as genres_mod
+
+    genres = await asyncio.to_thread(genres_mod.list_genres, r)
+    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary())
+
+
+@app.post("/api/genres/autofill")
+async def api_genres_autofill(request: Request):
+    """{"theme": str} -> oracle drafts description + roles; the app validates them against the
+    tag vocabulary (unknown tags are dropped and listed in `flagged`). Nothing is saved."""
+    from analytics import genres as genres_mod
+    from analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+
+    body = await _json_body(request)
+    theme = body.get("theme") if isinstance(body, dict) and isinstance(body.get("theme"), str) else ""
+    theme = " ".join(theme.split())
+    if not theme or len(theme) > genres_mod.MAX_NAME:
+        return _bad_request(genres_mod.GenreError(f"Give a theme name (1-{genres_mod.MAX_NAME} characters)."))
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        return offline
+
+    def _ask() -> str:
+        client = _oracle_client()
+        client.timeout = GENRE_AUTOFILL_TIMEOUT_S
+        return client.ask(genres_mod.autofill_prompt(theme), system=genres_mod.AUTOFILL_SYSTEM)
+
+    try:
+        reply = await asyncio.to_thread(_ask)
+    except OracleUnavailable as exc:
+        return _oracle_offline(exc.detail)
+    except OracleAuthError:
+        return _oracle_offline("oracle rejected the API key")
+    except OracleError as exc:
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
+    try:
+        draft = genres_mod.validate_autofill(theme, genres_mod.parse_oracle_reply(reply))
+    except genres_mod.GenreError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": "autofill_invalid"})
+    return {"success": True, "draft": draft}
+
+
+@app.post("/api/genres")
+async def api_genres_create(request: Request):
+    from analytics import genres as genres_mod
+
+    try:
+        genre, version = await asyncio.to_thread(genres_mod.create_genre, r, await _json_body(request))
+    except genres_mod.GenreError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content={"success": True, "genre": genre, "version": version})
+
+
+@app.get("/api/genres/{genre_id}")
+async def api_genres_get(genre_id: str):
+    from analytics import genres as genres_mod
+
+    try:
+        genre = await asyncio.to_thread(genres_mod.get_genre, r, genre_id)
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    return _genre_payload(genre=genre)
+
+
+@app.put("/api/genres/{genre_id}")
+async def api_genres_update(genre_id: str, request: Request):
+    from analytics import genres as genres_mod
+
+    try:
+        genre, version = await asyncio.to_thread(genres_mod.update_genre, r, genre_id, await _json_body(request))
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    except genres_mod.GenreError as exc:
+        return _bad_request(exc)
+    return {"success": True, "genre": genre, "version": version}
+
+
+@app.delete("/api/genres/{genre_id}")
+async def api_genres_delete(genre_id: str):
+    from analytics import genres as genres_mod
+
+    try:
+        version = await asyncio.to_thread(genres_mod.delete_genre, r, genre_id)
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    return {"success": True, "version": version}
+
+
+@app.get("/api/decks/{deck_id}/genres")
+async def api_deck_genres(deck_id: str):
+    """Deterministic genre ranking for a deck: role coverage from its interaction tags."""
+    from analytics import genres as genres_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    genres = await asyncio.to_thread(genres_mod.list_genres, r)
+    return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
+                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph), genres))
 
 
 def _theory_deck_id(deck) -> str:
