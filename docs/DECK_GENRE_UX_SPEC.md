@@ -1,6 +1,6 @@
 # Deck Genre UX spec (GN-D): the Journal's Genre section
 
-Status: design, ready to build. Mockups and docs only; no app code changed.
+Status: built (t_c1f47124: `deck_genre.py`, `static/js/deck_genre.js`, `templates/deck_journal.html`).
 Builds on: `docs/DECK_GENRE_TAXONOMY.md` + `docs/deck_genre_taxonomy.yaml` (t_fbad3834; copied onto
 this branch so everything is in one place). Consumed by: t_c1f47124 (implementation).
 Base: `origin/main` @ b4ca96e (v0.4.4x, RV-4). **Build on `origin/main`**, not the local checkout's

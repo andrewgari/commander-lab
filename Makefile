@@ -1,4 +1,4 @@
-.PHONY: build up down logs sync restart deploy deploy-push gitops-setup
+.PHONY: build up down logs sync restart deploy deploy-push gitops-setup creature-types
 
 build:
 	docker compose build
@@ -31,3 +31,8 @@ restart: down up
 
 sync:
 	docker compose exec app python sync.py
+
+# Deck Genre: refresh the Kindred autocomplete's creature-type list from Scryfall into Redis.
+# Optional: the app falls back to the snapshot in deck_genre.py.
+creature-types:
+	docker compose exec app python scripts/refresh_creature_types.py

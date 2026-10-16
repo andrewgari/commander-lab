@@ -61,7 +61,7 @@
 
 {#- ===== The form (Journal tab, or "Change" from the check-in) ===== #}
 {{ hud.section_head("Deck journal", "01") }}
-<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-genre">Genre</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
 
 {%- set dv = j.deck_vision -%}
 {%- set wc = j.preferred_win_conditions -%}
@@ -84,6 +84,13 @@
             <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
         <div class="hud-field jr-ttw"><label for="ttw">Target win turn <span class="hud-field-hint">(optional)</span></label>
             <input id="ttw" name="ttw" type="number" min="1" max="20" inputmode="numeric" value="{{ dv.target_turn_win if dv.target_turn_win is not none else '' }}"></div>
+    {% endcall %}
+
+    {#- Deck Genre (GN, docs/DECK_GENRE_UX_SPEC.md): three TagFields, built by static/js/deck_genre.js. -#}
+    {% call hud.form_section("j-genre", "Genre", "What the deck is: how it plays, what it's about, which creature types it loves. Vision above is the sentence; these are the tags.") %}
+        <div class="hud-field" id="f-archetype" data-genre-field="archetype"></div>
+        <div class="hud-field" id="f-theme" data-genre-field="theme"></div>
+        <div class="hud-field" id="f-kindred" data-genre-field="kindred"></div>
     {% endcall %}
 
     {% call hud.form_section("j-win", "Win cons", "Primary is one choice. Secondary can be several. Excluded means the tuner will never push you toward it.") %}
@@ -153,6 +160,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/deck_genre.js?v={{ version }}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
@@ -172,6 +180,20 @@ document.addEventListener("DOMContentLoaded", function () {
                  power: ["j-power", ["target_power_level"]], bracket: ["j-power", ["target_bracket"]], budget: ["j-budget", ["budget_constraints"]],
                  pets: ["j-pets", ["pet_cards"]], novelties: ["j-pets", ["novelties", "freeform_notes"]] };
     var extras = { custom_win_conditions: {{ j.preferred_win_conditions.custom_win_conditions | tojson }} };
+    // Deck Genre (GN): one TagField per field; excluded_archetypes + custom_themes ride along untouched.
+    var G = window.DeckGenre.create({{ genre_options | tojson }}, {{ creature_types | tojson }});
+    var GENRE_HREF = "/deck/" + encodeURIComponent(DECK_NAME) + "/journal#j-genre";
+    extras.excluded_archetypes = {{ j.archetype_preferences.excluded_archetypes | tojson }};
+    extras.custom_themes = {{ j.archetype_preferences.custom_themes | tojson }};
+    var genre = {}, genreInit = G.fromJournal({ archetype_preferences: {{ j.archetype_preferences | tojson }}, deck_genre: {{ j.deck_genre | tojson }} });
+    ["archetype", "theme", "kindred"].forEach(function (k) {
+        genre[k] = new G.TagField(document.getElementById("f-" + k), k, genreInit[k], function () { changed(); });
+    });
+    function genreValues() { return { archetype: genre.archetype.value.slice(), theme: genre.theme.value.slice(), kindred: genre.kindred.value.slice() }; }
+    function paintGenreStrip(j) {
+        var strip = document.getElementById("deckGenre"); if (!strip) return;
+        strip.innerHTML = G.stripHtml(G.fromJournal(j), GENRE_HREF); strip.hidden = !strip.innerHTML;
+    }
 
     function send(method, path, body) {
         return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" },
@@ -195,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function bracketValue() { var v = radio("bracket"); return v && v !== "off" ? Number(v) : null; }
     function collect() {
         var ttw = num("ttw");
-        return {
+        var out = {
             deck_vision: { intent: radio("intent") || "tune_up", description: $("vision").value, target_turn_win: ttw === null ? null : (typeof ttw === "number" ? Math.round(ttw) : ttw) },
             target_power_level: { scale: Number(radio("power") || 7) },
             target_bracket: bracketValue(),
@@ -205,6 +227,9 @@ document.addEventListener("DOMContentLoaded", function () {
                                         disliked_or_excluded: checks("wc_excluded"), custom_win_conditions: extras.custom_win_conditions },
             pet_cards: pets(), novelties: $("novelties").value, freeform_notes: $("notes").value
         };
+        var gp = G.toPayload(genreValues(), extras);
+        out.archetype_preferences = gp.archetype_preferences; out.deck_genre = gp.deck_genre;
+        return out;
     }
     function setRadio(name, v) { document.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = String(x.value) === String(v); }); }
     function setChecks(name, vs) { vs = (vs || []).map(String); document.querySelectorAll('input[name="' + name + '"]').forEach(function (x) { x.checked = vs.indexOf(x.value) !== -1; }); }
@@ -221,6 +246,14 @@ document.addEventListener("DOMContentLoaded", function () {
         if (has("preferred_win_conditions") && j.preferred_win_conditions) {
             var w = j.preferred_win_conditions; setRadio("wc_primary", w.primary); setChecks("wc_secondary", w.secondary); setChecks("wc_excluded", w.disliked_or_excluded);
             extras.custom_win_conditions = w.custom_win_conditions || [];
+        }
+        if (has("archetype_preferences") && j.archetype_preferences) {
+            extras.excluded_archetypes = j.archetype_preferences.excluded_archetypes || [];
+            extras.custom_themes = j.archetype_preferences.custom_themes || [];
+            genre.archetype.set(G.fromJournal({ archetype_preferences: j.archetype_preferences }).archetype);
+        }
+        if (has("deck_genre") && j.deck_genre) {
+            var gv = G.fromJournal({ deck_genre: j.deck_genre }); genre.theme.set(gv.theme); genre.kindred.set(gv.kindred);
         }
         if (has("pet_cards")) setPets(j.pet_cards || []);
         if (has("novelties")) $("novelties").value = j.novelties || "";
@@ -324,7 +357,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ---- Dirty tracking + save ------------------------------------------------------
-    var KEYS = ["deck_vision", "target_power_level", "target_bracket", "budget_constraints", "preferred_win_conditions", "pet_cards", "novelties", "freeform_notes"];
+    var KEYS = ["deck_vision", "target_power_level", "target_bracket", "budget_constraints", "preferred_win_conditions", "archetype_preferences", "deck_genre", "pet_cards", "novelties", "freeform_notes"];
     var base = collect();
     function dirtyKeys() { var cur = collect(); return KEYS.filter(function (k) { return JSON.stringify(cur[k]) !== JSON.stringify(base[k]); }); }
     function rebase(keys) { var cur = collect(); (keys || KEYS).forEach(function (k) { base[k] = cur[k]; }); }
@@ -339,6 +372,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (a !== b) s += " · power " + a + " → " + b;
             var ba = base.target_bracket, bb = collect().target_bracket;
             if (ba !== bb) s += " · bracket " + (ba || "off") + " → " + (bb || "off");
+            if (d.indexOf("archetype_preferences") !== -1 || d.indexOf("deck_genre") !== -1) s += " · genre";
             $("saveSummary").innerHTML = "<b>" + esc(s) + "</b>";
         }
     }
@@ -350,7 +384,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function saveAll() {
         $("saveError").textContent = "";
         return send("PUT", "/journal", collect()).then(function (j) {
-            fill(j.journal); rebase();
+            fill(j.journal); rebase(); paintGenreStrip(j.journal);
             $("savebar").classList.remove("is-dirty");
             $("saveSummary").textContent = "Saved just now · edit anytime";
             if (REVIEW && !checkin) startCheckin();
@@ -414,6 +448,12 @@ document.addEventListener("DOMContentLoaded", function () {
         $("totalHint").textContent = m.price != null ? "Now " + A.money(m.price) + (m.unpriced ? " · " + m.unpriced + " unpriced" : "") : "";
         syncDerived();
     }).catch(function () { $("powerHint").textContent = "Estimate unavailable."; });
+    // Deck Genre: Deep Review's computed genre read beside the user's archetype (informational only).
+    send("GET", "/review").then(function (j) {
+        var rv = j.review, sec = rv && (rv.sections || []).filter(function (x) { return x.type === "genre"; })[0];
+        var el = document.getElementById("gn-read"), html = G.readHtml(sec && sec.data, "/deck/" + encodeURIComponent(DECK_NAME) + "/review", rv && rv.stale);
+        if (el) { el.innerHTML = html; el.hidden = !html; }
+    }).catch(function () { /* no review yet or storage down: the hint just stays hidden */ });
     // Stored bracket evaluation (BR-5): the estimate notch + the below-the-floor note.
     fetch("/api/deck/" + encodeURIComponent(DECK_ID) + "/bracket").then(function (r) {
         return r.json().then(function (b) { return { ok: r.ok, b: b }; });

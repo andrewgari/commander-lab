@@ -33,6 +33,7 @@ from analytics import composition as composition_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
@@ -171,7 +172,8 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
+           "genre": None}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -204,6 +206,13 @@ def _deck_head_context(deck_name: str) -> dict:
     try:
         from analytics import theory as theory_mod
         out["ideas"] = int(r.zcard(theory_mod.index_key(out["registry_id"]))) or None
+    except Exception:
+        pass
+    try:
+        # GN view mode: the archetype / kindred / theme chip strip (None = hidden).
+        rec = journal_mod.load_journal(r, deck)
+        if rec:
+            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r))
     except Exception:
         pass
     return out
@@ -327,7 +336,8 @@ def _journal_page_context(deck_name: str) -> dict:
            "money": journal_mod.money, "wincons": list(journal_mod.WINCON_ORDER),
            "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items()),
            "brackets": [(b.number, b.name) for b in brackets_mod.BRACKETS],
-           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE}
+           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE,
+           "genre_options": deck_genre.page_options(), "creature_types": deck_genre.creature_types(r)}
     defaults = dict(journal_mod.DEFAULT_CAPS)
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
@@ -2148,6 +2158,13 @@ async def _start_interactions_nightly():
 def _journal_error(exc: Exception, status: int = 400):
     return JSONResponse(status_code=status, content={"success": False, "error": str(exc),
                                                      "errors": getattr(exc, "errors", [str(exc)])})
+
+
+@app.get("/api/deck-genre/options")
+async def api_deck_genre_options():
+    """GN: the Deck Genre option lists (docs/deck_genre_taxonomy.yaml) + the creature-type catalog."""
+    return {"success": True, "options": deck_genre.page_options(),
+            "creature_types": await asyncio.to_thread(deck_genre.creature_types, r)}
 
 
 @app.get("/api/journal/defaults")
