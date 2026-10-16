@@ -229,6 +229,55 @@
         };
     }
 
+    // --- Card printing identity (CardRef) -------------------------------------
+    // One shape for every rendered card name / thumbnail (card_refs.py has the
+    // server twin and the field docs): { name, scryfallId, oracleId, set,
+    // collectorNumber, layout, imageUris, cardFaces, printingSpecific, source }.
+    // cardKey mirrors card_refs.card_key: front face, lowercase.
+    function cardKey(name) { return String(name || "").split(" // ")[0].trim().toLowerCase(); }
+
+    // cardRef(src, refs): src is an inventory row (uid / set / collector_number /
+    // oracle_id), an existing CardRef, or a bare name. `refs` is a deck printing
+    // map ({card_key: CardRef}, head.card_refs) consulted when src carries no
+    // printing. The result has printingSpecific false when only the name is
+    // known: such a ref is NOT printing-specific (any printing may be shown).
+    function cardRef(src, refs) {
+        if (src == null) src = "";
+        var o = typeof src === "string" ? { name: src } : src;
+        var clean = function (v) { v = v == null ? "" : String(v).trim(); return v || null; };
+        var sid = clean(o.scryfallId || o.scryfall_id || o.uid || o.archidekt_uid);
+        var set = clean(o.set || o.set_code);
+        var cn = clean(o.collectorNumber || o.collector_number);
+        var name = String(o.name || o.card_name || "");
+        var ref = {
+            name: name,
+            scryfallId: sid ? sid.toLowerCase() : null,
+            oracleId: clean(o.oracleId || o.oracle_id),
+            set: set ? set.toLowerCase() : null,
+            collectorNumber: cn,
+            layout: clean(o.layout),
+            imageUris: o.imageUris || o.image_uris || null,
+            cardFaces: o.cardFaces || o.card_faces || null,
+            printingSpecific: false,
+            source: o.source || null
+        };
+        ref.printingSpecific = !!(ref.scryfallId || (ref.set && ref.collectorNumber));
+        if (!ref.printingSpecific && refs) {
+            var hit = refs[cardKey(name)];
+            if (hit) return Object.assign({}, cardRef(hit), { name: name || hit.name, oracleId: ref.oracleId || hit.oracleId || null });
+        }
+        if (!ref.source) ref.source = ref.printingSpecific ? "instance" : "name";
+        return ref;
+    }
+
+    // HTML attributes marking a rendered card for the hover preview, matching
+    // card_refs.html_attrs: data-card-name + data-card-ref (compact JSON).
+    function cardRefAttrs(ref) {
+        var out = {};
+        Object.keys(ref || {}).forEach(function (k) { if (ref[k] != null) out[k] = ref[k]; });
+        return { "data-card-name": (ref && ref.name) || "", "data-card-ref": JSON.stringify(out) };
+    }
+
     // One retry per <img data-fallback>: swap to the fallback URL on error.
     document.addEventListener("error", function (ev) {
         var img = ev.target;
@@ -687,6 +736,9 @@
         commanders: commanders,
         commanderRoles: commanderRoles,
         scryfall: scryfall,
+        cardKey: cardKey,
+        cardRef: cardRef,
+        cardRefAttrs: cardRefAttrs,
         graph: graph,
         openModal: openModal,
         closeModal: closeModal,
