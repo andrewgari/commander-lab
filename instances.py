@@ -213,6 +213,25 @@ def transition_status(
     return record
 
 
+def queue_unassign_from_deck(pipe, record: dict, now: str) -> dict:
+    """Queue (on an open pipeline) the in_deck -> in_collection move for
+    `record`, mutating and returning the record. Does NOT execute the pipe, so
+    callers (registry.decommission_deck) can batch many moves plus other writes
+    into one MULTI/EXEC. Bypasses the physical-deck lock by design."""
+    deck_id = record.get("deck_id")
+    pipe.srem(_idx_status_key(record["ownership_status"]), record["id"])
+    pipe.sadd(_idx_status_key("in_collection"), record["id"])
+    if deck_id:
+        pipe.srem(_idx_deck_key(deck_id), record["id"])
+    record["ownership_status"] = "in_collection"
+    record["deck_id"] = None
+    record["deck_name"] = ""
+    record["updated_at"] = now
+    record.setdefault("history", []).append({"status": "in_collection", "at": now})
+    pipe.set(_instance_key(record["id"]), json.dumps(record))
+    return record
+
+
 def update_instance_fields(r, instance_id: str, **fields) -> dict:
     """Update non-status fields on an instance (set, condition, notes, price, etc).
     Use transition_status for ownership_status/deck_id changes."""
