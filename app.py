@@ -1771,6 +1771,19 @@ async def api_deck_edhrec(deck_id: str, refresh: bool = False):
     return {"success": True, "edhrec": out}
 
 
+@app.get("/api/decks/{deck_id}/review-metrics")
+async def api_deck_review_metrics(deck_id: str):
+    """RV-2 debug/API: the deterministic Deep Review numbers (genre, composition, tempo, focus,
+    strong cards, stragglers, combos/engines). Computed on demand, not stored; no oracle call."""
+    from analytics import review_metrics
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(review_metrics.review_deck, r, deck)
+    return {"success": True, "review_metrics": out}
+
+
 @app.get("/api/decks/{deck_id}/weak-performers")
 async def api_deck_weak_performers(deck_id: str, limit: Optional[int] = None):
     """Computed only: few graph edges + off-pillar + low EDHREC inclusion, equally weighted."""
