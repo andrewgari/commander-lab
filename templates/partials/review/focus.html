@@ -1,0 +1,28 @@
+{% import "partials/hud.html" as hud %}
+{#- focus: {win_lines[{type,strength,support,cards,why}], other_supported[], journal{claimed,present}, claimed_unsupported[], supported_unclaimed[], supported_but_excluded[], why} -#}
+{%- set d = section.data %}
+{%- if d.win_lines %}
+<ol class="hud-doc-pillars">
+    {%- for l in d.win_lines %}
+    <li data-line="{{ l.type }}"><span class="hud-label">Win line {{ loop.index }} · strength {{ l.strength }}</span><b>{{ rv.label(l.type) }}</b>
+        <span>{{ (l.cards or []) | join(", ") }}</span>
+        {%- if l.why %}<span class="hud-rv-why">{{ l.why }}</span>{% endif %}</li>
+    {%- endfor %}
+</ol>
+{%- else %}{{ hud.empty("No win lines found in this list.") }}{% endif %}
+<section class="hud-panel hud-rv-block" id="journalDiff">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">vs the Journal</h3><span class="hud-panel-meta">{{ "win cons claimed: " ~ ((d.journal or {}).claimed | join(", ") or "none") if (d.journal or {}).present else "no Journal yet" }}</span></header>
+    <div class="hud-panel-body">
+        <dl class="hud-kv">
+            <dt>Claimed, unsupported</dt>
+            <dd data-diff="claimed_unsupported">{% for t in d.claimed_unsupported or [] %}{{ hud.chip(rv.label(t), "danger") }} {% else %}<span class="hud-freshness">none</span>{% endfor %}</dd>
+            <dt>Supported, unclaimed</dt>
+            <dd data-diff="supported_unclaimed">{% for t in d.supported_unclaimed or [] %}{{ hud.chip(rv.label(t), "signal") }} {% else %}<span class="hud-freshness">none</span>{% endfor %}</dd>
+            {%- if d.supported_but_excluded %}
+            <dt>Excluded in Journal</dt>
+            <dd data-diff="supported_but_excluded">{% for t in d.supported_but_excluded %}{{ hud.chip(rv.label(t), "neutral") }} {% endfor %}</dd>
+            {%- endif %}
+        </dl>
+    </div>
+</section>
+{%- if d.other_supported %}<p class="hud-rv-meta">Also supported: {{ d.other_supported | map("replace", "_", " ") | join(", ") }}</p>{% endif %}

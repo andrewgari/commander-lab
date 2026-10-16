@@ -1,0 +1,18 @@
+{% import "partials/hud.html" as hud %}
+{#- composition: {template{name}, rows[{key,label,actual,target,delta,status,cards}], total_cards, unknown_cards[], why} -#}
+{%- set d = section.data %}
+{%- if d.rows %}
+<div class="hud-panel hud-panel--flush">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">vs {{ (d.template or {}).name or "template" }}</h3><span class="hud-panel-meta">{{ d.total_cards }} cards</span></header>
+    <div class="hud-table-wrap"><table class="hud-table hud-rv-table">
+        <thead><tr><th scope="col">Row</th><th scope="col" class="is-num">Have</th><th scope="col" class="is-num">Target</th><th scope="col" class="is-num">Δ</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+        {%- for row in d.rows %}
+        <tr data-row="{{ row.key }}"><td class="is-primary">{{ row.label }}</td><td class="is-num">{{ row.actual }}</td><td class="is-num">{{ row.target }}</td><td class="is-num">{{ rv.signed(row.delta) }}</td><td>{{ hud.chip(row.status or "—", rv.STATUS_TONES.get(row.status, "neutral")) }}</td></tr>
+        {%- endfor %}
+        </tbody>
+    </table></div>
+</div>
+{%- else %}{{ hud.empty("No composition rows") }}{% endif %}
+{%- if d.unknown_cards %}<p class="hud-rv-meta">No card data for: {{ d.unknown_cards | join(", ") }}</p>{% endif %}
+{%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}
