@@ -1526,6 +1526,76 @@ async def api_deck_review_job(deck_id: str, job_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Single Card Review (keep/remove debate + replacements) -- see docs/CARD_REVIEW.md
+# ---------------------------------------------------------------------------
+
+
+def _card_review_llm():
+    from analytics.card_review import OracleLLM
+
+    return OracleLLM(_oracle_client)
+
+
+@app.post("/api/decks/{deck_id}/cards/{card_id:path}/review")
+async def api_card_review(deck_id: str, card_id: str, request: Request):
+    """Start a background card review: Remove vs Keep debate, a judge, and (on remove) 3-5 replacements.
+    Body (optional): {"rounds": 2|3}. Poll GET .../review/jobs/{job_id} for progress and the result."""
+    from analytics.card_review import jobs, rounds_from_env
+    from analytics.card_review import service as review_service
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    rounds = rounds_from_env()
+    if isinstance(body, dict) and body.get("rounds") is not None:
+        if isinstance(body["rounds"], bool) or not isinstance(body["rounds"], int) or body["rounds"] not in (2, 3):
+            return _bad_request(ValueError("rounds must be 2 or 3"), 422)
+        rounds = body["rounds"]
+    try:
+        card = await asyncio.to_thread(review_service.resolve_card, r, deck, card_id)
+    except review_service.CardNotInDeck as exc:
+        return _bad_request(exc, 404)
+    if any(card.lower() == (c or "").lower() for c in deck.get("commanders") or []):
+        return _bad_request(ValueError("the commander can't be reviewed"), 400)
+
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        return offline
+    rid = registry.registry_id_of(deck)
+    try:
+        job = await asyncio.to_thread(jobs.new_job, r, rid, card, rounds)
+    except jobs.ReviewBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_card else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    llm = _card_review_llm()
+    try:
+        jobs.start_job(r, job, lambda emit: review_service.review_card(r, deck, card, llm, rounds, emit))
+    except Exception:
+        jobs.release(job["slot"], job["job_id"])
+        raise
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"], "rounds": rounds,
+        "status_url": f"/api/decks/{urllib.parse.quote(rid, safe='')}/cards/{urllib.parse.quote(card, safe='')}"
+                      f"/review/jobs/{job['job_id']}"})
+
+
+@app.get("/api/decks/{deck_id}/cards/{card_id:path}/review/jobs/{job_id}")
+async def api_card_review_job(deck_id: str, card_id: str, job_id: str):
+    """status: queued|running|done|failed. While running, `stage` and `transcript` (validated turns so far)
+    update after every debate turn; when done, `result` holds the full review."""
+    from analytics.card_review import jobs
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    job = await asyncio.to_thread(jobs.load_job, r, job_id)
+    if not job or job.get("deck_id") != registry.registry_id_of(deck):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": {k: v for k, v in job.items() if k != "slot"}}
+
+
+# ---------------------------------------------------------------------------
 # Card interaction graph (AN-1) -- see docs/INTERACTION_GRAPH.md
 # ---------------------------------------------------------------------------
 
