@@ -1,0 +1,215 @@
+/* Commander Lab: bulk decommission (BD-D). CSS PROPOSAL, docs only.
+ *
+ * Built from existing HUD tokens only: no new colours, no new fonts.
+ * Where it goes when implemented:
+ *   - "SELECT MODE" block   -> templates/decks.html <style> (next to .deck-card)
+ *   - ".hud-bulk" bar       -> static/css/hud.css, new section "Bulk actions"
+ *   - ".hud-toast"          -> static/css/hud.css, section 5 (components). Reusable.
+ *   - ".hud-bulk-dialog"    -> static/css/hud.css, same section as the bar
+ *   - ".hud-btn--danger-solid" -> next to .hud-btn--danger
+ * Animate transform and opacity only. Every motion has a reduced-motion fallback at the end.
+ */
+
+:root {
+    --bulk-bar-h:     3.5rem;    /* action bar height (desktop) */
+    --bulk-check:     1.25rem;   /* 20px visual checkbox; the hit target is the whole tile */
+    --bulk-list-max:  15rem;     /* dialog deck list: scrolls after ~6 rows */
+    --bulk-dialog-w:  36rem;     /* dialog width; narrower than --modal-w on purpose */
+    --toast-w:        26rem;
+    --z-bulk:         60;        /* above content and sticky page chrome, below --z-overlay/modal */
+}
+
+.hud-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ======================== SELECT MODE (decks.html) ======================== */
+
+/* Toggle button in the page controls. aria-pressed while select mode is on. */
+.hud-btn[aria-pressed="true"] { background: var(--signal-dim); border-color: var(--signal-line); color: var(--signal-strong); }
+
+/* In select mode the stretched quick-view button is replaced by a stretched,
+   invisible native checkbox: Space toggles, screen readers get a real checkbox
+   named after the deck, and a click anywhere on the tile toggles. */
+.deck-pick { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.deck-grid.is-selecting .deck-plate a { pointer-events: none; }          /* name + inventory links go inert */
+.deck-grid.is-selecting .deck-top { padding-left: calc(var(--bulk-check) + var(--sp-2)); }
+
+/* The visible box. Unselected: hollow, scrimmed so it reads on any art. */
+.deck-check {
+    position: absolute; top: var(--sp-2); left: var(--sp-2); z-index: 4;
+    box-sizing: border-box; width: var(--bulk-check); height: var(--bulk-check);
+    display: grid; place-items: center;
+    background: var(--scrim); border: 1px solid var(--text-2); border-radius: var(--radius-1);
+    color: transparent; pointer-events: none;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.deck-check svg { width: 0.8rem; height: 0.8rem; }
+.deck-card:hover .deck-check { border-color: var(--text-1); }
+
+/* Selected: 2px signal frame drawn ABOVE the art (a ::after, because the art
+   is an absolutely positioned child and would paint over an inset shadow),
+   plus a solid signal box with a check. Three cues: frame, fill, glyph. */
+.deck-card.is-selected::after,
+.deck-card.is-failed::after { content: ""; position: absolute; inset: 0; z-index: 3; border: var(--indicator) solid var(--signal); border-radius: inherit; pointer-events: none; }
+.deck-card.is-selected .deck-check { background: var(--signal); border-color: var(--signal); color: var(--text-on-signal); }
+.deck-card.is-selected .deck-plate { background: var(--surface-1); }
+.deck-card:has(.deck-pick:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* Failed on the last attempt: danger frame + a danger chip replaces the status chip. */
+.deck-card.is-failed::after { border-color: var(--danger); }
+.deck-card.is-failed .deck-check { background: var(--danger); border-color: var(--danger); color: var(--text-on-signal); }
+
+/* Not decommissionable (anything that isn't Physical) while select mode is on. */
+.deck-card.is-unselectable { opacity: 0.45; }
+.deck-card.is-unselectable .deck-open { cursor: not-allowed; }
+
+/* Leaving: tile fades + shrinks out after a successful decommission. 160ms. */
+.deck-card.is-leaving { animation: deck-leave var(--dur-base) var(--ease) both; }
+@keyframes deck-leave { to { opacity: 0; transform: scale(0.96); } }
+
+/* ============================ ACTION BAR (.hud-bulk) ============================ */
+/* position: fixed, FIRST in DOM order inside <main> (before the grid), so Tab
+   reaches Select all / Decommission without walking 14 tiles. Offsets track the sidebar. */
+.hud-bulk {
+    position: fixed; z-index: var(--z-bulk);
+    left: var(--sidebar-w); right: 0; bottom: 0;
+    box-sizing: border-box; min-height: var(--bulk-bar-h);
+    display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+    padding: var(--sp-2) var(--content-pad);
+    background: var(--surface-1);
+    border-top: var(--indicator) solid var(--signal);
+    animation: bulk-in var(--dur-base) var(--ease) both;
+}
+.hud-bulk[hidden] { display: none; }
+@keyframes bulk-in { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) { .hud-bulk { left: var(--sidebar-w-collapsed); padding-inline: var(--content-pad); } }
+
+.hud-bulk-all { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-1); font-size: var(--fs-sm); cursor: pointer; }
+.hud-bulk-all input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--signal); cursor: pointer; }
+
+.hud-bulk-count { display: inline-flex; align-items: baseline; gap: var(--sp-2); color: var(--text-2); font: var(--fs-sm) var(--font-mono); font-variant-numeric: tabular-nums; }
+.hud-bulk-count b { color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.hud-bulk-note { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-bulk-note.is-fail { color: var(--danger); }
+.hud-bulk-note button { all: unset; color: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.hud-bulk-note button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bulk-hint { color: var(--text-3); font-size: var(--fs-xs); }
+.hud-bulk-spacer { flex: 1; }
+.hud-bulk-keys { display: inline-flex; gap: var(--sp-1); align-items: center; color: var(--text-3); font-size: var(--fs-xs); }
+
+/* Solid destructive button: used ONLY for the dialog's confirm. The bar's entry
+   button stays outlined (.hud-btn--danger), so the loud one is one click further in. */
+.hud-btn--danger-solid { background: var(--danger); border-color: var(--danger); color: var(--text-on-signal); }
+.hud-btn--danger-solid:hover { background: var(--danger); border-color: var(--text-1); color: var(--text-on-signal); }
+/* aria-disabled (not :disabled) so the button keeps keyboard focus while busy. */
+.hud-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.hud-btn[aria-disabled="true"]:hover { background: var(--surface-2); border-color: var(--line-strong); }
+.hud-btn--danger[aria-disabled="true"]:hover { background: transparent; border-color: var(--danger); }
+.hud-btn--danger-solid[aria-disabled="true"]:hover { background: var(--danger); border-color: var(--danger); }
+
+/* Phone: two rows. Row 1 = select all + count. Row 2 = full-width action. */
+@media (max-width: 600px) {
+    .hud-bulk { left: 0; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+    .hud-bulk-keys, .hud-bulk-hint { display: none; }
+    .hud-bulk-spacer { display: none; }
+    .hud-bulk #bulkGo { flex: 1 1 100%; order: 9; height: 2.75rem; }
+}
+
+/* page needs room under the last row of tiles while the bar is up */
+.is-bulk-on #decksContainer { padding-bottom: calc(var(--bulk-bar-h) + var(--sp-8)); }
+
+/* ============================ DIALOG (.hud-bulk-dialog) ============================ */
+.hud-modal--center { align-items: center; }
+.hud-bulk-dialog { max-width: var(--bulk-dialog-w); }
+.hud-bulk-dialog.is-result-partial { border-left: var(--indicator) solid var(--signal); }
+.hud-bulk-dialog.is-result-fail    { border-left: var(--indicator) solid var(--danger); }
+.hud-bulk-dialog .hud-panel-title { font-size: var(--fs-sm); }
+.hud-bulk-body { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.hud-bulk-lead { margin: 0; color: var(--text-1); font-size: var(--fs-base); line-height: var(--lh-base); }
+.hud-bulk-does { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-2); }
+.hud-bulk-does li { display: grid; grid-template-columns: 1rem minmax(0, 1fr); gap: var(--sp-2); color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+.hud-bulk-does li::before { content: "\2192"; color: var(--text-3); font-family: var(--font-mono); }
+.hud-bulk-does li.is-keep::before { content: "="; color: var(--ok); }
+.hud-bulk-does b { color: var(--text-1); font-weight: var(--fw-medium); }
+
+/* Caution row: amber, not red. Red is for failures (same rule as Card Review D4). */
+.hud-bulk-caution { display: grid; grid-template-columns: 1rem minmax(0, 1fr); gap: var(--sp-2); padding: var(--sp-3); background: var(--signal-dim); border: 1px solid var(--signal-line); border-radius: var(--radius-1); color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+.hud-bulk-caution::before { content: "\25B2"; color: var(--signal); font-size: var(--fs-xs); line-height: 1.5; }
+
+/* The list of decks. Scrolls; the header row never does. */
+.hud-bulk-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.hud-bulk-list { margin: 0; padding: 0; list-style: none; max-height: var(--bulk-list-max); overflow-y: auto; border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-0); }
+.hud-bulk-list:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bulk-row { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: 2.5rem; padding: var(--sp-2) var(--sp-3); border-bottom: var(--stroke-faint); }
+.hud-bulk-row:last-child { border-bottom: 0; }
+.hud-bulk-row-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-1); font-family: var(--font-card); font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+.hud-bulk-row-sub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: var(--fs-xs); }
+.hud-bulk-row-meta { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--text-3); font: var(--fs-xs) var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* state glyph: shape, not just colour */
+.hud-bulk-state { width: 1.25rem; text-align: center; color: var(--text-3); font: var(--fw-semibold) var(--fs-sm) var(--font-mono); }
+.hud-bulk-row.is-running .hud-bulk-state { color: var(--signal); }
+.hud-bulk-row.is-done .hud-bulk-state { color: var(--ok); }
+.hud-bulk-row.is-failed { background: var(--danger-dim); box-shadow: inset var(--indicator) 0 0 var(--danger); }
+.hud-bulk-row.is-failed .hud-bulk-state { color: var(--danger); }
+.hud-bulk-why { grid-column: 2 / -1; margin-top: calc(-1 * var(--sp-1)); color: var(--text-1); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.hud-bulk-why code { display: block; margin-top: 2px; color: var(--text-3); font: var(--fs-micro) var(--font-mono); overflow-wrap: anywhere; }
+.hud-bulk-row.is-hidden-by-filter .hud-bulk-row-meta .hud-chip { white-space: nowrap; }
+
+/* Succeeded rows after a partial result: folded away, one line. */
+.hud-bulk-fold { border: var(--stroke); border-radius: var(--radius-1); }
+.hud-bulk-fold > summary { cursor: pointer; padding: var(--sp-2) var(--sp-3); color: var(--text-2); font: var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; list-style: none; }
+.hud-bulk-fold > summary::-webkit-details-marker { display: none; }
+.hud-bulk-fold > summary::before { content: "\25B8"; display: inline-block; margin-right: var(--sp-2); color: var(--text-3); transition: transform var(--dur-fast) var(--ease); }
+.hud-bulk-fold[open] > summary::before { transform: rotate(90deg); }
+.hud-bulk-fold > summary:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-bulk-fold .hud-bulk-list { border: 0; border-top: var(--stroke); border-radius: 0; }
+
+/* Type-to-confirm (N >= 5) */
+.hud-bulk-type { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hud-bulk-type input { width: 6rem; font: var(--fs-md) var(--font-mono); text-align: center; }
+.hud-bulk-type input[aria-invalid="true"] { border-color: var(--danger); }
+
+/* Footer: Cancel left of confirm; confirm is last in DOM + visual order. */
+.hud-bulk-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: var(--stroke); }
+.hud-bulk-foot .hud-bulk-foot-note { margin-right: auto; color: var(--text-3); font-size: var(--fs-xs); }
+@media (max-width: 600px) {
+    .hud-modal--center { align-items: flex-end; padding: var(--sp-2); }
+    .hud-bulk-foot { flex-direction: column-reverse; align-items: stretch; }
+    .hud-bulk-foot .hud-btn { height: 2.75rem; }
+    .hud-bulk-foot .hud-bulk-foot-note { margin: 0; text-align: center; }
+    .hud-bulk-list { max-height: 30vh; }
+}
+
+/* In flight: the whole dialog is busy. Progress reuses .hud-job (indeterminate bar,
+   transform only). Rows carry their own state when the transport is per-deck. */
+.hud-bulk-progress { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hud-bulk-progress .hud-job-track { display: block; }
+.hud-bulk-progress .hud-job-msg { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
+
+/* ================================ TOAST (.hud-toast) ================================
+   New reusable component. Region is fixed bottom-right; stacks upward; sits above the
+   bulk bar when it is up. role="status" for ok/info (polite), role="alert" for danger. */
+.hud-toasts { position: fixed; z-index: var(--z-toast); right: var(--sp-4); bottom: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); width: min(var(--toast-w), calc(100vw - 2 * var(--sp-4))); pointer-events: none; }
+.is-bulk-on .hud-toasts { bottom: calc(var(--bulk-bar-h) + var(--sp-4)); }
+.hud-toast { pointer-events: auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); align-items: start; padding: var(--sp-3) var(--sp-4); background: var(--surface-3); border: var(--stroke-strong); border-left: var(--indicator) solid var(--toast-tone, var(--text-3)); border-radius: var(--radius-1); animation: toast-in var(--dur-base) var(--ease) both; }
+.hud-toast--ok     { --toast-tone: var(--ok); }
+.hud-toast--signal { --toast-tone: var(--signal); }
+.hud-toast--danger { --toast-tone: var(--danger); }
+.hud-toast-title { margin: 0; color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: var(--lh-snug); }
+.hud-toast-title::before { content: attr(data-glyph) " "; color: var(--toast-tone); font-family: var(--font-mono); }
+.hud-toast-body { grid-column: 1; margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.hud-toast-act { grid-column: 1; margin-top: var(--sp-1); }
+.hud-toast-x { grid-row: 1; grid-column: 2; all: unset; box-sizing: border-box; width: 1.5rem; height: 1.5rem; display: grid; place-items: center; color: var(--text-3); cursor: pointer; border-radius: var(--radius-1); }
+.hud-toast-x:hover { color: var(--text-1); background: var(--surface-2); }
+.hud-toast-x:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-toast.is-leaving { animation: toast-out var(--dur-fast) var(--ease) both; }
+@keyframes toast-in  { from { opacity: 0; transform: translateX(1rem); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateX(1rem); } }
+
+/* ============================== REDUCED MOTION ============================== */
+@media (prefers-reduced-motion: reduce) {
+    .hud-bulk, .hud-toast, .hud-toast.is-leaving, .deck-card.is-leaving { animation: none !important; }
+    .deck-card.is-leaving { opacity: 0; }                    /* still leaves, just without the shrink */
+    .hud-bulk-progress .hud-job-track i { animation: none !important; width: 100%; opacity: 0.5; }  /* static bar, text carries the progress */
+    .deck-check, .hud-bulk-fold > summary::before { transition: none !important; }
+}
