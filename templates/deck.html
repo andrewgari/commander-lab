@@ -296,6 +296,11 @@
                 <div><strong>Main Archetype:</strong> <span id="mainArchetype" class="badge" style="background: #1e3a8a; color: #93c5fd;">Midrange / Value</span></div>
                 <div><strong>Sub-Archetypes:</strong> <span id="subArchetypes"><span class="badge" style="margin-right: 4px;">Synergy</span><span class="badge">Toolbox</span></span></div>
                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Folder: <span id="deckFolder">-</span> | Status: <span id="deckStatus">-</span></div>
+                <div style="margin-top: 0.5rem;">
+                    <button class="btn" id="decommissionBtn" style="display: none; color: #fca5a5; border-color: #991b1b;" onclick="openDecommissionDialog()">
+                        <i class="fa-solid fa-box-archive"></i> Decommission
+                    </button>
+                </div>
             </div>
             <div>
                 <h1 class="deck-title">
@@ -346,6 +351,22 @@
     </div>
 </div>
 
+<!-- Decommission Confirmation Dialog -->
+<div id="decommissionModal" class="modal-overlay" onclick="closeDecommissionDialog()">
+    <div class="modal-content" style="flex-direction: column; gap: 1rem; max-width: 480px;" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="decommissionTitle">
+        <h2 id="decommissionTitle" class="modal-deck-name">Decommission deck?</h2>
+        <p style="color: #9ca3af; font-size: 0.9rem; margin: 0;">
+            <strong id="decommissionDeckName" style="color: #e5e7eb;"></strong> will be retired and moved to the Retired category.
+            Its cards will be returned to the owned pool as unassigned cards. No cards are deleted.
+        </p>
+        <div id="decommissionError" role="alert" style="display: none; color: #fca5a5; font-size: 0.85rem;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button class="btn" id="decommissionCancelBtn" onclick="closeDecommissionDialog()">Cancel</button>
+            <button class="btn btn-primary" id="decommissionConfirmBtn" onclick="confirmDecommission()">Decommission</button>
+        </div>
+    </div>
+</div>
+
 <!-- Card Details Modal -->
 <div id="cardModal" class="modal-overlay" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
@@ -385,6 +406,47 @@
         return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
     }
 
+    function openDecommissionDialog() {
+        if (!currentDeck) return;
+        document.getElementById('decommissionDeckName').textContent = currentDeck.name;
+        document.getElementById('decommissionError').style.display = 'none';
+        document.getElementById('decommissionModal').style.display = 'flex';
+    }
+
+    function closeDecommissionDialog() {
+        if (document.getElementById('decommissionConfirmBtn').disabled) return; // busy
+        document.getElementById('decommissionModal').style.display = 'none';
+    }
+
+    async function confirmDecommission() {
+        const confirmBtn = document.getElementById('decommissionConfirmBtn');
+        const cancelBtn = document.getElementById('decommissionCancelBtn');
+        const errEl = document.getElementById('decommissionError');
+        errEl.style.display = 'none';
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Decommissioning...';
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(currentDeck.id)}/decommission`, { method: 'POST' });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${res.status})`);
+            }
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            document.getElementById('decommissionModal').style.display = 'none';
+            await loadDeckData(); // refresh deck + card state
+        } catch (e) {
+            errEl.textContent = `Failed to decommission: ${e.message}`;
+            errEl.style.display = 'block';
+        } finally {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.textContent = 'Decommission';
+        }
+    }
+
     async function loadDeckData() {
         try {
             // Fetch deck metadata
@@ -401,6 +463,9 @@
             document.getElementById('deckColors').innerHTML = createColorPips(currentDeck.color);
             document.getElementById('deckFolder').textContent = currentDeck.folder || 'Loose Decks';
             document.getElementById('deckStatus').textContent = (currentDeck.status || 'physical').toUpperCase();
+            // Decommission is only available for physical (non-retired) decks
+            document.getElementById('decommissionBtn').style.display =
+                (currentDeck.status || 'physical') === 'physical' ? '' : 'none';
             
             // Render decorative commander showcase at the top
             const commanders = inventoryCards.filter(c => c.is_commander);
