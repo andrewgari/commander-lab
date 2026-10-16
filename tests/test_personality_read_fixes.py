@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from analytics import personality_read
@@ -88,6 +89,57 @@ class TestCachedSaltReaders(unittest.TestCase):
 
     def test_edhrec_missing_cache_is_none(self):
         self.assertIsNone(personality_read._extract_cached_edhrec_salt(FakeRedis(), SAMPLE_DECK))
+
+    def test_commandersalt_reads_registered_provider_cache(self):
+        provider = SimpleNamespace(
+            _cache={
+                "https://archidekt.com/decks/417707": (
+                    100.0,
+                    {
+                        "powerLevelRating": 8.1,
+                        "bracketRating": 3.4,
+                        "saltRating": 45.0,
+                        "synergyRating": 0.62,
+                        "threatRating": 0.31,
+                        "archetypeLabel": "Reanimator",
+                    },
+                )
+            },
+            _now=lambda: 101.0,
+            _cache_ttl_seconds=300.0,
+        )
+        with patch("analytics.registry.get_provider", return_value=provider) as get_provider:
+            out = personality_read._extract_cached_commandersalt(
+                FakeRedis(), "archidekt:417707", SAMPLE_DECK
+            )
+
+        get_provider.assert_called_once_with("commandersalt")
+        self.assertEqual(out, {
+            "power": 8.1,
+            "bracket_rating": 3.4,
+            "salt": 45.0,
+            "synergy_rating": 0.62,
+            "threat_rating": 0.31,
+            "archetype_label": "Reanimator",
+        })
+
+    def test_commandersalt_ignores_expired_provider_cache(self):
+        provider = SimpleNamespace(
+            _cache={
+                "https://archidekt.com/decks/417707": (
+                    100.0,
+                    {"synergyRating": 0.62},
+                )
+            },
+            _now=lambda: 401.0,
+            _cache_ttl_seconds=300.0,
+        )
+        with patch("analytics.registry.get_provider", return_value=provider):
+            out = personality_read._extract_cached_commandersalt(
+                FakeRedis(), "archidekt:417707", SAMPLE_DECK
+            )
+
+        self.assertIsNone(out)
 
 
 class TestEdhrecParseKeepsSalt(unittest.TestCase):

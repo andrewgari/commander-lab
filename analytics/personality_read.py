@@ -232,7 +232,7 @@ def current_input_hash(r, deck: Mapping) -> str:
 
 
 def _extract_cached_commandersalt(r, rid: str, deck: Mapping) -> Optional[dict]:
-    """Read CommanderSalt data already cached in Redis via bracket evaluation or cache."""
+    """Read CommanderSalt data already cached by bracket evaluation or its provider."""
     # 1. Check bracket:eval:{rid}
     raw_eval = r.get(f"bracket:eval:{rid}")
     cs_out: Dict[str, Any] = {}
@@ -253,8 +253,29 @@ def _extract_cached_commandersalt(r, rid: str, deck: Mapping) -> Optional[dict]:
         except Exception:  # noqa: BLE001
             pass
 
-    # Only the bracket:eval cache is read: the provider's own cache is per-instance
-    # and in-memory (a fresh one is always empty), so there is nothing to reuse there.
+    try:
+        from .providers.commandersalt import resolve_source_url
+        from .registry import get_provider
+
+        provider = get_provider("commandersalt")
+        source_url = resolve_source_url(rid)
+        cached = provider._cache.get(source_url)
+        if cached and provider._now() - cached[0] < provider._cache_ttl_seconds:
+            raw = cached[1]
+            if isinstance(raw, Mapping):
+                for key, source_key in (
+                    ("power", "powerLevelRating"),
+                    ("bracket_rating", "bracketRating"),
+                    ("salt", "saltRating"),
+                    ("synergy_rating", "synergyRating"),
+                    ("threat_rating", "threatRating"),
+                    ("archetype_label", "archetypeLabel"),
+                ):
+                    if raw.get(source_key) is not None:
+                        cs_out.setdefault(key, raw[source_key])
+    except Exception:  # noqa: BLE001
+        pass
+
     return cs_out or None
 
 

@@ -96,6 +96,9 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('const psDeckId = "archidekt:5620189"', body)
         self.assertIn("/personality'", body)
         self.assertIn("/api/profile/personality?scope=physical", body)
+        self.assertIn("psOracleVisible = !!dModel.oracle_used", body)
+        self.assertIn("Oracle offline; showing previous Oracle read", body)
+        self.assertIn("Oracle offline; showing rulebook", body)
         for hook in ("PSUI.deckPanelBody(", "PSUI.deckPanelFoot(", "PSUI.bindEvidence(", "PSUI.deckModel(", "method: 'POST'"):
             with self.subTest(hook=hook):
                 self.assertIn(hook, body)
