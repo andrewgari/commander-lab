@@ -92,7 +92,7 @@
 <script>
 (function () {
     const $ = id => document.getElementById(id);
-    const state = { genres: [], vocab: [], version: 0, current: null, source: 'user' };
+    const state = { genres: [], vocab: [], version: 0, current: null, source: 'user', autofillTicket: 0 };
 
     function el(tag, props, kids) {
         const n = document.createElement(tag);
@@ -102,9 +102,13 @@
     }
     function msg(id, text, tone) { const m = $(id); m.textContent = text || ''; m.className = 'gn-msg' + (tone ? ' is-' + tone : ''); }
     async function api(method, url, body) {
-        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
-        const data = await res.json().catch(() => ({}));
-        return { ok: res.ok, status: res.status, data };
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, data };
+        } catch (e) {
+            return { ok: false, status: 0, data: { error: 'Network error. Check your connection and try again.' } };
+        }
     }
     const label = tag => (state.vocab.find(v => v.tag === tag) || { label: tag }).label;
 
@@ -130,7 +134,7 @@
         const sel = el('select', { 'aria-label': 'Role tag' });
         state.vocab.forEach(v => { const o = el('option', { value: v.tag, text: v.label, title: v.meaning }); if (v.tag === role.tag) o.selected = true; sel.appendChild(o); });
         const num = (cls, val, min, max, step, lab) => {
-            const i = el('input', { type: 'number', min, max, step, value: val, 'aria-label': lab }); i.className = cls; return i;
+            const i = el('input', { type: 'number', min, max, step: lab.toLowerCase().includes('weight') ? 'any' : step, value: val, 'aria-label': lab }); i.className = cls; return i;
         };
         const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost gn-rm', text: 'Remove' });
         const row = el('div', { class: 'gn-role' }, [
@@ -157,12 +161,12 @@
     }
     function edit(id) {
         const g = state.genres.find(x => x.id === id); if (!g) return;
-        state.current = id; fill(g);
+        state.autofillTicket++; $('gnAutofill').disabled = false; state.current = id; fill(g);
         $('gnEditorTitle').textContent = g.name; $('gnEditorMeta').textContent = g.draft ? 'draft' : (g.updated_at || '').slice(0, 10);
         $('gnDelete').hidden = false; msg('gnMsg', ''); msg('gnAutofillMsg', ''); renderList();
     }
     function fresh() {
-        state.current = null; fill({ required_roles: [] });
+        state.autofillTicket++; $('gnAutofill').disabled = false; state.current = null; fill({ required_roles: [] });
         $('gnEditorTitle').textContent = 'New genre'; $('gnEditorMeta').textContent = '';
         $('gnDelete').hidden = true; msg('gnMsg', ''); msg('gnAutofillMsg', ''); renderList();
     }
@@ -197,10 +201,11 @@
 
     $('gnAutofill').addEventListener('click', async () => {
         const theme = $('gnName').value.trim();
+        const ticket = ++state.autofillTicket;
         if (!theme) { msg('gnAutofillMsg', 'Type the theme name first (e.g. "Aristocrats").', 'warn'); return; }
         $('gnAutofill').disabled = true; msg('gnAutofillMsg', 'Asking oracle… this can take a minute.');
-        let r;
-        try { r = await api('POST', '/api/genres/autofill', { theme }); } catch (e) { r = { ok: false, data: { error: 'network error' } }; }
+        const r = await api('POST', '/api/genres/autofill', { theme });
+        if (ticket !== state.autofillTicket) return;  // a newer selection/autofill superseded this response
         $('gnAutofill').disabled = false;
         if (!r.ok) {
             const offline = r.data.error_kind === 'oracle_offline';

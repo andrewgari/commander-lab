@@ -270,6 +270,30 @@ class TestGenreMatch(unittest.TestCase):
         self.assertEqual(G.deck_from_graph(g)["cards"][0]["produces"], ["tokens"])
         self.assertEqual(G.genre_match({}, self.GENRES)[0]["coverage"], 0.0)
 
+    def test_deck_from_graph_uses_real_quantities(self):
+        g = {"nodes": [{"name": "A", "produces": ["tokens"], "consumes": []}]}
+        self.assertEqual(G.deck_from_graph(g, {"A": 7})["cards"][0]["quantity"], 7)
+
+    def test_overflow_min_count_is_a_genre_error(self):
+        for bad in (1e309, float("inf")):
+            with self.assertRaises(G.GenreError):
+                G.clean_roles([{"tag": "produces:tokens", "min_count": bad, "weight": 1}])
+        with self.assertRaises(G.GenreError):
+            G.clean_roles([{"tag": "produces:tokens", "min_count": 1, "weight": 1e999}])
+
+    def test_concurrent_creates_keep_every_write(self):
+        import threading
+        r = FakeRedis()
+        G.ensure_seeded(r)
+        errs = []
+        def mk(i):
+            try: G.create_genre(r, {"name": f"Concurrent {i}", "required_roles": []})
+            except Exception as e: errs.append(e)
+        ts = [threading.Thread(target=mk, args=(i,)) for i in range(20)]
+        [t.start() for t in ts]; [t.join() for t in ts]
+        self.assertEqual(errs, [])
+        self.assertEqual(len([g for g in G.list_genres(r) if g["name"].startswith("Concurrent")]), 20)
+
 
 if __name__ == "__main__":
     unittest.main()

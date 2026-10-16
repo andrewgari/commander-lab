@@ -17,8 +17,10 @@ Redis: ``genres`` (JSON list, absent until first read, which seeds it) and
 """
 from __future__ import annotations
 
+import functools
 import json
 import re
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -80,9 +82,12 @@ def normalize_tag(value: Any) -> Optional[str]:
 def _num(value: Any, name: str, lo: float, hi: float, as_int: bool):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise GenreError(f"{name} must be a number.")
-    if as_int and float(value) != int(value):
-        raise GenreError(f"{name} must be a whole number.")
-    v = int(value) if as_int else float(value)
+    try:
+        if as_int and float(value) != int(value):
+            raise GenreError(f"{name} must be a whole number.")
+        v = int(value) if as_int else float(value)
+    except (OverflowError, ValueError):
+        raise GenreError(f"{name} must be a finite number.")
     if not (lo <= v <= hi):
         raise GenreError(f"{name} must be between {lo:g} and {hi:g}.")
     return v
@@ -199,6 +204,19 @@ SEED_GENRES: Tuple[dict, ...] = (
 
 # -- storage ----------------------------------------------------------------------------------
 
+# Read-modify-write of the single ``genres`` JSON key: serialise writers so concurrent requests
+# can't drop each other's edits (app runs as one process; the lock is process-wide).
+_WRITE_LOCK = threading.RLock()
+
+
+def _locked(fn):
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        with _WRITE_LOCK:
+            return fn(*a, **kw)
+    return wrapper
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -263,6 +281,7 @@ def _name_taken(genres: List[dict], name: str, skip_id: Optional[str] = None) ->
     return any(g["id"] != skip_id and g.get("name", "").lower() == name.lower() for g in genres)
 
 
+@_locked
 def create_genre(r, body: Any) -> Tuple[dict, int]:
     fields = clean_fields(body)
     genres = _load(r)
@@ -274,6 +293,7 @@ def create_genre(r, body: Any) -> Tuple[dict, int]:
     return genre, _save(r, genres)
 
 
+@_locked
 def update_genre(r, genre_id: str, body: Any) -> Tuple[dict, int]:
     genres = _load(r)
     for i, g in enumerate(genres):
@@ -286,6 +306,7 @@ def update_genre(r, genre_id: str, body: Any) -> Tuple[dict, int]:
     raise GenreNotFound(genre_id)
 
 
+@_locked
 def delete_genre(r, genre_id: str) -> int:
     genres = _load(r)
     kept = [g for g in genres if g["id"] != genre_id]
@@ -365,9 +386,11 @@ def validate_autofill(theme: str, reply: dict) -> dict:
 
 # -- matching ---------------------------------------------------------------------------------
 
-def deck_from_graph(graph: dict) -> dict:
-    """Adapt a deck interaction graph (service.get_deck_graph) to genre_match's input."""
-    return {"cards": [{"name": n.get("name", ""), "quantity": 1, "produces": n.get("produces", []),
+def deck_from_graph(graph: dict, quantities: Optional[Dict[str, int]] = None) -> dict:
+    """Adapt a deck interaction graph (service.get_deck_graph) to genre_match's input.
+    Graph nodes are unique by name, so pass ``quantities`` {name: copies} for real copy counts."""
+    q = quantities or {}
+    return {"cards": [{"name": n.get("name", ""), "quantity": q.get(n.get("name", ""), 1), "produces": n.get("produces", []),
                        "consumes": n.get("consumes", [])} for n in (graph or {}).get("nodes", [])]}
 
 

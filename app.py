@@ -2325,8 +2325,15 @@ async def api_deck_genres(deck_id: str):
         return err
     graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
     genres = await asyncio.to_thread(genres_mod.list_genres, r)
+    qty: dict = {}
+    for c in deck.get("cards") or []:
+        if c.get("name"):
+            try:
+                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
+            except (TypeError, ValueError):
+                qty[c["name"]] = qty.get(c["name"], 0) + 1
     return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
-                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph), genres))
+                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph, qty), genres))
 
 
 def _theory_deck_id(deck) -> str:
