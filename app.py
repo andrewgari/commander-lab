@@ -1915,9 +1915,115 @@ async def api_deck_personality(deck_id: str):
         return JSONResponse(status_code=404, content={
             "success": False, **base, "status": "not_scored", "error": "Not scored yet.", "personality": None})
     result_hash = rec.get("result_hash") or rec.get("input_hash")
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    rec_read = await asyncio.to_thread(personality_read.load_read, r, rid)
+    read_data = None
+    oracle_status = "not_read"
+    if rec_read and rec_read.get("status") == "ok":
+        cur_read_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+        if rec_read.get("input_hash") == cur_read_hash:
+            read_data = rec_read.get("read")
+            oracle_status = "ok"
+        else:
+            # Withhold: the deck/journal changed since this read, so the current
+            # rulebook stays visible until a new read completes.
+            oracle_status = "stale"
+
     return {"success": True, **base, "status": rec.get("status") or "ok", "computed_at": rec.get("computed_at"),
             "stale": result_hash != current, "error": rec.get("error"), "error_at": rec.get("error_at"),
-            "personality": rec["scores"]}
+            "personality": rec["scores"], "read": read_data, "oracle_read": read_data, "oracle_status": oracle_status}
+
+
+@app.post("/api/decks/{deck_id}/personality/read")
+async def api_deck_personality_read(deck_id: str, request: Request):
+    """Trigger an async Oracle personality read (30s to minutes), or return cached read.
+    Poll GET /api/decks/{deck_id}/personality/read/jobs/{job_id}."""
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    body = await _json_body(request)
+    force = bool(isinstance(body, dict) and body.get("force"))
+
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+    cached = await asyncio.to_thread(personality_read.load_read, r, rid)
+
+    if not force and cached and cached.get("status") == "ok" and cached.get("input_hash") == cur_hash:
+        return JSONResponse(status_code=200, content={
+            "success": True, "cached": True, "status": "done",
+            "registry_id": rid, "read": cached.get("read")
+        })
+
+    try:
+        job = await asyncio.to_thread(personality_read.new_job, r, deck)
+    except personality_read.PersonalityReadBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    except personality_read.PersonalityReadError as exc:
+        return _bad_request(exc)
+
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        personality_read.release(job["deck_id"], job["job_id"])
+        await asyncio.to_thread(r.delete, personality_read.job_key(job["job_id"]))
+        return offline
+
+    try:
+        personality_read.start_job(r, job, deck, _oracle_client)
+    except Exception:
+        personality_read.release(job["deck_id"], job["job_id"])
+        raise
+
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(rid, safe='')}/personality/read/jobs/{job['job_id']}"
+    })
+
+
+@app.get("/api/decks/{deck_id}/personality/read/jobs/{job_id}")
+async def api_deck_personality_read_job(deck_id: str, job_id: str):
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    job = await asyncio.to_thread(personality_read.load_job, r, job_id)
+    if not job or job.get("deck_id") != rid:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": job}
+
+
+@app.get("/api/decks/{deck_id}/personality/read")
+async def api_deck_personality_read_get(deck_id: str):
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    rec = await asyncio.to_thread(personality_read.load_read, r, rid)
+    if not rec or rec.get("status") != "ok":
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "not_read", "error": "No personality read for this deck yet."})
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+    return {
+        "success": True,
+        "registry_id": rid,
+        "created_at": rec.get("created_at"),
+        "stale": rec.get("input_hash") != cur_hash,
+        "read": rec.get("read"),
+        "rulebook": rec.get("rulebook"),
+    }
 
 
 @app.post("/api/decks/{deck_id}/personality")
