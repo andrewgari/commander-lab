@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Review · Direction B "Verdict first" · mockup (RV-4R)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<style>
+/* Proposal CSS (rvx-*). Tokens only. Every value below is a real number from the live
+   "The Return of the King" review (saved 2026-10-16), not lorem ipsum. */
+body { margin: 0; background: var(--surface-0); }
+.rvx { max-width: 1120px; margin: 0 auto; padding: var(--sp-8) var(--sp-8) var(--sp-16); display: flex; flex-direction: column; gap: var(--sp-8); }
+.rvx-note { color: var(--text-3); font: var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; margin: 0; }
+.rvx-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--sp-4); }
+.rvx-head h1 { margin: 0; font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); }
+.rvx-facts { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+
+/* ---- stale banner with the action inside it + what changed ---- */
+.rvx-stale[hidden] { display: none; }
+.rvx-stale { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: center; justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.rvx-stale b { color: var(--text-1); }
+.rvx-stale p { margin: var(--sp-1) 0 0; color: var(--text-2); font-size: var(--fs-sm); }
+.rvx-diff { font: var(--fs-xs) var(--font-mono); color: var(--text-3); }
+.rvx-diff ins { text-decoration: none; color: var(--ok); } .rvx-diff del { text-decoration: none; color: var(--danger); }
+
+/* ---- verdict band: 4 answers, one screen ---- */
+.rvx-verdict { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.rvx-v { background: var(--surface-1); padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.rvx-v--win { border-top: var(--indicator) solid var(--signal); }
+.rvx-v-q { font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); }
+.rvx-v-a { font-size: var(--fs-stat); line-height: var(--lh-tight); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); color: var(--text-1); }
+.rvx-v--win .rvx-v-a { font-size: var(--fs-hero); color: var(--signal); }
+.rvx-v-s { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+.rvx-v-cards { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-card); font-size: var(--fs-base); font-weight: 600; color: var(--text-1); }
+.rvx-v-cards li { display: flex; justify-content: space-between; gap: var(--sp-2); }
+.rvx-v-cards li span { font: var(--fs-xs) var(--font-mono); color: var(--text-3); font-weight: 400; }
+.rvx-v-foot { margin-top: auto; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.rvx-snappy { color: var(--ok); }
+
+/* ---- win lines as a chain, not a card dump ---- */
+.rvx-sec-h { display: flex; align-items: baseline; gap: var(--sp-3); margin: 0 0 var(--sp-4); }
+.rvx-sec-h .id { font: var(--fs-xs) var(--font-mono); color: var(--signal); }
+.rvx-sec-h h2 { margin: 0; font: var(--fw-semibold) var(--fs-sm) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.rvx-sec-h::after { content: ""; flex: 1; border-top: var(--stroke-faint); align-self: center; }
+.rvx-chain { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: var(--sp-3); align-items: stretch; }
+.rvx-step { background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.rvx-step h3 { margin: 0; font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); }
+.rvx-step ul { margin: 0; padding: 0; list-style: none; font-family: var(--font-card); font-weight: 600; font-size: var(--fs-base); color: var(--text-1); display: flex; flex-direction: column; gap: 2px; }
+.rvx-step small { color: var(--text-3); font: var(--fs-xs) var(--font-mono); margin-top: auto; }
+.rvx-arrow { align-self: center; color: var(--signal); font: var(--fs-lg) var(--font-mono); }
+.rvx-more { all: unset; cursor: pointer; color: var(--data); font: var(--fs-xs) var(--font-mono); }
+.rvx-more:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+.rvx-journal { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); margin-top: var(--sp-4); }
+.rvx-journal > div { background: var(--surface-1); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.rvx-row { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--text-1); flex-wrap: wrap; }
+.rvx-row .rvx-sub { color: var(--text-3); font-size: var(--fs-xs); }
+.rvx-row .hud-btn { margin-left: auto; }
+
+/* ---- tempo: a sentence + a 5-segment strip, no jargon ---- */
+.rvx-tempo { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--sp-6); align-items: start; }
+.rvx-tempo p { margin: 0; color: var(--text-2); line-height: var(--lh-base); }
+.rvx-tempo p b { color: var(--text-1); }
+.rvx-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-2); }
+.rvx-turn { display: flex; flex-direction: column; gap: var(--sp-1); align-items: stretch; }
+.rvx-bar { height: 72px; background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); display: flex; flex-direction: column-reverse; }
+.rvx-bar i { display: block; background: var(--data); }
+.rvx-bar i.waste { background: var(--signal); }
+.rvx-turn span { font: var(--fs-xs) var(--font-mono); color: var(--text-3); text-align: center; }
+.rvx-legend { display: flex; gap: var(--sp-4); font: var(--fs-xs) var(--font-mono); color: var(--text-3); margin-top: var(--sp-2); }
+.rvx-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; background: var(--data); vertical-align: -1px; } .rvx-legend i.w { background: var(--signal); }
+
+/* ---- strong vs cut: one pair, two clearly different treatments ---- */
+.rvx-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+.rvx-list { background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.rvx-list header { display: flex; justify-content: space-between; align-items: baseline; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); background: var(--surface-2); }
+.rvx-list header h3 { margin: 0; font: var(--fw-semibold) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.rvx-list header span { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.rvx-list--keep { border-top: var(--indicator) solid var(--data); } .rvx-list--cut { border-top: var(--indicator) solid var(--danger); }
+.rvx-item { padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); display: grid; grid-template-columns: minmax(0, 1fr) 5.5rem; gap: var(--sp-1) var(--sp-3); align-items: center; }
+.rvx-item:last-child { border-bottom: 0; }
+.rvx-item b { font-family: var(--font-card); font-size: var(--fs-md); color: var(--text-1); overflow-wrap: anywhere; }
+.rvx-meter { height: 6px; background: var(--surface-3); border-radius: 0; position: relative; }
+.rvx-meter i { position: absolute; inset: 0 auto 0 0; background: var(--data); }
+.rvx-list--cut .rvx-meter i { background: var(--danger); }
+.rvx-item p { grid-column: 1 / -1; margin: 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.rvx-actions { display: flex; gap: var(--sp-2); grid-column: 1 / -1; }
+
+.rvx-rail { display: flex; gap: var(--sp-2); position: sticky; top: 0; z-index: 2; background: var(--surface-0); padding: var(--sp-2) 0; border-bottom: var(--stroke); overflow-x: auto; scrollbar-width: none; }
+.rvx-rail a { flex: none; color: var(--text-3); font: var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; padding: var(--sp-2) var(--sp-3); text-decoration: none; }
+.rvx-rail a[aria-current] { color: var(--text-1); box-shadow: inset 0 calc(-1 * var(--indicator)) 0 var(--signal); }
+
+@media (max-width: 900px) {
+  .rvx { padding: var(--sp-5) var(--sp-4) var(--sp-12); gap: var(--sp-6); }
+  .rvx-verdict { grid-template-columns: 1fr 1fr; }
+  .rvx-v--win, .rvx-v:last-child { grid-column: 1 / -1; }
+  .rvx-chain { grid-template-columns: 1fr; } .rvx-arrow { transform: rotate(90deg); justify-self: center; }
+  .rvx-journal, .rvx-pair, .rvx-tempo { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rvx-v, .rvx-step { animation: rvx-rise var(--dur-slow) var(--ease) both; }
+  .rvx-v:nth-child(2) { animation-delay: 40ms; } .rvx-v:nth-child(3) { animation-delay: 80ms; } .rvx-v:nth-child(4) { animation-delay: 120ms; }
+  @keyframes rvx-rise { from { opacity: 0; transform: translateY(8px); } }
+}
+</style>
+</head>
+<body>
+<main class="rvx">
+
+  <div class="rvx-head">
+    <div>
+      <p class="rvx-note">Mockup · Direction B "Verdict first" · live data from The Return of the King</p>
+      <h1>The Return of the King</h1>
+    </div>
+    <div class="rvx-facts">
+      <span class="hud-freshness">Built 19m ago</span>
+      <span class="hud-chip hud-chip--ok" id="stateChip">Up to date</span>
+      <button class="hud-btn hud-btn--primary" type="button" id="rb">Rebuild review</button>
+    </div>
+  </div>
+
+  <!-- Stale variant (shown as a second banner for the doc; real UI shows one or the other) -->
+  <div class="rvx-stale" id="staleBanner" role="status" hidden>
+    <div>
+      <b>Out of date: you changed 3 cards since this was built.</b>
+      <p class="rvx-diff"><del>− Supreme Verdict</del> · <del>− Bant Charm</del> · <ins>+ Sol Ring</ins> &nbsp;·&nbsp; numbers below are from the old list</p>
+    </div>
+    <button class="hud-btn hud-btn--primary" type="button">Rebuild now</button>
+  </div>
+
+  <nav class="rvx-rail" aria-label="Review sections">
+    <a href="#verdict" aria-current="true">Verdict</a><a href="#win">How you win</a><a href="#tempo">Tempo</a><a href="#cards">Keep / cut</a><a href="#genre">Genre</a><a href="#build">Build</a><a href="#combos">Combos</a>
+  </nav>
+
+  <section id="verdict" aria-label="Verdict">
+    <div class="rvx-verdict">
+      <div class="rvx-v rvx-v--win">
+        <span class="rvx-v-q">How do you win?</span>
+        <span class="rvx-v-a">Combat</span>
+        <p class="rvx-v-s">Go wide, buff, swing. 62 cards feed it; these 3 do most of the work.</p>
+        <ul class="rvx-v-cards"><li>Prince Imrahil the Fair <span>34 links</span></li><li>Samwise Gamgee <span>32</span></li><li>Faramir, Steward of Gondor <span>31</span></li></ul>
+        <div class="rvx-v-foot"><span class="hud-chip hud-chip--ok">✓ matches your Journal</span><span class="hud-chip hud-chip--signal">2 other lines unclaimed</span></div>
+      </div>
+      <div class="rvx-v">
+        <span class="rvx-v-q">Does it durdle?</span>
+        <span class="rvx-v-a rvx-snappy">Snappy</span>
+        <p class="rvx-v-s">90% of your spells do something the turn they land. You use every mana T2–T6.</p>
+        <div class="rvx-v-foot"><span class="hud-chip hud-chip--neutral">10 slow cards</span></div>
+      </div>
+      <div class="rvx-v">
+        <span class="rvx-v-q">Carrying the deck</span>
+        <span class="rvx-v-a">13</span>
+        <ul class="rvx-v-cards"><li>Imrahil</li><li>Samwise</li><li>Faramir</li></ul>
+        <div class="rvx-v-foot"><a class="rvx-more" href="#cards">see all →</a></div>
+      </div>
+      <div class="rvx-v">
+        <span class="rvx-v-q">Cut next</span>
+        <span class="rvx-v-a" style="color:var(--danger)">8</span>
+        <ul class="rvx-v-cards"><li>Urza's Ruinous Blast</li><li>Flowering of the White Tree</li><li>Supreme Verdict</li></ul>
+        <div class="rvx-v-foot"><a class="rvx-more" href="#cards">see why →</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="win" aria-labelledby="win-h">
+    <div class="rvx-sec-h"><span class="id">01</span><h2 id="win-h">How you win · Combat</h2></div>
+    <div class="rvx-chain" aria-label="Win chain: engine to payoff">
+      <div class="rvx-step"><h3>1 · Get mana &amp; bodies</h3><ul><li>Arcane Signet</li><li>Chromatic Lantern</li><li>Sol Ring</li></ul><small>+ 17 more</small></div>
+      <span class="rvx-arrow" aria-hidden="true">→</span>
+      <div class="rvx-step"><h3>2 · Turn it into cards</h3><ul><li>Horn of Gondor</li><li>Aragorn, King of Gondor</li><li>Faramir, Steward of Gondor</li></ul><small>+ 14 more</small></div>
+      <span class="rvx-arrow" aria-hidden="true">→</span>
+      <div class="rvx-step"><h3>3 · Swing</h3><ul><li>Prince Imrahil the Fair</li><li>Aragorn and Arwen, Wed</li><li>Théoden, King of Rohan</li></ul><small>+ 8 more · <button class="rvx-more" type="button">all 62 cards</button></small></div>
+    </div>
+    <div class="rvx-journal">
+      <div><span class="rvx-v-q">Your Journal says</span>
+        <div class="rvx-row"><span class="hud-chip hud-chip--ok">✓ Combat</span><span class="rvx-sub">the list backs this up</span></div></div>
+      <div><span class="rvx-v-q">The list also supports</span>
+        <div class="rvx-row"><span class="hud-chip hud-chip--signal">Attrition</span><span class="rvx-sub">14 cards</span><button class="hud-btn hud-btn--sm" type="button">Add to Journal</button></div>
+        <div class="rvx-row"><span class="hud-chip hud-chip--signal">Commander damage</span><span class="rvx-sub">6 cards</span><button class="hud-btn hud-btn--sm" type="button">Add to Journal</button></div></div>
+    </div>
+  </section>
+
+  <section id="tempo" aria-labelledby="tempo-h">
+    <div class="rvx-sec-h"><span class="id">02</span><h2 id="tempo-h">Tempo</h2></div>
+    <div class="rvx-tempo">
+      <p><b>Snappy.</b> 57 of 63 spells do something the moment they resolve, and you spend all your mana every turn from T2 to T6. Slowest cards: <b>Flowering of the White Tree</b> (needs setup), 2 taplands. Only 17% of the deck works at instant speed, so most plays happen on your own turn.</p>
+      <div>
+        <div class="rvx-strip" role="img" aria-label="Mana used each turn T2 to T6: 100% used">
+          <div class="rvx-turn"><div class="rvx-bar"><i style="height:34%"></i></div><span>T2 · 2.0</span></div>
+          <div class="rvx-turn"><div class="rvx-bar"><i style="height:53%"></i></div><span>T3 · 3.1</span></div>
+          <div class="rvx-turn"><div class="rvx-bar"><i style="height:71%"></i></div><span>T4 · 4.1</span></div>
+          <div class="rvx-turn"><div class="rvx-bar"><i style="height:88%"></i></div><span>T5 · 5.1</span></div>
+          <div class="rvx-turn"><div class="rvx-bar"><i style="height:100%"></i></div><span>T6 · 5.8</span></div>
+        </div>
+        <div class="rvx-legend"><span><i></i>mana spent</span><span><i class="w"></i>mana wasted (none)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cards" aria-labelledby="cards-h">
+    <div class="rvx-sec-h"><span class="id">03</span><h2 id="cards-h">Keep / cut</h2></div>
+    <div class="rvx-pair">
+      <div class="rvx-list rvx-list--keep">
+        <header><h3>Carrying the deck</h3><span>ranked by links to the plan</span></header>
+        <div class="rvx-item"><b>Prince Imrahil the Fair</b><div class="rvx-meter"><i style="width:100%"></i></div><p>34 links · in the Combat line · in 3 engines</p></div>
+        <div class="rvx-item"><b>Samwise Gamgee</b><div class="rvx-meter"><i style="width:94%"></i></div><p>32 links · in the Combat line · draws on entry</p></div>
+        <div class="rvx-item"><b>Faramir, Steward of Gondor</b><div class="rvx-meter"><i style="width:91%"></i></div><p>31 links · in the Combat line</p></div>
+      </div>
+      <div class="rvx-list rvx-list--cut">
+        <header><h3>Cut candidates</h3><span>0 = fine · 1 = cut it</span></header>
+        <div class="rvx-item"><b>Urza's Ruinous Blast</b><div class="rvx-meter"><i style="width:72%"></i></div><p>Doesn't connect to anything else here · only 6% of similar decks play it</p>
+          <span class="rvx-actions"><button class="hud-btn hud-btn--sm" type="button">Review card</button></span></div>
+        <div class="rvx-item"><b>Flowering of the White Tree</b><div class="rvx-meter"><i style="width:69%"></i></div><p>Doesn't connect to anything else here · slow (needs setup)</p>
+          <span class="rvx-actions"><span class="hud-chip hud-chip--signal">slow</span><button class="hud-btn hud-btn--sm" type="button">Review card</button></span></div>
+        <div class="rvx-item"><b>Supreme Verdict</b><div class="rvx-meter"><i style="width:65%"></i></div><p>Off-theme · rarely played alongside the rest of your list</p></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="rvx-note">Sections below (Genre, Build vs template, Combos &amp; engines) stay as today, collapsed by default as "receipts" with the oracle summary pinned above them.</p>
+</main>
+<script>
+  /* ?state=stale shows the stale treatment: chip flips, banner appears, Verdict dims to say "old numbers". */
+  if (new URLSearchParams(location.search).get("state") === "stale") {
+    document.getElementById("staleBanner").hidden = false;
+    var c = document.getElementById("stateChip"); c.className = "hud-chip hud-chip--signal"; c.textContent = "Stale";
+    document.getElementById("rb").hidden = true;  /* the action lives in the banner, one button not two */
+    document.querySelectorAll(".rvx-verdict .rvx-v-a").forEach(function (e) { e.style.opacity = ".55"; });
+  }
+</script>
+</body>
+</html>
