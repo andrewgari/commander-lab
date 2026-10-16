@@ -141,6 +141,11 @@ def _tapland(type_line: str, text: str) -> bool:
 
 
 def card_facts(name: str, card: Optional[Mapping], qty: int, ramp: bool) -> dict:
+    if not card:
+        # No cached metadata: classify nothing rather than guess (no durdle, no active, no land).
+        return {"name": name, "qty": qty, "cmc": 0, "land": False, "ramp": False, "active": False,
+                "active_reasons": [], "instant_speed": False, "durdle": False, "durdle_reasons": [],
+                "unknown": True}
     tl, tx = _front(card)
     land = "land" in tl and "creature" not in tl
     cmc = 0 if land else cmc_of((card or {}).get("mana_cost"))
@@ -171,7 +176,7 @@ def card_facts(name: str, card: Optional[Mapping], qty: int, ramp: bool) -> dict
             durdle.append("setup_only")
     return {"name": name, "qty": qty, "cmc": cmc, "land": land, "ramp": bool(ramp and not land),
             "active": active, "active_reasons": reasons, "instant_speed": instant_speed,
-            "durdle": bool(durdle), "durdle_reasons": sorted(durdle)}
+            "durdle": bool(durdle), "durdle_reasons": sorted(durdle), "unknown": False}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -204,7 +209,7 @@ def cards_seen(turn: int) -> int:
 def tempo_math(facts: Sequence[dict], commander_cmc: Optional[int], deck_total: int) -> dict:
     total = max(deck_total, 1)
     lands = sum(f["qty"] for f in facts if f["land"])
-    nonland = [f for f in facts if not f["land"]]
+    nonland = [f for f in facts if not f["land"] and not f.get("unknown")]
     ramp_cards = [f for f in nonland if f["ramp"]]
     by_cmc: Dict[int, int] = {}
     for f in nonland:
@@ -376,10 +381,13 @@ def focus_section(lines: dict, journal: Optional[Mapping]) -> dict:
 # ---------------------------------------------------------------------------------------------
 
 def strong_and_stragglers(facts: Mapping[str, dict], weak: Mapping, graph: Mapping, lines_top: Sequence[Mapping],
-                          engines: Sequence[Mapping], pets: Iterable[str], commanders: Sequence[str]) -> Tuple[dict, dict]:
+                          engines: Sequence[Mapping], pets: Iterable[str], commanders: Sequence[str],
+                          lines_all: Optional[Sequence[Mapping]] = None) -> Tuple[dict, dict]:
     pets_cf = {p.casefold() for p in pets if isinstance(p, str)}
     cmdr_set = set(commanders)
     in_line = {c for l in lines_top for c in l["cards"]}
+    # stragglers are protected by ANY supported line, not just the top-3 focus lines
+    in_any_line = {c for l in (lines_all if lines_all is not None else lines_top) for c in l["cards"]}
     in_engine = {c for e in engines for c in e.get("cards") or []}
     deg = weak_mod.plan_degrees(dict(graph))
     weak_by = {row["name"]: row for row in weak.get("cards") or []}
@@ -415,6 +423,8 @@ def strong_and_stragglers(facts: Mapping[str, dict], weak: Mapping, graph: Mappi
         if not w:
             continue
         f = facts[n]
+        if f.get("unknown"):
+            continue
         base = weak_norm(w)
         score = _r(base + (DURDLE_BONUS if f["durdle"] else 0.0))
         row = {"name": n, "straggler_score": score, "weak_score": w["weak_score"], "weak_norm": base,
@@ -423,10 +433,10 @@ def strong_and_stragglers(facts: Mapping[str, dict], weak: Mapping, graph: Mappi
                "plan_degree": deg.get(n, 0), "in_win_line": n in in_line, "in_engine": n in in_engine}
         if n.casefold() in pets_cf:
             protected.append({**row, "protected": True,
-                              "would_be_straggler": score >= STRAGGLER_MIN and n not in in_line,
+                              "would_be_straggler": score >= STRAGGLER_MIN and n not in in_any_line,
                               "why": "Pet card (Journal): protected, never a straggler."})
             continue
-        if n in in_line or score < STRAGGLER_MIN:
+        if n in in_any_line or score < STRAGGLER_MIN:
             continue
         row["why"] = (f"weak score {base} (mean of {', '.join(avail)})" + (f" + {DURDLE_BONUS} durdle ({', '.join(f['durdle_reasons'])})" if f["durdle"] else "")
                       + f" = {score} >= {STRAGGLER_MIN}; in no win line.")
@@ -451,7 +461,8 @@ def strong_and_stragglers(facts: Mapping[str, dict], weak: Mapping, graph: Mappi
 def combos_engines_section(combos: Optional[Mapping], engines: Sequence[Mapping]) -> dict:
     combos = combos or {}
     in_deck = sorted(combos.get("in_deck") or [], key=lambda c: (-int(c.get("popularity") or 0), str(c.get("id"))))
-    one_away = list(combos.get("one_away") or [])
+    one_away = sorted(combos.get("one_away") or [],
+                      key=lambda c: (not c.get("missing_owned"), -int(c.get("popularity") or 0), str(c.get("id"))))
 
     def slim(c, away=False):
         out = {"id": c.get("id"), "cards": sorted(c.get("card_names") or []), "produces": list(c.get("produces") or [])[:5],
@@ -484,7 +495,11 @@ def tempo_section(facts: Sequence[dict], commanders: Sequence[str], texts: Mappi
     priced = sorted((cmc_of((texts.get(c) or {}).get("mana_cost")), c) for c in commanders)
     priced = [(m, c) for m, c in priced if m]
     cmdr_cmc, cmdr = priced[0] if priced else (None, commanders[0] if commanders else None)
-    non_cmd = [f for f in facts if f["name"] not in set(commanders)]
+    cmdr_set = set(commanders)
+    non_cmd = [f for f in facts if f["name"] not in cmdr_set and not f.get("unknown")]
+    unknown = sorted(f["name"] for f in facts if f.get("unknown") and f["name"] not in cmdr_set)
+    # the library the opening hand and draws come from excludes the command zone
+    total = max(sum(f["qty"] for f in facts if f["name"] not in cmdr_set), 1)
     math = tempo_math(non_cmd, cmdr_cmc, total)
     ramp_cheap = sum(f["qty"] for f in non_cmd if f["ramp"] and cmdr_cmc and f["cmc"] <= max(cmdr_cmc - 1, 0))
     nonland_q = sum(f["qty"] for f in non_cmd if not f["land"])
@@ -503,9 +518,11 @@ def tempo_section(facts: Sequence[dict], commanders: Sequence[str], texts: Mappi
         "durdle_tax": {"value": _r(sum(f["qty"] for f in durdle_cards) / max(total, 1)),
                        "cards": sum(f["qty"] for f in durdle_cards), "by_reason": {k: by_reason[k] for k in sorted(by_reason)},
                        "why": "Durdle = unconditional taplands, setup-only permanents (no immediate effect), "
-                              "pay-now-payoff-later (suspend, sagas, time counters). Share of the 100."},
+                              "pay-now-payoff-later (suspend, sagas, time counters). Share of the library (deck minus commanders); cards with no cached metadata are skipped and listed in unknown_cards."},
         "flex": {"value": _r(inst_q / nonland_q) if nonland_q else 0.0, "instant_speed": inst_q, "nonland": nonland_q,
                  "why": "Instant-speed share of nonland cards (instants and flash)."},
+        "library_size": total,
+        "unknown_cards": unknown,
         "durdle_cards": [{"name": f["name"], "qty": f["qty"], "reasons": f["durdle_reasons"]}
                          for f in sorted(durdle_cards, key=lambda x: x["name"])],
     }
@@ -516,7 +533,8 @@ def compute_review(inputs: Mapping) -> dict:
     deck = inputs["deck"]
     texts = inputs.get("texts") or {}
     graph = inputs.get("graph") or {"nodes": [], "edges": []}
-    engines = list(inputs.get("engines") or [])
+    engines = sorted(inputs.get("engines") or [],
+                     key=lambda e: (-float(e.get("score") or 0), str(e.get("signature")), sorted(e.get("cards") or [])))
     commanders = [c for c in deck.get("commanders") or [] if c]
     qty = _entries(deck)
     total = sum(qty.values())
@@ -530,7 +548,7 @@ def compute_review(inputs: Mapping) -> dict:
         weak = weak_mod.compute_weak_performers(dict(deck), dict(graph), {}, {}, pets=pets, card_texts=texts)
 
     lines = win_lines(texts, graph, engines, (inputs.get("combos") or {}).get("in_deck") or [], commanders)
-    strong, stragglers = strong_and_stragglers(facts, weak, graph, lines["top"], engines, pets, commanders)
+    strong, stragglers = strong_and_stragglers(facts, weak, graph, lines["top"], engines, pets, commanders, lines["all"])
 
     comp_out = {"template": {k: composition["template"][k] for k in ("name",) + comp.ROW_KEYS if k in composition["template"]},
                 "rows": composition["rows"], "total_cards": composition["total_cards"],

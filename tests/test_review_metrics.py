@@ -324,6 +324,50 @@ def hashlib_sha(s):
 
 
 
+class TestReviewFindings(unittest.TestCase):
+    def test_unknown_cards_not_durdle(self):
+        f = rm.card_facts("Mystery", None, 2, False)
+        self.assertTrue(f["unknown"])
+        self.assertFalse(f["durdle"])
+        self.assertFalse(f["land"])
+        texts = make_texts()
+        del texts["Divination"]
+        out = rm.compute_review(make_inputs(texts=texts))
+        t = out["curve_tempo"]
+        self.assertIn("Divination", t["unknown_cards"])
+        self.assertNotIn("Divination", [c["name"] for c in t["durdle_cards"]])
+        self.assertNotIn("Divination", [c["name"] for c in out["stragglers"]["cards"]])
+
+    def test_library_excludes_commanders(self):
+        out = rm.compute_review(make_inputs())
+        deck = make_deck()
+        lib = sum(c["quantity"] for c in deck["cards"])
+        self.assertEqual(out["curve_tempo"]["library_size"], lib)
+        self.assertEqual(out["curve_tempo"]["mana"]["per_turn"][0]["cards_seen"], 8)
+
+    def test_one_away_sorted_and_engines_sorted(self):
+        extra = [{"id": "z-%d" % i, "card_names": ["A%d" % i, "B"], "missing": ["B"], "missing_owned": i % 2 == 0,
+                  "produces": [], "popularity": i} for i in range(15)]
+        combos = {"in_deck": [], "one_away": extra}
+        rev = {"in_deck": [], "one_away": list(reversed(extra))}
+        a = rm.dumps(rm.compute_review(make_inputs(combos=combos)))
+        b = rm.dumps(rm.compute_review(make_inputs(combos=rev)))
+        self.assertEqual(a, b)
+        inp = make_inputs()
+        inp["engines"] = list(reversed(inp["engines"]))
+        self.assertEqual(rm.dumps(rm.compute_review(make_inputs())), rm.dumps(rm.compute_review(inp)))
+
+    def test_fourth_line_cards_not_stragglers(self):
+        facts = {"Dead": rm.card_facts("Dead", {"type_line": "Artifact", "oracle_text": "Nothing.", "mana_cost": "{4}"}, 1, False)}
+        weak = {"cards": [{"name": "Dead", "weak_score": 0.9, "parts": {"edges": 0.9}, "reasons": []}],
+                "weights": {"p75_degree": 1.0}, "inputs": {}}
+        graph = {"nodes": [{"name": "Dead"}], "edges": []}
+        _, st = rm.strong_and_stragglers(facts, weak, graph, [], [], [], [], lines_all=[{"cards": ["Dead"]}])
+        self.assertEqual(st["cards"], [])
+        _, st = rm.strong_and_stragglers(facts, weak, graph, [], [], [], [], lines_all=[])
+        self.assertEqual([c["name"] for c in st["cards"]], ["Dead"])
+
+
 class TestEndpoint(unittest.TestCase):
     def test_review_metrics_endpoint(self):
         from unittest.mock import patch
