@@ -294,7 +294,7 @@ class TestApiRoutes(unittest.TestCase):
     @patch("app._find_deck_any", return_value=SAMPLE_DECK)
     @patch("app.r", new_callable=FakeRedis)
     def test_post_personality_read_cached_returns_200(self, mock_r, mock_deck):
-        h = personality_read.compute_input_hash(SAMPLE_DECK, None)
+        h = personality_read.current_input_hash(mock_r, SAMPLE_DECK)
         doc = personality_read.validate_doc(VALID_ORACLE_JSON)
         personality_read.store_read(mock_r, "archidekt:417707", h, doc, {})
 
@@ -334,7 +334,7 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 404)
 
         # Store read
-        h = personality_read.compute_input_hash(SAMPLE_DECK, None)
+        h = personality_read.current_input_hash(mock_r, SAMPLE_DECK)
         doc = personality_read.validate_doc(VALID_ORACLE_JSON)
         personality_read.store_read(mock_r, "archidekt:417707", h, doc, {})
 

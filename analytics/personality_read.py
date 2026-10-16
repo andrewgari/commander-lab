@@ -105,14 +105,14 @@ class TableImpactFlag(BaseModel):
 class PersonalityReadDoc(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    schema_version: str = SCHEMA_VERSION
+    schema_version: Literal["1"]
     deck_id: Optional[str] = None
     scores: Scores
     leans_toward: Literal["timmy", "johnny", "spike", "vorthos", "melvin", "balanced"]
-    runner_up: Optional[str] = None
+    runner_up: Optional[Literal["timmy", "johnny", "spike", "vorthos", "melvin"]] = None
     summary: str = Field(min_length=1)
-    overrides: List[Override] = Field(default_factory=list)
-    table_impact_flags: List[TableImpactFlag] = Field(default_factory=list)
+    overrides: List[Override]
+    table_impact_flags: List[TableImpactFlag]
     rule0_pitch: Optional[str] = None
 
 
@@ -167,29 +167,63 @@ def _decklist_canonical(deck: Mapping) -> dict:
     return {"commanders": commanders, "cards": sorted(cards.items())}
 
 
-def _journal_canonical(journal_rec: Optional[Mapping]) -> dict:
-    if not journal_rec:
-        return {}
+def resolve_journal(r, deck: Mapping) -> dict:
+    """The journal inputs the read actually uses, resolved the way theory.py does:
+    Identity thesis/live pillars, with the journal's deck_vision as the thesis fallback.
+    Single source for the payload AND the input hash."""
+    from . import identity
+
+    raw = journal_mod.load_journal(r, deck)
+    rec = journal_mod.public(raw) if raw else {}
+    ident = identity.load_identity(r, dict(deck)) or {}
+    vision = (rec.get("deck_vision") or {}).get("description") or ""
+    tb = rec.get("target_bracket")
+    if isinstance(tb, Mapping):
+        tb = tb.get("value", tb.get("bracket", tb))
     return {
-        "thesis": journal_rec.get("thesis") or "",
-        "pillars": journal_rec.get("pillars") or [],
-        "pet_cards": sorted(journal_rec.get("pet_cards") or []),
-        "target_bracket": journal_rec.get("target_bracket"),
-        "target_power_level": journal_rec.get("target_power_level"),
-        "archetype_preferences": journal_rec.get("archetype_preferences") or {},
-        "preferred_win_conditions": journal_rec.get("preferred_win_conditions") or {},
+        "thesis": ((ident.get("thesis") or {}).get("text")) or vision or "",
+        "deck_vision": vision,
+        "pillars": [{"name": p.get("name"), "description": p.get("description")}
+                    for p in identity.live_pillars(ident)],
+        "pet_cards": list(rec.get("pet_cards") or []),
+        "novelties": rec.get("novelties") or "",
+        "target_bracket": tb if raw else None,
+        "target_power_level": rec.get("target_power_level") if raw else None,
+        "archetype_preferences": rec.get("archetype_preferences") or {},
+        "preferred_win_conditions": rec.get("preferred_win_conditions") or {},
     }
 
 
-def compute_input_hash(deck: Mapping, journal_rec: Optional[Mapping] = None) -> str:
-    """Deterministic hash of decklist + journal fields."""
+def _journal_canonical(journal: Optional[Mapping]) -> dict:
+    if not journal:
+        return {}
+    return {
+        "thesis": journal.get("thesis") or "",
+        "deck_vision": journal.get("deck_vision") or "",
+        "pillars": journal.get("pillars") or [],
+        "pet_cards": sorted(journal.get("pet_cards") or []),
+        "novelties": journal.get("novelties") or "",
+        "target_bracket": journal.get("target_bracket"),
+        "target_power_level": journal.get("target_power_level"),
+        "archetype_preferences": journal.get("archetype_preferences") or {},
+        "preferred_win_conditions": journal.get("preferred_win_conditions") or {},
+    }
+
+
+def compute_input_hash(deck: Mapping, journal: Optional[Mapping] = None) -> str:
+    """Deterministic hash of decklist + resolved journal inputs (see resolve_journal)."""
     canonical = {
         "version": SCHEMA_VERSION,
         "decklist": _decklist_canonical(deck),
-        "journal": _journal_canonical(journal_rec),
+        "journal": _journal_canonical(journal),
     }
-    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def current_input_hash(r, deck: Mapping) -> str:
+    """Hash of the deck + journal exactly as they stand now (job creation and freshness checks)."""
+    return compute_input_hash(deck, resolve_journal(r, deck))
 
 
 # ---------------------------------------------------------------------------
@@ -219,24 +253,8 @@ def _extract_cached_commandersalt(r, rid: str, deck: Mapping) -> Optional[dict]:
         except Exception:  # noqa: BLE001
             pass
 
-    # 2. Check in-memory provider cache if accessible
-    try:
-        from .providers.commandersalt import CommanderSaltProvider, resolve_source_url
-        provider = CommanderSaltProvider()
-        source_url = resolve_source_url(deck.get("source_id", deck.get("id")))
-        cached = provider._cache.get(source_url)
-        if cached:
-            _, raw = cached
-            if isinstance(raw, dict):
-                cs_out.setdefault("salt", raw.get("saltRating"))
-                cs_out.setdefault("power", raw.get("powerLevelRating"))
-                cs_out.setdefault("bracket_rating", raw.get("bracketRating"))
-                cs_out.setdefault("synergy_rating", raw.get("synergyRating"))
-                cs_out.setdefault("threat_rating", raw.get("threatRating"))
-                cs_out.setdefault("archetype_label", raw.get("archetypeLabel"))
-    except Exception:  # noqa: BLE001
-        pass
-
+    # Only the bracket:eval cache is read: the provider's own cache is per-instance
+    # and in-memory (a fresh one is always empty), so there is nothing to reuse there.
     return cs_out or None
 
 
@@ -254,9 +272,13 @@ def _extract_cached_edhrec_salt(r, deck: Mapping) -> Optional[dict]:
     try:
         data = json.loads(raw)
         cards = data.get("cards") or {}
-        # Collect any cards with a salt score if present in EDHREC cache
-        salt_cards = {k: v.get("salt") for k, v in cards.items() if v.get("salt") is not None}
-        return {"commander_slug": slug, "cards_with_salt": salt_cards} if salt_cards else None
+        # edhrec_inclusion.parse_page retains salt for the commander and per card.
+        salt_cards = {v.get("name") or k: v.get("salt") for k, v in cards.items()
+                      if isinstance(v, Mapping) and v.get("salt") is not None}
+        commander_salt = data.get("commander_salt")
+        if commander_salt is None and not salt_cards:
+            return None
+        return {"commander_slug": slug, "commander_salt": commander_salt, "cards_with_salt": salt_cards}
     except Exception:  # noqa: BLE001
         return None
 
@@ -265,7 +287,7 @@ def build_payload(r, deck: Mapping) -> dict:
     """Build the prompt payload for Oracle. Reads only cached data from Redis."""
     deck = dict(deck)
     rid = _rid(deck)
-    journal_rec = journal_mod.load_journal(r, deck)
+    journal_view = resolve_journal(r, deck)
 
     # 1. Decklist
     decklist_entries = []
@@ -306,18 +328,11 @@ def build_payload(r, deck: Mapping) -> dict:
             engines_clean.append({
                 "name": eg.get("name"),
                 "cards": eg.get("cards") or [],
-                "description": eg.get("description") or eg.get("role", ""),
+                "description": eg.get("summary") or eg.get("description") or eg.get("role", ""),
             })
 
-    # 6. Journal fields
-    journal_rec = journal_rec or {}
-    journal_data = {
-        "thesis": journal_rec.get("thesis") or "",
-        "pillars": journal_rec.get("pillars") or [],
-        "pet_cards": journal_rec.get("pet_cards") or [],
-        "target_bracket": journal_rec.get("target_bracket"),
-        "target_power_level": journal_rec.get("target_power_level"),
-    }
+    # 6. Journal fields (Identity thesis/pillars, journal vision/novelties/pets/targets)
+    journal_data = journal_view
 
     # 7. Game Changers present in the deck
     all_gc = inputs.get("game_changers") or []
@@ -436,8 +451,7 @@ def release(deck_id: str, job_id: Optional[str] = None) -> None:
 def new_job(r, deck: Mapping) -> dict:
     """Validate and queue a new personality read job."""
     rid = _rid(deck)
-    journal_rec = journal_mod.load_journal(r, deck)
-    inhash = compute_input_hash(deck, journal_rec)
+    inhash = current_input_hash(r, deck)
     job_id = uuid.uuid4().hex[:12]
     job = {
         "job_id": job_id,
@@ -459,9 +473,9 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
     from .oracle_client import OFFLINE_MESSAGE, OracleError, OracleUnavailable
 
     rid = job["deck_id"]
-    job.update(status="running", started_at=_now_iso())
-    _save_job(r, job)
     try:
+        job.update(status="running", started_at=_now_iso())
+        _save_job(r, job)
         payload = build_payload(r, deck)
         client = client_factory()
         prompt = request_prompt(payload)
@@ -470,7 +484,6 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
             {"role": "user", "content": prompt},
         ])
         raw_data = parse_reply(reply)
-        raw_data.setdefault("schema_version", SCHEMA_VERSION)
         raw_data["deck_id"] = rid
         doc = validate_doc(raw_data)
         record = store_read(r, rid, job["input_hash"], doc, payload["rulebook_scores"])
@@ -485,7 +498,11 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
     finally:
         release(rid, job["job_id"])
     job["finished_at"] = _now_iso()
-    return _save_job(r, job)
+    try:
+        return _save_job(r, job)
+    except Exception:  # noqa: BLE001
+        log.exception("personality read job %s: could not persist final state", job["job_id"])
+        return job
 
 
 def start_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> threading.Thread:

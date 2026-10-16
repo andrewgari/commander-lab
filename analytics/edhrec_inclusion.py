@@ -73,9 +73,9 @@ def parse_page(raw: dict) -> dict:
             inc = max(0.0, min(1.0, num / pot))
             if k not in cards or inc > cards[k]["inclusion"]:
                 cards[k] = {"name": name, "inclusion": round(inc, 4), "num_decks": int(num),
-                            "synergy": v.get("synergy")}
+                            "synergy": v.get("synergy"), "salt": v.get("salt")}
             sampled = max(sampled, int(pot))
-    return {"decks_sampled": int(sampled), "cards": cards}
+    return {"decks_sampled": int(sampled), "commander_salt": card.get("salt"), "cards": cards}
 
 
 def _max_age() -> timedelta:

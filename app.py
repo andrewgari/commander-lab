@@ -1906,10 +1906,14 @@ async def api_deck_personality(deck_id: str):
     read_data = None
     oracle_status = "not_read"
     if rec_read and rec_read.get("status") == "ok":
-        journal_rec = await asyncio.to_thread(journal_mod.load_journal, r, deck)
-        cur_read_hash = personality_read.compute_input_hash(deck, journal_rec)
-        read_data = rec_read.get("read")
-        oracle_status = "ok" if rec_read.get("input_hash") == cur_read_hash else "stale"
+        cur_read_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+        if rec_read.get("input_hash") == cur_read_hash:
+            read_data = rec_read.get("read")
+            oracle_status = "ok"
+        else:
+            # Withhold: the deck/journal changed since this read, so the current
+            # rulebook stays visible until a new read completes.
+            oracle_status = "stale"
 
     return {"success": True, **base, "status": rec.get("status") or "ok", "computed_at": rec.get("computed_at"),
             "stale": result_hash != current, "error": rec.get("error"), "error_at": rec.get("error_at"),
@@ -1931,8 +1935,7 @@ async def api_deck_personality_read(deck_id: str, request: Request):
     body = await _json_body(request)
     force = bool(isinstance(body, dict) and body.get("force"))
 
-    journal_rec = await asyncio.to_thread(journal_mod.load_journal, r, deck)
-    cur_hash = personality_read.compute_input_hash(deck, journal_rec)
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
     cached = await asyncio.to_thread(personality_read.load_read, r, rid)
 
     if not force and cached and cached.get("status") == "ok" and cached.get("input_hash") == cur_hash:
@@ -1996,8 +1999,7 @@ async def api_deck_personality_read_get(deck_id: str):
     if not rec or rec.get("status") != "ok":
         return JSONResponse(status_code=404, content={
             "success": False, "status": "not_read", "error": "No personality read for this deck yet."})
-    journal_rec = await asyncio.to_thread(journal_mod.load_journal, r, deck)
-    cur_hash = personality_read.compute_input_hash(deck, journal_rec)
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
     return {
         "success": True,
         "registry_id": rid,

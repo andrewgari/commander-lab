@@ -837,7 +837,7 @@
         if (psOraclePoll) clearInterval(psOraclePoll);
         psOraclePollN = 0;
         psOraclePoll = setInterval(async () => {
-            if (++psOraclePollN > 60) {
+            if (++psOraclePollN > 260) {  // ~13 min at 3 s; oracle's own timeout is 600 s
                 clearInterval(psOraclePoll);
                 psOraclePoll = null;
                 psShowOracleOffline('Oracle timed out');
@@ -863,7 +863,9 @@
         }, 3000);
     }
 
-    function psShowOracleOffline(detail) {
+    async function psShowOracleOffline(detail) {
+        // Restore the rulebook view (stale oracle reads are withheld server-side), then flag offline.
+        try { await loadPersonality(); } catch (e) { /* keep current view */ }
         const obtn = document.getElementById('psOracleBtn');
         if (obtn) { obtn.disabled = false; obtn.textContent = 'Oracle read'; }
         const foot = document.getElementById('psFoot');
