@@ -464,6 +464,13 @@ def update_deck_cards(
 
     _save_decks(r, decks)
 
+    try:  # RV-3: a changed decklist marks the saved Deep Review stale (never rebuilds)
+        from analytics import review_doc
+
+        review_doc.mark_stale_on_sync(r, {**target, "registry_id": registry_id_of(target)})
+    except Exception:  # noqa: BLE001
+        pass
+
     if target.get("status") == "physical":
         new_card_names = {c.get("name") for c in cards if c.get("name")}
         instance_store.flag_resync_removed(r, target["id"], new_card_names)
