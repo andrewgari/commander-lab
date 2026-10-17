@@ -98,11 +98,11 @@
 
     {# Deck printing map (card_refs.py) for HUD.cardName()/rankList; only deck pages have one. #}
     <script>window.HUD_CARD_REFS = {{ ((head.card_refs if head is defined and head else none) or {}) | tojson }};</script>
-    {% block extra_js %}{% endblock %}
     {# HUD kit client helpers: sortable tables, HUD.* builders, modals. #}
     <script src="/static/js/hud.js?v={{ version }}" defer></script>
     {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
     <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
     <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from app import app
 
 ROOT = Path(__file__).resolve().parent.parent
+BASE_HTML = ROOT / "templates" / "base.html"
 HUD_JS = ROOT / "static" / "js" / "hud.js"
 CR_JS = ROOT / "static" / "js" / "card_review.js"
 HUD_CSS = ROOT / "static" / "css" / "hud.css"
@@ -76,6 +77,21 @@ class TestDeckPage(unittest.TestCase):
         self.assertNotIn("MOCK", self.js)
         self.assertNotIn("mock.js", self.js)
         self.assertNotRegex(self.js, r"(src|href)=[\"']?[^\"']*docs/design")
+
+    def test_base_html_script_ordering(self):
+        base_html = BASE_HTML.read_text()
+        hud_pos = base_html.find('static/js/hud.js')
+        extra_js_pos = base_html.find('{% block extra_js %}')
+        self.assertNotEqual(hud_pos, -1, "hud.js must be present in base.html")
+        self.assertNotEqual(extra_js_pos, -1, "extra_js block must be present in base.html")
+        self.assertLess(hud_pos, extra_js_pos, "hud.js must be loaded before extra_js in base.html")
+
+        # In rendered deck HTML, hud.js must appear before card_review.js
+        hud_idx = self.html.find('/static/js/hud.js')
+        cr_idx = self.html.find('/static/js/card_review.js')
+        self.assertNotEqual(hud_idx, -1, "hud.js must appear in rendered deck page")
+        self.assertNotEqual(cr_idx, -1, "card_review.js must appear in rendered deck page")
+        self.assertLess(hud_idx, cr_idx, "hud.js must precede card_review.js in rendered HTML")
 
 
 HARNESS = r"""
@@ -462,6 +478,165 @@ class TestCardReviewComponent(unittest.TestCase):
 
     def test_gives_up_after_ten_minutes(self):
         self.assertEqual(self.o["giveUp"], "error:timeout")
+
+    def test_card_review_evaluated_before_hud_attached(self):
+        """Simulate script evaluation order where card_review.js is evaluated
+        before window.HUD is attached, verifying open() successfully invokes
+        window.HUD.openModal without throwing TypeError."""
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        eval_script = r"""
+const fs = require('fs');
+const calls = [];
+const modalElement = {
+    id: 'cardReviewModal',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    classList: { contains: () => false, add: () => {}, remove: () => {} },
+    setAttribute: () => {},
+    getAttribute: () => null
+};
+global.document = {
+    readyState: 'complete',
+    addEventListener: () => {},
+    querySelectorAll: () => [],
+    getElementById: (id) => (id === 'cardReviewModal' ? modalElement : null),
+    querySelector: () => null,
+    contains: () => false,
+    activeElement: null
+};
+global.window = {
+    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    fetch: async () => ({ ok: true, status: 202, json: async () => ({ job_id: 'test_job' }) })
+};
+
+// 1. Ensure window.HUD is not yet attached when card_review.js is evaluated
+delete global.window.HUD;
+
+// 2. Evaluate card_review.js first
+eval(fs.readFileSync(process.argv[1], 'utf8'));
+
+// 3. Attach window.HUD afterwards
+global.window.HUD = {
+    openModal: function (id) {
+        calls.push({ method: 'openModal', arg: id });
+    },
+    closeModal: function (id) {
+        calls.push({ method: 'closeModal', arg: id });
+    },
+    chip: function (t) { return '<span>' + t + '</span>'; },
+    pips: function () { return ''; },
+    scryfall: function () { return { src: '', fallback: '' }; },
+    art: function () { return ''; },
+    statusChip: function () { return ''; },
+    esc: function (s) { return String(s); }
+};
+
+// 4. Mount CardReview and invoke open()
+const cr = global.window.CardReview.mount({
+    modalId: 'cardReviewModal',
+    deckId: 'archidekt:1',
+    deckName: 'Holy Hellfire',
+    deckKind: 'digital'
+});
+
+try {
+    cr.open({ name: 'Blasphemous Act', uid: '123', cmc: 9, type: 'Sorcery' }, 0);
+    process.stdout.write(JSON.stringify({ error: null, calls: calls }));
+} catch (err) {
+    process.stdout.write(JSON.stringify({ error: { name: err.name, message: err.message, stack: err.stack }, calls: calls }));
+}
+"""
+        res = subprocess.run([node, "-e", eval_script, str(CR_JS)],
+                             capture_output=True, text=True, timeout=10)
+        self.assertEqual(res.returncode, 0, f"node execution failed: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertIsNone(data["error"], f"open() threw an error: {data['error']}")
+        open_modal_calls = [c for c in data["calls"] if c["method"] == "openModal"]
+        self.assertEqual(len(open_modal_calls), 1)
+        self.assertEqual(open_modal_calls[0]["arg"], "cardReviewModal")
+
+    def test_card_review_evaluated_before_real_hud_js(self):
+        """Simulate evaluating card_review.js first, then hud.js, verifying
+        window.HUD.openModal opens the modal without TypeError."""
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        eval_script = r"""
+const fs = require('fs');
+const classes = new Set();
+const modalElement = {
+    id: 'cardReviewModal',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    classList: {
+        contains: (c) => classes.has(c),
+        add: (c) => classes.add(c),
+        remove: (c) => classes.delete(c)
+    },
+    setAttribute: () => {},
+    getAttribute: () => null
+};
+global.document = {
+    readyState: 'complete',
+    addEventListener: () => {},
+    querySelectorAll: () => [],
+    getElementById: (id) => (id === 'cardReviewModal' ? modalElement : null),
+    querySelector: () => null,
+    contains: () => false,
+    activeElement: null
+};
+global.window = {
+    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    fetch: async () => ({ ok: true, status: 202, json: async () => ({ job_id: 'test_job' }) })
+};
+
+// 1. Evaluate card_review.js BEFORE hud.js
+eval(fs.readFileSync(process.argv[1], 'utf8'));
+
+// 2. Evaluate hud.js
+eval(fs.readFileSync(process.argv[2], 'utf8'));
+
+const opened = [];
+const origOpen = global.window.HUD.openModal;
+global.window.HUD.openModal = function (id) {
+    opened.push(id);
+    return origOpen(id);
+};
+
+const cr = global.window.CardReview.mount({
+    modalId: 'cardReviewModal',
+    deckId: 'archidekt:1',
+    deckName: 'Holy Hellfire',
+    deckKind: 'digital'
+});
+
+try {
+    cr.open({ name: 'Blasphemous Act', uid: '123', cmc: 9, type: 'Sorcery' }, 0);
+    process.stdout.write(JSON.stringify({
+        error: null,
+        opened: opened,
+        isOpen: classes.has('is-open')
+    }));
+} catch (err) {
+    process.stdout.write(JSON.stringify({
+        error: { name: err.name, message: err.message },
+        opened: opened
+    }));
+}
+"""
+        res = subprocess.run([node, "-e", eval_script, str(CR_JS), str(HUD_JS)],
+                             capture_output=True, text=True, timeout=10)
+        self.assertEqual(res.returncode, 0, f"node execution failed: {res.stderr}")
+        data = json.loads(res.stdout)
+        self.assertIsNone(data["error"], f"open() threw an error: {data['error']}")
+        self.assertEqual(data["opened"], ["cardReviewModal"])
+        self.assertTrue(data["isOpen"])
 
 
 if __name__ == "__main__":
