@@ -52,6 +52,8 @@ out.hasMore = html.includes("at-chip--more") && html.includes("+2");
 out.userGlyph = html.includes("\u25C6") && html.includes("\u25C7");
 out.srLabels = html.includes("(yours)") && html.includes("(auto)");
 out.empty = AT.chipsHtml([], 3);
+// the Untagged sentinel is written into a data-at-filter attribute; a NUL there parses to U+FFFD and the filter silently resets
+out.untaggedAttrSafe = typeof AT.UNTAGGED === "string" && AT.UNTAGGED.length > 0 && !AT.UNTAGGED.includes("\u0000") && !/\uFFFD/.test(AT.UNTAGGED);
 // editable chips: auto gets a keep button, user does not; both can be removed
 const ed = AT.chipHtml(e("Ramp", "auto", 1), { edit: true }) + "|" + AT.chipHtml(e("Mine", "user", 1), { edit: true });
 out.pinOnAutoOnly = (ed.match(/data-at-pin=/g) || []).length === 1 && (ed.match(/data-at-remove=/g) || []).length === 2;
@@ -107,6 +109,10 @@ class TestAutoTagHelpers(unittest.TestCase):
 
     def test_only_auto_chips_offer_keep(self):
         self.assertTrue(self.out["pinOnAutoOnly"])
+
+    def test_untagged_sentinel_survives_an_html_attribute(self):
+        # regression: a NUL sentinel came back as U+FFFD from data-at-filter, so the Untagged filter did nothing
+        self.assertTrue(self.out["untaggedAttrSafe"])
 
     def test_tag_names_are_escaped(self):
         self.assertTrue(self.out["escaped"])

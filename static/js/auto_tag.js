@@ -50,7 +50,8 @@
         { group: "Roles", tags: FUNCTION_IDS.slice() },
         { group: "Themes", tags: THEME_IDS.slice() }
     ];
-    var UNTAGGED = "\u0000untagged";
+    // Not a NUL: the sentinel is written into data-at-filter attributes, and the HTML parser turns NUL into U+FFFD.
+    var UNTAGGED = "__untagged__";
     var MAX_CHIPS = 3;       // per tile / row
     var INLINE_FILTERS = 8;  // filter chips before "+N more"
     var GLYPH = { auto: "\u25C7", user: "\u25C6" };   // ◇ auto · ◆ yours
