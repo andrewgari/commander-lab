@@ -662,3 +662,75 @@ def apply_folder_rules(r) -> dict:
         if res:
             changed[rid] = res["deck"]["status"]
     return changed
+
+
+DEFAULT_DECOMMISSION_TAG = "removed"
+
+
+class DecommissionError(ValueError):
+    """Deck cannot be decommissioned (e.g. not a physical deck)."""
+
+
+def decommission_deck(r, registry_id: str, tag: str = DEFAULT_DECOMMISSION_TAG) -> dict:
+    """Decommission a PHYSICAL deck in one Redis MULTI/EXEC transaction:
+
+      1. reject unless deck status == "physical" (DecommissionError)
+      2. drop `tag` from the deck's `tags` list (deck-level status tag)
+      3. move the deck to the "retired" category (status = "retired")
+      4. unbind every instance bound in_deck to this deck -> in_collection
+         (cards stay owned; nothing is deleted)
+
+    Idempotent: a deck already decommissioned (has `decommissioned_at`) returns
+    `already_decommissioned=True` with no writes. Raises ValueError if the deck
+    is not found.
+    """
+    decks = _load_decks(r)
+    target = next(
+        (d for d in decks if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id),
+        None,
+    )
+    if not target:
+        raise ValueError(f"deck not found: {registry_id}")
+
+    if target.get("decommissioned_at"):
+        return {
+            "deck": target,
+            "already_decommissioned": True,
+            "tag_removed": False,
+            "unassigned_count": 0,
+            "unassigned_instance_ids": [],
+        }
+
+    if target.get("status") != "physical":
+        raise DecommissionError(
+            f"only physical decks can be decommissioned (deck status is {target.get('status')!r})"
+        )
+
+    reg_id = registry_id_of(target)
+    bound = {}
+    for key in {str(reg_id), str(target.get("id"))}:
+        for inst in instance_store.list_instances(r, deck_id=key):
+            if inst.get("ownership_status") == "in_deck":
+                bound[inst["id"]] = inst
+
+    now = instance_store._now()
+    tags = list(target.get("tags") or [])
+    tag_removed = tag in tags
+    target["tags"] = [t for t in tags if t != tag]
+    target["status"] = "retired"
+    target["decommissioned_at"] = now
+
+    pipe = r.pipeline()
+    for inst in bound.values():
+        instance_store.queue_unassign_from_deck(pipe, inst, now)
+    pipe.set(DECKS_KEY, json.dumps(decks))
+    pipe.set(f"deck_status:{target['id']}", "retired")
+    pipe.execute()
+
+    return {
+        "deck": target,
+        "already_decommissioned": False,
+        "tag_removed": tag_removed,
+        "unassigned_count": len(bound),
+        "unassigned_instance_ids": sorted(bound),
+    }

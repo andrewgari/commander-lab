@@ -505,6 +505,38 @@ async def update_deck_status(deck_id: str, request: Request):
             "pending_removal": result["pending_removal"]}
 
 
+@app.post("/api/decks/{deck_id}/decommission")
+async def decommission_deck(deck_id: str, request: Request):
+    """Decommission a physical deck (single transaction): remove the status tag
+    (default "removed", override with JSON body {"tag": "..."}), move the deck
+    to the "retired" category, and return all its cards to the owned pool
+    (instances in_deck -> in_collection; nothing deleted). Idempotent.
+    Errors: 404 deck not found, 400 deck is not physical.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    tag = (data or {}).get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_deck(r, deck_id, tag=tag)
+    except registry.DecommissionError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    deck = result["deck"]
+    return {
+        "success": True,
+        "deck_id": registry.registry_id_of(deck),
+        "status": deck["status"],
+        "tags": deck.get("tags", []),
+        "already_decommissioned": result["already_decommissioned"],
+        "tag_removed": result["tag_removed"],
+        "unassigned_count": result["unassigned_count"],
+        "unassigned_instance_ids": result["unassigned_instance_ids"],
+    }
+
+
 @app.post("/api/import")
 async def import_deck(request: Request):
     """Import a single deck from Archidekt or Moxfield by URL/id and add it
