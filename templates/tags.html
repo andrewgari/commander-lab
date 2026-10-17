@@ -368,7 +368,7 @@
             const allTagsHtml = labTagsHtml + (archidektTagsHtml ? '<br>' + archidektTagsHtml : '');
             
             tr.innerHTML = `
-                <td class="mtg-font">${card.name} ${coreTagBadge}</td>
+                <td class="mtg-font"><span class="hud-cp-name" tabindex="0" data-card-preview${window.HUD ? HUD.cardRefAttrString(HUD.cardRef(Object.assign({}, (card.copies || []).find(c => c.uid) || (card.copies || [])[0] || {}, { name: card.name }))) : ''}>${card.name}</span> ${coreTagBadge}</td>
                 <td><div class="card-tags">${allTagsHtml || '<span style="color: #6b7280;">No tags</span>'}</div></td>
                 <td>${card.decks.size} decks</td>
                 <td><button class="btn btn-sm" onclick="openEditor('${card.name.replace(/'/g, "\\'")}')">Edit</button></td>

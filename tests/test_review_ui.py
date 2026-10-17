@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import card_refs
 from jinja2 import Environment, FileSystemLoader
 
 import app as app_mod
@@ -41,6 +42,7 @@ def _section(type_):
 
 def render(section):
     env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env.globals["card_preview_attrs"] = card_refs.preview_attrs
     return env.get_template(rv.section_template(section)).render(section=section, rv=rv, tv=theory_view)
 
 
@@ -122,7 +124,8 @@ class TestSectionRenderers(unittest.TestCase):
         h = render(sec)
         self.assertIn('data-line="burn"', h)
         self.assertIn('data-line="combo"', h)
-        self.assertIn("Gnaw Pet, Laboratory Maniac", h)
+        self.assertIn("Gnaw Pet</span>, <span", h)
+        self.assertIn("Laboratory Maniac</span>", h)
         self.assertRegex(h, r'data-diff="claimed_unsupported">\s*<span class="hud-chip hud-chip--danger">Mill')
         self.assertRegex(h, r'data-diff="supported_unclaimed">.*Alternate win')
         self.assertIn("win cons claimed: mill", h)
@@ -167,8 +170,10 @@ class TestSectionRenderers(unittest.TestCase):
     def test_combos_engines(self):
         h = render(_section("combos_engines"))
         self.assertIn('data-combo="1-2"', h)
-        self.assertIn("Gnaw Pet + Laboratory Maniac", h)
-        self.assertIn("missing Foo (owned)", h)
+        self.assertIn("Gnaw Pet</span> + <span", h)
+        self.assertIn("Laboratory Maniac</span>", h)
+        self.assertIn("Foo</span> (owned)", h)
+        self.assertIn("missing <span", h)
         self.assertIn("tokens → death → life_loss", h)
 
     def test_combos_error_note(self):

@@ -5,7 +5,7 @@
 <ol class="hud-doc-pillars">
     {%- for l in d.win_lines %}
     <li data-line="{{ l.type }}"><span class="hud-label">Win line {{ loop.index }} · strength {{ l.strength }}</span><b>{{ rv.label(l.type) }}</b>
-        <span>{{ (l.cards or []) | join(", ") }}</span>
+        <span>{% for n in (l.cards or []) %}{% if not loop.first %}, {% endif %}<span class="hud-cp-name" {{ card_preview_attrs(n) }}>{{ n }}</span>{% endfor %}</span>
         {%- if l.why %}<span class="hud-rv-why">{{ l.why }}</span>{% endif %}</li>
     {%- endfor %}
 </ol>

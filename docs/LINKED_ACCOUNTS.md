@@ -1,5 +1,10 @@
 # Linked Accounts (pull-only sync)
 
+> Nothing here runs on a timer, schedule, or page load. Linking an account
+> (`POST /api/linked-accounts`) only records it; decks are pulled when the
+> user presses Sync (`POST /api/linked-accounts/{id}/sync` or `/sync-all`).
+> Per-deck Update/Push: docs/SYNC_UPDATE_PUSH.md.
+
 Commander Lab can sync a user's entire deck collection from Archidekt or
 Moxfield by "linking" that user's provider account via **username**, rather
 than importing decks one at a time by URL/id.

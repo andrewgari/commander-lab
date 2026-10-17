@@ -284,9 +284,10 @@ class TestOverviewUsesDeckHeader(_DeckPage, unittest.TestCase):
     ACTIVE = "Overview"
 
     def test_existing_actions_kept(self):
-        for frag in ['href="/deck/Holy%20Hellfire/manage"', "reviewDeck()", "syncDeck()"]:
+        for frag in ['href="/deck/Holy%20Hellfire/manage"', "reviewDeck()", 'id="syncControls"']:
             with self.subTest(frag=frag):
                 self.assertIn(frag, self.body)
+        self.assertNotIn("Sync to External", self.body)  # replaced by Update / Push
 
     def test_unknown_deck_still_renders(self):
         # The Overview page renders a "not synced" shell for unknown names (pre-AN-4 behaviour).
