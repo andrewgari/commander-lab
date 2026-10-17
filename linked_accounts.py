@@ -1,6 +1,7 @@
 """
 Linked-accounts registry — provider accounts (Archidekt/Moxfield username)
-that Commander Lab pulls decks from on a recurring/manual basis, on top of
+that Commander Lab pulls decks from when the user presses Sync (never on a
+timer or on link), on top of
 the existing single-deck import flow.
 
 Mirrors instances.py/registry.py/cards.py in shape: all reads/writes to the

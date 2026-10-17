@@ -110,7 +110,10 @@ same "no automatic instance creation" rule as every other resync path
 | `GET /api/decks/{deck_id}/links`             | List a deck's configured provider links. |
 | `POST /api/decks/{deck_id}/links`            | Add/edit one provider's link. Body: `{"provider": "archidekt"\|"moxfield"\|"commandersalt", "identifier": "<url or id>"}`. Empty identifier clears the link. |
 | `DELETE /api/decks/{deck_id}/links/{provider}` | Remove one provider's link. |
-| `POST /api/decks/{deck_id}/sync`             | Run dual-source sync + merge. Returns `{"success": true, "report": {...}}` on at least partial success, or 400 with `{"success": false, "error": ...}` if every linked source failed or none was configured. |
+| `POST /api/decks/{deck_id}/sync/pull`        | **Update** (external -> commander.lab). See docs/SYNC_UPDATE_PUSH.md. |
+| `POST /api/decks/{deck_id}/sync/push`        | **Push** (commander.lab -> external). See docs/SYNC_UPDATE_PUSH.md. |
+| `GET /api/decks/{deck_id}/sync/status`       | Per-provider Update/Push capability + timestamps. |
+| `POST /api/decks/{deck_id}/sync`             | DEPRECATED alias for an Update from every linked source. Run dual-source sync + merge. Returns `{"success": true, "report": {...}}` on at least partial success, or 400 with `{"success": false, "error": ...}` if every linked source failed or none was configured. |
 
 ## UI
 
