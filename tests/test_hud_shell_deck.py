@@ -184,7 +184,7 @@ class TestDeckView(unittest.TestCase):
 
     def test_actions_and_links_preserved(self):
         self.assertIn('href="/deck/Magic%20in%20Stereo/manage"', self.body)
-        for fn in ["syncDeck()", "reviewDeck()", "togglePrimerEdit()", "savePrimer()"]:
+        for fn in ["initSyncControls", "reviewDeck()", "togglePrimerEdit()", "savePrimer()"]:
             with self.subTest(fn=fn):
                 self.assertIn(fn, self.body)
         for host in ["edhrec.com/commanders", "archidekt.com/decks", "commandersalt.com/details/deck", "moxfield.com/decks"]:
