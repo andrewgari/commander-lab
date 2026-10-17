@@ -31,6 +31,7 @@ from reconstruct_pools import (
     Tier,
     build_candidate_pools,
     compute_deck_cost,
+    consume_pools,
     norm_name,
 )
 
@@ -287,6 +288,7 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
 
         # 3. Tagging, Costing, and Assembling final drafts
         drafts: List[dict] = []
+        remaining = pools
         for i in range(num_decks):
             v_deck = final_validator_decks[i]
             a_deck = final_agent_decks[i]
@@ -302,10 +304,12 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
 
             deck_cost = compute_deck_cost(
                 deck_card_inputs,
-                pools,
+                remaining,
                 price_lookup=self.price_lookup,
                 free_basics=True,
             )
+
+            remaining = consume_pools(remaining, deck_card_inputs)
 
             cmd_keys = {norm_name(cmd) for cmd in v_deck.commanders}
             draft_cards = []

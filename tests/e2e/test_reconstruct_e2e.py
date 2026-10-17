@@ -759,7 +759,6 @@ def test_s6_abandon_after_drafts(r, api):
 SHARED_CARD = "Alpha Card 003"  # colourless, in source A
 
 
-@pytest.mark.xfail(strict=True, reason="BUG #157: Tier 2 drops names present in Tier 1, hiding a spare owned copy")
 def test_s2_shared_card_extra_owned_copy_is_free(r, api):
     ids = seed_world(r)
     # The user owns one extra undedicated copy of a card that is also in source A.
