@@ -295,6 +295,24 @@ class TestReconstructCore(unittest.TestCase):
         with self.assertRaises(ValueError):
             reconstruct.abandon_reconstruct(self.r, sid)
 
+    def test_accepted_physical_draft_survives_folder_rule(self):
+        """A sync runs apply_folder_rules over every deck; a reconstruct deck accepted
+        as physical has no Archidekt folder and must not be demoted to digital."""
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Atraxa, Praetors' Voice"]}])
+        reconstruct.trigger_build(self.r, sid, sync=True)
+        res = reconstruct.accept_draft(self.r, sid, draft_indices=[0], status="physical")
+        reg_id = registry.registry_id_of(res["created_decks"][0])
+
+        changed = registry.apply_folder_rules(self.r)
+
+        self.assertNotIn(reg_id, changed)
+        self.assertEqual(registry.find_deck(self.r, reg_id)["status"], "physical")
+        bound = {i["card_name"] for i in instances.list_instances(self.r, deck_id=reg_id)
+                 if i["ownership_status"] == "in_deck"}
+        self.assertIn("Sol Ring", bound)
+
     def test_abandon_reconstruct(self):
         session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
         sid = session["session_id"]

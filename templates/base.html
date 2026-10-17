@@ -4,150 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Commander Lab{% endblock %}</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap');
-        
-        :root {
-            --bg-color: #000000;
-            --nav-bg: #0a0a0a;
-            --text-main: #d1d5db;
-            --text-muted: #6b7280;
-            --text-heading: #ffffff;
-            --border: #1f2937;
-            --accent: #3b82f6;
-            --accent-hover: #60a5fa;
-            --row-hover: #0a1120;
-        }
-
-        body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            background: var(--bg-color); 
-            color: var(--text-main); 
-            -webkit-font-smoothing: antialiased; 
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar Navigation */
-        .sidebar {
-            width: 250px;
-            background: var(--nav-bg);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
-        }
-
-        .brand {
-            padding: 1.5rem;
-            font-family: 'EB Garamond', serif;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-heading);
-            border-bottom: 1px solid var(--border);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .nav-items {
-            padding: 1rem 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .nav-item {
-            padding: 0.75rem 1.5rem;
-            color: var(--text-main);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .nav-item:hover {
-            background: var(--row-hover);
-            color: var(--accent-hover);
-        }
-
-        .nav-item.active {
-            background: #172554;
-            color: #93c5fd;
-            border-right: 3px solid var(--accent);
-        }
-
-        .nav-icon {
-            width: 20px;
-            height: 20px;
-            opacity: 0.8;
-        }
-
-        /* Main Content Area */
-        .main-content {
-            flex: 1;
-            margin-left: 250px;
-            padding: 2rem;
-            max-width: 1200px;
-        }
-
-        h1 { font-weight: 500; font-size: 1.75rem; margin-top: 0; margin-bottom: 1.5rem; color: var(--text-heading); letter-spacing: -0.02em; }
-        
-        /* Common UI Elements */
-        input, select { 
-            padding: 0.6rem 0.75rem; 
-            background: var(--nav-bg); 
-            border: 1px solid var(--border); 
-            color: #f3f4f6; 
-            font-size: 0.875rem; 
-            font-family: inherit; 
-            outline: none; 
-            border-radius: 4px; 
-            transition: border-color 0.15s; 
-        }
-        input:focus, select:focus { border-color: var(--accent); }
-
-        {% block extra_css %}{% endblock %}
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+    {# Shared HUD tokens + chrome. Tokens documented in docs/DESIGN_TOKENS.md. #}
+    <link rel="stylesheet" href="/static/css/hud.css?v={{ version }}">
+    <link rel="stylesheet" href="/static/css/card_hover_preview.css?v={{ version }}">
+    {# Page-level styles. Templates pass a full <style> element here. #}
+    {% block extra_css %}{% endblock %}
 </head>
-<body>
-    <nav class="sidebar">
-        <a href="/" class="brand">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            Cmdr Lab
+{#- Nav sections. `match` is the path prefix that marks the item active, so
+    /deck/<name> and /deck/<name>/manage light up "Commander Decks". -#}
+{%- set path = request.url.path -%}
+{%- set nav_primary = [
+    {"href": "/", "label": "Home", "match": none, "icon": '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>'},
+    {"href": "/decks", "label": "Commander Decks", "match": "/deck", "menu": "decks", "icon": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>'},
+    {"href": "/profile", "label": "Player Profile", "match": "/profile", "icon": '<polygon points="12 3 21 9.5 17.5 20 6.5 20 3 9.5"></polygon><polygon points="12 8 16 11 14.5 16 9.5 16 8 11"></polygon>'},
+    {"href": "/inventory", "label": "Inventory", "match": "/inventory", "icon": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>'},
+    {"href": "/instances", "label": "Instances", "match": "/instances", "icon": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>'},
+    {"href": "/tags", "label": "Tag Management", "match": "/tags", "icon": '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line>'},
+    {"href": "/genres", "label": "Genres", "match": "/genres", "icon": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>'},
+] -%}
+{%- set nav_settings = [
+    {"href": "/settings", "label": "Settings", "match": "/settings", "icon": '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>'},
+] -%}
+{%- set nav_reference = [
+    {"href": "/changelog", "label": "Changelog", "match": "/changelog", "icon": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="14" y2="17"></line>'},
+    {"href": "/styleguide", "label": "Styleguide", "match": "/styleguide", "icon": '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect>'},
+] -%}
+{%- import "partials/hud.html" as hud -%}
+{%- macro nav_link(item) -%}
+{%- set active = (path == item.href) or (item.match and path.startswith(item.match)) -%}
+{%- if item.menu -%}
+{#- Opens a flyout of deck groups (hud.menu). Without JS it is a plain link to
+    the unfiltered list. -#}
+{%- set menu_id = "nav-menu-" ~ item.menu -%}
+{%- set cur_status = (request.query_params.get("status") or "") | trim | lower if path == item.href else none -%}
+<a href="{{ item.href }}" class="nav-item{% if active %} active{% endif %}" title="{{ item.label }}"{% if active %} aria-current="page"{% endif %} data-hud-menu aria-controls="{{ menu_id }}" aria-expanded="false">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ item.icon|safe }}</svg>
+    <span class="nav-label">{{ item.label }}</span>
+    <svg class="nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>
+</a>
+{%- set ns = namespace(items=[]) -%}
+{%- for g in deck_groups -%}
+{%- set ns.items = ns.items + [{"href": item.href ~ "?status=" ~ g.status, "label": g.label, "current": cur_status == g.status}] -%}
+{%- endfor -%}
+{{ hud.menu(menu_id, ns.items, label=item.label) }}
+{%- else -%}
+<a href="{{ item.href }}" class="nav-item{% if active %} active{% endif %}" title="{{ item.label }}"{% if active %} aria-current="page"{% endif %}>
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ item.icon|safe }}</svg>
+    <span class="nav-label">{{ item.label }}</span>
+</a>
+{%- endif -%}
+{%- endmacro %}
+<body class="app-shell">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <nav class="sidebar" aria-label="Primary">
+        <a href="/" class="brand" title="Commander Lab">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span class="brand-label">Cmdr Lab</span>
         </a>
+        <div class="nav-section-label">Navigate</div>
         <div class="nav-items">
-            <a href="/decks" class="nav-item {% if request.url.path == '/decks' or request.url.path == '/' %}active{% endif %}">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                Commander Decks
-            </a>
-            <a href="/inventory" class="nav-item {% if request.url.path == '/inventory' %}active{% endif %}">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                Inventory
-            </a>
-            <a href="/instances" class="nav-item {% if request.url.path == '/instances' %}active{% endif %}">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                Instances
-            </a>
-            <a href="/tags" class="nav-item {% if request.url.path == '/tags' %}active{% endif %}">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
-                Tag Management
-            </a>
+            {% for item in nav_primary %}{{ nav_link(item) }}{% endfor %}
+        </div>
+        <div class="nav-section-label">Reference</div>
+        <div class="nav-items">
+            {% for item in nav_reference %}{{ nav_link(item) }}{% endfor %}
+        </div>
+        <div class="nav-section-label">Configure</div>
+        <div class="nav-items">
+            {% for item in nav_settings %}{{ nav_link(item) }}{% endfor %}
+        </div>
+        <div class="sidebar-footer">
+            <span class="sidebar-footer-label">Version</span>
+            <a href="/changelog"><span id="app-version" class="version-badge" title="Commander Lab v{{ request.state.app_version }}">v{{ request.state.app_version }}</span></a>
         </div>
     </nav>
 
-    <main class="main-content">
+    <main class="main-content" id="main">
+        {#- Optional shell bar: pages that fill `crumbs` get a breadcrumb strip
+            (and `topbar_meta` on the right). -#}
+        {%- set crumbs_html = self.crumbs() -%}
+        {%- if crumbs_html | trim %}
+        <div class="app-topbar">
+            {% block crumbs %}{% endblock %}
+            <div class="app-topbar-meta">{% block topbar_meta %}{% endblock %}</div>
+        </div>
+        {%- endif %}
         {% block content %}{% endblock %}
     </main>
 
+    {# Deck printing map (card_refs.py) for HUD.cardName()/rankList; only deck pages have one. #}
+    <script>window.HUD_CARD_REFS = {{ ((head.card_refs if head is defined and head else none) or {}) | tojson }};</script>
     {% block extra_js %}{% endblock %}
+    {# HUD kit client helpers: sortable tables, HUD.* builders, modals. #}
+    <script src="/static/js/hud.js?v={{ version }}" defer></script>
+    {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
+    <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
+    <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>
 </body>
 </html>
