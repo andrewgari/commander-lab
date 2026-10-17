@@ -67,6 +67,21 @@ jobs:
           python -m pytest -v -rs tests/e2e/test_reconstruct_e2e.py | tee e2e.log
           ! grep -qiE "skipped|xfail|xpassed" e2e.log
 
+      # Browser suite: real app served in-process, Chromium driving the Reconstruct UI.
+      # Requires 0 skipped so a missing Playwright/Redis cannot pass silently.
+      - name: Install Playwright Chromium
+        run: |
+          pip install pytest pytest-playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run Reconstruct browser e2e suite
+        env:
+          RECONSTRUCT_E2E_REDIS_URL: redis://localhost:6379/15
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          python -m pytest -v -rs tests/e2e/test_reconstruct_playwright.py | tee e2e-browser.log
+          ! grep -qi "skipped" e2e-browser.log
+
   docker:
     name: Build & Push Docker Image
     needs: test
