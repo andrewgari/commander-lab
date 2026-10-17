@@ -11,6 +11,7 @@ import json
 import time
 import html
 from typing import List, Optional
+from datetime import datetime, timezone
 
 import instances as instance_store
 from instances import InstanceError
@@ -18,6 +19,7 @@ import registry
 import reconstruct
 import commander_roles
 import inventory_view
+import card_refs as card_refs_mod
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -35,6 +37,7 @@ from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
+from analytics import tune_store
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
@@ -93,6 +96,11 @@ DECK_GROUPS = [
     {"status": "retired", "label": "Retired Decks"},
 ]
 templates.env.globals["deck_groups"] = DECK_GROUPS
+# Hover preview: {{ card_ref_attrs(name, head.card_refs) }} marks a rendered
+# card name / thumbnail with data-card-name + data-card-ref (card_refs.py).
+templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
+
+templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
 
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -172,7 +180,8 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
+           "card_refs": {}}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -186,6 +195,13 @@ def _deck_head_context(deck_name: str) -> dict:
         out["commander_roles"] = commander_roles.roles_for_decks(r, [dict(deck)])[0]["commander_roles"]
     except Exception:
         out["commander_roles"] = commander_roles.deck_commanders(deck, {})
+    try:
+        # {card_key: CardRef} printing map for every card name on the deck
+        # pages (hover preview; card_refs.py). Name-keyed so analytics output
+        # that only carries names can still resolve the owned printing.
+        out["card_refs"] = {k: card_refs_mod.compact(v) for k, v in card_refs_mod.deck_card_refs(r, deck).items()}
+    except Exception:
+        pass
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
@@ -830,15 +846,71 @@ async def remove_deck_link(deck_id: str, provider: str):
     return {"success": True, "links": deck_links.get_links(deck)}
 
 
+def _sync_error(e: DeckSyncError, operation: str, provider: Optional[str]) -> JSONResponse:
+    return JSONResponse(status_code=e.status, content={
+        "success": False, "operation": operation, "provider": provider,
+        "code": e.code, "error": str(e),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+async def _sync_body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is fine
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+@app.get("/api/decks/{deck_id}/sync/status")
+async def deck_sync_status(deck_id: str):
+    """Per-provider Update/Push capabilities and last_updated_at /
+    last_pushed_at timestamps. Read-only; never contacts a provider."""
+    try:
+        return await asyncio.to_thread(deck_sync.sync_status, r, deck_id)
+    except DeckSyncError as e:
+        return _sync_error(e, "status", None)
+
+
+@app.post("/api/decks/{deck_id}/sync/pull")
+async def deck_sync_pull(deck_id: str, request: Request):
+    """UPDATE (external -> commander.lab): pull the linked Archidekt/Moxfield
+    deck into this deck. Body (optional): {"provider": "archidekt"|"moxfield",
+    "dry_run": bool}. No provider = every linked source, merged. Explicit
+    user action only -- nothing calls this automatically."""
+    data = await _sync_body(request)
+    provider = data.get("provider") or None
+    dry_run = bool(data.get("dry_run"))
+    try:
+        result = await asyncio.to_thread(deck_sync.update_deck, r, deck_id, provider, dry_run)
+    except DeckSyncError as e:
+        return _sync_error(e, "update", provider)
+    if not dry_run:
+        interactions_service.start_rebuild(r, trigger="sync", deck_ids=[result["registry_id"]])
+        _wake_bracket_worker(result["registry_id"])
+    return result
+
+
+@app.post("/api/decks/{deck_id}/sync/push")
+async def deck_sync_push(deck_id: str, request: Request):
+    """PUSH (commander.lab -> external): overwrite the linked deck on one
+    provider with this deck's cardlist. Body: {"provider": "archidekt"|
+    "moxfield", "dry_run": bool}. 501 push_not_configured when the provider's
+    credential env var is unset. Explicit user action only."""
+    data = await _sync_body(request)
+    provider = data.get("provider") or None
+    dry_run = bool(data.get("dry_run"))
+    try:
+        return await asyncio.to_thread(deck_sync.push_deck, r, deck_id, provider, dry_run)
+    except DeckSyncError as e:
+        return _sync_error(e, "push", provider)
+
+
 @app.post("/api/decks/{deck_id}/sync")
 async def sync_deck(deck_id: str):
-    """Sync a deck's cardlist from every linked provider (Archidekt and/or
-    Moxfield) in a single operation, merging the results (see
-    docs/DUAL_SOURCE_SYNC.md). One source being unreachable does not block
-    the other -- the response's `warnings`/`sources` show exactly what
-    happened per source. Fails with 400 only if the deck has no syncable
-    link at all, or if every linked source failed.
-    """
+    """DEPRECATED: use POST /api/decks/{id}/sync/pull. Kept so the existing
+    deck-modal button keeps working; it is an Update from every linked
+    provider (explicit user action), with the legacy report shape."""
     try:
         report = deck_sync.sync_deck(r, deck_id)
     except DeckSyncError as e:
@@ -1363,6 +1435,10 @@ async def get_deck_manage(deck_id: str):
         cards.append({
             "instance_id": inst["id"],
             "card_name": card_name,
+            # Printing identity for the hover preview (audit G3, additive).
+            "uid": inst.get("archidekt_uid") or "",
+            "set": inst.get("set") or "",
+            "collector_number": inst.get("collector_number") or "",
             "type": meta.get("type", "Unknown"),
             "cmc": meta.get("cmc", 0),
             "color": meta.get("color", ""),
@@ -1507,7 +1583,9 @@ async def list_linked_accounts():
 
 @app.post("/api/linked-accounts")
 async def add_linked_account(request: Request):
-    """Link a new provider account and trigger its immediate first sync.
+    """Link a new provider account. Does NOT pull its decks: linking is not
+    a sync trigger. The user pulls explicitly via
+    POST /api/linked-accounts/{id}/sync.
 
     Body: {"provider": "archidekt"|"moxfield", "username": str}
     """
@@ -1519,7 +1597,6 @@ async def add_linked_account(request: Request):
     except LinkedAccountError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
-    account = linked_accounts.sync_account(r, account["id"])
     return {"success": True, "account": account}
 
 
@@ -2545,18 +2622,83 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
-    mode = owned_first | owned_only | best; sleeved=false drops cards in other decks."""
+    mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
+    physical deck) and buy (cards you don't own), both default true. Legacy
+    owned_only / owned_first are accepted and mapped to free / flex."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
+
+
+@app.get("/api/decks/{deck_id}/tune/saved")
+async def api_deck_tune_saved(deck_id: str):
+    """The deck's saved (active) Tune recommendation. 404 with `recommendation: null`
+    when none has been computed yet. See docs/TUNER.md 'Saved recommendations'."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = await asyncio.to_thread(tune_store.get_active, r, tune_store.deck_key(deck))
+    if not rec:
+        return JSONResponse(status_code=404, content={"success": False, "recommendation": None,
+                                                      "error": "No saved tune recommendation for this deck"})
+    return {"success": True, "recommendation": rec}
+
+
+@app.get("/api/decks/{deck_id}/tune/state")
+async def api_deck_tune_state(deck_id: str):
+    """Decisions, extra adds and pet cards as of now. A saved recommendation is a snapshot;
+    the Tune page lays this over it so accepts, dismissals and pets survive a reload."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
+    pets = await asyncio.to_thread(insights.pet_cards, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets}
+
+
+@app.post("/api/decks/{deck_id}/tune/recompute")
+async def api_deck_tune_recompute(deck_id: str, request: Request):
+    """Run the tuner, save the result as the deck's active recommendation and archive
+    the previous one (same MULTI/EXEC). Body (optional): {"mode": "free|flex|best",
+    "in_deck": true, "buy": true} (legacy owned_first / owned_only accepted). If generation fails nothing is saved and the old one stays active."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = body.get("in_deck", True)
+    buy = body.get("buy", True)
+    if not isinstance(in_deck, bool) or not isinstance(buy, bool):
+        return _bad_request(tuner_mod.TunerError("in_deck and buy must be booleans."))
+    try:
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    except tune_store.TuneStoreError as exc:
+        return _bad_request(exc, 409)
+    archived = {k: v for k, v in old.items() if k != "payload"} if old else None
+    return {"success": True, "recommendation": new, "archived": archived}
+
+
+@app.get("/api/decks/{deck_id}/tune/history")
+async def api_deck_tune_history(deck_id: str, limit: int = 20, include_payload: bool = False):
+    """Archived recommendations, newest first (the active one is excluded). Payload
+    omitted unless include_payload=true."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    recs = await asyncio.to_thread(tune_store.list_history, r, tune_store.deck_key(deck),
+                                   max(1, min(limit, 100)), include_payload)
+    return {"success": True, "history": recs}
 
 
 @app.post("/api/decks/{deck_id}/tune/why")
@@ -2568,10 +2710,12 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     if err:
         return err
     body = await _json_body(request) or {}
-    mode = body.get("mode", "owned_first") if isinstance(body, dict) else "owned_first"
-    sleeved = bool(body.get("sleeved", True)) if isinstance(body, dict) else True
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = bool(body.get("in_deck", True))
+    buy = bool(body.get("buy", True))
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain

@@ -91,7 +91,7 @@ class TestDecksPageWithoutAccounts(unittest.TestCase):
 
     def test_per_deck_sync_controls_stay(self):
         for needle in ["Sync Sources", 'id="modalArchidektUrl"', 'id="modalMoxfieldUrl"',
-                       "saveDeckLink('archidekt')", 'onclick="syncDeck()"', "Import Deck"]:
+                       "saveDeckLink('archidekt')", 'id="modalSyncLink"', "Import Deck"]:
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.html)
         # Startup load still runs (after deferred hud.js, which renderDecks needs).

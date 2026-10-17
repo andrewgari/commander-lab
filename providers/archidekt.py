@@ -138,3 +138,124 @@ def fetch_deck(identifier: str) -> dict:
         "parent_folder_id": parent,
         "theorycrafted": bool(data.get("theorycrafted")),
     }
+
+
+# ---------------------------------------------------------------------------
+# Push (commander.lab -> Archidekt). Explicit user action only; see
+# deck_sync.push_deck and docs/SYNC_UPDATE_PUSH.md.
+#
+# Archidekt's write endpoint is PATCH /api/decks/{id}/modifyCards/ with a JWT
+# (Authorization: JWT <token>). The endpoint and card lookup are confirmed to
+# exist (modifyCards answers 401 unauthenticated; /api/cards/v2/?nameSearch=
+# &exact=true returns printings), but the op payload shape has not been
+# exercised against a live account yet -- validate with a throwaway deck.
+# ---------------------------------------------------------------------------
+import os
+import uuid
+
+from .errors import PushError, PushNotConfigured
+
+PUSH_TOKEN_ENV = "ARCHIDEKT_TOKEN"
+_PUSH_SKIP_CATEGORIES = {"Maybeboard", "Sideboard"}
+
+
+def push_configured() -> bool:
+    return bool(os.getenv(PUSH_TOKEN_ENV, "").strip())
+
+
+def _push_headers() -> dict:
+    token = os.getenv(PUSH_TOKEN_ENV, "").strip()
+    if not token:
+        raise PushNotConfigured(
+            f"Archidekt push is not configured: set {PUSH_TOKEN_ENV} to an Archidekt JWT access token"
+        )
+    return {
+        "Authorization": f"JWT {token}",
+        "Content-Type": "application/json",
+        "User-Agent": "commander-lab/1.0",
+    }
+
+
+def lookup_card_id(name: str):
+    """Archidekt printing id for an exact card name (first printing), or None."""
+    res = requests.get(
+        "https://archidekt.com/api/cards/v2/",
+        params={"nameSearch": name, "exact": "true", "pageSize": 5},
+        headers={"User-Agent": "commander-lab/1.0"},
+        timeout=20,
+    )
+    res.raise_for_status()
+    results = res.json().get("results") or []
+    for row in results:
+        if (row.get("oracleCard") or {}).get("name") == name:
+            return row.get("id")
+    return results[0].get("id") if results else None
+
+
+def build_modify_ops(remote_cards: list, desired: dict, commanders, card_id_for) -> tuple:
+    """Plan modifyCards ops that make the remote mainboard match `desired`
+    ({name: qty}). Maybeboard/Sideboard entries are never touched.
+    Returns (ops, unresolved_names)."""
+    remote = {}
+    for entry in remote_cards:
+        categories = entry.get("categories") or []
+        if _PUSH_SKIP_CATEGORIES & set(categories):
+            continue
+        name = ((entry.get("card") or {}).get("oracleCard") or {}).get("name")
+        if name:
+            remote.setdefault(name, []).append(entry)
+
+    def op(action, card_id, categories, relation=None, quantity=None):
+        o = {"action": action, "cardid": card_id, "categories": categories, "patchId": uuid.uuid4().hex[:10]}
+        if relation is not None:
+            o["deckRelationId"] = relation
+        o["modifications"] = {} if quantity is None else {"quantity": quantity}
+        return o
+
+    ops, unresolved = [], []
+    for name, entries in remote.items():
+        want = desired.get(name, 0)
+        have = sum(int(e.get("quantity") or 1) for e in entries)
+        for i, e in enumerate(entries):
+            rel, cid, cats = e.get("id"), (e.get("card") or {}).get("id"), e.get("categories") or []
+            if want <= 0 or i > 0 and have != want:
+                ops.append(op("remove", cid, cats, rel))
+            elif i == 0 and have != want:
+                ops.append(op("modify", cid, cats, rel, want))
+    commanders = set(commanders or [])
+    for name, qty in desired.items():
+        if name in remote or qty <= 0:
+            continue
+        cid = card_id_for(name)
+        if cid is None:
+            unresolved.append(name)
+            continue
+        ops.append(op("add", cid, ["Commander"] if name in commanders else [], quantity=qty))
+    return ops, unresolved
+
+
+def push_deck(identifier: str, cards: list, commanders=None) -> dict:
+    """Make the linked Archidekt deck's mainboard match `cards`. Card names
+    that Archidekt can't resolve abort the push before anything is written."""
+    headers = _push_headers()
+    deck_id = parse_identifier(identifier)
+    res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/", headers=headers, timeout=20)
+    res.raise_for_status()
+    desired = {}
+    for c in cards:
+        if c.get("name"):
+            desired[c["name"]] = desired.get(c["name"], 0) + int(c.get("quantity") or 1)
+
+    ops, unresolved = build_modify_ops(res.json().get("cards", []), desired, commanders, lookup_card_id)
+    if unresolved:
+        raise PushError("Archidekt could not resolve: " + ", ".join(sorted(unresolved)))
+    if ops:
+        out = requests.patch(
+            f"https://archidekt.com/api/decks/{deck_id}/modifyCards/",
+            json={"cards": ops}, headers=headers, timeout=30,
+        )
+        if out.status_code in (401, 403):
+            raise PushError(f"Archidekt rejected the token (HTTP {out.status_code}); refresh {PUSH_TOKEN_ENV}")
+        if not out.ok:
+            raise PushError(f"Archidekt modifyCards failed: HTTP {out.status_code} {out.text[:200]}")
+    return {"url": f"https://archidekt.com/decks/{deck_id}", "operations": len(ops)}
