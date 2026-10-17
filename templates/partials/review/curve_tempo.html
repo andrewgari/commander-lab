@@ -24,7 +24,7 @@
     <header class="hud-panel-head"><h3 class="hud-panel-title">Durdle cards</h3><span class="hud-panel-meta">{{ d.durdle_cards | length }}</span></header>
     <ul class="hud-tcards hud-tcards--panel hud-panel-body">
         {%- for card in d.durdle_cards if card is mapping %}
-        <li class="hud-tcard"><span class="hud-tcard-qty">{{ card.qty or 1 }}</span><span class="hud-card-name">{{ card.name }}</span><span></span><span></span>
+        <li class="hud-tcard"><span class="hud-tcard-qty">{{ card.qty or 1 }}</span><span class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</span><span></span><span></span>
             {%- if card.reasons %}<span class="hud-tcard-note">{{ card.reasons | map("replace", "_", " ") | join(", ") }}</span>{% endif %}</li>
         {%- endfor %}
     </ul>

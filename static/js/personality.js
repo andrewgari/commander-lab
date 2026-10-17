@@ -423,7 +423,9 @@
             // Eager: 39 small art crops; lazy left the lower rows blank in full-page captures (PS-D).
             img = '<img alt="" src="https://cards.scryfall.io/art_crop/front/' + id.charAt(0) + "/" + id.charAt(1) + "/" + encodeURIComponent(id) + '.jpg" data-fallback="https://api.scryfall.com/cards/' + encodeURIComponent(id) + '?format=image&amp;version=art_crop">';
         }
-        return '<span class="hud-ps-thumb" aria-hidden="true">' + init + img + "</span>";
+        var cname = (d.commanders || [])[0] || "";
+        var pv = window.HUD && cname ? " data-card-preview" + window.HUD.cardRefAttrString(window.HUD.cardRef({ name: cname, uid: uid })) : "";
+        return '<span class="hud-ps-thumb" aria-hidden="true"' + pv + ">" + init + img + "</span>";
     }
     function rowAttrs(d) {
         return ' data-id="' + esc(d.id) + '" data-lean="' + esc(d.leans_toward) + '" data-journal="' + (d.journal_used ? 1 : 0) + '" data-groups="' + esc((d.groups || []).join(" ")) + '"';

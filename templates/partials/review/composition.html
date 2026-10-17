@@ -14,5 +14,5 @@
     </table></div>
 </div>
 {%- else %}{{ hud.empty("No composition rows") }}{% endif %}
-{%- if d.unknown_cards %}<p class="hud-rv-meta">No card data for: {{ d.unknown_cards | join(", ") }}</p>{% endif %}
+{%- if d.unknown_cards %}<p class="hud-rv-meta">No card data for: {% for n in d.unknown_cards %}{% if not loop.first %}, {% endif %}<span class="hud-cp-name" {{ card_preview_attrs(n) }}>{{ n }}</span>{% endfor %}</p>{% endif %}
 {%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}
