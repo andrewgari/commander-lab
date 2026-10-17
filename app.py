@@ -2296,15 +2296,17 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
-    mode = owned_first | owned_only | best; sleeved=false drops cards in other decks."""
+    mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
+    physical deck) and buy (cards you don't own), both default true. Legacy
+    owned_only / owned_first are accepted and mapped to free / flex."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
@@ -2319,10 +2321,12 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     if err:
         return err
     body = await _json_body(request) or {}
-    mode = body.get("mode", "owned_first") if isinstance(body, dict) else "owned_first"
-    sleeved = bool(body.get("sleeved", True)) if isinstance(body, dict) else True
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = bool(body.get("in_deck", True))
+    buy = bool(body.get("buy", True))
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain
