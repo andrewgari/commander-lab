@@ -162,7 +162,7 @@
     {%- for c in roles %}
     {%- set uid = (c.uid or "") | lower -%}
     {%- set label = CMDR_ROLE_LABELS[c.role] or "Commander" -%}
-    <figure class="hud-cmdr hud-cmdr--{{ c.role | replace('_', '-') }}{% if c.can_be_commander %} is-cbc{% endif %}" title="{{ c.name }} · {{ label }}{% if c.can_be_commander %} ({{ c.type_label or 'card' }} that can be your commander){% endif %}">
+    <figure class="hud-cmdr hud-cmdr--{{ c.role | replace('_', '-') }}{% if c.can_be_commander %} is-cbc{% endif %}" title="{{ c.name }} · {{ label }}{% if c.can_be_commander %} ({{ c.type_label or 'card' }} that can be your commander){% endif %}" {{ card_ref_attrs(c.name, none, none, c.uid) }}>
         {%- if c.role == "companion" %}<span class="hud-cmdr-tag">Companion</span>{% endif -%}
         <span class="hud-cmdr-art">
             {%- if uid -%}
@@ -386,8 +386,8 @@
 {%- endmacro %}
 
 {# Removable chip (picker). #}
-{% macro picker_chip(name) -%}
-<span class="hud-chip hud-chip--ghost" data-value="{{ name }}">{{ name }}<button class="hud-chip-remove" type="button" aria-label="Remove {{ name }}">×</button></span>
+{% macro picker_chip(name, refs=none) -%}
+<span class="hud-chip hud-chip--ghost" data-value="{{ name }}"{% if refs is not none %} data-card-preview {{ card_ref_attrs(name, refs) }}{% endif %}>{{ name }}<button class="hud-chip-remove" type="button" aria-label="Remove {{ name }}">×</button></span>
 {%- endmacro %}
 
 {#- Menu / flyout of links (disclosure pattern, not an ARIA menu: items stay

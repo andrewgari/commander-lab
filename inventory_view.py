@@ -13,6 +13,11 @@ changes: name, deck, type, super_types, sub_types, keywords, oracle_text,
 color, set, set_name, modifier, categories, primary_tag, uid, alt_name,
 price, is_commander, cmc, status, is_core.
 
+Printing identity (hover preview, docs/scryfall-hover-preview.md): `uid` is
+the Scryfall printing id (Archidekt uid), with `set` + `collector_number` as
+the fallback and `oracle_id` as the printing-independent key. Clients turn a
+row into a CardRef with HUD.cardRef(row) (card_refs.py documents the shape).
+
 `status` keeps the legacy inventory vocabulary the filter dropdown uses:
     in_deck / in_collection -> "have"
     in_mail                 -> "pending"
@@ -98,6 +103,7 @@ def build_inventory(r, query: str = "", decks: Optional[Iterable[str]] = None) -
     # Prefer the oracle-keyed record when the name index resolves.
     oracle_ids = mget([f"idx:card_name_to_oracle:{n}" for n in names])
     oracle_meta = mget([f"card_meta:{o}" if o else "card_meta:" for o in oracle_ids])
+    oracle_by_name = {n: (o.decode() if isinstance(o, bytes) else o) or "" for n, o in zip(names, oracle_ids)}
     meta_by_name = {
         n: _json(om, None) or _json(nm, {})
         for n, nm, om in zip(names, name_meta, oracle_meta)
@@ -142,6 +148,8 @@ def build_inventory(r, query: str = "", decks: Optional[Iterable[str]] = None) -
             "categories": categories,
             "primary_tag": primary,
             "uid": inst.get("archidekt_uid", ""),
+            "collector_number": inst.get("collector_number", "") or "",
+            "oracle_id": oracle_by_name.get(name, ""),
             "alt_name": "",
             "price": inst.get("price_paid", 0.0) or 0.0,
             "is_commander": is_commander,
