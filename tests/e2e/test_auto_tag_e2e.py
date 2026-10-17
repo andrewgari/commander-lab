@@ -7,8 +7,7 @@ Covered flows (each test seeds its own deck, so nothing depends on real data):
 - a manual (yours) deck tag and a kept card tag survive a re-run of Auto Tag;
 - filtering the decklist by a tag shows only the matching tiles, and clears.
 
-Known-bug test is a strict xfail so it fails loudly once fixed:
-- numeric and registry deck ids address different tag stores (API split, D3).
+- numeric and registry deck ids address the same tag store (API split D3, fixed in #182).
 
 The seeded deck carries type_line / oracle_text on each card, so the engine
 needs no card-metadata keys in Redis and the expectations are deterministic.
@@ -310,7 +309,6 @@ class TestFilterByTag:
 
 
 class TestApiIdentity:
-    @pytest.mark.xfail(strict=True, reason="auto-tag writes under the raw path id; numeric and registry ids split the tag store")
     def test_numeric_and_registry_ids_address_the_same_tags(self, base_url: str, make_deck):
         import urllib.request
 
