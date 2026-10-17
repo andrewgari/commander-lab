@@ -249,6 +249,11 @@
         });
         
         const tbody = document.getElementById('inventoryList');
+        // Re-rendering drops the focused card name; remember it so keyboard users keep their place.
+        const focusedEl = document.activeElement;
+        const focusedKey = focusedEl && tbody.contains(focusedEl) && focusedEl.hasAttribute('data-card-preview')
+            ? { name: focusedEl.textContent, n: Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedEl.textContent).indexOf(focusedEl) }
+            : null;
         tbody.innerHTML = '';
         currentlyOpen = null; // reset open rows on fresh fetch
         
@@ -367,6 +372,12 @@
             `;
             tbody.appendChild(trDetails);
         });
+
+        if (focusedKey) {
+            const same = Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedKey.name);
+            const target = same[Math.max(focusedKey.n, 0)] || same[0];
+            if (target) target.focus({ preventScroll: true });
+        }
     }
     
     // Start once deferred hud.js has run (loadDecks uses HUD).
