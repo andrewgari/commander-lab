@@ -426,7 +426,7 @@
                 : '-';
             
             tr.innerHTML = `
-                <td class="mtg-font">${escapeHtml(inst.card_name) || 'Unknown'}</td>
+                <td class="mtg-font"><span class="hud-cp-name" tabindex="0" data-card-preview${window.HUD ? HUD.cardRefAttrString(HUD.cardRef(inst)) : ''}>${escapeHtml(inst.card_name) || 'Unknown'}</span></td>
                 <td><span class="status-badge status-${inst.ownership_status}">${getStatusLabel(inst.ownership_status)}</span></td>
                 <td>${deckLink}</td>
                 <td>${setDisplay}</td>

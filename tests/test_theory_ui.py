@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
+import card_refs
 from jinja2 import Environment, FileSystemLoader
 
 import app as app_mod
@@ -39,7 +40,9 @@ def _doc(**over):
 
 
 def _env():
-    return Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env.globals["card_preview_attrs"] = card_refs.preview_attrs
+    return env
 
 
 def render_section(section):
@@ -152,7 +155,7 @@ class TestKnownPartials(unittest.TestCase):
 
     def test_cuts_strike_and_reason(self):
         html = render_section(DOC["sections"][2])
-        self.assertIn("<s class=\"hud-card-name\">Angelic Arbiter</s>", html)
+        self.assertRegex(html, r'<s class="hud-card-name hud-cp-name"[^>]*data-card-preview[^>]*>Angelic Arbiter</s>')
         self.assertIn("symmetric lock", html)
         html = render_section({"type": "cuts", "data": {"cards": [{"name": "Kaalia of the Vast", "commander": True},
                                                                   {"name": "Pet", "pet": True}]}})
@@ -267,7 +270,7 @@ class _IdeasPage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6"])
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7"])
         self.assertEqual(tabs[5][0], "/deck/Holy%20Hellfire/ideas")
         active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
@@ -499,7 +502,7 @@ class TestPageEdges(unittest.TestCase):
 class TestTabHotkey(unittest.TestCase):
     def test_key_6(self):
         js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
-        self.assertIn("/^[1-6]$/", js)
+        self.assertIn("/^[1-7]$/", js)
 
 
 if __name__ == "__main__":

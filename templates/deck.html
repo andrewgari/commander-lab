@@ -70,6 +70,7 @@
 {% call dh.header(head, tab) %}
     <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
     <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
+    <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
     <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
 {% endcall %}
 
@@ -164,6 +165,24 @@
 <div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
 
 <!-- Card Details Modal -->
+{#- Decommission confirmation: POST /api/decks/{id}/decommission (physical decks only). -#}
+<div id="decommissionModal" class="hud-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="decommissionTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="decommissionTitle">Decommission deck?</h3>
+        </header>
+        <div class="hud-panel-body">
+            <p><strong id="decommissionDeckName"></strong> will be retired and moved to the Retired category.
+               Its cards will be returned to the owned pool as unassigned cards. No cards are deleted.</p>
+            <div id="decommissionError" class="hud-muted" role="alert" hidden></div>
+            <div class="deck-primer-actions">
+                <button type="button" class="hud-btn hud-btn--sm" id="decommissionCancelBtn" onclick="closeDecommissionDialog()">Cancel</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" id="decommissionConfirmBtn" onclick="confirmDecommission()">Decommission</button>
+            </div>
+        </div>
+    </section>
+</div>
+
 <div id="cardModal" class="hud-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalCardName">
         <header class="hud-panel-head">
@@ -198,6 +217,14 @@
     let deckLoaded = false;  // the bracket result can arrive before the inventory
 
     const esc = (s) => HUD.esc(s);
+    // Printing identity for the hover preview (card_refs.py, HUD.cardRef).
+    // Inventory rows carry uid / set / collector_number themselves; CARD_REFS
+    // (this deck's instances + commanders, keyed by HUD.cardKey) covers names
+    // that arrive without a printing. Anything else is the name-only fallback
+    // (printingSpecific false: NOT printing-specific).
+    const CARD_REFS = {{ (head.card_refs or {}) | tojson }};
+    const refOf = (c) => HUD.cardRef(c, CARD_REFS);
+    const refAttr = (c) => esc(HUD.cardRefAttrs(refOf(c))['data-card-ref']);
     const isLand = (c) => !!(c.type && c.type.includes("Land"));
 
     function getEdhrecSlug(name) {
@@ -213,7 +240,7 @@
             meta: cmc ? 'CMC ' + cmc : (isLand(card) ? 'Land' : ''),
             colors: isLand(card) ? null : (card.color || ''),
             chip: card.is_core ? ['Core', 'signal'] : null,
-            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, 'data-card-name': card.name, title: card.name }
+            attrs: Object.assign({ role: 'button', tabindex: '0', 'data-card-index': index, title: card.name }, HUD.cardRefAttrs(refOf(card)))
         });
         if (!flag) return html;
         // BR-6 flag: severity frame + top bar + a caption line. Nothing on the art.
@@ -312,6 +339,47 @@
         el.focus({ preventScroll: true });
     }
 
+    function openDecommissionDialog() {
+        if (!currentDeck) return;
+        document.getElementById('decommissionDeckName').textContent = currentDeck.name;
+        document.getElementById('decommissionError').hidden = true;
+        HUD.openModal('decommissionModal');
+    }
+
+    function closeDecommissionDialog() {
+        if (document.getElementById('decommissionConfirmBtn').disabled) return; // busy
+        HUD.closeModal('decommissionModal');
+    }
+
+    async function confirmDecommission() {
+        const confirmBtn = document.getElementById('decommissionConfirmBtn');
+        const cancelBtn = document.getElementById('decommissionCancelBtn');
+        const errEl = document.getElementById('decommissionError');
+        errEl.hidden = true;
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.textContent = 'Decommissioning...';
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(currentDeck.id)}/decommission`, { method: 'POST' });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${res.status})`);
+            }
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            HUD.closeModal('decommissionModal');
+            await loadDeckData(); // refresh deck + card state
+        } catch (e) {
+            errEl.textContent = `Failed to decommission: ${e.message}`;
+            errEl.hidden = false;
+        } finally {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.textContent = 'Decommission';
+        }
+    }
+
     async function loadDeckData() {
         try {
             const deckRes = await fetch('/api/decks');
@@ -355,6 +423,8 @@
             document.getElementById('deckStatus').innerHTML = HUD.statusChip(d.status);
         });
         document.getElementById('deckFolder').textContent = folder;
+        // Decommission is only available for physical (non-retired) decks
+        document.getElementById('decommissionBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
         if (deck.description) {
@@ -399,7 +469,7 @@
                     // No printing UID: Scryfall's named-card image instead.
                     const img = p.uid ? HUD.scryfall(p.uid, 'large')
                         : { src: 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.name) + '&format=image&version=large', fallback: '' };
-                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
+                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback, attrs: HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid })) });
                 }
                 // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.
                 if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media"><span class="hud-cmdr-badge">' + esc(r.type_label || 'Commander') + '</span>');
@@ -569,7 +639,7 @@
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
             const cmc = isLand(c) ? '' : (c.cmc || 0);
-            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" tabindex="0">
+            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" data-card-ref="${refAttr(c)}" tabindex="0">
                 <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
@@ -614,7 +684,9 @@
         if (!isLand(card)) pairs.push(['CMC', `<span class="hud-num">${card.cmc || 0}</span>`], ['Colour', HUD.pips(card.color || '', 'sm')]);
         pairs.push(['Price', `<span class="hud-num">${priceStr}</span>`]);
 
-        document.getElementById('modalCardName').textContent = card.name;
+        const nameEl = document.getElementById('modalCardName');
+        nameEl.textContent = card.name;
+        Object.assign(nameEl.dataset, { cardName: card.name, cardRef: HUD.cardRefAttrs(refOf(card))['data-card-ref'] });
         document.getElementById('modalCardArt').innerHTML = HUD.art(card.name, img.src, { kind: 'card', fallback: img.fallback, meta: card.modifier && card.modifier !== 'Normal' ? card.modifier : '' });
         document.getElementById('modalCardInfo').innerHTML = `
             <dl class="hud-kv">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
@@ -714,14 +786,21 @@
     // ---- Ability scores panel (PS-4) -------------------------------------
     const psDeckId = {{ (head.registry_id or deck_name) | tojson }};
     const psApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality';
-    let psEv = null, psPoll = null, psPollN = 0;
+    const psReadApi = '/api/decks/' + encodeURIComponent(psDeckId) + '/personality/read';
+    let psEv = null, psPoll = null, psPollN = 0, psOraclePoll = null, psOraclePollN = 0;
+    let psOracleVisible = false;
     const PS_HINT = '<span class="hud-ps-hint">Evidence: click a score or press</span>' +
         ['T', 'J', 'S', 'V', 'M'].map(k => '<span class="hud-kbd">' + k + '</span>').join('');
 
     function psRender(state, info) {
         const body = document.getElementById('psBody'), foot = document.getElementById('psFoot');
         body.innerHTML = PSUI.deckPanelBody(state, info);
-        document.getElementById('psMeta').innerHTML = state === 'ok' ? PS_HINT : '';
+        let metaHtml = '';
+        if (state === 'ok') {
+            const btnLabel = (info.d && info.d.oracle_used) ? 'Re-read with Oracle' : 'Oracle read';
+            metaHtml = PS_HINT + ' <button type="button" class="hud-btn hud-btn--sm" id="psOracleBtn" data-ps-oracle>' + btnLabel + '</button>';
+        }
+        document.getElementById('psMeta').innerHTML = metaHtml;
         body.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
         if (state === 'ok') {
             foot.innerHTML = PSUI.deckPanelFoot(info);
@@ -729,7 +808,10 @@
             psEv = PSUI.bindEvidence(document.getElementById('psPanel'), info.d, {
                 onCard: name => { const i = inventoryCards.findIndex(c => c.name === name); if (i !== -1) openCardModal(i); }
             });
+            const obtn = document.getElementById('psOracleBtn');
+            if (obtn) obtn.addEventListener('click', psRequestOracleRead);
         } else {
+            psOracleVisible = false;
             foot.hidden = true;
             psEv = null;
         }
@@ -761,8 +843,11 @@
         if (res.ok && data.personality) {
             psStopPoll();
             const avg = await psAverage();
-            psRender('ok', Object.assign({ d: PSUI.deckModel(data.personality), computed_at: data.computed_at,
-                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null }, avg));
+            const dModel = PSUI.deckModel(data.personality, data.read || data.oracle_read);
+            psOracleVisible = !!dModel.oracle_used;
+            psRender('ok', Object.assign({ d: dModel, computed_at: data.computed_at,
+                stale: data.stale, pending: data.pending, error: data.status === 'error' ? data.error : null,
+                oracle_status: data.oracle_status }, avg));
             return;
         }
         if (res.status === 404 && data.status === 'not_scored') {
@@ -794,6 +879,84 @@
         psPoll = setInterval(() => { if (++psPollN > 24) { psStopPoll(); loadPersonality(); } else loadPersonality(); }, 5000);
     }
     function psStopPoll() { if (psPoll) { clearInterval(psPoll); psPoll = null; } }
+
+    async function psRequestOracleRead() {
+        const obtn = document.getElementById('psOracleBtn');
+        if (obtn) { obtn.disabled = true; obtn.textContent = 'Oracle reading…'; }
+        try {
+            const res = await fetch(psReadApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force: true })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 200 && data.cached) {
+                await loadPersonality();
+                return;
+            }
+            if (res.status === 202 && data.job_id) {
+                psStartOraclePoll(data.job_id);
+                return;
+            }
+            if (res.status === 503) {
+                psShowOracleOffline();
+                return;
+            }
+            throw new Error(data.error || ('HTTP ' + res.status));
+        } catch (e) {
+            psShowOracleOffline(e.message);
+        }
+    }
+
+    function psStartOraclePoll(jobId) {
+        if (psOraclePoll) clearInterval(psOraclePoll);
+        psOraclePollN = 0;
+        psOraclePoll = setInterval(async () => {
+            if (++psOraclePollN > 260) {  // ~13 min at 3 s; oracle's own timeout is 600 s
+                clearInterval(psOraclePoll);
+                psOraclePoll = null;
+                psShowOracleOffline('Oracle timed out');
+                return;
+            }
+            try {
+                const r = await fetch(psReadApi + '/jobs/' + encodeURIComponent(jobId));
+                const data = await r.json();
+                if (data.job && data.job.status === 'done') {
+                    clearInterval(psOraclePoll);
+                    psOraclePoll = null;
+                    await loadPersonality();
+                } else if (data.job && data.job.status === 'failed') {
+                    clearInterval(psOraclePoll);
+                    psOraclePoll = null;
+                    psShowOracleOffline(data.job.error || 'Oracle read failed');
+                }
+            } catch (e) {
+                clearInterval(psOraclePoll);
+                psOraclePoll = null;
+                psShowOracleOffline(e.message);
+            }
+        }, 3000);
+    }
+
+    async function psShowOracleOffline(detail) {
+        // Refresh to the current read (stale reads are withheld server-side), then flag offline.
+        try { await loadPersonality(); } catch (e) { /* keep current view */ }
+        const obtn = document.getElementById('psOracleBtn');
+        if (obtn) { obtn.disabled = false; obtn.textContent = 'Oracle read'; }
+        const foot = document.getElementById('psFoot');
+        if (foot && !foot.hidden) {
+            const notes = foot.querySelector('.hud-ps-notes');
+            if (notes && !notes.querySelector('[data-ps-offline]')) {
+                const chip = document.createElement('span');
+                chip.className = 'hud-chip hud-chip--neutral';
+                chip.setAttribute('data-ps-offline', 'true');
+                chip.textContent = psOracleVisible
+                    ? 'Oracle offline; showing previous Oracle read'
+                    : 'Oracle offline; showing rulebook';
+                notes.prepend(chip);
+            }
+        }
+    }
 
     // T J S V M open that axis' evidence; Esc closes it (never while typing or with the card modal open).
     document.addEventListener('keydown', (ev) => {

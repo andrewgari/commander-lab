@@ -20,6 +20,13 @@ next_data.json
 *.log
 *.rdb
 scratch/
+
+# AN-8 mechanically-similar data: private HF parquet + built artifact (never committed)
+mtg_embeddings.parquet
+*.parquet
+analytics/data/mech_similar.npz
+mech_similar.npz
+!tests/fixtures/mech_similar_fixture.npz
 .worktrees/
 
 # Testing and coverage

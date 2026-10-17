@@ -464,6 +464,13 @@ def update_deck_cards(
 
     _save_decks(r, decks)
 
+    try:  # RV-3: a changed decklist marks the saved Deep Review stale (never rebuilds)
+        from analytics import review_doc
+
+        review_doc.mark_stale_on_sync(r, {**target, "registry_id": registry_id_of(target)})
+    except Exception:  # noqa: BLE001
+        pass
+
     if target.get("status") == "physical":
         new_card_names = {c.get("name") for c in cards if c.get("name")}
         instance_store.flag_resync_removed(r, target["id"], new_card_names)
@@ -655,3 +662,154 @@ def apply_folder_rules(r) -> dict:
         if res:
             changed[rid] = res["deck"]["status"]
     return changed
+
+
+DEFAULT_DECOMMISSION_TAG = "removed"
+
+
+class DecommissionError(ValueError):
+    """Deck cannot be decommissioned (e.g. not a physical deck)."""
+
+
+def _find_in(decks: list, registry_id: str) -> Optional[dict]:
+    return next(
+        (d for d in decks if registry_id_of(d) == registry_id or str(d.get("id")) == registry_id),
+        None,
+    )
+
+
+def _apply_decommission(r, decks: list, registry_id: str, tag: str, pipe, now: str) -> dict:
+    """Shared core of single + bulk decommission. Validates the deck, mutates
+    it in `decks` (in memory), and queues instance unbinds on `pipe`. Does NOT
+    write DECKS_KEY or execute the pipe: the caller does that once, so any
+    number of decks land in one MULTI/EXEC. Raises ValueError (not found) or
+    DecommissionError (not physical) BEFORE mutating anything for that deck."""
+    target = _find_in(decks, registry_id)
+    if not target:
+        raise ValueError(f"deck not found: {registry_id}")
+
+    if target.get("decommissioned_at"):
+        return {
+            "deck": target,
+            "already_decommissioned": True,
+            "tag_removed": False,
+            "unassigned_count": 0,
+            "unassigned_instance_ids": [],
+        }
+
+    if target.get("status") != "physical":
+        raise DecommissionError(
+            f"only physical decks can be decommissioned (deck status is {target.get('status')!r})"
+        )
+
+    reg_id = registry_id_of(target)
+    bound = {}
+    for key in {str(reg_id), str(target.get("id"))}:
+        for inst in instance_store.list_instances(r, deck_id=key):
+            if inst.get("ownership_status") == "in_deck":
+                bound[inst["id"]] = inst
+
+    tags = list(target.get("tags") or [])
+    tag_removed = tag in tags
+    target["tags"] = [t for t in tags if t != tag]
+    target["status"] = "retired"
+    target["decommissioned_at"] = now
+
+    for inst in bound.values():
+        instance_store.queue_unassign_from_deck(pipe, inst, now)
+    pipe.set(f"deck_status:{target['id']}", "retired")
+
+    return {
+        "deck": target,
+        "already_decommissioned": False,
+        "tag_removed": tag_removed,
+        "unassigned_count": len(bound),
+        "unassigned_instance_ids": sorted(bound),
+    }
+
+
+def decommission_deck(r, registry_id: str, tag: str = DEFAULT_DECOMMISSION_TAG) -> dict:
+    """Decommission a PHYSICAL deck in one Redis MULTI/EXEC transaction:
+
+      1. reject unless deck status == "physical" (DecommissionError)
+      2. drop `tag` from the deck's `tags` list (deck-level status tag)
+      3. move the deck to the "retired" category (status = "retired")
+      4. unbind every instance bound in_deck to this deck -> in_collection
+         (cards stay owned; nothing is deleted)
+
+    Idempotent: a deck already decommissioned (has `decommissioned_at`) returns
+    `already_decommissioned=True` with no writes. Raises ValueError if the deck
+    is not found.
+    """
+    decks = _load_decks(r)
+    pipe = r.pipeline()
+    result = _apply_decommission(r, decks, registry_id, tag, pipe, instance_store._now())
+    if not result["already_decommissioned"]:
+        pipe.set(DECKS_KEY, json.dumps(decks))
+        pipe.execute()
+    return result
+
+
+MAX_BULK_DECOMMISSION = 100
+
+
+def decommission_decks(r, deck_ids: list, tag: str = DEFAULT_DECOMMISSION_TAG) -> dict:
+    """Bulk decommission. Uses the exact same per-deck logic as
+    `decommission_deck` (`_apply_decommission`).
+
+    Semantics: PER-DECK results, not all-or-nothing. A bad id (not found / not
+    physical) lands in `failed` and does not block the others. All decks that
+    do succeed are written in ONE MULTI/EXEC, so the successful set is atomic.
+
+    - empty list / non-list / non-string ids / > MAX_BULK_DECOMMISSION
+      -> ValueError (caller maps to 400)
+    - duplicate ids are collapsed (first occurrence order kept)
+    - already-decommissioned decks are no-op successes (`already_decommissioned`)
+
+    Returns {"succeeded": [{deck_id, status, tags, already_decommissioned,
+    tag_removed, unassigned_count, unassigned_instance_ids}],
+    "failed": [{deck_id, reason, code}]} with code "not_found" | "not_physical".
+    """
+    if not isinstance(deck_ids, list) or not deck_ids:
+        raise ValueError("deck_ids must be a non-empty list")
+    if not all(isinstance(i, str) and i.strip() for i in deck_ids):
+        raise ValueError("deck_ids must be non-empty strings")
+    ids = list(dict.fromkeys(i.strip() for i in deck_ids))
+    if len(ids) > MAX_BULK_DECOMMISSION:
+        raise ValueError(f"too many decks (max {MAX_BULK_DECOMMISSION})")
+
+    decks = _load_decks(r)
+    pipe = r.pipeline()
+    now = instance_store._now()
+    succeeded, failed, wrote = [], [], False
+    seen = set()  # registry ids and numeric aliases already handled (alias dedupe)
+    for did in ids:
+        target = _find_in(decks, did)
+        if target is not None:
+            key = registry_id_of(target)
+            if key in seen:
+                continue
+            seen.add(key)
+        try:
+            res = _apply_decommission(r, decks, did, tag, pipe, now)
+        except DecommissionError as e:
+            failed.append({"deck_id": did, "reason": str(e), "code": "not_physical"})
+            continue
+        except ValueError as e:
+            failed.append({"deck_id": did, "reason": str(e), "code": "not_found"})
+            continue
+        wrote = wrote or not res["already_decommissioned"]
+        deck = res["deck"]
+        succeeded.append({
+            "deck_id": registry_id_of(deck),
+            "status": deck["status"],
+            "tags": deck.get("tags", []),
+            "already_decommissioned": res["already_decommissioned"],
+            "tag_removed": res["tag_removed"],
+            "unassigned_count": res["unassigned_count"],
+            "unassigned_instance_ids": res["unassigned_instance_ids"],
+        })
+    if wrote:
+        pipe.set(DECKS_KEY, json.dumps(decks))
+        pipe.execute()
+    return {"succeeded": succeeded, "failed": failed}

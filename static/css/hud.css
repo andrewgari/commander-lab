@@ -529,6 +529,8 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hud-muted { color: var(--text-3); }
 .hud-card-name { font-family: var(--font-card); font-weight: var(--fw-semibold); color: var(--text-1); }
+/* Card name that previews its printing on hover (card_hover_preview.css adds the dotted underline). */
+.hud-cp-name { cursor: default; }
 
 /* Page header ------------------------------------------------------------------ */
 .hud-page-head {
@@ -1583,6 +1585,8 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-picker input { flex: 1; min-width: 10rem; border: 0; padding: var(--sp-1); background: transparent; }
 .hud-picker .hud-chip { font-family: var(--font-card); font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
 .hud-toggle { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.hud-toggles { display: inline-flex; gap: var(--sp-3); align-items: center; }
+.hud-toggles[hidden] { display: none; }
 .hud-toggle input { width: 1rem; height: 1rem; accent-color: var(--signal); }
 
 /* Save bar (sticky, appears when dirty) */
@@ -2281,6 +2285,14 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-nudge.is-down { color: var(--ps-journal-neg); }
 .hud-ps-nudge.is-none { color: var(--text-3); }
 
+/* Oracle vs rulebook delta on a tile: "+15" / "−10" / "±0" (PS-6). */
+.hud-ps-delta { font: var(--fs-micro) var(--font-mono); letter-spacing: 0.02em; white-space: nowrap; margin-left: auto; padding: 0 var(--sp-1); border-radius: var(--radius-1); }
+.hud-ps-delta.is-up { color: var(--signal-strong); background: var(--signal-dim); }
+.hud-ps-delta.is-down { color: var(--text-3); background: var(--surface-2); }
+.hud-ps-delta.is-none { color: var(--text-3); }
+.hud-ps-tile.is-lean .hud-ps-delta.is-up { color: var(--text-on-signal); outline: var(--hairline) solid var(--text-on-signal); }
+.hud-ps-tile.is-lean .hud-ps-delta.is-down { color: var(--text-on-signal); opacity: 0.75; }
+
 /* Panel foot: notes (degraded inputs), average key, freshness, profile link. */
 .hud-ps-foot { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; justify-content: space-between; }
 .hud-ps-foot a { color: var(--text-2); }
@@ -2347,6 +2359,16 @@ a.hud-idea-theme:hover { color: var(--signal); }
 .hud-ps-ev-sum { margin-left: auto; color: var(--text-2); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
 .hud-ps-ev-sum b { color: var(--text-1); font-weight: var(--fw-medium); }
 .hud-ps-ev-close { margin-left: var(--sp-2); }
+
+/* Oracle justification & overrides in evidence drawer (PS-6). */
+.hud-ps-ev-oracle { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border-bottom: var(--stroke); }
+.hud-ps-ev-oracle-head { display: flex; align-items: center; gap: var(--sp-2); }
+.hud-ps-ev-oracle-score { font: var(--fs-xs) var(--font-mono); color: var(--text-2); margin-left: auto; }
+.hud-ps-ev-oracle-score b { color: var(--text-1); }
+.hud-ps-ev-oracle-why { margin: 0; color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-ps-ev-oracle-cards { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-1); }
+.hud-ps-ev-override { display: flex; align-items: baseline; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); background: var(--surface-1); border-bottom: var(--stroke); font-size: var(--fs-xs); color: var(--text-2); }
+.hud-ps-ev-rulebook-head { padding: var(--sp-2) var(--sp-4) var(--sp-1); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
 .hud-ps-ev-list { list-style: none; margin: 0; padding: 0; }
 .hud-ps-ev-row { display: grid; grid-template-columns: 2.25rem minmax(10rem, 16rem) minmax(0, 1fr) 4.5rem; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); border-top: var(--stroke-faint); }
 .hud-ps-ev-row:first-child { border-top: 0; }
@@ -2521,4 +2543,29 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-ps-filters .hud-seg label { flex: none; }
     .hud-ps-filters input[type=search] { max-width: none; width: 100%; }
     .hud-ps-count { margin-left: 0; width: 100%; }
+}
+
+/* =======================================================================
+   13. RV-4: Deep Review tab (deck_review.html, partials/review/<type>.html).
+   Reuses the Ideas/Theory doc kit (section 8/11); only what it lacks lives here.
+   ======================================================================= */
+.hud-rv-stack { display: grid; gap: var(--sp-3); }
+.hud-rv-block { margin-top: var(--sp-4); }
+.hud-rv-stats { margin-bottom: var(--sp-4); }
+.hud-rv-meta { margin: var(--sp-3) 0 0; color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow-wrap: anywhere; }
+.hud-rv-why { margin: var(--sp-2) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.hud-rv-h { margin: var(--sp-3) 0 var(--sp-1); color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.hud-rv-prose { margin-bottom: var(--sp-4); }
+.hud-rv-list { list-style: none; margin: 0; padding: 0; }
+.hud-rv-combo { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.hud-rv-combo:last-child { border-bottom: 0; }
+.hud-rv-combo b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-rv-combo span { color: var(--text-2); font-size: var(--fs-xs); }
+.hud-rv-table { min-width: 0; }
+.rv-stale { margin-top: var(--sp-4); }
+.hud-rv-genre .hud-chips { gap: var(--sp-1); }
+@media (max-width: 640px) {
+    .hud-rv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hud-doc .hud-kv { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    .hud-doc .hud-kv dd { margin-bottom: var(--sp-2); }
 }

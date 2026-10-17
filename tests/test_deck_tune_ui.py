@@ -43,7 +43,7 @@ class _TunePage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6"])
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7"])
         self.assertEqual(tabs[4][0], "/deck/Holy%20Hellfire/tune")
         active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
@@ -54,6 +54,13 @@ class _TunePage(_DeckPage):
 
 
 class TestTunePage(_TunePage, unittest.TestCase):
+    def test_hidden_note_is_an_accessible_toggle(self):
+        self.assertIn('data-hidden-toggle', self.body)
+        self.assertIn('"aria-expanded"', self.body.replace("'", '"'))
+        self.assertRegex(self.body, r'aria-controls')
+        self.assertRegex(self.body, r'<button type="button" class="tn-hidden-toggle"')
+        self.assertIn('Showing the top', self.body)  # truncation is stated
+
     def test_kit_structure(self):
         for cls_ in ["hud-filterbar", "hud-seg", "hud-toggle", "hud-tune", "hud-swaps", "hud-changes", "hud-caps",
                      "hud-kbd", "hud-table", "hud-panel-foot", "hud-section-head"]:
@@ -68,9 +75,14 @@ class TestTunePage(_TunePage, unittest.TestCase):
 
     def test_source_seg_is_native_radios_owned_first_default(self):
         radios = re.findall(r'<input type="radio" name="src" id="src-(\w+)" value="(\w+)"( checked)?>', self.body)
-        self.assertEqual([v for _, v, _ in radios], ["owned_first", "owned_only", "best"])
-        self.assertEqual([v for _, v, c in radios if c], ["owned_first"])
-        self.assertRegex(self.body, r'<input type="checkbox" id="sleeved" checked>')
+        self.assertEqual([v for _, v, _ in radios], ["free", "flex", "best"])
+        self.assertEqual([v for _, v, c in radios if c], ["flex"])
+        self.assertRegex(self.body, r'<input type="checkbox" id="inDeck" checked>')
+        self.assertRegex(self.body, r'<input type="checkbox" id="buy" checked>')
+        for label in ("Owned, not in a deck", "Owned, plus in-deck and/or buy", "Best card"):
+            self.assertIn(label, self.body)
+        for dead in ("Owned first", "Owned only", "Best regardless", "sleeved-elsewhere", 'id="sleeved"'):
+            self.assertNotIn(dead, self.body)
 
     def test_sections_in_spec_order(self):
         marks = ['id="fixT"', 'id="swT"', 'id="wkT"', 'aria-label="Pending changes"', ">Keys</h3>"]
@@ -116,6 +128,60 @@ class TestTunePage(_TunePage, unittest.TestCase):
         self.assertIn('"; put " + esc(m.give) + " in it"', self.body)
 
 
+class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
+    """Page loads the saved recommendation; Recompute is the only thing that computes."""
+
+    def test_page_loads_saved_then_state_and_never_the_unsaved_tune_route(self):
+        self.assertIn('fetch(API + "/tune/saved")', self.body)
+        self.assertIn('fetch(API + "/tune/state")', self.body)
+        self.assertIn('send("POST", "/tune/recompute"', self.body)
+        self.assertNotIn('fetch(API + "/tune" + query())', self.body)
+
+    def test_recompute_button_generated_stamp_and_error_slot(self):
+        self.assertRegex(self.body, r'<button class="hud-btn" type="button" id="recompute"[^>]*>Recompute</button>')
+        self.assertIn('id="tuneGenerated"', self.body)
+        self.assertIn('id="recomputeError"', self.body)
+        self.assertIn("archived, not deleted", self.body)
+        self.assertIn('"Generated " + A.age(REC.created_at)', self.body)
+
+    def test_failed_recompute_keeps_old_result(self):
+        # The catch branch only writes the error line when a result is on screen; it never re-renders.
+        catch = self.body.split("function recompute()", 1)[1].split("function loadSaved()", 1)[0].split(".catch", 1)[1]
+        self.assertIn("Still showing the result from", catch)
+        self.assertNotIn("renderAll", catch)
+
+    def test_filters_do_not_recompute(self):
+        self.assertIn('btn.addEventListener("click", recompute)', self.body)
+        self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
+
+
+class TestTuneStateAPI(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeRedis()
+        self.client = TestClient(app)
+        self.patches = [patch.object(app_mod, "r", self.fake),
+                        patch("app.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
+                        patch("app.registry.list_decks", return_value=[DECK])]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in self.patches])
+
+    def test_state_returns_decisions_adds_and_pets(self):
+        base = "/api/decks/archidekt:417707/tune"
+        self.assertEqual(self.client.get(base + "/state").json()["state"]["decisions"], {})
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": "own", "add": "Owned Ok"})
+        self.client.put(base + "/adds", json={"adds": [{"name": "Plains", "qty": 2, "source": "basic"}]})
+        journal.save_journal(self.fake, DECK, {"pet_cards": ["Pet Card"]})
+        j = self.client.get(base + "/state").json()
+        self.assertTrue(j["success"])
+        self.assertEqual(j["state"]["decisions"]["Weak Plan"]["add"], "Owned Ok")
+        self.assertEqual(j["state"]["adds"][0]["qty"], 2)
+        self.assertEqual(j["pet_cards"], ["Pet Card"])
+
+    def test_state_unknown_deck_404(self):
+        self.assertEqual(self.client.get("/api/decks/archidekt:999/tune/state").status_code, 404)
+
+
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
     def test_finish_button_label(self):
         with open(TEMPLATE.replace("deck_tune.html", "deck_journal.html"), encoding="utf-8") as fh:
@@ -128,12 +194,12 @@ class TestCheckinFinishLandsOnTune(unittest.TestCase):
         self.assertIn('"/tune?add=" + encodeURIComponent(miss)', src)
 
 
-def _fake_compute(r, deck, mode="owned_first", sleeved=True, **kw):
+def _fake_compute(r, deck, mode="flex", in_deck=True, buy=True, **kw):
     cands = [cand("Owned Ok", 4, 0.75, 0.35, owned=True, available=1),
              cand("Soft Buy", 4, 0.9, 0.45, price=18.50),
              cand("Pricey Bomb", 4, 0.99, 0.5, price=95.0)]
     out = tuner.build_tune(deck, WEAK, COMP, cands, tuner.caps_for(r, deck), p75=4.0, has_pillars=True,
-                           has_edhrec=True, mode=mode, sleeved=sleeved, state=tuner.load_state(r, deck))
+                           has_edhrec=True, mode=mode, in_deck=in_deck, buy=buy, state=tuner.load_state(r, deck))
     out["on_plan"] = {"pct": 70, "on": 70, "total": 100}
     return out
 
@@ -166,7 +232,7 @@ class TestTuneAPI(unittest.TestCase):
         s = next(x for x in t["swaps"] if x["cut"]["name"] == "Weak Plan")
         self.assertEqual(s["buy"]["cap"], "soft")
         self.assertEqual(s["hidden_hard"], 1)
-        self.assertNotIn("Pricey Bomb", json.dumps(t["swaps"]))
+        self.assertEqual([c["name"] for c in s["hidden_hard_cards"]], ["Pricey Bomb"])
         self.assertEqual(self.client.get("/api/decks/archidekt:417707/tune?mode=nope").status_code, 400)
 
     def test_decisions_adds_and_pet(self):

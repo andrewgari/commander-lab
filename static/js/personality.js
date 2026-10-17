@@ -118,12 +118,44 @@
     // ------------------------------------------------------------------ model
     function rank(scores) { return AX.slice().sort(function (a, b) { return (scores[b] - scores[a]) || (AX.indexOf(a) - AX.indexOf(b)); }); }
 
-    // API `personality` (PersonalityScores) -> {scores, leans, runner, journal, notes, detail, version}
-    function deckModel(p) {
-        var scores = {};
-        AX.forEach(function (a) { scores[a] = p[a] ? p[a].score : 0; });
-        return { scores: scores, leans: p.leans_toward || "balanced", runner: p.runner_up || null,
-                 journal: !!p.journal_used, notes: p.notes || [], detail: p, version: p.version, computed_at: p.computed_at };
+    // API `personality` (PersonalityScores) + optional `read` (PersonalityReadDoc) -> view model
+    function deckModel(p, read) {
+        var scores = {}, rulebook_scores = {};
+        AX.forEach(function (a) {
+            rulebook_scores[a] = p && p[a] ? p[a].score : 0;
+            if (read && read.scores && read.scores[a] && read.scores[a].score != null) {
+                scores[a] = read.scores[a].score;
+            } else {
+                scores[a] = rulebook_scores[a];
+            }
+        });
+        var oracle_used = !!(read && read.scores);
+        var justifications = {}, scores_detail = {};
+        if (oracle_used) {
+            AX.forEach(function (a) {
+                justifications[a] = read.scores[a] ? (read.scores[a].justification || "") : "";
+                scores_detail[a] = read.scores[a] || null;
+            });
+        }
+        var leans = oracle_used ? (read.leans_toward || "balanced") : (p ? (p.leans_toward || "balanced") : "balanced");
+        var runner = oracle_used ? (read.runner_up || null) : (p ? (p.runner_up || null) : null);
+        return {
+            scores: scores,
+            rulebook_scores: rulebook_scores,
+            leans: leans,
+            runner: runner,
+            journal: !!(p && p.journal_used),
+            notes: p ? (p.notes || []) : [],
+            detail: p,
+            version: p ? p.version : null,
+            computed_at: p ? p.computed_at : null,
+            oracle_used: oracle_used,
+            oracle_summary: oracle_used ? (read.summary || "") : "",
+            justifications: justifications,
+            scores_detail: scores_detail,
+            overrides: oracle_used ? (read.overrides || []) : [],
+            table_impact_flags: oracle_used ? (read.table_impact_flags || []) : []
+        };
     }
 
     // Kind of lean: clear | close | bunched (balanced, top >= 35) | low (balanced, top < 35)
@@ -138,6 +170,11 @@
         return { kind: "clear", top: d.leans, r: r, next: next, gap: s[d.leans] - s[next] };
     }
     function leanSentence(d) {
+        if (d.oracle_used && d.oracle_summary) {
+            var n = function (a) { return AXIS[a] ? AXIS[a].name : a; };
+            var head = (d.leans === "balanced" || !AXIS[d.leans]) ? "Balanced" : "Leans <em>" + n(d.leans) + "</em>";
+            return { head: head, why: esc(d.oracle_summary) };
+        }
         var li = leanInfo(d), s = d.scores, n = function (a) { return AXIS[a].name; };
         if (li.kind === "low") return { head: "Nothing stands out", why: "Top score is <b>" + n(li.top) + " " + s[li.top] + "</b>, below 35 on every axis." };
         if (li.kind === "bunched") return { head: "Balanced", why: "<b>" + n(li.r[0]) + ", " + n(li.r[1]) + " and " + n(li.r[2]) + "</b> are within " + li.spread + " " + plural(li.spread, "point") + "." };
@@ -176,10 +213,18 @@
             var label = AXIS[a].name + " " + d.scores[a] + (d.leans === a ? ", lean" : d.runner === a ? ", close second" : "");
             var x = d.detail && d.detail[a];
             var tag = opts.static ? "div" : "button";
+            var deltaHtml = "";
+            if (d.oracle_used && d.rulebook_scores) {
+                var delta = d.scores[a] - d.rulebook_scores[a];
+                var deltaSign = delta > 0 ? "+" : delta < 0 ? "−" : "±";
+                var deltaCls = delta > 0 ? "is-up" : delta < 0 ? "is-down" : "is-none";
+                deltaHtml = '<span class="hud-ps-delta ' + deltaCls + '" title="Oracle: ' + d.scores[a] + ' · Rulebook: ' + d.rulebook_scores[a] + ' (' + (delta >= 0 ? '+' : '') + delta + ')">' + deltaSign + Math.abs(delta) + '</span>';
+            }
             return "<" + tag + (tag === "button" ? ' type="button" aria-expanded="false" aria-controls="psEv"' : ' role="img"') +
                 ' class="' + c.join(" ") + '" data-axis="' + a + '" aria-label="' + esc(label) + '">' +
                 '<span class="hud-ps-top">' + mono(a) + '<span class="hud-label">' + AXIS[a].name + "</span>" +
-                (d.runner === a ? '<span class="hud-ps-2nd">2nd</span>' : "") + (x ? nudge(x.journal_nudge, d.journal) : "") + "</span>" +
+                (d.runner === a ? '<span class="hud-ps-2nd">2nd</span>' : "") +
+                (d.oracle_used ? deltaHtml : (x ? nudge(x.journal_nudge, d.journal) : "")) + "</span>" +
                 '<span class="hud-ps-num">' + (opts.skeleton ? "—" : d.scores[a]) + "</span>" +
                 meter(d.scores[a], i, ref ? ref[a] : null) +
                 '<span class="hud-ps-desc">' + AXIS[a].who + "</span></" + tag + ">";
@@ -227,17 +272,46 @@
     }
     function evidence(d, a) {
         var x = d.detail && d.detail[a];
-        if (!x) return '<div class="hud-ps-ev-head"><h4 id="psEvTitle">' + AXIS[a].name + " · " + d.scores[a] + "</h4><p>No evidence stored for this axis.</p></div>";
-        var ev = x.evidence || [];
+        if (!x && !d.oracle_used) return '<div class="hud-ps-ev-head"><h4 id="psEvTitle">' + AXIS[a].name + " · " + d.scores[a] + "</h4><p>No evidence stored for this axis.</p></div>";
+        var ev = (x && x.evidence) || [];
         // Header sum = the shown (1 dp) card rows added up, so a reader adding the column gets the same number.
         var cardSum = ev.filter(function (e) { return e.signal !== "journal"; }).reduce(function (t, e) { return t + Math.round((Number(e.points) || 0) * 10) / 10; }, 0);
-        var nud = Math.round((Number(x.journal_nudge) || 0) * 10) / 10;
+        var nud = Math.round((Number(x ? x.journal_nudge : 0) || 0) * 10) / 10;
         var rows = ev.map(function (e, i) { return evRow(e, i, d.journal); }).join("");
+
+        var sumText = "";
+        if (d.oracle_used && d.rulebook_scores) {
+            var delta = d.scores[a] - d.rulebook_scores[a];
+            sumText = '<span class="hud-ps-ev-sum">Oracle <b>' + d.scores[a] + '</b> · Rulebook <b>' + d.rulebook_scores[a] + '</b> (delta <b>' + (delta >= 0 ? '+' : '−') + Math.abs(delta) + '</b>)</span>';
+        } else {
+            sumText = '<span class="hud-ps-ev-sum">cards <b>' + cardSum.toFixed(1) + "</b>" + (d.journal ? " " + (nud >= 0 ? "+" : "−") + " journal <b>" + Math.abs(nud).toFixed(1) + "</b>" : "") + " ≈ <b>" + d.scores[a] + "</b></span>";
+        }
+
+        var oracleHtml = "";
+        if (d.oracle_used) {
+            var just = d.justifications && d.justifications[a];
+            var cardsCited = d.scores_detail && d.scores_detail[a] && d.scores_detail[a].cards;
+            var ov = (d.overrides || []).filter(function (o) { return o.axis === a; })[0];
+            oracleHtml = '<div class="hud-ps-ev-oracle">' +
+                '<div class="hud-ps-ev-oracle-head">' +
+                chip("Oracle verdict", "signal") +
+                '<span class="hud-ps-ev-oracle-score">Score <b>' + d.scores[a] + '</b> (Rulebook ' + d.rulebook_scores[a] + ')</span>' +
+                '</div>' +
+                (just ? '<p class="hud-ps-ev-oracle-why">“' + esc(just) + '”</p>' : "") +
+                (cardsCited && cardsCited.length ? '<div class="hud-ps-ev-oracle-cards"><span class="hud-ps-ev-code">Cited:</span> ' + cardBtns(cardsCited) + '</div>' : "") +
+                '</div>' +
+                (ov ? '<div class="hud-ps-ev-override">' + chip("Rulebook override", "neutral") + '<span>' + esc(ov.reason) + '</span></div>' : "");
+        }
+
         return '<div class="hud-ps-ev-head"><h4 id="psEvTitle">' + AXIS[a].name + " · " + d.scores[a] + "</h4><p>" + AXIS[a].who + "</p>" +
-            '<span class="hud-ps-ev-sum">cards <b>' + cardSum.toFixed(1) + "</b>" + (d.journal ? " " + (nud >= 0 ? "+" : "−") + " journal <b>" + Math.abs(nud).toFixed(1) + "</b>" : "") + " ≈ <b>" + d.scores[a] + "</b></span>" +
+            sumText +
             '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost hud-ps-ev-close" data-close aria-label="Close evidence">Esc</button></div>' +
+            oracleHtml +
+            (d.oracle_used ? '<div class="hud-ps-ev-rulebook-head">Rulebook evidence signals (base score ' + d.rulebook_scores[a] + '):</div>' : "") +
             '<ol class="hud-ps-ev-list">' + rows + "</ol>" +
-            '<div class="hud-ps-ev-foot">Points = weight × how far the signal got along its band. Every signal is listed, including zeros.</div>';
+            '<div class="hud-ps-ev-foot">' +
+            (d.oracle_used ? "Oracle makes the final call. The rulebook signals above were provided as evidence." : "Points = weight × how far the signal got along its band. Every signal is listed, including zeros.") +
+            "</div>";
     }
 
     // ------------------------------------------------------------------ deck panel states
@@ -265,6 +339,10 @@
     }
     function deckPanelFoot(info) {
         var d = info.d, bits = (d.notes || []).map(noteChip);
+        if (d.oracle_used) bits.push(chip("Oracle read", "signal"));
+        else if (info.oracle_status === "offline") bits.push(chip("oracle offline, showing rulebook", "neutral"));
+        else if (info.oracle_status === "invalid") bits.push(chip("invalid read, showing rulebook", "signal"));
+
         if (info.error) bits.push(chip("▲ Last rescore failed · showing earlier scores", "signal"));
         else if (info.stale || info.pending) bits.push(chip("Inputs changed · rescoring", "neutral"));
         if (info.ref) bits.push('<span class="hud-ps-key"><i aria-hidden="true"></i>Your average (' + info.refN + " physical " + plural(info.refN, "deck") + ")</span>");
@@ -345,7 +423,9 @@
             // Eager: 39 small art crops; lazy left the lower rows blank in full-page captures (PS-D).
             img = '<img alt="" src="https://cards.scryfall.io/art_crop/front/' + id.charAt(0) + "/" + id.charAt(1) + "/" + encodeURIComponent(id) + '.jpg" data-fallback="https://api.scryfall.com/cards/' + encodeURIComponent(id) + '?format=image&amp;version=art_crop">';
         }
-        return '<span class="hud-ps-thumb" aria-hidden="true">' + init + img + "</span>";
+        var cname = (d.commanders || [])[0] || "";
+        var pv = window.HUD && cname ? " data-card-preview" + window.HUD.cardRefAttrString(window.HUD.cardRef({ name: cname, uid: uid })) : "";
+        return '<span class="hud-ps-thumb" aria-hidden="true"' + pv + ">" + init + img + "</span>";
     }
     function rowAttrs(d) {
         return ' data-id="' + esc(d.id) + '" data-lean="' + esc(d.leans_toward) + '" data-journal="' + (d.journal_used ? 1 : 0) + '" data-groups="' + esc((d.groups || []).join(" ")) + '"';

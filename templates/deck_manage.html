@@ -364,7 +364,7 @@
 
         return `
             <div class="manage-card-row" data-instance-id="${card.instance_id}" data-card-name="${escapeAttr(card.card_name)}">
-                <div class="manage-card-name">${escapeHtml(card.card_name)}</div>
+                <div class="manage-card-name hud-cp-name" tabindex="0" data-card-preview ${window.HUD ? window.HUD.cardRefAttrString(window.HUD.cardRef({ name: card.card_name, uid: card.uid, set: card.set, collector_number: card.collector_number }, window.HUD_CARD_REFS)) : ''}>${escapeHtml(card.card_name)}</div>
                 <div class="manage-card-type">${escapeHtml(card.type || 'Unknown')}${card.cmc != null ? ' &middot; CMC ' + escapeHtml(card.cmc) : ''}</div>
                 <div class="card-tags">
                     ${labTagChips}

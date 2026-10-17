@@ -17,6 +17,7 @@ from instances import InstanceError
 import registry
 import commander_roles
 import inventory_view
+import card_refs as card_refs_mod
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -34,6 +35,7 @@ from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
 from analytics import tuner as tuner_mod
+from analytics import tune_store
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
@@ -92,6 +94,11 @@ DECK_GROUPS = [
     {"status": "retired", "label": "Retired Decks"},
 ]
 templates.env.globals["deck_groups"] = DECK_GROUPS
+# Hover preview: {{ card_ref_attrs(name, head.card_refs) }} marks a rendered
+# card name / thumbnail with data-card-name + data-card-ref (card_refs.py).
+templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
+
+templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
 
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -123,6 +130,12 @@ async def inventory(request: Request):
 @app.get("/tags", response_class=HTMLResponse)
 async def tags(request: Request):
     return templates.TemplateResponse(request=request, name="tags.html")
+
+
+@app.get("/genres", response_class=HTMLResponse)
+async def genres_view(request: Request):
+    """Genre registry (RV-1): the list Deep Reviews label decks from."""
+    return templates.TemplateResponse(request=request, name="genres.html")
 
 
 @app.get("/instances", response_class=HTMLResponse)
@@ -165,7 +178,8 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
+           "card_refs": {}}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -179,6 +193,13 @@ def _deck_head_context(deck_name: str) -> dict:
         out["commander_roles"] = commander_roles.roles_for_decks(r, [dict(deck)])[0]["commander_roles"]
     except Exception:
         out["commander_roles"] = commander_roles.deck_commanders(deck, {})
+    try:
+        # {card_key: CardRef} printing map for every card name on the deck
+        # pages (hover preview; card_refs.py). Name-keyed so analytics output
+        # that only carries names can still resolve the owned printing.
+        out["card_refs"] = {k: card_refs_mod.compact(v) for k, v in card_refs_mod.deck_card_refs(r, deck).items()}
+    except Exception:
+        pass
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
@@ -258,6 +279,27 @@ def _ideas_page_context(deck_name: str) -> dict:
             out["docs"] = theory_mod.list_docs(r, _theory_deck_id(deck))
     except Exception:
         out["list_error"] = True
+    return out
+
+
+@app.get("/deck/{deck_name}/review", response_class=HTMLResponse)
+async def deck_review_view(request: Request, deck_name: str):
+    """Review (RV-4, REVIEW_SPEC): the saved Deep Review. Read-only: never builds on page load."""
+    return await _deck_tab(request, deck_name, "deck_review.html", "review", extra=_review_page_context)
+
+
+def _review_page_context(deck_name: str) -> dict:
+    """Saved doc + view-model. Never raises (Redis down = a quiet error state)."""
+    from analytics import review_doc, review_view, theory_view
+
+    out = {"rv": review_view, "tv": theory_view, "meta": {"exists": False}, "sections": [], "load_error": False}
+    try:
+        deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+        if deck:
+            doc = review_doc.refresh_stale(r, {**deck, "registry_id": _theory_deck_id(deck)})
+            out.update(meta=review_view.doc_meta(doc), sections=review_view.sections(doc) if doc else [])
+    except Exception:
+        out["load_error"] = True
     return out
 
 
@@ -461,6 +503,100 @@ async def update_deck_status(deck_id: str, request: Request):
         return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
     return {"success": True, "status": status, "auto_bind": result["auto_bind"],
             "pending_removal": result["pending_removal"]}
+
+
+@app.post("/api/decks/{deck_id}/decommission")
+async def decommission_deck(deck_id: str, request: Request):
+    """Decommission a physical deck (single transaction): remove the status tag
+    (default "removed", override with JSON body {"tag": "..."}), move the deck
+    to the "retired" category, and return all its cards to the owned pool
+    (instances in_deck -> in_collection; nothing deleted). Idempotent.
+    Errors: 404 deck not found, 400 deck is not physical.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    tag = (data or {}).get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_deck(r, deck_id, tag=tag)
+    except registry.DecommissionError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    deck = result["deck"]
+    return {
+        "success": True,
+        "deck_id": registry.registry_id_of(deck),
+        "status": deck["status"],
+        "tags": deck.get("tags", []),
+        "already_decommissioned": result["already_decommissioned"],
+        "tag_removed": result["tag_removed"],
+        "unassigned_count": result["unassigned_count"],
+        "unassigned_instance_ids": result["unassigned_instance_ids"],
+    }
+
+
+@app.post("/api/decks/decommission")
+async def decommission_decks_bulk(request: Request):
+    """Bulk decommission physical decks. Same logic as the single-deck endpoint
+    (registry.decommission_decks), one Redis transaction for all that succeed.
+
+    Body: {"deck_ids": ["archidekt:42", ...], "tag": "removed" (optional)}
+    200: {"success": true, "requested": N, "succeeded": [...], "failed":
+          [{"deck_id", "reason", "code"}]}  -- per-deck results; `success` is
+          true when the request was valid even if some decks failed
+          (check `failed`). Duplicates are collapsed; already-decommissioned
+          decks are no-op successes. 400: empty/invalid/oversized deck_ids.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_decks(r, data.get("deck_ids"), tag=tag)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {
+        "success": True,
+        "requested": len(result["succeeded"]) + len(result["failed"]),
+        **result,
+    }
+
+
+@app.post("/api/decks/{deck_id}/decommission")
+async def decommission_deck(deck_id: str, request: Request):
+    """Decommission a physical deck (single transaction): remove the status tag
+    (default "removed", override with JSON body {"tag": "..."}), move the deck
+    to the "retired" category, and return all its cards to the owned pool
+    (instances in_deck -> in_collection; nothing deleted). Idempotent.
+    Errors: 404 deck not found, 400 deck is not physical.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    tag = (data or {}).get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_deck(r, deck_id, tag=tag)
+    except registry.DecommissionError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    deck = result["deck"]
+    return {
+        "success": True,
+        "deck_id": registry.registry_id_of(deck),
+        "status": deck["status"],
+        "tags": deck.get("tags", []),
+        "already_decommissioned": result["already_decommissioned"],
+        "tag_removed": result["tag_removed"],
+        "unassigned_count": result["unassigned_count"],
+        "unassigned_instance_ids": result["unassigned_instance_ids"],
+    }
 
 
 @app.post("/api/import")
@@ -1069,6 +1205,10 @@ async def get_deck_manage(deck_id: str):
         cards.append({
             "instance_id": inst["id"],
             "card_name": card_name,
+            # Printing identity for the hover preview (audit G3, additive).
+            "uid": inst.get("archidekt_uid") or "",
+            "set": inst.get("set") or "",
+            "collector_number": inst.get("collector_number") or "",
             "type": meta.get("type", "Unknown"),
             "cmc": meta.get("cmc", 0),
             "color": meta.get("color", ""),
@@ -1461,30 +1601,62 @@ async def api_deck_review(request: Request):
 
 @app.get("/api/decks/{deck_id}/review")
 async def api_get_deck_review(deck_id: str):
-    """Generate an actionable deck review for an existing deck in the library.
-    `deck_id` may be the deck id, registry_id, or display name (the deck page
-    only knows the name)."""
+    """RV-3: the saved Deep Review doc (null when none yet). Read-only: never rebuilds; it only
+    refreshes the stale flag (decklist fingerprint / genre-registry version)."""
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    doc = await asyncio.to_thread(review_doc.refresh_stale, r, deck)
+    return {"success": True, "exists": doc is not None, "review": doc}
+
+
+@app.get("/api/decks/{deck_id}/review/history")
+async def api_deck_review_history(deck_id: str):
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    return {"success": True, "history": await asyncio.to_thread(review_doc.history, r, _theory_deck_id(deck))}
+
+
+@app.post("/api/decks/{deck_id}/review/rebuild")
+async def api_deck_review_rebuild(deck_id: str):
+    """RV-3: Rebuild click. Background job: RV-2 metrics, then oracle prose, saved as the latest
+    doc. Oracle offline still saves the math sections. Poll GET .../review/jobs/{job_id}."""
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
     try:
-        deck_obj = registry.find_deck(r, deck_id) or next(
-            (d for d in registry.list_decks(r) if d.get("name") == deck_id), None
-        )
+        job = review_doc.new_job(r, {**deck, "registry_id": _theory_deck_id(deck)})
+    except review_doc.ReviewBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    try:
+        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)}, _oracle_client)
     except Exception:
-        deck_obj = None
+        review_doc.release(job["deck_id"], job["job_id"])
+        raise
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/review/jobs/{job['job_id']}"})
 
-    if not deck_obj:
-        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
 
-    from deck_review import review_deck
-    try:
-        review = review_deck(deck=deck_obj)
-        return {
-            "success": True,
-            "review": review.model_dump(),
-            "markdown": review.to_markdown(),
-            "cli": review.to_cli(),
-        }
-    except Exception as e:
-        return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
+@app.get("/api/decks/{deck_id}/review/jobs/{job_id}")
+async def api_deck_review_job(deck_id: str, job_id: str):
+    from analytics import review_doc
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    job = review_doc.load_job(r, job_id)
+    if not job or job.get("deck_id") != _theory_deck_id(deck):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": job}
 
 
 # ---------------------------------------------------------------------------
@@ -1765,6 +1937,19 @@ async def api_deck_edhrec(deck_id: str, refresh: bool = False):
     return {"success": True, "edhrec": out}
 
 
+@app.get("/api/decks/{deck_id}/review-metrics")
+async def api_deck_review_metrics(deck_id: str):
+    """RV-2 debug/API: the deterministic Deep Review numbers (genre, composition, tempo, focus,
+    strong cards, stragglers, combos/engines). Computed on demand, not stored; no oracle call."""
+    from analytics import review_metrics
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(review_metrics.review_deck, r, deck)
+    return {"success": True, "review_metrics": out}
+
+
 @app.get("/api/decks/{deck_id}/weak-performers")
 async def api_deck_weak_performers(deck_id: str, limit: Optional[int] = None):
     """Computed only: few graph edges + off-pillar + low EDHREC inclusion, equally weighted."""
@@ -1793,6 +1978,22 @@ async def api_card2vec(card: Optional[str] = None, n: int = 10):
     from analytics import card2vec as card2vec_mod
 
     m = card2vec_mod.default_model()
+    info = await asyncio.to_thread(m.info)
+    out = {"success": True, "model": info}
+    if card:
+        out["card"] = card
+        out["known"] = m.has(card)
+        out["neighbours"] = await asyncio.to_thread(m.neighbours, card, max(1, min(n, 50)))
+    return out
+
+
+@app.get("/api/similar")
+async def api_similar(card: Optional[str] = None, n: int = 10):
+    """AN-8 'mechanically similar' (similar rules text, NOT synergy, NOT played-with):
+    model info; with ?card=, its nearest neighbours. Unknown card -> 200, empty list."""
+    from analytics import mech_similar as mech_similar_mod
+
+    m = mech_similar_mod.default_model()
     info = await asyncio.to_thread(m.info)
     out = {"success": True, "model": info}
     if card:
@@ -1899,9 +2100,115 @@ async def api_deck_personality(deck_id: str):
         return JSONResponse(status_code=404, content={
             "success": False, **base, "status": "not_scored", "error": "Not scored yet.", "personality": None})
     result_hash = rec.get("result_hash") or rec.get("input_hash")
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    rec_read = await asyncio.to_thread(personality_read.load_read, r, rid)
+    read_data = None
+    oracle_status = "not_read"
+    if rec_read and rec_read.get("status") == "ok":
+        cur_read_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+        if rec_read.get("input_hash") == cur_read_hash:
+            read_data = rec_read.get("read")
+            oracle_status = "ok"
+        else:
+            # Withhold: the deck/journal changed since this read, so the current
+            # rulebook stays visible until a new read completes.
+            oracle_status = "stale"
+
     return {"success": True, **base, "status": rec.get("status") or "ok", "computed_at": rec.get("computed_at"),
             "stale": result_hash != current, "error": rec.get("error"), "error_at": rec.get("error_at"),
-            "personality": rec["scores"]}
+            "personality": rec["scores"], "read": read_data, "oracle_read": read_data, "oracle_status": oracle_status}
+
+
+@app.post("/api/decks/{deck_id}/personality/read")
+async def api_deck_personality_read(deck_id: str, request: Request):
+    """Trigger an async Oracle personality read (30s to minutes), or return cached read.
+    Poll GET /api/decks/{deck_id}/personality/read/jobs/{job_id}."""
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    body = await _json_body(request)
+    force = bool(isinstance(body, dict) and body.get("force"))
+
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+    cached = await asyncio.to_thread(personality_read.load_read, r, rid)
+
+    if not force and cached and cached.get("status") == "ok" and cached.get("input_hash") == cur_hash:
+        return JSONResponse(status_code=200, content={
+            "success": True, "cached": True, "status": "done",
+            "registry_id": rid, "read": cached.get("read")
+        })
+
+    try:
+        job = await asyncio.to_thread(personality_read.new_job, r, deck)
+    except personality_read.PersonalityReadBusy as exc:
+        return JSONResponse(status_code=409 if exc.per_deck else 429,
+                            content={"success": False, "error": str(exc), "error_kind": "busy"})
+    except personality_read.PersonalityReadError as exc:
+        return _bad_request(exc)
+
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        personality_read.release(job["deck_id"], job["job_id"])
+        await asyncio.to_thread(r.delete, personality_read.job_key(job["job_id"]))
+        return offline
+
+    try:
+        personality_read.start_job(r, job, deck, _oracle_client)
+    except Exception:
+        personality_read.release(job["deck_id"], job["job_id"])
+        raise
+
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(rid, safe='')}/personality/read/jobs/{job['job_id']}"
+    })
+
+
+@app.get("/api/decks/{deck_id}/personality/read/jobs/{job_id}")
+async def api_deck_personality_read_job(deck_id: str, job_id: str):
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    job = await asyncio.to_thread(personality_read.load_job, r, job_id)
+    if not job or job.get("deck_id") != rid:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, "job": job}
+
+
+@app.get("/api/decks/{deck_id}/personality/read")
+async def api_deck_personality_read_get(deck_id: str):
+    from analytics import journal as journal_mod
+    from analytics import personality_read
+
+    deck = _find_deck_any(deck_id)
+    if not deck:
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "deck_not_found", "error": f"Deck '{deck_id}' not found"})
+    rid = registry.registry_id_of(deck)
+    rec = await asyncio.to_thread(personality_read.load_read, r, rid)
+    if not rec or rec.get("status") != "ok":
+        return JSONResponse(status_code=404, content={
+            "success": False, "status": "not_read", "error": "No personality read for this deck yet."})
+    cur_hash = await asyncio.to_thread(personality_read.current_input_hash, r, deck)
+    return {
+        "success": True,
+        "registry_id": rid,
+        "created_at": rec.get("created_at"),
+        "stale": rec.get("input_hash") != cur_hash,
+        "read": rec.get("read"),
+        "rulebook": rec.get("rulebook"),
+    }
 
 
 @app.post("/api/decks/{deck_id}/personality")
@@ -2084,18 +2391,83 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
-    mode = owned_first | owned_only | best; sleeved=false drops cards in other decks."""
+    mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
+    physical deck) and buy (cards you don't own), both default true. Legacy
+    owned_only / owned_first are accepted and mapped to free / flex."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
+
+
+@app.get("/api/decks/{deck_id}/tune/saved")
+async def api_deck_tune_saved(deck_id: str):
+    """The deck's saved (active) Tune recommendation. 404 with `recommendation: null`
+    when none has been computed yet. See docs/TUNER.md 'Saved recommendations'."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = await asyncio.to_thread(tune_store.get_active, r, tune_store.deck_key(deck))
+    if not rec:
+        return JSONResponse(status_code=404, content={"success": False, "recommendation": None,
+                                                      "error": "No saved tune recommendation for this deck"})
+    return {"success": True, "recommendation": rec}
+
+
+@app.get("/api/decks/{deck_id}/tune/state")
+async def api_deck_tune_state(deck_id: str):
+    """Decisions, extra adds and pet cards as of now. A saved recommendation is a snapshot;
+    the Tune page lays this over it so accepts, dismissals and pets survive a reload."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
+    pets = await asyncio.to_thread(insights.pet_cards, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets}
+
+
+@app.post("/api/decks/{deck_id}/tune/recompute")
+async def api_deck_tune_recompute(deck_id: str, request: Request):
+    """Run the tuner, save the result as the deck's active recommendation and archive
+    the previous one (same MULTI/EXEC). Body (optional): {"mode": "free|flex|best",
+    "in_deck": true, "buy": true} (legacy owned_first / owned_only accepted). If generation fails nothing is saved and the old one stays active."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = body.get("in_deck", True)
+    buy = body.get("buy", True)
+    if not isinstance(in_deck, bool) or not isinstance(buy, bool):
+        return _bad_request(tuner_mod.TunerError("in_deck and buy must be booleans."))
+    try:
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy)
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc)
+    except tune_store.TuneStoreError as exc:
+        return _bad_request(exc, 409)
+    archived = {k: v for k, v in old.items() if k != "payload"} if old else None
+    return {"success": True, "recommendation": new, "archived": archived}
+
+
+@app.get("/api/decks/{deck_id}/tune/history")
+async def api_deck_tune_history(deck_id: str, limit: int = 20, include_payload: bool = False):
+    """Archived recommendations, newest first (the active one is excluded). Payload
+    omitted unless include_payload=true."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    recs = await asyncio.to_thread(tune_store.list_history, r, tune_store.deck_key(deck),
+                                   max(1, min(limit, 100)), include_payload)
+    return {"success": True, "history": recs}
 
 
 @app.post("/api/decks/{deck_id}/tune/why")
@@ -2107,10 +2479,12 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     if err:
         return err
     body = await _json_body(request) or {}
-    mode = body.get("mode", "owned_first") if isinstance(body, dict) else "owned_first"
-    sleeved = bool(body.get("sleeved", True)) if isinstance(body, dict) else True
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = bool(body.get("in_deck", True))
+    buy = bool(body.get("buy", True))
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain
@@ -2188,6 +2562,130 @@ def _oracle_preflight() -> Optional[JSONResponse]:
     except OracleError as exc:
         return _oracle_offline(str(exc)[:200])
     return None
+
+
+# ---------------------------------------------------------------------------
+# Genre registry (RV-1) -- see analytics/genres.py, docs/REVIEW_SPEC.md
+# ---------------------------------------------------------------------------
+
+GENRE_AUTOFILL_TIMEOUT_S = 300.0
+
+
+def _genre_payload(**extra):
+    from analytics import genres as genres_mod
+
+    return {"success": True, "version": genres_mod.get_version(r), **extra}
+
+
+@app.get("/api/genres")
+async def api_genres_list():
+    from analytics import genres as genres_mod
+
+    genres = await asyncio.to_thread(genres_mod.list_genres, r)
+    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary())
+
+
+@app.post("/api/genres/autofill")
+async def api_genres_autofill(request: Request):
+    """{"theme": str} -> oracle drafts description + roles; the app validates them against the
+    tag vocabulary (unknown tags are dropped and listed in `flagged`). Nothing is saved."""
+    from analytics import genres as genres_mod
+    from analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+
+    body = await _json_body(request)
+    theme = body.get("theme") if isinstance(body, dict) and isinstance(body.get("theme"), str) else ""
+    theme = " ".join(theme.split())
+    if not theme or len(theme) > genres_mod.MAX_NAME:
+        return _bad_request(genres_mod.GenreError(f"Give a theme name (1-{genres_mod.MAX_NAME} characters)."))
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        return offline
+
+    def _ask() -> str:
+        client = _oracle_client()
+        client.timeout = GENRE_AUTOFILL_TIMEOUT_S
+        return client.ask(genres_mod.autofill_prompt(theme), system=genres_mod.AUTOFILL_SYSTEM)
+
+    try:
+        reply = await asyncio.to_thread(_ask)
+    except OracleUnavailable as exc:
+        return _oracle_offline(exc.detail)
+    except OracleAuthError:
+        return _oracle_offline("oracle rejected the API key")
+    except OracleError as exc:
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
+    try:
+        draft = genres_mod.validate_autofill(theme, genres_mod.parse_oracle_reply(reply))
+    except genres_mod.GenreError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": "autofill_invalid"})
+    return {"success": True, "draft": draft}
+
+
+@app.post("/api/genres")
+async def api_genres_create(request: Request):
+    from analytics import genres as genres_mod
+
+    try:
+        genre, version = await asyncio.to_thread(genres_mod.create_genre, r, await _json_body(request))
+    except genres_mod.GenreError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content={"success": True, "genre": genre, "version": version})
+
+
+@app.get("/api/genres/{genre_id}")
+async def api_genres_get(genre_id: str):
+    from analytics import genres as genres_mod
+
+    try:
+        genre = await asyncio.to_thread(genres_mod.get_genre, r, genre_id)
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    return _genre_payload(genre=genre)
+
+
+@app.put("/api/genres/{genre_id}")
+async def api_genres_update(genre_id: str, request: Request):
+    from analytics import genres as genres_mod
+
+    try:
+        genre, version = await asyncio.to_thread(genres_mod.update_genre, r, genre_id, await _json_body(request))
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    except genres_mod.GenreError as exc:
+        return _bad_request(exc)
+    return {"success": True, "genre": genre, "version": version}
+
+
+@app.delete("/api/genres/{genre_id}")
+async def api_genres_delete(genre_id: str):
+    from analytics import genres as genres_mod
+
+    try:
+        version = await asyncio.to_thread(genres_mod.delete_genre, r, genre_id)
+    except genres_mod.GenreNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Genre '{genre_id}' not found"})
+    return {"success": True, "version": version}
+
+
+@app.get("/api/decks/{deck_id}/genres")
+async def api_deck_genres(deck_id: str):
+    """Deterministic genre ranking for a deck: role coverage from its interaction tags."""
+    from analytics import genres as genres_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    genres = await asyncio.to_thread(genres_mod.list_genres, r)
+    qty: dict = {}
+    for c in deck.get("cards") or []:
+        if c.get("name"):
+            try:
+                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
+            except (TypeError, ValueError):
+                qty[c["name"]] = qty.get(c["name"], 0) + 1
+    return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
+                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph, qty), genres))
 
 
 def _theory_deck_id(deck) -> str:
