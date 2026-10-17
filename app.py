@@ -537,6 +537,36 @@ async def decommission_deck(deck_id: str, request: Request):
     }
 
 
+@app.post("/api/decks/decommission")
+async def decommission_decks_bulk(request: Request):
+    """Bulk decommission physical decks. Same logic as the single-deck endpoint
+    (registry.decommission_decks), one Redis transaction for all that succeed.
+
+    Body: {"deck_ids": ["archidekt:42", ...], "tag": "removed" (optional)}
+    200: {"success": true, "requested": N, "succeeded": [...], "failed":
+          [{"deck_id", "reason", "code"}]}  -- per-deck results; `success` is
+          true when the request was valid even if some decks failed
+          (check `failed`). Duplicates are collapsed; already-decommissioned
+          decks are no-op successes. 400: empty/invalid/oversized deck_ids.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_decks(r, data.get("deck_ids"), tag=tag)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {
+        "success": True,
+        "requested": len(result["succeeded"]) + len(result["failed"]),
+        **result,
+    }
+
+
 @app.post("/api/decks/{deck_id}/decommission")
 async def decommission_deck(deck_id: str, request: Request):
     """Decommission a physical deck (single transaction): remove the status tag
@@ -566,36 +596,6 @@ async def decommission_deck(deck_id: str, request: Request):
         "tag_removed": result["tag_removed"],
         "unassigned_count": result["unassigned_count"],
         "unassigned_instance_ids": result["unassigned_instance_ids"],
-    }
-
-
-@app.post("/api/decks/decommission")
-async def decommission_decks_bulk(request: Request):
-    """Bulk decommission physical decks. Same logic as the single-deck endpoint
-    (registry.decommission_decks), one Redis transaction for all that succeed.
-
-    Body: {"deck_ids": ["archidekt:42", ...], "tag": "removed" (optional)}
-    200: {"success": true, "requested": N, "succeeded": [...], "failed":
-          [{"deck_id", "reason", "code"}]}  -- per-deck results; `success` is
-          true when the request was valid even if some decks failed
-          (check `failed`). Duplicates are collapsed; already-decommissioned
-          decks are no-op successes. 400: empty/invalid/oversized deck_ids.
-    """
-    try:
-        data = await request.json()
-    except Exception:
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
-    tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
-    try:
-        result = registry.decommission_decks(r, data.get("deck_ids"), tag=tag)
-    except ValueError as e:
-        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
-    return {
-        "success": True,
-        "requested": len(result["succeeded"]) + len(result["failed"]),
-        **result,
     }
 
 
