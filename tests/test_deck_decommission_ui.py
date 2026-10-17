@@ -18,8 +18,8 @@ class TestDecommissionUI(unittest.TestCase):
 
     def test_button_hidden_by_default_and_gated_on_physical(self):
         btn = re.search(r'<button[^>]*id="decommissionBtn"[^>]*>', self.html).group(0)
-        self.assertIn("display: none", btn)
-        self.assertIn("=== 'physical'", self.html)
+        self.assertIn("hidden", btn)
+        self.assertIn("!== 'physical'", self.html)
 
     def test_calls_endpoint_and_reloads(self):
         self.assertIn("/decommission`, { method: 'POST' }", self.html)

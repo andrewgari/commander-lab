@@ -1,0 +1,1158 @@
+{
+ "count": null,
+ "next": null,
+ "previous": null,
+ "results": {
+  "identity": "RWB",
+  "included": [
+   {
+    "id": "1692-4364",
+    "of": [
+     {
+      "id": 115
+     }
+    ],
+    "salt": 0.2,
+    "uses": [
+     {
+      "card": {
+       "id": 4364,
+       "name": "Aurelia, the Warleader",
+       "oracleId": "0f5a3a09-2f07-4774-9e0f-e99d9a444166",
+       "typeLine": "Legendary Creature \u2014 Angel"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 1692,
+       "name": "Helm of the Host",
+       "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+       "typeLine": "Legendary Artifact \u2014 Equipment"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "10.59",
+     "cardmarket": "7.39",
+     "cardkingdom": "13.98"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "RW",
+    "includes": [
+     {
+      "id": 115
+     },
+     {
+      "id": 27045
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 19,
+       "name": "Infinite combat phases",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 39,
+       "name": "Infinite creature tokens with haste",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 65,
+       "name": "Infinite mana creatures you control can produce",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 57,
+       "name": "Infinite untap of creatures you control",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 32099,
+    "bracketTag": "S",
+    "description": "At the beginning of your combat phase, Helm of the Host triggers, creating a nonlegendary token copy of Aurelia.\nDeclare the token Aurelia as an attacker.\nThe token Aurelia triggers, causing you to untap all creatures you control and get an additional combat phase after this one.\nRepeat each combat phase.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 5,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Helm attached to Aurelia."
+   },
+   {
+    "id": "29-137",
+    "of": [
+     {
+      "id": 889
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 137,
+       "name": "Kaalia of the Vast",
+       "oracleId": "cb8d80c9-ed58-4f2d-aa8c-c383370c7f1a",
+       "typeLine": "Legendary Creature \u2014 Human Cleric"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 29,
+       "name": "Master of Cruelties",
+       "oracleId": "d135c457-9be5-4a6e-a6fb-5b35cfb70cb0",
+       "typeLine": "Creature \u2014 Demon"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "H"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "6.56",
+     "cardmarket": "5.23",
+     "cardkingdom": "8.98"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "RWB",
+    "includes": [
+     {
+      "id": 889
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 63,
+       "name": "Target opponent loses the game",
+       "status": "S",
+       "uncountable": false
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 23904,
+    "bracketTag": "S",
+    "description": "Declare Kaalia of the Vast as an attacker.\nKaalia of the Vast triggers, causing you to put Master of Cruelties from your hand onto the battlefield tapped and attacking.\nWhen Master of Cruelties isn't blocked, it triggers, causing defending player's life total to become 1 and causing Master of Cruelties to deal no combat damage this turn.\nKaalia of the Vast deals lethal combat damage to defending player.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 4,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Kaalia of the Vast does not have summoning sickness.\nAn opponent cannot block and kill Kaalia of the Vast.\nThat opponent cannot block Master of Cruelties."
+   }
+  ],
+  "includedByChangingCommanders": [],
+  "almostIncluded": [
+   {
+    "id": "2855-5982",
+    "of": [
+     {
+      "id": 28211
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 2855,
+       "name": "Dragon Tempest",
+       "oracleId": "b9bacb46-fd1d-459b-81c2-d7d08fe73848",
+       "typeLine": "Enchantment"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 5982,
+       "name": "Ancient Gold Dragon",
+       "oracleId": "44cb725a-72fc-4e0d-b966-f0b6d33f6b79",
+       "typeLine": "Creature \u2014 Elder Dragon"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "The amount of damage this combo deals is highly variable by how many Dragons you control and the result of the d20 roll. The more Dragons you control, the more damage will be dealt. It can also be repeated, if needed.",
+    "prices": {
+     "tcgplayer": "30.72",
+     "cardmarket": "28.22",
+     "cardkingdom": "40.78"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "RW",
+    "includes": [
+     {
+      "id": 28211
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 1,
+       "name": "Near-infinite damage",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 28290,
+    "bracketTag": "S",
+    "description": "Deal combat damage using Ancient Gold Dragon.\nAncient Gold Dragon triggers, causing you to roll a d20 and create that many 1/1 Faerie Dragon creature tokens.\nWhen the Faerie Dragons enter the battlefield, Dragon Tempest's second ability triggers that many times.\nResolve the first trigger, dealing damage to any target equal to the number of Dragons you control.\nRepeat step 4 for each remaining trigger.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 2,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Ancient Gold Dragon does not have summoning sickness and cannot be blocked by an opponent."
+   },
+   {
+    "id": "1692-2105",
+    "of": [
+     {
+      "id": 294
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 2105,
+       "name": "Combat Celebrant",
+       "oracleId": "5e15ff93-99a0-4000-918e-4bd2c257188d",
+       "typeLine": "Creature \u2014 Human Warrior"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 1692,
+       "name": "Helm of the Host",
+       "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+       "typeLine": "Legendary Artifact \u2014 Equipment"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "6.53",
+     "cardmarket": "5.18",
+     "cardkingdom": "9.28"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "R",
+    "includes": [
+     {
+      "id": 294
+     },
+     {
+      "id": 27045
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 19,
+       "name": "Infinite combat phases",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 65,
+       "name": "Infinite mana creatures you control can produce",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 80,
+       "name": "Infinite tapped creature tokens",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 57,
+       "name": "Infinite untap of creatures you control",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 26137,
+    "bracketTag": "S",
+    "description": "At the beginning of your combat phase, Helm of the Host triggers, creating a token copy of Combat Celebrant with haste.\nDeclare the token Combat Celebrant as an attacker choosing to exert it as it attacks.\nThe Combat Celebrant copy triggers, untapping all other creature you control and causing you to get an additional combat phase after this one.\nRepeat.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 0,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Helm of the Host attached to Combat Celebrant."
+   },
+   {
+    "id": "1692-4251",
+    "of": [
+     {
+      "id": 682
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 4251,
+       "name": "Godo, Bandit Warlord",
+       "oracleId": "f890d51a-dc90-4179-8423-4738a72a527c",
+       "typeLine": "Legendary Creature \u2014 Human Barbarian"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 1692,
+       "name": "Helm of the Host",
+       "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+       "typeLine": "Legendary Artifact \u2014 Equipment"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "6.35",
+     "cardmarket": "4.88",
+     "cardkingdom": "8.48"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "R",
+    "includes": [
+     {
+      "id": 682
+     },
+     {
+      "id": 29735
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 19,
+       "name": "Infinite combat phases",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 7,
+       "name": "Infinite death triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 3,
+       "name": "Infinite creature LTB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 6,
+       "name": "Infinite creature sacrifice triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 140,
+       "name": "Put all Equipment cards from your library onto the battlefield",
+       "status": "C",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 25738,
+    "bracketTag": "S",
+    "description": "At the beginning of your combat phase, Helm of the Host triggers, creating a nonlegendary token copy of Godo with haste.\nThe token Godo enters the battlefield, causing you to search your library for an Equipment card and put it onto the battlefield.\nDeclare the token Godo as an attacker.\nThe token Godo triggers, untapping it and all Samurai you control and causing you to get an additional combat phase after this one.\nRepeat each combat phase.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 1,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Helm of the Host attached to Godo."
+   },
+   {
+    "id": "372-4812",
+    "of": [
+     {
+      "id": 8772
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 372,
+       "name": "Abdel Adrian, Gorion's Ward",
+       "oracleId": "cab092f9-b7ff-43b9-935f-310869a4daf8",
+       "typeLine": "Legendary Creature \u2014 Human Warrior"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "G"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 4812,
+       "name": "Animate Dead",
+       "oracleId": "c0d8fef4-65f4-4769-982d-b397d2b7e977",
+       "typeLine": "Enchantment \u2014 Aura"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "H"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "7.63",
+     "cardmarket": "6.07",
+     "cardkingdom": "8.88"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "WB",
+    "includes": [
+     {
+      "id": 27481
+     },
+     {
+      "id": 8772
+     },
+     {
+      "id": 31514
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 87,
+       "name": "Infinite blinking",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 21,
+       "name": "Infinite creature tokens",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 7,
+       "name": "Infinite death triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 3,
+       "name": "Infinite creature LTB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 6,
+       "name": "Infinite creature sacrifice triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 559,
+       "name": "Infinite blinking of nonland permanents",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 17112,
+    "bracketTag": "R",
+    "description": "Cast Animate Dead by paying {1}{B}, returning Abdel Adrian from your graveyard to the battlefield, and attaching Animate Dead to it.\nAbdel Adrian enters the battlefield, exiling Animate Dead until Abdel Adrian leaves the battlefield, and creating a 1/1 Soldier creature token.\nAnimate Dead triggers, causing you to sacrifice Abdel Adrian.\nAnimate Dead returns to the battlefield, returning Abdel Adrian from your graveyard to the battlefield, and attaching Animate Dead to it.\nRepeat from step 2.",
+    "manaNeeded": "{1}{B}",
+    "variantCount": 4,
+    "saltVoteCount": 3,
+    "manaValueNeeded": 2,
+    "easyPrerequisites": "",
+    "notablePrerequisites": ""
+   },
+   {
+    "id": "4812-4846",
+    "of": [
+     {
+      "id": 1221
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 4846,
+       "name": "Worldgorger Dragon",
+       "oracleId": "a628186d-b7d9-40a5-9ae2-fbc9d2a14c7c",
+       "typeLine": "Creature \u2014 Nightmare Dragon"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "G"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 4812,
+       "name": "Animate Dead",
+       "oracleId": "c0d8fef4-65f4-4769-982d-b397d2b7e977",
+       "typeLine": "Enchantment \u2014 Aura"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "H"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "8.81",
+     "cardmarket": "7.02",
+     "cardkingdom": "10.28"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "BR",
+    "includes": [
+     {
+      "id": 1221
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 7,
+       "name": "Infinite death triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 5,
+       "name": "Infinite colored mana",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 11,
+       "name": "Infinite colorless mana",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 3,
+       "name": "Infinite creature LTB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 6,
+       "name": "Infinite creature sacrifice triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 15630,
+    "bracketTag": "R",
+    "description": "Cast Animate Dead by paying {1}{B}.\nAnimate Dead enters the battlefield, returning Worldgorger Dragon from your graveyard to the battlefield attached with Animate Dead.\nWorldgorger Dragon enters the battlefield, exiling all other permanents you control.\nAnimate Dead triggers, sacrificing Worldgorger Dragon.\nWorldgorger Dragon leaves the battlefield, returning all permanents exiled by it to the battlefield.\nAnimate Dead enters the battlefield, returning Worldgorger Dragon from your graveyard to the battlefield attached with Animate Dead.\nHolding priority, activate all lands you control by tapping those, adding manas of any colors those lands can produce.\nRepeat.",
+    "manaNeeded": "{1}{B}",
+    "variantCount": 4,
+    "saltVoteCount": 2,
+    "manaValueNeeded": 2,
+    "easyPrerequisites": "",
+    "notablePrerequisites": ""
+   },
+   {
+    "id": "618-1692",
+    "of": [
+     {
+      "id": 3107
+     },
+     {
+      "id": 7940
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 618,
+       "name": "Kiki-Jiki, Mirror Breaker",
+       "oracleId": "a34b7416-cfe3-4a1e-a8c1-a3056b747519",
+       "typeLine": "Legendary Creature \u2014 Goblin Shaman"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 1692,
+       "name": "Helm of the Host",
+       "oracleId": "83b43aba-bf9c-4da2-967d-9daa632e97d2",
+       "typeLine": "Legendary Artifact \u2014 Equipment"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "18.18",
+     "cardmarket": "11.03",
+     "cardkingdom": "21.98"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "R",
+    "includes": [
+     {
+      "id": 3107
+     },
+     {
+      "id": 7940
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 7,
+       "name": "Infinite death triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 4,
+       "name": "Infinite creature ETB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 3,
+       "name": "Infinite creature LTB",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 6,
+       "name": "Infinite creature sacrifice triggers",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 80,
+       "name": "Infinite tapped creature tokens",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 423,
+       "name": "Infinite tapped creature tokens until end of turn",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 15585,
+    "bracketTag": "S",
+    "description": "At the beginning of your combat phase, Helm of the Host triggers, creating a non-legendary copy of Kiki-Jiki.\nActivate the untapped non-legendary Kiki-Jiki by tapping it, creating a token copy of itself.\nRepeat step 2.",
+    "manaNeeded": "",
+    "variantCount": 7,
+    "saltVoteCount": 1,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "Helm of the Host attached to Kiki-Jiki."
+   }
+  ],
+  "almostIncludedByAddingColors": [
+   {
+    "id": "513-5034--46",
+    "of": [
+     {
+      "id": 26516
+     }
+    ],
+    "salt": 1.94,
+    "uses": [
+     {
+      "card": {
+       "id": 513,
+       "name": "Hullbreaker Horror",
+       "oracleId": "d4a84e78-d9b9-4c67-8a4b-4329e65f0f15",
+       "typeLine": "Creature \u2014 Kraken Horror"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 5034,
+       "name": "Sol Ring",
+       "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487",
+       "typeLine": "Artifact"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "7.03",
+     "cardmarket": "5.17",
+     "cardkingdom": "11.78"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "U",
+    "includes": [
+     {
+      "id": 26516
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 11,
+       "name": "Infinite colorless mana",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 17,
+       "name": "Infinite storm count",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [
+     {
+      "quantity": 1,
+      "template": {
+       "id": 46,
+       "name": "Permanent Castable for {C}",
+       "scryfallApi": "https://api.scryfall.com/cards/search?q=%28mv%3C%3D1+%28mana%3D%7B0%7D+or+mana%3D%7B1%7D+or+mana%3D%7BC%7D%29+is%3Apermanent%29+legal%3Acommander",
+       "scryfallQuery": "mv<=1 (mana={0} or mana={1} or mana={C}) is:permanent"
+      },
+      "zoneLocations": [
+       "H"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "popularity": 358310,
+    "bracketTag": "E",
+    "description": "Activate Sol Ring by tapping it, adding {C} {C}.\nCast the permanent that can be cast using {C} by paying its mana cost.\nHullbreaker Horror triggers, returning Sol Ring from the battlefield to your hand.\nCast Sol Ring by paying {1}. \nHullbreaker Horror triggers, returning the permanent cast in step 2 from the battlefield to your hand.\nRepeat.\nIf the permanent can be cast by paying {0}, this combo nets infinite colorless mana.",
+    "manaNeeded": "",
+    "variantCount": 1,
+    "saltVoteCount": 35,
+    "manaValueNeeded": 0,
+    "easyPrerequisites": "",
+    "notablePrerequisites": ""
+   },
+   {
+    "id": "542-5034",
+    "of": [
+     {
+      "id": 1895
+     }
+    ],
+    "salt": null,
+    "uses": [
+     {
+      "card": {
+       "id": 542,
+       "name": "Tidespout Tyrant",
+       "oracleId": "331b44e4-cf08-44f4-8afd-a7374e5dc5ed",
+       "typeLine": "Creature \u2014 Djinn"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "B"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     },
+     {
+      "card": {
+       "id": 5034,
+       "name": "Sol Ring",
+       "oracleId": "6ad8011d-3471-4369-9d68-b264cc027487",
+       "typeLine": "Artifact"
+      },
+      "quantity": 1,
+      "usedFace": null,
+      "zoneLocations": [
+       "H"
+      ],
+      "exileCardState": "",
+      "mustBeCommander": false,
+      "libraryCardState": "",
+      "graveyardCardState": "",
+      "battlefieldCardState": ""
+     }
+    ],
+    "notes": "",
+    "prices": {
+     "tcgplayer": "2.56",
+     "cardmarket": "1.75",
+     "cardkingdom": "5.28"
+    },
+    "status": "OK",
+    "spoiler": false,
+    "identity": "U",
+    "includes": [
+     {
+      "id": 29370
+     },
+     {
+      "id": 1895
+     }
+    ],
+    "produces": [
+     {
+      "feature": {
+       "id": 11,
+       "name": "Infinite colorless mana",
+       "status": "S",
+       "uncountable": true
+      },
+      "quantity": 1
+     },
+     {
+      "feature": {
+       "id": 17,
+       "name": "Infinite storm count",
+       "status": "H",
+       "uncountable": true
+      },
+      "quantity": 1
+     }
+    ],
+    "requires": [],
+    "popularity": 37443,
+    "bracketTag": "S",
+    "description": "Cast Sol Ring by paying its mana cost.\nTidespout Tyrant triggers, returning a nontoken permanent that can be cast using {C} from the battlefield to your hand.\nActivate Sol Ring by tapping it, adding {C}{C}.\nCast the nontoken permanent returned in step 2 by paying its mana cost.\nTidespout Tyrant triggers, returning Sol Ring from the battlefield to your hand.\nRepeat.",
+    "manaNeeded": "{1}",
+    "variantCount": 6,
+    "saltVoteCount": 1,
+    "manaValueNeeded": 1,
+    "easyPrerequisites": "",
+    "notablePrerequisites": "You control a nontoken permanent that can be cast using {C}."
+   }
+  ],
+  "almostIncludedByChangingCommanders": [],
+  "almostIncludedByAddingColorsAndChangingCommanders": []
+ }
+}

@@ -1,0 +1,31 @@
+{% import "partials/hud.html" as hud %}
+{#- stragglers: {cards[{name,straggler_score,weak_reasons,durdle,durdle_reasons,why}], count, protected_pets[{name,would_be_straggler,weak_reasons,durdle,durdle_reasons,why}], threshold, why} -#}
+{%- set d = section.data %}
+{%- if d.cards %}
+<div class="hud-panel hud-panel--flush">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Cut candidates</h3><span class="hud-panel-meta">{{ d.count if d.count is not none else d.cards | length }} found{% if d.threshold is not none %} · score ≥ {{ d.threshold }}{% endif %}</span></header>
+    <ul class="hud-tcards hud-tcards--panel hud-panel-body">
+        {%- for c in d.cards %}
+        <li class="hud-tcard" data-card="{{ c.name }}"><span class="hud-tcard-qty">{{ loop.index }}</span><span class="hud-card-name hud-cp-name" {{ card_preview_attrs(c.name) }}>{{ c.name }}</span>
+            <span class="hud-chips">{% if c.durdle %}{{ hud.chip("durdle", "signal") }}{% endif %}</span>
+            <span class="hud-tcard-price">{{ rv.num(c.straggler_score, 2) }}</span>
+            {%- set why = [] %}
+            {%- for x in c.weak_reasons or [] %}{% set _ = why.append("weak: " ~ x) %}{% endfor %}
+            {%- for x in c.durdle_reasons or [] %}{% set _ = why.append("durdle: " ~ (x | replace("_", " "))) %}{% endfor %}
+            {%- if why %}<span class="hud-tcard-note">{{ why | join(" · ") }}</span>{% endif %}</li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- else %}{{ hud.empty("No stragglers. Every card earns its slot.") }}{% endif %}
+{%- if d.protected_pets %}
+<div class="hud-panel hud-panel--flush hud-rv-block" id="protectedPets">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Protected pet cards</h3><span class="hud-panel-meta">never cut candidates</span></header>
+    <ul class="hud-tcards hud-tcards--panel hud-panel-body">
+        {%- for c in d.protected_pets %}
+        <li class="hud-tcard is-kept" data-card="{{ c.name }}" data-protected="true"><span class="hud-tcard-qty">♥</span><span class="hud-card-name hud-cp-name" {{ card_preview_attrs(c.name) }}>{{ c.name }}</span>{{ hud.chip("protected", "danger") }}<span></span>
+            <span class="hud-tcard-note">{{ "Would be a straggler, but it is a pet card." if c.would_be_straggler else "Pet card (Journal)." }}</span></li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- endif %}
+{%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}
