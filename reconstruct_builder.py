@@ -66,6 +66,10 @@ def _commander_mismatch_errors(
     return errors
 
 
+def _requested_commanders(preferences: Sequence[Mapping]) -> List[str]:
+    return [c for pref in preferences for c in (pref.get("commanders") or [])]
+
+
 class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
     """Builder implementation behind BaseReconstructBuilder interface."""
 
@@ -145,7 +149,12 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                 return pools_cat, val_cat
 
         pools_cat = rp.RedisCardCatalog(r) if r is not None else None
-        val_cat = dv.catalog_from_redis(r, names) if r is not None else None
+        names_list = list(names)
+        val_cat = (
+            dv.catalog_from_redis(r, names_list)
+            if (r is not None and names_list)
+            else None
+        )
         return pools_cat, val_cat
 
     def build(self, session: dict, r: Any) -> list[dict]:
@@ -223,7 +232,10 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
             if val_catalog_base is not None:
                 catalog = val_catalog_base
             elif r is not None:
-                all_names = dv.draft_card_names(validator_decks)
+                all_names = list(dict.fromkeys([
+                    *dv.draft_card_names(validator_decks),
+                    *_requested_commanders(preferences),
+                ]))
                 catalog = dv.catalog_from_redis(r, all_names)
             else:
                 catalog = dv.CardCatalog()
@@ -247,21 +259,22 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                     repaired, _ = deck_repair.auto_repair(d, catalog)
                     repaired_decks.append(repaired)
 
-                val_result = dv.validate_decks(
+                repaired_val_result = dv.validate_decks(
                     repaired_decks,
                     catalog,
                     tier1_available=tier1_available,
                     tier2_available=tier2_available,
                     exempt_basics_from_pool=True,
                 )
-                if val_result.valid:
+                if repaired_val_result.valid:
+                    val_result = repaired_val_result
                     accepted_decks = repaired_decks
 
             # Commanders must match what the user asked for (BUG-2)
             cmd_errors = _commander_mismatch_errors(
                 accepted_decks if accepted_decks is not None else validator_decks,
                 preferences,
-            ) if accepted_decks is not None else []
+            )
 
             if accepted_decks is not None and not cmd_errors:
                 final_validator_decks = accepted_decks

@@ -70,6 +70,10 @@ class FakeRedis:
         for m in members:
             s.discard(str(m))
 
+    def scan_iter(self, match: str = "*", count: int | None = None):
+        pre = match.rstrip("*")
+        return iter([k for k in list(self.store) if k.startswith(pre)])
+
     def keys(self, pattern: str = "*"):
         pre = pattern.rstrip("*")
         return [k for k in self.store if k.startswith(pre)]
@@ -779,6 +783,73 @@ class TestReconstructBuilder(unittest.TestCase):
         self.assertEqual(res["status"], reconstruct.STATUS_DRAFTS_READY)
         self.assertEqual(res["drafts"][0]["commanders"], ["Vito, Thorn of the Dusk Rose"])
         self.assertEqual(mock_client.chat.call_count, 2)
+
+
+    def _seed_redis_cards(self):
+        """Seed card:{oracle_id} + idx:card_name_to_oracle:{name} (production shape)."""
+        cards = {
+            "11111111-1111-4111-8111-111111111111": ("Tifa, Martial Artist", "B", "Legendary Creature"),
+            "22222222-2222-4222-8222-222222222222": ("Gríma, Saruman's Footman", "B", "Legendary Creature"),
+            "33333333-3333-4333-8333-333333333333": ("Sol Ring", "C", "Artifact"),
+        }
+        for oid, (name, color, type_line) in cards.items():
+            self.r.set(f"card:{oid}", json.dumps({
+                "oracle_id": oid, "name": name, "color": color,
+                "type_line": type_line, "commander_legality": "legal",
+            }))
+            self.r.set(f"idx:card_name_to_oracle:{name}", oid)
+
+    def test_catalog_none_validates_against_redis_not_empty_catalog(self):
+        """#186/#187: default catalog=None must resolve cards from Redis."""
+        self._seed_redis_cards()
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Tifa, Martial Artist"]}])
+        payload = mock_deck_payload(
+            "Tifa Draft", "Tifa, Martial Artist",
+            other_cards=[
+                ("Sol Ring", 1, 1),
+                ("Grima, Saruman's Footman", 3, 1),  # diacritic-less LLM spelling
+            ],
+            basic="Swamp", total_cards=100,
+        )
+        mock_client = MagicMock()
+        mock_client.chat.return_value = llm_reply(payload)
+        reconstruct.set_builder(ReconstructBuilder(
+            client=mock_client, catalog=None, price_lookup=self.price_lookup))
+        res = reconstruct.trigger_build(self.r, sid, sync=True)
+        self.assertEqual(res["status"], reconstruct.STATUS_DRAFTS_READY)
+        self.assertEqual(res["drafts"][0]["commanders"], ["Tifa, Martial Artist"])
+        self.assertEqual(mock_client.chat.call_count, 1)
+        names = [c["name"] for c in res["drafts"][0]["cards"]]
+        self.assertNotIn("Wastes", names)
+
+    def test_catalog_none_unrepairable_deck_keeps_original_errors(self):
+        """Failed repair must not mask original errors; COMMANDER_MISMATCH is kept."""
+        self._seed_redis_cards()
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Tifa, Martial Artist"]}])
+        payload = mock_deck_payload(
+            "Bad Draft", "Unseeded Legend",
+            other_cards=[("Sol Ring", 1, 1), ("Phantom Card", 3, 1)],
+            basic="Swamp", total_cards=100,
+        )
+        mock_client = MagicMock()
+        mock_client.chat.return_value = llm_reply(payload)
+        reconstruct.set_builder(ReconstructBuilder(
+            max_retries=1, client=mock_client, catalog=None, price_lookup=self.price_lookup))
+        with self.assertRaises(ReconstructBuildError) as ctx:
+            reconstruct.trigger_build(self.r, sid, sync=True)
+        self.assertIn("COMMANDER_MISMATCH", str(ctx.exception))
+        self.assertIn("UNKNOWN_CARD", str(ctx.exception))
+        self.assertEqual(mock_client.chat.call_count, 2)
+        retry_prompt = json.dumps(mock_client.chat.call_args_list[1], default=str)
+        self.assertIn("COMMANDER_MISMATCH", retry_prompt)
+        self.assertIn("Phantom Card", retry_prompt)
+        # previous_drafts is the original draft, not the Wastes-padded repair
+        self.assertIn("Basic mana source (Swamp)", retry_prompt)
+        self.assertNotIn("Basic mana source (Wastes)", retry_prompt)
 
 
 if __name__ == "__main__":

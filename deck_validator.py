@@ -749,6 +749,40 @@ def catalog_from_redis(r: Any, names: Iterable[str]) -> CardCatalog:
                 rec.setdefault("name", name)
         if rec is not None:
             cat.add(CardInfo.from_record(rec))
+
+    # Fallback: diacritic/case/DFC-front-face variants (single pass over indexes).
+    missing = [n for n in dict.fromkeys(names) if n not in cat]
+    scan = getattr(r, "scan_iter", None)
+    if missing and scan is not None:
+        want = {normalize_name(n) for n in missing}
+        found: Dict[str, Tuple[str, str]] = {}  # normalized -> (kind, key)
+
+        def _note(kind: str, key: Any) -> None:
+            if isinstance(key, bytes):
+                key = key.decode()
+            prefix = "idx:card_name_to_oracle:" if kind == "idx" else "card_meta:"
+            nm = key[len(prefix):]
+            for cand in (normalize_name(nm), normalize_name(nm.split("//")[0])):
+                if cand in want and cand not in found:
+                    found[cand] = (kind, key)
+
+        for k in scan(match="idx:card_name_to_oracle:*"):
+            _note("idx", k)
+        for k in scan(match="card_meta:*"):
+            _note("meta", k)
+        for kind, key in found.values():
+            rec = None
+            if kind == "idx":
+                oid = _load(key)
+                raw = _load(f"card:{oid}") if oid else None
+                rec = json.loads(raw) if raw else None
+            else:
+                raw = _load(key)
+                if raw:
+                    rec = dict(json.loads(raw))
+                    rec.setdefault("name", key[len("card_meta:"):])
+            if rec is not None:
+                cat.add(CardInfo.from_record(rec))
     return cat
 
 

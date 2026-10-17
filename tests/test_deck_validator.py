@@ -597,6 +597,35 @@ class TestAdapters(Base):
         self.assertNotIn("Missing", cat)
         self.assertIn("Island", cat)  # basics always resolvable
 
+    def test_catalog_from_redis_fallback_normalized_and_dfc(self):
+        class R:
+            def __init__(self):
+                self.d = {
+                    "idx:card_name_to_oracle:Gríma, Saruman's Footman": "o1",
+                    "card:o1": json.dumps({"oracle_id": "o1", "name": "Gríma, Saruman's Footman",
+                                           "color": "B", "type_line": "Legendary Creature",
+                                           "commander_legality": "legal"}),
+                    "idx:card_name_to_oracle:Delver of Secrets // Insectile Aberration": "o2",
+                    "card:o2": json.dumps({"oracle_id": "o2",
+                                           "name": "Delver of Secrets // Insectile Aberration",
+                                           "color": "U", "type": "Creature",
+                                           "commander_legality": "legal"}),
+                    "card_meta:Sol Ring": json.dumps({"type": "Artifact", "color": ""}),
+                }
+
+            def get(self, k):
+                return self.d.get(k)
+
+            def scan_iter(self, match="*", count=None):
+                pre = match.rstrip("*")
+                return iter([k for k in self.d if k.startswith(pre)])
+
+        cat = dv.catalog_from_redis(R(), ["Grima, Saruman's Footman", "delver of secrets", "SOL RING", "Nope"])
+        self.assertEqual(cat.get("Grima, Saruman's Footman").name, "Gríma, Saruman's Footman")  # type: ignore[union-attr]
+        self.assertIn("Delver of Secrets", cat)
+        self.assertIn("Sol Ring", cat)
+        self.assertNotIn("Nope", cat)
+
 
 class TestRepair(Base):
     def test_does_not_mutate_input(self):
