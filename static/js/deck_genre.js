@@ -40,6 +40,29 @@
             for (var id in map) { if (id === s.replace(/\s+/g, "_") || low(map[id].label) === s) return id; }
             return null;
         }
+        /* Levenshtein distance, for "did you mean" on kindred typos. */
+        function dist(a, b) {
+            var prev = [], i, j;
+            for (j = 0; j <= b.length; j++) prev[j] = j;
+            for (i = 1; i <= a.length; i++) {
+                var cur = [i];
+                for (j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+                prev = cur;
+            }
+            return prev[b.length];
+        }
+        /* Nearest creature type within a small typo budget (1 edit up to 5 letters, else 2), or null. */
+        function closeType(q, skip) {
+            var s = low(q), best = null, bd = 99;
+            if (s.length < 3) return null;
+            var budget = s.length <= 5 ? 1 : 2;
+            TYPES.forEach(function (t) {
+                if (skip && skip(t)) return;
+                var d = dist(s, t.toLowerCase());
+                if (d < bd) { bd = d; best = t; }
+            });
+            return bd <= budget ? best : null;
+        }
         function hl(text, q) {
             var t = String(q || "").trim(), i = low(text).indexOf(low(t));
             if (!t || i < 0) return esc(text);
@@ -150,14 +173,27 @@
                 '<div class="hud-tagfield-picks" id="' + id + '-picks"></div>' +
                 '<span class="hud-field-hint" id="' + id + '-h">' + esc(cfg.hint) + "</span>" +
                 (kind === "archetype" ? '<span class="hud-field-hint hud-tagfield-read" id="gn-read" hidden></span>' : "") +
+                '<span class="hud-field-hint hud-tagfield-note" id="' + id + '-note" data-testid="genre-' + kind + '-note" role="status" hidden></span>' +
                 '<span class="hud-sr" aria-live="polite" id="' + id + '-live"></span>';
             root.classList.add("hud-tagfield");
             var box = root.querySelector("#" + id + "-box"), input = root.querySelector("#" + id + "-in"),
                 list = root.querySelector("#" + id + "-list"), picks = root.querySelector("#" + id + "-picks"),
-                count = root.querySelector("#" + id + "-n"), live = root.querySelector("#" + id + "-live");
+                count = root.querySelector("#" + id + "-n"), note = root.querySelector("#" + id + "-note"), live = root.querySelector("#" + id + "-live");
             var moreOpen = false;
 
             function say(msg) { live.textContent = ""; setTimeout(function () { live.textContent = msg; }, 30); }
+            var noteTimer = null;
+            function flashNote(msg) {
+                note.textContent = msg; note.hidden = false; say(msg);
+                clearTimeout(noteTimer); noteTimer = setTimeout(function () { note.hidden = true; }, 3000);
+            }
+            /* The already-added value the typed text refers to (same normalization the listbox uses), or null. */
+            function addedMatch(q) {
+                var c = kind === "kindred" ? canonType(q) : canonSeed(cfg.map, q) || clean(q);
+                if (!c) return null;
+                var hit = self.value.filter(function (x) { return low(x) === low(c); })[0];
+                return hit || null;
+            }
             function full() { return self.value.length >= cfg.max; }
             function has(v) { return self.value.some(function (x) { return low(x) === low(v); }); }
 
@@ -207,7 +243,7 @@
 
             // Mutations. Archetype rule: index 0 is the primary; the first add becomes primary.
             function add(v, quiet) {
-                if (has(v)) { flash(v); say(labelOf(kind, v) + " is already added"); return false; }
+                if (has(v)) { flash(v); flashNote(labelOf(kind, v) + " is already added"); return false; }
                 if (full()) { say("Limit reached: " + cfg.max + " " + cfg.noun + "s"); return false; }
                 self.value.push(v);
                 if (!quiet) say("Added " + labelOf(kind, v) + (cfg.primary ? (self.value.length === 1 ? " as primary" : " as secondary") : "") + (isCustom(kind, v) ? " (custom)" : ""));
@@ -239,13 +275,19 @@
                 if (kind === "kindred") {
                     if (!s) return [{ note: "Type to search " + TYPES.length + " creature types, or use a quick pick below." }];
                     var c = canonType(q), seen = {};
-                    if (c) { out.push({ value: c, html: esc(c) + (low(c) !== s ? " <small>from “" + esc(q.trim()) + "”</small>" : "") }); seen[c] = 1; }
+                    if (c) { out.push({ rank: 0, value: c, html: esc(c) + (low(c) !== s ? " <small>from “" + esc(q.trim()) + "”</small>" : "") }); seen[c] = 1; }
                     var pre = [], sub = [];
                     TYPES.forEach(function (t) {
                         if (seen[t]) return; var i = t.toLowerCase().indexOf(s);
                         if (i === 0) pre.push(t); else if (i > 0) sub.push(t);
                     });
-                    pre.concat(sub).slice(0, 8 - out.length).forEach(function (t) { out.push({ value: t, html: hl(t, q) }); });
+                    var preSet = {}; pre.forEach(function (t) { preSet[t] = 1; });
+                    pre.concat(sub).slice(0, 8 - out.length).forEach(function (t) { out.push({ rank: preSet[t] ? 0 : 1, value: t, html: hl(t, q) }); });
+                    // Typo with no catalog hit: offer the nearest creature type first so Enter lands on it, not on a junk custom value.
+                    if (!c && !pre.length && !sub.length) {
+                        var near = closeType(q);
+                        if (near && !has(near)) out.unshift({ rank: 0, value: near, suggest: true, html: "Did you mean <b>" + esc(near) + "</b>? <small>closest creature type to “" + esc(q.trim()) + "”</small>" });
+                    }
                     out = out.map(function (r) { if (has(r.value)) { r.disabled = true; r.html += " <small>already added</small>"; } return r; });
                     if (!c && cfg.custom) out.push(createRow(q));
                     return out;
@@ -262,7 +304,7 @@
                     out.push({ group: g.label });
                     opts.forEach(function (x) {
                         var picked = has(x.o.id);
-                        out.push({ value: x.o.id, disabled: picked, html: hl(x.o.label, q) + (picked ? " · added" : "") + "<small>" + esc(x.o.desc) + "</small>" });
+                        out.push({ rank: x.rank, value: x.o.id, disabled: picked, html: hl(x.o.label, q) + (picked ? " · added" : "") + "<small>" + esc(x.o.desc) + "</small>" });
                     });
                 });
                 if (cfg.custom && s && !exact) out.push(createRow(q));
@@ -272,7 +314,7 @@
             function createRow(q) {
                 var t = clean(q);
                 if (has(t)) return { disabled: true, create: true, html: "“" + esc(t) + "” is already added" };
-                return { value: t, create: true, html: "<b>+</b><span>Add “" + esc(t) + "” as a custom " + cfg.noun + "</span>" };
+                return { rank: 3, value: t, create: true, html: "<b>+</b><span>Add “" + esc(t) + "” as a custom " + cfg.noun + "</span>" };
             }
             function open() {
                 rows = search(input.value);
@@ -285,8 +327,14 @@
                 }).join("");
                 list.hidden = false; input.setAttribute("aria-expanded", "true");
                 active = -1;
-                // Typing makes the first enabled option active, so Enter picks the best match.
-                if (input.value.trim()) move(1);
+                /* Typing highlights the best match so Enter picks it: lowest rank (label prefix, then label
+                   substring), first in list order on ties. A description-only hit (rank 2) is never
+                   auto-highlighted, so "spel" can't land on Ramp. */
+                if (input.value.trim()) {
+                    var best = null;
+                    rows.forEach(function (r) { if (r.idx != null && !r.disabled && r.rank <= 1 + (r.create ? 2 : 0) && (!best || r.rank < best.rank)) best = r; });
+                    if (best) { active = best.idx - 1; move(1); }
+                }
             }
             function close() { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; }
             function opts() { return list.querySelectorAll('[role="option"]'); }
@@ -316,7 +364,13 @@
             input.addEventListener("keydown", function (e) {
                 if (e.key === "ArrowDown") { e.preventDefault(); if (list.hidden) open(); move(1); }
                 else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
-                else if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); if (active >= 0) pick(active); }
+                else if (e.key === "Enter" && !(e.metaKey || e.ctrlKey)) { e.preventDefault();
+                    if (active >= 0) pick(active);
+                    else if (input.value.trim() && addedMatch(input.value)) {  // duplicate: nothing to add, so clear + say so
+                        var dup = addedMatch(input.value);
+                        input.value = ""; close(); flash(dup); flashNote(labelOf(kind, dup) + " is already added");
+                    }
+                }
                 else if (e.key === "Escape") { if (!list.hidden) { e.stopPropagation(); close(); } }
                 else if (e.key === "Backspace" && !input.value && self.value.length) {
                     remove(self.value[self.value.length - 1]); commit();
@@ -354,7 +408,7 @@
             render();
         }
 
-        return { FIELDS: FIELDS, canonType: canonType, canonSeed: canonSeed, labelOf: labelOf, isCustom: isCustom,
+        return { FIELDS: FIELDS, closeType: closeType, canonType: canonType, canonSeed: canonSeed, labelOf: labelOf, isCustom: isCustom,
                  fromJournal: fromJournal, toPayload: toPayload, stripItems: stripItems, stripHtml: stripHtml,
                  readHtml: readHtml, TagField: TagField, esc: esc };
     }

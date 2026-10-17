@@ -354,7 +354,66 @@ class TestKindredValidation:
         assert "at most 5" in resp.json()["error"]
 
 
+# --------------------------------------------------------------------------- Enter-key handling
+
+class TestEnterKeyHandling:
+    """Bugs #161, #163, #164, #169: one shared Enter handler in TagField."""
+
+    def test_enter_on_added_kindred_clears_input_and_notes_it(self, make_deck, genre):
+        # #161 (typed text kept -> junk custom on save) + #164 (no feedback)
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.add("kindred", "Elf")
+        g.input("kindred").fill("Elf")
+        g.input("kindred").press("Enter")
+        assert g.input("kindred").input_value() == ""
+        assert g.chip_values("kindred") == ["Elf"]
+        expect(g.page.locator("[data-testid=genre-kindred-note]")).to_contain_text("already added")
+        g.save()
+        g.reload()
+        assert g.chip_values("kindred") == ["Elf"]
+
+    def test_enter_on_added_theme_clears_input_and_notes_it(self, make_deck, genre):
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.add("theme", "Budget")
+        g.input("theme").fill("budget")
+        g.input("theme").press("Enter")
+        assert g.input("theme").input_value() == ""
+        assert len(g.chip_values("theme")) == 1
+        expect(g.page.locator("[data-testid=genre-theme-note]")).to_contain_text("already added")
+
+    def test_enter_on_partial_archetype_takes_prefix_match_not_ramp(self, make_deck, genre):
+        # #163: "spel" used to highlight the first description hit (Ramp).
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.add("archetype", "spel")
+        assert g.chip_values("archetype") == ["spellslinger"]
+
+    def test_enter_with_no_label_match_never_picks_an_archetype_by_description(self, make_deck, genre):
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.add("archetype", "zzqx")
+        assert g.chip_values("archetype") == []
+
+    def test_enter_on_kindred_typo_suggests_the_close_type(self, make_deck, genre):
+        # #169: "Gobln" used to save as a custom kindred on Enter.
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.add("kindred", "Gobln")
+        assert g.chip_values("kindred") == ["Goblin"]
+
+    def test_arrowing_to_the_custom_row_still_saves_a_custom_kindred(self, make_deck, genre):
+        deck = make_deck()
+        g = genre(deck["name"])
+        g.input("kindred").fill("Gobln")
+        g.input("kindred").press("ArrowDown")
+        g.input("kindred").press("Enter")
+        assert g.chip_values("kindred") == ["Gobln"]
+
+
 # --------------------------------------------------------------------------- empty state
+
 
 class TestEmptyState:
 
