@@ -77,6 +77,9 @@
 {#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
 <div id="bracketBanner" aria-live="polite"></div>
 
+{#- Auto Tag (AT-UI): deck tags, role counts, the Auto Tag button. static/js/auto_tag.js. -#}
+<div id="autoTag"></div>
+
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
@@ -163,6 +166,7 @@
         <button type="button" class="hud-tab" data-view="list">List</button>
     </nav>
 </div>
+<div id="atFilterbar" hidden></div>
 <div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
 
 <!-- Card Details Modal -->
@@ -510,6 +514,7 @@
             renderStats();
             renderCards();
             deckLoaded = true;
+            if (AT) AT.update();
             // ?card=NAME (the Stats inspector's "Open card") opens the card modal.
             const want = new URLSearchParams(location.search).get('card');
             const wantIdx = want ? inventoryCards.findIndex(c => c.name === want) : -1;
@@ -718,12 +723,23 @@
         return groups;
     }
 
+    // Auto Tag (static/js/auto_tag.js): role/theme chips under each tile, tag filter, group-by-tag.
+    let AT = null;
+    const withTags = (html, card) => AT ? html.replace('</figcaption>', AT.chips(card.name) + '</figcaption>') : html;
+    const byCmcName = (a, b) => (a.cmc !== b.cmc) ? (a.cmc || 0) - (b.cmc || 0) : a.name.localeCompare(b.name);
+
     function renderCards() {
         const container = document.getElementById('decklistContainer');
-        const groups = groupCards(inventoryCards);
-        document.getElementById('decklistCount').textContent = inventoryCards.length ? inventoryCards.length + ' cards' : '';
+        const shown = AT ? AT.filter(inventoryCards) : inventoryCards;
+        const groups = groupCards(shown);
+        document.getElementById('decklistCount').textContent = inventoryCards.length
+            ? (shown.length !== inventoryCards.length ? shown.length + ' of ' : '') + inventoryCards.length + ' cards' : '';
         if (!inventoryCards.length) {
             container.innerHTML = '<div class="hud-empty">No cards in this deck</div>';
+            return;
+        }
+        if (!shown.length) {
+            container.innerHTML = '<div class="hud-empty">No cards match this tag</div>';
             return;
         }
         if (decklistView === 'list') {
@@ -731,14 +747,18 @@
             HUD.initSortable(container);
             return;
         }
-        container.innerHTML = GROUP_ORDER.filter(g => groups[g].length).map(g => {
-            const flagged = groups[g].filter(flagOf);
+        const byTag = !!AT && AT.groupBy() === 'tag';
+        const sections = byTag
+            ? AT.groups(shown).map(g => ({ title: g.label, cards: g.cards.slice().sort(byCmcName) }))
+            : GROUP_ORDER.filter(g => groups[g].length).map(g => ({ title: g, cards: groups[g] }));
+        container.innerHTML = (byTag ? '<p class="at-hint">A card with several tags shows in each of its groups.</p>' : '') + sections.map(sec => {
+            const flagged = sec.cards.filter(flagOf);
             const hard = flagged.some(c => flagOf(c).sev === 'hard');
             const link = flagged.length ? ` · <button type="button" class="hud-bracket-count${hard ? '' : ' is-adv'}" data-show="${esc(flagged[0].name)}">${flagged.length} flagged ↓</button>` : '';
             return `
             <section class="deck-group">
-                <div class="hud-section-head"><h2>${esc(g)}</h2><span class="deck-group-count">${groups[g].length}${link}</span></div>
-                <div class="deck-card-grid">${groups[g].map(c => cardArt(c, inventoryCards.indexOf(c), 'normal', 'card', flagOf(c))).join('')}</div>
+                <div class="hud-section-head"><h2>${esc(sec.title)}</h2><span class="deck-group-count">${sec.cards.length}${link}</span></div>
+                <div class="deck-card-grid">${sec.cards.map(c => withTags(cardArt(c, inventoryCards.indexOf(c), 'normal', 'card', flagOf(c)), c)).join('')}</div>
             </section>`;
         }).join('');
     }
@@ -754,6 +774,7 @@
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
                 <td data-value="${esc(c.color || '')}">${isLand(c) ? '<span class="hud-muted">—</span>' : HUD.pips(c.color || '', 'sm')}</td>
                 <td>${c.primary_tag ? esc(c.primary_tag) : '<span class="hud-muted">—</span>'}</td>
+                <td data-value="${esc(AT ? AT.tagsOf(c.name).map(e => e.tag).join(' ') : '')}">${AT && AT.tagsOf(c.name).length ? AT.chips(c.name) : '<span class="hud-muted">—</span>'}</td>
                 <td class="is-num" data-value="${price}">${price ? '$' + price.toFixed(2) : '—'}</td>
             </tr>`;
         })).join('');
@@ -764,6 +785,7 @@
                 <th scope="col" class="is-num" data-sort="num" aria-sort="none"><button type="button" class="hud-sort">CMC</button></th>
                 <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="hud-sort">Colour</button></th>
                 <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="hud-sort">Tag</button></th>
+                <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="hud-sort">Role tags</button></th>
                 <th scope="col" class="is-num" data-sort="num" aria-sort="none"><button type="button" class="hud-sort">Price</button></th>
             </tr></thead>
             <tbody>${rows}</tbody></table></div>`;
@@ -776,6 +798,7 @@
             t.classList.toggle('active', on);
             if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
         });
+        if (AT) AT.update();   // the Group-by control only applies to the visual view
         renderCards();
     }
 
@@ -820,6 +843,7 @@
         document.getElementById('modalCardInfo').innerHTML = `
             <dl class="hud-kv">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
             ${oracle ? `<div class="card-oracle">${oracle}</div>` : ''}
+            ${AT ? '<div id="atCardTags"></div>' : ''}
             <div>
                 <span class="hud-label">Lab tags</span>
                 <div id="modalTagsContainer" class="hud-chips" style="margin-top: var(--sp-2);"><span class="hud-muted">Loading tags…</span></div>
@@ -830,6 +854,7 @@
             </div>
             ${reviewActionRow(card, index)}`;
         HUD.openModal('cardModal');
+        if (AT) AT.bindEditor(document.getElementById('atCardTags'), card.name);
 
         fetch(`/api/card/${encodeURIComponent(card.name)}/tags`)
             .then(r => r.json())
@@ -942,6 +967,20 @@
         if (ev.key !== 'Enter' && ev.key !== ' ') return;
         const hit = ev.target.closest && ev.target.closest('[data-card-index]');
         if (hit && hit === ev.target) { ev.preventDefault(); openCardModal(Number(hit.dataset.cardIndex)); }
+    });
+    // T edits the tags of the focused card, or of the card whose detail is open.
+    document.addEventListener('keydown', (ev) => {
+        if (!AT || (ev.key !== 't' && ev.key !== 'T')) return;
+        if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || ev.repeat) return;
+        const t = ev.target;
+        if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+        if (document.getElementById('cardReviewModal').classList.contains('is-open')) return;
+        const open = document.getElementById('cardModal').classList.contains('is-open');
+        const hit = open ? null : (t && t.closest && t.closest('[data-card-index]'));
+        if (!open && !hit) return;
+        ev.preventDefault();
+        if (hit) openCardModal(Number(hit.dataset.cardIndex));
+        AT.focusEditor();
     });
 
     // ---- Ability scores panel (PS-4) -------------------------------------
@@ -1132,6 +1171,13 @@
 
     // hud.js is deferred: start once it (and the DOM) is ready.
     document.addEventListener('DOMContentLoaded', () => {
+        if (window.AutoTag && DECK_RID) {
+            AT = AutoTag.mount({
+                deckId: DECK_RID, strip: document.getElementById('autoTag'), filterbar: document.getElementById('atFilterbar'),
+                getCards: () => inventoryCards, view: () => decklistView,
+                onChange: () => { if (deckLoaded) renderCards(); }
+            });
+        }
         cardReview = CardReview.mount({ modalId: 'cardReviewModal', deckId: DECK_RID || deckNameStr, deckName: deckNameStr,
             deckKind: () => isPhysicalDeck() ? 'physical' : 'digital', onBack: openCardModal });
         loadDeckData(); loadBracket();
@@ -1141,4 +1187,5 @@
 <script src="/static/js/personality.js?v={{ version }}" defer></script>
 <script src="/static/js/sync_controls.js?v={{ version }}" defer></script>
 <script src="/static/js/card_review.js?v={{ version }}" defer></script>
+<script src="/static/js/auto_tag.js?v={{ version }}" defer></script>
 {% endblock %}
