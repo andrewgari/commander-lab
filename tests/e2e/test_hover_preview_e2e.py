@@ -93,7 +93,6 @@ class TestHoverPreview:
 
     # Known failure, see docs/scryfall-hover-preview.md "Verification" (F): the inventory table is
     # re-rendered while the focused trigger is in the DOM, focus falls to <body> and the open never fires.
-    @pytest.mark.xfail(reason="inventory re-render drops keyboard focus; see Verification F", strict=False)
     def test_keyboard_focus_opens_and_esc_closes(self, page: Page, base_url: str):
         _open_inventory(page, base_url)
         page.mouse.move(2, 2)
@@ -132,3 +131,30 @@ class TestHoverPreview:
             page.wait_for_timeout(35)
         page.wait_for_timeout(300)
         assert page.evaluate("() => window.__closes") == 0, "preview closed during a fast sweep (flicker)"
+
+    def test_decks_grid_thumbnail_opens_through_click_overlay(self, page: Page, base_url: str):
+        page.goto(f"{base_url}/decks", wait_until="networkidle")
+        page.wait_for_timeout(1000)
+        thumbs = page.locator("img[data-card-preview]")
+        target = None
+        for i in range(thumbs.count()):
+            if thumbs.nth(i).is_visible():
+                target = thumbs.nth(i)
+                break
+        if target is None:
+            pytest.skip("seed data missing: no visible deck thumbnail trigger")
+        _hover_center(page, target)
+        page.wait_for_timeout(900)
+        assert page.evaluate(OPEN_JS), "hover over the thumbnail (under button.deck-open) did not open the preview"
+
+    def test_stats_rank_row_opens_from_the_bar(self, page: Page, base_url: str):
+        page.goto(f"{base_url}/deck/Hover%20Test%20Deck/stats", wait_until="networkidle")
+        page.wait_for_timeout(1000)
+        row = page.locator(".hud-rank-item:has(.hud-cp-name)")
+        if row.count() == 0 or not row.first.is_visible():
+            pytest.skip("seed data missing: no rank row with a card name")
+        row.first.scroll_into_view_if_needed()
+        box = row.first.bounding_box()
+        page.mouse.move(box["x"] + box["width"] * 0.7, box["y"] + box["height"] / 2, steps=3)  # over the bar, not the text
+        page.wait_for_timeout(900)
+        assert page.evaluate(OPEN_JS), "hover over the rank bar did not open the preview"

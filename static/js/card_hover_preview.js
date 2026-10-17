@@ -699,16 +699,40 @@
 
         // ---- event handlers -----------------------------------------------------------
 
+        // A transparent click-target (data-cp-overlay, e.g. a stretched button) can sit on
+        // top of a trigger and take the pointer; look through it to the trigger underneath.
+        var overlayT = null;
+        function triggerAt(e) {
+            var t = findTrigger(e.target);
+            if (t || !e.target || !e.target.closest || !e.target.closest("[data-cp-overlay]")) return t;
+            var under = doc.elementsFromPoint ? doc.elementsFromPoint(e.clientX, e.clientY) : [];
+            for (var i = 0; i < under.length; i++) {
+                var u = findTrigger(under[i]);
+                if (u) return u;
+            }
+            return null;
+        }
         function onPointerOver(e) {
             if (e.pointerType === "touch") return;
-            var t = findTrigger(e.target);
+            var t = triggerAt(e);
             if (!t || t === findTrigger(e.relatedTarget)) return;
+            overlayT = findTrigger(e.target) ? null : t;
             intent(t, "mouse", { x: e.clientX, y: e.clientY });
+        }
+        function onOverlayMove(e) {
+            if (e.pointerType === "touch" || findTrigger(e.target)) return;
+            var t = triggerAt(e);
+            if (t === overlayT) return;
+            overlayT = t;
+            if (t) intent(t, "mouse", { x: e.clientX, y: e.clientY });
+            else { openT = clear(openT); if (isOpen) hide(cfg.close); }
         }
         function onPointerOut(e) {
             if (e.pointerType === "touch") return;
-            var t = findTrigger(e.target);
+            var t = triggerAt(e);
+            if (!findTrigger(e.target) && overlayT && e.target.closest && e.target.closest("[data-cp-overlay]")) t = overlayT;
             if (!t || t === findTrigger(e.relatedTarget)) return;
+            overlayT = null;
             // Leaving any trigger cancels its pending open; if a preview is up
             // (this one, or the one we were about to swap away from) it gets
             // the close grace period, which the next trigger's intent cancels.
@@ -762,6 +786,7 @@
             }, cfg.press);
         }
         function onPointerMove(e) {
+            onOverlayMove(e);
             if (e.pointerType !== "touch" || !press.target) return;
             var dx = e.clientX - press.x, dy = e.clientY - press.y;
             if (Math.sqrt(dx * dx + dy * dy) > cfg.pressSlop) { press.t = clear(press.t); press.target = null; }

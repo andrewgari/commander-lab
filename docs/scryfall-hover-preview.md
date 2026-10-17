@@ -116,4 +116,17 @@ Caveat: `docs/design/hover-preview/SPEC.md` is referenced from `static/js/card_h
 
 ### Test added
 
-`tests/e2e/test_hover_preview_e2e.py` (pytest-playwright, uses `--base-url`). Five tests: name hover opens a printing-specific image; two Sol Ring printings differ; DFC shows both faces; keyboard focus opens and Esc closes (xfail, see 7a); fast sweep does not close. Skips when the seed is missing. Run: `pytest tests/e2e/test_hover_preview_e2e.py --base-url=http://localhost:8000`. Against the seeded app: 4 passed, 1 xfailed.
+`tests/e2e/test_hover_preview_e2e.py` (pytest-playwright, uses `--base-url`). Seven tests: name hover opens a printing-specific image; two Sol Ring printings differ; DFC shows both faces; keyboard focus opens and Esc closes; fast sweep does not close; deck-grid thumbnail opens through the click overlay; stats rank bar opens the preview. Skips when the seed is missing. Run: `pytest tests/e2e/test_hover_preview_e2e.py --base-url=http://localhost:8000`. Against the seeded app: 7 passed (with the fixes below reverted: keyboard, deck thumbnail and rank bar fail).
+
+
+### Fixes for the failures above
+
+| Finding | Fix |
+|---|---|
+| 1h decks grid thumbnail covered by `button.deck-open` | `data-cp-overlay` on the button; the controller looks through marked overlays with `elementsFromPoint` and tracks enter/leave on the trigger underneath. |
+| 1g stats rank bar hides the trigger | `.hud-rank-label .hud-cp-name::after` stretches the trigger over the whole row (`hud.css`). |
+| 7a keyboard focus lost on inventory re-render | `templates/inventory.html` restores focus to the same card name after the table is rebuilt. |
+| 9 warn-once not honored | The warned-names map lives on `globalThis`, so a second copy of `scryfall_image.js` cannot warn again. |
+| 10 CORS errors from 429 | `fetchCard` retries once after `config.retryDelay` (1500 ms) on 429/503 or a network error (a CORS-less 429 surfaces as a TypeError), through the same 10 req/s throttle; then falls back to the name-only/API image. The browser console may still log the failed request itself, which cannot be suppressed. |
+
+Still not verified: #18 deck modal, #8-#12, #20, #21 (need a richer seed), and `aria-describedby` while open.
