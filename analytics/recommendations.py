@@ -11,6 +11,8 @@ with user deck-intake goals to generate:
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
@@ -34,6 +36,62 @@ from analytics.models import (
 from user_intent import UserDeckIntent
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Card-name normalization & "already in deck" matching
+# =============================================================================
+
+# Cards that may legally appear any number of times (basics + "any number of
+# cards named ~" rules text). There is no reliable rules-text flag in this
+# module, so this is an explicit allowlist (normalized names). Extend as new
+# any-number cards are printed.
+ANY_NUMBER_CARD_NAMES: frozenset = frozenset({
+    "plains", "island", "swamp", "mountain", "forest", "wastes",
+    "snow-covered plains", "snow-covered island", "snow-covered swamp",
+    "snow-covered mountain", "snow-covered forest", "snow-covered wastes",
+    "relentless rats", "shadowborn apostle", "persistent petitioners",
+    "dragon's approach", "rat colony", "slime against humanity", "seven dwarves",
+    "hare apparent", "templar knight", "nazgul", "cid, timeless artificer",
+})
+
+_SET_SUFFIX_RE = re.compile(r"\s*\([A-Za-z0-9]{2,6}\)\s*[\w\-★]*\s*$")
+
+
+def normalize_card_name(name: Optional[str]) -> str:
+    """Lowercase, strip set/collector suffix, fold diacritics/punctuation variants, collapse whitespace."""
+    if not name:
+        return ""
+    text = unicodedata.normalize("NFKD", str(name))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.replace("\u2019", "'").replace("\u2018", "'").replace("\u2013", "-").replace("\u2014", "-")
+    text = _SET_SUFFIX_RE.sub("", text.strip())
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def card_name_keys(name: Optional[str]) -> Set[str]:
+    """All normalized keys a card answers to: full name plus each face of a ``//`` card."""
+    full = normalize_card_name(name)
+    if not full:
+        return set()
+    keys = {full}
+    if "//" in full:
+        for face in full.split("//"):
+            face = face.strip()
+            if face:
+                keys.add(face)
+    return keys
+
+
+def is_any_number_card(name: Optional[str]) -> bool:
+    return bool(card_name_keys(name) & ANY_NUMBER_CARD_NAMES)
+
+
+def is_already_in_deck(name: Optional[str], existing_keys: Set[str]) -> bool:
+    """True if ``name`` duplicates a card in the deck (any-number cards never count)."""
+    if is_any_number_card(name):
+        return False
+    return bool(card_name_keys(name) & existing_keys)
+
 
 # Recent sets (2022-2025) emphasizing fresh mechanics and modern designs
 RECENT_SETS: Dict[str, Dict[str, Any]] = {
@@ -827,9 +885,14 @@ class RecommendationGenerator:
         # 1. Extract deck card names & commanders
         deck_cards: List[DeckCardEntry] = getattr(deck, "cards", [])
         commanders: List[str] = [c for c in analysis.commanders]
-        existing_names: Set[str] = {c.name.strip().lower() for c in deck_cards}
+        existing_names: Set[str] = set()
+        for c in deck_cards:
+            existing_names |= card_name_keys(c.name)
+        # Commander zone: analysis commanders plus any stored on the deck itself
         for cmd in commanders:
-            existing_names.add(cmd.strip().lower())
+            existing_names |= card_name_keys(cmd)
+        for cmd in getattr(deck, "commanders", None) or []:
+            existing_names |= card_name_keys(getattr(cmd, "name", cmd))
 
         intent = intent or UserDeckIntent()
 
@@ -954,7 +1017,7 @@ class RecommendationGenerator:
         # A. Incorporate external provider recommendations if provided
         if external_recommendations and external_recommendations.items:
             for ext in external_recommendations.items:
-                if ext.card_name.strip().lower() in existing_names:
+                if is_already_in_deck(ext.card_name, existing_names):
                     continue
                 score = min(1.0, (ext.score or 0.85) + 0.10)
                 synergy = ext.synergy or 0.5
@@ -974,7 +1037,7 @@ class RecommendationGenerator:
 
         # B. Evaluate internal curated knowledge base
         for card in self.catalog:
-            if card.name.strip().lower() in existing_names:
+            if is_already_in_deck(card.name, existing_names):
                 continue
 
             # Respect budget limit if defined
@@ -1099,7 +1162,10 @@ class RecommendationGenerator:
         unique_recs: List[CardRecommendation] = []
         seen: Set[str] = set()
         for _, rec in scored_cards:
-            k = rec.card_name.lower().strip()
+            # Final deterministic post-filter: never add a card already in the deck
+            if is_already_in_deck(rec.card_name, existing_names):
+                continue
+            k = normalize_card_name(rec.card_name)
             if k not in seen:
                 seen.add(k)
                 unique_recs.append(rec)
