@@ -1,5 +1,13 @@
 """
-Dual-source deck sync -- fetches a deck's cardlist from every provider
+Explicit, user-initiated deck sync with external deckbuilders.
+
+Two operations, never run on a timer, schedule, page load, or save hook --
+only from the Update / Push API routes (see docs/SYNC_UPDATE_PUSH.md):
+
+- update_deck(r, id, provider=None, dry_run=False): external -> commander.lab
+- push_deck(r, id, provider, dry_run=False):        commander.lab -> external
+
+Update details: dual-source sync -- fetches a deck's cardlist from every provider
 linked on its record (see deck_links.py) and merges the results into one
 local decklist, in a single operation.
 
@@ -28,17 +36,49 @@ Design (see docs/DUAL_SOURCE_SYNC.md):
   returned so callers can show the user exactly what happened.
 """
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Optional
 
 import deck_links
 import registry
 from providers import fetch_deck as provider_fetch_deck
-from providers import ProviderError
+from providers import push_configured as provider_push_configured
+from providers import push_deck as provider_push_deck
+from providers import ProviderError, PushError, PushNotConfigured
 
 
 class DeckSyncError(ValueError):
     """Raised when a sync cannot produce any usable result at all (e.g. no
-    syncable provider is linked, or every linked provider failed)."""
+    syncable provider is linked, or every linked provider failed).
+    `code`/`status` map it to the API error shape (see app.py)."""
+
+    code = "sync_failed"
+    status = 400
+
+
+class DeckNotFound(DeckSyncError):
+    code = "deck_not_found"
+    status = 404
+
+
+class PushUnsupported(DeckSyncError):
+    """Push to this provider can't run: the provider has no write path, or
+    its credential isn't configured. Never a silent no-op."""
+
+    code = "push_unsupported"
+    status = 501
+
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        if code:
+            self.code = code
+
+
+class ProviderFailure(DeckSyncError):
+    """The external provider failed or rejected the request."""
+
+    code = "provider_error"
+    status = 502
 
 
 @dataclass
@@ -59,6 +99,7 @@ class CardConflict:
 @dataclass
 class SyncReport:
     registry_id: str
+    changes: dict = field(default_factory=dict)       # see diff_cardlists
     sources: list = field(default_factory=list)       # list[SourceResult]
     conflicts: list = field(default_factory=list)      # list[CardConflict]
     merged_card_count: int = 0
@@ -86,6 +127,7 @@ class SyncReport:
             ],
             "merged_card_count": self.merged_card_count,
             "warnings": self.warnings,
+            "changes": self.changes,
         }
 
 
@@ -173,76 +215,227 @@ def merge_normalized_decks(fetched: dict) -> tuple:
     return cards, commanders, commander_uids, color, conflicts
 
 
-def sync_deck(r, registry_id: str) -> SyncReport:
-    """Sync one deck from every syncable provider linked on its record.
+DIRECTION = {"update": "external_to_local", "push": "local_to_external"}
 
-    Fetches each linked provider independently (a failure on one doesn't
-    stop the others), merges whatever succeeded via `merge_normalized_decks`,
-    writes the result with `registry.update_deck_cards`, and returns a
-    `SyncReport` describing what was pulled from each source, any merge
-    conflicts, and any source failures.
 
-    Raises DeckSyncError if the deck has no syncable provider links, or if
-    every linked provider failed (nothing to merge, deck left untouched).
-    """
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def diff_cardlists(before: list, after: list) -> dict:
+    """What changes going from `before` to `after` ({name, quantity} lists):
+    {"added": [{name, quantity}], "removed": [{name, quantity}],
+     "changed": [{name, from, to}], "counts": {added, removed, changed}}."""
+    def totals(cards):
+        out = {}
+        for c in cards or []:
+            if c.get("name"):
+                out[c["name"]] = out.get(c["name"], 0) + int(c.get("quantity") or 1)
+        return out
+
+    b, a = totals(before), totals(after)
+    added = [{"name": n, "quantity": a[n]} for n in sorted(a) if n not in b]
+    removed = [{"name": n, "quantity": b[n]} for n in sorted(b) if n not in a]
+    changed = [{"name": n, "from": b[n], "to": a[n]} for n in sorted(a) if n in b and a[n] != b[n]]
+    return {"added": added, "removed": removed, "changed": changed,
+            "counts": {"added": len(added), "removed": len(removed), "changed": len(changed)}}
+
+
+def _syncable_links(deck: dict) -> dict:
+    return {p: e for p, e in deck_links.get_links(deck).items() if p in deck_links.SYNCABLE_PROVIDERS}
+
+
+def _link_id(entry: dict) -> str:
+    return entry.get("deck_id") or entry.get("identifier")
+
+
+def _stamp(r, registry_id: str, providers: list, field_name: str, ts: str) -> None:
+    """Record last_updated_at / last_pushed_at on the deck record: per provider
+    under deck["sync_state"][provider] and deck-wide at deck[field_name]."""
+    decks = registry._load_decks(r)
+    for d in decks:
+        if registry.registry_id_of(d) == registry_id or str(d.get("id")) == registry_id:
+            state = dict(d.get("sync_state") or {})
+            for p in providers:
+                state[p] = {**(state.get(p) or {}), field_name: ts}
+            d["sync_state"] = state
+            d[field_name] = ts
+            break
+    registry._save_decks(r, decks)
+
+
+def _find(r, registry_id: str) -> dict:
     deck = registry.find_deck(r, registry_id)
     if deck is None:
-        raise DeckSyncError(f"deck not found: {registry_id}")
+        raise DeckNotFound(f"deck not found: {registry_id}")
+    return deck
 
-    links = deck_links.get_links(deck)
-    syncable_links = {
-        provider: entry
-        for provider, entry in links.items()
-        if provider in deck_links.SYNCABLE_PROVIDERS
-    }
 
-    if not syncable_links:
+def _check_provider(deck: dict, provider: str, links: dict) -> None:
+    if provider not in deck_links.SYNCABLE_PROVIDERS:
         raise DeckSyncError(
-            f"deck {registry_id} has no linked Archidekt/Moxfield source to sync from"
+            f"unknown provider: {provider} (supported: {', '.join(sorted(deck_links.SYNCABLE_PROVIDERS))})"
         )
+    if provider not in links:
+        raise DeckSyncError(f"deck {registry.registry_id_of(deck)} has no {provider} link")
+
+
+def update_deck(r, registry_id: str, provider: Optional[str] = None, dry_run: bool = False) -> dict:
+    """UPDATE: pull the linked external deck(s) INTO the commander.lab deck.
+    Modifies the commander.lab deck only. Runs only when a user asks for it.
+
+    provider: "archidekt" | "moxfield" to pull from just that link, or None to
+    pull every syncable link and merge (union, max quantity -- see module doc).
+    dry_run: fetch and diff, but write nothing (confirmation-modal preview).
+
+    Returns a UI result dict (see docs/SYNC_UPDATE_PUSH.md). Raises
+    DeckNotFound / DeckSyncError (no link, unknown provider, every source failed).
+    """
+    deck = _find(r, registry_id)
+    registry_id = registry.registry_id_of(deck)
+    links = _syncable_links(deck)
+    if provider:
+        _check_provider(deck, provider, links)
+        links = {provider: links[provider]}
+    if not links:
+        raise DeckSyncError(f"deck {registry_id} has no linked Archidekt/Moxfield source to update from")
 
     report = SyncReport(registry_id=registry_id)
     fetched = {}
-
-    for provider, entry in syncable_links.items():
-        deck_identifier = entry.get("deck_id") or entry.get("identifier")
+    for name, entry in links.items():
         try:
-            normalized = _fetch_one(provider, deck_identifier)
-            fetched[provider] = normalized
-            report.sources.append(
-                SourceResult(provider=provider, status="ok", card_count=len(normalized.get("cards", [])))
-            )
-        except ProviderError as exc:
-            report.sources.append(SourceResult(provider=provider, status="error", error=str(exc)))
-            report.warnings.append(f"{provider}: {exc}")
-        except Exception as exc:  # noqa: BLE001 - one bad source must not abort the sync
-            report.sources.append(SourceResult(provider=provider, status="error", error=str(exc)))
-            report.warnings.append(f"{provider}: {exc}")
+            normalized = _fetch_one(name, _link_id(entry))
+            fetched[name] = normalized
+            report.sources.append(SourceResult(provider=name, status="ok", card_count=len(normalized.get("cards", []))))
+        except Exception as exc:  # noqa: BLE001 - one bad source must not abort the others
+            report.sources.append(SourceResult(provider=name, status="error", error=str(exc)))
+            report.warnings.append(f"{name}: {exc}")
 
     if not fetched:
-        raise DeckSyncError(
-            f"all linked sources failed for deck {registry_id}: "
-            + "; ".join(report.warnings)
-        )
+        raise ProviderFailure(f"all linked sources failed for deck {registry_id}: " + "; ".join(report.warnings))
 
     cards, commanders, commander_uids, color, conflicts = merge_normalized_decks(fetched)
     report.conflicts = conflicts
     report.merged_card_count = len(cards)
+    report.changes = diff_cardlists(deck.get("cards"), cards)
 
-    registry.update_deck_cards(
-        r,
-        registry_id,
-        cards=cards,
-        commanders=commanders,
-        commander_uids=commander_uids,
-        color=color,
-    )
+    ts = _now()
+    if not dry_run:
+        registry.update_deck_cards(r, registry_id, cards=cards, commanders=commanders,
+                                   commander_uids=commander_uids, color=color)
+        # The Archidekt pull carries the deck's folder: refresh it and apply the
+        # physical-folder rule (registry.apply_folder_rule -> set_status).
+        arch = fetched.get("archidekt")
+        if arch and "parent_folder_id" in arch:
+            registry.set_folder_data(r, registry_id, arch.get("parent_folder_id"), arch.get("theorycrafted"),
+                                     folder_name=arch.get("folder") if arch.get("folder") != "Imported" else None)
+        _stamp(r, registry_id, list(fetched), "last_updated_at", ts)
 
-    # The Archidekt pull carries the deck's folder: refresh it and apply the
-    # physical-folder rule (registry.apply_folder_rule -> set_status).
-    arch = fetched.get("archidekt")
-    if arch and "parent_folder_id" in arch:
-        registry.set_folder_data(r, registry_id, arch.get("parent_folder_id"), arch.get("theorycrafted"),
-                                 folder_name=arch.get("folder") if arch.get("folder") != "Imported" else None)
+    out = report.to_dict()
+    out.update({
+        "success": True, "operation": "update", "direction": DIRECTION["update"],
+        "provider": provider, "providers": list(fetched), "dry_run": dry_run, "timestamp": ts,
+    })
+    return out
 
+
+def push_deck(r, registry_id: str, provider: Optional[str], dry_run: bool = False) -> dict:
+    """PUSH: send the commander.lab deck's current cardlist TO one linked
+    external deck. Modifies the external deck only. Runs only when a user asks.
+
+    The remote deck is read first so the result carries an accurate diff
+    (remote before -> commander.lab). dry_run returns that diff without
+    writing, and works without push credentials.
+
+    Raises DeckNotFound, DeckSyncError (no provider / not linked),
+    PushUnsupported (provider can't push / credential unset, code
+    push_unsupported | push_not_configured), ProviderFailure.
+    """
+    deck = _find(r, registry_id)
+    registry_id = registry.registry_id_of(deck)
+    if not provider:
+        raise DeckSyncError("push needs a provider: archidekt or moxfield")
+    links = _syncable_links(deck)
+    _check_provider(deck, provider, links)
+    if not provider_supports_push(provider):
+        raise PushUnsupported(f"{provider} does not support push")
+
+    identifier = _link_id(links[provider])
+    try:
+        remote = _fetch_one(provider, identifier)
+    except Exception as exc:  # noqa: BLE001
+        raise ProviderFailure(f"{provider}: could not read the linked deck before pushing: {exc}") from exc
+
+    local_cards = deck.get("cards") or []
+    changes = diff_cardlists(remote.get("cards"), local_cards)
+    ts = _now()
+    remote_info = {}
+    if not dry_run:
+        if not provider_push_configured(provider):
+            raise PushUnsupported(f"{provider} push is not configured on this server", code="push_not_configured")
+        try:
+            remote_info = provider_push_deck(provider, identifier, local_cards, deck.get("commanders") or [])
+        except PushNotConfigured as exc:
+            raise PushUnsupported(str(exc), code="push_not_configured") from exc
+        except (PushError, ProviderError) as exc:
+            raise ProviderFailure(f"{provider}: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 - network/HTTP errors
+            raise ProviderFailure(f"{provider}: push failed: {exc}") from exc
+        _stamp(r, registry_id, [provider], "last_pushed_at", ts)
+
+    return {
+        "success": True, "operation": "push", "direction": DIRECTION["push"],
+        "registry_id": registry_id, "provider": provider, "providers": [provider],
+        "dry_run": dry_run, "timestamp": ts, "changes": changes,
+        "remote_url": remote_info.get("url") or remote.get("url"), "warnings": [],
+    }
+
+
+# Which directions each provider supports. Update (read) works for both
+# unauthenticated on public decks; Push needs a per-provider credential.
+PUSH_PROVIDERS = {"archidekt", "moxfield"}
+
+
+def provider_supports_push(provider: str) -> bool:
+    return provider in PUSH_PROVIDERS
+
+
+def sync_status(r, registry_id: str) -> dict:
+    """Per-provider capabilities + timestamps for the deck's Update/Push UI.
+    Read-only: never contacts a provider."""
+    deck = _find(r, registry_id)
+    links = deck_links.get_links(deck)
+    state = deck.get("sync_state") or {}
+    rows = []
+    for provider in sorted(deck_links.SYNCABLE_PROVIDERS):
+        linked = provider in links
+        configured = provider_push_configured(provider)
+        reason = None
+        if not provider_supports_push(provider):
+            reason = f"{provider} does not support push"
+        elif not configured:
+            reason = f"{provider} push is not configured on this server"
+        rows.append({
+            "provider": provider, "linked": linked,
+            "identifier": (links.get(provider) or {}).get("identifier"),
+            "can_update": linked,
+            "can_push": linked and reason is None,
+            "push_unavailable_reason": reason,
+            "last_updated_at": (state.get(provider) or {}).get("last_updated_at"),
+            "last_pushed_at": (state.get(provider) or {}).get("last_pushed_at"),
+        })
+    return {
+        "success": True, "registry_id": registry.registry_id_of(deck), "providers": rows,
+        "last_updated_at": deck.get("last_updated_at"), "last_pushed_at": deck.get("last_pushed_at"),
+    }
+
+
+def sync_deck(r, registry_id: str) -> SyncReport:
+    """DEPRECATED alias kept for POST /api/decks/{id}/sync: an Update from
+    every linked provider. Returns the legacy SyncReport. Prefer update_deck."""
+    result = update_deck(r, registry_id)
+    report = SyncReport(registry_id=result["registry_id"], changes=result["changes"],
+                        merged_card_count=result["merged_card_count"], warnings=result["warnings"])
+    report.sources = [SourceResult(**s) for s in result["sources"]]
+    report.conflicts = [CardConflict(**c) for c in result["conflicts"]]
     return report

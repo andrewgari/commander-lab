@@ -456,7 +456,7 @@
         if (linkedAccounts.length === 0) {
             container.innerHTML = `
                 <div class="linked-accounts-empty">
-                    <p>No linked accounts yet. Link your Archidekt or Moxfield account to auto-sync your decks.</p>
+                    <p>No linked accounts yet. Link your Archidekt or Moxfield account, then press Sync to pull its decks. Nothing syncs automatically.</p>
                 </div>
             `;
             return;
@@ -614,7 +614,7 @@
             const data = await res.json();
             
             if (data.success) {
-                statusEl.textContent = 'Account linked!';
+                statusEl.textContent = 'Account linked. Press Sync to pull its decks.';
                 statusEl.className = 'add-account-status success';
                 document.getElementById('newAccountUsername').value = '';
                 await loadLinkedAccounts();

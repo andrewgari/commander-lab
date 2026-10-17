@@ -480,11 +480,10 @@
             </div>
 
             <div class="modal-buttons" style="margin-top: auto; border-top: 1px solid #111827; padding-top: 1rem;">
-                <button class="btn btn-primary" onclick="syncDeck()">Sync</button>
+                <a class="btn btn-primary" id="modalSyncLink" href="#" title="Update from / Push to Archidekt or Moxfield on the deck page">Update / Push…</a>
                 <button class="btn" onclick="reviewDeck()">Review</button>
                 <button class="btn" onclick="tradeDeck()">Trade</button>
             </div>
-            <div id="modalSyncStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
         </div>
     </div>
 </div>
@@ -801,7 +800,7 @@
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     </a>`;
                 } else {
-                    linksHtml += `<button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;" title="Sync to generate Moxfield link">Moxfield (Unsynced)</button>`;
+                    linksHtml += `<button class="btn" disabled style="opacity: 0.5; cursor: not-allowed;" title="Link a Moxfield deck, then Push from the deck page">Moxfield (not linked)</button>`;
                 }
             }
         });
@@ -816,7 +815,7 @@
         document.getElementById('modalMoxfieldUrl').value = (links.moxfield && links.moxfield.identifier) || '';
         document.getElementById('modalCommanderSaltUrl').value = (links.commandersalt && links.commandersalt.identifier) || '';
         document.getElementById('modalLinkStatus').textContent = '';
-        document.getElementById('modalSyncStatus').textContent = '';
+        document.getElementById('modalSyncLink').href = `/deck/${encodeURIComponent(deck.name)}`;
         
         const imagesContainer = document.getElementById('modalImagesContainer');
         imagesContainer.innerHTML = '';
@@ -968,38 +967,6 @@
         }
     }
 
-    async function syncDeck() {
-        if (currentDeckIndex === -1) return;
-        const deck = allDecks[currentDeckIndex];
-        const statusEl = document.getElementById('modalSyncStatus');
-        statusEl.textContent = 'Syncing...';
-        statusEl.style.color = 'var(--text-muted)';
-        try {
-            const res = await fetch(`/api/decks/${deck.id}/sync`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                const report = data.report;
-                const sourceSummary = report.sources
-                    .map(s => s.status === 'ok' ? `${s.provider}: ${s.card_count} cards` : `${s.provider}: FAILED (${s.error})`)
-                    .join(' | ');
-                let msg = `Synced ${report.merged_card_count} cards. ${sourceSummary}`;
-                if (report.conflicts.length > 0) {
-                    msg += ` -- ${report.conflicts.length} conflict(s) resolved by max quantity / union.`;
-                }
-                await loadDecks();
-                openDeckModal(currentDeckIndex);
-                statusEl.textContent = msg;
-                statusEl.style.color = report.warnings.length > 0 ? '#facc15' : '#4ade80';
-            } else {
-                statusEl.textContent = data.error || 'Sync failed.';
-                statusEl.style.color = '#f87171';
-            }
-        } catch (err) {
-            statusEl.textContent = 'Sync failed: ' + err;
-            statusEl.style.color = '#f87171';
-        }
-    }
-    
     function reviewDeck() {
         if (currentDeckIndex === -1) return;
         const deck = allDecks[currentDeckIndex];
@@ -1092,7 +1059,7 @@
                         </div>
                         <a class="deck-inv" href="/inventory?deck=${href}" title="Inventory for ${HUD.esc(deck.name)}" aria-label="Inventory for ${HUD.esc(deck.name)}">${INV_ICON}</a>
                     </div>
-                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
+                    <button type="button" class="deck-open" data-cp-overlay onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
                 </article>
             `}).join('');
             
