@@ -209,6 +209,32 @@ class CandidatePools:
         return cache[1]
 
 
+def consume_pools(pools: CandidatePools, cards: Iterable[CardInput]) -> CandidatePools:
+    """Pools left after one deck takes `cards` from the shared Tier 1/2 copies.
+
+    A card can have copies in both tiers (source-deck copies plus a spare owned
+    copy, #157). Copies are taken from Tier 1 first, then Tier 2; a tier that is
+    used up drops the card so the next deck's tagging falls through to the
+    remaining tier (or Tier 3). Tier 3 is unlimited and unchanged.
+    """
+    want = dict((norm_name(n), q) for n, q in _normalise_cards(cards))
+
+    def take(pool: List[PoolCard], left: Dict[str, int]) -> List[PoolCard]:
+        out = []
+        for c in pool:
+            k = norm_name(c.name)
+            n = min(left.get(k, 0), int(c.available_qty or 0))
+            left[k] = left.get(k, 0) - n
+            rest = int(c.available_qty or 0) - n
+            if rest > 0:
+                out.append(replace(c, available_qty=rest))
+        return out
+
+    new1 = take(pools.tier1, want)
+    new2 = take(pools.tier2, want)
+    return replace(pools, tier1=new1, tier2=new2)
+
+
 @dataclass(frozen=True)
 class TaggedCard:
     name: str
@@ -576,8 +602,12 @@ def build_candidate_pools(
         for c in tier1_from_snapshots(session.get("source_decks") or [])
     ]
     taken = {norm_name(c.name) for c in tier1}
+    tier1_qty = {norm_name(c.name): int(c.available_qty or 0) for c in tier1}
 
-    # Tier 2: lowest-tier precedence means any Tier 1 name is dropped here.
+    # Tier 2: free owned copies minus the copies Tier 1 already accounts for.
+    # Source-deck copies are decommissioned to in_collection, so they appear in
+    # the owned count and are subtracted by copy count (not by name): only the
+    # genuinely spare copies remain (#157).
     if owned_instances is None and r is not None:
         owned_instances = instance_store.list_instances(r, ownership_status="in_collection")
     owned = free_owned_counts(owned_instances or [])
@@ -585,13 +615,14 @@ def build_candidate_pools(
     merged: Dict[str, Tuple[str, int]] = {}
     for name, n in owned.items():
         k = norm_name(name)
-        if k in taken:
-            continue
         prev = merged.get(k)
         merged[k] = (prev[0] if prev else name, (prev[1] if prev else 0) + n)
     for k, (name, n) in sorted(merged.items(), key=lambda kv: kv[1][0].casefold()):
+        n -= tier1_qty.get(k, 0)
+        if n <= 0:
+            continue
         tier2.append(PoolCard(name=name, tier=Tier.OWNED, available_qty=n, color_identity=ident(name)))
-    taken |= set(merged)
+    taken |= {norm_name(c.name) for c in tier2}
 
     # Tier 3: filter, rank, cap, then price only the survivors.
     excluded = {norm_name(n) for n in config.excluded_names}

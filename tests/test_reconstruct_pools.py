@@ -248,6 +248,29 @@ def check_no_card_appears_in_more_than_one_tier(pools):
     assert len(seen) == len(set(seen))
 
 
+def check_spare_owned_copy_of_source_card_stays_free_in_tier2(catalog):
+    # #157: 2 source copies of Sol Ring + 3 owned undedicated copies -> 1 spare.
+    sess = make_session([
+        make_source_deck("A", [("Sol Ring", 1)]),
+        make_source_deck("B", [("Sol Ring", 1)]),
+    ])
+    owned_ = [make_instance("Sol Ring") for _ in range(3)]
+    p = build_candidate_pools(sess, catalog=catalog, owned_instances=owned_, price_lookup=price_fn({}))
+    assert {c.name: c.available_qty for c in p.tier1}["Sol Ring"] == 2
+    assert {c.name: c.available_qty for c in p.tier2} == {"Sol Ring": 1}
+    assert "Sol Ring" not in names(p.tier3)
+    # A deck taking the Tier 1 copies leaves the spare as a free Tier 2 copy.
+    left = rp.consume_pools(p, [("Sol Ring", 2)])
+    assert [t.tier for t in tag_cards(["Sol Ring"], left)] == [Tier.OWNED]
+
+
+def check_owned_copies_equal_to_source_copies_leave_no_tier2(catalog):
+    sess = make_session([make_source_deck("A", [("Sol Ring", 2)])])
+    owned_ = [make_instance("Sol Ring"), make_instance("Sol Ring")]
+    p = build_candidate_pools(sess, catalog=catalog, owned_instances=owned_, price_lookup=price_fn({}))
+    assert "Sol Ring" not in names(p.tier2)
+
+
 def check_precedence_is_case_and_double_face_insensitive(catalog):
     sess = make_session([make_source_deck("A", [("sol ring", 1), ("Delver of Secrets", 1)])])
     cat = InMemoryCatalog([*catalog.iter_cards(), make_card("Delver of Secrets // Insectile Aberration", "U")])
