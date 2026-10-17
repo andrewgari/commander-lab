@@ -50,7 +50,7 @@ ANY_NUMBER_CARD_NAMES: frozenset = frozenset({
     "snow-covered plains", "snow-covered island", "snow-covered swamp",
     "snow-covered mountain", "snow-covered forest", "snow-covered wastes",
     "relentless rats", "shadowborn apostle", "persistent petitioners",
-    "dragon's approach", "rat colony", "slime molds", "seven dwarves",
+    "dragon's approach", "rat colony", "slime against humanity", "seven dwarves",
     "hare apparent", "templar knight", "nazgul", "cid, timeless artificer",
 })
 

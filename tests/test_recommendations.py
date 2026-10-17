@@ -275,10 +275,10 @@ class TestNoRecommendingCardsAlreadyInDeck(unittest.TestCase):
 
     def test_basics_and_any_number_cards_still_allowed(self):
         _, names = self._gen(
-            ["Plains", "Relentless Rats", "Sol Ring"],
-            ["Plains", "Snow-Covered Island", "Relentless Rats", "Wastes"],
+            ["Plains", "Relentless Rats", "Slime Against Humanity", "Sol Ring"],
+            ["Plains", "Snow-Covered Island", "Relentless Rats", "Slime Against Humanity", "Wastes"],
         )
-        for ok in ("Plains", "Relentless Rats", "Wastes", "Snow-Covered Island"):
+        for ok in ("Plains", "Relentless Rats", "Slime Against Humanity", "Wastes", "Snow-Covered Island"):
             self.assertIn(ok, names)
 
     def test_backfill_when_filtered(self):
