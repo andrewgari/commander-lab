@@ -18,7 +18,7 @@
         {%- for card in d.cards if card is mapping %}
         <li class="hud-tcard is-buy">
             <span class="hud-tcard-qty">{{ card.qty or 1 }}</span>
-            <span class="hud-card-name">{{ card.name }}</span>
+            <span class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</span>
             <span></span>
             <span class="hud-tcard-price">{{ tv.money(card.price) }}</span>
         </li>

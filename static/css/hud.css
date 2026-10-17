@@ -529,6 +529,8 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hud-muted { color: var(--text-3); }
 .hud-card-name { font-family: var(--font-card); font-weight: var(--fw-semibold); color: var(--text-1); }
+/* Card name that previews its printing on hover (card_hover_preview.css adds the dotted underline). */
+.hud-cp-name { cursor: default; }
 
 /* Page header ------------------------------------------------------------------ */
 .hud-page-head {
@@ -1583,6 +1585,8 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-picker input { flex: 1; min-width: 10rem; border: 0; padding: var(--sp-1); background: transparent; }
 .hud-picker .hud-chip { font-family: var(--font-card); font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
 .hud-toggle { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.hud-toggles { display: inline-flex; gap: var(--sp-3); align-items: center; }
+.hud-toggles[hidden] { display: none; }
 .hud-toggle input { width: 1rem; height: 1rem; accent-color: var(--signal); }
 
 /* Save bar (sticky, appears when dirty) */
