@@ -621,6 +621,11 @@ def apply_folder_rule(r, registry_id: str) -> Optional[dict]:
         return None
     if (deck.get("source") or "archidekt") == "archidekt" and "parent_folder_id" not in deck:
         return None
+    if deck.get("source") == "reconstruct" and deck.get("status") == "physical":
+        # A Reconstruct draft the user accepted as physical (reconstruct.accept_draft).
+        # It was rebuilt from sleeved cards and has no Archidekt folder to derive from,
+        # so the folder rule must not demote it and flag its cards pending_removal.
+        return None
     new_status = derive_for_deck(deck)
     current, current_origin = deck.get("status"), deck.get("status_origin")
     if new_status == "physical":

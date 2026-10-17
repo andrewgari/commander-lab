@@ -124,6 +124,7 @@ function setup(opts) {
   for (const p of [CHP_PATH, SI_PATH]) delete require.cache[require.resolve(p)];
   const SI = require(SI_PATH);
   SI.config.warn = false;
+  SI.config.retryDelay = 0;
   const CHP = require(CHP_PATH);
   const doc = new Target();
   doc.createElement = tag => new El(tag, doc);
@@ -539,6 +540,7 @@ async function scen(name, fn) {
     const a = T.trig({ set: 'cmm', cn: '410', name: 'Sol Ring' });
     T.over(a); const loadsDuringLookup = T.loads.length;
     T.clock.advance(300); const whileOpen = T.state();
+    await new Promise(r => setTimeout(r, 250));              // real time: the one retry waits on the 10/s throttle
     await T.flush();
     return { loadsDuringLookup, whileOpen, after: T.state(), loads: T.loads, fetches: T.fetches };
   });
@@ -845,7 +847,7 @@ class TestCardHoverPreview(unittest.TestCase):
     def test_lookup_failure_falls_back_to_api_image(self):
         r = self.v("lookup_failure_falls_back_to_api_image")
         url = f"{API}/cards/cmm/410?format=image&version=normal"
-        self.assertEqual(r["fetches"], [f"{API}/cards/cmm/410"])
+        self.assertEqual(r["fetches"], [f"{API}/cards/cmm/410"] * 2)      # one retry, then give up
         self.assertEqual(r["loadsDuringLookup"], 0)
         self.assertEqual(r["loads"], [url])
         self.assertEqual(r["after"][0]["state"], "ok")
