@@ -529,6 +529,8 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hud-muted { color: var(--text-3); }
 .hud-card-name { font-family: var(--font-card); font-weight: var(--fw-semibold); color: var(--text-1); }
+/* Card name that previews its printing on hover (card_hover_preview.css adds the dotted underline). */
+.hud-cp-name { cursor: default; }
 
 /* Page header ------------------------------------------------------------------ */
 .hud-page-head {
@@ -1583,6 +1585,8 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-picker input { flex: 1; min-width: 10rem; border: 0; padding: var(--sp-1); background: transparent; }
 .hud-picker .hud-chip { font-family: var(--font-card); font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
 .hud-toggle { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.hud-toggles { display: inline-flex; gap: var(--sp-3); align-items: center; }
+.hud-toggles[hidden] { display: none; }
 .hud-toggle input { width: 1rem; height: 1rem; accent-color: var(--signal); }
 
 /* Save bar (sticky, appears when dirty) */
@@ -2539,4 +2543,29 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-ps-filters .hud-seg label { flex: none; }
     .hud-ps-filters input[type=search] { max-width: none; width: 100%; }
     .hud-ps-count { margin-left: 0; width: 100%; }
+}
+
+/* =======================================================================
+   13. RV-4: Deep Review tab (deck_review.html, partials/review/<type>.html).
+   Reuses the Ideas/Theory doc kit (section 8/11); only what it lacks lives here.
+   ======================================================================= */
+.hud-rv-stack { display: grid; gap: var(--sp-3); }
+.hud-rv-block { margin-top: var(--sp-4); }
+.hud-rv-stats { margin-bottom: var(--sp-4); }
+.hud-rv-meta { margin: var(--sp-3) 0 0; color: var(--text-3); font: var(--fs-xs) var(--font-mono); overflow-wrap: anywhere; }
+.hud-rv-why { margin: var(--sp-2) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.hud-rv-h { margin: var(--sp-3) 0 var(--sp-1); color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.hud-rv-prose { margin-bottom: var(--sp-4); }
+.hud-rv-list { list-style: none; margin: 0; padding: 0; }
+.hud-rv-combo { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.hud-rv-combo:last-child { border-bottom: 0; }
+.hud-rv-combo b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-rv-combo span { color: var(--text-2); font-size: var(--fs-xs); }
+.hud-rv-table { min-width: 0; }
+.rv-stale { margin-top: var(--sp-4); }
+.hud-rv-genre .hud-chips { gap: var(--sp-1); }
+@media (max-width: 640px) {
+    .hud-rv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hud-doc .hud-kv { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+    .hud-doc .hud-kv dd { margin-bottom: var(--sp-2); }
 }

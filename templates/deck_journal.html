@@ -128,7 +128,7 @@
     {% call hud.form_section("j-pets", "Pets & novelties", "Pets are never suggested as cuts. Novelties are things you want to see happen, scored as a bonus.") %}
         <div class="hud-field"><label for="petInput">Pet cards</label>
             <div class="hud-picker" id="petPicker">
-                {%- for p in j.pet_cards %}{{ hud.picker_chip(p) }}{% endfor -%}
+                {%- for p in j.pet_cards %}{{ hud.picker_chip(p, head.card_refs or {}) }}{% endfor -%}
                 <input id="petInput" placeholder="Add a card in this deck…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="petList" autocomplete="off">
                 <ul class="hud-picker-list" id="petList" role="listbox" aria-label="Cards in this deck" hidden></ul>
             </div>
@@ -269,7 +269,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // ---- Pet picker (combobox over this deck's cards) ------------------------------
     var petInput = $("petInput"), petList = $("petList"), active = -1;
     function chipHtml(name) {
-        return '<span class="hud-chip hud-chip--ghost" data-value="' + esc(name) + '">' + esc(name) +
+        return '<span class="hud-chip hud-chip--ghost" data-value="' + esc(name) + '" data-card-preview' + H.cardRefAttrString(H.cardRef(name, window.HUD_CARD_REFS)) + '>' + esc(name) +
             '<button class="hud-chip-remove" type="button" aria-label="Remove ' + esc(name) + '">×</button></span>';
     }
     function setPets(list) {

@@ -4,33 +4,23 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Bump Version & Release
     runs-on: ubuntu-latest
-    # Skip if the push commit itself is a version bump (prevents infinite loop)
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     permissions:
       contents: write
+      pull-requests: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PAT }}
-
-      - name: Verify RELEASE_PAT is available
-        run: |
-          if [ -z "${{ secrets.RELEASE_PAT }}" ]; then
-            echo "::error::RELEASE_PAT secret is not set. The default GITHUB_TOKEN cannot push to protected branches."
-            exit 1
-          fi
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Determine version bump from merged PR
         id: bump
@@ -72,94 +62,38 @@ jobs:
           echo "PREOF" >> "$GITHUB_OUTPUT"
           echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
 
-      - name: Bump version in version.py
+      - name: Compute next version from tags
         id: version
         env:
           BUMP: ${{ steps.bump.outputs.bump }}
         run: |
           set -euo pipefail
 
-          # Derive current version from the latest git tag (authoritative),
-          # NOT from version.py (which may be stale if a prior bump failed
-          # to push). Fall back to version.py only if no tags exist.
+          # Git tags are the single source of truth for the release version.
+          # Nothing is committed or pushed to main (it is branch-protected).
           LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
-
-          if [ -n "$LATEST_TAG" ]; then
-            CURRENT="${LATEST_TAG#v}"
-            echo "Current version from git tag: $CURRENT"
-          else
-            CURRENT=$(grep '__version__' version.py | head -1 | sed 's/.*"\(.*\)".*/\1/' | cut -d'+' -f1)
-            echo "No git tags found, using version.py: $CURRENT"
-          fi
+          CURRENT="${LATEST_TAG#v}"
+          CURRENT="${CURRENT:-0.0.0}"
+          echo "Current version from git tag: $CURRENT"
 
           MAJOR=$(echo "$CURRENT" | cut -d. -f1)
           MINOR=$(echo "$CURRENT" | cut -d. -f2)
           PATCH=$(echo "$CURRENT" | cut -d. -f3)
 
-          echo "Current: $MAJOR.$MINOR.$PATCH  Bump: $BUMP"
-
           case "$BUMP" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            *)     PATCH=$((PATCH + 1)) ;;
           esac
 
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          BUILD_DATE=$(date -u +%Y%m%d)
-          RELEASE_DATE=$(date -u +%Y-%m-%d)
-          FULL_VERSION="${NEW_VERSION}+${BUILD_DATE}"
-
-          echo "New version: $FULL_VERSION"
-
-          # Rewrite version.py
-          cat > version.py << EOF
-          """Commander Lab version information.
-
-          Single source of truth for the application version.
-          Format: MAJOR.MINOR.PATCH+YYYYMMDD (semver with build date metadata).
-          """
-
-          __version__ = "${FULL_VERSION}"
-          VERSION = __version__
-          RELEASE_DATE = "${RELEASE_DATE}"
-          EOF
-
-          # Remove leading whitespace from heredoc indentation
-          sed -i 's/^          //' version.py
-
+          echo "New version: $NEW_VERSION"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "full_version=$FULL_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Commit, tag, and push
-        env:
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          git add version.py
-          git commit -m "chore: bump version to ${TAG} [skip ci]"
-
-          # Clean up any stale tag from a previous failed run before creating
-          git tag -d "$TAG" 2>/dev/null || true
-          git push origin ":refs/tags/$TAG" 2>/dev/null || true
-
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin main --follow-tags
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
           PR_TITLE: ${{ steps.bump.outputs.pr_title }}
@@ -191,7 +125,9 @@ jobs:
           # Clean up any stale release from a previous failed run
           gh release delete "$TAG" --yes 2>/dev/null || true
 
+          # Creating the release creates the tag at the pushed commit; no push to main.
           gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
             --title "$RELEASE_TITLE" \
             --notes-file "$NOTES_FILE"
           rm -f "$NOTES_FILE"

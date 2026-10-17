@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
     {# Shared HUD tokens + chrome. Tokens documented in docs/DESIGN_TOKENS.md. #}
     <link rel="stylesheet" href="/static/css/hud.css?v={{ version }}">
+    <link rel="stylesheet" href="/static/css/card_hover_preview.css?v={{ version }}">
     {# Page-level styles. Templates pass a full <style> element here. #}
     {% block extra_css %}{% endblock %}
 </head>
@@ -94,8 +95,13 @@
         {% block content %}{% endblock %}
     </main>
 
+    {# Deck printing map (card_refs.py) for HUD.cardName()/rankList; only deck pages have one. #}
+    <script>window.HUD_CARD_REFS = {{ ((head.card_refs if head is defined and head else none) or {}) | tojson }};</script>
     {% block extra_js %}{% endblock %}
     {# HUD kit client helpers: sortable tables, HUD.* builders, modals. #}
     <script src="/static/js/hud.js?v={{ version }}" defer></script>
+    {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
+    <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
+    <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>
 </body>
 </html>
