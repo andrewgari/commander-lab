@@ -9,7 +9,7 @@
         {%- for card in cards if card is mapping %}
         <li class="hud-tcard">
             <span class="hud-tcard-qty">{{ card.qty or 1 }}</span>
-            <s class="hud-card-name">{{ card.name }}</s>
+            <s class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</s>
             {%- if card.commander %}{{ hud.chip("commander", "signal") }}{% elif card.pet %}{{ hud.chip("♥ pet", "danger") }}{% else %}<span></span>{% endif %}
             <span></span>
             {%- if card.reason %}<span class="hud-tcard-note">{{ card.reason }}</span>{% endif %}

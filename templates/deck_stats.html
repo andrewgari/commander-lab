@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return fetch(API + path).then(function (r) { return r.json().then(function (j) { return r.ok && j.success !== false ? j : Promise.reject(j); }); });
     }
     function fail(el, msg) { $(el).innerHTML = '<div class="hud-empty">' + esc(msg) + "</div>"; }
-    var cardBtn = function (n) { return '<button type="button" class="hud-cardlink" data-goto="' + esc(n) + '">' + esc(n) + "</button>"; };
+    var cardBtn = function (n) { return '<button type="button" class="hud-cardlink" data-goto="' + esc(n) + '"' + H.cardRefAttrString(H.cardRef(n, window.HUD_CARD_REFS)) + '>' + esc(n) + "</button>"; };
 
     // ---- Stat strip -----------------------------------------------------------
     function strip() {
@@ -232,12 +232,12 @@ document.addEventListener("DOMContentLoaded", function () {
         var img = inv ? H.scryfall(inv.uid, "art_crop") : { src: "", fallback: "" };
         var lbl = function (k) { return VIEW.labels[k] || k; };
         var outs = conns.filter(function (x) { return x.out; }), ins = conns.filter(function (x) { return !x.out; });
-        var li = function (x) { return '<li><span class="dir">' + (x.out ? "→" : "←") + '</span><span><button type="button" data-goto="' + esc(x.other) + '">' + esc(x.other) + '</button><span class="why">' + esc(x.reasons.join(" · ")) + "</span></span></li>"; };
+        var li = function (x) { return '<li><span class="dir">' + (x.out ? "→" : "←") + '</span><span><button type="button" data-goto="' + esc(x.other) + '"' + H.cardRefAttrString(H.cardRef(x.other, window.HUD_CARD_REFS)) + ' data-card-preview>' + esc(x.other) + '</button><span class="why">' + esc(x.reasons.join(" · ")) + "</span></span></li>"; };
         var cap = function (arr) {
             if (!arr.length) return '<li><span></span><span class="hud-muted">nothing</span></li>';
             return arr.slice(0, 6).map(li).join("") + (arr.length > 6 ? '<li><span></span><span class="hud-muted">+' + (arr.length - 6) + " more</span></li>" : "");
         };
-        body.innerHTML = H.art(id, img.src, { fallback: img.fallback, meta: inv && !A.isLand(inv) ? "CMC " + (inv.cmc || 0) : "", colors: inv && !A.isLand(inv) ? (inv.color || "") : null }) +
+        body.innerHTML = H.art(id, img.src, { fallback: img.fallback, attrs: Object.assign({ "data-card-preview": true }, H.cardRefAttrs(H.cardRef(inv || id, window.HUD_CARD_REFS))), meta: inv && !A.isLand(inv) ? "CMC " + (inv.cmc || 0) : "", colors: inv && !A.isLand(inv) ? (inv.color || "") : null }) +
             ((meta.produces || []).length || (meta.consumes || []).length ? '<dl class="hud-io"><dt>Makes</dt><dd>' + ((meta.produces || []).map(function (t) { return H.chip(lbl(t), "data"); }).join("") || '<span class="hud-muted">—</span>') +
                 "</dd><dt>Uses</dt><dd>" + ((meta.consumes || []).map(function (t) { return H.chip(lbl(t), "neutral"); }).join("") || '<span class="hud-muted">—</span>') + "</dd></dl>" : "") +
             '<div><span class="hud-label">Feeds · ' + outs.length + '</span><ul class="hud-edgelist">' + cap(outs) + "</ul></div>" +
@@ -258,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var top = VIEW.nodes.slice().sort(function (a, b) { return b.degree - a.degree; }).slice(0, 8);
         return '<p class="hud-muted inspector-hint">Pick an engine or click a card. <span class="hud-kbd">Tab</span> walks cards, <span class="hud-kbd">[</span> <span class="hud-kbd">]</span> cycle engines.</p>' +
             '<div><span class="hud-label">Most connected</span><div class="hud-rank-compact">' +
-            H.rankList(top.map(function (n, i) { return { label: n.id, value: n.degree, hl: i === 0 }; })) + "</div></div>";
+            H.rankList(top.map(function (n, i) { return { label: n.id, card: true, value: n.degree, hl: i === 0 }; })) + "</div></div>";
     }
     // Phone (≤640px): the stage swaps to a list of the focused engine's members.
     function phoneList() {
@@ -269,7 +269,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var e = VIEW.edges.find(function (x) { return (x.source === hub && x.target === c) || (x.target === hub && x.source === c); }) ||
                     VIEW.edges.find(function (x) { return (x.source === c || x.target === c) && g.cards.indexOf(x.source === c ? x.target : x.source) !== -1; });
             var dir = e ? (e.source === c ? "→ " + A.shortName(e.target) : "← " + A.shortName(e.source)) + " · " + e.reasons.join(" · ") : "";
-            return '<li><span class="hud-card-name">' + esc(c) + '</span><span class="hud-rank-sub">' + esc(dir) + "</span></li>";
+            return '<li><span class="hud-card-name">' + H.cardName(c) + '</span><span class="hud-rank-sub">' + esc(dir) + "</span></li>";
         }).join("") + '</ol><div class="hud-panel-foot">' + esc(g.name) + " · " + g.cards.length + " cards. Full graph on a wider screen.</div>";
     }
     function gotoCard(name) {
@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var low = A.lowFit(D.identity, D.weak, lands, 6);
         if (!low.length) { fail("lowfit", D.identity.pillars.length ? "No scores yet" : "Needs pillars first"); return; }
         $("lowfit").innerHTML = '<div class="hud-rank-compact">' + H.rankList(low.map(function (x) {
-            return { label: (x.pet ? "♥ " : "") + x.name, value: x.score, display: x.display, sub: x.sub };
+            return { label: x.name, card: true, prefix: x.pet ? "♥ " : "", value: x.score, display: x.display, sub: x.sub };
         }), { max: 1, numbered: false }) + "</div>";
     }
     function renderEdhrec() {
@@ -361,7 +361,7 @@ document.addEventListener("DOMContentLoaded", function () {
         $("edhrec").innerHTML = H.barChart(e.buckets.map(function (b) { return { label: b.label, value: b.count }; }), { hl: 0, height: 120, title: "Cards by EDHREC inclusion %" }) +
             '<div class="hud-rank-compact stats-rarest"><span class="hud-label">Your rarest picks</span>' + H.rankList((e.rarest || []).map(function (x) {
                 var pct = x.inclusion == null ? 0 : Math.round(x.inclusion * 100);
-                return { label: x.name, value: pct, display: x.inclusion == null ? "—" : pct + "%", sub: x.inclusion == null ? "not on EDHREC" : "" };
+                return { label: x.name, card: true, value: pct, display: x.inclusion == null ? "—" : pct + "%", sub: x.inclusion == null ? "not on EDHREC" : "" };
             }), { max: 100, numbered: false }) + "</div>";
     }
 
@@ -374,7 +374,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         var m = p.model || {};
         $("playedMeta").innerHTML = '<b class="hud-num">' + p.known + "</b>/" + p.total + " known · " + Number(m.decks || 0).toLocaleString("en-US") + " decks";
-        var row = function (x) { return { label: x.name, value: x.score || 0, display: (x.score || 0).toFixed(2) }; };
+        var row = function (x) { return { label: x.name, card: true, value: x.score || 0, display: (x.score || 0).toFixed(2) }; };
         $("playedMost").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.most.map(row), { max: 1, numbered: false }) + "</div>";
         $("playedLeast").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.least.map(row), { max: 1, numbered: false }) + "</div>" +
             ((p.unknown || []).length ? '<p class="hud-field-hint">Not in the model (' + p.unknown.length + "): " + esc(p.unknown.slice(0, 6).join(", ")) + (p.unknown.length > 6 ? "…" : "") + "</p>" : "");
@@ -384,7 +384,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var NEAR_SHOWN = 12;
     function comboRow(c, near) {
         var miss = near ? (c.missing || [])[0] : null, own = near ? A.comboOwnership(c) : null;
-        var piece = function (n, cls) { return '<span class="hud-chip hud-chip--ghost hud-card-name' + (cls ? " " + cls : "") + '">' + esc(n) + "</span>"; };
+        var piece = function (n, cls) { return '<span class="hud-chip hud-chip--ghost hud-card-name' + (cls ? " " + cls : "") + '">' + H.cardName(n) + "</span>"; };
         var pieces = (c.card_names || []).filter(function (n) { return n !== miss; });
         var price = c.prices && c.prices.tcgplayer ? " · $" + c.prices.tcgplayer : "";
         return '<li class="hud-combo"><div class="hud-combo-pieces">' + pieces.map(function (p) { return piece(p); }).join('<span class="plus">+</span>') +
