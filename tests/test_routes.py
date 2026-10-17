@@ -8,6 +8,9 @@ from unittest.mock import patch, MagicMock, ANY
 from app import app
 from instances import InstanceError
 import tags as tag_store
+import registry as _real_registry
+
+_REG = {"registry_id_of.side_effect": _real_registry.registry_id_of}
 
 class TestAppRoutes(unittest.TestCase):
     def setUp(self):
@@ -78,9 +81,6 @@ class TestAppRoutes(unittest.TestCase):
         data = response.json()
         self.assertIn("tags", data)
         self.assertEqual(data["tags"], ["Draw", "Ramp"])
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestAddCardToDeck(unittest.TestCase):
@@ -201,7 +201,7 @@ class TestAutoTagEndpoints(unittest.TestCase):
             for key in self.r.keys(pattern):
                 self.r.delete(key)
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_auto_tag_success(self, mock_registry):
         mock_registry.find_deck.return_value = {
             "id": 42,
@@ -232,7 +232,7 @@ class TestAutoTagEndpoints(unittest.TestCase):
         alias_response = self.client.post("/decks/archidekt:42/auto-tag", json={})
         self.assertEqual(alias_response.status_code, 200)
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_auto_tag_preserves_user_tags(self, mock_registry):
         mock_registry.find_deck.return_value = {
             "id": 42,
@@ -260,13 +260,13 @@ class TestAutoTagEndpoints(unittest.TestCase):
         self.assertTrue(any(t["tag"] == "Custom Sol Tag" and t["source"] == "user" for t in sol_tags))
         self.assertTrue(any(t["tag"] == "ramp" and t["source"] == "auto" for t in sol_tags))
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_auto_tag_deck_not_found(self, mock_registry):
         mock_registry.find_deck.return_value = None
         response = self.client.post("/api/decks/nonexistent/auto-tag", json={})
         self.assertEqual(response.status_code, 404)
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_get_deck_tags_empty(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         response = self.client.get("/api/decks/archidekt:42/tags")
@@ -274,7 +274,7 @@ class TestAutoTagEndpoints(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["tags"], [])
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_add_deck_tag(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         response = self.client.post("/api/decks/archidekt:42/tags", json={"tag": "Ramp", "source": "user"})
@@ -284,7 +284,7 @@ class TestAutoTagEndpoints(unittest.TestCase):
         self.assertEqual(data["tag"]["tag"], "Ramp")
         self.assertEqual(data["tag"]["source"], "user")
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_remove_deck_tag(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         self.client.post("/api/decks/archidekt:42/tags", json={"tag": "Ramp", "source": "user"})
@@ -297,14 +297,14 @@ class TestAutoTagEndpoints(unittest.TestCase):
         resp = self.client.get("/api/decks/archidekt:42/tags")
         self.assertEqual(resp.json()["tags"], [])
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_get_deck_card_tags(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         response = self.client.get("/api/decks/archidekt:42/card-tags")
         self.assertEqual(response.status_code, 200)
         self.assertIn("tags", response.json())
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_add_card_tag(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         response = self.client.post("/api/decks/archidekt:42/card-tags", json={
@@ -315,7 +315,7 @@ class TestAutoTagEndpoints(unittest.TestCase):
         self.assertTrue(data["success"])
         self.assertEqual(data["tag"]["tag"], "Ramp")
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_remove_card_tag(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         self.client.post("/api/decks/archidekt:42/card-tags", json={
@@ -330,17 +330,41 @@ class TestAutoTagEndpoints(unittest.TestCase):
         tags = tag_store.get_card_tags_for_deck(self.r, "archidekt:42", "Sol Ring")
         self.assertEqual(tags, [])
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_add_card_tag_missing_fields_returns_400(self, mock_registry):
         mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
         response = self.client.post("/api/decks/archidekt:42/card-tags", json={"tag": "Ramp"})
         self.assertEqual(response.status_code, 400)
 
-    @patch("app.registry")
+    @patch("app.registry", **_REG)
     def test_auto_tag_not_found_returns_404(self, mock_registry):
         mock_registry.find_deck.return_value = None
         response = self.client.get("/api/decks/nonexistent/tags")
         self.assertEqual(response.status_code, 404)
+
+    @patch("app.registry", **_REG)
+    def test_numeric_and_registry_ids_share_tag_store(self, mock_registry):
+        """Regression (D3): numeric id and registry id must hit the same storage key."""
+        mock_registry.find_deck.return_value = {
+            "id": 417707, "source": "archidekt", "source_id": 417707,
+            "name": "Split Deck", "color_identity": [], "commanders": [],
+            "cards": [{"name": "Sol Ring", "type_line": "Artifact", "oracle_text": "{T}: Add {C}{C}.", "cmc": 1}],
+        }
+        resp = self.client.post("/api/decks/417707/auto-tag", json={})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.r.keys("deck_tags:417707"), [])
+        self.assertEqual(self.r.keys("deck_card_tags:417707"), [])
+        via_registry = self.client.get("/api/decks/archidekt:417707/card-tags").json()["tags"]
+        via_numeric = self.client.get("/api/decks/417707/card-tags").json()["tags"]
+        self.assertTrue(via_registry)
+        self.assertEqual(via_registry, via_numeric)
+        # deck-level write via numeric id is visible via registry id, and removable via either
+        self.client.post("/api/decks/417707/tags", json={"tag": "Goblins"})
+        tags = self.client.get("/api/decks/archidekt:417707/tags").json()
+        self.assertEqual(tags["deck_id"], "archidekt:417707")
+        self.assertTrue(any(t["tag"] == "Goblins" for t in tags["tags"]))
+        self.client.request("DELETE", "/api/decks/417707/tags", json={"tag": "Goblins"})
+        self.assertEqual(self.client.get("/api/decks/archidekt:417707/tags").json()["tags"], [])
 
 
 if __name__ == "__main__":
