@@ -16,12 +16,14 @@
  [Preferences Stored] (status: "pending_preferences")
        │
        ▼ (POST /api/reconstruct/{session_id}/build)
- [Building] (status: "building") ──► [Drafts Ready] (status: "drafts_ready")
-                                             │
-                       ┌─────────────────────┴─────────────────────┐
-                       ▼                                           ▼
-         (POST .../accept)                                (POST .../abandon)
-   [Accepted] (status: "accepted")                 [Abandoned] (status: "abandoned")
+ [Building] (status: "building") ──┬──► [Drafts Ready] (status: "drafts_ready")
+                                   │           │
+                                   │           ├─────────────────────┐
+                                   │           ▼                     ▼
+                                   │     (POST .../accept)    (POST .../abandon)
+                                   │     [Accepted]            [Abandoned]
+                                   ▼
+                             [Build Failed] (status: "failed")
    - New physical deck(s) created
    - Tier 1 & 2 cards auto-bound (in_deck)
 ```
@@ -55,7 +57,7 @@ The active builder can be retrieved or replaced at runtime via:
 - `reconstruct.get_builder() -> BaseReconstructBuilder`
 - `reconstruct.set_builder(builder: BaseReconstructBuilder) -> None`
 
-The default implementation is `StubReconstructBuilder`, which generates typed mock drafts until the dedicated agent builder task (`t_c5954272`) is merged.
+The default implementation is `ReconstructBuilder` (in `reconstruct_builder.py`), which orchestrates candidate pools, the LLM agent, deterministic Commander validation, repair, tier tagging, and costing. On failure or retry exhaustion, the session status transitions to `"failed"`. For testing or offline usage, `StubReconstructBuilder` is also available.
 
 ---
 

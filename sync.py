@@ -267,6 +267,9 @@ def sync_inventory():
                     "keywords": oracle_card.get("keywords", []),
                     "oracle_text": oracle_text,
                     "cmc": cmc,
+                    # Consumed by deck_validator.CardInfo.from_record.
+                    "types": card_types,
+                    "commander_legality": (oracle_card.get("legalities") or {}).get("commander"),
                 })
             
             for _ in range(quantity):
