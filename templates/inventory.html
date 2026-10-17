@@ -249,6 +249,11 @@
         });
         
         const tbody = document.getElementById('inventoryList');
+        // Re-rendering drops the focused card name; remember it so keyboard users keep their place.
+        const focusedEl = document.activeElement;
+        const focusedKey = focusedEl && tbody.contains(focusedEl) && focusedEl.hasAttribute('data-card-preview')
+            ? { name: focusedEl.textContent, n: Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedEl.textContent).indexOf(focusedEl) }
+            : null;
         tbody.innerHTML = '';
         currentlyOpen = null; // reset open rows on fresh fetch
         
@@ -260,7 +265,9 @@
             const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C');
             const deckColorString = deckColorMap[card.deck] || 'C';
             
-            let displayName = card.name;
+            const ref = HUD.cardRef(card);
+            const refAttrs = HUD.cardRefAttrString(ref);
+            let displayName = `<span class="hud-cp-name" tabindex="0" data-card-preview${refAttrs}>${HUD.esc(card.name)}</span>`;
             if (card.alt_name && card.alt_name !== card.name) {
                 displayName += ` <span style="color:#6b7280; font-size: 0.85em; font-family: 'Inter', sans-serif;">(${card.alt_name})</span>`;
             }
@@ -320,7 +327,8 @@
             trDetails.id = `details-${index}`;
             trDetails.style.display = 'none';
             
-            const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+            const img = HUD.scryfall(card.uid, 'normal');
+            const imgUrl = img.src;
             const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
             const primaryTag = card.primary_tag ? `<span class="badge" style="margin-left: 6px;">${card.primary_tag}</span>` : '';
             
@@ -341,7 +349,7 @@
                 <td colspan="7" style="padding: 0; border: none;">
                     <div class="details-container">
                         <div class="details-image">
-                            ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
+                            ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy" data-fallback="${img.fallback}" data-card-preview${refAttrs}>` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
                         </div>
                         <div class="details-info">
                             <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
@@ -364,6 +372,12 @@
             `;
             tbody.appendChild(trDetails);
         });
+
+        if (focusedKey) {
+            const same = Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedKey.name);
+            const target = same[Math.max(focusedKey.n, 0)] || same[0];
+            if (target) target.focus({ preventScroll: true });
+        }
     }
     
     // Start once deferred hud.js has run (loadDecks uses HUD).

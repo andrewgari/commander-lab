@@ -19,6 +19,7 @@
     .tn-pet .hud-card-name { color: var(--text-2); }
     .tn-error { color: var(--danger); font-size: var(--fs-xs); }
     .tn-error:empty { display: none; }
+    #recomputeError { margin: var(--sp-2) 0 0; }
     .tn-filter-note { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-4); border-bottom: var(--stroke-faint); color: var(--text-3); font-size: var(--fs-xs); }
     .tn-filter-note[hidden] { display: none; }
     .tn-hidden-toggle { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--text-3); text-decoration: underline dotted; cursor: pointer; }
@@ -42,17 +43,21 @@
 
 {% block content %}
 {% call dh.header(head, tab) %}
-    <span class="hud-freshness" id="reviewState" hidden></span>
-    <button class="hud-btn" type="button" id="recompute">Recompute</button>
+    <span class="hud-freshness" id="tuneGenerated" aria-live="polite" hidden></span>
+    <button class="hud-btn" type="button" id="recompute" title="Runs the tuner again and saves the result. The current saved recommendation is archived, not deleted." disabled>Recompute</button>
 {% endcall %}
+<p class="tn-error" id="recomputeError" role="alert"></p>
 
 <div class="hud-filterbar">
     <span class="hud-seg" role="radiogroup" aria-label="Source preference">
-        <input type="radio" name="src" id="src-owned_first" value="owned_first" checked><label for="src-owned_first">Owned first</label>
-        <input type="radio" name="src" id="src-owned_only" value="owned_only"><label for="src-owned_only">Owned only</label>
-        <input type="radio" name="src" id="src-best" value="best"><label for="src-best">Best regardless</label>
+        <input type="radio" name="src" id="src-free" value="free"><label for="src-free">Owned, not in a deck</label>
+        <input type="radio" name="src" id="src-flex" value="flex" checked><label for="src-flex">Owned, plus in-deck and/or buy</label>
+        <input type="radio" name="src" id="src-best" value="best"><label for="src-best">Best card</label>
     </span>
-    <label class="hud-toggle"><input type="checkbox" id="sleeved" checked> Include sleeved-elsewhere</label>
+    <span class="hud-toggles" id="flexToggles">
+        <label class="hud-toggle"><input type="checkbox" id="inDeck" checked> In a physical deck</label>
+        <label class="hud-toggle"><input type="checkbox" id="buy" checked> Would have to buy</label>
+    </span>
     <span class="hud-freshness" id="capsLine">Caps —</span>
 </div>
 
@@ -143,8 +148,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status));
                 return j; }); });
     }
-    function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "owned_first"; }
-    function query() { return "?mode=" + mode() + "&sleeved=" + ($("sleeved").checked ? "true" : "false"); }
+    // Saved/legacy values: owned_only -> free, owned_first -> flex (best is unchanged).
+    var LEGACY = { owned_only: "free", owned_first: "flex" };
+    function normMode(v) { v = LEGACY[v] || v; return v === "free" || v === "best" ? v : "flex"; }
+    function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "flex"; }
+    function opts() { return { mode: mode(), in_deck: $("inDeck").checked, buy: $("buy").checked }; }
+    function query() { var o = opts(); return "?mode=" + o.mode + "&in_deck=" + o.in_deck + "&buy=" + o.buy; }
+    function syncToggles() { $("flexToggles").hidden = mode() !== "flex"; }
+    (function restore() {
+        var saved = params.get("mode"); if (!saved) return;
+        var el = document.getElementById("src-" + normMode(saved)); if (el) el.checked = true;
+    })();
 
     // ---- Filter bar ------------------------------------------------------------------
     function capsLine(t) {
@@ -180,12 +194,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     function opt(o, picked, emptyText) {
         if (!o) return '<div class="hud-opt is-empty">' + emptyText + "</div>";
-        var srcText = o.source === "free" ? "box · free" : "in " + (o.deck || "another deck");
+        var srcText = o.source === "free" ? "free · not in a deck" : "in " + (o.deck || "another deck");
         var src = o.source === "buy" ? '<span class="hud-opt-src">Buy · <b style="color:var(--text-1)">' + esc(A.money(o.price)) + "</b></span>"
-            : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>";
+            : (o.source === "best" ? '<span class="hud-opt-src"><b>Best card</b></span>'
+            : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>");
         var cap = o.cap === "soft" ? H.chip("over soft cap " + A.money(T.caps.soft_cap), "signal") : "";
         return '<div class="hud-opt' + (picked ? " is-pick" : "") + (o.source === "buy" ? " is-buy" : "") + '">' + src +
-            '<span class="hud-card-name">' + esc(o.name) + "</span>" +
+            '<span class="hud-card-name">' + H.cardName(o.name) + "</span>" +
             '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" +
             (o.pillar ? '<span class="hud-opt-src" title="' + esc(o.pillar) + '">' + esc(o.pillar) + "</span>" : "") + cap + "</div>";
     }
@@ -207,7 +222,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var d = s.decision, accepted = d === "own" || d === "buy";
         var pick = accepted ? d : s.pick;
         var buyEmpty = s.hidden_hard && !s.near_buy ? "Best buy hidden: over your hard cap."
-            : (s.near_buy ? esc(A.keepYoursLine(s)) : (mode() === "owned_only" ? "Buys are off (Owned only)." : "No buy beats the owned pick by ≥ " + T.constants.gap_worth.toFixed(2) + ".<br>Good enough: keep it free."));
+            : (s.near_buy ? esc(A.keepYoursLine(s)) : (!$("buy").checked || mode() === "free" ? "Buys are off." : "No buy beats the owned pick by ≥ " + T.constants.gap_worth.toFixed(2) + ".<br>Good enough: keep it free."));
         var ownEmpty = '<div class="hud-opt is-empty">Nothing you own beats it by enough.</div>';
         var chip = A.verdictChip(s);
         var gap = s.gap != null ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.gap) + "</b> buy vs owned" + (chip ? H.chip(chip[0], chip[1]) : "") + "</div>"
@@ -226,14 +241,14 @@ document.addEventListener("DOMContentLoaded", function () {
               (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy" aria-label="Buy instead: ' + esc(s.buy.name) + '">Buy instead</button>' : "") +
               '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="dismiss">Dismiss</button>';
         return '<li class="hud-swap' + (i === cur ? " is-current" : "") + (accepted ? " is-accepted" : "") + '" tabindex="-1" data-cut="' + esc(s.cut.name) + '">' +
-            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" +
+            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + H.cardName(s.cut.name) + "</span>" +
             '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
-            '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + stealLine + whyLine + just + hard + "</div>" +
+            '<div class="hud-opts">' + (s.verdict === "best" ? opt(s.own, pick === "own") : (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty)) + gap + stealLine + whyLine + just + hard + "</div>" +
             '<div class="hud-swap-act">' + acts + "</div></li>";
     }
     function petRow(p) {
-        return '<li class="hud-swap tn-pet" data-pet="1"><span><span class="hud-card-name">♥ ' + esc(p.name) + '</span> <span class="hud-field-hint">· pet · weakest pet in the deck (' +
+        return '<li class="hud-swap tn-pet" data-pet="1"><span><span class="hud-card-name">♥ ' + H.cardName(p.name) + '</span> <span class="hud-field-hint">· pet · weakest pet in the deck (' +
             esc(String(p.edges == null ? 0 : p.edges)) + " edges" + (p.fit != null ? ", fit " + p.fit.toFixed(2) : "") + ") but pets are never cut. Shown once so you know it was considered.</span></span>" +
             '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + BASE + '/journal#j-pets">Edit pets</a></li>';
     }
@@ -270,7 +285,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var edh = w.edhrec == null ? "0%" : Math.round(w.edhrec * 100) + "%";
             var played = w.played == null ? "—" : w.played.toFixed(2);
             var act = w.pet ? H.chip("pet", "ghost") : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>');
-            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + esc(w.name) + "</span></td>" +
+            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + H.cardName(w.name) + "</span></td>" +
                 '<td class="is-num tn-col-opt">' + w.edges + '</td><td class="is-num tn-col-opt" data-value="' + (w.fit == null ? -1 : w.fit) + '">' + fit +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.played == null ? -1 : w.played) + '">' + played + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
@@ -283,7 +298,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderChanges() {
         var L = A.changeList(T, T.adds);
         $("changeItems").innerHTML = L.items.map(function (i) {
-            return '<li><span class="op ' + i.op + '">' + (i.op === "out" ? "\u2212" : "+") + '</span><span class="hud-card-name">' + (i.qty > 1 ? i.qty + " " : "") + esc(i.name) +
+            return '<li><span class="op ' + i.op + '">' + (i.op === "out" ? "\u2212" : "+") + '</span><span class="hud-card-name">' + (i.qty > 1 ? i.qty + " " : "") + H.cardName(i.name) +
                 '</span><span class="hud-freshness">' + esc(i.source || "") + "</span></li>";
         }).join("");
         $("changeEmpty").hidden = L.items.length > 0;
@@ -311,23 +326,112 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ---- Load ------------------------------------------------------------------------
-    function load() {
-        $("swapError").textContent = "";
-        return fetch(API + "/tune" + query()).then(function (r) { return r.json(); }).then(function (j) {
-            if (!j.success) throw new Error(j.error || "Tune failed");
-            T = j.tune;
-            if (params.get("add")) return addCard(params.get("add"), "combo").then(function () {
-                params.delete("add"); history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : "") + location.hash); });
-        }).then(function () { renderAll(); askWhy(); })
-          .catch(function (e) { $("swaps").innerHTML = '<li class="hud-swap"><div class="hud-empty">Couldn\'t compute: ' + esc(e.message) + "</div></li>"; });
+    // The page shows the deck's SAVED recommendation (GET /tune/saved). Only the
+    // Recompute button (POST /tune/recompute) computes a new one; the previous one is
+    // archived server-side. With nothing saved yet, the first visit generates and saves one.
+    var REC = null, busy = false;
+    var btn = $("recompute"), errBox = $("recomputeError"), genEl = $("tuneGenerated");
+
+    function setBusy(on) {
+        busy = on; btn.disabled = on; btn.setAttribute("aria-busy", on ? "true" : "false");
+        btn.textContent = on ? (REC ? "Recomputing…" : "Computing…") : (REC ? "Recompute" : "Compute");
     }
-    // The LLM only writes the "why" lines (cached per pair); numbers stay ours.
+    function showGenerated(note) {
+        if (!REC) { genEl.hidden = true; return; }
+        genEl.hidden = false;
+        genEl.title = new Date(REC.created_at).toLocaleString();
+        genEl.textContent = "Generated " + A.age(REC.created_at) + (note ? " · " + note : "");
+    }
+    function empty(msg) {
+        $("fixes").innerHTML = '<div class="hud-empty">No saved recommendation yet.</div>';
+        $("swaps").innerHTML = '<li class="hud-swap"><div class="hud-empty">' + esc(msg) + "</div></li>";
+    }
+    // Decisions (accept / dismiss), adds and pets are stored separately from the saved snapshot and
+    // change after it was computed, so lay the current ones over it (GET /tune/state).
+    function overlay(rec, st) {
+        var t = rec.payload;
+        if (!st) return t;
+        var dec = (st.state && st.state.decisions) || {}, pets = st.pet_cards || [];
+        t.swaps = (t.swaps || []).filter(function (s) {
+            var d = dec[s.cut.name];
+            return !(d && d.decision === "dismissed") && pets.indexOf(s.cut.name) === -1;
+        }).map(function (s) {
+            var d = dec[s.cut.name];
+            s.decision = d ? d.decision : null; s.decision_add = d ? d.add : null;
+            return s;
+        });
+        (t.weak || []).forEach(function (w) { if (pets.indexOf(w.name) !== -1) { w.pet = true; w.has_swap = false; } });
+        t.adds = (st.state && st.state.adds) || [];
+        return t;
+    }
+    function apply(rec, tune, note) {
+        REC = rec; T = tune; cur = 0; rowFilter = null;
+        var p = rec.params || {};
+        var pm = p.mode || T.mode || "flex";
+        var radio = document.getElementById("src-" + (LEGACY[pm] || pm));
+        if (radio) radio.checked = true;
+        $("inDeck").checked = p.in_deck !== undefined ? !!p.in_deck : true;
+        $("buy").checked = p.buy !== undefined ? !!p.buy : true;
+        syncToggles();
+        errBox.textContent = "";
+        $("swapError").textContent = "";
+        renderAll(); setBusy(false); showGenerated(note);
+        whyAsked = false; askWhy();
+        return fromParams().then(function () { renderChanges(); });
+    }
+    function fromParams() {
+        // ?add= (Stats one-away combo) lands on the change list, which needs a loaded tune.
+        if (!params.get("add")) return Promise.resolve();
+        return addCard(params.get("add"), "combo").then(function () {
+            params.delete("add");
+            history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : "") + location.hash);
+        });
+    }
+    function recompute() {
+        if (busy) return Promise.resolve();
+        var first = !REC;
+        setBusy(true); errBox.textContent = "";
+        return send("POST", "/tune/recompute", opts()).then(function (j) {
+            var prev = j.archived;
+            return apply(j.recommendation, j.recommendation.payload, prev ? "previous result archived" : "");
+        }).catch(function (e) {
+            setBusy(false);
+            if (T) { errBox.textContent = "Recompute failed: " + e.message + ". Still showing the result from " + A.age(REC.created_at) + "."; showGenerated(); }
+            else if (first) { empty("Couldn\u2019t compute: " + e.message); errBox.textContent = ""; }
+        });
+    }
+    function loadSaved() {
+        return fetch(API + "/tune/saved").then(function (r) {
+            return r.json().then(function (j) { return { status: r.status, body: j }; });
+        }).then(function (res) {
+            var rec = res.body && res.body.recommendation;
+            if (res.status === 200 && rec && rec.payload) {
+                return fetch(API + "/tune/state").then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) { return j && j.success ? j : null; }, function () { return null; })
+                    .then(function (st) { return apply(rec, overlay(rec, st), ""); });
+            }
+            if (res.status === 404 && res.body && res.body.recommendation === null) return recompute();   // nothing saved yet
+            throw new Error((res.body && res.body.error) || ("HTTP " + res.status));
+        }).catch(function (e) {
+            setBusy(false);
+            if (!T) empty("Couldn\u2019t load the saved recommendation: " + e.message);
+            else errBox.textContent = e.message;
+        });
+    }
+    // The LLM only writes the "why" lines (cached per pair); numbers stay ours. The prose
+    // is merged only into swaps whose cut and add match the saved ones.
     function askWhy() {
-        if (whyAsked || !(T.swaps || []).some(function (s) { return !s.why; })) return;
+        if (whyAsked || !T || !(T.swaps || []).some(function (s) { return !s.why; })) return;
         whyAsked = true;
-        send("POST", "/tune/why", { mode: mode(), sleeved: $("sleeved").checked }).then(function (j) {
+        var mine = T;
+        send("POST", "/tune/why", { mode: mine.mode || mode(), in_deck: mine.in_deck !== false, buy: mine.buy !== false }).then(function (j) {
+            if (T !== mine) return;
             var by = {}; (j.tune.swaps || []).forEach(function (s) { by[s.cut.name] = s; });
-            (T.swaps || []).forEach(function (s) { var n = by[s.cut.name]; if (n) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; } });
+            var nm = function (o) { return o ? o.name : null; };
+            (T.swaps || []).forEach(function (s) {
+                var n = by[s.cut.name];
+                if (n && !s.why && nm(n.own) === nm(s.own) && nm(n.buy) === nm(s.buy)) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; }
+            });
             renderSwaps(); go(cur, false);
         }).catch(function () { /* prose is optional */ });
     }
@@ -392,9 +496,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     $("weakRows").addEventListener("click", function (e) { var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find")); });
-    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { whyAsked = false; load(); }); });
-    $("sleeved").addEventListener("change", function () { whyAsked = false; load(); });
-    $("recompute").addEventListener("click", function () { whyAsked = false; load(); });
+    // The filters apply to the next Recompute; they don't touch the saved result.
+    function filtersChanged() { if (REC && !busy) showGenerated("filters changed: Recompute to apply"); }
+    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); filtersChanged(); }); });
+    $("inDeck").addEventListener("change", filtersChanged);
+    $("buy").addEventListener("change", filtersChanged);
+    syncToggles();
+    btn.addEventListener("click", recompute);
     $("copyText").addEventListener("click", function () {
         var text = A.changeText(DECK_NAME, A.changeList(T, T.adds));
         var done = function () { $("copyState").textContent = "Copied " + text.split("\n").length + " lines."; };
@@ -416,7 +524,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    load();
+    loadSaved();
 });
 </script>
 {% endblock %}

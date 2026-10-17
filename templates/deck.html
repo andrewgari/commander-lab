@@ -70,6 +70,7 @@
 {% call dh.header(head, tab) %}
     <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
     <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
+    <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
 {% endcall %}
 
 {#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
@@ -176,6 +177,24 @@
     </section>
 </div>
 
+{#- Decommission confirmation: POST /api/decks/{id}/decommission (physical decks only). -#}
+<div id="decommissionModal" class="hud-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="decommissionTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="decommissionTitle">Decommission deck?</h3>
+        </header>
+        <div class="hud-panel-body">
+            <p><strong id="decommissionDeckName"></strong> will be retired and moved to the Retired category.
+               Its cards will be returned to the owned pool as unassigned cards. No cards are deleted.</p>
+            <div id="decommissionError" class="hud-muted" role="alert" hidden></div>
+            <div class="deck-primer-actions">
+                <button type="button" class="hud-btn hud-btn--sm" id="decommissionCancelBtn" onclick="closeDecommissionDialog()">Cancel</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" id="decommissionConfirmBtn" onclick="confirmDecommission()">Decommission</button>
+            </div>
+        </div>
+    </section>
+</div>
+
 <div id="cardModal" class="hud-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalCardName">
         <header class="hud-panel-head">
@@ -210,6 +229,14 @@
     let deckLoaded = false;  // the bracket result can arrive before the inventory
 
     const esc = (s) => HUD.esc(s);
+    // Printing identity for the hover preview (card_refs.py, HUD.cardRef).
+    // Inventory rows carry uid / set / collector_number themselves; CARD_REFS
+    // (this deck's instances + commanders, keyed by HUD.cardKey) covers names
+    // that arrive without a printing. Anything else is the name-only fallback
+    // (printingSpecific false: NOT printing-specific).
+    const CARD_REFS = {{ (head.card_refs or {}) | tojson }};
+    const refOf = (c) => HUD.cardRef(c, CARD_REFS);
+    const refAttr = (c) => esc(HUD.cardRefAttrs(refOf(c))['data-card-ref']);
     const isLand = (c) => !!(c.type && c.type.includes("Land"));
 
     function getEdhrecSlug(name) {
@@ -225,7 +252,7 @@
             meta: cmc ? 'CMC ' + cmc : (isLand(card) ? 'Land' : ''),
             colors: isLand(card) ? null : (card.color || ''),
             chip: card.is_core ? ['Core', 'signal'] : null,
-            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, 'data-card-name': card.name, title: card.name }
+            attrs: Object.assign({ role: 'button', tabindex: '0', 'data-card-index': index, title: card.name }, HUD.cardRefAttrs(refOf(card)))
         });
         if (!flag) return html;
         // BR-6 flag: severity frame + top bar + a caption line. Nothing on the art.
@@ -324,6 +351,47 @@
         el.focus({ preventScroll: true });
     }
 
+    function openDecommissionDialog() {
+        if (!currentDeck) return;
+        document.getElementById('decommissionDeckName').textContent = currentDeck.name;
+        document.getElementById('decommissionError').hidden = true;
+        HUD.openModal('decommissionModal');
+    }
+
+    function closeDecommissionDialog() {
+        if (document.getElementById('decommissionConfirmBtn').disabled) return; // busy
+        HUD.closeModal('decommissionModal');
+    }
+
+    async function confirmDecommission() {
+        const confirmBtn = document.getElementById('decommissionConfirmBtn');
+        const cancelBtn = document.getElementById('decommissionCancelBtn');
+        const errEl = document.getElementById('decommissionError');
+        errEl.hidden = true;
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.textContent = 'Decommissioning...';
+        try {
+            const res = await fetch(`/api/decks/${encodeURIComponent(currentDeck.id)}/decommission`, { method: 'POST' });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Request failed (${res.status})`);
+            }
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            HUD.closeModal('decommissionModal');
+            await loadDeckData(); // refresh deck + card state
+        } catch (e) {
+            errEl.textContent = `Failed to decommission: ${e.message}`;
+            errEl.hidden = false;
+        } finally {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.textContent = 'Decommission';
+        }
+    }
+
     async function loadDeckData() {
         try {
             const deckRes = await fetch('/api/decks');
@@ -367,6 +435,8 @@
             document.getElementById('deckStatus').innerHTML = HUD.statusChip(d.status);
         });
         document.getElementById('deckFolder').textContent = folder;
+        // Decommission is only available for physical (non-retired) decks
+        document.getElementById('decommissionBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
         if (deck.description) {
@@ -411,7 +481,7 @@
                     // No printing UID: Scryfall's named-card image instead.
                     const img = p.uid ? HUD.scryfall(p.uid, 'large')
                         : { src: 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.name) + '&format=image&version=large', fallback: '' };
-                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
+                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback, attrs: HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid })) });
                 }
                 // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.
                 if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media"><span class="hud-cmdr-badge">' + esc(r.type_label || 'Commander') + '</span>');
@@ -581,7 +651,7 @@
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
             const cmc = isLand(c) ? '' : (c.cmc || 0);
-            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" tabindex="0">
+            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" data-card-ref="${refAttr(c)}" tabindex="0">
                 <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
@@ -626,7 +696,9 @@
         if (!isLand(card)) pairs.push(['CMC', `<span class="hud-num">${card.cmc || 0}</span>`], ['Colour', HUD.pips(card.color || '', 'sm')]);
         pairs.push(['Price', `<span class="hud-num">${priceStr}</span>`]);
 
-        document.getElementById('modalCardName').textContent = card.name;
+        const nameEl = document.getElementById('modalCardName');
+        nameEl.textContent = card.name;
+        Object.assign(nameEl.dataset, { cardName: card.name, cardRef: HUD.cardRefAttrs(refOf(card))['data-card-ref'] });
         document.getElementById('modalCardArt').innerHTML = HUD.art(card.name, img.src, { kind: 'card', fallback: img.fallback, meta: card.modifier && card.modifier !== 'Normal' ? card.modifier : '' });
         document.getElementById('modalCardInfo').innerHTML = `
             <dl class="hud-kv">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
