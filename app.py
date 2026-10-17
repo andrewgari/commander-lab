@@ -11,6 +11,7 @@ import json
 import time
 import html
 from typing import List, Optional
+from datetime import datetime, timezone
 
 import instances as instance_store
 from instances import InstanceError
@@ -845,15 +846,71 @@ async def remove_deck_link(deck_id: str, provider: str):
     return {"success": True, "links": deck_links.get_links(deck)}
 
 
+def _sync_error(e: DeckSyncError, operation: str, provider: Optional[str]) -> JSONResponse:
+    return JSONResponse(status_code=e.status, content={
+        "success": False, "operation": operation, "provider": provider,
+        "code": e.code, "error": str(e),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+async def _sync_body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is fine
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+@app.get("/api/decks/{deck_id}/sync/status")
+async def deck_sync_status(deck_id: str):
+    """Per-provider Update/Push capabilities and last_updated_at /
+    last_pushed_at timestamps. Read-only; never contacts a provider."""
+    try:
+        return await asyncio.to_thread(deck_sync.sync_status, r, deck_id)
+    except DeckSyncError as e:
+        return _sync_error(e, "status", None)
+
+
+@app.post("/api/decks/{deck_id}/sync/pull")
+async def deck_sync_pull(deck_id: str, request: Request):
+    """UPDATE (external -> commander.lab): pull the linked Archidekt/Moxfield
+    deck into this deck. Body (optional): {"provider": "archidekt"|"moxfield",
+    "dry_run": bool}. No provider = every linked source, merged. Explicit
+    user action only -- nothing calls this automatically."""
+    data = await _sync_body(request)
+    provider = data.get("provider") or None
+    dry_run = bool(data.get("dry_run"))
+    try:
+        result = await asyncio.to_thread(deck_sync.update_deck, r, deck_id, provider, dry_run)
+    except DeckSyncError as e:
+        return _sync_error(e, "update", provider)
+    if not dry_run:
+        interactions_service.start_rebuild(r, trigger="sync", deck_ids=[result["registry_id"]])
+        _wake_bracket_worker(result["registry_id"])
+    return result
+
+
+@app.post("/api/decks/{deck_id}/sync/push")
+async def deck_sync_push(deck_id: str, request: Request):
+    """PUSH (commander.lab -> external): overwrite the linked deck on one
+    provider with this deck's cardlist. Body: {"provider": "archidekt"|
+    "moxfield", "dry_run": bool}. 501 push_not_configured when the provider's
+    credential env var is unset. Explicit user action only."""
+    data = await _sync_body(request)
+    provider = data.get("provider") or None
+    dry_run = bool(data.get("dry_run"))
+    try:
+        return await asyncio.to_thread(deck_sync.push_deck, r, deck_id, provider, dry_run)
+    except DeckSyncError as e:
+        return _sync_error(e, "push", provider)
+
+
 @app.post("/api/decks/{deck_id}/sync")
 async def sync_deck(deck_id: str):
-    """Sync a deck's cardlist from every linked provider (Archidekt and/or
-    Moxfield) in a single operation, merging the results (see
-    docs/DUAL_SOURCE_SYNC.md). One source being unreachable does not block
-    the other -- the response's `warnings`/`sources` show exactly what
-    happened per source. Fails with 400 only if the deck has no syncable
-    link at all, or if every linked source failed.
-    """
+    """DEPRECATED: use POST /api/decks/{id}/sync/pull. Kept so the existing
+    deck-modal button keeps working; it is an Update from every linked
+    provider (explicit user action), with the legacy report shape."""
     try:
         report = deck_sync.sync_deck(r, deck_id)
     except DeckSyncError as e:
@@ -1526,7 +1583,9 @@ async def list_linked_accounts():
 
 @app.post("/api/linked-accounts")
 async def add_linked_account(request: Request):
-    """Link a new provider account and trigger its immediate first sync.
+    """Link a new provider account. Does NOT pull its decks: linking is not
+    a sync trigger. The user pulls explicitly via
+    POST /api/linked-accounts/{id}/sync.
 
     Body: {"provider": "archidekt"|"moxfield", "username": str}
     """
@@ -1538,7 +1597,6 @@ async def add_linked_account(request: Request):
     except LinkedAccountError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
 
-    account = linked_accounts.sync_account(r, account["id"])
     return {"success": True, "account": account}
 
 
