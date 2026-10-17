@@ -166,11 +166,11 @@ same Redis MULTI/EXEC (archived rows are never deleted).
 | | |
 |---|---|
 | `GET /api/decks/{id}/tune/saved` | `200 {success, recommendation}`; `404 {success:false, recommendation:null, error}` if none |
-| `POST /api/decks/{id}/tune/recompute` | body optional `{mode?, sleeved?}`; `200 {success, recommendation, archived}` (`archived` = previous record without payload, or null); 400 bad mode / unknown deck 404 / 409 save lock busy |
+| `POST /api/decks/{id}/tune/recompute` | body optional `{mode?, in_deck?, buy?}`; `200 {success, recommendation, archived}` (`archived` = previous record without payload, or null); 400 bad mode / unknown deck 404 / 409 save lock busy |
 | `GET /api/decks/{id}/tune/history?limit=20&include_payload=false` | `{success, history: [record...]}` archived, newest first |
 
 Record: `{id, deck_id, status: active|archived, created_at, archived_at|null,
-params: {mode, sleeved}, payload: <GET /tune "tune" object>}`.
+params: {mode, in_deck, buy}, payload: <GET /tune "tune" object>}`.
 
 Redis: `tunerec:rec:{id}`, `tunerec:active:{deck_id}`, `tunerec:index:{deck_id}`,
 `tunerec:lock:{deck_id}`, `tunerec:schema_version`. Run

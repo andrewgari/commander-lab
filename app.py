@@ -2330,19 +2330,20 @@ async def api_deck_tune_saved(deck_id: str):
 @app.post("/api/decks/{deck_id}/tune/recompute")
 async def api_deck_tune_recompute(deck_id: str, request: Request):
     """Run the tuner, save the result as the deck's active recommendation and archive
-    the previous one (same MULTI/EXEC). Body (optional): {"mode": "owned_first|owned_only|best",
-    "sleeved": true}. If generation fails nothing is saved and the old one stays active."""
+    the previous one (same MULTI/EXEC). Body (optional): {"mode": "free|flex|best",
+    "in_deck": true, "buy": true} (legacy owned_first / owned_only accepted). If generation fails nothing is saved and the old one stays active."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     body = await _json_body(request)
     body = body if isinstance(body, dict) else {}
-    mode = body.get("mode", "owned_first")
-    sleeved = body.get("sleeved", True)
-    if not isinstance(sleeved, bool):
-        return _bad_request(tuner_mod.TunerError("sleeved must be a boolean."))
+    mode = body.get("mode", "flex")
+    in_deck = body.get("in_deck", True)
+    buy = body.get("buy", True)
+    if not isinstance(in_deck, bool) or not isinstance(buy, bool):
+        return _bad_request(tuner_mod.TunerError("in_deck and buy must be booleans."))
     try:
-        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, sleeved)
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     except tune_store.TuneStoreError as exc:

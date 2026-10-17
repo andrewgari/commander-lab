@@ -73,7 +73,7 @@ class Gen:
     def __init__(self):
         self.calls = 0
 
-    def __call__(self, r, deck, mode, sleeved):
+    def __call__(self, r, deck, mode, in_deck, buy):
         self.calls += 1
         return {"n": self.calls, "mode": mode, "swaps": []}
 
@@ -100,14 +100,14 @@ class TestStore(unittest.TestCase):
 
     def test_recompute_archives_old_and_creates_new_active(self):
         first, _ = ts.recompute(self.r, DECK, self.gen)
-        second, old = ts.recompute(self.r, DECK, self.gen, mode="best", sleeved=False)
+        second, old = ts.recompute(self.r, DECK, self.gen, mode="best", in_deck=False, buy=False)
         self.assertNotEqual(first["id"], second["id"])
         self.assertEqual(old["id"], first["id"])
         self.assertEqual(old["status"], "archived")
         self.assertTrue(old["archived_at"])
         stored_old = ts._load(self.r, first["id"])  # persisted, not deleted, payload intact
         self.assertEqual((stored_old["status"], stored_old["payload"]["n"]), ("archived", 1))
-        self.assertEqual(second["params"], {"mode": "best", "sleeved": False})
+        self.assertEqual(second["params"], {"mode": "best", "in_deck": False, "buy": False})
         self.assertEqual(ts.get_active(self.r, "archidekt:417707")["id"], second["id"])
 
     def test_only_one_active_per_deck(self):
@@ -189,7 +189,7 @@ class TestApi(unittest.TestCase):
         self.n = 0
         outer = self
 
-        def fake_compute(r, deck, mode="owned_first", sleeved=True, **kw):
+        def fake_compute(r, deck, mode="flex", in_deck=True, buy=True, **kw):
             outer.n += 1
             return {"n": outer.n, "mode": mode, "swaps": []}
 
@@ -214,7 +214,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(self.client.post("/api/decks/archidekt:999/tune/recompute").status_code, 404)
 
     def test_recompute_then_get_returns_active(self):
-        res = self.client.post(self.URL + "/recompute", json={"mode": "best", "sleeved": False})
+        res = self.client.post(self.URL + "/recompute", json={"mode": "best", "in_deck": False})
         self.assertEqual(res.status_code, 200)
         j = res.json()
         self.assertIsNone(j["archived"])
@@ -243,8 +243,8 @@ class TestApi(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(self.client.get(self.URL + "/saved").status_code, 404)
 
-    def test_bad_sleeved_400(self):
-        self.assertEqual(self.client.post(self.URL + "/recompute", json={"sleeved": "yes"}).status_code, 400)
+    def test_bad_in_deck_400(self):
+        self.assertEqual(self.client.post(self.URL + "/recompute", json={"in_deck": "yes"}).status_code, 400)
 
 
 if __name__ == "__main__":
