@@ -82,6 +82,63 @@ jobs:
           python -m pytest -v -rs tests/e2e/test_reconstruct_playwright.py | tee e2e-browser.log
           ! grep -qi "skipped" e2e-browser.log
 
+  e2e:
+    name: E2E (Deck Genre, Playwright)
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Start app
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          nohup python -m uvicorn app:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/ > /dev/null && exit 0
+            sleep 1
+          done
+          cat app.log
+          exit 1
+
+      - name: Run Deck Genre e2e tests
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          python -m pytest tests/e2e/test_deck_genre_e2e.py --base-url http://127.0.0.1:8000 -v
+
+      - name: Upload app log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-app-log
+          path: app.log
+
   docker:
     name: Build & Push Docker Image
     needs: test

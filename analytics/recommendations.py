@@ -840,7 +840,7 @@ class RecommendationGenerator:
             for a in analysis.theme_analysis.secondary_archetypes
         ]
         preferred_archetypes = [
-            intent.archetype_preferences.primary_archetype.lower()
+            (intent.archetype_preferences.primary_archetype or "midrange").lower()
         ] + [a.lower() for a in intent.archetype_preferences.secondary_archetypes]
         excluded_archetypes = {a.lower() for a in intent.archetype_preferences.excluded_archetypes}
         excluded_wincons = {w.lower() for w in intent.preferred_win_conditions.disliked_or_excluded}

@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import deck_genre
+
 SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "user_intent.schema.json"
 
 ALLOWED_DECK_INTENTS: Set[str] = {"new_build", "tune_up", "overhaul"}
@@ -34,22 +36,9 @@ ALLOWED_WIN_CONDITIONS: Set[str] = {
     "lockout",
 }
 
-ALLOWED_ARCHETYPES: Set[str] = {
-    "aggro",
-    "midrange",
-    "control",
-    "combo",
-    "stax",
-    "spellslinger",
-    "aristocrats",
-    "tokens",
-    "graveyard",
-    "voltron",
-    "ramp",
-    "tribal",
-    "group_hug",
-    "group_slug",
-}
+# The 30 Deck Genre archetype ids (docs/deck_genre_taxonomy.yaml). The original 14 are a
+# subset and keep their ids; deck_genre.py owns the list, labels and cardinality rules.
+ALLOWED_ARCHETYPES: Set[str] = set(deck_genre.ARCHETYPE_IDS)
 
 # Mapping between numeric scale and named tier
 POWER_SCALE_TIER_MAP = {
@@ -105,10 +94,18 @@ class PreferredWinConditions:
 
 @dataclass
 class ArchetypePreferences:
-    primary_archetype: str = "midrange"
+    # None = not set (GN). Analytics falls back to "midrange" when scoring.
+    primary_archetype: Optional[str] = None
     secondary_archetypes: List[str] = field(default_factory=list)
     excluded_archetypes: List[str] = field(default_factory=list)
     custom_themes: List[str] = field(default_factory=list)
+
+
+@dataclass
+class DeckGenre:
+    """Journal Deck Genre tags (GN): flavor themes (seed id or custom) + creature types."""
+    genres: List[str] = field(default_factory=list)
+    kindred: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -122,6 +119,7 @@ class UserDeckIntent:
     archetype_preferences: ArchetypePreferences = field(
         default_factory=ArchetypePreferences
     )
+    deck_genre: DeckGenre = field(default_factory=DeckGenre)
     pet_cards: List[str] = field(default_factory=list)
     novelties: str = ""
     # Official Commander Bracket 1-5 (BR-2); None = unset, no bracket checks.
@@ -203,10 +201,18 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
     # 5. archetype_preferences
     ap_in = payload.get("archetype_preferences") or {}
     resolved["archetype_preferences"] = {
-        "primary_archetype": ap_in.get("primary_archetype", "midrange"),
+        "primary_archetype": ap_in.get("primary_archetype"),
         "secondary_archetypes": list(ap_in.get("secondary_archetypes", [])),
         "excluded_archetypes": list(ap_in.get("excluded_archetypes", [])),
         "custom_themes": list(ap_in.get("custom_themes", [])),
+    }
+
+    # 5b. Deck Genre (GN): labels only, never scored by the engine.
+    dg_in = payload.get("deck_genre")
+    dg_in = dg_in if isinstance(dg_in, dict) else {}
+    resolved["deck_genre"] = {
+        "genres": list(dg_in.get("genres") or []),
+        "kindred": list(dg_in.get("kindred") or []),
     }
 
     # 6. Deck Journal fields (AN-5)
@@ -227,6 +233,7 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
         "budget_constraints",
         "preferred_win_conditions",
         "archetype_preferences",
+        "deck_genre",
         "pet_cards",
         "novelties",
         "target_bracket",
@@ -541,6 +548,12 @@ def validate_intent(
                     "archetype_preferences.custom_themes must be a list of strings."
                 )
 
+            # Deck Genre cardinality (GN): primary 0-1, secondaries 0-3 and never the primary.
+            errors.extend(deck_genre.validate_archetype_cardinality(ap))
+
+    # 5b. deck_genre (GN): genres/kindred 0-5 each, custom text <= 32 chars.
+    errors.extend(deck_genre.validate_deck_genre(payload.get("deck_genre")))
+
     # 6. Deck Journal fields (AN-5)
     pets = payload.get("pet_cards")
     if pets is not None and (not isinstance(pets, list) or not all(isinstance(p, str) for p in pets)):
@@ -617,6 +630,10 @@ def parse_user_intent(
             secondary_archetypes=ap_data["secondary_archetypes"],
             excluded_archetypes=ap_data["excluded_archetypes"],
             custom_themes=ap_data["custom_themes"],
+        ),
+        deck_genre=DeckGenre(
+            genres=resolved["deck_genre"]["genres"],
+            kindred=resolved["deck_genre"]["kindred"],
         ),
         pet_cards=resolved["pet_cards"],
         novelties=resolved["novelties"],

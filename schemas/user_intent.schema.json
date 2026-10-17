@@ -222,25 +222,45 @@
       "description": "Preferred deck archetype and gameplay themes, as well as archetypes to strictly avoid.",
       "properties": {
         "primary_archetype": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "enum": [
             "aggro",
             "midrange",
             "control",
             "combo",
             "stax",
-            "spellslinger",
-            "aristocrats",
-            "tokens",
-            "graveyard",
-            "voltron",
             "ramp",
+            "pillowfort",
+            "tokens",
+            "aristocrats",
+            "counters",
+            "voltron",
             "tribal",
+            "spellslinger",
+            "storm",
+            "graveyard",
+            "reanimator",
+            "mill",
+            "landfall",
+            "blink",
+            "artifacts",
+            "enchantress",
+            "superfriends",
+            "lifegain",
+            "poison",
+            "theft",
+            "wheels",
+            "cheat",
+            "extra_combats",
             "group_hug",
-            "group_slug"
+            "group_slug",
+            null
           ],
-          "default": "midrange",
-          "description": "Primary archetype defining deck construction."
+          "default": null,
+          "description": "Primary archetype defining deck construction (Deck Genre). null = not set; analytics then scores against 'midrange'."
         },
         "secondary_archetypes": {
           "type": "array",
@@ -252,20 +272,37 @@
               "control",
               "combo",
               "stax",
-              "spellslinger",
-              "aristocrats",
-              "tokens",
-              "graveyard",
-              "voltron",
               "ramp",
+              "pillowfort",
+              "tokens",
+              "aristocrats",
+              "counters",
+              "voltron",
               "tribal",
+              "spellslinger",
+              "storm",
+              "graveyard",
+              "reanimator",
+              "mill",
+              "landfall",
+              "blink",
+              "artifacts",
+              "enchantress",
+              "superfriends",
+              "lifegain",
+              "poison",
+              "theft",
+              "wheels",
+              "cheat",
+              "extra_combats",
               "group_hug",
               "group_slug"
             ]
           },
           "uniqueItems": true,
           "default": [],
-          "description": "Secondary archetypes or hybrid sub-themes (e.g. tokens with aristocrats)."
+          "description": "Secondary archetypes or hybrid sub-themes (e.g. tokens with aristocrats). At most 3, never the primary.",
+          "maxItems": 3
         },
         "excluded_archetypes": {
           "type": "array",
@@ -277,13 +314,29 @@
               "control",
               "combo",
               "stax",
-              "spellslinger",
-              "aristocrats",
-              "tokens",
-              "graveyard",
-              "voltron",
               "ramp",
+              "pillowfort",
+              "tokens",
+              "aristocrats",
+              "counters",
+              "voltron",
               "tribal",
+              "spellslinger",
+              "storm",
+              "graveyard",
+              "reanimator",
+              "mill",
+              "landfall",
+              "blink",
+              "artifacts",
+              "enchantress",
+              "superfriends",
+              "lifegain",
+              "poison",
+              "theft",
+              "wheels",
+              "cheat",
+              "extra_combats",
               "group_hug",
               "group_slug"
             ]
@@ -303,10 +356,43 @@
       },
       "required": [],
       "default": {
-        "primary_archetype": "midrange",
+        "primary_archetype": null,
         "secondary_archetypes": [],
         "excluded_archetypes": [],
         "custom_themes": []
+      },
+      "additionalProperties": false
+    },
+    "deck_genre": {
+      "type": "object",
+      "description": "Deck Genre tags (journal section 'Genre'; labels only, never scored). See docs/DECK_GENRE_TAXONOMY.md.",
+      "properties": {
+        "genres": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "default": [],
+          "description": "Flavor / vibe / build-identity themes (UI label 'Themes'): a seed id from deck_genre_taxonomy.yaml or custom text."
+        },
+        "kindred": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "default": [],
+          "description": "Creature types the deck cares about, in Scryfall catalog spelling ('Elf'), or custom text."
+        }
+      },
+      "default": {
+        "genres": [],
+        "kindred": []
       },
       "additionalProperties": false
     },
@@ -324,7 +410,10 @@
       "description": "Things the user wants to see happen with this deck (scored as a bonus, never a requirement)."
     },
     "target_bracket": {
-      "type": ["integer", "null"],
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 1,
       "maximum": 5,
       "default": null,
