@@ -171,7 +171,7 @@ class TestAutoTagFixtures(unittest.TestCase):
             "Smothering Tithe": {"ramp", "artifacts"},
             "Sol Ring": {"ramp", "artifacts"},
             "Arcane Signet": {"ramp", "mana_fixing"},
-            "Etherium Sculptor": {"artifacts", "ramp"},
+            "Etherium Sculptor": {"artifacts"},  # cost reducers no longer ramp (RAMP-4 w=1, dogfood O4)
             "Thopter Foundry": {"artifacts", "sacrifice"},
             "Whirler Rogue": {"artifacts"},
             "Swords to Plowshares": {"removal"},
@@ -448,6 +448,64 @@ class TestDogfoodMissedRoles(unittest.TestCase):
 
     def test_m10_grapeshot_finisher(self):
         self.assertIn("finisher", _tags_of(self.vivi, "Grapeshot"))
+
+
+class TestOverTaggingRegressions(unittest.TestCase):
+    """Dogfood t_61b734d5 false positives (O1-O4, O6)."""
+
+    @staticmethod
+    def _c(name, type_line, text, cmc=3):
+        return {"name": name, "type_line": type_line, "oracle_text": text, "cmc": cmc}
+
+    def _tags(self, card):
+        # Token- and artifact-heavy deck so tokens/artifacts themes are active.
+        filler = [self._c(f"Maker {i}", "Creature — Goblin", "At the beginning of combat on your turn, create a 1/1 red Goblin creature token.") for i in range(6)]
+        filler += [self._c(f"Rock {i}", "Artifact", "{T}: Add {C}.", 2) for i in range(6)]
+        deck = {
+            "name": "Regression", "id": "reg",
+            "commanders": [self._c("Krenko, Mob Boss", "Legendary Creature — Goblin Warrior", "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.", 4)],
+            "color_identity": ["R"], "color_identity_size": 1,
+            "cards": filler + [card],
+        }
+        res = run_auto_tag(deck)
+        got = next(c for c in res["cards"] if c["name"] == card["name"])
+        return {t["tag"] for t in got["tags"]}
+
+    def test_o1_essence_warden_not_tokens(self):
+        t = self._tags(self._c("Essence Warden", "Creature — Elf Shaman", "Whenever another creature enters, you gain 1 life.", 1))
+        self.assertNotIn("tokens", t)
+
+    def test_o2_intruder_alarm_not_tokens(self):
+        t = self._tags(self._c("Intruder Alarm", "Enchantment", "Creatures don't untap during their controllers' untap steps.\nWhenever a creature enters, untap all creatures.", 4))
+        self.assertNotIn("tokens", t)
+
+    def test_o3_artifact_anthems_not_tokens(self):
+        t1 = self._tags(self._c("Tempered Steel", "Enchantment", "Artifact creatures you control get +2/+2.", 3))
+        t2 = self._tags(self._c("Chief of the Foundry", "Artifact Creature — Construct", "Other artifact creatures you control get +1/+1.", 3))
+        self.assertNotIn("tokens", t1)
+        self.assertNotIn("tokens", t2)
+
+    def test_o3_generic_anthem_still_supports_tokens(self):
+        t = self._tags(self._c("Anthem", "Enchantment", "Creatures you control get +1/+1.", 3))
+        self.assertIn("tokens", t)
+
+    def test_creature_you_control_enters_payoff_still_tokens(self):
+        t = self._tags(self._c("Impact Tremors", "Enchantment", "Whenever a creature you control enters, this enchantment deals 1 damage to each opponent.", 2))
+        self.assertIn("tokens", t)
+
+    def test_o4_cost_reducers_not_ramp(self):
+        for name, tl, text in [
+            ("Etherium Sculptor", "Artifact Creature — Vedalken Artificer", "Artifact spells you cast cost {1} less to cast."),
+            ("Danitha Capashen", "Legendary Creature — Human Knight", "Aura and Equipment spells you cast cost {1} less to cast."),
+            ("Jukai Naturalist", "Creature — Elf Druid", "Enchantment spells you cast cost {1} less to cast."),
+        ]:
+            self.assertNotIn("ramp", self._tags(self._c(name, tl, text)), name)
+
+    def test_o6_imprisoned_in_the_moon_is_removal_only(self):
+        t = self._tags(self._c("Imprisoned in the Moon", "Enchantment — Aura", 'Enchant creature, land, or planeswalker\nEnchanted permanent is a colorless land with "{T}: Add {C}" and loses all other card types and abilities.'))
+        self.assertIn("removal", t)
+        self.assertNotIn("ramp", t)
+        self.assertNotIn("voltron", t)
 
 
 if __name__ == "__main__":
