@@ -9,7 +9,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from fakeredis import FakeRedis
+from tests.test_instances import FakeRedis
 from fastapi.testclient import TestClient
 
 import app as app_module
