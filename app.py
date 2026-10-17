@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,6 +15,7 @@ from typing import List, Optional
 import instances as instance_store
 from instances import InstanceError
 import registry
+import reconstruct
 import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
@@ -567,36 +568,208 @@ async def decommission_decks_bulk(request: Request):
     }
 
 
-@app.post("/api/decks/{deck_id}/decommission")
-async def decommission_deck(deck_id: str, request: Request):
-    """Decommission a physical deck (single transaction): remove the status tag
-    (default "removed", override with JSON body {"tag": "..."}), move the deck
-    to the "retired" category, and return all its cards to the owned pool
-    (instances in_deck -> in_collection; nothing deleted). Idempotent.
-    Errors: 404 deck not found, 400 deck is not physical.
+# ---------------------------------------------------------------------------
+# Reconstruct flow endpoints (decommission variant + review/rebuild)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/reconstruct/start")
+@app.post("/api/reconstruct")
+async def start_reconstruct(request: Request):
+    """Start a Reconstruct flow on 1 or 2 physical decks.
+    Captures pre-retirement decklist snapshots, decommissions each source deck
+    identically to standard decommission (moves to "retired", removes tag,
+    unassigns in_deck instances to in_collection), and initializes a Reconstruct
+    session in status 'pending_preferences'.
+
+    Body: {"deck_ids": ["archidekt:42", "archidekt:43"], "tag": "removed" (optional)}
+          or {"deck_id": "archidekt:42"}
     """
     try:
         data = await request.json()
     except Exception:
         data = {}
-    tag = (data or {}).get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    if not isinstance(data, dict):
+        data = {}
+
+    deck_ids = data.get("deck_ids")
+    if deck_ids is None and "deck_id" in data:
+        deck_ids = [data["deck_id"]]
+    if deck_ids is None:
+        deck_ids = []
+    tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+
     try:
-        result = registry.decommission_deck(r, deck_id, tag=tag)
+        session = reconstruct.start_reconstruct(r, deck_ids, tag=tag)
     except registry.DecommissionError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     except ValueError as e:
-        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
-    deck = result["deck"]
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "success": True,
+            "session_id": session["session_id"],
+            "session": session,
+        },
+    )
+
+
+@app.get("/api/reconstruct/sessions")
+async def list_reconstruct_sessions(limit: int = 50):
+    """List recent Reconstruct sessions."""
+    sessions = reconstruct.list_sessions(r, limit=limit)
+    return {"success": True, "sessions": sessions}
+
+
+@app.get("/api/reconstruct/{session_id}")
+async def get_reconstruct_session(session_id: str):
+    """Fetch a Reconstruct session by ID, including source decklists and status."""
+    session = reconstruct.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {"success": True, "session": session}
+
+
+@app.post("/api/reconstruct/{session_id}/preferences")
+async def submit_reconstruct_preferences(session_id: str, request: Request):
+    """Submit target deck preferences (for up to 2 decks).
+
+    Body: {"preferences": [{"commanders": [...], "themes": [...], ...}]}
+          or [{"commanders": [...], ...}]
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    prefs = data.get("preferences") if isinstance(data, dict) and "preferences" in data else data
+    try:
+        session = reconstruct.submit_preferences(r, session_id, prefs)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return {"success": True, "session": session}
+
+
+@app.post("/api/reconstruct/{session_id}/build")
+async def trigger_reconstruct_build(
+    session_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    sync: Optional[bool] = Query(None),
+):
+    """Trigger the deck builder for a Reconstruct session.
+
+    Calls pluggable BaseReconstructBuilder. If sync is True (via query param ?sync=true
+    or JSON body {"sync": true}), builds inline; otherwise runs as a background task.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    is_sync = sync if sync is not None else bool(body.get("sync", False))
+
+    try:
+        session = reconstruct.trigger_build(r, session_id, sync=is_sync)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    if not is_sync:
+        background_tasks.add_task(reconstruct.execute_build, r, session_id)
+        return JSONResponse(
+            status_code=202,
+            content={
+                "success": True,
+                "status": session["status"],
+                "session": session,
+            },
+        )
+
     return {
         "success": True,
-        "deck_id": registry.registry_id_of(deck),
-        "status": deck["status"],
-        "tags": deck.get("tags", []),
-        "already_decommissioned": result["already_decommissioned"],
-        "tag_removed": result["tag_removed"],
-        "unassigned_count": result["unassigned_count"],
-        "unassigned_instance_ids": result["unassigned_instance_ids"],
+        "status": session["status"],
+        "session": session,
     }
+
+
+@app.get("/api/reconstruct/{session_id}/drafts")
+async def get_reconstruct_drafts(session_id: str):
+    """Fetch generated draft decks for a Reconstruct session."""
+    session = reconstruct.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {
+        "success": True,
+        "status": session["status"],
+        "drafts": session.get("drafts", []),
+    }
+
+
+@app.post("/api/reconstruct/{session_id}/accept")
+async def accept_reconstruct_draft(session_id: str, request: Request):
+    """Accept one or more drafts, creating the new decks and dedicating cards.
+
+    Body (optional): {"draft_index": 0} or {"draft_indices": [0, 1]}, {"status": "physical"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    draft_indices = data.get("draft_indices")
+    if draft_indices is None and "draft_index" in data:
+        draft_indices = [data["draft_index"]]
+    status = data.get("status", "physical")
+
+    try:
+        result = reconstruct.accept_draft(r, session_id, draft_indices=draft_indices, status=status)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return {
+        "success": True,
+        "session": result["session"],
+        "created_decks": result["created_decks"],
+    }
+
+
+@app.post("/api/reconstruct/{session_id}/abandon")
+async def abandon_reconstruct(session_id: str, request: Request):
+    """Abandon a Reconstruct session.
+
+    Body (optional): {"reason": "User abandoned draft"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    reason = data.get("reason", "")
+
+    try:
+        session = reconstruct.abandon_reconstruct(r, session_id, reason=reason)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return {"success": True, "session": session}
 
 
 @app.post("/api/import")
