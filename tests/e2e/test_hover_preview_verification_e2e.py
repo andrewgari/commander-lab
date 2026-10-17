@@ -497,9 +497,7 @@ class TestTouch:
         page.wait_for_timeout(700)
         assert not page.evaluate(SHEET_JS), "quick tap on an actionable deck tile opened the preview"
 
-    # Bug #152: onTouchStart() uses findTrigger(e.target), so the transparent data-cp-overlay button
-    # swallows the long-press. Mouse hover on the same point works. Remove the marker once fixed.
-    @pytest.mark.xfail(strict=True, reason="bug #152: touch long-press on a deck tile is swallowed by the overlay button")
+    # Regression for #152: touch long-press must look through the data-cp-overlay button.
     def test_long_press_on_deck_tile_opens_sheet(self, touch_page, base_url):
         page = touch_page
         _goto(page, base_url, "/decks")
