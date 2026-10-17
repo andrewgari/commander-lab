@@ -718,6 +718,68 @@ class TestReconstructBuilder(unittest.TestCase):
         # Total new cost includes only known prices
         self.assertEqual(draft["total_new_cost"], 35.00)
 
+    def test_unpriced_tier3_flags_draft_incomplete(self):
+        """BUG-1: unpriced Tier 3 cards are surfaced on the stored draft."""
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Vito, Thorn of the Dusk Rose"]}])
+        deck = mock_deck_payload("Unpriced", "Vito, Thorn of the Dusk Rose",
+                                 other_cards=[("Demonic Tutor", 3, 1)], basic="Swamp", total_cards=100)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = llm_reply(deck)
+        reconstruct.set_builder(ReconstructBuilder(
+            client=mock_client, catalog=self.catalog,
+            price_lookup=lambda names: {n: None for n in names}))
+        draft = reconstruct.trigger_build(self.r, sid, sync=True)["drafts"][0]
+        self.assertFalse(draft["is_complete"])
+        self.assertIn("Demonic Tutor", draft["unpriced_cards"])
+
+    def test_priced_draft_is_complete(self):
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Vito, Thorn of the Dusk Rose"]}])
+        deck = mock_deck_payload("Priced", "Vito, Thorn of the Dusk Rose",
+                                 other_cards=[("Demonic Tutor", 3, 1)], basic="Swamp", total_cards=100)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = llm_reply(deck)
+        reconstruct.set_builder(ReconstructBuilder(
+            client=mock_client, catalog=self.catalog, price_lookup=self.price_lookup))
+        draft = reconstruct.trigger_build(self.r, sid, sync=True)["drafts"][0]
+        self.assertTrue(draft["is_complete"])
+        self.assertEqual(draft["unpriced_cards"], [])
+
+    def test_commander_swapped_by_llm_fails_after_retries(self):
+        """BUG-2: LLM-swapped commander is a validation failure."""
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Vito, Thorn of the Dusk Rose"]}])
+        deck = mock_deck_payload("Swapped", "Krenko, Mob Boss", basic="Mountain", total_cards=100)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = llm_reply(deck)
+        reconstruct.set_builder(ReconstructBuilder(
+            max_retries=2, client=mock_client, catalog=self.catalog, price_lookup=self.price_lookup))
+        with self.assertRaises(ReconstructBuildError):
+            reconstruct.trigger_build(self.r, sid, sync=True)
+        saved = reconstruct.get_session(self.r, sid)
+        self.assertEqual(saved["status"], reconstruct.STATUS_FAILED)
+        self.assertIn("COMMANDER_MISMATCH", saved.get("error", ""))
+        self.assertEqual(mock_client.chat.call_count, 3)
+
+    def test_commander_swap_recovers_on_retry(self):
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"commanders": ["Vito, Thorn of the Dusk Rose"]}])
+        bad = mock_deck_payload("Swapped", "Krenko, Mob Boss", basic="Mountain", total_cards=100)
+        good = mock_deck_payload("Good", "Vito, Thorn of the Dusk Rose", basic="Swamp", total_cards=100)
+        mock_client = MagicMock()
+        mock_client.chat.side_effect = [llm_reply(bad), llm_reply(good)]
+        reconstruct.set_builder(ReconstructBuilder(
+            client=mock_client, catalog=self.catalog, price_lookup=self.price_lookup))
+        res = reconstruct.trigger_build(self.r, sid, sync=True)
+        self.assertEqual(res["status"], reconstruct.STATUS_DRAFTS_READY)
+        self.assertEqual(res["drafts"][0]["commanders"], ["Vito, Thorn of the Dusk Rose"])
+        self.assertEqual(mock_client.chat.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

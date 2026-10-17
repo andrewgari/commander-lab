@@ -68,7 +68,7 @@ class TestJournalPage(_JournalPage, unittest.TestCase):
                 self.assertIn(cls_, _classes(self.html))
 
     def test_sections_and_anchor_nav_in_spec_order(self):
-        ids = ["j-vision", "j-win", "j-power", "j-budget", "j-pets", "j-pillars"]
+        ids = ["j-vision", "j-genre", "j-win", "j-power", "j-budget", "j-pets", "j-pillars"]  # GN: Genre under Vision
         idx = [self.body.find(f'<section class="hud-form-section" id="{i}"') for i in ids]
         self.assertTrue(all(i > 0 for i in idx), idx)
         self.assertEqual(idx, sorted(idx))

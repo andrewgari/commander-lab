@@ -773,7 +773,7 @@
         // Touch: long-press on actionable triggers, tap on inert ones.
         function onTouchStart(e) {
             swallowClick = false;                // never let a stale flag eat a real tap
-            var t = findTrigger(e.target);
+            var t = triggerAt(e);                // looks through data-cp-overlay buttons
             if (!t || (sheet && isOpen)) return;
             press.target = t; press.fired = false; press.x = e.clientX; press.y = e.clientY;
             press.actionable = isActionable(e.target);
