@@ -19,6 +19,7 @@
     .tn-pet .hud-card-name { color: var(--text-2); }
     .tn-error { color: var(--danger); font-size: var(--fs-xs); }
     .tn-error:empty { display: none; }
+    #recomputeError { margin: var(--sp-2) 0 0; }
     .tn-filter-note { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-4); border-bottom: var(--stroke-faint); color: var(--text-3); font-size: var(--fs-xs); }
     .tn-filter-note[hidden] { display: none; }
     .tn-hidden-toggle { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--text-3); text-decoration: underline dotted; cursor: pointer; }
@@ -42,9 +43,10 @@
 
 {% block content %}
 {% call dh.header(head, tab) %}
-    <span class="hud-freshness" id="reviewState" hidden></span>
-    <button class="hud-btn" type="button" id="recompute">Recompute</button>
+    <span class="hud-freshness" id="tuneGenerated" aria-live="polite" hidden></span>
+    <button class="hud-btn" type="button" id="recompute" title="Runs the tuner again and saves the result. The current saved recommendation is archived, not deleted." disabled>Recompute</button>
 {% endcall %}
+<p class="tn-error" id="recomputeError" role="alert"></p>
 
 <div class="hud-filterbar">
     <span class="hud-seg" role="radiogroup" aria-label="Source preference">
@@ -324,23 +326,112 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ---- Load ------------------------------------------------------------------------
-    function load() {
-        $("swapError").textContent = "";
-        return fetch(API + "/tune" + query()).then(function (r) { return r.json(); }).then(function (j) {
-            if (!j.success) throw new Error(j.error || "Tune failed");
-            T = j.tune;
-            if (params.get("add")) return addCard(params.get("add"), "combo").then(function () {
-                params.delete("add"); history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : "") + location.hash); });
-        }).then(function () { renderAll(); askWhy(); })
-          .catch(function (e) { $("swaps").innerHTML = '<li class="hud-swap"><div class="hud-empty">Couldn\'t compute: ' + esc(e.message) + "</div></li>"; });
+    // The page shows the deck's SAVED recommendation (GET /tune/saved). Only the
+    // Recompute button (POST /tune/recompute) computes a new one; the previous one is
+    // archived server-side. With nothing saved yet, the first visit generates and saves one.
+    var REC = null, busy = false;
+    var btn = $("recompute"), errBox = $("recomputeError"), genEl = $("tuneGenerated");
+
+    function setBusy(on) {
+        busy = on; btn.disabled = on; btn.setAttribute("aria-busy", on ? "true" : "false");
+        btn.textContent = on ? (REC ? "Recomputing…" : "Computing…") : (REC ? "Recompute" : "Compute");
     }
-    // The LLM only writes the "why" lines (cached per pair); numbers stay ours.
+    function showGenerated(note) {
+        if (!REC) { genEl.hidden = true; return; }
+        genEl.hidden = false;
+        genEl.title = new Date(REC.created_at).toLocaleString();
+        genEl.textContent = "Generated " + A.age(REC.created_at) + (note ? " · " + note : "");
+    }
+    function empty(msg) {
+        $("fixes").innerHTML = '<div class="hud-empty">No saved recommendation yet.</div>';
+        $("swaps").innerHTML = '<li class="hud-swap"><div class="hud-empty">' + esc(msg) + "</div></li>";
+    }
+    // Decisions (accept / dismiss), adds and pets are stored separately from the saved snapshot and
+    // change after it was computed, so lay the current ones over it (GET /tune/state).
+    function overlay(rec, st) {
+        var t = rec.payload;
+        if (!st) return t;
+        var dec = (st.state && st.state.decisions) || {}, pets = st.pet_cards || [];
+        t.swaps = (t.swaps || []).filter(function (s) {
+            var d = dec[s.cut.name];
+            return !(d && d.decision === "dismissed") && pets.indexOf(s.cut.name) === -1;
+        }).map(function (s) {
+            var d = dec[s.cut.name];
+            s.decision = d ? d.decision : null; s.decision_add = d ? d.add : null;
+            return s;
+        });
+        (t.weak || []).forEach(function (w) { if (pets.indexOf(w.name) !== -1) { w.pet = true; w.has_swap = false; } });
+        t.adds = (st.state && st.state.adds) || [];
+        return t;
+    }
+    function apply(rec, tune, note) {
+        REC = rec; T = tune; cur = 0; rowFilter = null;
+        var p = rec.params || {};
+        var pm = p.mode || T.mode || "flex";
+        var radio = document.getElementById("src-" + (LEGACY[pm] || pm));
+        if (radio) radio.checked = true;
+        $("inDeck").checked = p.in_deck !== undefined ? !!p.in_deck : true;
+        $("buy").checked = p.buy !== undefined ? !!p.buy : true;
+        syncToggles();
+        errBox.textContent = "";
+        $("swapError").textContent = "";
+        renderAll(); setBusy(false); showGenerated(note);
+        whyAsked = false; askWhy();
+        return fromParams().then(function () { renderChanges(); });
+    }
+    function fromParams() {
+        // ?add= (Stats one-away combo) lands on the change list, which needs a loaded tune.
+        if (!params.get("add")) return Promise.resolve();
+        return addCard(params.get("add"), "combo").then(function () {
+            params.delete("add");
+            history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : "") + location.hash);
+        });
+    }
+    function recompute() {
+        if (busy) return Promise.resolve();
+        var first = !REC;
+        setBusy(true); errBox.textContent = "";
+        return send("POST", "/tune/recompute", opts()).then(function (j) {
+            var prev = j.archived;
+            return apply(j.recommendation, j.recommendation.payload, prev ? "previous result archived" : "");
+        }).catch(function (e) {
+            setBusy(false);
+            if (T) { errBox.textContent = "Recompute failed: " + e.message + ". Still showing the result from " + A.age(REC.created_at) + "."; showGenerated(); }
+            else if (first) { empty("Couldn\u2019t compute: " + e.message); errBox.textContent = ""; }
+        });
+    }
+    function loadSaved() {
+        return fetch(API + "/tune/saved").then(function (r) {
+            return r.json().then(function (j) { return { status: r.status, body: j }; });
+        }).then(function (res) {
+            var rec = res.body && res.body.recommendation;
+            if (res.status === 200 && rec && rec.payload) {
+                return fetch(API + "/tune/state").then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) { return j && j.success ? j : null; }, function () { return null; })
+                    .then(function (st) { return apply(rec, overlay(rec, st), ""); });
+            }
+            if (res.status === 404 && res.body && res.body.recommendation === null) return recompute();   // nothing saved yet
+            throw new Error((res.body && res.body.error) || ("HTTP " + res.status));
+        }).catch(function (e) {
+            setBusy(false);
+            if (!T) empty("Couldn\u2019t load the saved recommendation: " + e.message);
+            else errBox.textContent = e.message;
+        });
+    }
+    // The LLM only writes the "why" lines (cached per pair); numbers stay ours. The prose
+    // is merged only into swaps whose cut and add match the saved ones.
     function askWhy() {
-        if (whyAsked || !(T.swaps || []).some(function (s) { return !s.why; })) return;
+        if (whyAsked || !T || !(T.swaps || []).some(function (s) { return !s.why; })) return;
         whyAsked = true;
-        send("POST", "/tune/why", opts()).then(function (j) {
+        var mine = T;
+        send("POST", "/tune/why", { mode: mine.mode || mode(), in_deck: mine.in_deck !== false, buy: mine.buy !== false }).then(function (j) {
+            if (T !== mine) return;
             var by = {}; (j.tune.swaps || []).forEach(function (s) { by[s.cut.name] = s; });
-            (T.swaps || []).forEach(function (s) { var n = by[s.cut.name]; if (n) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; } });
+            var nm = function (o) { return o ? o.name : null; };
+            (T.swaps || []).forEach(function (s) {
+                var n = by[s.cut.name];
+                if (n && !s.why && nm(n.own) === nm(s.own) && nm(n.buy) === nm(s.buy)) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; }
+            });
             renderSwaps(); go(cur, false);
         }).catch(function () { /* prose is optional */ });
     }
@@ -405,10 +496,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     $("weakRows").addEventListener("click", function (e) { var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find")); });
-    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); whyAsked = false; load(); }); });
-    ["inDeck", "buy"].forEach(function (id) { $(id).addEventListener("change", function () { whyAsked = false; load(); }); });
+    // The filters apply to the next Recompute; they don't touch the saved result.
+    function filtersChanged() { if (REC && !busy) showGenerated("filters changed: Recompute to apply"); }
+    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); filtersChanged(); }); });
+    $("inDeck").addEventListener("change", filtersChanged);
+    $("buy").addEventListener("change", filtersChanged);
     syncToggles();
-    $("recompute").addEventListener("click", function () { whyAsked = false; load(); });
+    btn.addEventListener("click", recompute);
     $("copyText").addEventListener("click", function () {
         var text = A.changeText(DECK_NAME, A.changeList(T, T.adds));
         var done = function () { $("copyState").textContent = "Copied " + text.split("\n").length + " lines."; };
@@ -430,7 +524,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    load();
+    loadSaved();
 });
 </script>
 {% endblock %}
