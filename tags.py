@@ -172,3 +172,82 @@ def clear_deck_tags(r, deck_id: DeckId) -> None:
     r.delete(f"deck_tags_version:{deck_id}")
     # Per-card version keys are harder to enumerate; we leave them — version
     # counters are capped at 100 members so they self-limit.
+
+
+def apply_auto_tags(r, deck_id: DeckId, engine_result: dict) -> dict:
+    """Save auto-generated tags for *deck_id*, replacing previous auto-tags
+    while strictly preserving user-sourced tags.
+
+    Args:
+        r: Redis client
+        deck_id: Deck identifier
+        engine_result: Output of run_auto_tag(deck) with keys "deck_tags", "cards", etc.
+
+    Returns:
+        Summary dict containing updated deck_tags and card_tags.
+    """
+    # 1. Deck-level tags: preserve user tags, replace auto tags
+    existing_deck = get_deck_tags(r, deck_id)
+    user_deck_tags = [t for t in existing_deck if t.get("source") != "auto"]
+    user_deck_tag_names = {t["tag"] for t in user_deck_tags}
+
+    new_deck_tags = list(user_deck_tags)
+    for dt in engine_result.get("deck_tags", []):
+        tname = dt["tag"] if isinstance(dt, dict) else str(dt)
+        if tname not in user_deck_tag_names:
+            v = _next_version(r, deck_id)
+            new_deck_tags.append({
+                "tag": tname,
+                "source": "auto",
+                "created_at": _now(),
+                "version": v,
+            })
+
+    # Sort newest-first per storage convention
+    new_deck_tags.sort(key=lambda t: t.get("version", 0), reverse=True)
+    r.set(_deck_tags_key(deck_id), json.dumps(new_deck_tags))
+
+    # 2. Per-deck-card tags: preserve user tags, replace auto tags
+    existing_cards = get_deck_card_tags(r, deck_id)
+    new_card_data: dict[str, list[dict]] = {}
+
+    for card_name, entries in existing_cards.items():
+        user_entries = [e for e in entries if e.get("source") != "auto"]
+        if user_entries:
+            new_card_data[card_name] = user_entries
+
+    for c in engine_result.get("cards", []):
+        card_name = c.get("name", "")
+        if not card_name:
+            continue
+        existing_user_tags = {e["tag"] for e in new_card_data.get(card_name, [])}
+        card_list = new_card_data.setdefault(card_name, [])
+        for t in c.get("tags", []):
+            tname = t["tag"] if isinstance(t, dict) else str(t)
+            if tname not in existing_user_tags:
+                v = _next_version(r, deck_id, card_name)
+                card_list.append({
+                    "tag": tname,
+                    "source": "auto",
+                    "created_at": _now(),
+                    "version": v,
+                })
+
+    # Sort each card's tags newest-first and remove empty
+    clean_card_data: dict[str, list[dict]] = {}
+    for card_name, tags in new_card_data.items():
+        if tags:
+            tags.sort(key=lambda t: t.get("version", 0), reverse=True)
+            clean_card_data[card_name] = tags
+
+    r.set(_deck_card_tags_key(deck_id), json.dumps(clean_card_data))
+
+    return {
+        "success": True,
+        "deck_id": deck_id,
+        "deck_tags": new_deck_tags,
+        "card_tags": clean_card_data,
+        "version": engine_result.get("version", "autotag-v1"),
+        "health": engine_result.get("health", []),
+    }
+
