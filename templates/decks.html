@@ -1092,7 +1092,7 @@
                         </div>
                         <a class="deck-inv" href="/inventory?deck=${href}" title="Inventory for ${HUD.esc(deck.name)}" aria-label="Inventory for ${HUD.esc(deck.name)}">${INV_ICON}</a>
                     </div>
-                    <button type="button" class="deck-open" onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
+                    <button type="button" class="deck-open" data-cp-overlay onclick="openDeckModal(${globalIndex}, this)" data-deck-key="${HUD.esc(String(deck.id ?? deck.name))}" aria-label="Quick view: ${HUD.esc(deck.name)}"></button>
                 </article>
             `}).join('');
             

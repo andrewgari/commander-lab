@@ -102,6 +102,7 @@ const SCEN = JSON.parse(process.argv[2]);
 const K = JSON.parse(process.argv[3]);
 const SID = K.SID, SID2 = K.SID2, CDN = K.CDN, SOL_URIS = K.SOL_URIS, DELVER_FACES = K.DELVER_FACES;
 function fresh() {
+  delete globalThis.__scryfallImageWarned;
   delete require.cache[require.resolve(path)];
   const S = require(path);
   S.config.warn = false;

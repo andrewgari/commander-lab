@@ -75,6 +75,7 @@
     var TWO_IMAGE_LAYOUTS = { transform: 1, modal_dfc: 1, reversible_card: 1, double_faced_token: 1 };
 
     var config = {
+        retryDelay: 1500,            // ms to back off before the single retry after a 429/503/network error
         appName: "CommanderLab",
         contact: "https://github.com/andrewgari/commander-lab",
         warn: true,                 // console.warn on name-only (not printing specific) refs
@@ -218,7 +219,9 @@
             (n.face === "back" ? "&face=back" : "");
     }
 
-    var warned = {};
+    // Shared on the global so a second copy of this script cannot warn again for the same name.
+    var warnRoot = typeof globalThis !== "undefined" ? globalThis : {};
+    var warned = warnRoot.__scryfallImageWarned || (warnRoot.__scryfallImageWarned = {});
     function warnNameOnly(name, opts) {
         var k = name.toLowerCase();
         if (warned[k]) return;
@@ -318,11 +321,25 @@
         var f = (opts && opts.fetch) || (typeof fetch !== "undefined" ? fetch : null);
         if (!f) return Promise.reject(new Error("ScryfallImage.fetchCard: no fetch available"));
         var url = cardJsonUrl(n);
-        return throttle.run(function () { return f(url, { headers: requestHeaders("application/json") }); })
-            .then(function (res) {
-                if (!res.ok) throw new Error("Scryfall " + res.status + " for " + url);
-                return res.json();
-            });
+        var delay = opts && opts.retryDelay != null ? opts.retryDelay : config.retryDelay;
+        var later = (opts && opts.setTimeout) || setTimeout;
+        function attempt(left) {
+            return throttle.run(function () { return f(url, { headers: requestHeaders("application/json") }); })
+                .then(function (res) {
+                    if (res.ok) return res.json();
+                    // 429/503: back off and retry once instead of hammering Scryfall.
+                    if (left > 0 && (res.status === 429 || res.status === 503)) return wait(left);
+                    throw new Error("Scryfall " + res.status + " for " + url);
+                }, function (err) {
+                    // A 429 has no CORS headers, so browsers surface it as a network TypeError.
+                    if (left > 0) return wait(left);
+                    throw err;
+                });
+        }
+        function wait(left) {
+            return new Promise(function (r) { later(r, delay); }).then(function () { return attempt(left - 1); });
+        }
+        return attempt(1);
     }
 
     /**

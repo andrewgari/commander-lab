@@ -1235,6 +1235,9 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-rank-label a { color: inherit; text-decoration: none; }
 .hud-rank-label a:hover { color: var(--signal-strong); }
 .hud-rank-sub { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-micro); line-height: var(--lh-snug); white-space: nowrap; }
+/* A card-name row previews from anywhere on the row (bar, value), not just the text. */
+.hud-rank-item:has(> .hud-rank-label .hud-cp-name) { position: relative; }
+.hud-rank-item > .hud-rank-label .hud-cp-name::after { content: ""; position: absolute; inset: 0; }
 .hud-rank-item:has(.hud-rank-sub) { padding: var(--sp-1) 0; }
 /* Both are <span>s: display:block or width:% is ignored and the bar renders empty. */
 .hud-rank-track { display: block; height: var(--bar-track-h); background: var(--surface-2); }
