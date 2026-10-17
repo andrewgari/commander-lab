@@ -3,16 +3,18 @@
 build:
 	docker compose build
 
-# Legacy manual deploy path: builds locally-on-Tower and pushes to the local registry.
+# LEGACY, do not use: builds on Tower and pushes to the local registry,
+# bypassing the Portainer stack. See docs/GITOPS.md.
 deploy:
 	./scripts/deploy_tower.sh
 
-# Preferred path: push to Gitea and let Portainer's Git-stack webhook rebuild
-# and redeploy automatically. See docs/GITOPS.md.
+# Prod deploy: trigger Portainer stack 124's webhook so it rebuilds from
+# GitHub main. Run after the PR is merged and the version bump has landed.
+# See docs/GITOPS.md.
 deploy-push:
-	git push gitea main
+	curl -fsS -X POST http://192.168.50.3:9009/api/stacks/webhooks/$$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook) && echo "webhook triggered"
 
-# One-time setup of the Portainer Git stack + Gitea webhook (see docs/GITOPS.md).
+# LEGACY, do not use: Gitea-based setup; stack 124 tracks GitHub (see docs/GITOPS.md).
 gitops-setup:
 	./scripts/setup_portainer_gitops.sh
 

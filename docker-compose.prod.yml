@@ -17,12 +17,29 @@ services:
     container_name: commander-lab-app
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8020:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
       - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}
+      # Archidekt folder whose decks are Physical (locked). See docs/PHYSICAL_FOLDER_LOCK.md.
+      - ARCHIDEKT_PHYSICAL_FOLDER_ID=${ARCHIDEKT_PHYSICAL_FOLDER_ID:-588380}
+      # LLM keys for the interaction-graph tagger. Either set them on the
+      # Portainer stack, or drop one file per key (GOOGLE_API_KEY, NOUS_API_KEY)
+      # into the root-only secrets dir mounted below. See docs/GITOPS.md.
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - NOUS_API_KEY=${NOUS_API_KEY:-}
+      - INTERACTIONS_NIGHTLY_HOUR_UTC=${INTERACTIONS_NIGHTLY_HOUR_UTC:-8}
+      # oracle (Hermes profile on the Framework) for Theory docs, see docs/THEORY_SPEC.md.
+      # ORACLE_KEY: set it on the Portainer stack or as the file secrets/ORACLE_KEY (never in git).
+      - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - ORACLE_KEY=${ORACLE_KEY:-}
+      - ORACLE_TIMEOUT_S=${ORACLE_TIMEOUT_S:-600}
+    volumes:
+      - /mnt/user/appdata/commander-lab/secrets:/run/commander-lab-secrets:ro
+      # AN-8: persistent /data holds mech_similar.npz (built off-box, docs/MECH_SIMILAR.md)
+      - /mnt/user/appdata/commander-lab/data:/data
     depends_on:
       - redis
     command: uvicorn app:app --host 0.0.0.0 --port 8000
@@ -30,7 +47,29 @@ services:
       - internal
     labels:
       net.unraid.docker.managed: compose-manager
-      net.unraid.docker.webui: "http://[IP]:8000"
+      net.unraid.docker.webui: "http://[IP]:8020"
+
+  # BR-5: bracket evaluation runs here, never in the web request path.
+  # Same image as app; evaluates decks whose decklist/journal hash changed
+  # and stores bracket:eval:{registry_id}. See docs/BRACKETS_SPEC.md (BR-5).
+  bracket-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: commander-lab-bracket-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - BRACKET_EVAL_INTERVAL_S=${BRACKET_EVAL_INTERVAL_S:-300}
+      - BRACKET_EVAL_COMMANDERSALT=${BRACKET_EVAL_COMMANDERSALT:-1}
+      - INTERACTIONS_DISABLED=1
+    depends_on:
+      - redis
+    command: python -m analytics.bracket_worker
+    networks:
+      - internal
+    labels:
+      net.unraid.docker.managed: compose-manager
 
 networks:
   internal:

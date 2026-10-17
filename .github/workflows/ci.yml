@@ -43,6 +43,7 @@ jobs:
       - name: Run unit tests
         env:
           REDIS_URL: redis://localhost:6379/0
+          INTERACTIONS_DISABLED: "1"
         run: |
           python -m unittest discover -s tests
 
