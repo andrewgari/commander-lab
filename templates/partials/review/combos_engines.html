@@ -2,8 +2,8 @@
 {#- combos_engines: {combos_available, combos_error, combos_in_deck[{id,cards,produces,url}], combos_one_away[{...,missing}], combos_one_away_total, engines[{signature,kind,cards,score,summary}], why} -#}
 {%- set d = section.data %}
 {%- macro combo_row(c, away) %}
-<li class="hud-rv-combo" data-combo="{{ c.id }}"><b>{{ (c.cards or []) | join(" + ") }}</b>
-    <span>{{ (c.produces or []) | join(", ") or "—" }}{% if away and c.missing %} · missing {{ c.missing | join(", ") }}{% if c.missing_owned %} (owned){% endif %}{% endif %}</span></li>
+<li class="hud-rv-combo" data-combo="{{ c.id }}"><b>{% for n in (c.cards or []) %}{% if not loop.first %} + {% endif %}<span class="hud-cp-name" {{ card_preview_attrs(n) }}>{{ n }}</span>{% endfor %}</b>
+    <span>{{ (c.produces or []) | join(", ") or "—" }}{% if away and c.missing %} · missing {% for n in c.missing %}{% if not loop.first %}, {% endif %}<span class="hud-cp-name" {{ card_preview_attrs(n) }}>{{ n }}</span>{% endfor %}{% if c.missing_owned %} (owned){% endif %}{% endif %}</span></li>
 {%- endmacro %}
 {%- if d.combos_error %}<p class="hud-rv-meta">Combo lookup failed: {{ d.combos_error }}</p>{% endif %}
 <section class="hud-panel hud-panel--flush">
@@ -19,7 +19,7 @@
 <section class="hud-panel hud-panel--flush hud-rv-block">
     <header class="hud-panel-head"><h3 class="hud-panel-title">Engines</h3><span class="hud-panel-meta">{{ d.engines | length }}</span></header>
     {%- if d.engines %}<ul class="hud-rv-list hud-panel-body">{% for e in d.engines %}
-        <li class="hud-rv-combo" data-engine="{{ e.signature }}"><b>{{ (e.resources or []) | join(" → ") or e.signature }}</b><span>{{ e.summary or ((e.cards or []) | join(", ")) }}</span></li>{% endfor %}</ul>
+        <li class="hud-rv-combo" data-engine="{{ e.signature }}"><b>{{ (e.resources or []) | join(" → ") or e.signature }}</b><span>{% if e.summary %}{{ e.summary }}{% else %}{% for n in (e.cards or []) %}{% if not loop.first %}, {% endif %}<span class="hud-cp-name" {{ card_preview_attrs(n) }}>{{ n }}</span>{% endfor %}{% endif %}</span></li>{% endfor %}</ul>
     {%- else %}<div class="hud-panel-body">{{ hud.empty("No engines detected.") }}</div>{% endif %}
 </section>
 {%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}

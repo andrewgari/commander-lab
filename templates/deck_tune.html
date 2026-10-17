@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", function () {
             : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>";
         var cap = o.cap === "soft" ? H.chip("over soft cap " + A.money(T.caps.soft_cap), "signal") : "";
         return '<div class="hud-opt' + (picked ? " is-pick" : "") + (o.source === "buy" ? " is-buy" : "") + '">' + src +
-            '<span class="hud-card-name">' + esc(o.name) + "</span>" +
+            '<span class="hud-card-name">' + H.cardName(o.name) + "</span>" +
             '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" +
             (o.pillar ? '<span class="hud-opt-src" title="' + esc(o.pillar) + '">' + esc(o.pillar) + "</span>" : "") + cap + "</div>";
     }
@@ -207,14 +207,14 @@ document.addEventListener("DOMContentLoaded", function () {
               (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy" aria-label="Buy instead: ' + esc(s.buy.name) + '">Buy instead</button>' : "") +
               '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="dismiss">Dismiss</button>';
         return '<li class="hud-swap' + (i === cur ? " is-current" : "") + (accepted ? " is-accepted" : "") + '" tabindex="-1" data-cut="' + esc(s.cut.name) + '">' +
-            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + esc(s.cut.name) + "</span>" +
+            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + H.cardName(s.cut.name) + "</span>" +
             '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
             '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
             '<div class="hud-opts">' + (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty) + gap + stealLine + whyLine + just + hard + "</div>" +
             '<div class="hud-swap-act">' + acts + "</div></li>";
     }
     function petRow(p) {
-        return '<li class="hud-swap tn-pet" data-pet="1"><span><span class="hud-card-name">♥ ' + esc(p.name) + '</span> <span class="hud-field-hint">· pet · weakest pet in the deck (' +
+        return '<li class="hud-swap tn-pet" data-pet="1"><span><span class="hud-card-name">♥ ' + H.cardName(p.name) + '</span> <span class="hud-field-hint">· pet · weakest pet in the deck (' +
             esc(String(p.edges == null ? 0 : p.edges)) + " edges" + (p.fit != null ? ", fit " + p.fit.toFixed(2) : "") + ") but pets are never cut. Shown once so you know it was considered.</span></span>" +
             '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + BASE + '/journal#j-pets">Edit pets</a></li>';
     }
@@ -251,7 +251,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var edh = w.edhrec == null ? "0%" : Math.round(w.edhrec * 100) + "%";
             var played = w.played == null ? "—" : w.played.toFixed(2);
             var act = w.pet ? H.chip("pet", "ghost") : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>');
-            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + esc(w.name) + "</span></td>" +
+            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + H.cardName(w.name) + "</span></td>" +
                 '<td class="is-num tn-col-opt">' + w.edges + '</td><td class="is-num tn-col-opt" data-value="' + (w.fit == null ? -1 : w.fit) + '">' + fit +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.played == null ? -1 : w.played) + '">' + played + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
@@ -264,7 +264,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderChanges() {
         var L = A.changeList(T, T.adds);
         $("changeItems").innerHTML = L.items.map(function (i) {
-            return '<li><span class="op ' + i.op + '">' + (i.op === "out" ? "\u2212" : "+") + '</span><span class="hud-card-name">' + (i.qty > 1 ? i.qty + " " : "") + esc(i.name) +
+            return '<li><span class="op ' + i.op + '">' + (i.op === "out" ? "\u2212" : "+") + '</span><span class="hud-card-name">' + (i.qty > 1 ? i.qty + " " : "") + H.cardName(i.name) +
                 '</span><span class="hud-freshness">' + esc(i.source || "") + "</span></li>";
         }).join("");
         $("changeEmpty").hidden = L.items.length > 0;

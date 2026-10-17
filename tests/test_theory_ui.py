@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
+import card_refs
 from jinja2 import Environment, FileSystemLoader
 
 import app as app_mod
@@ -39,7 +40,9 @@ def _doc(**over):
 
 
 def _env():
-    return Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env.globals["card_preview_attrs"] = card_refs.preview_attrs
+    return env
 
 
 def render_section(section):
@@ -152,7 +155,7 @@ class TestKnownPartials(unittest.TestCase):
 
     def test_cuts_strike_and_reason(self):
         html = render_section(DOC["sections"][2])
-        self.assertIn("<s class=\"hud-card-name\">Angelic Arbiter</s>", html)
+        self.assertRegex(html, r'<s class="hud-card-name hud-cp-name"[^>]*data-card-preview[^>]*>Angelic Arbiter</s>')
         self.assertIn("symmetric lock", html)
         html = render_section({"type": "cuts", "data": {"cards": [{"name": "Kaalia of the Vast", "commander": True},
                                                                   {"name": "Pet", "pet": True}]}})

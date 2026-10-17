@@ -97,6 +97,8 @@ templates.env.globals["deck_groups"] = DECK_GROUPS
 # card name / thumbnail with data-card-name + data-card-ref (card_refs.py).
 templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
 
+templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
+
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -1108,6 +1110,10 @@ async def get_deck_manage(deck_id: str):
         cards.append({
             "instance_id": inst["id"],
             "card_name": card_name,
+            # Printing identity for the hover preview (audit G3, additive).
+            "uid": inst.get("archidekt_uid") or "",
+            "set": inst.get("set") or "",
+            "collector_number": inst.get("collector_number") or "",
             "type": meta.get("type", "Unknown"),
             "cmc": meta.get("cmc", 0),
             "color": meta.get("color", ""),

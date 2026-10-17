@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Iterable, List, Mapping, Optional, TypedDict
 
+from jinja2 import pass_context
 from markupsafe import Markup
 
 import instances as instance_store
@@ -228,3 +229,13 @@ def html_attrs(
         use["name"] = str(name or "")
     payload = json.dumps(compact(use), separators=(",", ":"), sort_keys=True)
     return Markup('data-card-name="{}" data-card-ref="{}"').format(use["name"], payload)
+
+
+@pass_context
+def preview_attrs(ctx: Any, name: Any) -> Markup:
+    """Jinja global `card_preview_attrs(name)`: hover-preview trigger attributes for
+    a card name, joined to the page's deck printing map (`head.card_refs`) when the
+    page has one, else a name-only ref (e.g. a partial rendered stand-alone)."""
+    head = ctx.get("head")
+    refs = head.get("card_refs") if isinstance(head, Mapping) else None
+    return Markup("data-card-preview ") + html_attrs(name, refs)

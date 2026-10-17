@@ -891,10 +891,11 @@ class TestCardHoverPreview(unittest.TestCase):
                       "--cp-out:       100ms", "prefers-reduced-motion: reduce", "pointer-events: none"]:
             self.assertIn(token, css)
 
-    def test_not_applied_app_wide_yet(self):
-        # Rollout is a separate task: no template loads the component yet.
-        hits = [p.name for p in (ROOT / "templates").rglob("*.html") if "card_hover_preview" in p.read_text()]
-        self.assertEqual(hits, [])
+    def test_loaded_app_wide_from_base(self):
+        base = (ROOT / "templates" / "base.html").read_text()
+        for needle in ("card_hover_preview.css", "scryfall_image.js", "card_hover_preview.js"):
+            self.assertIn(needle, base)
+        self.assertLess(base.index("scryfall_image.js"), base.index("card_hover_preview.js"))
 
 
 if __name__ == "__main__":

@@ -145,7 +145,7 @@
     /** Nearest ancestor-or-self carrying data-card-preview. */
     function findTrigger(node) {
         while (node) {
-            if (node.hasAttribute && node.hasAttribute("data-card-preview")) return node;
+            if (node.hasAttribute && (node.hasAttribute("data-card-preview") || node.hasAttribute("data-card-ref"))) return node;
             node = node.parentNode;
         }
         return null;
@@ -172,6 +172,23 @@
 
     /** cardRef from data-cp-* attributes. */
     function refFromAttrs(el) {
+        // App-wide markup (card_refs.html_attrs / HUD.cardRefAttrs): data-card-ref
+        // holds the CardRef as compact JSON. data-cp-* attributes win when both exist.
+        var json = attr(el, "data-card-ref");
+        if (json && !el.hasAttribute("data-cp-id") && !el.hasAttribute("data-cp-name")) {
+            try {
+                var parsed = JSON.parse(json);
+                if (parsed && typeof parsed === "object") {
+                    var nm = splitNames(parsed.name);
+                    if (nm.length > 1 && !parsed.cardFaces && TWO_IMAGE_LAYOUTS[str(parsed.layout)]) {
+                        parsed.cardFaces = nm.map(function (n) { return { name: n }; });
+                        parsed.twoFaces = true;
+                    }
+                    if (!parsed.name) parsed.name = str(attr(el, "data-card-name"));
+                    return parsed;
+                }
+            } catch (e) { /* fall through to data-cp-* */ }
+        }
         var names = splitNames(attr(el, "data-cp-name"));
         var layout = str(attr(el, "data-cp-layout"));
         var faces = parseInt(attr(el, "data-cp-faces") || "0", 10) || 0;

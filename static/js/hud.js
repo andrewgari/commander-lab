@@ -141,7 +141,9 @@
         var numbered = opts.numbered !== false;
         return '<ol class="hud-rank">' + items.map(function (it, idx) {
             var c = it.color ? String(it.color).toLowerCase() : "";
-            var label = it.href ? '<a href="' + esc(it.href) + '">' + esc(it.label) + "</a>" : esc(it.label);
+            // it.card: the label is a card name (true) or the card name to preview (string).
+            var shown = it.card ? cardName(typeof it.card === "string" ? it.card : it.label, null, { ref: it.cardRef, focusable: !it.href }) : esc(it.label);
+            var label = (it.prefix ? esc(it.prefix) : "") + (it.href ? '<a href="' + esc(it.href) + '">' + shown + "</a>" : shown);
             var width = Math.round(Math.min(it.value / top * 100, 100) * 10) / 10;
             return '<li class="hud-rank-item' + (it.hl ? " is-hl" : "") + '">' +
                 '<span class="hud-rank-pos">' + (numbered ? idx + 1 : "") + "</span>" +
@@ -203,7 +205,7 @@
                     encodeURIComponent(c.name) + '&amp;format=image&amp;version=art_crop">';
             }
             return '<figure class="hud-cmdr hud-cmdr--' + esc(String(c.role || "commander").replace("_", "-")) + (c.can_be_commander ? " is-cbc" : "") +
-                '" title="' + esc(title) + '">' +
+                '" title="' + esc(title) + '"' + cardRefAttrString(cardRef({ name: c.name, uid: c.uid }, pageRefs())) + ">" +
                 (c.role === "companion" ? '<span class="hud-cmdr-tag">Companion</span>' : "") +
                 '<span class="hud-cmdr-art">' + img +
                 (c.can_be_commander ? '<span class="hud-cmdr-badge">' + esc(c.type_label || "Commander") + "</span>" : "") +
@@ -276,6 +278,23 @@
         var out = {};
         Object.keys(ref || {}).forEach(function (k) { if (ref[k] != null) out[k] = ref[k]; });
         return { "data-card-name": (ref && ref.name) || "", "data-card-ref": JSON.stringify(out) };
+    }
+
+    // Attribute string (escaped, leading space) for an element that previews a
+    // card on hover: data-card-name + data-card-ref (read by CardHoverPreview).
+    function cardRefAttrString(ref) {
+        var a = cardRefAttrs(ref);
+        return ' data-card-name="' + esc(a["data-card-name"]) + '" data-card-ref="' + esc(a["data-card-ref"]) + '"';
+    }
+    // The deck printing map the page embedded (window.HUD_CARD_REFS, base.html).
+    function pageRefs() { return (typeof window !== "undefined" && window.HUD_CARD_REFS) || null; }
+    // A card name that previews its printing on hover. `refs` defaults to the
+    // page map; a name outside the deck is a name-only ref. opts.ref overrides.
+    function cardName(name, refs, opts) {
+        opts = opts || {};
+        var ref = opts.ref || cardRef(name, refs || pageRefs());
+        return '<span class="hud-cp-name' + (opts.className ? " " + esc(opts.className) : "") + '"' +
+            (opts.focusable === false ? "" : ' tabindex="0"') + " data-card-preview" + cardRefAttrString(ref) + ">" + esc(name) + "</span>";
     }
 
     // One retry per <img data-fallback>: swap to the fallback URL on error.
@@ -543,6 +562,8 @@
             var g = svgEl("g", { class: "g-node" + (isCmd ? " is-commander" : "") + (n.degree < 3 && !isCmd ? " is-label-off" : ""),
                 transform: "translate(" + n.x.toFixed(1) + "," + n.y.toFixed(1) + ")", tabindex: "0", role: "button",
                 "aria-label": n.id + ", " + n.degree + " connection" + (n.degree === 1 ? "" : "s") });
+            var nref = cardRefAttrs(cardRef(n.id, pageRefs()));
+            g.setAttribute("data-card-name", nref["data-card-name"]); g.setAttribute("data-card-ref", nref["data-card-ref"]);
             var inner = svgEl("g", { class: "g-node-in is-entering" });
             inner.style.setProperty("--i", idx);
             inner.appendChild(svgEl("circle", { r: radius(n).toFixed(1) }));
@@ -739,6 +760,8 @@
         cardKey: cardKey,
         cardRef: cardRef,
         cardRefAttrs: cardRefAttrs,
+        cardRefAttrString: cardRefAttrString,
+        cardName: cardName,
         graph: graph,
         openModal: openModal,
         closeModal: closeModal,

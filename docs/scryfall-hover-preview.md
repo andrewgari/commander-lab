@@ -34,20 +34,27 @@ Done in this change (deck overview page, `templates/deck.html`):
 - [x] #4 list/table view `<tr>`: same as #1
 - [x] #5 bracket flag captions: rendered inside the #1/#4 elements, so they inherit those refs.
 
-Remaining (downstream t_c842f790). Each site joins by name through `head.card_refs` / `card_ref_attrs`:
+Rolled out (CardHoverPreview applied; every site below shows the preview):
 
-- [ ] #6 deck_stats graph + inspector: scryfallId/set/CN via map for deck cards. Graph nodes are names.
-- [ ] #7 deck_stats rank lists: deck cards via map; EDHREC/combo names not in the deck → name only
-- [ ] #8 review strong_cards / stragglers: deck cards via map
-- [ ] #9 review curve/combos/focus/composition: via map once the joined strings are split (G7)
-- [ ] #10 theory decklist/cuts/buy: kept/owned-in-deck via map. **buy → name only** (unowned, so there is no printing).
-- [ ] #11 deck_tune: cuts via map. **adds/buys → name only.**
-- [ ] #12 deck_journal pet chips: via map
-- [ ] #13 deck_manage rows: the instance has uid/set/CN, but the `/manage` payload still drops them (G3 manage half)
-- [ ] #14 inventory table/detail: row has scryfallId, set, collectorNumber, oracleId (payload done here). Template not yet wired.
-- [ ] #15 instances table: scryfallId (`archidekt_uid`), set, collectorNumber already in the payload
-- [ ] #16 tags table: `copies[].uid`/set from /api/inventory
-- [ ] #17–#21 deck grid/modal, deck_head `hud.commanders`, personality thumb, HUD.commanders: commander uid → scryfallId. With no uid → name only (G9).
+Mechanism: `base.html` loads `card_hover_preview.css`, `scryfall_image.js` and `card_hover_preview.js` on every page. The controller is one delegated listener plus one shared popover, so sweeping a list re-targets the same popover (60 ms warm swap) instead of flickering. It treats any element with `data-card-ref` (JSON CardRef, from `card_ref_attrs` / `HUD.cardRefAttrs`) or `data-card-preview` + `data-cp-*` as a trigger. Helpers: Jinja `card_preview_attrs(name)` (reads `head.card_refs`, name-only without it), JS `HUD.cardName(name)`, `HUD.cardRefAttrString(ref)`, `rankList` item `card: true`. `window.HUD_CARD_REFS` carries the deck map to client-rendered pages.
+
+- [x] #6 deck_stats graph nodes (`data-card-ref` on each node `<g>`), inspector art, edge list, isolated tray and members
+- [x] #7 deck_stats rank lists (low fit, EDHREC rarest, played-with most/least, most connected), combo pieces
+- [x] #8 review strong_cards / stragglers / protected pets
+- [x] #9 review curve durdle cards, combos (in deck, one away, missing), engines, focus win lines, composition unknown cards. Joined strings are now looped so each name is its own trigger (G7).
+- [x] #10 theory decklist / cuts / buy. Buy cards stay name only (no printing exists).
+- [x] #11 deck_tune cut/own/buy options, pet, weak performers, change list. Adds and buys stay name only.
+- [x] #12 deck_journal pet chips (server-rendered via `hud.picker_chip(p, refs)` and the JS `chipHtml`)
+- [x] #13 deck_manage rows. `/api/decks/{id}/manage` rows now carry `uid`, `set` and `collector_number` (G3, additive).
+- [x] #14 inventory table name and detail image (the hand-rolled `api.scryfall.com ?format=image` URL is now `HUD.scryfall`, CDN with fallback)
+- [x] #15 instances table (`archidekt_uid`, set, collector number)
+- [x] #16 tags table (first copy with a uid)
+- [x] #17 decks grid art, #18 decks modal images (hand-rolled API URL replaced with `HUD.scryfall`)
+- [x] #19 `hud.commanders` Jinja macro, #20 personality thumb, #21 `HUD.commanders` JS. Commander with no uid falls back to name only (G9).
 - n/a #22 styleguide, #23 design mockups (not user-facing)
+
+No legacy hover preview existed (the audit found none; the graph `mouseenter` only highlights edges), so nothing was removed.
+
+Verified locally with the real app (fake Redis) in Chromium: two Sol Ring printings (c21 263 and cmr 472) in the inventory list open different art (`.../4/c/4cbc6901-....jpg` vs `.../5/8/58b26011-....jpg`).
 
 Name-only by nature (no printing exists): user-entered or pasted decklist entries with no uid, suggested adds, buys, EDHREC and combo suggestions. These render with `printingSpecific: false`.

@@ -520,10 +520,10 @@
     function deckArtImg(c) {
         if (c.uid) {
             const s = HUD.scryfall(c.uid, 'art_crop');
-            return `<img src="${HUD.esc(s.src)}" data-fallback="${HUD.esc(s.fallback)}" alt="" loading="lazy" decoding="async">`;
+            return `<img src="${HUD.esc(s.src)}" data-fallback="${HUD.esc(s.fallback)}" alt="" loading="lazy" decoding="async" data-card-preview${HUD.cardRefAttrString(HUD.cardRef({ name: c.name, uid: c.uid }))}>`;
         }
         if (c.name) {
-            return `<img src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(c.name)}&amp;format=image&amp;version=art_crop" alt="" loading="lazy" decoding="async">`;
+            return `<img src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(c.name)}&amp;format=image&amp;version=art_crop" alt="" loading="lazy" decoding="async" data-card-preview${HUD.cardRefAttrString(HUD.cardRef(c.name))}>`;
         }
         return '';
     }
@@ -822,12 +822,14 @@
         imagesContainer.innerHTML = '';
         
         if (deck.commander_uids && deck.commander_uids.length > 0) {
-            deck.commander_uids.forEach(uid => {
-                imagesContainer.innerHTML += `<img class="modal-image" src="https://api.scryfall.com/cards/${uid}?format=image" alt="Commander Image">`;
+            deck.commander_uids.forEach((uid, i) => {
+                const s = HUD.scryfall(uid, 'normal');
+                const ref = HUD.cardRef({ name: (deck.commanders || [])[i] || '', uid });
+                imagesContainer.innerHTML += `<img class="modal-image" src="${HUD.esc(s.src)}" data-fallback="${HUD.esc(s.fallback)}" alt="Commander Image" data-card-preview${HUD.cardRefAttrString(ref)}>`;
             });
         } else if (deck.commanders && deck.commanders.length > 0) {
             deck.commanders.forEach(cname => {
-                imagesContainer.innerHTML += `<img class="modal-image" src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image" alt="Commander Image">`;
+                imagesContainer.innerHTML += `<img class="modal-image" src="https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cname)}&format=image" alt="Commander Image" data-card-preview${HUD.cardRefAttrString(HUD.cardRef(cname))}>`;
             });
         }
         
