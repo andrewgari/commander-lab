@@ -8,7 +8,10 @@
  */
 (function () {
     "use strict";
-    var HUD = (typeof window !== "undefined" && window.HUD) ? window.HUD : {};
+    function H() { return (typeof window !== "undefined" && window.HUD) || {}; }
+    var HUD = (typeof Proxy !== "undefined")
+        ? new Proxy({}, { get: function (_, prop) { return H()[prop]; } })
+        : {};
 
     var esc = function (s) { return (window.HUD && window.HUD.esc) ? window.HUD.esc(s) : String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
     var STEPS = ["Evidence", "Opening", "Rebuttal", "Ruling"];
@@ -52,13 +55,13 @@
     // ---- Subject column --------------------------------------------------
     function subject(s) {
         var c = s.card || {}, role = (s.verdict && s.verdict.role) ? s.verdict.role : null;
-        var img = window.HUD ? HUD.scryfall(c.uid, "normal") : { src: "", fallback: "" };
-        var art = window.HUD ? HUD.art(c.name, img.src, { kind: "card", fallback: img.fallback, meta: c.cmc ? "CMC " + c.cmc : "", colors: c.colors || "" }) : "";
+        var img = window.HUD ? H().scryfall(c.uid, "normal") : { src: "", fallback: "" };
+        var art = window.HUD ? H().art(c.name, img.src, { kind: "card", fallback: img.fallback, meta: c.cmc ? "CMC " + c.cmc : "", colors: c.colors || "" }) : "";
         var kv = '<dl class="hud-kv"><dt>Type</dt><dd>' + esc(c.type || "") + "</dd>" +
-            (role ? "<dt>Role</dt><dd>" + (window.HUD ? HUD.chip(role.label, "data") : "") + "</dd>" : "") +
+            (role ? "<dt>Role</dt><dd>" + (window.HUD ? H().chip(role.label, "data") : "") + "</dd>" : "") +
             "<dt>In deck</dt><dd>" + esc(c.slot || "Mainboard") + "</dd></dl>";
-        var thumb = window.HUD ? HUD.scryfall(c.uid, "small") : { src: "", fallback: "" };
-        var vchip = (s.verdict && window.HUD) ? HUD.chip(s.verdict.ruling === "remove" ? "Remove" : "Keep", s.verdict.ruling === "remove" ? "signal" : "ok", true) : "";
+        var thumb = window.HUD ? H().scryfall(c.uid, "small") : { src: "", fallback: "" };
+        var vchip = (s.verdict && window.HUD) ? H().chip(s.verdict.ruling === "remove" ? "Remove" : "Keep", s.verdict.ruling === "remove" ? "signal" : "ok", true) : "";
         var id = '<div class="hud-cr-subject-id"><img alt="" src="' + esc(thumb.src) + '" data-fallback="' + esc(thumb.fallback) + '">' +
             '<span><span class="hud-card-name">' + esc(c.name || "") + '</span><span class="hud-art-meta"><span>' + esc(c.type || "") + "</span></span></span>" + vchip + "</div>";
         return art + kv + id;
@@ -67,7 +70,7 @@
     // ---- Scope line ------------------------------------------------------
     function scope(s) {
         var phys = s.deck && s.deck.kind === "physical";
-        return '<div class="hud-cr-scope">' + (window.HUD ? HUD.statusChip(phys ? "physical" : "virtual") : "") +
+        return '<div class="hud-cr-scope">' + (window.HUD ? H().statusChip(phys ? "physical" : "virtual") : "") +
             '<span class="hud-field-hint">' + (phys ? "Physical deck. Suggestions go to your want/buy list; nothing changes in Archidekt."
                                                       : "Digital deck. Suggestions queue onto the Tune change list; apply them in Archidekt.") + "</span>" +
             (s.verdict && s.verdict.reviewed ? '<span class="hud-freshness">Reviewed <b>' + esc(s.verdict.reviewed) + "</b></span>" : "") + "</div>";
@@ -127,7 +130,7 @@
         var conf = Math.round(v.confidence * 100);
         var ruling = '<div><h3 class="hud-cr-ruling"><span>' + (rm ? "Remove" : "Keep") + '</span><small>' + BAND(v.confidence) + " confidence</small></h3>" +
             '<p class="hud-cr-judgeline">' + esc(v.judge_line) + "</p>" +
-            '<div class="hud-cr-chips">' + (window.HUD ? HUD.chip(v.role.label, "data") : "") + (v.role.detail ? '<span class="hud-field-hint">' + esc(v.role.detail) + "</span>" : "") + "</div></div>";
+            '<div class="hud-cr-chips">' + (window.HUD ? H().chip(v.role.label, "data") : "") + (v.role.detail ? '<span class="hud-field-hint">' + esc(v.role.detail) + "</span>" : "") + "</div></div>";
 
         var strengthMetric = "";
         if (strong != null) {
@@ -160,8 +163,8 @@
             var ruled = v.ruling === k;
             var list = (v.reasons && v.reasons[k]) || [];
             return '<details class="hud-cr-case' + (ruled ? " is-ruled" : "") + '" data-side="' + k + '"' + (ruled || !phone ? " open" : "") + '><summary><h3>Case to ' + title + "</h3>" +
-                (ruled ? (window.HUD ? HUD.chip("Ruled for", k === "remove" ? "signal" : "ok") : "") : (window.HUD ? HUD.chip("Overruled", "neutral") : "")) + "</summary>" +
-                '<ul class="hud-cr-reasons">' + list.map(function (r) { return "<li><span>" + esc(r.text) + "</span>" + (r.cite && window.HUD ? HUD.chip(r.cite, "ghost") : "") + "</li>"; }).join("") + "</ul></details>";
+                (ruled ? (window.HUD ? H().chip("Ruled for", k === "remove" ? "signal" : "ok") : "") : (window.HUD ? H().chip("Overruled", "neutral") : "")) + "</summary>" +
+                '<ul class="hud-cr-reasons">' + list.map(function (r) { return "<li><span>" + esc(r.text) + "</span>" + (r.cite && window.HUD ? H().chip(r.cite, "ghost") : "") + "</li>"; }).join("") + "</ul></details>";
         };
         return '<div class="hud-cr-cases">' + one("keep", "keep") + one("remove", "remove") + "</div>";
     }
@@ -193,9 +196,9 @@
         var chosen = R.chosen;
         var actionErr = R.actionError ? '<div class="hud-cr-note hud-cr-note--signal" role="alert"><span>' + esc(R.actionError) + '</span></div>' : "";
         var list = (R.items || []).map(function (it, i) {
-            var img = window.HUD ? HUD.scryfall(it.uid, "normal") : { src: "", fallback: "" };
+            var img = window.HUD ? H().scryfall(it.uid, "normal") : { src: "", fallback: "" };
             var isC = chosen === it.name, isS = (R.skipped || []).indexOf(it.name) >= 0;
-            var kind = window.HUD ? (it.kind === "like_for_like" ? HUD.chip("= Like-for-like", "data") : HUD.chip("↻ Function change", "signal")) : "";
+            var kind = window.HUD ? (it.kind === "like_for_like" ? H().chip("= Like-for-like", "data") : H().chip("↻ Function change", "signal")) : "";
             var shift = it.kind === "function_change" ? '<span class="hud-cr-shift"><s>' + esc(it.from_role || "") + "</s> → " + esc(it.role || "") + "</span>" : '<span class="hud-cr-shift">' + esc(it.role || "") + "</span>";
             var own = "";
             if (phys) own = it.ownership === "owned_free" ? '<span class="is-ok">● Owned · ' + esc(it.where || "collection") + "</span>" : it.ownership === "owned_elsewhere" ? "<span>◐ In " + esc(it.where) + "</span>" : "<span>○ Not owned</span>";
@@ -205,7 +208,7 @@
                   (isS ? '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="unskip" data-name="' + esc(it.name) + '">Restore</button>' : '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="skip" data-name="' + esc(it.name) + '">Skip</button>');
             return '<li class="hud-cr-item' + (isC ? " is-chosen" : "") + (isS ? " is-skipped" : "") + (i === (R.cursor || 0) && !chosen ? " is-current" : "") + '" style="--i:' + i + '" data-k="item-' + esc(it.name) + '" data-name="' + esc(it.name) + '" tabindex="-1">' +
                 '<span class="hud-cr-thumb"><img alt="' + esc(it.name) + '" src="' + esc(img.src) + '" data-fallback="' + esc(img.fallback) + '" loading="lazy"></span>' +
-                '<div class="hud-cr-body"><div class="hud-cr-name"><span class="hud-card-name">' + esc(it.name) + '</span><span class="hud-art-meta"><span>CMC ' + it.cmc + "</span>" + (window.HUD ? HUD.pips(it.colors || "", "sm") : "") + "</span></div>" +
+                '<div class="hud-cr-body"><div class="hud-cr-name"><span class="hud-card-name">' + esc(it.name) + '</span><span class="hud-art-meta"><span>CMC ' + it.cmc + "</span>" + (window.HUD ? H().pips(it.colors || "", "sm") : "") + "</span></div>" +
                 '<div class="hud-cr-kind">' + kind + shift + "</div><p>" + esc(it.rationale) + "</p>" + facts +
                 (it.oracle ? '<details class="hud-cr-oracle"><summary>Oracle text</summary><div>' + esc(it.oracle) + "</div></details>" : "") + "</div>" +
                 '<div class="hud-cr-act">' + primary + "</div></li>";
@@ -777,10 +780,10 @@
                 var action = b.getAttribute('data-cr');
                 var name = b.getAttribute('data-name');
                 if (action === 'back') {
-                    if (window.HUD) HUD.closeModal(modalId);
+                    if (window.HUD) H().closeModal(modalId);
                     if (onBack && modal.__crIndex != null) onBack(modal.__crIndex);
                 } else if (action === 'close') {
-                    if (window.HUD) HUD.closeModal(modalId);
+                    if (window.HUD) H().closeModal(modalId);
                 } else if (activeSession) {
                     activeSession.handle(action, name, b);
                 }
@@ -792,7 +795,7 @@
                 if (!modal && typeof document !== 'undefined') modal = document.getElementById(modalId);
                 if (!modal) return;
                 modal.__crIndex = index;
-                if (window.HUD) HUD.openModal(modalId);
+                if (window.HUD) H().openModal(modalId);
                 enter(modal);
                 var kind = getDeckKind();
                 activeSession = createSession({
