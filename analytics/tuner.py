@@ -36,7 +36,13 @@ card, Scryfall; Journal override, else global default):
     hard cap  never an option; only counted in hidden_hard
     soft cap  shown, flagged, with a justification; the pick stays owned
               unless the gap is >= GAP_SOFT_OVERRIDE
-Modes: owned_first (default), owned_only (no buys), best (higher score wins).
+Modes (ownership filter, replaces owned_first / owned_only / best-regardless):
+    free   Owned, not in a deck: only cards in no physical deck (available > 0).
+    flex   Owned, plus in-deck and/or buy: free cards always; `in_deck` adds owned cards
+           sleeved in ANOTHER physical deck (AN-8 steal rule, labelled with that deck);
+           `buy` adds cards you don't own. Both toggles default on.
+    best   Best card: highest score, ownership ignored. No deck / steal labelling.
+Legacy values map via resolve_mode(): owned_only -> free, owned_first -> flex, best -> best.
 
 Steal rule (AN-8, docs/TUNER.md): an owned card sleeved in another deck B is
 an option only when B gets a replacement Y (a free owned card, the card this
@@ -70,7 +76,20 @@ GAP_SOFT_OVERRIDE = 0.25
 MIN_UPGRADE = 0.05
 EDHREC_FULL = weak_mod.EDHREC_FULL
 GLUE_REASONS = weak_mod.GLUE_REASONS
-MODES = ("owned_first", "owned_only", "best")
+MODES = ("free", "flex", "best")
+LEGACY_MODES = {"owned_only": "free", "owned_first": "flex"}
+
+
+def resolve_mode(mode: Optional[str], in_deck: bool = True, buy: bool = True) -> tuple:
+    """-> (mode, in_deck, buy). Old saved values are migrated; unknown values raise."""
+    mode = LEGACY_MODES.get(mode, mode or "flex")
+    if mode not in MODES:
+        raise TunerError(f"mode must be one of {list(MODES)}")
+    if mode == "free":
+        return mode, False, False
+    if mode == "best":
+        return mode, True, True
+    return mode, bool(in_deck), bool(buy)
 DECISIONS = ("own", "buy", "dismissed")
 MAX_SWAPS = 12
 
@@ -171,6 +190,20 @@ def _option(c: Mapping, s: float, buy: bool, caps: Mapping, steal: Optional[Mapp
         if steal and not free:
             o.update(steal)
             o["deck"] = steal["donor_deck"]
+    return o
+
+
+def _best_option(c: Mapping, caps: Mapping) -> dict:
+    """Best-card mode: the same facts as _option but nothing about where the card
+    lives (no free / deck / steal). An unowned pick keeps source "buy" so the
+    change list's Spend stays right."""
+    o = {"name": c["name"], "score": c["score"], "pillar": c.get("pillar"), "edges": c.get("edges", 0),
+         "fit": c.get("fit"), "edhrec": c.get("inclusion"), "played": c.get("played"),
+         "on_plan": bool(c.get("on_plan")), "combo": c.get("combo")}
+    if c.get("owned"):
+        o.update(source="best", price=0.0, cap=None)
+    else:
+        o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps))
     return o
 
 
@@ -330,7 +363,7 @@ def _signed(d: float) -> str:
 
 
 def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: int = 3,
-                donors: Optional[Any] = None, used_y: Optional[set] = None) -> List[dict]:
+                donors: Optional[Any] = None, used_y: Optional[set] = None, best: bool = False) -> List[dict]:
     """Rows 2+ short. An owned card sleeved in another deck is listed only when
     that deck gets a replacement that leaves it no worse off (AN-8)."""
     out = []
@@ -340,6 +373,24 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
         if key == "plan" or (row.get("delta") or 0) > -2:
             continue
         short = -int(row["delta"])
+        if best:
+            # Best card mode: top scorers for the row, ownership ignored, no location wording.
+            top = sorted((c for c in cands if key in (c.get("rows") or [])),
+                         key=lambda c: (-(c.get("score") or 0), c["name"]))
+            names = [c["name"] for c in top[:limit]]
+            label = row.get("label") or key
+            listing = (" Best fits: " + ", ".join(names) + ".") if names else ""
+            if key == "lands":
+                basics = basics_for(_deck_colors(deck), short)
+                advice = (listing + " Or add basics.").strip() if listing else "Nothing fits: add basics."
+                action = {"kind": "add_basics", "count": short, "basics": basics, "label": f"Add {short} lands"}
+            else:
+                advice = listing.strip() or "Nothing fits."
+                action = ({"kind": "filter", "row": key, "label": f"See {len(top)} options"} if top else None)
+            out.append({"key": key, "label": label, "actual": row.get("actual"), "target": row.get("target"),
+                        "gap": row["delta"], "owned": [c["name"] for c in top], "free": [],
+                        "advice": advice, "action": action})
+            continue
         mine = [c for c in cands if c.get("owned") and key in (c.get("rows") or [])]
         free = sorted((c for c in mine if (c.get("available") or 0) > 0 and c["name"] not in used_y),
                       key=lambda c: (-(c.get("score") or 0), c["name"]))
@@ -362,7 +413,7 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
         if names:
             listing += " Owned, free: " + ", ".join(names) + "."
         if far:
-            listing += " Owned, sleeved elsewhere: " + ", ".join(far) + "."
+            listing += " Owned, in another deck: " + ", ".join(far) + "."
         # The gap column already says "−3 · 35 / 38"; the advice line only names cards (AN-6R).
         if key == "lands":
             basics = basics_for(_deck_colors(deck), short)
@@ -378,18 +429,22 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
     return out
 
 
+HIDDEN_LIST_MAX = 10  # most hidden cards listed per swap; hidden_hard is still the full count
+
+
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
-               p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "owned_first", sleeved: bool = True,
+               p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "flex", in_deck: bool = True, buy: bool = True,
                pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
                donors: Optional[Any] = None) -> dict:
     """`donors` (AN-8): {deck name: donor context} (see donor_trade), usually a
     lazy DonorBook. A card sleeved in another deck is an option only when that
     deck gets a no-worse replacement; with no donor data it is never offered."""
-    if mode not in MODES:
-        raise TunerError(f"mode must be one of {list(MODES)}")
+    mode, in_deck, buy = resolve_mode(mode, in_deck, buy)
+    best_mode = mode == "best"
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
     decisions = dict((state or {}).get("decisions") or {})
-    in_deck = set(journal_mod.deck_entries(deck)) | set(deck.get("commanders") or [])
+    deck_cards = set(journal_mod.deck_entries(deck)) | set(deck.get("commanders") or [])
+    this_deck = deck.get("name")
     # AN-7: when card2vec is on for this deck, EVERY card (cut or candidate)
     # gets a played part; a card the model doesn't know gets the deck's median
     # played score (neutral). So all scores are means over the same parts.
@@ -403,14 +458,20 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
 
     pool = []
     for c in cands:
-        if c["name"] in in_deck:
+        if c["name"] in deck_cards:
             continue
+        c = dict(c)
         if c.get("owned"):
-            if not sleeved and (c.get("available") or 0) <= 0:
-                continue
+            if not best_mode and (c.get("available") or 0) <= 0:
+                # Sleeved in a physical deck. Never the deck being tuned; only with in_deck on.
+                others = [d for d in c.get("decks") or [] if d != this_deck]
+                if not in_deck or not others:
+                    continue
+                c["decks"] = others
+        elif not buy and not best_mode:
+            continue
         elif c.get("price") is None:
             continue  # an unpriced card can't be a buy
-        c = dict(c)
         c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec,
                            _played(c.get("played")))
         pool.append(c)
@@ -438,55 +499,67 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         fits = [c for c in pool if c["name"] not in used and c["name"] not in used_y
                 and _role_ok(w.get("rows") or [], c)
                 and c["score"] >= cut_score + MIN_UPGRADE]
-        owned = [c for c in fits if c.get("owned")]
-        buys = [c for c in fits if not c.get("owned")] if mode != "owned_only" else []
-        # AN-8 steal rule: the best owned card that is free, or sleeved in a deck
-        # that gets a no-worse replacement. A sleeved card with no fair trade is
-        # skipped and the next-best option (free / sleeved / buy) takes its place.
-        best_own, steal = None, None
-        for c in owned:
-            if (c.get("available") or 0) > 0:
-                best_own = c
-                break
-            t = best_steal(c, donors, cut=w["name"], used=used | used_y)
-            if t:
-                best_own, steal = c, t
-                break
-            dropped.add(c["name"])
-        base = best_own["score"] if best_own else cut_score
-        need = 0.0 if mode == "best" else (GAP_WORTH if best_own else MIN_UPGRADE)
-        allowed = [c for c in buys if _cap_of(c.get("price"), caps) != "hard"]
-        hidden = sum(1 for c in buys if _cap_of(c.get("price"), caps) == "hard" and c["score"] - base >= need
-                     and (best_own is None or c["score"] > best_own["score"]))
-        best_buy = allowed[0] if allowed else None
-        show_buy = bool(best_buy and (best_own is None or best_buy["score"] - best_own["score"] >= need)
-                        and (best_own is None or best_buy["score"] > best_own["score"]))
-        if not best_own and not show_buy:
-            continue
-        own_o = None
-        if best_own:
-            st = dict(steal, receiver_delta=round(best_own["score"] - cut_score, 4)) if steal else None
-            if st:
-                st["steal_line"] = steal_line(best_own["name"], st)
-            own_o = _option(best_own, best_own["score"], False, caps, steal=st)
-        buy_o = _option(best_buy, best_buy["score"], True, caps) if show_buy else None
-        gap = round(buy_o["score"] - own_o["score"], 4) if own_o and buy_o else None
-        near = None
-        if own_o and not buy_o and best_buy and mode == "owned_first" and best_buy["score"] > own_o["score"]:
-            near = {"name": best_buy["name"], "price": best_buy.get("price"),
-                    "gap": round(best_buy["score"] - own_o["score"], 4), "score": best_buy["score"],
-                    "cap": _cap_of(best_buy.get("price"), caps)}
-        if own_o and buy_o:
-            if mode == "best":
-                pick, verdict = "buy", "best"
-            elif buy_o["cap"] == "soft" and gap < GAP_SOFT_OVERRIDE:
-                pick, verdict = "own", "owned_good_enough"
-            else:
-                pick, verdict = "buy", "worth_buying"
-        elif buy_o:
-            pick, verdict = "buy", "buy"
+        steal = None
+        if best_mode:
+            # Best card: ownership is ignored. One option, no deck / steal labelling.
+            allowed = [c for c in fits if c.get("owned") or _cap_of(c.get("price"), caps) != "hard"]
+            top = allowed[0] if allowed else None
+            hidden_cards = [c for c in fits if not c.get("owned") and _cap_of(c.get("price"), caps) == "hard"
+                            and (top is None or c["score"] > top["score"])]
+            hidden = len(hidden_cards)
+            if not top:
+                continue
+            own_o, buy_o, gap, near = _best_option(top, caps), None, None, None
+            pick, verdict = "own", "best"
         else:
-            pick, verdict = "own", ("keep_yours" if near else "owned")
+            owned = [c for c in fits if c.get("owned")]
+            buys = [c for c in fits if not c.get("owned")]
+            # AN-8 steal rule: the best owned card that is free, or sleeved in a deck
+            # that gets a no-worse replacement. A sleeved card with no fair trade is
+            # skipped and the next-best option (free / sleeved / buy) takes its place.
+            best_own = None
+            for c in owned:
+                if (c.get("available") or 0) > 0:
+                    best_own = c
+                    break
+                t = best_steal(c, donors, cut=w["name"], used=used | used_y)
+                if t:
+                    best_own, steal = c, t
+                    break
+                dropped.add(c["name"])
+            base = best_own["score"] if best_own else cut_score
+            need = GAP_WORTH if best_own else MIN_UPGRADE
+            allowed = [c for c in buys if _cap_of(c.get("price"), caps) != "hard"]
+            hidden_cards = [c for c in buys if _cap_of(c.get("price"), caps) == "hard" and c["score"] - base >= need
+                            and (best_own is None or c["score"] > best_own["score"])]
+            hidden = len(hidden_cards)
+            best_buy = allowed[0] if allowed else None
+            show_buy = bool(best_buy and (best_own is None or best_buy["score"] - best_own["score"] >= need)
+                            and (best_own is None or best_buy["score"] > best_own["score"]))
+            if not best_own and not show_buy:
+                continue
+            own_o = None
+            if best_own:
+                st = dict(steal, receiver_delta=round(best_own["score"] - cut_score, 4)) if steal else None
+                if st:
+                    st["steal_line"] = steal_line(best_own["name"], st)
+                own_o = _option(best_own, best_own["score"], False, caps, steal=st)
+            buy_o = _option(best_buy, best_buy["score"], True, caps) if show_buy else None
+            gap = round(buy_o["score"] - own_o["score"], 4) if own_o and buy_o else None
+            near = None
+            if own_o and not buy_o and best_buy and best_buy["score"] > own_o["score"]:
+                near = {"name": best_buy["name"], "price": best_buy.get("price"),
+                        "gap": round(best_buy["score"] - own_o["score"], 4), "score": best_buy["score"],
+                        "cap": _cap_of(best_buy.get("price"), caps)}
+            if own_o and buy_o:
+                if buy_o["cap"] == "soft" and gap < GAP_SOFT_OVERRIDE:
+                    pick, verdict = "own", "owned_good_enough"
+                else:
+                    pick, verdict = "buy", "worth_buying"
+            elif buy_o:
+                pick, verdict = "buy", "buy"
+            else:
+                pick, verdict = "own", ("keep_yours" if near else "owned")
         used.add((own_o or {}).get("name"))
         used.add((buy_o or {}).get("name"))
         if steal and steal["donor_replacement_source"] == "free":
@@ -498,10 +571,14 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                     "rows": w.get("rows") or [], "on_plan": w.get("fit_bucket") in ("pillar", "glue"),
                     "reasons": w.get("reasons") or []},
             "own": own_o, "buy": buy_o, "gap": gap, "pick": pick, "verdict": verdict, "near_buy": near,
-            "hidden_hard": hidden, "soft_note": None, "why": None,
+            "hidden_hard": hidden,
+            # The cards behind hidden_hard (best score first), capped so the payload stays small.
+            "hidden_hard_cards": [{"name": c["name"], "price": c.get("price"), "score": c["score"],
+                                   "reason": "over hard cap"} for c in hidden_cards[:HIDDEN_LIST_MAX]],
+            "soft_note": None, "why": None,
             "decision": dec.get("decision"), "decision_add": dec.get("add"),
         }
-        if buy_o and buy_o["cap"] == "soft":
+        if buy_o and buy_o["cap"] == "soft" and own_o:
             row["soft_note"] = soft_note(buy_o, own_o, gap, caps, pick)
         swaps.append(row)
     # UX_SPEC: ordered by the cut's weak score (descending), then by gap.
@@ -522,15 +599,16 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         wr = next((w for w in weak.get("cards") or [] if w["name"] == notice["name"]), {})
         notice = {"name": notice["name"], "weak_score": notice.get("weak_score"), "edges": wr.get("edges"),
                   "fit": wr.get("fit")}
-    fixes = shape_fixes(composition.get("rows") or [], pool, deck, donors=donors, used_y=used_y)
+    fixes = shape_fixes(composition.get("rows") or [], pool, deck, donors=donors, used_y=used_y, best=best_mode)
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
-        "mode": mode, "sleeved": sleeved, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
+        "mode": mode, "in_deck": in_deck, "buy": buy, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
         "weak": weak_table, "pet_notice": notice,
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
-                   "steals": sum(1 for s in swaps if (s.get("own") or {}).get("donor_deck")),
-                   "steals_dropped": len(dropped - {(s.get("own") or {}).get("name") for s in swaps})},
+                   **({} if best_mode else {
+                       "steals": sum(1 for s in swaps if (s.get("own") or {}).get("donor_deck")),
+                       "steals_dropped": len(dropped - {(s.get("own") or {}).get("name") for s in swaps})})},
         "constants": {"gap_worth": GAP_WORTH, "gap_soft_override": GAP_SOFT_OVERRIDE, "min_upgrade": MIN_UPGRADE,
                       "p75_degree": p75, "edhrec_full_at": EDHREC_FULL},
         "inputs": {"pillars": has_pillars, "edhrec": has_edhrec, "played": has_played and neutral is not None,
@@ -1032,7 +1110,7 @@ class DonorBook:
         return out
 
 
-def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, embedder=None,
+def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: bool = True, embedder=None,
             fetch_prices: Optional[Callable] = None, scryfall=None, donors: Optional[Any] = None) -> dict:
     """Full Tune payload for one deck (GET /api/decks/{id}/tune)."""
     from . import embeddings
@@ -1040,8 +1118,7 @@ def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, e
     from . import insights
     from .interactions import service as interactions_service
 
-    if mode not in MODES:
-        raise TunerError(f"mode must be one of {list(MODES)}")
+    mode, in_deck, buy = resolve_mode(mode, in_deck, buy)
     t0 = time.monotonic()
     deck = dict(deck)
     texts = insights.card_texts(r, deck)
@@ -1062,7 +1139,7 @@ def compute(r, deck: Mapping, mode: str = "owned_first", sleeved: bool = True, e
     state = load_state(r, deck)
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,
-                     sleeved=sleeved, pets=pets, state=state,
+                     in_deck=in_deck, buy=buy, pets=pets, state=state,
                      donors=donors if donors is not None else DonorBook(r, deck, embedder=emb))
     attach_cached_prose(r, deck, out)
     price_ages = []

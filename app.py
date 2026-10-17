@@ -17,6 +17,7 @@ from instances import InstanceError
 import registry
 import commander_roles
 import inventory_view
+import card_refs as card_refs_mod
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -93,6 +94,11 @@ DECK_GROUPS = [
     {"status": "retired", "label": "Retired Decks"},
 ]
 templates.env.globals["deck_groups"] = DECK_GROUPS
+# Hover preview: {{ card_ref_attrs(name, head.card_refs) }} marks a rendered
+# card name / thumbnail with data-card-name + data-card-ref (card_refs.py).
+templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
+
+templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
 
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -172,7 +178,8 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
+           "card_refs": {}}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -186,6 +193,13 @@ def _deck_head_context(deck_name: str) -> dict:
         out["commander_roles"] = commander_roles.roles_for_decks(r, [dict(deck)])[0]["commander_roles"]
     except Exception:
         out["commander_roles"] = commander_roles.deck_commanders(deck, {})
+    try:
+        # {card_key: CardRef} printing map for every card name on the deck
+        # pages (hover preview; card_refs.py). Name-keyed so analytics output
+        # that only carries names can still resolve the owned printing.
+        out["card_refs"] = {k: card_refs_mod.compact(v) for k, v in card_refs_mod.deck_card_refs(r, deck).items()}
+    except Exception:
+        pass
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
@@ -1097,6 +1111,10 @@ async def get_deck_manage(deck_id: str):
         cards.append({
             "instance_id": inst["id"],
             "card_name": card_name,
+            # Printing identity for the hover preview (audit G3, additive).
+            "uid": inst.get("archidekt_uid") or "",
+            "set": inst.get("set") or "",
+            "collector_number": inst.get("collector_number") or "",
             "type": meta.get("type", "Unknown"),
             "cmc": meta.get("cmc", 0),
             "color": meta.get("color", ""),
@@ -2279,15 +2297,17 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "owned_first", sleeved: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
-    mode = owned_first | owned_only | best; sleeved=false drops cards in other decks."""
+    mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
+    physical deck) and buy (cards you don't own), both default true. Legacy
+    owned_only / owned_first are accepted and mapped to free / flex."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
@@ -2352,10 +2372,12 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     if err:
         return err
     body = await _json_body(request) or {}
-    mode = body.get("mode", "owned_first") if isinstance(body, dict) else "owned_first"
-    sleeved = bool(body.get("sleeved", True)) if isinstance(body, dict) else True
+    body = body if isinstance(body, dict) else {}
+    mode = body.get("mode", "flex")
+    in_deck = bool(body.get("in_deck", True))
+    buy = bool(body.get("buy", True))
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, sleeved)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain

@@ -56,7 +56,7 @@ A cut is scored with the same formula, so "gap" always compares like with like.
   cut can't take the only removal spell. Each card is suggested once.
 - **Upgrade**: an option has to beat the cut by at least `MIN_UPGRADE`
   (0.05).
-- **Owned first (D5)**: a buy is shown only when
+- **Owned first within mode 2 (D5)**: a buy is shown only when
   `buy.score − best_owned.score ≥ GAP_WORTH` (0.10). Otherwise the row
   shows the near buy: "Keep yours: +0.08 isn't worth $39.58 (Ancient Brass
   Dragon)."
@@ -66,8 +66,19 @@ A cut is scored with the same formula, so "gap" always compares like with like.
   the gap is at least `GAP_SOFT_OVERRIDE` (0.25).
 - **Hard cap**: never shown as an option. It is only counted: "1 better buy
   hidden · over hard cap $40".
-- **Modes**: Owned first (default) · Owned only (no buys) · Best regardless
-  (the higher score wins, caps still apply).
+- **Modes** (`mode=`, the filter bar):
+  1. `free` **Owned, not in a deck**: only owned cards in no physical deck
+     (`available > 0`). No buys, no pulls.
+  2. `flex` **Owned, plus in-deck and/or buy** (default): free cards always, plus
+     two toggles, `in_deck` (owned cards sleeved in *another* physical deck,
+     passing the steal rule, labelled with the deck) and `buy` (cards you don't
+     own, with the owned-first gap rule above). Both default **on**. Each option
+     is labelled free / in deck X / buy. The deck being tuned is never a source.
+  3. `best` **Best card**: the highest score wins, ownership ignored. One option
+     per cut, no deck / steal wording, no donor check. An unowned pick still shows
+     its price and counts toward Spend; hard caps still hide over-cap unowned cards.
+  Old values `owned_only` → `free`, `owned_first` → `flex` (toggles on) are still
+  accepted by the API; `sleeved=` is gone (use `in_deck=`).
 - **Pet notice (D7)**: one quiet row for the weakest pet.
 
 ## Steal rule (AN-8)

@@ -198,6 +198,14 @@
     let deckLoaded = false;  // the bracket result can arrive before the inventory
 
     const esc = (s) => HUD.esc(s);
+    // Printing identity for the hover preview (card_refs.py, HUD.cardRef).
+    // Inventory rows carry uid / set / collector_number themselves; CARD_REFS
+    // (this deck's instances + commanders, keyed by HUD.cardKey) covers names
+    // that arrive without a printing. Anything else is the name-only fallback
+    // (printingSpecific false: NOT printing-specific).
+    const CARD_REFS = {{ (head.card_refs or {}) | tojson }};
+    const refOf = (c) => HUD.cardRef(c, CARD_REFS);
+    const refAttr = (c) => esc(HUD.cardRefAttrs(refOf(c))['data-card-ref']);
     const isLand = (c) => !!(c.type && c.type.includes("Land"));
 
     function getEdhrecSlug(name) {
@@ -213,7 +221,7 @@
             meta: cmc ? 'CMC ' + cmc : (isLand(card) ? 'Land' : ''),
             colors: isLand(card) ? null : (card.color || ''),
             chip: card.is_core ? ['Core', 'signal'] : null,
-            attrs: { role: 'button', tabindex: '0', 'data-card-index': index, 'data-card-name': card.name, title: card.name }
+            attrs: Object.assign({ role: 'button', tabindex: '0', 'data-card-index': index, title: card.name }, HUD.cardRefAttrs(refOf(card)))
         });
         if (!flag) return html;
         // BR-6 flag: severity frame + top bar + a caption line. Nothing on the art.
@@ -399,7 +407,7 @@
                     // No printing UID: Scryfall's named-card image instead.
                     const img = p.uid ? HUD.scryfall(p.uid, 'large')
                         : { src: 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.name) + '&format=image&version=large', fallback: '' };
-                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback });
+                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback, attrs: HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid })) });
                 }
                 // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.
                 if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media"><span class="hud-cmdr-badge">' + esc(r.type_label || 'Commander') + '</span>');
@@ -569,7 +577,7 @@
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
             const cmc = isLand(c) ? '' : (c.cmc || 0);
-            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" tabindex="0">
+            return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" data-card-ref="${refAttr(c)}" tabindex="0">
                 <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
                 <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
@@ -614,7 +622,9 @@
         if (!isLand(card)) pairs.push(['CMC', `<span class="hud-num">${card.cmc || 0}</span>`], ['Colour', HUD.pips(card.color || '', 'sm')]);
         pairs.push(['Price', `<span class="hud-num">${priceStr}</span>`]);
 
-        document.getElementById('modalCardName').textContent = card.name;
+        const nameEl = document.getElementById('modalCardName');
+        nameEl.textContent = card.name;
+        Object.assign(nameEl.dataset, { cardName: card.name, cardRef: HUD.cardRefAttrs(refOf(card))['data-card-ref'] });
         document.getElementById('modalCardArt').innerHTML = HUD.art(card.name, img.src, { kind: 'card', fallback: img.fallback, meta: card.modifier && card.modifier !== 'Normal' ? card.modifier : '' });
         document.getElementById('modalCardInfo').innerHTML = `
             <dl class="hud-kv">${pairs.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
