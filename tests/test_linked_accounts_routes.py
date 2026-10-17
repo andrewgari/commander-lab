@@ -49,23 +49,23 @@ class TestAddLinkedAccount(unittest.TestCase):
         self.client = TestClient(app)
 
     @patch("app.linked_accounts")
-    def test_add_account_validates_adds_and_syncs(self, mock_la):
+    def test_add_account_validates_and_adds_without_syncing(self, mock_la):
+        # Linking is not a sync trigger: decks are only pulled when the user
+        # explicitly presses Sync (POST /api/linked-accounts/{id}/sync).
         added = {"id": "archidekt:foo", "provider": "archidekt", "username": "foo",
                   "enabled": True, "created_at": "t0", "last_synced_at": None, "last_sync_result": None}
-        synced = {**added, "last_synced_at": "t1", "last_sync_result": {"decks_synced": 2, "failures": []}}
         mock_la.add_account.return_value = added
-        mock_la.sync_account.return_value = synced
 
         response = self.client.post("/api/linked-accounts", json={"provider": "archidekt", "username": "foo"})
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["success"])
-        self.assertEqual(data["account"], synced)
+        self.assertEqual(data["account"], added)
         add_args = mock_la.add_account.call_args[0]
         self.assertEqual(add_args[1:], ("archidekt", "foo"))
-        sync_args = mock_la.sync_account.call_args[0]
-        self.assertEqual(sync_args[1:], ("archidekt:foo",))
+        mock_la.sync_account.assert_not_called()
+        mock_la.sync_all.assert_not_called()
 
     @patch("app.linked_accounts")
     def test_add_account_rejects_duplicate(self, mock_la):
