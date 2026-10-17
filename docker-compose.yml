@@ -23,8 +23,16 @@ services:
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
       - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}
+      # Optional: enable explicit Push (commander.lab -> external). Unset = Push
+      # returns 501 push_not_configured. See docs/SYNC_UPDATE_PUSH.md.
+      - ARCHIDEKT_TOKEN=${ARCHIDEKT_TOKEN:-}
+      - MOXFIELD_TOKEN=${MOXFIELD_TOKEN:-}
+      - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - ORACLE_KEY=${ORACLE_KEY:-}
     depends_on:
       - redis
+    volumes:
+      - app_data:/data
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - internal
@@ -35,3 +43,4 @@ networks:
 
 volumes:
   redis_data:
+  app_data:

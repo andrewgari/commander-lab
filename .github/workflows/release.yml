@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Bump Version & Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version bump from merged PR
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Find the merged PR associated with this push commit
+          PR_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")]' 2>/dev/null || echo "[]")
+
+          if [ "$PR_JSON" = "[]" ] || [ "$(echo "$PR_JSON" | jq length)" -eq 0 ]; then
+            echo "::error::No merged PR associated with commit ${GITHUB_SHA}; refusing to create a release."
+            exit 1
+          fi
+
+          # Extract PR metadata
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.[0].title // empty')
+          PR_BODY=$(echo "$PR_JSON" | jq -r '.[0].body // empty')
+          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number // empty')
+          LABELS=$(echo "$PR_JSON" | jq -r '.[0].labels[]?.name // empty' 2>/dev/null | tr '\n' ',' || echo "")
+
+          echo "PR #${PR_NUMBER:-none}: ${PR_TITLE:-no title}"
+          echo "Labels: ${LABELS:-none}"
+
+          # Determine bump level from labels
+          BUMP="patch"
+          if echo "$LABELS" | grep -qi "major"; then
+            BUMP="major"
+          elif echo "$LABELS" | grep -qi "minor"; then
+            BUMP="minor"
+          fi
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "pr_title=${PR_TITLE:-}" >> "$GITHUB_OUTPUT"
+          echo "pr_body<<PREOF" >> "$GITHUB_OUTPUT"
+          echo "${PR_BODY:-}" >> "$GITHUB_OUTPUT"
+          echo "PREOF" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next version from tags
+        id: version
+        env:
+          BUMP: ${{ steps.bump.outputs.bump }}
+        run: |
+          set -euo pipefail
+
+          # Git tags are the single source of truth for the release version.
+          # Nothing is committed or pushed to main (it is branch-protected).
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          CURRENT="${LATEST_TAG#v}"
+          CURRENT="${CURRENT:-0.0.0}"
+          echo "Current version from git tag: $CURRENT"
+
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            *)     PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PR_TITLE: ${{ steps.bump.outputs.pr_title }}
+          PR_BODY: ${{ steps.bump.outputs.pr_body }}
+          PR_NUMBER: ${{ steps.bump.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          # Build release title
+          if [ -n "$PR_TITLE" ]; then
+            RELEASE_TITLE="${TAG}: ${PR_TITLE}"
+          else
+            RELEASE_TITLE="Release ${TAG}"
+          fi
+
+          # Build release notes
+          NOTES_FILE=$(mktemp)
+          if [ -n "$PR_NUMBER" ]; then
+            echo -e "## What's Changed\n" > "$NOTES_FILE"
+            if [ -n "$PR_BODY" ]; then
+              printf '%s\n' "$PR_BODY" >> "$NOTES_FILE"
+              echo "" >> "$NOTES_FILE"
+            fi
+            echo "Merged PR: #${PR_NUMBER}" >> "$NOTES_FILE"
+          else
+            echo "Release ${TAG}" > "$NOTES_FILE"
+          fi
+
+          # Clean up any stale release from a previous failed run
+          gh release delete "$TAG" --yes 2>/dev/null || true
+
+          # Creating the release creates the tag at the pushed commit; no push to main.
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes-file "$NOTES_FILE"
+          rm -f "$NOTES_FILE"
