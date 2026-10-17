@@ -17,6 +17,7 @@ from instances import InstanceError
 import registry
 import commander_roles
 import inventory_view
+import card_refs as card_refs_mod
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -92,6 +93,11 @@ DECK_GROUPS = [
     {"status": "retired", "label": "Retired Decks"},
 ]
 templates.env.globals["deck_groups"] = DECK_GROUPS
+# Hover preview: {{ card_ref_attrs(name, head.card_refs) }} marks a rendered
+# card name / thumbnail with data-card-name + data-card-ref (card_refs.py).
+templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
+
+templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
 
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -171,7 +177,8 @@ def _deck_head_context(deck_name: str) -> dict:
     """Shared deck header + tabs (partials/deck_head.html, UX_SPEC §3.0).
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
-           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None}
+           "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
+           "card_refs": {}}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -185,6 +192,13 @@ def _deck_head_context(deck_name: str) -> dict:
         out["commander_roles"] = commander_roles.roles_for_decks(r, [dict(deck)])[0]["commander_roles"]
     except Exception:
         out["commander_roles"] = commander_roles.deck_commanders(deck, {})
+    try:
+        # {card_key: CardRef} printing map for every card name on the deck
+        # pages (hover preview; card_refs.py). Name-keyed so analytics output
+        # that only carries names can still resolve the owned printing.
+        out["card_refs"] = {k: card_refs_mod.compact(v) for k, v in card_refs_mod.deck_card_refs(r, deck).items()}
+    except Exception:
+        pass
     cards = deck.get("cards") or []
     out["cards"] = sum(int(c.get("quantity") or 1) for c in cards) or None
     try:
@@ -1096,6 +1110,10 @@ async def get_deck_manage(deck_id: str):
         cards.append({
             "instance_id": inst["id"],
             "card_name": card_name,
+            # Printing identity for the hover preview (audit G3, additive).
+            "uid": inst.get("archidekt_uid") or "",
+            "set": inst.get("set") or "",
+            "collector_number": inst.get("collector_number") or "",
             "type": meta.get("type", "Unknown"),
             "cmc": meta.get("cmc", 0),
             "color": meta.get("color", ""),

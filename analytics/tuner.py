@@ -429,6 +429,9 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
     return out
 
 
+HIDDEN_LIST_MAX = 10  # most hidden cards listed per swap; hidden_hard is still the full count
+
+
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
                p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "flex", in_deck: bool = True, buy: bool = True,
                pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
@@ -501,8 +504,9 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             # Best card: ownership is ignored. One option, no deck / steal labelling.
             allowed = [c for c in fits if c.get("owned") or _cap_of(c.get("price"), caps) != "hard"]
             top = allowed[0] if allowed else None
-            hidden = sum(1 for c in fits if not c.get("owned") and _cap_of(c.get("price"), caps) == "hard"
-                         and (top is None or c["score"] > top["score"]))
+            hidden_cards = [c for c in fits if not c.get("owned") and _cap_of(c.get("price"), caps) == "hard"
+                            and (top is None or c["score"] > top["score"])]
+            hidden = len(hidden_cards)
             if not top:
                 continue
             own_o, buy_o, gap, near = _best_option(top, caps), None, None, None
@@ -526,8 +530,9 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             base = best_own["score"] if best_own else cut_score
             need = GAP_WORTH if best_own else MIN_UPGRADE
             allowed = [c for c in buys if _cap_of(c.get("price"), caps) != "hard"]
-            hidden = sum(1 for c in buys if _cap_of(c.get("price"), caps) == "hard" and c["score"] - base >= need
-                         and (best_own is None or c["score"] > best_own["score"]))
+            hidden_cards = [c for c in buys if _cap_of(c.get("price"), caps) == "hard" and c["score"] - base >= need
+                            and (best_own is None or c["score"] > best_own["score"])]
+            hidden = len(hidden_cards)
             best_buy = allowed[0] if allowed else None
             show_buy = bool(best_buy and (best_own is None or best_buy["score"] - best_own["score"] >= need)
                             and (best_own is None or best_buy["score"] > best_own["score"]))
@@ -566,7 +571,11 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                     "rows": w.get("rows") or [], "on_plan": w.get("fit_bucket") in ("pillar", "glue"),
                     "reasons": w.get("reasons") or []},
             "own": own_o, "buy": buy_o, "gap": gap, "pick": pick, "verdict": verdict, "near_buy": near,
-            "hidden_hard": hidden, "soft_note": None, "why": None,
+            "hidden_hard": hidden,
+            # The cards behind hidden_hard (best score first), capped so the payload stays small.
+            "hidden_hard_cards": [{"name": c["name"], "price": c.get("price"), "score": c["score"],
+                                   "reason": "over hard cap"} for c in hidden_cards[:HIDDEN_LIST_MAX]],
+            "soft_note": None, "why": None,
             "decision": dec.get("decision"), "decision_add": dec.get("add"),
         }
         if buy_o and buy_o["cap"] == "soft" and own_o:

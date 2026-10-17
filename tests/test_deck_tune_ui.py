@@ -54,6 +54,13 @@ class _TunePage(_DeckPage):
 
 
 class TestTunePage(_TunePage, unittest.TestCase):
+    def test_hidden_note_is_an_accessible_toggle(self):
+        self.assertIn('data-hidden-toggle', self.body)
+        self.assertIn('"aria-expanded"', self.body.replace("'", '"'))
+        self.assertRegex(self.body, r'aria-controls')
+        self.assertRegex(self.body, r'<button type="button" class="tn-hidden-toggle"')
+        self.assertIn('Showing the top', self.body)  # truncation is stated
+
     def test_kit_structure(self):
         for cls_ in ["hud-filterbar", "hud-seg", "hud-toggle", "hud-tune", "hud-swaps", "hud-changes", "hud-caps",
                      "hud-kbd", "hud-table", "hud-panel-foot", "hud-section-head"]:
@@ -171,7 +178,7 @@ class TestTuneAPI(unittest.TestCase):
         s = next(x for x in t["swaps"] if x["cut"]["name"] == "Weak Plan")
         self.assertEqual(s["buy"]["cap"], "soft")
         self.assertEqual(s["hidden_hard"], 1)
-        self.assertNotIn("Pricey Bomb", json.dumps(t["swaps"]))
+        self.assertEqual([c["name"] for c in s["hidden_hard_cards"]], ["Pricey Bomb"])
         self.assertEqual(self.client.get("/api/decks/archidekt:417707/tune?mode=nope").status_code, 400)
 
     def test_decisions_adds_and_pet(self):

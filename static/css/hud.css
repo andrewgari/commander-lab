@@ -529,6 +529,8 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hud-muted { color: var(--text-3); }
 .hud-card-name { font-family: var(--font-card); font-weight: var(--fw-semibold); color: var(--text-1); }
+/* Card name that previews its printing on hover (card_hover_preview.css adds the dotted underline). */
+.hud-cp-name { cursor: default; }
 
 /* Page header ------------------------------------------------------------------ */
 .hud-page-head {

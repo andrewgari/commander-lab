@@ -329,8 +329,25 @@ class TestPriceCaps(unittest.TestCase):
         self.assertIsNone(s["buy"])
         self.assertIsNone(s["near_buy"])
         self.assertEqual(s["hidden_hard"], 1)
-        self.assertNotIn("Pricey Bomb", json.dumps(out["swaps"]))
+        # never offered as a buy/own option, only listed under hidden_hard_cards
+        self.assertNotIn("Pricey Bomb", json.dumps([{k: v for k, v in x.items() if k != "hidden_hard_cards"}
+                                                    for x in out["swaps"]]))
+        self.assertEqual([c["name"] for c in s["hidden_hard_cards"]], ["Pricey Bomb"])
+        self.assertEqual(s["hidden_hard_cards"][0]["price"], 95.0)
+        self.assertEqual(s["hidden_hard_cards"][0]["reason"], "over hard cap")
         self.assertEqual(out["caps"]["hard_cap"], 40.0)
+
+    def test_hidden_list_is_capped_but_count_is_full(self):
+        cs = [cand("Owned Ok", 3, 0.6, 0.2, owned=True, available=1)]
+        n = tuner.HIDDEN_LIST_MAX + 3
+        cs += [cand(f"Pricey {i:02d}", 4, 0.95, 0.5, price=95.0) for i in range(n)]
+        s = swap(build(cs), "Weak Plan")
+        self.assertEqual(s["hidden_hard"], n)
+        self.assertEqual(len(s["hidden_hard_cards"]), tuner.HIDDEN_LIST_MAX)
+
+    def test_no_hidden_cards_gives_empty_list(self):
+        s = swap(build([cand("Owned Ok", 3, 0.6, 0.2, owned=True, available=1)]), "Weak Plan")
+        self.assertEqual((s["hidden_hard"], s["hidden_hard_cards"]), (0, []))
 
     def test_unpriced_cards_are_never_buys(self):
         s = swap(build([cand("No Price", 4, 0.95, 0.5, price=None)]), "Weak Plan")
