@@ -20,6 +20,23 @@
 <span class="hud-freshness" id="freshArchidekt" hidden></span><span class="hud-freshness" id="freshGraph" hidden></span>
 {%- endmacro %}
 
+{#- Deck Genre view mode (GN, DECK_GENRE_UX_SPEC §3.4): archetype (filled) · kindred · theme
+    (outline; dashed = custom). Desktop shows ranks 1-4 + .hud-chip-more-desktop, phone ranks 1-2 +
+    .hud-chip-more-phone; CSS picks by breakpoint. `g` = deck_genre.header_strip(); None hides it.
+    static/js/deck_genre.js stripHtml() renders the same markup after a Journal save. -#}
+{% macro genre_strip(g, href) -%}
+<span id="deckGenre" class="hud-genre-strip" aria-label="Deck genre"{% if not g %} hidden{% endif %}>
+{%- if g -%}
+{%- for it in g["items"] -%}
+<span class="hud-chip hud-chip--{{ 'neutral' if it.kind == 'archetype' else 'ghost' }}{{ ' hud-chip--custom' if it.custom }}" data-rank="{{ it.rank }}" title="{{ it.title }}"><span>{{ it.label }}</span></span>
+{%- endfor -%}
+{%- for m, cls in [(g.more_desktop, "hud-chip-more-desktop"), (g.more_phone, "hud-chip-more-phone")] if m.n > 0 -%}
+<a class="hud-chip hud-chip--neutral {{ cls }}" href="{{ href }}" title="{{ m.labels }}" aria-label="{{ m.n }} more genre tags: {{ m.labels }}. Open the Journal.">+{{ m.n }}</a>
+{%- endfor -%}
+{%- endif -%}
+</span>
+{%- endmacro %}
+
 {% macro header(head, active) -%}
 {%- set base = "/deck/" ~ (head.name | urlencode) -%}
 {%- set tabs = [
@@ -48,6 +65,7 @@
             <span class="hud-freshness">{{ head.cards }} cards{% if head.lands is not none %} · {{ head.lands }} lands{% endif %}</span>
             {%- endif %}
             <span id="deckBracket" class="hud-chips" hidden></span>
+            {{ genre_strip(head.genre, "/deck/" ~ (head.name | urlencode) ~ "/journal#j-genre") }}
         </div>
     </div>
     <div class="hud-deckhead-actions">{% if caller %}{{ caller() }}{% endif %}</div>

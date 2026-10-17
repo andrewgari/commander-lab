@@ -36,6 +36,7 @@ from analytics import composition as composition_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import tune_store
 from analytics import bracket_worker
@@ -181,7 +182,7 @@ def _deck_head_context(deck_name: str) -> dict:
     Never raises: an unknown deck (or Redis being down) gives a bare header."""
     out = {"name": deck_name, "found": False, "commanders": [], "colors": "", "status": None,
            "art_uid": None, "commander_roles": [], "cards": None, "lands": None, "pillars": None, "tune": None, "ideas": None, "registry_id": None,
-           "card_refs": {}}
+           "genre": None, "card_refs": {}}
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
     except Exception:
@@ -221,6 +222,13 @@ def _deck_head_context(deck_name: str) -> dict:
     try:
         from analytics import theory as theory_mod
         out["ideas"] = int(r.zcard(theory_mod.index_key(out["registry_id"]))) or None
+    except Exception:
+        pass
+    try:
+        # GN view mode: the archetype / kindred / theme chip strip (None = hidden).
+        rec = journal_mod.load_journal(r, deck)
+        if rec:
+            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r))
     except Exception:
         pass
     return out
@@ -344,7 +352,8 @@ def _journal_page_context(deck_name: str) -> dict:
            "money": journal_mod.money, "wincons": list(journal_mod.WINCON_ORDER),
            "wincon_labels": journal_mod.WINCON_SHORT, "intents": list(journal_mod.INTENT_LABELS.items()),
            "brackets": [(b.number, b.name) for b in brackets_mod.BRACKETS],
-           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE}
+           "power_tol": engine_mod.POWER_ALIGN_TOLERANCE,
+           "genre_options": deck_genre.page_options(), "creature_types": deck_genre.creature_types(r)}
     defaults = dict(journal_mod.DEFAULT_CAPS)
     try:
         deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
@@ -462,6 +471,24 @@ async def changelog(request: Request):
         request=request,
         name="changelog.html",
         context={"releases": formatted_releases, "error_msg": error_msg},
+    )
+
+@app.get("/reconstruct", response_class=HTMLResponse)
+async def reconstruct_landing_view(request: Request):
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    return templates.TemplateResponse(
+        request=request,
+        name="reconstruct.html",
+        context={"session_id": "", "providers": providers},
+    )
+
+@app.get("/reconstruct/{session_id}", response_class=HTMLResponse)
+async def reconstruct_view(session_id: str, request: Request):
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    return templates.TemplateResponse(
+        request=request,
+        name="reconstruct.html",
+        context={"session_id": session_id, "providers": providers},
     )
 
 @app.get("/api/decks")
@@ -771,6 +798,68 @@ async def abandon_reconstruct(session_id: str, request: Request):
         return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
 
     return {"success": True, "session": session}
+
+
+@app.post("/api/decks/{deck_id}/decommission")
+async def decommission_deck(deck_id: str, request: Request):
+    """Decommission a physical deck (single transaction): remove the status tag
+    (default "removed", override with JSON body {"tag": "..."}), move the deck
+    to the "retired" category, and return all its cards to the owned pool
+    (instances in_deck -> in_collection; nothing deleted). Idempotent.
+    Errors: 404 deck not found, 400 deck is not physical.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    tag = (data or {}).get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_deck(r, deck_id, tag=tag)
+    except registry.DecommissionError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    deck = result["deck"]
+    return {
+        "success": True,
+        "deck_id": registry.registry_id_of(deck),
+        "status": deck["status"],
+        "tags": deck.get("tags", []),
+        "already_decommissioned": result["already_decommissioned"],
+        "tag_removed": result["tag_removed"],
+        "unassigned_count": result["unassigned_count"],
+        "unassigned_instance_ids": result["unassigned_instance_ids"],
+    }
+
+
+@app.post("/api/decks/decommission")
+async def decommission_decks_bulk(request: Request):
+    """Bulk decommission physical decks. Same logic as the single-deck endpoint
+    (registry.decommission_decks), one Redis transaction for all that succeed.
+
+    Body: {"deck_ids": ["archidekt:42", ...], "tag": "removed" (optional)}
+    200: {"success": true, "requested": N, "succeeded": [...], "failed":
+          [{"deck_id", "reason", "code"}]}  -- per-deck results; `success` is
+          true when the request was valid even if some decks failed
+          (check `failed`). Duplicates are collapsed; already-decommissioned
+          decks are no-op successes. 400: empty/invalid/oversized deck_ids.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    try:
+        result = registry.decommission_decks(r, data.get("deck_ids"), tag=tag)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {
+        "success": True,
+        "requested": len(result["succeeded"]) + len(result["failed"]),
+        **result,
+    }
 
 
 @app.post("/api/import")
@@ -2562,6 +2651,13 @@ async def _start_interactions_nightly():
 def _journal_error(exc: Exception, status: int = 400):
     return JSONResponse(status_code=status, content={"success": False, "error": str(exc),
                                                      "errors": getattr(exc, "errors", [str(exc)])})
+
+
+@app.get("/api/deck-genre/options")
+async def api_deck_genre_options():
+    """GN: the Deck Genre option lists (docs/deck_genre_taxonomy.yaml) + the creature-type catalog."""
+    return {"success": True, "options": deck_genre.page_options(),
+            "creature_types": await asyncio.to_thread(deck_genre.creature_types, r)}
 
 
 @app.get("/api/journal/defaults")

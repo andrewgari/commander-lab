@@ -10,7 +10,7 @@ filled once and editable anytime. Every review opens with a check-in:
 true?", one row per field, each with optional computed evidence.
 
 Redis keys (all JSON, no TTL):
-    journal:deck:{registry_id}         resolved intent + {"_journal": {created_at, updated_at, baseline}}
+    journal:deck:{registry_id}         resolved intent + {"_journal": {created_at, updated_at, baseline, genre_v}}
                                        (insights.pet_cards reads pet_cards from here)
     journal:defaults                   global per-card caps {hard_cap, soft_cap}
     journal:review:open:{registry_id}  the check-in in progress (answers save per row)
@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional
 from urllib.parse import quote
 
+import deck_genre
 from user_intent import POWER_SCALE_TIER_MAP, resolve_intent_defaults, validate_intent
 
 from .brackets import BRACKETS
@@ -58,8 +59,8 @@ SECTIONS = {"vision": ("deck_vision",), "win_cons": ("preferred_win_conditions",
             "power": ("target_power_level",), "bracket": ("target_bracket",), "budget": ("budget_constraints",),
             "pets": ("pet_cards",), "novelties": ("novelties", "freeform_notes"), "pillars": (), "cards": ()}
 SECTION_KEYS = ("deck_vision", "target_power_level", "target_bracket", "budget_constraints",
-                "preferred_win_conditions", "archetype_preferences", "pet_cards", "novelties", "freeform_notes",
-                "metadata")
+                "preferred_win_conditions", "archetype_preferences", "deck_genre", "pet_cards", "novelties",
+                "freeform_notes", "metadata")
 
 INTENT_LABELS = {"new_build": "New build", "tune_up": "Tune-up", "overhaul": "Overhaul"}
 WINCON_LABELS = {"combat": "Combat", "combo": "Combo", "attrition": "Attrition",
@@ -116,7 +117,9 @@ def _plural(n: int, word: str) -> str:
 
 
 def load_journal(r, deck: Mapping) -> Optional[dict]:
-    return _get_json(r, KEY_PREFIX + _registry_id(deck))
+    """The stored record. Pre-GN records read with the phantom "midrange" primary cleared
+    (deck_genre.migrate_phantom_midrange); the next save persists that, stamped genre_v."""
+    return deck_genre.migrate_phantom_midrange(_get_json(r, KEY_PREFIX + _registry_id(deck)))
 
 
 def public(rec: Optional[Mapping]) -> dict:
@@ -127,8 +130,13 @@ def public(rec: Optional[Mapping]) -> dict:
     return out
 
 
-def _normalize(payload: dict) -> dict:
+def _normalize(payload: dict, types=None) -> dict:
     p = copy.deepcopy(payload)
+    # Deck Genre (GN): canonical ids / creature-type spelling, deduped, primary never a secondary.
+    if "archetype_preferences" in p:
+        p["archetype_preferences"] = deck_genre.normalize_archetypes(p["archetype_preferences"])
+    if "deck_genre" in p:
+        p["deck_genre"] = deck_genre.normalize_deck_genre(p["deck_genre"], types)
     pl = p.get("target_power_level")
     if isinstance(pl, dict):
         pl.pop("tier", None)  # the tier is derived from the scale, never picked
@@ -162,13 +170,14 @@ def save_journal(r, deck: Mapping, payload: Mapping, snapshot: Optional[dict] = 
     meta = dict((old or {}).get("_journal") or {})
     merged = {k: v for k, v in (old or {}).items() if k != "_journal"}
     merged.update({k: v for k, v in payload.items() if k != "_journal"})
-    merged = _normalize(merged)
+    merged = _normalize(merged, deck_genre.creature_types(r))
     ok, errors = validate_intent(merged, strict_coherence=False)
     if not ok:
         raise JournalError("Invalid journal: " + "; ".join(errors), errors)
     rec = public(merged)
     meta.setdefault("created_at", now)
     meta["updated_at"] = now
+    meta["genre_v"] = deck_genre.TAXONOMY_VERSION  # phantom-midrange migration done (taxonomy §0)
     if not meta.get("baseline") and snapshot:
         meta["baseline"] = snapshot
     rec["_journal"] = meta

@@ -56,3 +56,10 @@ Hard filters are applied in code against fresh Scryfall facts, not just the eval
 
 ## Known gaps vs the spec
 The EvaluationResult has no mana value, price, Game Changer, salt, `games`, Journal pillar predicates, floor counts, Karsten sources or Spellbook combos. So: no CurveFit/Budget terms, no paper-only or budget-cap filters, no donor-deck steals, no sub-tag diversity cap, evidence IDs `K*`, `M*`, `A*`, `X*`, `T*` are absent from the packet, and the strength rubric is the evaluation service's weighted mean, not the spec's `0.45·E + 0.55·D` (so spec test items 3, 4 and 11 belong to the evaluation service). `role_need` stands in for floor counts when forcing a mixed mode. All weights live in `analytics/card_review/config.py`.
+
+## UI (CR-F)
+Deck page → card detail → **Review card** (or `R` on a focused card). Spec: `docs/design/card-review/UX_SPEC.md`; code: `static/js/card_review.js` (view, API adapter, session) + `hud-cr-*` in `static/css/hud.css`; tests: `tests/test_card_review_ui.py` (node, real job fixtures in `tests/fixtures/card_review_job_*.json`).
+
+- Transport is polling (1.5 s). Reopening a card resumes the saved job (`localStorage cr:job:{deck}:{card}`), and a 409 "already running" resumes that job.
+- Swap/add writes the existing Tune decision, `PUT /api/decks/{id}/tune/decisions {cut, decision, add}`: digital → `own`; physical → `own` if the replacement is owned, else `buy`. Undo sends `decision: null`. Skip is local only.
+- Not built (the API has no equivalent): streaming tokens, Cancel, deck median, price/CMC/EDHREC % on replacements, Show more / Widen search, a ⋯ card menu and right-click entry.

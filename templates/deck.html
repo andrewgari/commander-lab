@@ -71,6 +71,7 @@
     <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
     <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
     <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
+    <button type="button" class="hud-btn" id="reconstructBtn" hidden onclick="openReconstructDialog()">Reconstruct</button>
 {% endcall %}
 
 {#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
@@ -177,6 +178,26 @@
     </section>
 </div>
 
+{#- Reconstruct: decommission this deck (optionally pooled with a second physical deck) and draft new decks. -#}
+<div id="reconstructModal" class="hud-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reconstructTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="reconstructTitle">Decommission &amp; Reconstruct</h3>
+        </header>
+        <div class="hud-panel-body">
+            <p>Decommission <strong id="reconstructDeckName"></strong> and use its cards to draft up to 2 new Commander decks with the deckbuilding agent.</p>
+            <label for="reconstructSecondDeckSelect" class="hud-muted">Pool with a second physical deck (optional)</label>
+            <select id="reconstructSecondDeckSelect"><option value="">Single deck (this deck only)</option></select>
+            <p class="hud-muted"><strong>Warning:</strong> selected deck(s) will be retired and moved to the Retired category. Their cards will be returned to your inventory and form the free card pool for the new draft(s).</p>
+            <div id="reconstructError" class="hud-muted" role="alert" hidden></div>
+            <div class="deck-primer-actions">
+                <button type="button" class="hud-btn hud-btn--sm" id="reconstructCancelBtn" onclick="closeReconstructDialog()">Cancel</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="reconstructConfirmBtn" onclick="confirmReconstruct()">Decommission &amp; Reconstruct</button>
+            </div>
+        </div>
+    </section>
+</div>
+
 {#- Decommission confirmation: POST /api/decks/{id}/decommission (physical decks only). -#}
 <div id="decommissionModal" class="hud-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="decommissionTitle">
@@ -186,6 +207,7 @@
         <div class="hud-panel-body">
             <p><strong id="decommissionDeckName"></strong> will be retired and moved to the Retired category.
                Its cards will be returned to the owned pool as unassigned cards. No cards are deleted.</p>
+            <p class="hud-muted">Want to build new decks from these cards? <a href="#" id="decommissionToReconstructLink" onclick="closeDecommissionDialog(); openReconstructDialog(); return false;">Decommission &amp; Reconstruct instead</a></p>
             <div id="decommissionError" class="hud-muted" role="alert" hidden></div>
             <div class="deck-primer-actions">
                 <button type="button" class="hud-btn hud-btn--sm" id="decommissionCancelBtn" onclick="closeDecommissionDialog()">Cancel</button>
@@ -208,6 +230,20 @@
                 <div id="modalCardInfo" class="card-modal-info"></div>
             </div>
         </div>
+    </section>
+</div>
+<!-- Single Card Review (CR-F). Spec: docs/design/card-review/UX_SPEC.md -->
+<div id="cardReviewModal" class="hud-modal hud-cr-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="crTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Card review</h3>
+            <div class="hud-panel-meta">
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="back">← Card detail</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close review">Close ✕</button>
+            </div>
+        </header>
+        <p class="hud-cr-sr" role="status" aria-live="polite" data-cr-live></p>
+        <div class="hud-panel-body" data-cr-body></div>
     </section>
 </div>
 {% endblock %}
@@ -392,10 +428,70 @@
         }
     }
 
+    let allDecks = [];
+
+    async function openReconstructDialog() {
+        if (!currentDeck) return;
+        document.getElementById('reconstructDeckName').textContent = currentDeck.name;
+        document.getElementById('reconstructError').hidden = true;
+        const sel = document.getElementById('reconstructSecondDeckSelect');
+        sel.innerHTML = '<option value="">Single deck (this deck only)</option>';
+        try {
+            if (!allDecks.length) {
+                const res = await fetch('/api/decks');
+                allDecks = (await res.json()).decks || [];
+            }
+            allDecks.filter(d => String(d.id) !== String(currentDeck.id) && d.name !== currentDeck.name
+                && (d.status || 'physical') === 'physical').forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d.registry_id || d.id;
+                opt.textContent = `${d.name} (${d.commanders && d.commanders.length ? d.commanders.join(' / ') : 'No Commander'})`;
+                sel.appendChild(opt);
+            });
+        } catch (e) { console.error('Failed to load physical decks for reconstruct:', e); }
+        HUD.openModal('reconstructModal');
+    }
+
+    function closeReconstructDialog() {
+        if (document.getElementById('reconstructConfirmBtn').disabled) return; // busy
+        HUD.closeModal('reconstructModal');
+    }
+
+    async function confirmReconstruct() {
+        const confirmBtn = document.getElementById('reconstructConfirmBtn');
+        const cancelBtn = document.getElementById('reconstructCancelBtn');
+        const errEl = document.getElementById('reconstructError');
+        errEl.hidden = true;
+        const deckIds = [currentDeck.registry_id || currentDeck.id];
+        const second = document.getElementById('reconstructSecondDeckSelect').value;
+        if (second) deckIds.push(second);
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.textContent = 'Starting Reconstruct...';
+        try {
+            const res = await fetch('/api/reconstruct/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deck_ids: deckIds, tag: 'removed' })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) throw new Error(data.error || `Request failed (${res.status})`);
+            window.location.href = `/reconstruct/${encodeURIComponent(data.session_id)}`;
+        } catch (e) {
+            errEl.textContent = `Failed to start reconstruct: ${e.message}`;
+            errEl.hidden = false;
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.textContent = 'Decommission & Reconstruct';
+        }
+    }
+
     async function loadDeckData() {
         try {
             const deckRes = await fetch('/api/decks');
             const deckData = await deckRes.json();
+            allDecks = deckData.decks || [];
             currentDeck = deckData.decks.find(d => d.name === deckNameStr);
 
             const invRes = await fetch(`/api/inventory?deck=${encodeURIComponent(deckNameStr)}`);
@@ -437,6 +533,7 @@
         document.getElementById('deckFolder').textContent = folder;
         // Decommission is only available for physical (non-retired) decks
         document.getElementById('decommissionBtn').hidden = (deck.status || 'physical') !== 'physical';
+        document.getElementById('reconstructBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
         if (deck.description) {
@@ -682,6 +779,26 @@
         renderCards();
     }
 
+    // ---- Single Card Review entry points (CR-F) ----------------------------
+    const isPhysicalDeck = () => !!currentDeck && currentDeck.status === 'physical';
+    function reviewActionRow(card, index) {
+        const block = CardReview.unreviewable(card);
+        const why = block ? block.h + '.' : isPhysicalDeck()
+            ? 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your want/buy list.'
+            : 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your Tune change list.';
+        return `<div class="hud-cr-detail-actions">
+            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Review card <span class="hud-kbd">R</span></button>
+            <p class="hud-cr-why" id="crWhy">${esc(why)}</p>
+        </div>`;
+    }
+    let cardReview = null;
+    function openReview(index) {
+        const card = inventoryCards[index];
+        if (!card || !cardReview) return;
+        HUD.closeModal('cardModal');
+        cardReview.open(card, index);
+    }
+
     function openCardModal(index) {
         const card = inventoryCards[index];
         if (!card) return;
@@ -710,7 +827,8 @@
                     <input type="text" id="modalNewTagInput" placeholder="Add tag…" aria-label="New tag">
                     <button type="submit" class="hud-btn hud-btn--primary">Add</button>
                 </form>
-            </div>`;
+            </div>
+            ${reviewActionRow(card, index)}`;
         HUD.openModal('cardModal');
 
         fetch(`/api/card/${encodeURIComponent(card.name)}/tags`)
@@ -798,8 +916,27 @@
             if (h) { h.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); }
             return;
         }
+        const rv = ev.target.closest('[data-review-card]');
+        if (rv) { openReview(Number(rv.dataset.reviewCard)); return; }
         const hit = ev.target.closest('[data-card-index]');
         if (hit && !ev.target.closest('.hud-modal')) openCardModal(Number(hit.dataset.cardIndex));
+    });
+    // R reviews the focused card, or the card whose detail is open.
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'r' && ev.key !== 'R') return;
+        if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || ev.repeat) return;
+        const t = ev.target;
+        if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+        if (document.getElementById('cardReviewModal').classList.contains('is-open')) return;
+        const open = document.getElementById('cardModal').classList.contains('is-open');
+        const btn = open ? document.querySelector('#cardModal [data-review-card]') : null;
+        const hit = open ? null : (t && t.closest && t.closest('[data-card-index]'));
+        const idx = btn ? Number(btn.dataset.reviewCard) : hit ? Number(hit.dataset.cardIndex) : -1;
+        if (idx < 0 || (btn && btn.getAttribute('aria-disabled') === 'true')) return;
+        const card = inventoryCards[idx];
+        if (!card || CardReview.unreviewable(card)) return;
+        ev.preventDefault();
+        openReview(idx);
     });
     document.addEventListener('keydown', (ev) => {
         if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -994,9 +1131,14 @@
     });
 
     // hud.js is deferred: start once it (and the DOM) is ready.
-    document.addEventListener('DOMContentLoaded', () => { loadDeckData(); loadBracket(); });
+    document.addEventListener('DOMContentLoaded', () => {
+        cardReview = CardReview.mount({ modalId: 'cardReviewModal', deckId: DECK_RID || deckNameStr, deckName: deckNameStr,
+            deckKind: () => isPhysicalDeck() ? 'physical' : 'digital', onBack: openCardModal });
+        loadDeckData(); loadBracket();
+    });
     document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
 <script src="/static/js/personality.js?v={{ version }}" defer></script>
 <script src="/static/js/sync_controls.js?v={{ version }}" defer></script>
+<script src="/static/js/card_review.js?v={{ version }}" defer></script>
 {% endblock %}

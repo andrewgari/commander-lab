@@ -171,6 +171,19 @@
             <div class="sg-row"><span class="hud-label" style="width: 6rem">JS mirror</span><span id="sg-js-chips" class="sg-row"></span></div>
         </div>
     {% endcall %}
+    {#- GN: Deck Genre tag chips (static/js/deck_genre.js renders the live ones; DECK_GENRE_UX_SPEC §3). -#}
+    {% call hud.panel("Tag chips (Deck Genre)", meta="hud-tagfield · hud-genre-strip") %}
+        <div class="hud-grid" style="gap: var(--sp-3)">
+            <div class="hud-tagfield"><div class="hud-picker">
+                <span class="hud-chip hud-chip--signal hud-tagchip"><span class="hud-chip-star is-on" aria-hidden="true">★</span><span class="hud-sr">Primary: </span><span class="hud-tagchip-text">Aristocrats</span><button class="hud-chip-remove" type="button" aria-label="Remove Aristocrats">×</button></span>
+                <span class="hud-chip hud-chip--data hud-tagchip"><button class="hud-chip-star" type="button" aria-label="Make Tokens primary">☆</button><span class="hud-tagchip-text">Tokens / Go-Wide</span><button class="hud-chip-remove" type="button" aria-label="Remove Tokens / Go-Wide">×</button></span>
+                <span class="hud-chip hud-chip--ghost hud-tagchip"><span class="hud-tagchip-text">Horror / Gothic</span><button class="hud-chip-remove" type="button" aria-label="Remove Horror / Gothic">×</button></span>
+                <span class="hud-chip hud-chip--ghost hud-chip--custom hud-tagchip" title="Custom theme"><span class="hud-tagchip-text">Space western</span><button class="hud-chip-remove" type="button" aria-label="Remove Space western">×</button></span>
+            </div>
+            <div class="hud-tagfield-picks"><span class="hud-label">Add</span><button type="button" class="hud-tagopt hud-tagopt--group">Party <small>+4</small></button><button type="button" class="hud-tagopt">Elf</button><button type="button" class="hud-tagopt" disabled>Goblin</button></div></div>
+            <div class="sg-row"><span class="hud-label" style="width: 6rem">Header</span><span class="hud-genre-strip"><span class="hud-chip hud-chip--neutral" data-rank="1"><span>Aristocrats</span></span><span class="hud-chip hud-chip--ghost" data-rank="2"><span>Zombie</span></span><span class="hud-chip hud-chip--ghost hud-chip--custom" data-rank="3"><span>Space western</span></span><a class="hud-chip hud-chip--neutral" href="#chips">+2</a></span></div>
+        </div>
+    {% endcall %}
 </div>
 
 {{ hud.section_head("Mana pips + colour distribution", "07", "pips") }}

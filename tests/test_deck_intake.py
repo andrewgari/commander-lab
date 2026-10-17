@@ -226,7 +226,7 @@ Sideboard
         self.assertFalse(result.user_intent.budget_constraints.no_budget)
         self.assertEqual(result.user_intent.budget_constraints.currency, "USD")
         self.assertEqual(result.user_intent.preferred_win_conditions.primary, "combat")
-        self.assertEqual(result.user_intent.archetype_preferences.primary_archetype, "midrange")
+        self.assertIsNone(result.user_intent.archetype_preferences.primary_archetype)  # GN: unset by default
 
         # Serializability
         d = result.to_dict()
