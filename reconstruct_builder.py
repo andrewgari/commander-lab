@@ -42,6 +42,29 @@ class ReconstructBuildError(ValueError):
     pass
 
 
+def _commander_mismatch_errors(
+    decks: Sequence[Any],
+    preferences: Sequence[Mapping],
+) -> List[dict]:
+    """Errors for drafts whose commanders differ from the requested ones."""
+    errors: List[dict] = []
+    for i, (deck, pref) in enumerate(zip(decks, preferences)):
+        wanted = {norm_name(c) for c in (pref.get("commanders") or [])}
+        if not wanted:
+            continue
+        got = {norm_name(c) for c in deck.commanders}
+        if got != wanted:
+            errors.append({
+                "code": "COMMANDER_MISMATCH",
+                "message": (
+                    f"Deck {i + 1} commanders {sorted(deck.commanders)} do not match "
+                    f"requested commanders {list(pref.get('commanders') or [])}"
+                ),
+                "cards": list(deck.commanders),
+            })
+    return errors
+
+
 class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
     """Builder implementation behind BaseReconstructBuilder interface."""
 
@@ -213,41 +236,48 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                 exempt_basics_from_pool=True,
             )
 
+            accepted_decks = None
             if val_result.valid:
-                final_validator_decks = validator_decks
+                accepted_decks = validator_decks
+            else:
+                # Apply deterministic repair for trivial issues
+                repaired_decks = []
+                for d in validator_decks:
+                    repaired, _ = deck_repair.auto_repair(d, catalog)
+                    repaired_decks.append(repaired)
+
+                val_result = dv.validate_decks(
+                    repaired_decks,
+                    catalog,
+                    tier1_available=tier1_available,
+                    tier2_available=tier2_available,
+                    exempt_basics_from_pool=True,
+                )
+                if val_result.valid:
+                    accepted_decks = repaired_decks
+
+            # Commanders must match what the user asked for (BUG-2)
+            cmd_errors = _commander_mismatch_errors(
+                accepted_decks if accepted_decks is not None else validator_decks,
+                preferences,
+            ) if accepted_decks is not None else []
+
+            if accepted_decks is not None and not cmd_errors:
+                final_validator_decks = accepted_decks
                 final_agent_decks = agent_result.decks
                 break
 
-            # Apply deterministic repair for trivial issues
-            repaired_decks = []
-            for d in validator_decks:
-                repaired, _ = deck_repair.auto_repair(d, catalog)
-                repaired_decks.append(repaired)
-
-            repair_val_result = dv.validate_decks(
-                repaired_decks,
-                catalog,
-                tier1_available=tier1_available,
-                tier2_available=tier2_available,
-                exempt_basics_from_pool=True,
-            )
-
-            if repair_val_result.valid:
-                final_validator_decks = repaired_decks
-                final_agent_decks = agent_result.decks
-                break
-
-            # If not valid even after repair, prepare for agent retry
+            # Not valid: prepare for agent retry
+            error_dicts = [e.to_dict() for e in val_result.errors] + cmd_errors
             last_error_summary = "; ".join(
-                f"[{getattr(e.code, 'value', e.code)}] {e.message}"
-                for e in repair_val_result.errors
+                f"[{e.get('code')}] {e.get('message')}" for e in error_dicts
             )
             if attempt > self.max_retries:
                 raise ReconstructBuildError(
                     f"Draft validation failed after {self.max_retries} retries: {last_error_summary}"
                 )
 
-            validation_errors = [e.to_dict() for e in repair_val_result.errors]
+            validation_errors = error_dicts
             previous_drafts = [d.model_dump() for d in agent_result.decks]
 
         if final_validator_decks is None or final_agent_decks is None:
@@ -305,6 +335,8 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                 "notes": pref.get("notes", ""),
                 "cards": draft_cards,
                 "total_new_cost": deck_cost.total_new_cost,
+                "is_complete": deck_cost.is_complete,
+                "unpriced_cards": list(deck_cost.unpriced_cards),
                 "explanation": a_deck.explanation,
             })
 
