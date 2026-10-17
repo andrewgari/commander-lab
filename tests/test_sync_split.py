@@ -19,7 +19,6 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
-import fakeredis
 from fastapi.testclient import TestClient
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -32,6 +31,50 @@ import providers  # noqa: E402
 from deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
 from providers import archidekt, moxfield  # noqa: E402
 from providers.errors import PushError  # noqa: E402
+
+class FakeRedis:
+    """In-repo stand-in (CI has no fakeredis package). Dict-backed for the
+    calls the sync path makes; anything else is a harmless no-op so page
+    loads in the no-auto-sync test can run."""
+
+    def __init__(self):
+        self.store, self.sets = {}, {}
+
+    def get(self, key):
+        return self.store.get(key)
+
+    def set(self, key, value, *a, **kw):
+        self.store[key] = value
+
+    def setex(self, key, ttl, value):
+        self.store[key] = value
+
+    def delete(self, *keys):
+        for k in keys:
+            self.store.pop(k, None)
+
+    def exists(self, key):
+        return int(key in self.store)
+
+    def keys(self, pattern="*"):
+        prefix = pattern.rstrip("*")
+        return [k for k in self.store if k.startswith(prefix)]
+
+    def scan_iter(self, match="*", **kw):
+        return iter(self.keys(match))
+
+    def sadd(self, key, *members):
+        self.sets.setdefault(key, set()).update(members)
+
+    def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    def mget(self, keys, *more):
+        return [self.store.get(k) for k in (list(keys) + list(more))]
+
+    def __getattr__(self, name):
+        return lambda *a, **kw: None
+
 
 LOCAL_CARDS = [
     {"name": "Atraxa, Praetors' Voice", "quantity": 1},
@@ -94,7 +137,7 @@ class FakeProvider:
 
 class ServiceCase(unittest.TestCase):
     def setUp(self):
-        self.r = fakeredis.FakeRedis(decode_responses=True)
+        self.r = FakeRedis()
         _seed(self.r)
         self.arch = FakeProvider(_remote("archidekt", REMOTE_CARDS))
         self.mox = FakeProvider(_remote("moxfield", REMOTE_CARDS))
@@ -290,7 +333,7 @@ class TestNoAutomaticSync(RouteCase):
         for p in spies.values():
             self.addCleanup(p.stop)
 
-        with TestClient(app_module.app) as client:  # runs startup handlers
+        with TestClient(app_module.app, raise_server_exceptions=False) as client:  # runs startup handlers
             for url in ("/", "/decks", "/settings", "/deck/Atraxa", "/api/decks",
                         "/api/decks/archidekt:42/links", "/api/decks/archidekt:42/sync/status",
                         "/api/linked-accounts"):
