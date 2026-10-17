@@ -216,5 +216,82 @@ class TestRecommendationGenerator(unittest.TestCase):
         self.assertIn("Broodmoth of Phyrexia", names)
 
 
+class TestNoRecommendingCardsAlreadyInDeck(unittest.TestCase):
+    """Regression: additions must never include a card already in the deck."""
+
+    def _gen(self, card_names, external_names, commanders=("Atraxa, Praetors' Voice",), deck_commanders=None):
+        deck = DecklistInput(
+            deck_id="t:dup", name="dup", format="commander",
+            commanders=[CommanderIdentifier(name=n) for n in (deck_commanders if deck_commanders is not None else commanders)],
+            cards=[DeckCardEntry(name=n, quantity=1, category="Mainboard") for n in card_names],
+        )
+        analysis = default_analysis_engine.analyze(deck)
+        ext = CardRecommendations(items=[
+            CardRecommendation(card_name=n, score=0.99, synergy=0.9, reason="x", categories=["External"])
+            for n in external_names
+        ])
+        gen = RecommendationGenerator(max_recommendations=500)
+        recs = gen.generate(deck, analysis, external_recommendations=ext)
+        return recs, [a.card_name for a in recs.additions]
+
+    def test_exact_duplicate_not_recommended(self):
+        _, names = self._gen(["Sol Ring", "Innkeeper's Talent"], ["Sol Ring", "Innkeeper's Talent"])
+        self.assertNotIn("Sol Ring", names)
+        self.assertNotIn("Innkeeper's Talent", names)  # curated catalog too
+
+    def test_case_punctuation_whitespace_diacritic_variants(self):
+        _, names = self._gen(
+            ["Sol Ring", "Lim-Dul's Vault", "Hardened Scales (KTK) 123"],
+            ["  sol   RING ", "Lim-Dûl\u2019s Vault", "hardened scales"],
+        )
+        for bad in ("  sol   RING ", "Lim-Dûl\u2019s Vault", "hardened scales", "Hardened Scales"):
+            self.assertNotIn(bad, names)
+
+    def test_double_faced_card_either_face(self):
+        _, names = self._gen(
+            ["Delver of Secrets // Insectile Aberration", "Fire // Ice"],
+            ["Delver of Secrets", "Insectile Aberration", "Fire // Ice", "Ice"],
+        )
+        for bad in ("Delver of Secrets", "Insectile Aberration", "Fire // Ice", "Ice"):
+            self.assertNotIn(bad, names)
+        # and the reverse: deck stores front face only, recommendation is full name
+        _, names = self._gen(["Delver of Secrets"], ["Delver of Secrets // Insectile Aberration"])
+        self.assertNotIn("Delver of Secrets // Insectile Aberration", names)
+
+    def test_commander_not_recommended(self):
+        _, names = self._gen(["Sol Ring"], ["Atraxa, Praetors\u2019 Voice", "Kinnan, Bonder Prodigy"],
+                             commanders=("Kinnan, Bonder Prodigy",), deck_commanders=["Kinnan, Bonder Prodigy"])
+        self.assertNotIn("Kinnan, Bonder Prodigy", names)
+        # commander stored only on the deck (not in analysis) is still excluded
+        deck = DecklistInput(
+            deck_id="t:c", name="c", format="commander",
+            commanders=[CommanderIdentifier(name="Bristly Bill, Spine Sower")],
+            cards=[DeckCardEntry(name="Sol Ring", quantity=1, category="Mainboard")],
+        )
+        analysis = default_analysis_engine.analyze(deck)
+        analysis.commanders = []
+        recs = RecommendationGenerator(max_recommendations=500).generate(deck, analysis)
+        self.assertNotIn("Bristly Bill, Spine Sower", [a.card_name for a in recs.additions])
+
+    def test_basics_and_any_number_cards_still_allowed(self):
+        _, names = self._gen(
+            ["Plains", "Relentless Rats", "Sol Ring"],
+            ["Plains", "Snow-Covered Island", "Relentless Rats", "Wastes"],
+        )
+        for ok in ("Plains", "Relentless Rats", "Wastes", "Snow-Covered Island"):
+            self.assertIn(ok, names)
+
+    def test_backfill_when_filtered(self):
+        gen = RecommendationGenerator(max_recommendations=3)
+        deck = DecklistInput(
+            deck_id="t:b", name="b", format="commander",
+            commanders=[CommanderIdentifier(name="Atraxa, Praetors' Voice")],
+            cards=[DeckCardEntry(name="Innkeeper's Talent", quantity=1, category="Mainboard")],
+        )
+        recs = gen.generate(deck, default_analysis_engine.analyze(deck))
+        self.assertEqual(len(recs.additions), 3)
+        self.assertNotIn("Innkeeper's Talent", [a.card_name for a in recs.additions])
+
+
 if __name__ == "__main__":
     unittest.main()
