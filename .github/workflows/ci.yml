@@ -57,6 +57,16 @@ jobs:
         run: |
           python -m pytest -q tests/test_card_eval.py tests/test_card_review.py
 
+      # Real app on real Redis with a scripted LLM. The suite skips when Redis is
+      # unreachable, so require 0 skipped to make sure it actually ran.
+      - name: Run Reconstruct e2e suite
+        env:
+          RECONSTRUCT_E2E_REDIS_URL: redis://localhost:6379/15
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          python -m pytest -v -rs tests/e2e/test_reconstruct_e2e.py | tee e2e.log
+          ! grep -qiE "skipped|xfail|xpassed" e2e.log
+
   docker:
     name: Build & Push Docker Image
     needs: test
