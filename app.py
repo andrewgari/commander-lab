@@ -10,6 +10,7 @@ from typing import List, Optional
 import instances as instance_store
 from instances import InstanceError
 import registry
+import tags as tag_store
 from providers import fetch_deck, ProviderError
 
 app = FastAPI()
@@ -605,6 +606,129 @@ def sync_deck_tags_to_archidekt(deck_id, deck_name, lab_tags, session_id, csrf_t
         "success": True,
         "updated_count": updated_count
     }
+
+
+# ---------------------------------------------------------------------------
+# Auto-tag endpoints — deck-level & per-deck-card tags (see docs/AUTO_TAG_DESIGN.md)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/decks/{deck_id}/auto-tag")
+async def auto_tag_deck(deck_id: str, request: Request):
+    """Run the auto-tag engine for *deck_id*.
+
+    Returns 501 (Not Implemented) — the tagging engine is a future step.
+    The endpoint exists so callers can discover the API shape now.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    return JSONResponse(
+        {"success": False, "error": "Auto-tag engine not yet implemented"},
+        status_code=501,
+    )
+
+
+@app.get("/api/decks/{deck_id}/tags")
+async def get_tags_for_deck(deck_id: str):
+    """Return deck-level tags for *deck_id*.
+
+    Response shape: {\"tags\": [{\"tag\", \"source\", \"created_at\", \"version\"}, ...]}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    return {"deck_id": deck_id, "tags": tag_store.get_deck_tags(r, deck_id)}
+
+
+@app.post("/api/decks/{deck_id}/tags")
+async def add_tag_to_deck(deck_id: str, request: Request):
+    """Add a tag to *deck_id* (deck-level).
+
+    Body: {\"tag\": \"Ramp\", \"source\": \"user\"}  (source defaults to \"user\")
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = data.get("tag")
+    source = data.get("source", "user")
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    result = tag_store.add_deck_tag(r, deck_id, tag, source=source)
+    return {"success": True, "tag": result}
+
+
+@app.delete("/api/decks/{deck_id}/tags")
+async def remove_tag_from_deck(deck_id: str, request: Request):
+    """Remove all entries matching *tag* from *deck_id*.
+
+    Body: {\"tag\": \"Ramp\"}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = data.get("tag")
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    removed = tag_store.remove_deck_tag(r, deck_id, tag)
+    return {"success": True, "removed": removed}
+
+
+@app.get("/api/decks/{deck_id}/card-tags")
+async def get_deck_card_tags(deck_id: str, card_name: Optional[str] = None):
+    """Return per-deck-card tags for *deck_id*.
+
+    If *card_name* is provided, returns that single card's tags.
+    Otherwise returns the full {card_name: [tags]} map.
+
+    Response shape: {\"deck_id\", \"tags\": {card: [{\"tag\", \"source\", \"created_at\", \"version\"}]}}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    if card_name:
+        tags = tag_store.get_card_tags_for_deck(r, deck_id, card_name)
+        return {"deck_id": deck_id, "card": card_name, "tags": tags}
+    return {"deck_id": deck_id, "tags": tag_store.get_deck_card_tags(r, deck_id)}
+
+
+@app.post("/api/decks/{deck_id}/card-tags")
+async def add_card_tag_to_deck(deck_id: str, request: Request):
+    """Add a tag to one card in *deck_id*.
+
+    Body: {\"card_name\": \"Sol Ring\", \"tag\": \"Ramp\", \"source\": \"user\"}
+    (source defaults to \"user\")
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    card_name = data.get("card_name")
+    tag = data.get("tag")
+    source = data.get("source", "user")
+    if not card_name or not tag:
+        return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
+    result = tag_store.add_card_tag_to_deck(r, deck_id, card_name, tag, source=source)
+    return {"success": True, "card": card_name, "tag": result}
+
+
+@app.delete("/api/decks/{deck_id}/card-tags")
+async def remove_card_tag_from_deck(deck_id: str, request: Request):
+    """Remove a tag from one card in *deck_id*.
+
+    Body: {\"card_name\": \"Sol Ring\", \"tag\": \"Ramp\"}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    card_name = data.get("card_name")
+    tag = data.get("tag")
+    if not card_name or not tag:
+        return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
+    removed = tag_store.remove_card_tag_from_deck(r, deck_id, card_name, tag)
+    return {"success": True, "card": card_name, "removed": removed}
 
 
 # ---------------------------------------------------------------------------
