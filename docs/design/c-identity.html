@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C · Identity · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="mockup.css">
+<style>
+  /* Direction C: the deck is a thesis. Everything is measured against it. */
+  body { --id-a: var(--mana-r); --id-b: var(--mana-b); }
+  main { max-width: 1320px; }
+  .thesis { display: grid; grid-template-columns: 1fr 320px; gap: 0; border-bottom: 1px solid var(--line); }
+  .thesis-text { padding: var(--sp-10) var(--sp-8) var(--sp-8); position: relative; }
+  .thesis-text::before { content: ""; position: absolute; left: 0; top: var(--sp-10); bottom: var(--sp-8); width: 6px; background: linear-gradient(var(--mana-w) 0 33%, var(--mana-b) 33% 66%, var(--mana-r) 66%); } /* hard-stop identity bar, not a fade */
+  .thesis h1 { margin: var(--sp-2) 0 var(--sp-4); font: 700 var(--fs-display)/0.95 var(--font-card); letter-spacing: -0.03em; color: var(--text-1); }
+  .thesis blockquote { margin: 0; max-width: 46ch; font: 500 var(--fs-lg)/1.35 var(--font-sans); color: var(--text-1); }
+  .thesis blockquote em { font-style: normal; color: var(--signal); }
+  .thesis .meta { margin-top: var(--sp-5); display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+  .thesis-art { position: relative; border-left: 1px solid var(--line); overflow: hidden; }
+  .thesis-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .score { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--sp-4); background: var(--surface-0); border-top: 1px solid var(--line); }
+  .score .num { font-size: var(--fs-hero); line-height: 1; }
+  .score .num small { font-size: var(--fs-md); color: var(--text-3); }
+  .meter { height: 6px; background: var(--surface-3); margin-top: var(--sp-2); display: flex; }
+  .meter i { display: block; height: 100%; }
+  /* Pillars: metro tiles */
+  .pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: var(--line); border-bottom: 1px solid var(--line); }
+  .pillar { background: var(--surface-1); padding: var(--sp-5); min-height: 180px; display: flex; flex-direction: column; transition: transform var(--dur-base) var(--ease), background var(--dur-base) var(--ease); cursor: pointer; }
+  .pillar:hover { background: var(--surface-2); transform: translateY(-2px); }
+  .pillar:active { transform: scale(0.98); }
+  .pillar .num { font-size: var(--fs-stat); line-height: 1; margin: var(--sp-2) 0; }
+  .pillar h3 { margin: 0; font: 600 var(--fs-md)/1.2 var(--font-sans); color: var(--text-1); }
+  .pillar p { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-3); }
+  .pillar .trend { margin-top: auto; padding-top: var(--sp-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+  .pillar--hero { grid-column: span 2; background: var(--signal); color: var(--text-on-signal); }
+  .pillar--hero:hover { background: var(--signal-strong); }
+  .pillar--hero h3, .pillar--hero .num, .pillar--hero p, .pillar--hero .label { color: var(--text-on-signal); }
+  /* Off-thesis + Sharpen */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .split > section { padding: var(--sp-6) var(--sp-8); }
+  .split > section + section { border-left: 1px solid var(--line); }
+  .split h2 { margin: 0 0 var(--sp-4); font: 600 var(--fs-lg) var(--font-sans); color: var(--text-1); display: flex; align-items: baseline; gap: var(--sp-3); }
+  .swap { display: grid; grid-template-columns: minmax(0,1fr) 24px minmax(0,1fr) 88px; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; border-bottom: 1px solid var(--line-faint); }
+  .swap .btn { justify-self: stretch; justify-content: center; }
+  .swap .out { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--danger); }
+  .swap .arrow { color: var(--text-4); font-family: var(--font-mono); text-align: center; }
+  .swap .src { display: block; font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); }
+  .swap .src b { color: var(--ok); font-weight: 500; }
+  .drift li { display: grid; grid-template-columns: 1fr auto; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line-faint); }
+  .drift ul { list-style: none; margin: 0; padding: 0; }
+  @media (max-width: 900px) {
+    .thesis { grid-template-columns: 1fr; } .thesis-art { height: 220px; border-left: 0; border-top: 1px solid var(--line); }
+    .thesis h1 { font-size: var(--fs-hero); }
+    .pillars { grid-template-columns: 1fr 1fr; } .pillar--hero { grid-column: span 2; }
+    .split { grid-template-columns: 1fr; } .split > section + section { border-left: 0; border-top: 1px solid var(--line); }
+    .split > section, .thesis-text { padding: var(--sp-5); }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand" aria-hidden="true">CL</div>
+    <a href="c-lab.html" title="Lab (g l)">LB</a>
+    <a href="#" aria-current="page" title="Deck">DK</a>
+    <a href="#" title="Box: free agents (g b)">BX</a>
+    <a href="#" title="Tags (g t)">TG</a>
+    <div class="spacer"></div>
+    <a href="#" title="Settings">ST</a>
+  </nav>
+  <div>
+    <header class="cmdbar">
+      <div class="cmd" role="search">⌕ Sharpen, swap, jump… <kbd>⌘K</kbd></div>
+      <div class="sync"><span><span class="dot"></span>Archidekt 23h</span></div>
+    </header>
+    <main id="main">
+      <section class="thesis">
+        <div class="thesis-text enter">
+          <span class="label">Kaalia of the Vast · WBR · Have</span>
+          <h1>Holy Hellfire</h1>
+          <blockquote>Swing with Kaalia, cheat a <em>seven-drop angel, demon or dragon</em> in sideways, and make sure she lives to do it again.</blockquote>
+          <div class="meta">
+            <span class="chip chip--data">Cheat into play</span><span class="chip chip--data">Tribal trinity</span><span class="chip chip--data">Haste &amp; protection</span>
+            <button class="btn btn--sm" style="margin-left:auto">Edit thesis</button>
+          </div>
+        </div>
+        <div class="thesis-art">
+          <img alt="Kaalia of the Vast art" src="https://api.scryfall.com/cards/ef099f25-2b0b-4028-8490-fbc859e35f6c?format=image&version=art_crop">
+          <div class="score">
+            <span class="label">On-thesis</span>
+            <div class="num">71<small>%</small></div>
+            <div class="meter" aria-hidden="true"><i style="width:71%;background:var(--signal)"></i><i style="width:17%;background:var(--data)"></i><i style="width:12%;background:var(--text-4)"></i></div>
+            <span class="label">71 pillar · 17 glue · 12 generic</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="pillars" aria-label="Pillars">
+        <article class="pillar pillar--hero enter" style="--i:0">
+          <span class="label">Pillar 1 · the engine</span>
+          <h3>Payoffs worth cheating</h3><div class="num">22</div>
+          <p>Angels, Demons, Dragons at 6+. Median CMC 7. This is the deck.</p>
+          <span class="trend">▲ +4 since Archidekt import</span>
+        </article>
+        <article class="pillar enter" style="--i:1"><span class="label">Pillar 2</span><h3>Keep her alive</h3><div class="num">8</div><p>Greaves, Boots, Teferi's Protection, Mother of Runes…</p><span class="trend" style="color:var(--signal)">▼ thin: aim 10+</span></article>
+        <article class="pillar enter" style="--i:2"><span class="label">Pillar 3</span><h3>Make the swing safe</h3><div class="num">12</div><p>Spot removal and wipes that clear blockers.</p><span class="trend">— steady</span></article>
+        <article class="pillar enter" style="--i:3"><span class="label">Glue</span><h3>Ramp &amp; lands</h3><div class="num">42</div><p>35 lands, 7 rocks. Required, not identity.</p><span class="trend">— steady</span></article>
+        <article class="pillar enter" style="--i:4"><span class="label">Generic</span><h3>Off-thesis</h3><div class="num">12</div><p>Cards that would be in any Mardu deck. Swap candidates.</p><span class="trend" style="color:var(--signal)">→ sharpen</span></article>
+        <article class="pillar enter" style="--i:5"><span class="label">Physical</span><h3>Sleeved</h3><div class="num">97</div><p>3 cards on Archidekt not in the box.</p><span class="trend" style="color:var(--signal)">→ resolve 3</span></article>
+        <article class="pillar enter" style="--i:6"><span class="label">References</span><h3>EDHREC · Salt</h3><div class="num">31<small class="label"> % avg</small></div><p>Your list vs the average Kaalia deck. Lower = more yours.</p><span class="trend">EDHREC ↗ Salt ↗</span></article>
+      </section>
+
+      <div class="split">
+        <section>
+          <h2>Sharpen <span class="label">Generic out → on-thesis in · free agents first</span></h2>
+          <div class="swap"><span class="card-name out">Temple of the False God</span><span class="arrow">→</span><span><span class="card-name">Bladewing the Risen</span><span class="src"><b>Box</b> · free agent · Pillar 1</span></span><button class="btn btn--sm">Swap</button></div>
+          <div class="swap"><span class="card-name out">Phyrexian Arena</span><span class="arrow">→</span><span><span class="card-name">Flawless Maneuver</span><span class="src">Owned · in Mabel · Pillar 2</span></span><button class="btn btn--sm">Swap</button></div>
+          <div class="swap"><span class="card-name out">Reliquary Tower</span><span class="arrow">→</span><span><span class="card-name">Kaalia's Scion</span><span class="src">Not owned · ~$0.40 · Pillar 1</span></span><button class="btn btn--sm">Wishlist</button></div>
+        </section>
+        <section>
+          <h2>Drift <span class="label">Archidekt vs physical box</span></h2>
+          <div class="drift"><ul>
+            <li><span class="card-name">Austere Command</span><span class="chip chip--danger">On list, not in box</span></li>
+            <li><span class="card-name">Angel of Serenity</span><span class="chip chip--signal">Sleeved in another deck</span></li>
+            <li><span class="card-name">Utvara Hellkite</span><span class="chip chip--danger">On list, not in box</span></li>
+          </ul></div>
+          <div style="display:flex;gap:8px;margin-top:var(--sp-4)"><button class="btn btn--primary">Resolve 3</button><button class="btn">Pull Archidekt</button></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="mock-note">Mockup · Direction C · thesis, pillars and scores are illustrative</div>
+</body>
+</html>

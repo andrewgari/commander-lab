@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B · Deck Workbench · Commander Lab mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="mockup.css">
+<style>
+  /* Direction B: one workbench. Roster | Deck | Context drawer. */
+  .bench { display: grid; grid-template-columns: 260px minmax(0, 1fr) 340px; height: calc(100vh - 52px); }
+  .pane { overflow: auto; border-right: 1px solid var(--line); }
+  .pane:last-child { border-right: 0; background: var(--surface-1); }
+  /* Roster pane */
+  .roster-list { list-style: none; margin: 0; padding: 0; }
+  .roster-list li a { display: grid; grid-template-columns: 40px 1fr auto; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-3); text-decoration: none; border-bottom: 1px solid var(--line-faint); }
+  .roster-list li a:hover { background: var(--surface-2); }
+  .roster-list li a[aria-current] { background: var(--surface-2); box-shadow: inset 2px 0 0 var(--signal); }
+  .roster-list img { width: 40px; height: 28px; object-fit: cover; border-radius: var(--radius-1); }
+  .roster-list .card-name { font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .roster-list .sub { font-size: var(--fs-micro); color: var(--text-3); font-family: var(--font-mono); }
+  .roster-list .flag { width: 6px; height: 6px; background: var(--signal); }
+  .pane-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: var(--sp-2); height: 40px; padding: 0 var(--sp-3); background: var(--surface-0); border-bottom: 1px solid var(--line); }
+  .pane:last-child .pane-head { background: var(--surface-1); }
+  /* Deck pane */
+  .deck-hero { position: relative; min-height: 220px; padding: var(--sp-6); display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .deck-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; opacity: .35; }
+  .deck-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, var(--surface-0) 10%, transparent 80%); } /* scrim for legibility, the one gradient */
+  .deck-hero > * { position: relative; z-index: 1; }
+  .deck-hero h1 { margin: var(--sp-1) 0 var(--sp-2); font: 700 var(--fs-hero)/1 var(--font-card); color: var(--text-1); letter-spacing: var(--tracking-tight); }
+  .hero-row { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); padding: 0 var(--sp-6); }
+  .tabs a { padding: var(--sp-3) var(--sp-4); font: 500 var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); text-decoration: none; }
+  .tabs a[aria-current] { color: var(--text-1); box-shadow: inset 0 -2px 0 var(--signal); }
+  .tabs .n { color: var(--text-3); margin-left: 4px; }
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
+  .strip > div { padding: var(--sp-3) var(--sp-6); border-right: 1px solid var(--line); }
+  .strip > div:last-child { border-right: 0; }
+  .strip .num { display: block; font-size: var(--fs-lg); }
+  .curve { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
+  .curve i { flex: 1; background: var(--data); }
+  .groups { padding: var(--sp-4) var(--sp-6); display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--sp-4); }
+  .group h4 { margin: 0 0 var(--sp-1); display: flex; gap: var(--sp-2); align-items: baseline; font: 500 var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); }
+  .group h4 .num { font-size: var(--fs-micro); }
+  .cl { list-style: none; margin: 0; padding: 0; }
+  .cl li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-2); align-items: center; height: 28px; padding: 0 var(--sp-2); border-bottom: 1px solid var(--line-faint); font-size: var(--fs-sm); }
+  .cl li:hover { background: var(--surface-2); }
+  .cl li .card-name { font-size: var(--fs-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cl .own { width: 8px; height: 8px; border: 1px solid var(--ok); background: var(--ok); }
+  .cl .own--no { background: transparent; border-color: var(--danger); }
+  .cl .own--elsewhere { background: var(--signal); border-color: var(--signal); }
+  .cl .tag { font: var(--fs-micro) var(--font-mono); color: var(--text-3); }
+  /* Context drawer */
+  .ctx-sec { padding: var(--sp-4); border-bottom: 1px solid var(--line); }
+  .ctx-sec h5 { margin: 0 0 var(--sp-3); font: 500 var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); display: flex; }
+  .ctx-sec h5 span { margin-left: auto; color: var(--text-3); }
+  .sugg { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-2); align-items: center; padding: var(--sp-2) 0; border-bottom: 1px solid var(--line-faint); }
+  .sugg .why { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--text-3); }
+  .legend { flex-wrap: wrap; display: flex; gap: var(--sp-3); font: var(--fs-micro) var(--font-mono); color: var(--text-3); }
+  .legend i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; vertical-align: middle; }
+  @media (max-width: 1100px) { .bench { grid-template-columns: 220px minmax(0,1fr); } .pane:last-child { display: none; } }
+  @media (max-width: 700px) {
+    .bench { grid-template-columns: 1fr; height: auto; }
+    .pane:first-child { display: none; }
+    .strip { grid-template-columns: repeat(2, 1fr); }
+    .groups { grid-template-columns: 1fr; padding: var(--sp-4); }
+    .deck-hero { padding: var(--sp-4); } .deck-hero h1 { font-size: var(--fs-xl); }
+    .tabs { padding: 0 var(--sp-2); overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand" aria-hidden="true">CL</div>
+    <a href="#" aria-current="page" title="Workbench (g w)">WB</a>
+    <a href="#" title="Collection (g c)">CO</a>
+    <a href="#" title="Tags (g t)">TG</a>
+    <div class="spacer"></div>
+    <a href="#" title="Settings">ST</a>
+    <kbd>v0.5</kbd>
+  </nav>
+  <div>
+    <header class="cmdbar">
+      <div class="cmd" role="search">⌕ Holy Hellfire › <kbd>⌘K</kbd></div>
+      <div class="sync"><span><span class="dot"></span>Archidekt 23h</span><span><span class="dot dot--warn"></span>Moxfield 8d</span></div>
+    </header>
+    <div class="bench">
+      <!-- 1. Roster -->
+      <aside class="pane" aria-label="Decks">
+        <div class="pane-head"><span class="label">Have · 39</span><span class="label" style="margin-left:auto">▾</span></div>
+        <ul class="roster-list">
+          <li><a href="#" aria-current="true"><img alt="" src="https://api.scryfall.com/cards/ef099f25-2b0b-4028-8490-fbc859e35f6c?format=image&version=art_crop"><span><span class="card-name">Holy Hellfire</span><span class="sub">WBR · 100</span></span><span class="flag" title="Resync pending"></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/716d0b3b-bac9-4fb8-882e-bd6171864043?format=image&version=art_crop"><span><span class="card-name">Magic in Stereo</span><span class="sub">URG · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/ada6aeb6-8c9f-4498-9326-b4da0fcb19a3?format=image&version=art_crop"><span><span class="card-name">I cast, therefore I am</span><span class="sub">UR · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/1696453f-a678-47ff-b583-53c2130b7d49?format=image&version=art_crop"><span><span class="card-name">For Cheese and Country</span><span class="sub">WR · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/d30dd823-9a04-4e3d-89c6-0fc5afc9efa4?format=image&version=art_crop"><span><span class="card-name">The world is slowly ebbing away...</span><span class="sub">WBR · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/076af4bd-1b74-4cf3-b6a0-8ec17d5b0e26?format=image&version=art_crop"><span><span class="card-name">The most handome guy here.</span><span class="sub">WB · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/15ce92a3-0d51-4c8e-bbce-d225021b4c35?format=image&version=art_crop"><span><span class="card-name">Alright Everyone, Let's Mosey</span><span class="sub">WRG · 100</span></span><span></span></a></li>
+          <li><a href="#"><img alt="" src="https://api.scryfall.com/cards/ed5f96a4-55e0-4ae3-bd78-f01703649e9d?format=image&version=art_crop"><span><span class="card-name">No The Other Frozen Throne</span><span class="sub">W · 99</span></span><span class="flag" title="Short"></span></a></li>
+        </ul>
+      </aside>
+
+      <!-- 2. Deck -->
+      <section class="pane" aria-label="Deck">
+        <div class="deck-hero">
+          <img alt="" src="https://api.scryfall.com/cards/ef099f25-2b0b-4028-8490-fbc859e35f6c?format=image&version=art_crop">
+          <span class="label">Kaalia of the Vast · Archidekt #417707</span>
+          <h1>Holy Hellfire</h1>
+          <div class="hero-row">
+            <span class="pips"><span class="pip pip--w">W</span><span class="pip pip--b">B</span><span class="pip pip--r">R</span></span>
+            <span class="chip chip--ok">Have</span>
+            <span class="chip chip--signal">3 resync changes</span>
+            <span style="margin-left:auto;display:flex;gap:8px"><button class="btn btn--sm">Pull from Archidekt</button><button class="btn btn--sm btn--primary">Review changes</button></span>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="Deck views">
+          <a href="#" aria-current="page">List<span class="n">100</span></a><a href="#">Visual</a><a href="#">Identity</a><a href="#">Primer</a><a href="#">Physical<span class="n">3</span></a>
+        </nav>
+        <div class="strip">
+          <div><span class="label">Avg CMC</span><span class="num">4.69</span></div>
+          <div><span class="label">Lands</span><span class="num">35</span></div>
+          <div><span class="label">Ramp</span><span class="num" style="color:var(--signal)">7</span></div>
+          <div><span class="label">Curve</span><div class="curve" aria-label="Mana curve, top heavy"><i style="height:20%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:45%"></i><i style="height:50%"></i><i style="height:100%;background:var(--signal)"></i></div></div>
+          <div><span class="label">Owned</span><span class="num">97<span class="label"> / 100</span></span></div>
+        </div>
+        <div class="groups">
+          <div class="group"><h4>Payoffs · Angels/Demons/Dragons <span class="num">22</span></h4>
+            <ul class="cl">
+              <li><span class="card-name">Master of Cruelties</span><span class="tag">payoff</span><span class="own" title="Owned, in this deck"></span></li>
+              <li><span class="card-name">Hellkite Tyrant</span><span class="tag">payoff</span><span class="own"></span></li>
+              <li><span class="card-name">Razaketh, the Foulblooded</span><span class="tag">tutor</span><span class="own"></span></li>
+              <li><span class="card-name">Angel of Serenity</span><span class="tag">payoff</span><span class="own--elsewhere own" title="Owned, but sleeved in another deck"></span></li>
+              <li><span class="card-name">Lyra Dawnbringer</span><span class="tag">payoff</span><span class="own"></span></li>
+            </ul></div>
+          <div class="group"><h4>Removal <span class="num">12</span></h4>
+            <ul class="cl">
+              <li><span class="card-name">Path to Exile</span><span class="tag">spot</span><span class="own"></span></li>
+              <li><span class="card-name">Anguished Unmaking</span><span class="tag">spot</span><span class="own"></span></li>
+              <li><span class="card-name">Austere Command</span><span class="tag">wipe</span><span class="own own--no" title="Not owned"></span></li>
+              <li><span class="card-name">Wrath of God</span><span class="tag">wipe</span><span class="own"></span></li>
+              <li><span class="card-name">Crackling Doom</span><span class="tag">spot</span><span class="own"></span></li>
+            </ul></div>
+          <div class="group"><h4>Protection / haste <span class="num">8</span></h4>
+            <ul class="cl">
+              <li><span class="card-name">Lightning Greaves</span><span class="tag">haste</span><span class="own"></span></li>
+              <li><span class="card-name">Swiftfoot Boots</span><span class="tag">haste</span><span class="own"></span></li>
+              <li><span class="card-name">Teferi's Protection</span><span class="tag">prot</span><span class="own"></span></li>
+            </ul></div>
+          <div class="group"><h4>Ramp <span class="num">7</span></h4>
+            <ul class="cl">
+              <li><span class="card-name">Sol Ring</span><span class="tag">rock</span><span class="own"></span></li>
+              <li><span class="card-name">Arcane Signet</span><span class="tag">rock</span><span class="own"></span></li>
+              <li><span class="card-name">Chromatic Lantern</span><span class="tag">rock</span><span class="own"></span></li>
+            </ul></div>
+        </div>
+        <div class="legend" style="padding:0 var(--sp-6) var(--sp-6)"><span><i style="background:var(--ok)"></i>In this deck</span><span><i style="background:var(--signal)"></i>Owned, in another deck</span><span><i style="border:1px solid var(--danger)"></i>Not owned</span></div>
+      </section>
+
+      <!-- 3. Context drawer: what could go in -->
+      <aside class="pane" aria-label="Context">
+        <div class="pane-head"><span class="label">Context</span><span class="label" style="margin-left:auto">] to toggle</span></div>
+        <div class="ctx-sec">
+          <h5>Free agents that fit<span>WBR · 14</span></h5>
+          <div class="sugg"><span class="card-name">Aurelia's Fury</span><button class="btn btn--sm">+ Add</button><span class="why">Unsleeved · Tag: removal · instant-speed, which this list is short on</span></div>
+          <div class="sugg"><span class="card-name">Bladewing the Risen</span><button class="btn btn--sm">+ Add</button><span class="why">Unsleeved · Tag: dragon, recursion</span></div>
+        </div>
+        <div class="ctx-sec">
+          <h5>EDHREC high synergy you own<span>3</span></h5>
+          <div class="sugg"><span class="card-name">Lightning Helix</span><span class="chip">in use</span><span class="why">+38% synergy · would need to pull from For Cheese and Country</span></div>
+        </div>
+        <div class="ctx-sec">
+          <h5>Weakest links<span>by tag + EDHREC</span></h5>
+          <div class="sugg"><span class="card-name">Temple of the False God</span><span class="chip chip--danger">cut?</span><span class="why">Generic. 4% of Kaalia decks.</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<div class="mock-note">Mockup · Direction B · suggestions are illustrative</div>
+</body>
+</html>

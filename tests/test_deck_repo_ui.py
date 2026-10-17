@@ -252,9 +252,8 @@ process.stdout.write(result);
             }
         }
         html = self._call_js(deck)
-        self.assertIn("repo-badge--error", html)
-        self.assertIn("NO REPO", html)
-        self.assertIn("Git error: Path not specified", html)
+        # No repo configured: badge hidden (was an error badge on every deck)
+        self.assertEqual(html, "")
 
     def test_error_generic(self):
         deck = {
@@ -270,8 +269,7 @@ process.stdout.write(result);
     def test_null_repo_status(self):
         deck = {"repo_status": None}
         html = self._call_js(deck)
-        self.assertIn("repo-badge--error", html)
-        self.assertIn("NO REPO", html)
+        self.assertEqual(html, "")
 
     def test_html_escaping(self):
         deck = {

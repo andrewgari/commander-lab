@@ -218,6 +218,25 @@ def transition_status(
     return record
 
 
+def queue_unassign_from_deck(pipe, record: dict, now: str) -> dict:
+    """Queue (on an open pipeline) the in_deck -> in_collection move for
+    `record`, mutating and returning the record. Does NOT execute the pipe, so
+    callers (registry.decommission_deck) can batch many moves plus other writes
+    into one MULTI/EXEC. Bypasses the physical-deck lock by design."""
+    deck_id = record.get("deck_id")
+    pipe.srem(_idx_status_key(record["ownership_status"]), record["id"])
+    pipe.sadd(_idx_status_key("in_collection"), record["id"])
+    if deck_id:
+        pipe.srem(_idx_deck_key(deck_id), record["id"])
+    record["ownership_status"] = "in_collection"
+    record["deck_id"] = None
+    record["deck_name"] = ""
+    record["updated_at"] = now
+    record.setdefault("history", []).append({"status": "in_collection", "at": now})
+    pipe.set(_instance_key(record["id"]), json.dumps(record))
+    return record
+
+
 def update_instance_fields(r, instance_id: str, **fields) -> dict:
     """Update non-status fields on an instance (set, condition, notes, price, etc).
     Use transition_status for ownership_status/deck_id changes."""
@@ -332,6 +351,31 @@ def list_instances(
 
     instances.sort(key=lambda x: (x["card_name"], x.get("set", ""), x.get("created_at", "")))
     return instances
+
+
+def list_deck_instances(r, deck_ids, ownership_status: Optional[str] = None) -> list:
+    """Instances bound to any of `deck_ids` (see registry.deck_instance_ids:
+    one deck can be indexed under both its raw id and its registry_id).
+    Deduplicated by instance id, sorted like list_instances."""
+    seen = {}
+    for did in deck_ids:
+        for rec in list_instances(r, deck_id=str(did), ownership_status=ownership_status):
+            seen.setdefault(rec["id"], rec)
+    out = list(seen.values())
+    out.sort(key=lambda x: (x["card_name"], x.get("set", ""), x.get("created_at", "")))
+    return out
+
+
+def load_all_instances(r) -> list:
+    """Every instance record, fetched in one MGET round trip."""
+    keys = list(r.keys("instance:*"))
+    if not keys:
+        return []
+    if hasattr(r, "mget"):
+        values = r.mget(keys)
+    else:  # minimal test fakes
+        values = [r.get(k) for k in keys]
+    return [json.loads(v) for v in values if v]
 
 
 def set_pending_removal(
@@ -545,7 +589,7 @@ def resolve_resync_removal(
 
 def find_unbound_remote_cards(
     r,
-    registry_id: Union[int, str],
+    registry_id: Union[int, str, list],
     current_decklist: Union[list, tuple],
 ) -> list:
     """Identify cards in the remote decklist that have no instance bound to this deck.
@@ -570,9 +614,11 @@ def find_unbound_remote_cards(
             }
         Sorted by card name. Only includes cards where shortfall > 0.
     """
-    registry_id = str(registry_id)
+    # Accept one id or several (registry.deck_instance_ids): a deck's
+    # instances may be indexed under its raw id and/or its registry_id.
+    ids = [str(x) for x in registry_id] if isinstance(registry_id, (list, tuple, set)) else [str(registry_id)]
 
-    bound_instances = list_instances(r, deck_id=registry_id)
+    bound_instances = list_deck_instances(r, ids)
     bound_by_card: dict[str, int] = {}
     for inst in bound_instances:
         card_name = inst.get("card_name")
@@ -677,7 +723,7 @@ def ensure_wishlist_instances(r, registry_id: "DeckId", decklist: list) -> list:
     return created
 
 
-def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list) -> dict:
+def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list, alias_ids=None) -> dict:
     """Called when a deck transitions to status="physical". For every card in
     `decklist` (list of {"name", "quantity"}), ensure exactly `quantity`
     instances are bound in_deck to this deck: reuse existing in_collection
@@ -693,6 +739,12 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
     deck_id is treated as an opaque string key end-to-end here (instances.py
     itself never assumes it's numeric).
 
+    `alias_ids` are the deck's other deck_id spellings (registry.deck_instance_ids:
+    the raw id and the "source:source_id" registry id). Copies already bound
+    under any alias count toward `quantity`, so a deck whose cards were bound
+    by the manual add-card path (registry id) isn't given duplicates under
+    the raw id.
+
     Returns a report: {"card_name": {"bound": n, "created": n}, ...} plus a
     top-level "shortfalls": [{"card_name", "missing"}] for cards where even
     after creating new in_collection instances we still could not reach the
@@ -707,8 +759,10 @@ def auto_bind_physical(r, deck_registry_id: str, deck_name: str, decklist: list)
         if not card_name or quantity <= 0:
             continue
 
+        bind_ids = [deck_registry_id] + [a for a in (alias_ids or []) if str(a) != str(deck_registry_id)]
         already_bound = [
-            inst for inst in list_instances(r, card_name=card_name, deck_id=deck_registry_id)
+            inst for did in bind_ids
+            for inst in list_instances(r, card_name=card_name, deck_id=did)
             if inst.get("ownership_status") == "in_deck"
         ]
         bound_count = len(already_bound)
