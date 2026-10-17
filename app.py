@@ -20,6 +20,8 @@ import reconstruct
 import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
+import tags as tag_store
+import autotag
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -1543,6 +1545,232 @@ async def get_deck_manage(deck_id: str):
         "cards": cards,
         "deck_categories": deck_categories,
     }
+
+
+# ---------------------------------------------------------------------------
+# Auto-tag endpoints — deck-level & per-deck-card tags (see docs/AUTO_TAG_DESIGN.md)
+# ---------------------------------------------------------------------------
+
+def _enrich_deck_for_autotag(r, deck: dict) -> dict:
+    deck_copy = dict(deck)
+    cards = list(deck.get("cards", []))
+    commanders = list(deck.get("commanders", []))
+
+    names_to_fetch = set()
+    for c in cards + commanders:
+        if isinstance(c, dict):
+            if not c.get("oracle_text") or not c.get("type_line"):
+                name = c.get("name")
+                if name:
+                    names_to_fetch.add(name)
+        elif isinstance(c, str):
+            names_to_fetch.add(c)
+
+    metadata_by_name = {}
+    if names_to_fetch:
+        mget = r.mget if hasattr(r, "mget") else (lambda ks: [r.get(k) for k in ks])
+        names_list = sorted(names_to_fetch)
+        interaction_raws = mget([f"card_interactions:{n}" for n in names_list])
+        meta_raws = mget([f"card_meta:{n}" for n in names_list])
+        for name, iraw, mraw in zip(names_list, interaction_raws, meta_raws):
+            mdata = {}
+            if iraw:
+                try:
+                    cobj = (json.loads(iraw) or {}).get("card")
+                    if cobj:
+                        mdata = {
+                            "type_line": cobj.get("type_line") or "",
+                            "oracle_text": cobj.get("oracle_text") or "",
+                            "keywords": cobj.get("keywords") or [],
+                            "cmc": cobj.get("cmc") or 0,
+                            "produced_mana": cobj.get("produced_mana") or [],
+                            "game_changer": cobj.get("game_changer", False),
+                        }
+                except Exception:
+                    pass
+            if mraw and (not mdata.get("type_line") or not mdata.get("oracle_text")):
+                try:
+                    m = json.loads(mraw)
+                    if m:
+                        st = list(m.get("super_types") or [])
+                        t = [m.get("type") or ""]
+                        sub = list(m.get("sub_types") or [])
+                        head = " ".join(st + t).strip()
+                        tl = head + (" — " + " ".join(sub) if sub else "")
+                        if not mdata.get("type_line"):
+                            mdata["type_line"] = tl
+                        if not mdata.get("oracle_text"):
+                            mdata["oracle_text"] = m.get("oracle_text") or ""
+                        if not mdata.get("keywords"):
+                            mdata["keywords"] = m.get("keywords") or []
+                        if not mdata.get("cmc"):
+                            mdata["cmc"] = m.get("cmc") or 0
+                        if not mdata.get("produced_mana"):
+                            mdata["produced_mana"] = m.get("produced_mana") or []
+                        if "game_changer" not in mdata:
+                            mdata["game_changer"] = m.get("game_changer", False)
+                except Exception:
+                    pass
+            metadata_by_name[name] = mdata
+
+    enriched_cards = []
+    for c in cards:
+        if isinstance(c, dict):
+            c_dict = dict(c)
+            name = c_dict.get("name")
+            if name and name in metadata_by_name:
+                meta = metadata_by_name[name]
+                for k, v in meta.items():
+                    if not c_dict.get(k):
+                        c_dict[k] = v
+            enriched_cards.append(c_dict)
+        elif isinstance(c, str):
+            c_dict = {"name": c}
+            if c in metadata_by_name:
+                c_dict.update(metadata_by_name[c])
+            enriched_cards.append(c_dict)
+
+    enriched_commanders = []
+    for c in commanders:
+        if isinstance(c, dict):
+            c_dict = dict(c)
+            name = c_dict.get("name")
+            if name and name in metadata_by_name:
+                meta = metadata_by_name[name]
+                for k, v in meta.items():
+                    if not c_dict.get(k):
+                        c_dict[k] = v
+            enriched_commanders.append(c_dict)
+        elif isinstance(c, str):
+            c_dict = {"name": c}
+            if c in metadata_by_name:
+                c_dict.update(metadata_by_name[c])
+            enriched_commanders.append(c_dict)
+
+    deck_copy["cards"] = enriched_cards
+    deck_copy["commanders"] = enriched_commanders
+    return deck_copy
+
+
+@app.post("/decks/{deck_id}/auto-tag")
+@app.post("/api/decks/{deck_id}/auto-tag")
+async def auto_tag_deck(deck_id: str, request: Request):
+    """Run the auto-tag engine for *deck_id*.
+
+    Runs the intent-aware two-pass engine and persists deck-level and
+    per-card tags in Redis via tag_store, preserving user-sourced tags.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+
+    enriched = _enrich_deck_for_autotag(r, deck)
+    engine_result = autotag.run_auto_tag(enriched)
+    result = tag_store.apply_auto_tags(r, deck_id, engine_result)
+    return result
+
+
+@app.get("/api/decks/{deck_id}/tags")
+async def get_tags_for_deck(deck_id: str):
+    """Return deck-level tags for *deck_id*.
+
+    Response shape: {\"tags\": [{\"tag\", \"source\", \"created_at\", \"version\"}, ...]}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    return {"deck_id": deck_id, "tags": tag_store.get_deck_tags(r, deck_id)}
+
+
+@app.post("/api/decks/{deck_id}/tags")
+async def add_tag_to_deck(deck_id: str, request: Request):
+    """Add a tag to *deck_id* (deck-level).
+
+    Body: {\"tag\": \"Ramp\", \"source\": \"user\"}  (source defaults to \"user\")
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = data.get("tag")
+    source = data.get("source", "user")
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    result = tag_store.add_deck_tag(r, deck_id, tag, source=source)
+    return {"success": True, "tag": result}
+
+
+@app.delete("/api/decks/{deck_id}/tags")
+async def remove_tag_from_deck(deck_id: str, request: Request):
+    """Remove all entries matching *tag* from *deck_id*.
+
+    Body: {\"tag\": \"Ramp\"}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = data.get("tag")
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    removed = tag_store.remove_deck_tag(r, deck_id, tag)
+    return {"success": True, "removed": removed}
+
+
+@app.get("/api/decks/{deck_id}/card-tags")
+async def get_deck_card_tags(deck_id: str, card_name: Optional[str] = None):
+    """Return per-deck-card tags for *deck_id*.
+
+    If *card_name* is provided, returns that single card's tags.
+    Otherwise returns the full {card_name: [tags]} map.
+
+    Response shape: {\"deck_id\", \"tags\": {card: [{\"tag\", \"source\", \"created_at\", \"version\"}]}}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    if card_name:
+        tags = tag_store.get_card_tags_for_deck(r, deck_id, card_name)
+        return {"deck_id": deck_id, "card": card_name, "tags": tags}
+    return {"deck_id": deck_id, "tags": tag_store.get_deck_card_tags(r, deck_id)}
+
+
+@app.post("/api/decks/{deck_id}/card-tags")
+async def add_card_tag_to_deck(deck_id: str, request: Request):
+    """Add a tag to one card in *deck_id*.
+
+    Body: {\"card_name\": \"Sol Ring\", \"tag\": \"Ramp\", \"source\": \"user\"}
+    (source defaults to \"user\")
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    card_name = data.get("card_name")
+    tag = data.get("tag")
+    source = data.get("source", "user")
+    if not card_name or not tag:
+        return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
+    result = tag_store.add_card_tag_to_deck(r, deck_id, card_name, tag, source=source)
+    return {"success": True, "card": card_name, "tag": result}
+
+
+@app.delete("/api/decks/{deck_id}/card-tags")
+async def remove_card_tag_from_deck(deck_id: str, request: Request):
+    """Remove a tag from one card in *deck_id*.
+
+    Body: {\"card_name\": \"Sol Ring\", \"tag\": \"Ramp\"}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    card_name = data.get("card_name")
+    tag = data.get("tag")
+    if not card_name or not tag:
+        return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
+    removed = tag_store.remove_card_tag_from_deck(r, deck_id, card_name, tag)
+    return {"success": True, "card": card_name, "removed": removed}
 
 
 # ---------------------------------------------------------------------------

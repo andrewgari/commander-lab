@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock, ANY
 # Import FastAPI app
 from app import app
 from instances import InstanceError
+import tags as tag_store
 
 class TestAppRoutes(unittest.TestCase):
     def setUp(self):
@@ -186,6 +187,160 @@ class TestAddCardToDeck(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.json()["success"])
+
+
+class TestAutoTagEndpoints(unittest.TestCase):
+    """Tests for the auto-tag and tag-management API endpoints."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+        # Clean tag-related keys before each test (import the module-level redis client)
+        import app as app_mod
+        self.r = app_mod.r
+        for pattern in ["deck_tags*", "deck_card_tags*"]:
+            for key in self.r.keys(pattern):
+                self.r.delete(key)
+
+    @patch("app.registry")
+    def test_auto_tag_success(self, mock_registry):
+        mock_registry.find_deck.return_value = {
+            "id": 42,
+            "name": "Krenko Deck",
+            "registry_id": "archidekt:42",
+            "color_identity": ["R"],
+            "color_identity_size": 1,
+            "commanders": [{
+                "name": "Krenko, Mob Boss",
+                "type_line": "Legendary Creature — Goblin Warrior",
+                "oracle_text": "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.",
+                "cmc": 4,
+            }],
+            "cards": [
+                {"name": "Sol Ring", "type_line": "Artifact", "oracle_text": "{T}: Add {C}{C}.", "cmc": 1},
+                {"name": "Skirk Prospector", "type_line": "Creature — Goblin", "oracle_text": "Sacrifice a Goblin: Add {R}.", "cmc": 1},
+                {"name": "Mountain", "type_line": "Basic Land — Mountain", "oracle_text": "({T}: Add {R}.)", "cmc": 0},
+            ],
+        }
+        response = self.client.post("/api/decks/archidekt:42/auto-tag", json={})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("deck_id"), "archidekt:42")
+        self.assertIn("card_tags", data)
+
+        # Non-/api path alias
+        alias_response = self.client.post("/decks/archidekt:42/auto-tag", json={})
+        self.assertEqual(alias_response.status_code, 200)
+
+    @patch("app.registry")
+    def test_auto_tag_preserves_user_tags(self, mock_registry):
+        mock_registry.find_deck.return_value = {
+            "id": 42,
+            "name": "Test Deck",
+            "registry_id": "archidekt:42",
+            "color_identity": ["R"],
+            "commanders": [],
+            "cards": [
+                {"name": "Sol Ring", "type_line": "Artifact", "oracle_text": "{T}: Add {C}{C}.", "cmc": 1},
+            ],
+        }
+        # Pre-populate a user tag on Sol Ring and on deck
+        tag_store.add_deck_tag(self.r, "archidekt:42", "Custom Deck Tag", source="user")
+        tag_store.add_card_tag_to_deck(self.r, "archidekt:42", "Sol Ring", "Custom Sol Tag", source="user")
+
+        # Run auto-tag
+        response = self.client.post("/api/decks/archidekt:42/auto-tag", json={})
+        self.assertEqual(response.status_code, 200)
+
+        # Check that user tags are preserved
+        deck_tags = tag_store.get_deck_tags(self.r, "archidekt:42")
+        self.assertTrue(any(t["tag"] == "Custom Deck Tag" and t["source"] == "user" for t in deck_tags))
+
+        sol_tags = tag_store.get_card_tags_for_deck(self.r, "archidekt:42", "Sol Ring")
+        self.assertTrue(any(t["tag"] == "Custom Sol Tag" and t["source"] == "user" for t in sol_tags))
+        self.assertTrue(any(t["tag"] == "ramp" and t["source"] == "auto" for t in sol_tags))
+
+    @patch("app.registry")
+    def test_auto_tag_deck_not_found(self, mock_registry):
+        mock_registry.find_deck.return_value = None
+        response = self.client.post("/api/decks/nonexistent/auto-tag", json={})
+        self.assertEqual(response.status_code, 404)
+
+    @patch("app.registry")
+    def test_get_deck_tags_empty(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        response = self.client.get("/api/decks/archidekt:42/tags")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["tags"], [])
+
+    @patch("app.registry")
+    def test_add_deck_tag(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        response = self.client.post("/api/decks/archidekt:42/tags", json={"tag": "Ramp", "source": "user"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["tag"]["tag"], "Ramp")
+        self.assertEqual(data["tag"]["source"], "user")
+
+    @patch("app.registry")
+    def test_remove_deck_tag(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        self.client.post("/api/decks/archidekt:42/tags", json={"tag": "Ramp", "source": "user"})
+        # Verify it was added
+        resp = self.client.get("/api/decks/archidekt:42/tags")
+        self.assertEqual(len(resp.json()["tags"]), 1)
+        # Now remove via direct redis
+        removed = tag_store.remove_deck_tag(self.r, "archidekt:42", "Ramp")
+        self.assertTrue(removed)
+        resp = self.client.get("/api/decks/archidekt:42/tags")
+        self.assertEqual(resp.json()["tags"], [])
+
+    @patch("app.registry")
+    def test_get_deck_card_tags(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        response = self.client.get("/api/decks/archidekt:42/card-tags")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("tags", response.json())
+
+    @patch("app.registry")
+    def test_add_card_tag(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        response = self.client.post("/api/decks/archidekt:42/card-tags", json={
+            "card_name": "Sol Ring", "tag": "Ramp", "source": "user"
+        })
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["tag"]["tag"], "Ramp")
+
+    @patch("app.registry")
+    def test_remove_card_tag(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        self.client.post("/api/decks/archidekt:42/card-tags", json={
+            "card_name": "Sol Ring", "tag": "Ramp", "source": "user"
+        })
+        # Verify it was added
+        tags = tag_store.get_card_tags_for_deck(self.r, "archidekt:42", "Sol Ring")
+        self.assertEqual(len(tags), 1)
+        # Now remove
+        removed = tag_store.remove_card_tag_from_deck(self.r, "archidekt:42", "Sol Ring", "Ramp")
+        self.assertTrue(removed)
+        tags = tag_store.get_card_tags_for_deck(self.r, "archidekt:42", "Sol Ring")
+        self.assertEqual(tags, [])
+
+    @patch("app.registry")
+    def test_add_card_tag_missing_fields_returns_400(self, mock_registry):
+        mock_registry.find_deck.return_value = {"id": 42, "name": "Test Deck"}
+        response = self.client.post("/api/decks/archidekt:42/card-tags", json={"tag": "Ramp"})
+        self.assertEqual(response.status_code, 400)
+
+    @patch("app.registry")
+    def test_auto_tag_not_found_returns_404(self, mock_registry):
+        mock_registry.find_deck.return_value = None
+        response = self.client.get("/api/decks/nonexistent/tags")
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":
