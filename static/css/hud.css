@@ -2565,3 +2565,26 @@ a.hud-idea-theme:hover { color: var(--signal); }
     .hud-doc .hud-kv { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
     .hud-doc .hud-kv dd { margin-bottom: var(--sp-2); }
 }
+
+
+/* Update / Push controls (docs/design/sync_controls/SPEC.md) ------------------------ */
+.sync-controls { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.sync-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sync-group-name { font-weight: 600; }
+.sync-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.sync-meta, .sync-note { font-size: var(--fs-xs, 0.75rem); }
+.sync-error { color: var(--danger); font-size: var(--fs-xs, 0.75rem); }
+.sync-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.sync-btn--update { color: var(--data); border-color: var(--data-dim); background: var(--data-dim); }
+.sync-btn--update:hover:not(:disabled) { border-color: var(--data); background: var(--data-dim); color: var(--data-strong); }
+.sync-btn--push { color: var(--signal); border-color: var(--signal-dim); background: var(--signal-dim); }
+.sync-btn--push:hover:not(:disabled) { border-color: var(--signal); background: var(--signal-dim); color: var(--signal); }
+.sync-btn--done, .sync-btn--done:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); background: var(--ok-dim); }
+.sync-btn--failed, .sync-btn--failed:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); background: transparent; }
+.sync-spin { animation: sync-spin 0.9s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sync-spin { animation: none; } }
+.sync-confirm-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
+.diff-summary { border: 1px solid var(--line); padding: var(--sp-3); font-family: monospace; font-size: 0.8rem; max-height: 14rem; overflow-y: auto; }
+.diff-add { color: var(--ok); }
+.diff-sub { color: var(--danger); }
