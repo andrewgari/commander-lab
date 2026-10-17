@@ -156,6 +156,27 @@ donor_before, donor_after, donor_delta, receiver_delta, steal_line}`. Each
 shape fix carries `steals: [{name, donor_deck, donor_replacement, ...,
 steal_line}]`. `counts` adds `steals` and `steals_dropped`.
 
+## Saved recommendations
+
+`analytics/tune_store.py`. `GET /api/decks/{id}/tune` is still computed on demand and
+never saves. Saving is explicit via recompute. Each deck has at most one `active`
+record; recompute stores the new result as active and archives the previous one in the
+same Redis MULTI/EXEC (archived rows are never deleted).
+
+| | |
+|---|---|
+| `GET /api/decks/{id}/tune/saved` | `200 {success, recommendation}`; `404 {success:false, recommendation:null, error}` if none |
+| `POST /api/decks/{id}/tune/recompute` | body optional `{mode?, in_deck?, buy?}`; `200 {success, recommendation, archived}` (`archived` = previous record without payload, or null); 400 bad mode / unknown deck 404 / 409 save lock busy |
+| `GET /api/decks/{id}/tune/history?limit=20&include_payload=false` | `{success, history: [record...]}` archived, newest first |
+
+Record: `{id, deck_id, status: active|archived, created_at, archived_at|null,
+params: {mode, in_deck, buy}, payload: <GET /tune "tune" object>}`.
+
+Redis: `tunerec:rec:{id}`, `tunerec:active:{deck_id}`, `tunerec:index:{deck_id}`,
+`tunerec:lock:{deck_id}`, `tunerec:schema_version`. Run
+`python scripts/migrate_tune_recommendations.py [--apply]` (idempotent; repairs the
+one-active invariant, stamps the schema version).
+
 ## Redis
 
 - `tuner:state:{registry_id}`: `{review_id, decisions, adds}`. Decisions
