@@ -348,5 +348,107 @@ class TestInvariants(unittest.TestCase):
         self.assertNotIn("SAC-1", evidence.get("sacrifice", []))
 
 
+# ---------------------------------------------------------------------------
+# Dogfood t_61b734d5 regressions (missed roles / tokens theme).
+# Oracle text is verbatim from Scryfall.
+# ---------------------------------------------------------------------------
+
+DOGFOOD_CARDS = {
+    'Anointed Procession': {'name': 'Anointed Procession', 'type_line': 'Enchantment', 'oracle_text': 'If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.', 'keywords': []},
+    'Mavren Fein, Dusk Apostle': {'name': 'Mavren Fein, Dusk Apostle', 'type_line': 'Legendary Creature — Vampire Cleric', 'oracle_text': 'Whenever one or more nontoken Vampires you control attack, create a 1/1 white Vampire creature token with lifelink.', 'keywords': []},
+    'Elenda, the Dusk Rose': {'name': 'Elenda, the Dusk Rose', 'type_line': 'Legendary Creature — Vampire Knight', 'oracle_text': "Lifelink\nWhenever another creature dies, put a +1/+1 counter on Elenda.\nWhen Elenda dies, create X 1/1 white Vampire creature tokens with lifelink, where X is Elenda's power.", 'keywords': ['Lifelink']},
+    "Olivia's Wrath": {'name': "Olivia's Wrath", 'type_line': 'Sorcery', 'oracle_text': 'Each non-Vampire creature gets -X/-X until end of turn, where X is the number of Vampires you control.', 'keywords': []},
+    'Olivia Voldaren': {'name': 'Olivia Voldaren', 'type_line': 'Legendary Creature — Vampire', 'oracle_text': 'Flying\n{1}{R}: Olivia Voldaren deals 1 damage to another target creature. That creature becomes a Vampire in addition to its other types. Put a +1/+1 counter on Olivia Voldaren.\n{3}{B}{B}: Gain control of target Vampire for as long as you control Olivia Voldaren.', 'keywords': ['Flying']},
+    'Utopia Sprawl': {'name': 'Utopia Sprawl', 'type_line': 'Enchantment — Aura', 'oracle_text': 'Enchant Forest\nAs this Aura enters, choose a color.\nWhenever enchanted Forest is tapped for mana, its controller adds an additional one mana of the chosen color.', 'keywords': ['Enchant']},
+    'Abundant Growth': {'name': 'Abundant Growth', 'type_line': 'Enchantment — Aura', 'oracle_text': 'Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has "{T}: Add one mana of any color."', 'keywords': ['Enchant']},
+    "Kenrith's Transformation": {'name': "Kenrith's Transformation", 'type_line': 'Enchantment — Aura', 'oracle_text': 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3. (It loses all other card types and creature types.)', 'keywords': ['Enchant']},
+    'Ponder': {'name': 'Ponder', 'type_line': 'Sorcery', 'oracle_text': 'Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.', 'keywords': []},
+    'Preordain': {'name': 'Preordain', 'type_line': 'Sorcery', 'oracle_text': 'Scry 2, then draw a card. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)', 'keywords': ['Scry']},
+    'Expressive Iteration': {'name': 'Expressive Iteration', 'type_line': 'Sorcery', 'oracle_text': 'Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn.', 'keywords': []},
+    'Grapeshot': {'name': 'Grapeshot', 'type_line': 'Sorcery', 'oracle_text': 'Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)', 'keywords': ['Storm']},
+}
+
+_EDGAR = {
+    "name": "Edgar Markov", "type_line": "Legendary Creature — Vampire Knight",
+    "oracle_text": "Eminence — Whenever you cast another Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.",
+    "cmc": 6, "keywords": ["First strike", "Haste"],
+}
+_GALEA = {"name": "Galea, Kindler of Hope", "type_line": "Legendary Creature — Elf Knight",
+          "oracle_text": "Vigilance", "cmc": 3, "keywords": ["Vigilance"]}
+_VIVI = {"name": "Vivi Ornitier", "type_line": "Legendary Creature — Wizard",
+         "oracle_text": "Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier.", "cmc": 2}
+
+
+def _dogfood_deck(commander, names):
+    return {
+        "name": "dogfood", "id": "dogfood",
+        "commanders": [commander],
+        "color_identity": ["W", "B", "R"], "color_identity_size": 3,
+        "cards": [dict(DOGFOOD_CARDS[n]) for n in names],
+    }
+
+
+def _tags_of(res, name):
+    card = next(c for c in res["cards"] if c["name"] == name)
+    return {t["tag"] for t in card["tags"]}
+
+
+_EDGAR_NAMES = ["Anointed Procession", "Mavren Fein, Dusk Apostle", "Elenda, the Dusk Rose",
+                "Olivia's Wrath", "Olivia Voldaren"]
+_EDGAR_FILLER = [{"name": f"Vampire {i}", "type_line": "Creature — Vampire", "oracle_text": "", "cmc": 2}
+                 for i in range(3)]
+
+
+class TestDogfoodMissedRoles(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        d = _dogfood_deck(_EDGAR, _EDGAR_NAMES)
+        d["cards"] += [dict(c) for c in _EDGAR_FILLER]
+        cls.edgar = run_auto_tag(d)
+        cls.galea = run_auto_tag(_dogfood_deck(_GALEA, ["Utopia Sprawl", "Abundant Growth", "Kenrith's Transformation"]))
+        cls.vivi = run_auto_tag(_dogfood_deck(_VIVI, ["Ponder", "Preordain", "Expressive Iteration", "Grapeshot"]))
+
+    def test_m1_anointed_procession_tokens(self):
+        self.assertIn("tokens", _tags_of(self.edgar, "Anointed Procession"))
+
+    def test_m2_mavren_fein_tokens(self):
+        self.assertIn("tokens", _tags_of(self.edgar, "Mavren Fein, Dusk Apostle"))
+
+    def test_m3_elenda_tokens(self):
+        self.assertIn("tokens", _tags_of(self.edgar, "Elenda, the Dusk Rose"))
+
+    def test_m4_edgar_deck_tags_include_tokens(self):
+        deck_tags = {t["tag"] for t in self.edgar["deck_tags"]}
+        self.assertIn("tokens", deck_tags)
+        self.assertIn("kindred:vampire", deck_tags)
+
+    def test_m5_olivias_wrath_board_wipe(self):
+        self.assertIn("board_wipe", _tags_of(self.edgar, "Olivia's Wrath"))
+
+    def test_m11_olivia_voldaren_removal(self):
+        self.assertIn("removal", _tags_of(self.edgar, "Olivia Voldaren"))
+
+    def test_m6_utopia_sprawl_ramp(self):
+        self.assertIn("ramp", _tags_of(self.galea, "Utopia Sprawl"))
+
+    def test_m6_abundant_growth_still_ramp(self):
+        self.assertIn("ramp", _tags_of(self.galea, "Abundant Growth"))
+
+    def test_m7_kenriths_transformation_removal_and_card_advantage(self):
+        tags = _tags_of(self.galea, "Kenrith's Transformation")
+        self.assertIn("removal", tags)
+        self.assertIn("card_advantage", tags)
+
+    def test_m8_ponder_card_advantage_like_preordain(self):
+        self.assertIn("card_advantage", _tags_of(self.vivi, "Preordain"))
+        self.assertIn("card_advantage", _tags_of(self.vivi, "Ponder"))
+
+    def test_m9_expressive_iteration_card_advantage(self):
+        self.assertIn("card_advantage", _tags_of(self.vivi, "Expressive Iteration"))
+
+    def test_m10_grapeshot_finisher(self):
+        self.assertIn("finisher", _tags_of(self.vivi, "Grapeshot"))
+
+
 if __name__ == "__main__":
     unittest.main()
