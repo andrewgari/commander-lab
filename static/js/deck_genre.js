@@ -143,9 +143,9 @@
             this.value = (value || []).slice();
             root.innerHTML =
                 '<div class="hud-tagfield-head"><label for="' + id + '-in" id="' + id + '-l">' + cfg.label + "</label>" +
-                '<span class="hud-tagfield-count" id="' + id + '-n" aria-hidden="true"></span></div>' +
+                '<span class="hud-tagfield-count" id="' + id + '-n" data-testid="genre-' + kind + '-count" aria-hidden="true"></span></div>' +
                 '<div class="hud-picker" id="' + id + '-box" role="group" aria-labelledby="' + id + '-l" aria-describedby="' + id + '-h">' +
-                '<input id="' + id + '-in" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="' + id + '-list" autocomplete="off" spellcheck="false" maxlength="' + CUSTOM_MAX + '">' +
+                '<input id="' + id + '-in" data-testid="genre-' + kind + '-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="' + id + '-list" autocomplete="off" spellcheck="false" maxlength="' + CUSTOM_MAX + '">' +
                 '<ul class="hud-picker-list" id="' + id + '-list" role="listbox" aria-label="' + cfg.label + ' options" hidden></ul></div>' +
                 '<div class="hud-tagfield-picks" id="' + id + '-picks"></div>' +
                 '<span class="hud-field-hint" id="' + id + '-h">' + esc(cfg.hint) + "</span>" +
@@ -166,12 +166,12 @@
                 if (cfg.primary) {
                     tone = i === 0 ? "signal" : "data";
                     star = i === 0 ? '<span class="hud-chip-star is-on" aria-hidden="true">★</span><span class="hud-sr">Primary: </span>'
-                                   : '<button class="hud-chip-star" type="button" data-act="primary" aria-label="Make ' + esc(lab) + ' primary" title="Make primary">☆</button>';
+                                   : '<button class="hud-chip-star" type="button" data-testid="genre-' + kind + '-promote" data-act="primary" aria-label="Make ' + esc(lab) + ' primary" title="Make primary">☆</button>';
                 } else tone = custom ? "ghost hud-chip--custom" : "ghost";
                 var title = custom ? (kind === "kindred" ? "Custom: not an official creature type" : "Custom theme") : (cfg.map && cfg.map[v] ? cfg.map[v].desc : "");
-                return '<span class="hud-chip hud-chip--' + tone + ' hud-tagchip" data-value="' + esc(v) + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + star +
+                return '<span class="hud-chip hud-chip--' + tone + ' hud-tagchip" data-testid="genre-' + kind + '-chip" data-value="' + esc(v) + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + star +
                     '<span class="hud-tagchip-text">' + esc(lab) + "</span>" +
-                    '<button class="hud-chip-remove" type="button" data-act="remove" aria-label="Remove ' + esc(lab) + '">×</button></span>';
+                    '<button class="hud-chip-remove" type="button" data-testid="genre-' + kind + '-remove" data-act="remove" aria-label="Remove ' + esc(lab) + '">×</button></span>';
             }
             function quickHtml() {
                 if (full()) return "";
@@ -281,7 +281,7 @@
                     if (r.group) return '<li class="hud-picker-group" role="presentation">' + esc(r.group) + "</li>";
                     if (r.note) return '<li class="hud-picker-note" role="presentation">' + r.note + "</li>";
                     r.idx = n++;
-                    return '<li role="option" id="' + id + "-o" + r.idx + '" aria-selected="false"' + (r.disabled ? ' aria-disabled="true"' : "") + (r.create ? ' class="is-create"' : "") + ' data-i="' + r.idx + '">' + r.html + "</li>";
+                    return '<li role="option" id="' + id + "-o" + r.idx + '" data-testid="genre-' + kind + '-option" aria-selected="false"' + (r.disabled ? ' aria-disabled="true"' : "") + (r.create ? ' class="is-create"' : "") + ' data-i="' + r.idx + '">' + r.html + "</li>";
                 }).join("");
                 list.hidden = false; input.setAttribute("aria-expanded", "true");
                 active = -1;
