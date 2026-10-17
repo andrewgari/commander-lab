@@ -282,6 +282,22 @@ class ClientTests(unittest.TestCase):
         fe.assert_called_once()
         c.chat.assert_called_once()
 
+    def test_tools_disabled_in_payload(self):
+        for structured in (True, False):
+            c = mock_client(reply(deck()))
+            ra.call_agent(PREFS[:1], TIER1, TIER2, TIER3, 1, client=c, structured=structured)
+            kwargs = c.chat.call_args.kwargs
+            self.assertEqual(kwargs["tools"], [])
+            self.assertEqual(kwargs["tool_choice"], "none")
+            self.assertEqual("response_format" in kwargs, structured)
+
+    def test_no_tools_instruction_in_both_prompts(self):
+        msgs = ra.build_messages(PREFS[:1], TIER1, TIER2, TIER3, 1)
+        self.assertIn(ra.NO_TOOLS_INSTRUCTION, msgs[0]["content"])
+        self.assertIn(ra.NO_TOOLS_INSTRUCTION, msgs[1]["content"])
+        rep = ra.build_user_prompt(PREFS[:1], TIER1, TIER2, TIER3, 1, validation_errors=["x"], previous_drafts=[deck()])
+        self.assertIn(ra.NO_TOOLS_INSTRUCTION, rep)
+
     def test_no_network(self):
         # Belt and braces: any real HTTP attempt during a mocked call fails the test.
         with patch("httpx.Client.request", side_effect=AssertionError("network call")):

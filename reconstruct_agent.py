@@ -192,6 +192,12 @@ def _read_guide(path: str) -> str:
     return Path(path).read_text(encoding="utf-8").strip()
 
 
+NO_TOOLS_INSTRUCTION = (
+    "DO NOT use any tools, functions, or multi-turn reasoning. Do not browse, search, or call skills. "
+    "Answer in this single turn with the JSON object only."
+)
+
+
 def load_guide(path: Optional[Path] = None) -> str:
     return _read_guide(str(path or GUIDE_PATH))
 
@@ -205,6 +211,7 @@ def build_system_prompt(guide: Optional[str] = None) -> str:
         TIER_PREFERENCE_INSTRUCTION,
         SHARED_QUANTITY_INSTRUCTION,
         OUTPUT_INSTRUCTION,
+        NO_TOOLS_INSTRUCTION,
     ])
 
 
@@ -340,6 +347,7 @@ def build_user_prompt(preferences: Sequence[Mapping], tier1: Any, tier2: Any, ti
         "## Output JSON schema",
         "```json\n" + json.dumps(drafts_json_schema(), separators=(",", ":")) + "\n```",
         OUTPUT_INSTRUCTION,
+        NO_TOOLS_INSTRUCTION,
     ]
     return "\n\n".join(parts)
 
@@ -437,7 +445,10 @@ def call_agent(preferences: Sequence[Mapping], tier1: Any, tier2: Any, tier3: An
                               previous_drafts=previous_drafts, context=context, guide=guide)
     if client is None:
         client = (client_factory or default_client)()
-    extra = {"response_format": response_format()} if structured else {}
+    # Single turn, zero tool calls: stop Oracle's agent loop (issue #174).
+    extra = {"tools": [], "tool_choice": "none"}
+    if structured:
+        extra["response_format"] = response_format()
     reply = client.chat(messages, **extra)
     decks = parse_reply(reply, num_decks)
     return AgentResult(decks=decks, raw=reply, repair=bool(validation_errors), messages=messages)
