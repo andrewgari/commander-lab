@@ -145,10 +145,10 @@ def _compile_rules() -> dict[str, list[dict]]:
     """Return {tag_name: [compiled_rule]}."""
     rules_raw = [
         # ramp
-        {"tag": "ramp", "id": "RAMP-1", "w": 2, "scope": "nonland", "re": r"\{t\}(, [^:]*)?: add "},
+        {"tag": "ramp", "id": "RAMP-1", "w": 2, "scope": "nonland", "re": r"\{t\}(, [^:]*)?: add ", "not_re": r"\bloses all (other )?(card types and )?abilities"},
         {"tag": "ramp", "id": "RAMP-2", "w": 2, "scope": "nonland", "re": r"search your library for [^.]*\bland cards?\b[^.]*(onto|on) the battlefield"},
         {"tag": "ramp", "id": "RAMP-3", "w": 2, "scope": "nonland", "re": r"you may play (an )?additional lands?"},
-        {"tag": "ramp", "id": "RAMP-4", "w": 2, "scope": "nonland", "re": r"\b(spells?|[a-z]+ spells) you cast costs? \{\d+\} less"},
+        {"tag": "ramp", "id": "RAMP-4", "w": 1, "scope": "nonland", "re": r"\b(spells?|[a-z]+ spells) you cast costs? \{\d+\} less"},
         {"tag": "ramp", "id": "RAMP-5", "w": 2, "scope": "nonland", "re": r"\bcreate[^.]*\btreasure tokens?"},
         {"tag": "ramp", "id": "RAMP-6", "w": 1, "scope": "nonland", "re": r"\bsacrifice (a|an|another|two|three|x) [^:]*: add \{"},
         {"tag": "ramp", "id": "RAMP-7", "w": 1, "scope": "instant_or_sorcery", "re": r"\badd \{"},
@@ -173,6 +173,7 @@ def _compile_rules() -> dict[str, list[dict]]:
         {"tag": "removal", "id": "RM-5", "w": 2, "all_of": [r"\btarget\b", r"(shuffles? it into (its owner's|their) library|on the (top|bottom) of (its owner's|their) library)"]},
         {"tag": "removal", "id": "RM-6", "w": 2, "re": r"\b(target player|target opponent|each opponent) sacrifices (a|an|one|two)\b"},
         {"tag": "removal", "id": "RM-7", "w": 2, "re": r"\bfights? (target|another target|up to one target)|deals damage equal to its power to (target|another target|any target)"},
+        {"tag": "removal", "id": "RM-9", "w": 2, "re": r"\benchanted (creature|permanent|land|artifact)\b[^.]*\bloses all (other )?(card types and )?abilities"},
         {"tag": "removal", "id": "RM-8", "w": 1, "re": r"\breturn (up to one )?target (creature|nonland permanent|permanent|artifact|enchantment)(?! you control)[^.]*to (its|their) owners?'?s?'?"},
         # board_wipe
         {"tag": "board_wipe", "id": "BW-1", "w": 2, "re": r"\b(destroy|exile) (all|each) (other )?(nonland |nontoken |non[a-z]+ )?(creatures?|artifacts?|enchantments?|permanents?|planeswalkers?)\b"},
@@ -203,11 +204,11 @@ def _compile_rules() -> dict[str, list[dict]]:
         {"tag": "lands_matter", "id": "LM-2", "w": 2, "re": r"\byou may play (an )?additional land|\bplay lands from your graveyard|\bland cards? from your graveyard|\bfor each land you control|\bsacrifice a land\b"},
         # tokens
         {"tag": "tokens", "id": "TK-1", "w": 2, "kind": "REP", "re": r"\bcreate [^.]*\bcreature tokens?"},
-        {"tag": "tokens", "id": "TK-2", "w": 2, "re": r"^whenever (a|another|one or more) (nontoken )?([a-z]+ )?creatures? (you control )?enters?|\bfor each creature you control|\b(creature )?tokens you control"},
+        {"tag": "tokens", "id": "TK-2", "w": 2, "re": r"^whenever (a|another|one or more) (nontoken )?([a-z]+ )?creatures? you control enters?\b(?![^.]*\byou gain \d+ life)|\bfor each creature you control|\b(creature )?tokens you control"},
         {"tag": "tokens", "id": "TK-5", "w": 2, "re": r"\bif an effect would create one or more tokens|\btwice that many (of those )?tokens?\b"},
         {"tag": "tokens", "id": "TK-6", "w": 2, "re": r"^when ~ dies, create [^.]*\bcreature tokens?"},
         {"tag": "tokens", "id": "TK-3", "w": 1, "kind": "ONESHOT", "re": r"\bcreate [^.]*\bcreature tokens?"},
-        {"tag": "tokens", "id": "TK-4", "w": 1, "kind": "STATIC", "re": r"\b(other )?([a-z]+ )?creatures you control get \+\d+/\+\d+"},
+        {"tag": "tokens", "id": "TK-4", "w": 1, "kind": "STATIC", "re": r"\b(?<!artifact )(?<!enchantment )(?<!nonartifact )(?<!legendary )(other )?(?!(artifact|enchantment|nonartifact|legendary) )([a-z]+ )?(?<!artifact )(?<!enchantment )creatures you control get \+\d+/\+\d+"},
         # counters
         {"tag": "counters", "id": "CT-1", "w": 2, "any_of": [r"\+1/\+1 counters? would be put", r"\bproliferate", r"\bfor each \+1/\+1 counter", r"\bwith (a|one or more) \+1/\+1 counters? on (it|them)"], "or_rep_re": r"\bput (a|one|two|three|x|that many|[a-z]+) \+1/\+1 counters? on"},
         {"tag": "counters", "id": "CT-2", "w": 1, "kind": "ONESHOT", "re": r"\bput (a|one|two|three|x|[a-z]+) \+1/\+1 counters? on|\benters with [^.]*\+1/\+1 counters?", "or_keywords": ["mentor", "evolve", "outlast", "bolster", "adapt", "modular", "graft", "training", "backup", "riot"]},
@@ -399,6 +400,10 @@ def _match_rule(rule: dict, paragraph: str, card: dict) -> bool:
     if kind == "STATIC" and not _is_static(paragraph, card):
         return False
 
+    not_re = rule.get("not_re")
+    if not_re and re.search(not_re, paragraph, re.IGNORECASE):
+        return False
+
     primary_match = False
     if "all_of" in rule:
         primary_match = all(re.search(p, paragraph, re.IGNORECASE) for p in rule["all_of"])
@@ -450,6 +455,9 @@ def pass1_card_score(card: dict, config: AutoTagConfig | None = None) -> dict[st
         total = min(total, config.score_cap if config else 4)
         if total > 0:
             scores[tag] = {"score": total, "rules_fired": rules_fired}
+    # An Aura that neutralises a permanent is removal, not voltron support.
+    if "RM-9" in scores.get("removal", {}).get("rules_fired", []):
+        scores.pop("voltron", None)
     return scores
 
 
