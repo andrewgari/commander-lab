@@ -20,12 +20,35 @@
 (function (root) {
     "use strict";
 
-    /* ---- Fixed vocabulary -------------------------------------------------
-       The picker offers only these (the engine emits the same set). Free text
-       is deliberately not allowed: a tag nobody else uses can't be filtered on. */
+    /* ---- Tag ids and labels -----------------------------------------------
+       The engine (autotag/engine.py FUNCTION_TAGS / THEME_TAGS) stores snake_case
+       ids; kindred themes are "kindred:<subtype>". Ids are what we store, send and
+       compare. label(id) is display only, so a tag the user adds from the picker is
+       byte-identical to the engine's and dedupes against it.
+       The picker offers only the fixed list (free text would make a tag nobody
+       else uses, which can't be filtered on). kindred:* is engine-only. */
+    var FUNCTION_IDS = ["ramp", "card_advantage", "removal", "board_wipe", "counterspell", "finisher", "tutor", "recursion", "protection", "mana_fixing"];
+    var THEME_IDS = ["lands_matter", "tokens", "counters", "sacrifice", "graveyard", "spellslinger", "artifacts", "enchantments", "lifegain", "voltron", "blink"];
+    var LABELS = {
+        ramp: "Ramp", card_advantage: "Draw", removal: "Removal", board_wipe: "Board wipe", counterspell: "Counterspell",
+        finisher: "Finisher", tutor: "Tutor", recursion: "Recursion", protection: "Protection", mana_fixing: "Fixing",
+        lands_matter: "Lands", tokens: "Tokens", counters: "+1/+1 counters", sacrifice: "Sacrifice", graveyard: "Graveyard",
+        spellslinger: "Spellslinger", artifacts: "Artifacts", enchantments: "Enchantments", lifegain: "Lifegain", voltron: "Voltron", blink: "Blink"
+    };
+    function label(id) {
+        id = String(id == null ? "" : id);
+        if (LABELS[id]) return LABELS[id];
+        if (id.indexOf("kindred:") === 0) {
+            var sub = id.slice(8).replace(/[-_]+/g, " ").replace(/(^|\s)(\S)/g, function (m, a, b) { return a + b.toUpperCase(); });
+            return (sub || "Creature") + " kindred";
+        }
+        var t = id.replace(/_+/g, " ").trim();    // unknown id: readable, never raw snake_case
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : id;
+    }
+    function byLabel(a, b) { var x = label(a).toLowerCase(), y = label(b).toLowerCase(); return x < y ? -1 : x > y ? 1 : a < b ? -1 : a > b ? 1 : 0; }
     var VOCAB = [
-        { group: "Roles", tags: ["Ramp", "Draw", "Removal", "Board Wipe", "Counterspell", "Tutor", "Protection", "Recursion", "Fixing", "Finisher"] },
-        { group: "Themes", tags: ["Tokens", "+1/+1 Counters", "Aristocrats", "Voltron", "Reanimator", "Spellslinger", "Landfall", "Blink", "Lifegain", "Artifacts"] }
+        { group: "Roles", tags: FUNCTION_IDS.slice() },
+        { group: "Themes", tags: THEME_IDS.slice() }
     ];
     var UNTAGGED = "\u0000untagged";
     var MAX_CHIPS = 3;       // per tile / row
@@ -38,7 +61,7 @@
     /* ---- Pure helpers ---------------------------------------------------- */
 
     /* One chip per tag name. A user entry beats an auto entry with the same
-       name; users first, then newest (version), then A-Z. */
+       name; users first, then newest (version), then A-Z by label. */
     function effective(entries) {
         var by = {};
         (entries || []).forEach(function (e) {
@@ -49,16 +72,16 @@
         return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) {
             if ((a.source === "user") !== (b.source === "user")) return a.source === "user" ? -1 : 1;
             if ((b.version || 0) !== (a.version || 0)) return (b.version || 0) - (a.version || 0);
-            return a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0;
+            return byLabel(a.tag, b.tag);
         });
     }
     function tagsOf(map, name) { return effective((map || {})[name]); }
 
-    /* [{tag, n}] cards per tag, most first (ties A-Z). */
+    /* [{tag, n}] cards per tag, most first (ties A-Z by label). */
     function roleCounts(cards, map) {
         var n = {};
         (cards || []).forEach(function (c) { tagsOf(map, c.name).forEach(function (e) { n[e.tag] = (n[e.tag] || 0) + 1; }); });
-        return Object.keys(n).map(function (t) { return { tag: t, n: n[t] }; }).sort(function (a, b) { return b.n - a.n || (a.tag < b.tag ? -1 : 1); });
+        return Object.keys(n).map(function (t) { return { tag: t, n: n[t] }; }).sort(function (a, b) { return b.n - a.n || byLabel(a.tag, b.tag); });
     }
     function untaggedCount(cards, map) { return (cards || []).filter(function (c) { return !tagsOf(map, c.name).length; }).length; }
 
@@ -79,8 +102,8 @@
             if (!t.length) { rest.push(c); return; }
             t.forEach(function (e) { (groups[e.tag] = groups[e.tag] || []).push(c); });
         });
-        var out = Object.keys(groups).map(function (t) { return { label: t, tag: t, cards: groups[t] }; })
-            .sort(function (a, b) { return b.cards.length - a.cards.length || (a.label < b.label ? -1 : 1); });
+        var out = Object.keys(groups).map(function (t) { return { label: label(t), tag: t, cards: groups[t] }; })
+            .sort(function (a, b) { return b.cards.length - a.cards.length || byLabel(a.tag, b.tag); });
         if (rest.length) out.push({ label: "Untagged", tag: UNTAGGED, cards: rest });
         return out;
     }
@@ -99,17 +122,17 @@
     function chipHtml(e, o) {
         o = o || {};
         var user = e.source === "user", cls = "hud-chip at-chip " + (user ? "hud-chip--signal at-chip--user" : "at-chip--auto") + (o.fresh ? " is-new" : "");
-        var who = user ? "yours" : "auto";
+        var who = user ? "yours" : "auto", L = label(e.tag);
         var glyph = '<span class="at-glyph" aria-hidden="true">' + GLYPH[e.source === "user" ? "user" : "auto"] + "</span>";
         var style = o.i != null ? ' style="--i:' + o.i + '"' : "";
         if (!o.edit) {
-            return '<span class="' + cls + '" title="' + esc(e.tag) + " \u00B7 " + who + '"' + style + ">" + glyph +
-                '<span class="at-chip-text">' + esc(e.tag) + '</span><span class="hud-sr"> (' + who + ")</span></span>";
+            return '<span class="' + cls + '" title="' + esc(L) + " \u00B7 " + who + '"' + style + ">" + glyph +
+                '<span class="at-chip-text">' + esc(L) + '</span><span class="hud-sr"> (' + who + ")</span></span>";
         }
         // Editable: ◇ keeps an auto tag as yours; ✕ removes it.
         var lead = user ? glyph : '<button type="button" class="at-pin" data-at-pin="' + esc(e.tag) + '" title="Auto tag. Keep as yours so Auto Tag never replaces it." aria-label="Keep ' + esc(e.tag) + ' as your tag (currently auto)">' + GLYPH.auto + "</button>";
-        return '<span class="' + cls + '" title="' + esc(e.tag) + " \u00B7 " + who + '"' + style + ">" + lead +
-            '<span class="at-chip-text">' + esc(e.tag) + (user ? '<span class="hud-sr"> (yours)</span>' : "") + "</span>" +
+        return '<span class="' + cls + '" title="' + esc(L) + " \u00B7 " + who + '"' + style + ">" + lead +
+            '<span class="at-chip-text">' + esc(L) + (user ? '<span class="hud-sr"> (yours)</span>' : "") + "</span>" +
             '<button type="button" class="hud-chip-remove" data-at-remove="' + esc(e.tag) + '" aria-label="Remove ' + esc(e.tag) + " (" + who + ')">\u2715</button></span>';
     }
 
@@ -119,7 +142,7 @@
         if (!entries.length) return "";
         var shown = entries.slice(0, max), more = entries.slice(max);
         var html = shown.map(function (e, i) { return chipHtml(e, { fresh: fresh, i: i }); }).join("");
-        if (more.length) html += '<span class="hud-chip hud-chip--neutral at-chip at-chip--more" title="' + esc(more.map(function (e) { return e.tag; }).join(", ")) + '">+' + more.length + '<span class="hud-sr"> more: ' + esc(more.map(function (e) { return e.tag; }).join(", ")) + "</span></span>";
+        if (more.length) html += '<span class="hud-chip hud-chip--neutral at-chip at-chip--more" title="' + esc(more.map(function (e) { return label(e.tag); }).join(", ")) + '">+' + more.length + '<span class="hud-sr"> more: ' + esc(more.map(function (e) { return label(e.tag); }).join(", ")) + "</span></span>";
         return '<span class="at-chips">' + html + "</span>";
     }
 
@@ -129,7 +152,7 @@
             var opts = g.tags.filter(function (t) { return !taken[t]; });
             if (!opts.length) return "";
             return '<div class="at-pick-group" role="group" aria-label="' + esc(g.group) + '"><span class="hud-label">' + esc(g.group) + "</span>" +
-                opts.map(function (t) { return '<button type="button" class="hud-tagopt" data-at-add="' + esc(t) + '">' + esc(t) + "</button>"; }).join("") + "</div>";
+                opts.map(function (t) { return '<button type="button" class="hud-tagopt" data-at-add="' + esc(t) + '">' + esc(label(t)) + "</button>"; }).join("") + "</div>";
         }).join("");
         return out || '<span class="hud-muted">Every tag in the list is already on.</span>';
     }
@@ -335,7 +358,7 @@
                 '<div class="at-row at-picks-row" id="atDeckPicks"' + (S.pickerOpen ? "" : " hidden") + '><span class="hud-label">Add</span><div class="at-picks">' + picksHtml(deckTags) + "</div></div>" +
                 (S.err && S.err.where === "deck" ? '<p class="at-err" role="alert">' + esc(S.err.msg) + "</p>" : "") +
                 (counts.length ? '<div class="at-row"><span class="hud-label" id="atCntL">Cards</span><div class="at-counts" role="group" aria-labelledby="atCntL">' +
-                    shown.map(function (c) { return '<button type="button" class="at-count" data-at-jump="' + esc(c.tag) + '" title="Show the ' + esc(c.tag) + ' cards">' + esc(c.tag) + " <b>" + c.n + "</b></button>"; }).join('<span class="at-dot" aria-hidden="true">\u00B7</span>') +
+                    shown.map(function (c) { return '<button type="button" class="at-count" data-at-jump="' + esc(c.tag) + '" title="Show the ' + esc(label(c.tag)) + ' cards">' + esc(label(c.tag)) + " <b>" + c.n + "</b></button>"; }).join('<span class="at-dot" aria-hidden="true">\u00B7</span>') +
                     (rest > 0 ? '<span class="at-dot" aria-hidden="true">\u00B7</span><span class="hud-muted">+' + rest + " more</span>" : "") + "</div></div>" : "") +
                 '<div class="at-status' + (S.run.state === "ok" ? " is-ok" : "") + '" role="status" aria-live="polite">' + statusHtml() + "</div>" + (sum.any ? legendHtml("at-legend--body") : "") + "</div></section>";
             if (focusKey) { var f = strip.querySelector(focusKey === "run" ? "[data-at-run]" : "[data-at-toggle]"); if (f && !f.disabled) f.focus({ preventScroll: true }); }
@@ -360,8 +383,8 @@
                 '<div class="hud-filterbar at-filterbar" role="group" aria-label="Filter and group the decklist by tag">' +
                 (inList ? "" : '<div class="hud-seg" role="radiogroup" aria-label="Group decklist by"><input type="radio" name="atGroup" id="atGroupType" value="type"' + (S.groupBy === "type" ? " checked" : "") + '><label for="atGroupType">By type</label>' +
                     '<input type="radio" name="atGroup" id="atGroupTag" value="tag"' + (S.groupBy === "tag" ? " checked" : "") + '><label for="atGroupTag">By tag</label></div>') +
-                '<div class="at-fchips">' + inline.map(function (c) { return fb(c.tag, c.tag, c.n); }).join("") +
-                (rest.length ? '<span class="at-rest"' + (S.moreOpen ? "" : " hidden") + ">" + rest.map(function (c) { return fb(c.tag, c.tag, c.n); }).join("") + "</span>" +
+                '<div class="at-fchips">' + inline.map(function (c) { return fb(c.tag, label(c.tag), c.n); }).join("") +
+                (rest.length ? '<span class="at-rest"' + (S.moreOpen ? "" : " hidden") + ">" + rest.map(function (c) { return fb(c.tag, label(c.tag), c.n); }).join("") + "</span>" +
                     '<button type="button" class="at-fchip at-fchip--more" data-at-more aria-expanded="' + S.moreOpen + '">' + (S.moreOpen ? "Fewer" : "+" + rest.length + " more") + "</button>" : "") +
                 (none ? fb(UNTAGGED, "Untagged", none, " at-fchip--none") : "") + "</div>" +
                 (S.filter ? '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-at-clear>Clear filter</button>' : "") +
@@ -470,7 +493,7 @@
         };
     }
 
-    var api = { VOCAB: VOCAB, UNTAGGED: UNTAGGED, MAX_CHIPS: MAX_CHIPS, mount: mount, effective: effective, roleCounts: roleCounts, untaggedCount: untaggedCount,
+    var api = { VOCAB: VOCAB, label: label, FUNCTION_IDS: FUNCTION_IDS, THEME_IDS: THEME_IDS, UNTAGGED: UNTAGGED, MAX_CHIPS: MAX_CHIPS, mount: mount, effective: effective, roleCounts: roleCounts, untaggedCount: untaggedCount,
         filterCards: filterCards, tagGroups: tagGroups, summarize: summarize, chipsHtml: chipsHtml, chipHtml: chipHtml, picksHtml: picksHtml, esc: esc };
     if (typeof module !== "undefined" && module.exports) module.exports = api;
     root.AutoTag = api;
