@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C · Rule 0 · Brackets · Commander Lab mockup (BR-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="brackets.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="main-content" id="main"></main>
+<script src="../../../static/js/hud.js"></script>
+<script src="deck.js"></script>
+<script src="brackets.js"></script>
+<script>
+/* C · Rule 0 (radical). The bracket is a conversation you have with the pod
+   before the game ("Rule 0"), so the deck page leads with it:
+   - a 5-tile bracket TRACK: hard floor tinted, ▼ estimate above, ▲ target below.
+     Click a tile (or ←/→) to set the target right there; it saves to the Journal.
+   - a power RAIL with the ±1.5 tolerance band around the target.
+   - conflict TILES instead of a list, one per rule.
+   - the LENS: press b and the decklist dims everything that isn't involved.
+   - the PITCH: a copyable one-paragraph Rule 0 summary for the group chat. */
+(function () {
+    var esc = BR.esc, H = window.HUD;
+    var FLOOR = 3;
+
+    function flagFor(s) {
+        var off = BR.offenders(s);
+        return function (name) {
+            var o = off[name]; if (!o) return null;
+            var pet = o.reasons.some(function (r) { return r.rule === "pet_card"; });
+            return { sev: o.sev, chip: "Game Changer" + (pet ? " · pet" : ""), label: "Over Bracket " + s.target + (pet ? " · your call" : "") };
+        };
+    }
+
+    function track(s, name) {
+        var tiles = BR.BRACKETS.map(function (b) {
+            var cls = "br-tile" + (b.n < FLOOR ? " is-floor" : "") + (s.target === b.n ? " is-target" : "") + (s.est === b.n ? " is-est" : "");
+            return '<label><input type="radio" name="' + name + '" value="' + b.n + '"' + (s.target === b.n ? " checked" : "") + ' aria-label="Bracket ' + b.n + ", " + b.name +
+                (b.n < FLOOR ? ", below this list's minimum" : "") + (s.est === b.n ? ", estimate" : "") + '">' +
+                '<span class="' + cls + '" style="--br-step: var(--br-step-' + b.n + ')"><b>' + b.n + "</b><span>" + b.name + "</span></span></label>";
+        }).join("");
+        var est = s.est ? '<span class="br-mark br-mark--est" style="--at:' + (s.est - 1) + '"><span>Plays like</span></span>' : "";
+        var tgt = s.target ? '<span class="br-mark br-mark--tgt" style="--at:' + (s.target - 1) + '"><span>Target</span></span>' : "";
+        return '<div class="br-track-wrap"><div class="br-track" role="radiogroup" aria-label="Target bracket">' + tiles + est + tgt + "</div>" +
+            '<div class="br-track-legend"><span><i class="lg-floor"></i>Below minimum (hard rule broken)</span><span><i class="lg-est"></i>Estimate</span><span><i class="lg-tgt"></i>Target</span><span><i class="lg-band"></i>Power ±1.5 of target</span><span>←/→ to set</span><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-unset>Clear target</button></div></div>';
+    }
+    function rail(s) {
+        var band = s.tpw != null ? '<span class="br-power-band" style="left:' + ((Math.max(1, s.tpw - 1.5) - 1) / 9 * 100) + "%;width:" + ((Math.min(10, s.tpw + 1.5) - Math.max(1, s.tpw - 1.5)) / 9 * 100) + '%"></span>' : "";
+        var pin = function (v, cls) { return '<span class="br-power-pin ' + cls + '" style="left:' + ((v - 1) / 9 * 100) + '%"></span>'; };
+        var ticks = ""; for (var i = 1; i <= 10; i++) ticks += '<span style="left:' + ((i - 1) / 9 * 100) + '%">' + i + "</span>";
+        var d = BR.pwDelta(s);
+        return '<div class="br-vs"><div class="br-vs-row"><span class="hud-label">Power</span><span class="br-vs-tgt">estimate <b>' + s.pw + "</b> · target <b>" + s.tpw + "</b></span>" + BR.deltaHtml(d) + "</div>" +
+            '<div class="br-power" role="img" aria-label="Estimated power ' + s.pw + " of 10, target " + s.tpw + ", tolerance plus or minus 1.5" + '">' + band + pin(s.tpw, "br-power-pin--tgt") + pin(s.pw, "br-power-pin--est") + "</div>" +
+            '<div class="br-power-ticks" aria-hidden="true">' + ticks + "</div></div>";
+    }
+    function pitch(s) {
+        var b = BR.br(s.est);
+        return "Holy Hellfire (Kaalia of the Vast) plays like Bracket " + s.est + " · " + b.name + ", power about " + s.pw + ". " +
+            "3 Game Changers: Demonic Tutor, Necropotence, Teferi's Protection. No two-card combos, no extra turns, no land denial. " +
+            "Wins through combat, usually around turn 8.";
+    }
+    function conflictTiles(s) {
+        var c = BR.real(s.conflicts);
+        if (!c.length) return "";
+        return '<div class="br-tiles">' + c.map(function (x, i) {
+            return '<article class="br-tile-c hud-enter' + (x.severity === "hard" ? "" : " is-adv") + '" style="--i:' + i + '">' + BR.sevChip(x.severity) +
+                "<h3>" + esc(x.title) + "</h3><p>" + esc(x.message) + "</p>" + (x.cards.length ? '<div class="hud-chips">' + BR.cardLinks(x.cards) + "</div>" : "") + "</article>";
+        }).join("") + "</div>";
+    }
+
+    function board(s) {
+        if (s.pending) {
+            return '<section class="br-c-board" aria-labelledby="brH"><div><span class="hud-label">Rule 0 · target 2 · Core</span><h2 id="brH" class="br-c-big"><span class="br-c-name">Not evaluated yet</span></h2>' +
+                '<p class="hud-field-hint">The check runs in the background after a sync or a journal edit.</p>' + track({ target: 2 }, "trk") + '</div>' +
+                '<aside class="br-pitch"><span class="hud-label">Pitch</span><p class="hud-muted">Appears once the deck has been evaluated.</p><button class="hud-btn hud-btn--sm" type="button">Evaluate now</button></aside></section>';
+        }
+        var c = BR.counts(s), b = BR.br(s.est);
+        var verdict = !s.target ? '<span class="br-sev br-sev--ok" style="background:none;border-color:var(--line);color:var(--text-2)">No target</span>'
+            : !c.all ? '<span class="br-sev br-sev--ok">● No conflicts with Bracket ' + s.target + "</span>"
+            : '<span class="br-sev ' + (c.hard ? "br-sev--hard" : "br-sev--adv") + '">' + c.all + " conflict" + (c.all > 1 ? "s" : "") + " with Bracket " + s.target + (c.hard ? " · " + c.hard + " hard" : "") + "</span>";
+        var running = s.running ? ' <span class="hud-chip hud-chip--data"><span class="hud-chip-dot" aria-hidden="true"></span>Re-evaluating…</span>' : "";
+        return '<section class="br-c-board" aria-labelledby="brH"' + (s.running ? ' aria-busy="true"' : "") + '><div>' +
+            '<span class="hud-label">Rule 0 · plays like' + running + "</span>" +
+            '<h2 id="brH" class="br-c-big"><strong>' + s.est + '</strong><span class="br-c-name">' + b.name + "</span>" + verdict + "</h2>" +
+            track(s, "trk") + rail(s) + conflictTiles(s) + "</div>" +
+            '<aside class="br-pitch"><span class="hud-label">The pitch · for your pod</span><blockquote id="pitch">' + esc(pitch(s)) + "</blockquote>" +
+            '<div class="hud-chips"><button class="hud-btn hud-btn--sm" type="button" id="copyPitch">Copy</button><span class="hud-freshness" id="copied" aria-live="polite"></span></div></aside></section>' +
+            BR.explanation(s, false);
+    }
+
+    function deckPage(s, lens) {
+        var flag = flagFor(s), n = Object.keys(BR.offenders(s)).length;
+        var meta = s.pending ? "" : BR.bracketChip(s.est, "neutral", "Plays like");
+        var lensBar = n ? '<div class="br-lens-bar"><button type="button" class="hud-btn hud-btn--sm" id="lensBtn" aria-pressed="' + lens + '">' + (lens ? "Lens on" : "Lens") + " · " + n + ' cards involved</button><span class="hud-kbd">b</span><span class="hud-freshness">' +
+            (lens ? "Everything else is dimmed. Esc to leave." : "Dim every card that isn't part of a conflict.") + "</span></div>" : "";
+        return BR.deckhead("overview", meta, '<a class="hud-btn" href="#">Manage</a><a class="hud-btn" href="#">Review</a><a class="hud-btn hud-btn--primary" href="#">Sync to External</a>') +
+            board(s) +
+            '<div class="deck-list-head"><div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count">100 cards</span></div><nav class="hud-tabs" aria-label="Decklist view"><button type="button" class="hud-tab active" aria-current="page">Visual</button><button type="button" class="hud-tab">List</button></nav></div>' +
+            lensBar + '<div class="' + (lens ? "br-lens" : "") + '" id="dl">' + BR.decklist(flag) + "</div>";
+    }
+
+    function journal(s) {
+        var ctl = '<div class="hud-field"><span class="hud-field-label" id="bkL">Bracket · <span class="jr-power-now">' + (s.target ? s.target + " · " + BR.br(s.target).name : "unset") + "</span></span>" +
+            track(s, "bracket") + '<div class="br-a-def" id="bkDef" aria-live="polite">' + (s.target ? "<b>" + BR.br(s.target).name + "</b><span>" + esc(BR.br(s.target).line) + "</span><small>" + esc(BR.br(s.target).rules) + "</small>" : "<b>Unset</b><span>No bracket checks.</span>") + "</div></div>";
+        return BR.journalPage(s, ctl, "Power & bracket", "Same track as the deck page. Tinted tiles are below what this list can be today.");
+    }
+
+    var lens = false;
+    function render(s, v) {
+        if (v === "journal") return BR.deckhead("journal", "", '<a class="hud-btn hud-btn--primary" href="#">Review</a>') + journal(s);
+        return deckPage(s, lens);
+    }
+    render.after = function (root, s, v) {
+        // Track: changing the target moves the ▲ marker (transform only) and retargets the mock scenario.
+        root.querySelectorAll('.br-track input').forEach(function (i) {
+            i.addEventListener("change", function () {
+                var n = Number(i.value), key = n === 1 ? "b1" : n === 2 ? "b2" : n === 3 ? "b3" : n === 4 ? "b4" : "b4";
+                var m = root.querySelector(".br-mark--tgt"); if (m) m.style.setProperty("--at", n - 1);
+                root.querySelectorAll(".br-tile").forEach(function (t, idx) { t.classList.toggle("is-target", idx === n - 1); });
+                setTimeout(function () { BR.setHash(key, v); }, 340);
+            });
+        });
+        var u = root.querySelector("[data-unset]"); if (u) u.addEventListener("click", function () { BR.setHash("unset", v); });
+        var cp = root.querySelector("#copyPitch");
+        if (cp) cp.addEventListener("click", function () {
+            var t = root.querySelector("#pitch").textContent;
+            (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { root.querySelector("#copied").textContent = "Copied"; }, function () { root.querySelector("#copied").textContent = "Select and copy"; });
+        });
+        function setLens(on) { lens = on; window.dispatchEvent(new HashChangeEvent("hashchange")); var b = document.getElementById("lensBtn"); if (b) b.focus({ preventScroll: true }); }
+        var lb = root.querySelector("#lensBtn"); if (lb) lb.addEventListener("click", function () { setLens(!lens); });
+        document.onkeydown = function (e) {
+            var t = e.target.tagName; if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (e.key === "b" && root.querySelector("#lensBtn")) setLens(!lens);
+            if (e.key === "Escape" && lens) setLens(false);
+        };
+    };
+    BR.boot("C · Rule 0", render);
+})();
+</script>
+</body>
+</html>

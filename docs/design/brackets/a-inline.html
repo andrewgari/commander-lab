@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A · Inline · Brackets · Commander Lab mockup (BR-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="brackets.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="main-content" id="main"></main>
+<script src="../../../static/js/hud.js"></script>
+<script src="deck.js"></script>
+<script src="brackets.js"></script>
+<script>
+/* A · Inline (conservative). Only existing kit shapes: a segmented control next
+   to power, a chip in the deck header, one banner above the hero, chips on cards. */
+(function () {
+    var esc = BR.esc;
+
+    function flagFor(s) {
+        var off = BR.offenders(s);
+        return function (name) {
+            var o = off[name]; if (!o) return null;
+            var pet = o.reasons.some(function (r) { return r.rule === "pet_card"; });
+            return { sev: o.sev, chip: "Game Changer" + (pet ? " · pet" : ""), label: "Over Bracket " + s.target + (pet ? " · your call" : "") };
+        };
+    }
+
+    // ---------- Journal: bracket seg beside the power seg ----------
+    function defHtml(b, s) {
+        if (!b) return "<b>Unset</b><span>No target, so no bracket checks. The deck page still shows the estimate.</span>";
+        return "<b>" + b.name + "</b><span>" + esc(b.line) + "</span><small>" + esc(b.rules) + "</small>";
+    }
+    function bracketField(s) {
+        var opts = '<input type="radio" name="bracket" value="" id="bk-0"' + (!s.target ? " checked" : "") + '><label for="bk-0" title="Unset: no bracket checks">Off</label>';
+        BR.BRACKETS.forEach(function (b) {
+            var est = s.est === b.n;
+            opts += '<input type="radio" name="bracket" value="' + b.n + '" id="bk-' + b.n + '"' + (s.target === b.n ? " checked" : "") + '><label for="bk-' + b.n + '" title="' + b.name + (est ? " (estimate)" : "") + '"' + (est ? ' class="is-est"' : "") + ">" + b.n + "</label>";
+        });
+        var b = s.target ? BR.br(s.target) : null;
+        var warn = s.target && s.est && s.est > s.target
+            ? '<span class="br-a-warn" role="note">This list is <b>Bracket ' + s.est + " today</b>: its Game Changers aren't allowed in " + BR.br(s.target).name + ". Saving will flag it on the deck page.</span>" : "";
+        return '<div class="hud-field br-a-field"><span class="hud-field-label" id="bkL">Bracket · <span class="jr-power-now">' + (b ? b.n + " · " + b.name : "unset") + "</span></span>" +
+            '<span class="hud-seg hud-seg--scale br-a-seg" role="radiogroup" aria-labelledby="bkL" aria-describedby="bkDef">' + opts + "</span>" +
+            '<span class="hud-field-hint">Current estimate: Bracket ' + (s.est || "…") + ' (computed). <span class="br-a-estkey" aria-hidden="true"></span> marks it on the scale.</span>' +
+            '<div class="br-a-def" id="bkDef" aria-live="polite">' + defHtml(b, s) + "</div>" + warn + "</div>";
+    }
+
+    // ---------- Deck page: banner ----------
+    function estBlock(label, est, tgt, unit, delta) {
+        return '<div class="br-vs"><span class="hud-label">' + label + '</span><div class="br-vs-row"><span class="br-vs-big">' + est + (unit ? "<small>" + unit + "</small>" : "") + "</span>" +
+            '<span class="br-vs-tgt">target <b>' + (tgt == null ? "—" : tgt) + "</b></span>" + (delta || "") + "</div></div>";
+    }
+    function banner(s) {
+        if (s.pending) {
+            return '<section class="br-banner is-quiet" aria-labelledby="brH"><div><span class="hud-label">Bracket · target 2 · Core</span><h2 id="brH">Not evaluated yet</h2>' +
+                '<p class="hud-field-hint">The bracket check runs in the background after a sync or a journal change. Nothing to show until it has run once.</p></div>' +
+                '<div class="br-banner-actions"><button class="hud-btn hud-btn--sm" type="button">Evaluate now</button></div></section>';
+        }
+        var c = BR.counts(s);
+        var est = '<div class="br-banner-est">' + estBlock("Estimated bracket", s.est, s.target, BR.br(s.est).name, BR.deltaHtml(BR.brDelta(s))) +
+            estBlock("Estimated power", s.pw, s.tpw, "/10", BR.deltaHtml(BR.pwDelta(s))) + "</div>";
+        var cls, title, label;
+        if (!s.target) {
+            cls = "is-quiet"; label = "Bracket · no target";
+            title = "This deck plays like <em>Bracket " + s.est + "</em>";
+        } else if (!c.all) {
+            cls = "is-ok"; label = "Bracket · target " + s.target + " · " + BR.br(s.target).name;
+            title = "<em>●</em> No conflicts with Bracket " + s.target;
+        } else {
+            cls = c.hard ? "" : "is-adv"; label = "Bracket · target " + s.target + " · " + BR.br(s.target).name;
+            title = "<em>" + c.all + " conflict" + (c.all > 1 ? "s" : "") + "</em> with Bracket " + s.target;
+        }
+        var tally = c.all ? '<p class="br-banner-tally">' + (c.hard ? '<span class="br-t-hard">■ ' + c.hard + " hard rule" + (c.hard > 1 ? "s" : "") + " broken</span>" : "") +
+            (c.adv ? '<span class="br-t-adv">▲ ' + c.adv + " advisor" + (c.adv > 1 ? "ies" : "y") + "</span>" : "") + "</p>" : "";
+        var list = BR.real(s.conflicts).map(function (x) {
+            var acts = x.severity === "hard" && x.rule === "game_changers"
+                ? '<span class="br-row-acts"><button type="button" class="hud-btn hud-btn--sm" data-lens>Show in list</button><a class="hud-btn hud-btn--sm hud-btn--ghost" href="#s=b3&v=journal">Raise target to 3</a></span>' : "";
+            return "<li>" + BR.sevChip(x.severity) + "<div><p><b>" + esc(x.title) + ".</b> " + esc(x.message) + "</p>" +
+                (x.cards.length ? '<div class="br-row-cards">' + BR.cardLinks(x.cards) + acts + "</div>" : "") + "</div></li>";
+        }).join("");
+        var sub = !s.target ? '<p class="hud-field-hint">No target set, so nothing is checked. <a href="#s=' + BR.current().key + '&v=journal">Set a target bracket</a> in the Journal.</p>'
+            : !c.all ? '<p class="hud-field-hint">Minimum bracket 3 from 3 Game Changers; that\'s the cap (3 of 3), so one more pushes it to 4. Power is within 1.5 of your target.</p>' : tally;
+        var running = s.running ? ' <span class="hud-chip hud-chip--data"><span class="hud-chip-dot" aria-hidden="true"></span>Re-evaluating…</span>' : "";
+        return '<section class="br-banner ' + cls + '" aria-labelledby="brH"' + (s.running ? ' aria-busy="true"' : "") + '><div><span class="hud-label">' + label + running + '</span><h2 id="brH">' + title + "</h2>" + sub + "</div>" + est +
+            (list ? '<ul class="br-banner-list">' + list + "</ul>" : "") + BR.explanation(s, false) + "</section>";
+    }
+    function metaChip(s) {
+        if (s.pending) return H.chip("Bracket 2 · not checked", "neutral");
+        if (!s.target) return BR.bracketChip(s.est, "neutral", "Est.");
+        var c = BR.counts(s);
+        // Target stays neutral; the severity rides as a count so the chip isn't "an error" by itself.
+        return BR.bracketChip(s.target, "neutral") + (c.all ? ' <button type="button" data-jump="brH" class="hud-chip br-chipbtn hud-chip--' + (c.hard ? "danger" : "signal") + '">' + (c.hard ? "■ " : "▲ ") + c.all + " conflicts</button>"
+            : ' <span class="hud-chip hud-chip--ghost br-chip-ok">● No conflicts</span>');
+    }
+    var H = window.HUD;
+
+    function deckPage(s) {
+        var flag = flagFor(s);
+        return BR.deckhead("overview", metaChip(s), '<a class="hud-btn" href="#">Manage</a><a class="hud-btn" href="#">Review</a><a class="hud-btn hud-btn--primary" href="#">Sync to External</a>') +
+            banner(s) +
+            '<div class="deck-hero"><aside class="deck-hero-side"><div class="hud-panel"><div class="hud-panel-body hud-muted">Commander art · External · Lifecycle (unchanged)</div></div></aside>' +
+            '<div class="deck-hero-main"><div class="hud-stat-strip">' + H.stat("Cards", "100", { foot: "65 spells" }) + H.stat("Avg CMC", "4.69", { foot: "non-land" }) + H.stat("Lands", "35", { foot: "35% of deck" }) + H.stat("Value", "—", { foot: "no price data" }) + "</div>" +
+            '<div class="hud-panel"><div class="hud-panel-body hud-muted">Mana curve · Card types · Colour identity · Profile (unchanged)</div></div></div></div>' +
+            '<div class="deck-list-head"><div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count">100 cards</span></div><nav class="hud-tabs" aria-label="Decklist view"><button type="button" class="hud-tab active" aria-current="page">Visual</button><button type="button" class="hud-tab">List</button></nav></div>' +
+            BR.decklist(flag);
+    }
+
+    function render(s, v) {
+        if (v === "journal") {
+            return BR.deckhead("journal", "", '<a class="hud-btn hud-btn--primary" href="#">Review</a>') +
+                BR.journalPage(s, bracketField(s), "Power & bracket", "Power is the 1–10 feel. Bracket is WotC's 1–5 rulebook: a promise to the pod. Set both; neither is derived from the other.");
+        }
+        return deckPage(s);
+    }
+    // Live preview of the definition as you move through the seg (mock only; no save).
+    render.after = function (root, s, v) {
+        if (v !== "journal") return;
+        root.querySelectorAll('input[name="bracket"]').forEach(function (i) {
+            i.addEventListener("change", function () {
+                var n = Number(i.value) || null, b = n && BR.br(n);
+                root.querySelector("#bkDef").innerHTML = defHtml(b, s);
+                root.querySelector("#bkL .jr-power-now").textContent = b ? b.n + " · " + b.name : "unset";
+                var w = root.querySelector(".br-a-warn");
+                if (w) w.hidden = !(n && s.est > n);
+            });
+        });
+    };
+    BR.boot("A · Inline", render);
+})();
+</script>
+</body>
+</html>
