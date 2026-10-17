@@ -71,7 +71,6 @@
     <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
     <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
     <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
-    <button type="button" class="hud-btn hud-btn--primary" onclick="syncDeck()">Sync to External</button>
 {% endcall %}
 
 {#- Bracket banner (BR-6): the stored BR-5 evaluation, rendered by brackets.js. -#}
@@ -80,7 +79,8 @@
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
-        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>{% endcall %}
+        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
+            <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
         {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
     </aside>
 
@@ -165,6 +165,18 @@
 <div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
 
 <!-- Card Details Modal -->
+<div id="syncConfirmModal" class="hud-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog sync-confirm" role="alertdialog" aria-modal="true" aria-labelledby="syncConfirmTitle">
+        <div class="hud-panel-body">
+            <div data-sync-confirm-body></div>
+            <div class="sync-confirm-actions">
+                <button type="button" class="hud-btn hud-btn--sm" data-hud-close>Cancel</button>
+                <button type="button" class="hud-btn hud-btn--sm" data-sync-confirm-go>Confirm</button>
+            </div>
+        </div>
+    </section>
+</div>
+
 {#- Decommission confirmation: POST /api/decks/{id}/decommission (physical decks only). -#}
 <div id="decommissionModal" class="hud-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="decommissionTitle">
@@ -581,7 +593,7 @@
                 if (deck.moxfield_id) {
                     html += extLink('Moxfield', `https://moxfield.com/decks/${deck.moxfield_id}`);
                 } else {
-                    html += `<button type="button" class="hud-btn hud-btn--sm" disabled title="Sync to generate Moxfield link">Moxfield <span class="hud-muted">unsynced</span></button>`;
+                    html += `<button type="button" class="hud-btn hud-btn--sm" disabled title="Link a Moxfield deck, then Push from this page">Moxfield <span class="hud-muted">not linked</span></button>`;
                 }
             }
         });
@@ -745,9 +757,21 @@
         HUD.closeModal('cardModal');
     }
 
-    function syncDeck() {
-        console.log("Sync deck to external triggered");
+    // Update / Push (static/js/sync_controls.js). Nothing syncs on load: only the
+    // read-only status GET runs here; writes need a click + confirmation.
+    function initSyncControls() {
+        const root = document.getElementById('syncControls');
+        const id = root && root.dataset.registryId;
+        if (!root) return;
+        if (!id) { root.innerHTML = '<div class="hud-muted">No external deck linked.</div>'; return; }
+        const sc = SyncControls.mount({
+            root, modal: document.getElementById('syncConfirmModal'), deckName: deckNameStr, registryId: id,
+            openModal: m => HUD.openModal(m), closeModal: m => HUD.closeModal(m),
+            onChanged: () => loadDeckData()
+        });
+        sc.refresh();
     }
+    window.addEventListener('DOMContentLoaded', initSyncControls);
 
     // Review = the Journal check-in, then Tune (UX_SPEC D4).
     function reviewDeck() {
@@ -974,4 +998,5 @@
     document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
 <script src="/static/js/personality.js?v={{ version }}" defer></script>
+<script src="/static/js/sync_controls.js?v={{ version }}" defer></script>
 {% endblock %}
