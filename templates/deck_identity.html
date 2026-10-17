@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Identity · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (UX_SPEC §3.2). Components are hud.css section 7. */
+    .id-top { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--sp-6); align-items: start; }
+    .id-fit { padding: var(--sp-5); margin-top: var(--sp-6); }
+    .id-fit .hud-stat-value { font-size: var(--fs-hero); color: var(--signal); }
+    .id-fit .hud-meter { margin-top: var(--sp-3); }
+    .id-fit .hud-field-hint { margin: var(--sp-3) 0 0; }
+    .id-proposal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4); align-items: center; margin: var(--sp-6) 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--data); }
+    .id-proposal p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); }
+    .id-proposal b { color: var(--text-1); }
+    .id-pillars-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin: var(--sp-8) 0 var(--sp-3); }
+    .id-pillars-head .hud-section-head { margin: 0; flex: 1; }
+    .id-pillars-head > .hud-freshness { white-space: normal; line-height: 1.8; }
+    .id-tray { margin-top: var(--sp-4); }
+    .id-tray-meta { margin-left: auto; }
+    .id-thesis-fresh, .hud-thesis-meta .hud-freshness { white-space: normal; }
+    .hud-pillar-top { flex-wrap: wrap; }
+    .id-add-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: auto; }
+    .id-error { color: var(--danger); font-size: var(--fs-xs); }
+    .id-draft { margin-top: var(--sp-4); padding: var(--sp-4); border: var(--stroke); background: var(--surface-0); color: var(--text-2); font-size: var(--fs-sm); max-width: 48rem; }
+    .id-draft .hud-label { display: block; margin-bottom: var(--sp-1); }
+    .id-kbd-on-primary { border-color: var(--text-on-signal); color: var(--text-on-signal); }
+    /* `hidden` must win over the kit's display:grid. */
+    .id-proposal[hidden] { display: none; }
+    @media (max-width: 900px) { .id-top { grid-template-columns: minmax(0, 1fr); } .id-fit { margin-top: 0; } }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Identity") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/stats">See fit on Stats</a>
+{% endcall %}
+
+<div class="id-top">
+    <section class="hud-thesis" aria-labelledby="thesisLabel">
+        <div class="hud-thesis-bar" aria-hidden="true" id="thesisBar"></div>
+        <div id="thesis">{{ hud.empty("Loading…") }}</div>
+    </section>
+    <aside class="hud-panel id-fit" aria-label="Deck fit" id="fitCard">
+        <span class="hud-label">On-plan</span>
+        <div class="hud-stat-value" id="onPlan">—</div>
+        <div id="fitMeter"></div>
+        <p class="hud-field-hint">Glue = lands, ramp, interaction (composition rows). Generic = fits no pillar and isn't glue. Scores recompute when you save.</p>
+    </aside>
+</div>
+
+<div class="id-proposal" role="status" id="proposal" hidden></div>
+
+<div class="id-pillars-head">
+    <div class="hud-section-head"><span class="hud-section-id">01</span><h2 id="pillarsTitle">Pillars</h2></div>
+    <span class="hud-freshness"><span class="hud-kbd">n</span> new · <span class="hud-kbd">e</span> edit · <span class="hud-kbd">p</span> pin/keep · <span class="hud-kbd">x</span> reject · <span class="hud-kbd">⇧↑↓</span> reorder</span>
+</div>
+<div class="hud-pillars" id="pillars" role="list"></div>
+
+<details class="hud-tray id-tray" id="tray">
+    <summary><span id="trayTitle">Rejected · 0</span> <span class="hud-freshness id-tray-meta">never re-proposed</span></summary>
+    <div id="trayRows"></div>
+</details>
+
+<div class="hud-savebar" id="savebar" hidden>
+    <span class="hud-freshness" id="saveSummary"></span>
+    <button class="hud-btn hud-btn--ghost" type="button" id="discardBtn">Discard</button>
+    <button class="hud-btn hud-btn--primary" type="button" id="saveBtn">Save &amp; rescore <span class="hud-kbd id-kbd-on-primary">⌘↵</span></button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var H = window.HUD, A = window.DeckAnalytics, esc = H.esc;
+    var DECK_ID = {{ deck_id | tojson }}, COLORS = {{ head.colors | tojson }};
+    var API = "/api/decks/" + encodeURIComponent(DECK_ID) + "/identity";
+    var MAX = 5, NAME_MAX = 40;
+    var $ = function (id) { return document.getElementById(id); };
+    var server = null;      // last GET /identity
+    var work = null;        // local working copy {thesis, pillars[], rejected[]}
+    var ops = [];           // queued edits, applied on Save & rescore
+    var editing = null;     // pillar id being edited ("new" for a new one)
+    var thesisEditing = false, showDraft = false, lastError = "";
+
+    function clone(x) { return JSON.parse(JSON.stringify(x)); }
+    function send(method, path, body) {
+        return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status)); return j; }); });
+    }
+
+    // ---- Load / reset ------------------------------------------------------------
+    function load() {
+        return fetch(API).then(function (r) { return r.json(); }).then(function (j) {
+            server = j.identity;
+            work = { thesis: clone(server.thesis || null), pillars: clone(server.pillars || []), rejected: clone(server.rejected || []) };
+            ops = []; editing = null; thesisEditing = false;
+            render();
+        });
+    }
+
+    // ---- Render --------------------------------------------------------------------
+    function render() {
+        renderThesis(); renderFit(); renderProposal(); renderPillars(); renderTray(); renderSavebar();
+    }
+    function renderThesis() {
+        var cols = (COLORS || "").split("").filter(function (c) { return "WUBRG".indexOf(c) !== -1; });
+        $("thesisBar").innerHTML = (cols.length ? cols : ["C"]).map(function (c) { return '<span style="background:var(--mana-' + c.toLowerCase() + ')"></span>'; }).join("");
+        var t = work.thesis, gen = server.generator;
+        if (!t || !t.text) {
+            $("thesis").innerHTML = '<span class="hud-label" id="thesisLabel">Thesis</span>' +
+                '<p class="hud-muted">No thesis yet. Draft one from the cards, or write it yourself.</p>' +
+                '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="generate">Draft thesis + pillars</button>' +
+                '<button class="hud-btn hud-btn--sm" type="button" data-act="thesis-edit">Write it</button></div>' + (thesisEditing ? thesisForm("") : "");
+            return;
+        }
+        var who = t.updated_by === "user" ? "edited by you" : "generated";
+        var label = "Thesis · " + (t.state === "pinned" ? "pinned" : "draft") + " · " + who + (t.updated_at ? " " + A.age(t.updated_at) : "");
+        var quote = esc(t.text);
+        if (t.emphasis && t.text.indexOf(t.emphasis) !== -1) quote = esc(t.text).replace(esc(t.emphasis), "<em>" + esc(t.emphasis) + "</em>");
+        var meta = '<div class="hud-thesis-meta">' +
+            (thesisEditing ? "" : '<button class="hud-btn hud-btn--sm" type="button" data-act="thesis-edit">Edit <span class="hud-kbd">e</span></button>') +
+            (t.state !== "pinned" ? '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="thesis-keep">Keep thesis</button>' : "") +
+            (t.draft_text && t.draft_text !== t.text ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="thesis-draft" aria-expanded="' + showDraft + '">' + (showDraft ? "Hide" : "Show") + " generated draft</button>" : "") +
+            (gen ? '<span class="hud-freshness">Generated draft from <b>' + esc((gen.generated_at || "").slice(0, 10)) + "</b> · " + esc(gen.provider || "") + "</span>" : "") + "</div>";
+        $("thesis").innerHTML = '<span class="hud-label" id="thesisLabel">' + esc(label) + "</span>" +
+            (thesisEditing ? thesisForm(t.text) : "<blockquote>" + quote + "</blockquote>") + meta +
+            (showDraft && t.draft_text ? '<div class="id-draft"><span class="hud-label">Generated draft</span>' + esc(t.draft_text) +
+                '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm" type="button" data-act="thesis-accept">Use the draft</button></div></div>' : "");
+        if (thesisEditing) { var ta = $("thesisText"); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+    function thesisForm(text) {
+        return '<label class="hud-label" for="thesisText">Thesis</label><textarea id="thesisText" maxlength="280">' + esc(text) + "</textarea>" +
+            '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="thesis-done">Done</button>' +
+            '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="thesis-cancel">Cancel <span class="hud-kbd">Esc</span></button></div>';
+    }
+    var METER = { pillar: "var(--signal)", glue: "var(--data-2)", generic: "var(--text-4)" };
+    function renderFit() {
+        var f = server.fit || {};
+        $("onPlan").innerHTML = f.on_plan_pct != null ? esc(f.on_plan_pct) + '<span class="hud-stat-unit">%</span>' : "—";
+        var m = A.fitMeter(f);
+        $("fitMeter").innerHTML = f.status === "ok" ? '<div class="hud-meter" role="img" aria-label="' + esc(m.map(function (s) { return s.key + " " + s.count; }).join(", ")) + '">' +
+            m.map(function (s) { return '<span style="width:' + s.pct + "%;background:" + METER[s.key] + '"></span>'; }).join("") + "</div>" +
+            '<div class="hud-meter-legend">' + m.map(function (s) { return '<span><i style="background:' + METER[s.key] + '"></i><b>' + s.count + "</b> " + s.key + "</span>"; }).join("") + "</div>" : "";
+    }
+    function renderProposal() {
+        var p = server.proposal, n = p && p.new;
+        var el = $("proposal");
+        if (!n) { el.hidden = true; return; }
+        var pinned = work.pillars.filter(function (x) { return x.state === "pinned"; }).length;
+        el.hidden = false;
+        el.innerHTML = "<p><b>Re-sync proposed " + n + " new pillar" + (n === 1 ? "" : "s") + ".</b> Your " + pinned + " pinned pillar" + (pinned === 1 ? "" : "s") +
+            " and the thesis were not touched. Proposals are drafts until you keep them.</p>" +
+            '<a class="hud-btn hud-btn--sm" href="#pillars">Review proposal ↓</a>';
+    }
+    function pillarTile(p, i) {
+        var hero = i === 0, pinned = p.state === "pinned", draft = p.state === "draft", isEdit = editing === p.id;
+        var cls = "hud-pillar hud-enter" + (hero ? " is-hero" : "") + (pinned ? " is-pinned" : "") + (draft ? " is-draft" : "") + (isEdit ? " is-editing" : "");
+        var label = (hero ? "Pillar 1 · the engine" : "Pillar " + (i + 1)) + (draft ? " · draft" : "");
+        var chip = draft ? H.chip("proposed", "data") : pinned ? H.chip("pinned", hero ? "ghost" : "signal") : "";
+        var head = '<div class="hud-pillar-top"><span class="hud-label">' + esc(label) + "</span>" + chip + "</div>";
+        var body, actions;
+        if (isEdit) {
+            body = '<label class="hud-label" for="pn-' + esc(p.id) + '">Name</label><input id="pn-' + esc(p.id) + '" data-field="name" value="' + esc(p.name) + '" maxlength="' + NAME_MAX + '">' +
+                '<label class="hud-label" for="pd-' + esc(p.id) + '">What belongs here</label><textarea id="pd-' + esc(p.id) + '" data-field="description">' + esc(p.description || "") + "</textarea>" +
+                '<span class="hud-field-hint">Describe it in words: cards are scored against this text (embeddings), not tags.</span>';
+            actions = '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="done">Done</button>' +
+                '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel">Cancel</button>' +
+                '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="up" aria-label="Move pillar up">↑</button>' +
+                '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="down" aria-label="Move pillar down">↓</button>';
+        } else {
+            var n = p.count || 0;
+            body = "<h3>" + esc(p.name) + "</h3><p>" + esc(p.description || "") + "</p>" +
+                '<div class="hud-pillar-n">' + n + " <small>cards" + (p.delta_note ? ' · <span class="hud-pillar-delta">' + esc(p.delta_note) + "</span>" : (p.isNew ? ' · <span class="hud-pillar-delta">new</span>' : "")) + "</small></div>" +
+                ((p.top_cards || []).length ? '<div class="hud-pillar-cards">Top fit: ' + p.top_cards.map(function (c) { return "<b>" + esc(A.shortName(c)) + "</b>"; }).join(", ") + "</div>" : "");
+            actions = draft
+                ? '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="keep">Keep</button><button class="hud-btn hud-btn--sm" type="button" data-act="edit">Edit</button><button class="hud-btn hud-btn--sm hud-btn--danger" type="button" data-act="reject">Reject</button>'
+                : '<button class="hud-btn hud-btn--sm" type="button" data-act="' + (pinned ? "unpin" : "pin") + '" aria-pressed="' + pinned + '">' + (pinned ? "Unpin" : "Pin") + "</button>" +
+                  '<button class="hud-btn hud-btn--sm" type="button" data-act="edit">Edit</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="reject" aria-label="Reject pillar">Reject</button>';
+        }
+        return '<article class="' + cls + '" role="listitem" tabindex="0" data-id="' + esc(p.id) + '" style="--i:' + i + '" aria-label="' + esc(label + ": " + p.name) + '">' +
+            head + body + '<div class="hud-pillar-actions">' + actions + "</div></article>";
+    }
+    function renderPillars() {
+        var ps = work.pillars;
+        $("pillarsTitle").textContent = "Pillars · " + ps.length + " of " + MAX + " max";
+        var add = "";
+        if (ps.length < MAX) {
+            var generic = (server.fit && server.fit.generic) || 0;
+            add = editing === "new"
+                ? pillarTile({ id: "new", name: "", description: "", state: "pinned" }, ps.length).replace(/Pillar \d+/, "New pillar")
+                : '<div class="hud-pillar hud-pillar-add hud-enter" style="--i:' + ps.length + '"><span class="hud-label">Slot ' + (ps.length + 1) + " of " + MAX + "</span><h3>+ Add pillar</h3>" +
+                  "<p>Write it yourself, or ask for a draft from the cards that fit no pillar (" + generic + " generic).</p>" +
+                  '<div class="id-add-actions"><button class="hud-btn hud-btn--sm" type="button" data-act="new">Write it <span class="hud-kbd">n</span></button>' +
+                  '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="generate">Draft from cards</button></div>' +
+                  (lastError ? '<span class="id-error">' + esc(lastError) + "</span>" : "") + "</div>";
+        }
+        $("pillars").innerHTML = ps.map(pillarTile).join("") + add;
+        if (editing) { var f = document.querySelector('[data-id="' + editing + '"] input'); if (f) f.focus(); }
+    }
+    function renderTray() {
+        var rj = work.rejected;
+        $("trayTitle").textContent = "Rejected · " + rj.length;
+        $("trayRows").innerHTML = rj.length ? rj.map(function (p) {
+            return '<div class="hud-tray-row"><span><s>' + esc(p.name) + '</s> <span class="hud-field-hint">· rejected ' + esc((p.updated_at || "").slice(0, 10)) + "</span></span>" +
+                (work.pillars.length < MAX ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="restore" data-id="' + esc(p.id) + '">Restore</button>' : '<span class="hud-field-hint">5 of 5: reject one first</span>') + "</div>";
+        }).join("") : '<div class="hud-tray-row"><span class="hud-field-hint">Nothing rejected.</span></div>';
+    }
+    function renderSavebar() {
+        var bar = $("savebar");
+        bar.hidden = !ops.length && !lastError;
+        bar.classList.toggle("is-dirty", ops.length > 0);
+        $("saveSummary").innerHTML = ops.length ? "<b>" + ops.length + " unsaved change" + (ops.length === 1 ? "" : "s") + "</b> · " + esc(ops.map(function (o) { return o.label; }).slice(-3).join(" · ")) : esc(lastError);
+        $("saveBtn").disabled = !ops.length;
+    }
+
+    // ---- Local edits (queued until Save & rescore) -------------------------------------
+    function find(id) { return work.pillars.find(function (p) { return p.id === id; }); }
+    function queue(op) { ops.push(op); lastError = ""; render(); }
+    function act(name, id, tile) {
+        var p = id && find(id);
+        switch (name) {
+            case "keep": case "pin":
+                p.state = "pinned"; queue({ label: (name === "keep" ? "kept " : "pinned ") + p.name, method: "PATCH", path: "/pillars/" + id, body: { action: name } }); break;
+            case "unpin":
+                p.state = "accepted"; queue({ label: "unpinned " + p.name, method: "PATCH", path: "/pillars/" + id, body: { action: "unpin" } }); break;
+            case "reject":
+                work.pillars = work.pillars.filter(function (x) { return x.id !== id; });
+                p.state = "rejected"; work.rejected.unshift(p);
+                queue({ label: "rejected " + p.name, method: "PATCH", path: "/pillars/" + id, body: { action: "reject" } }); break;
+            case "restore":
+                var rp = work.rejected.find(function (x) { return x.id === id; });
+                work.rejected = work.rejected.filter(function (x) { return x.id !== id; });
+                rp.state = "accepted"; work.pillars.push(rp);
+                queue({ label: "restored " + rp.name, method: "PATCH", path: "/pillars/" + id, body: { action: "restore" } }); break;
+            case "edit": editing = id; render(); break;
+            case "new": editing = "new"; render(); break;
+            case "cancel": editing = null; render(); break;
+            case "done":
+                var name_ = tile.querySelector('[data-field="name"]').value.trim(), desc = tile.querySelector('[data-field="description"]').value.trim();
+                if (!name_) { tile.querySelector('[data-field="name"]').focus(); return; }
+                if (id === "new") {
+                    var tmp = { id: "tmp-" + Date.now(), name: name_, description: desc, state: "pinned", count: 0, top_cards: [], isNew: true };
+                    work.pillars.push(tmp); editing = null;
+                    queue({ label: "added " + name_, method: "POST", path: "/pillars", body: { name: name_, description: desc }, tmp: tmp.id });
+                } else {
+                    var changed = name_ !== p.name || desc !== (p.description || "");
+                    editing = null;
+                    if (!changed) { render(); return; }
+                    p.name = name_; p.description = desc; p.state = "pinned";
+                    queue({ label: "pillar " + (work.pillars.indexOf(p) + 1) + " edited", method: "PATCH", path: "/pillars/" + id, body: { name: name_, description: desc } });
+                }
+                break;
+            case "up": case "down": move(id, name === "up" ? -1 : 1); break;
+            case "generate": generate(); break;
+            case "thesis-edit": thesisEditing = true; renderThesis(); break;
+            case "thesis-cancel": thesisEditing = false; renderThesis(); break;
+            case "thesis-done":
+                var text = $("thesisText").value.trim(); thesisEditing = false;
+                if (!text || (work.thesis && text === work.thesis.text)) { renderThesis(); return; }
+                var em = work.thesis && work.thesis.emphasis && text.indexOf(work.thesis.emphasis) !== -1 ? work.thesis.emphasis : "";
+                work.thesis = Object.assign({}, work.thesis || {}, { text: text, emphasis: em, state: "pinned", updated_by: "user", updated_at: null });
+                queue({ label: "thesis edited", method: "PUT", path: "/thesis", body: { text: text, emphasis: em } }); break;
+            case "thesis-keep":
+                work.thesis.state = "pinned"; queue({ label: "thesis kept", method: "PUT", path: "/thesis", body: { text: work.thesis.text, emphasis: work.thesis.emphasis || "" } }); break;
+            case "thesis-accept":
+                work.thesis = Object.assign({}, work.thesis, { text: work.thesis.draft_text, emphasis: work.thesis.draft_emphasis || "", state: "pinned" }); showDraft = false;
+                queue({ label: "thesis = draft", method: "PUT", path: "/thesis", body: { action: "accept_draft" } }); break;
+            case "thesis-draft": showDraft = !showDraft; renderThesis(); break;
+        }
+    }
+    function move(id, d) {
+        var i = work.pillars.findIndex(function (p) { return p.id === id; }), j = i + d;
+        if (i < 0 || j < 0 || j >= work.pillars.length) return;
+        var t = work.pillars[i]; work.pillars[i] = work.pillars[j]; work.pillars[j] = t;
+        ops = ops.filter(function (o) { return o.path !== "/pillars/order"; });
+        queue({ label: "reordered", method: "PUT", path: "/pillars/order", order: true });
+        var el = document.querySelector('[data-id="' + id + '"]'); if (el) el.focus();
+    }
+    function generate() {
+        lastError = "Drafting…"; renderPillars();
+        send("POST", "/generate").then(function () { lastError = ""; return load(); }, function (e) {
+            lastError = "Draft failed: " + e.message; render();
+        });
+    }
+    // Save & rescore: apply the queue in order, then re-read (scores come back with it).
+    function save() {
+        if (!ops.length) return;
+        $("saveBtn").disabled = true;
+        var tmpIds = {};
+        var chain = ops.reduce(function (p, op) {
+            return p.then(function () {
+                var body = op.body;
+                if (op.order) body = { order: work.pillars.map(function (x) { return tmpIds[x.id] || x.id; }).filter(function (x) { return x.indexOf("tmp-") !== 0; }) };
+                return send(op.method, op.path, body).then(function (j) { if (op.tmp && j.pillar) tmpIds[op.tmp] = j.pillar.id; });
+            });
+        }, Promise.resolve());
+        chain.then(function () { lastError = ""; return load(); }, function (e) {
+            lastError = "Save failed: " + e.message; return load().then(function () { lastError = "Save failed: " + e.message; renderSavebar(); });
+        });
+    }
+
+    // ---- Events ----------------------------------------------------------------------
+    document.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-act]"); if (!b) return;
+        var tile = b.closest("[data-id]");
+        act(b.dataset.act, b.dataset.id || (tile && tile.dataset.id), tile);
+    });
+    $("saveBtn").addEventListener("click", save);
+    $("discardBtn").addEventListener("click", function () { lastError = ""; load(); });
+    window.addEventListener("beforeunload", function (e) { if (ops.length) { e.preventDefault(); e.returnValue = ""; } });
+    document.addEventListener("keydown", function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); if (editing) { var t = document.querySelector('[data-id="' + editing + '"]'); if (t) act("done", editing, t); } save(); return; }
+        if (A.inTextField(e.target)) {
+            if (e.key === "Escape") { if (thesisEditing) act("thesis-cancel"); else if (editing) act("cancel"); }
+            return;
+        }
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        var tile = e.target.closest && e.target.closest('#pillars [data-id]'), id = tile && tile.dataset.id;
+        if (e.key === "n" && work.pillars.length < MAX) { e.preventDefault(); act("new"); return; }
+        if (e.key === "e") { e.preventDefault(); if (id && id !== "new") act("edit", id, tile); else act("thesis-edit"); return; }
+        if (!id || id === "new") return;
+        var p = find(id);
+        if (e.key === "p") { e.preventDefault(); act(p.state === "draft" ? "keep" : p.state === "pinned" ? "unpin" : "pin", id, tile); }
+        else if (e.key === "x") { e.preventDefault(); act("reject", id, tile); }
+        else if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); move(id, e.key === "ArrowUp" ? -1 : 1); }
+        else if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            var tiles = Array.prototype.slice.call(document.querySelectorAll("#pillars [data-id]"));
+            var k = tiles.indexOf(tile) + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1);
+            if (tiles[k]) { e.preventDefault(); tiles[k].focus(); }
+        }
+    });
+
+    load().catch(function () { $("thesis").innerHTML = '<div class="hud-empty">Identity unavailable</div>'; });
+});
+</script>
+{% endblock %}
