@@ -61,7 +61,7 @@ out.escaped = !xss.includes("<img");
 // vocabulary: no dupes, nothing blank
 const all = AT.VOCAB.flatMap(g => g.tags);
 out.vocabUnique = new Set(all).size === all.length && all.every(t => t.trim() === t && t);
-out.picksHideTaken = !AT.picksHtml([e("Ramp", "auto", 1)]).includes('data-at-add="Ramp"') && AT.picksHtml([]).includes('data-at-add="Ramp"');
+out.picksHideTaken = !AT.picksHtml([e("ramp", "auto", 1)]).includes('data-at-add="ramp"') && AT.picksHtml([]).includes('data-at-add="ramp"');
 console.log(JSON.stringify(out));
 """
 
