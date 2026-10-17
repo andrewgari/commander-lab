@@ -1666,7 +1666,7 @@ async def auto_tag_deck(deck_id: str, request: Request):
 
     enriched = _enrich_deck_for_autotag(r, deck)
     engine_result = autotag.run_auto_tag(enriched)
-    result = tag_store.apply_auto_tags(r, deck_id, engine_result)
+    result = tag_store.apply_auto_tags(r, registry.registry_id_of(deck), engine_result)
     return result
 
 
@@ -1679,7 +1679,7 @@ async def get_tags_for_deck(deck_id: str):
     deck = registry.find_deck(r, deck_id)
     if not deck:
         return JSONResponse({"error": "Deck not found"}, status_code=404)
-    return {"deck_id": deck_id, "tags": tag_store.get_deck_tags(r, deck_id)}
+    return {"deck_id": registry.registry_id_of(deck), "tags": tag_store.get_deck_tags(r, registry.registry_id_of(deck))}
 
 
 @app.post("/api/decks/{deck_id}/tags")
@@ -1696,7 +1696,7 @@ async def add_tag_to_deck(deck_id: str, request: Request):
     source = data.get("source", "user")
     if not tag:
         return JSONResponse({"error": "tag is required"}, status_code=400)
-    result = tag_store.add_deck_tag(r, deck_id, tag, source=source)
+    result = tag_store.add_deck_tag(r, registry.registry_id_of(deck), tag, source=source)
     return {"success": True, "tag": result}
 
 
@@ -1713,7 +1713,7 @@ async def remove_tag_from_deck(deck_id: str, request: Request):
     tag = data.get("tag")
     if not tag:
         return JSONResponse({"error": "tag is required"}, status_code=400)
-    removed = tag_store.remove_deck_tag(r, deck_id, tag)
+    removed = tag_store.remove_deck_tag(r, registry.registry_id_of(deck), tag)
     return {"success": True, "removed": removed}
 
 
@@ -1730,9 +1730,9 @@ async def get_deck_card_tags(deck_id: str, card_name: Optional[str] = None):
     if not deck:
         return JSONResponse({"error": "Deck not found"}, status_code=404)
     if card_name:
-        tags = tag_store.get_card_tags_for_deck(r, deck_id, card_name)
-        return {"deck_id": deck_id, "card": card_name, "tags": tags}
-    return {"deck_id": deck_id, "tags": tag_store.get_deck_card_tags(r, deck_id)}
+        tags = tag_store.get_card_tags_for_deck(r, registry.registry_id_of(deck), card_name)
+        return {"deck_id": registry.registry_id_of(deck), "card": card_name, "tags": tags}
+    return {"deck_id": registry.registry_id_of(deck), "tags": tag_store.get_deck_card_tags(r, registry.registry_id_of(deck))}
 
 
 @app.post("/api/decks/{deck_id}/card-tags")
@@ -1751,7 +1751,7 @@ async def add_card_tag_to_deck(deck_id: str, request: Request):
     source = data.get("source", "user")
     if not card_name or not tag:
         return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
-    result = tag_store.add_card_tag_to_deck(r, deck_id, card_name, tag, source=source)
+    result = tag_store.add_card_tag_to_deck(r, registry.registry_id_of(deck), card_name, tag, source=source)
     return {"success": True, "card": card_name, "tag": result}
 
 
@@ -1769,7 +1769,7 @@ async def remove_card_tag_from_deck(deck_id: str, request: Request):
     tag = data.get("tag")
     if not card_name or not tag:
         return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
-    removed = tag_store.remove_card_tag_from_deck(r, deck_id, card_name, tag)
+    removed = tag_store.remove_card_tag_from_deck(r, registry.registry_id_of(deck), card_name, tag)
     return {"success": True, "card": card_name, "removed": removed}
 
 
