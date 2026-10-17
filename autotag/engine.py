@@ -153,17 +153,22 @@ def _compile_rules() -> dict[str, list[dict]]:
         {"tag": "ramp", "id": "RAMP-6", "w": 1, "scope": "nonland", "re": r"\bsacrifice (a|an|another|two|three|x) [^:]*: add \{"},
         {"tag": "ramp", "id": "RAMP-7", "w": 1, "scope": "instant_or_sorcery", "re": r"\badd \{"},
         {"tag": "ramp", "id": "RAMP-8", "w": 2, "scope": "nonland", "kind": "REP", "re": r"^(whenever|at the beginning)[^.]*, add "},
+        {"tag": "ramp", "id": "RAMP-9", "w": 2, "scope": "nonland", "re": r"\bwhenever enchanted [a-z]+ is tapped for mana[^.]*\badds? (an )?additional"},
         # card_advantage
         {"tag": "card_advantage", "id": "CA-1", "w": 2, "re": r"(^|[.,:] |\bthen |\byou (may )?)draw (two|three|four|five|six|seven|x|that many|\d+) cards"},
         {"tag": "card_advantage", "id": "CA-2", "w": 2, "kind": "REP", "re": r"(^|[.,:] |\bthen |\byou (may )?)draw a card"},
         {"tag": "card_advantage", "id": "CA-3", "w": 2, "re": r"\bdraw cards equal to"},
         {"tag": "card_advantage", "id": "CA-4", "w": 2, "all_of": [r"exile the top", r"you may (play|cast)"]},
         {"tag": "card_advantage", "id": "CA-5", "w": 1, "kind": "ONESHOT", "re": r"(^|[.,:] |\bthen |\byou (may )?)draw a card"},
+        {"tag": "card_advantage", "id": "CA-7", "w": 1, "kind": "ONESHOT", "re": r"\blook at the top (two|three|four|five|six|seven|x|\d+) cards of your library"},
+        {"tag": "card_advantage", "id": "CA-9", "w": 1, "kind": "ONESHOT", "re": r"^when ~ enters[^.]*, draw a card"},
         {"tag": "card_advantage", "id": "CA-6", "w": 1, "any_of": [r"\b(scry|surveil) \d"], "or_all_of": [r"(look at|reveal) the top", r"into your hand"]},
         # removal
         {"tag": "removal", "id": "RM-1", "w": 2, "re": r"\b(destroy|exile) (up to \w+ )?(another )?target [a-z ,-]*?(creature|artifact|enchantment|planeswalker|permanent|battle)s?\b(?! you (control|own))"},
         {"tag": "removal", "id": "RM-2", "w": 2, "re": r"\bdeals? (x|[2-9]|\d{2,}) damage to (any target|target creature|target [a-z ]*creature|target planeswalker)"},
-        {"tag": "removal", "id": "RM-3", "w": 1, "re": r"\bdeals? 1 damage to (any target|target creature)"},
+        {"tag": "removal", "id": "RM-3", "w": 1, "re": r"\bdeals? 1 damage to (any target|(another )?target creature)"},
+        {"tag": "removal", "id": "RM-9", "w": 2, "kind": "REP", "re": r"\bdeals? 1 damage to (any target|(another )?target creature)"},
+        {"tag": "removal", "id": "RM-10", "w": 2, "re": r"\benchanted creature (loses all (abilities|other abilities)|is a [a-z ]*creature with base power and toughness|can't (attack|block))"},
         {"tag": "removal", "id": "RM-4", "w": 2, "re": r"\btarget creature [^.]*gets -(x|\d+)/-(x|\d+)"},
         {"tag": "removal", "id": "RM-5", "w": 2, "all_of": [r"\btarget\b", r"(shuffles? it into (its owner's|their) library|on the (top|bottom) of (its owner's|their) library)"]},
         {"tag": "removal", "id": "RM-6", "w": 2, "re": r"\b(target player|target opponent|each opponent) sacrifices (a|an|one|two)\b"},
@@ -172,7 +177,7 @@ def _compile_rules() -> dict[str, list[dict]]:
         # board_wipe
         {"tag": "board_wipe", "id": "BW-1", "w": 2, "re": r"\b(destroy|exile) (all|each) (other )?(nonland |nontoken |non[a-z]+ )?(creatures?|artifacts?|enchantments?|permanents?|planeswalkers?)\b"},
         {"tag": "board_wipe", "id": "BW-2", "w": 2, "re": r"\bdeals? (x|\d+) damage to each (other )?creature"},
-        {"tag": "board_wipe", "id": "BW-3", "w": 2, "re": r"\b(all|each) (other )?([a-z]+ )?creatures?[^.]* gets? -(x|\d+)/-(x|\d+)"},
+        {"tag": "board_wipe", "id": "BW-3", "w": 2, "re": r"\b(all|each) (other )?([a-z-]+ )?creatures?[^.]* gets? -(x|\d+)/-(x|\d+)"},
         {"tag": "board_wipe", "id": "BW-4", "w": 2, "re": r"\breturn all [^.]*to (their|its) owners?'?s?'?"},
         # counterspell
         {"tag": "counterspell", "id": "CS-1", "w": 2, "re": r"\bcounter target [a-z ]*?(spell|ability)"},
@@ -191,6 +196,7 @@ def _compile_rules() -> dict[str, list[dict]]:
         {"tag": "finisher", "id": "FN-3", "w": 2, "keywords": ["infect", "toxic"], "or_re": r"\bpoison counters?"},
         {"tag": "finisher", "id": "FN-4", "w": 2, "re": r"\bcreatures you control [^.]*get \+(x|\d+)/\+(x|\d+)[^.]*until end of turn"},
         {"tag": "finisher", "id": "FN-5", "w": 2, "re": r"\bdeals? (x|[3-9]|\d{2,}) damage to each opponent|\beach opponent loses (x|[3-9]|\d{2,}) life"},
+        {"tag": "finisher", "id": "FN-7", "w": 2, "keywords": ["storm"], "or_re": r"^storm\b"},
         {"tag": "finisher", "id": "FN-6", "w": 1, "kind": "REP", "re": r"\bdeals? (x|\d+) damage to (each opponent|any target|target player|target opponent)|\b(each opponent|target player|target opponent) loses (x|\d+) life"},
         # lands_matter
         {"tag": "lands_matter", "id": "LM-1", "w": 2, "re": r"^whenever (a|one or more) lands? (you control )?enters?", "or_keywords": ["landfall"]},
@@ -198,6 +204,8 @@ def _compile_rules() -> dict[str, list[dict]]:
         # tokens
         {"tag": "tokens", "id": "TK-1", "w": 2, "kind": "REP", "re": r"\bcreate [^.]*\bcreature tokens?"},
         {"tag": "tokens", "id": "TK-2", "w": 2, "re": r"^whenever (a|another|one or more) (nontoken )?([a-z]+ )?creatures? (you control )?enters?|\bfor each creature you control|\b(creature )?tokens you control"},
+        {"tag": "tokens", "id": "TK-5", "w": 2, "re": r"\bif an effect would create one or more tokens|\btwice that many (of those )?tokens?\b"},
+        {"tag": "tokens", "id": "TK-6", "w": 2, "re": r"^when ~ dies, create [^.]*\bcreature tokens?"},
         {"tag": "tokens", "id": "TK-3", "w": 1, "kind": "ONESHOT", "re": r"\bcreate [^.]*\bcreature tokens?"},
         {"tag": "tokens", "id": "TK-4", "w": 1, "kind": "STATIC", "re": r"\b(other )?([a-z]+ )?creatures you control get \+\d+/\+\d+"},
         # counters
