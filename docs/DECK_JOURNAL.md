@@ -34,6 +34,30 @@ Until the BR-6 picker lands, the row has no inline form, so it shows ✓ Still
 true only; PATCH `checkin/rows/bracket` with `{answer: "changed", journal:
 {target_bracket: N}}` works through the API.
 
+### Deck Genre (GN)
+
+The **Genre** section sits right under Vision (`#j-genre`). Rules:
+`docs/DECK_GENRE_TAXONOMY.md`; UI: `docs/DECK_GENRE_UX_SPEC.md`; code: `deck_genre.py`
+(constants from `docs/deck_genre_taxonomy.yaml`, normalization, validation, header strip) and
+`static/js/deck_genre.js` (the `TagField` component).
+
+| UI field | Stored at | Count | Custom |
+|---|---|---|---|
+| Archetype | `archetype_preferences.primary_archetype` (nullable) + `.secondary_archetypes` | 0–1 + 0–3 | no (30 ids) |
+| Themes | `deck_genre.genres` (seed id or text) | 0–5 | yes, ≤ 32 chars |
+| Kindred | `deck_genre.kindred` (catalog spelling or text) | 0–5 | yes, ≤ 32 chars |
+
+On save the server canonicalizes ("Elves" → `Elf`, "Horror / Gothic" → `horror`), dedupes,
+drops a primary repeated as a secondary, and rejects anything over a cap with a 400.
+`primary_archetype` is now nullable: journals saved before GN carry the resolver's phantom
+`"midrange"`, which `load_journal` reads as `null` (no `_journal.genre_v` stamp, nothing else in
+`archetype_preferences`); the next save persists it and stamps `genre_v`. The engine scores an
+archetype id with no `ARCHETYPE_PATTERNS` entry like an unset one instead of as 0%. Genre values
+are labels only, never scored. View mode is the chip strip in the deck header
+(`partials/deck_head.html` `genre_strip`), hidden when empty. Creature types come from Redis
+`catalog:creature_types` (`make creature-types`) or the snapshot in `deck_genre.py`.
+`GET /api/deck-genre/options` returns the option lists. Genre has no check-in row.
+
 Every review opens with a check-in, "is this still true?". It shows the
 change since the last review (+/− cards, power estimate, price, on-plan %)
 and then one row per field. A row's evidence line is computed: deck price
