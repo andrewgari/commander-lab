@@ -35,6 +35,7 @@ from src.services.repo_status import enrich_decks_with_repo_status
 from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
 from analytics import composition as composition_mod
+from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
@@ -3288,6 +3289,348 @@ async def api_genres_autofill(request: Request):
     except genres_mod.GenreError as exc:
         return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": "autofill_invalid"})
     return {"success": True, "draft": draft}
+
+
+# ---------------------------------------------------------------------------
+# Category registry (CT) -- see analytics/categories.py, docs/design/categories/SPEC.md
+# ---------------------------------------------------------------------------
+
+def _cat_error(exc):
+    body = {"success": False, "error": str(exc), "error_kind": exc.kind, **exc.extra}
+    return JSONResponse(status_code=exc.status, content=body)
+
+
+def _cat_not_found(cat_id: str):
+    return JSONResponse(status_code=404, content={"success": False, "error": f"Category '{cat_id}' not found"})
+
+
+def _cat_deck(deck_id: Optional[str]):
+    """(deck, registry_id, err) for an optional ?deck_id=."""
+    if not deck_id:
+        return None, None, None
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return None, None, err
+    return deck, registry.registry_id_of(deck), None
+
+
+def _cat_global_usage() -> dict:
+    """{category id: number of decks with at least one member}. Best effort: needs SCAN."""
+    usage: dict = {}
+    scan = getattr(r, "scan_iter", None)
+    if scan is None:
+        return usage
+    try:
+        for key in scan(match="deck_card_tags:*"):
+            try:
+                data = json.loads(r.get(key) or "{}")
+            except ValueError:
+                continue
+            seen = {str(e.get("tag", "")) for entries in data.values() for e in entries}
+            for tag in seen:
+                if tag.startswith(categories_mod.CAT_TAG_PREFIX + "g-"):
+                    cid = tag[len(categories_mod.CAT_TAG_PREFIX):]
+                    usage[cid] = usage.get(cid, 0) + 1
+    except Exception:  # noqa: BLE001  redis hiccup: the "decks" caption just shows 0
+        pass
+    return usage
+
+
+def _cat_strip_tag(registry_id: str, tag: str) -> None:
+    for name, entries in tag_store.get_deck_card_tags(r, registry_id).items():
+        if any(e.get("tag") == tag for e in entries):
+            tag_store.remove_card_tag_from_deck(r, registry_id, name, tag)
+
+
+def _cat_strip_everywhere(tag: str) -> None:
+    scan = getattr(r, "scan_iter", None)
+    if scan is None:
+        return
+    for key in scan(match="deck_card_tags:*"):
+        k = key.decode() if isinstance(key, bytes) else key
+        _cat_strip_tag(k[len("deck_card_tags:"):], tag)
+
+
+def _cat_load(deck: Optional[dict]):
+    """(texts, card_tags, deck tag names, template) for one deck, or empty for the global scope."""
+    if deck is None:
+        return {}, {}, [], {}
+    rid = registry.registry_id_of(deck)
+    texts = insights.card_texts(r, deck)
+    card_tags = tag_store.get_deck_card_tags(r, rid)
+    deck_tags = [t.get("tag", "") for t in tag_store.get_deck_tags(r, rid)]
+    return texts, card_tags, deck_tags, composition_mod.get_template(r, deck)
+
+
+@app.get("/categories", response_class=HTMLResponse)
+async def categories_view(request: Request):
+    """Category registry (CT): core roles, global custom and deck-specific categories."""
+    return templates.TemplateResponse(request=request, name="categories.html")
+
+
+@app.get("/api/categories")
+async def api_categories_list(deck_id: Optional[str] = None):
+    """Registry payload. Without ``deck_id`` (Global scope): core definitions with template targets and floors,
+    plus the global custom categories. With it: live counts, the deck's targets and statuses, the deck's own
+    categories and theme suggestions."""
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+
+    def _build():
+        texts, card_tags, deck_tags, template = _cat_load(deck)
+        if deck is None:
+            template = composition_mod.DEFAULT_TEMPLATE
+        rows, meta = categories_mod.core_rows(deck, texts, card_tags, deck_tags, template)
+        pillar_names: dict = {}
+        if deck is not None:
+            ident = identity_mod.load_identity(r, deck)
+            pillar_names = {p["id"]: p.get("name", "") for p in identity_mod.live_pillars(ident)}
+        usage = _cat_global_usage() if deck is None else {}
+        rows += [categories_mod.custom_row(c, card_tags if deck else None, deck, decks_using=usage.get(c["id"], 0))
+                 for c in categories_mod.list_global(r)]
+        out = {"success": True, "version": categories_mod.get_version(r), "spec": categories_mod.SPEC_VERSION,
+               "groups": list(categories_mod.GROUPS), "themes": list(categories_mod.THEME_TAGS),
+               "rule_kinds": list(categories_mod.RULE_KINDS), "caps": {"deck": categories_mod.DECK_CAP},
+               "aliases": categories_mod.ALIASES, "group_aliases": list(categories_mod.GROUP_ALIASES),
+               "limits": {"name": categories_mod.NAME_MAX, "description": categories_mod.DESC_MAX,
+                          "target": categories_mod.TARGET_MAX, "rule_value": categories_mod.RULE_VALUE_MAX},
+               "interaction_distinct": meta["interaction_distinct"]}
+        if deck is not None:
+            mine = categories_mod.list_deck(r, rid)
+            rows += [categories_mod.custom_row(c, card_tags, deck, pillar_names) for c in mine]
+            out["deck"] = {"id": rid, "name": deck.get("name"), "cards": meta["cards"], "built": meta["built"],
+                           "commander_mv": meta["commander_mv"], "categories_used": len(mine),
+                           "cap": categories_mod.DECK_CAP,
+                           "pillars": [{"id": k, "name": v} for k, v in pillar_names.items()]}
+            out["suggestions"] = categories_mod.theme_suggestions(deck_tags, mine)
+        out["categories"] = rows
+        return out
+
+    return await asyncio.to_thread(_build)
+
+
+@app.post("/api/categories/describe")
+async def api_categories_describe(request: Request):
+    """Draft/improve ONE custom category description. Body: {name?, description?, hint?, group?, deck_id?,
+    avoid?: [str]}. Stateless, never saves. 422 {error_kind:"alias", core_id} for core-alias names (no model call);
+    returns {description, rule, duplicate_of, flagged?, mode}."""
+    from analytics import category_describe
+    from analytics.interactions.llm import default_chain
+
+    body = await _json_body(request)
+    deck_id = body.get("deck_id") if isinstance(body, dict) else None
+    deck, _rid, err = await asyncio.to_thread(_cat_deck, deck_id if isinstance(deck_id, str) else None)
+    if err:
+        return err
+
+    def _run():
+        texts, _tags, deck_tags, _tpl = _cat_load(deck)
+        pillars = []
+        if deck is not None:
+            pillars = identity_mod.live_pillars(identity_mod.load_identity(r, deck))
+        return category_describe.describe_category(default_chain(), body, deck, texts, deck_tags, pillars)
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    except category_describe.CategoryDescribeUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
+
+
+@app.post("/api/categories")
+async def api_categories_create(request: Request):
+    body = await _json_body(request)
+    deck_id = body.get("deck_id") if isinstance(body, dict) else None
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id if isinstance(deck_id, str) else None)
+    if err:
+        return err
+    try:
+        cat = await asyncio.to_thread(categories_mod.create, r, body, rid)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return JSONResponse(status_code=201, content={"success": True, "category": cat,
+                                                  "version": categories_mod.get_version(r)})
+
+
+@app.put("/api/categories/{cat_id}")
+async def api_categories_update(cat_id: str, request: Request, deck_id: Optional[str] = None):
+    body = await _json_body(request)
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+    try:
+        cat = await asyncio.to_thread(categories_mod.update, r, cat_id, body, rid)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return {"success": True, "category": cat, "version": categories_mod.get_version(r)}
+
+
+@app.delete("/api/categories/{cat_id}")
+async def api_categories_delete(cat_id: str, deck_id: Optional[str] = None):
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+
+    def _run():
+        cat = categories_mod.delete(r, cat_id, rid)
+        tag = categories_mod.CAT_TAG_PREFIX + cat_id
+        if cat["scope"] == "deck":
+            _cat_strip_tag(rid, tag)
+        else:
+            _cat_strip_everywhere(tag)  # cards keep every other tag
+        return cat
+
+    try:
+        await asyncio.to_thread(_run)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return {"success": True, "version": categories_mod.get_version(r)}
+
+
+@app.post("/api/categories/{cat_id}/promote")
+async def api_categories_promote(cat_id: str, deck_id: Optional[str] = None):
+    """Deck category -> global. This deck's members move over; other decks never had any."""
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+
+    def _run():
+        new, old_id = categories_mod.promote(r, cat_id, rid)
+        old_tag, new_tag = categories_mod.CAT_TAG_PREFIX + old_id, categories_mod.CAT_TAG_PREFIX + new["id"]
+        for name in categories_mod.member_names(tag_store.get_deck_card_tags(r, rid), old_id):
+            tag_store.add_card_tag_to_deck(r, rid, name, new_tag, source="user")
+        _cat_strip_tag(rid, old_tag)
+        return new
+
+    try:
+        new = await asyncio.to_thread(_run)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return {"success": True, "category": new, "version": categories_mod.get_version(r)}
+
+
+@app.get("/api/categories/{cat_id}/members")
+async def api_categories_members(cat_id: str, deck_id: str):
+    """Member cards (with flag names) of one category in one deck, and, for a custom category with a rule,
+    the cards the rule would suggest (never added automatically)."""
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+
+    def _run():
+        texts, card_tags, _dt, _tpl = _cat_load(deck)
+        if cat_id in categories_mod.CORE_BY_ID:
+            names, suggested = categories_mod.core_members(deck, texts, card_tags, cat_id), []
+        else:
+            cat, _k, _s = categories_mod.find(r, cat_id, rid)
+            names = categories_mod.member_names(card_tags, cat_id, exclude=deck.get("commanders") or [])
+            suggested = categories_mod.suggest_members(deck, texts, card_tags, cat)
+        row = lambda n: {"name": n, "flags": categories_mod.flags_for(texts.get(n))}  # noqa: E731
+        return {"success": True, "members": [row(n) for n in names], "suggested": [row(n) for n in suggested]}
+
+    try:
+        return await asyncio.to_thread(_run)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+
+
+@app.post("/api/categories/{cat_id}/members")
+async def api_categories_add_member(cat_id: str, request: Request):
+    """Accept one card into a custom category. Body: {deck_id, card}. Core membership is auto-tag's."""
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    deck, rid, err = await asyncio.to_thread(_cat_deck, body.get("deck_id") if isinstance(body.get("deck_id"), str) else None)
+    if err:
+        return err
+    card = body.get("card")
+
+    def _run():
+        if deck is None:
+            raise categories_mod.CategoryError("deck_id is required.", 400)
+        categories_mod.find(r, cat_id, rid)
+        if not isinstance(card, str) or card not in categories_mod.deck_card_names(deck):
+            raise categories_mod.CategoryError("That card is not in this deck (the commander can't be a member).", 422)
+        tag_store.add_card_tag_to_deck(r, rid, card, categories_mod.CAT_TAG_PREFIX + cat_id, source="user")
+
+    try:
+        await asyncio.to_thread(_run)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return {"success": True}
+
+
+@app.delete("/api/categories/{cat_id}/members")
+async def api_categories_remove_member(cat_id: str, deck_id: str, card: str):
+    deck, rid, err = await asyncio.to_thread(_cat_deck, deck_id)
+    if err:
+        return err
+
+    def _run():
+        categories_mod.find(r, cat_id, rid)
+        return tag_store.remove_card_tag_from_deck(r, rid, card, categories_mod.CAT_TAG_PREFIX + cat_id)
+
+    try:
+        removed = await asyncio.to_thread(_run)
+    except categories_mod.CategoryNotFound:
+        return _cat_not_found(cat_id)
+    except categories_mod.CategoryError as exc:
+        return _cat_error(exc)
+    return {"success": True, "removed": removed}
+
+
+def _cat_target_row(core_id: str):
+    c = categories_mod.CORE_BY_ID.get(core_id)
+    if not c:
+        return None, JSONResponse(status_code=404, content={"success": False, "error": f"Core category '{core_id}' not found"})
+    if not c["template_row"] or c["shared"]:
+        return None, JSONResponse(status_code=422, content={"success": False, "error": f"{c['name']} has no target to set."})
+    return c["template_row"], None
+
+
+@app.put("/api/decks/{deck_id}/category-targets/{core_id}")
+async def api_category_target_set(deck_id: str, core_id: str, request: Request):
+    """Per-deck target for a core category (stored as the composition template override)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    row, err = _cat_target_row(core_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    value = body.get("target") if isinstance(body, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or not (0 <= value <= categories_mod.TARGET_MAX):
+        return _bad_request(categories_mod.CategoryError(f"target must be a whole number 0-{categories_mod.TARGET_MAX}."), 422)
+    try:
+        tpl = await asyncio.to_thread(composition_mod.set_template_override, r, deck, {row: value})
+    except composition_mod.CompositionError as exc:
+        return _bad_request(exc, 422)
+    return {"success": True, "target": tpl[row], "default": tpl["default"][row]}
+
+
+@app.delete("/api/decks/{deck_id}/category-targets/{core_id}")
+async def api_category_target_reset(deck_id: str, core_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    row, err = _cat_target_row(core_id)
+    if err:
+        return err
+    tpl = await asyncio.to_thread(composition_mod.reset_row, r, deck, row)
+    return {"success": True, "target": tpl[row], "default": tpl["default"][row]}
 
 
 @app.get("/api/deck-writeup/primer-form")
