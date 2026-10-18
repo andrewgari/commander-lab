@@ -122,6 +122,8 @@ def add_card_tag_to_deck(r, deck_id: DeckId, card_name: str, tag: str,
                          source: str = "user") -> dict:
     """Add a tag to *card_name* in *deck_id*.  Upserts within the same
     source/version bucket."""
+    if source != "auto":
+        unsuppress_card_tag(r, deck_id, card_name, tag)  # the user put it back: auto-tag may touch it again
     data = get_deck_card_tags(r, deck_id)
     if card_name not in data:
         data[card_name] = []
@@ -150,8 +152,11 @@ def remove_card_tag_from_deck(r, deck_id: DeckId, card_name: str,
         return False
     tags = data[card_name]
     before = len(tags)
+    removed_auto = any(t["tag"] == tag and t.get("source") == "auto" for t in tags)
     tags = [t for t in tags if t["tag"] != tag]
     if len(tags) < before:
+        if removed_auto:
+            suppress_card_tag(r, deck_id, card_name, tag)  # survives the next auto-tag run
         if tags:
             data[card_name] = tags
         else:
@@ -161,6 +166,45 @@ def remove_card_tag_from_deck(r, deck_id: DeckId, card_name: str,
     return False
 
 
+# ── Suppression markers ─────────────────────────────────────────────────────
+# Removing an *auto* tag from a card records a marker so the next auto-tag run
+# doesn't put it straight back (categories-v1 section 4.5). Adding the tag by
+# hand clears the marker. Key: deck_card_tag_suppressed:{deck_id} -> {card: [tag]}
+
+
+def _suppressed_key(deck_id: DeckId) -> str:
+    return f"deck_card_tag_suppressed:{deck_id}"
+
+
+def get_suppressed(r, deck_id: DeckId) -> dict:
+    val = r.get(_suppressed_key(deck_id))
+    try:
+        data = json.loads(val) if val else {}
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def suppress_card_tag(r, deck_id: DeckId, card_name: str, tag: str) -> None:
+    data = get_suppressed(r, deck_id)
+    tags = data.setdefault(card_name, [])
+    if tag not in tags:
+        tags.append(tag)
+        r.set(_suppressed_key(deck_id), json.dumps(data))
+
+
+def unsuppress_card_tag(r, deck_id: DeckId, card_name: str, tag: str) -> None:
+    data = get_suppressed(r, deck_id)
+    if tag in data.get(card_name, []):
+        data[card_name] = [t for t in data[card_name] if t != tag]
+        if not data[card_name]:
+            del data[card_name]
+        if data:
+            r.set(_suppressed_key(deck_id), json.dumps(data))
+        else:
+            r.delete(_suppressed_key(deck_id))
+
+
 # ── Bulk helpers ────────────────────────────────────────────────────────────
 
 
@@ -168,6 +212,7 @@ def clear_deck_tags(r, deck_id: DeckId) -> None:
     """Remove all tags (deck-level and per-card) for a deck."""
     r.delete(_deck_tags_key(deck_id))
     r.delete(_deck_card_tags_key(deck_id))
+    r.delete(_suppressed_key(deck_id))
     # Also clean version counters
     r.delete(f"deck_tags_version:{deck_id}")
     # Per-card version keys are harder to enumerate; we leave them — version
@@ -209,6 +254,7 @@ def apply_auto_tags(r, deck_id: DeckId, engine_result: dict) -> dict:
 
     # 2. Per-deck-card tags: preserve user tags, replace auto tags
     existing_cards = get_deck_card_tags(r, deck_id)
+    suppressed = get_suppressed(r, deck_id)
     new_card_data: dict[str, list[dict]] = {}
 
     for card_name, entries in existing_cards.items():
@@ -224,6 +270,8 @@ def apply_auto_tags(r, deck_id: DeckId, engine_result: dict) -> dict:
         card_list = new_card_data.setdefault(card_name, [])
         for t in c.get("tags", []):
             tname = t["tag"] if isinstance(t, dict) else str(t)
+            if tname in suppressed.get(card_name, ()):
+                continue
             if tname not in existing_user_tags:
                 v = _next_version(r, deck_id, card_name)
                 card_list.append({
