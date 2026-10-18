@@ -31,7 +31,7 @@ import deck_sync
 from deck_sync import DeckSyncError
 from version import __version__, VERSION
 import httpx
-from repo_status import enrich_decks_with_repo_status
+from src.services.repo_status import enrich_decks_with_repo_status
 from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
 from analytics import composition as composition_mod
