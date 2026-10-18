@@ -605,7 +605,7 @@ async def decommission_decks_bulk(request: Request):
 
 @app.post("/api/reconstruct/start")
 @app.post("/api/reconstruct")
-async def start_reconstruct(request: Request):
+async def start_reconstruct(request: Request, dry_run: Optional[bool] = Query(None)):
     """Start a Reconstruct flow on 1 or 2 physical decks.
     Captures pre-retirement decklist snapshots, decommissions each source deck
     identically to standard decommission (moves to "retired", removes tag,
@@ -628,9 +628,14 @@ async def start_reconstruct(request: Request):
     if deck_ids is None:
         deck_ids = []
     tag = data.get("tag") or registry.DEFAULT_DECOMMISSION_TAG
+    if dry_run is not None:
+        is_dry_run = bool(dry_run)
+    else:
+        raw_dry = data.get("dry_run", False)
+        is_dry_run = raw_dry.strip().lower() in ("1", "true", "yes", "on") if isinstance(raw_dry, str) else bool(raw_dry)
 
     try:
-        session = reconstruct.start_reconstruct(r, deck_ids, tag=tag)
+        session = reconstruct.start_reconstruct(r, deck_ids, tag=tag, dry_run=is_dry_run)
     except registry.DecommissionError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     except ValueError as e:
@@ -653,6 +658,16 @@ async def list_reconstruct_sessions(limit: int = 50):
     """List recent Reconstruct sessions."""
     sessions = reconstruct.list_sessions(r, limit=limit)
     return {"success": True, "sessions": sessions}
+
+
+@app.get("/api/reconstruct/{session_id}/pools")
+async def get_reconstruct_pools(session_id: str):
+    """Tier 1 / Tier 2 available pools for a session (same counting for dry runs)."""
+    try:
+        pools_data = reconstruct.get_session_pools(r, session_id)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, **pools_data}
 
 
 @app.get("/api/reconstruct/{session_id}")
