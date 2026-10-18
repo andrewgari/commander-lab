@@ -3298,43 +3298,132 @@ async def api_primer_form():
     return {"success": True, "fields": PRIMER_FIELDS}
 
 
-async def _deck_writeup(deck_id: str, request: Request, kind: str):
-    """Shared handler: body is the form object (primer) or optional hints (description). Nothing is saved."""
-    from analytics import deck_writeup
+def _writeup_known_cards(deck: dict, meta: list) -> list:
+    return sorted({c["name"] for c in meta if c.get("name")} | {n for n in deck.get("commanders") or [] if n})
+
+
+def _resolve_bracket(deck: dict, spirit: dict, explicit=None) -> Optional[str]:
+    """Bracket target for the prompt: the form's, else the Journal's target_bracket, else the worker's estimate."""
+    for cand in (explicit, (spirit or {}).get("target_bracket")):
+        if cand not in (None, "", 0):
+            return str(cand)
+    try:
+        rec = bracket_worker.load_result(r, registry.registry_id_of(deck))
+        est = ((rec or {}).get("result") or {}).get("estimated_bracket")
+        return str(est) if est else None
+    except Exception:  # noqa: BLE001 - a missing estimate just leaves the target unspecified
+        return None
+
+
+def _writeup_context(deck: dict, meta: list, explicit_bracket=None) -> dict:
+    """Identity, bracket target, Journal/Identity spirit and deterministic table facts for the prompt packet.
+    Never raises: Redis or Spellbook trouble degrades to an emptier packet."""
     from analytics.deck_writeup import service as writeup_service
+
+    try:
+        spirit = writeup_service.spirit_for_deck(r, deck)
+    except Exception:  # noqa: BLE001
+        spirit = None
+    try:
+        facts = writeup_service.table_facts_for_deck(r, deck, meta)
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("commander_lab.app").warning("table facts unavailable: %s", exc)
+        facts = None
+    return {"identity": deck.get("color") or "C", "bracket": _resolve_bracket(deck, spirit or {}, explicit_bracket),
+            "spirit": spirit, "table_facts": facts}
+
+
+def _section_view(sec: dict, answers: dict, known: list) -> dict:
+    """One generated section as the builder renders it: id, title, sanitized html, markdown, inferred fields."""
+    from analytics.deck_writeup import sanitize_primer_html
+    from analytics.deck_writeup.service import inferred_fields
+
+    html_text = sec.get("html") or sanitize_primer_html(sec.get("markdown") or "", known)
+    return {"id": sec["id"], "title": sec["title"], "html": sanitize_primer_html(html_text, known),
+            "markdown": sec.get("markdown") or "", "inferred": [] if sec.get("kept") else inferred_fields(answers, sec["id"])}
+
+
+async def _oracle_call(fn):
+    """Run a blocking oracle-backed `fn(ask)` in a thread; map oracle trouble to the standard responses.
+    Returns (result, None) or (None, JSONResponse)."""
+    from analytics import deck_writeup
     from analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+
+    def _run():
+        client = _oracle_client()
+        client.timeout = GENRE_AUTOFILL_TIMEOUT_S
+        return fn(lambda system, user: client.ask(user, system=system))
+
+    try:
+        return await asyncio.to_thread(_run), None
+    except deck_writeup.WriteupError as exc:
+        return None, JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    except OracleUnavailable as exc:
+        return None, _oracle_offline(exc.detail)
+    except OracleAuthError:
+        return None, _oracle_offline("oracle rejected the API key")
+    except OracleError as exc:
+        return None, JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
+
+
+async def _deck_writeup(deck_id: str, request: Request, kind: str):
+    """Shared handler for description / primer generation. Body is the legacy flat form
+    ({theme, game_plan, ...}) or the builder's {answers, options, keep}. Nothing is saved except the
+    description staged for the Description panel when options.description is true."""
+    from analytics import deck_writeup
+    from analytics.deck_writeup import service as writeup_service, store as deck_store
 
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     body = await _json_body(request)
-    form = body if isinstance(body, dict) else {}
+    body = body if isinstance(body, dict) else {}
+    wizard = isinstance(body.get("answers"), dict)
+    opts = body.get("options") if isinstance(body.get("options"), dict) else {}
+    answers = body["answers"] if wizard else {}
+    if wizard:
+        form, whys, fact_ids, bracket_hint = writeup_service.answers_to_form(answers)
+    else:
+        form, whys, fact_ids, bracket_hint = body, None, None, body.get("bracket")
     meta = await asyncio.to_thread(writeup_service.card_meta_for_deck, r, deck)
-    gen = deck_writeup.generate_primer if kind == "primer" else deck_writeup.generate_description
-    if kind == "primer":
+    if kind == "primer" and not wizard:
         missing = deck_writeup.missing_required(deck_writeup.clean_form(form)) if _form_ok(form) else []
         if missing:
             return _bad_request(ValueError(f"Fill in: {', '.join(missing)}."), 422)
     offline = await asyncio.to_thread(_oracle_preflight)
     if offline is not None:
         return offline
+    ctx = await asyncio.to_thread(_writeup_context, deck, meta, bracket_hint)
+    common = dict(identity=ctx["identity"], bracket=ctx["bracket"], spirit=ctx["spirit"],
+                  table_facts=ctx["table_facts"], voice=opts.get("voice"), key_whys=whys)
+    known = _writeup_known_cards(deck, meta)
 
-    def _run():
-        client = _oracle_client()
-        client.timeout = GENRE_AUTOFILL_TIMEOUT_S
-        return gen(deck, meta, lambda system, user: client.ask(user, system=system), form)
+    if kind == "description":
+        out, err = await _oracle_call(lambda ask: deck_writeup.generate_description(deck, meta, ask, form, **common))
+        if err:
+            return err
+        return {"success": True, "description": out["text"], "suggestions": [out["text"]], "warnings": out["warnings"]}
 
-    try:
-        out = await asyncio.to_thread(_run)
-    except deck_writeup.WriteupError as exc:
-        return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": exc.kind})
-    except OracleUnavailable as exc:
-        return _oracle_offline(exc.detail)
-    except OracleAuthError:
-        return _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
-        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
-    return {"success": True, kind: out["text"], "warnings": out["warnings"]}
+    keep = {sid: deck_writeup.sanitize_primer_html(h, known) for sid, h in (body.get("keep") or {}).items()
+            if isinstance(h, str)} if isinstance(body.get("keep"), dict) else {}
+    secs = opts.get("sections") if isinstance(opts.get("sections"), list) else None
+    out, err = await _oracle_call(lambda ask: deck_writeup.generate_primer(
+        deck, meta, ask, form, fact_ids=fact_ids, wizard=wizard, length=opts.get("length"), sections=secs,
+        keep=keep, **common))
+    if err:
+        return err
+    resp = {"success": True, "primer": out["text"], "warnings": list(out["warnings"]),
+            "sections": [_section_view(s, answers, known) for s in out["sections"]]}
+    if wizard and opts.get("description"):
+        pitch_form = dict(form, theme=form.get("theme") or "")
+        desc, derr = await _oracle_call(lambda ask: deck_writeup.generate_description(deck, meta, ask, pitch_form, **common))
+        if derr:
+            resp["warnings"].append("The short description could not be drafted; the primer is unaffected.")
+        else:
+            resp["description"] = desc["text"]
+            resp["warnings"] += [w for w in desc["warnings"] if w not in resp["warnings"]]
+            await asyncio.to_thread(deck_store.stage_description, r, registry.registry_id_of(deck), desc["text"])
+    return resp
 
 
 def _form_ok(form: dict) -> bool:
@@ -3348,6 +3437,7 @@ def _form_ok(form: dict) -> bool:
 
 
 @app.post("/api/decks/{deck_id}/description/generate")
+@app.post("/api/decks/{deck_id}/description/suggest")
 async def api_deck_description_generate(deck_id: str, request: Request):
     return await _deck_writeup(deck_id, request, "description")
 
@@ -3355,6 +3445,230 @@ async def api_deck_description_generate(deck_id: str, request: Request):
 @app.post("/api/decks/{deck_id}/primer/generate")
 async def api_deck_primer_generate(deck_id: str, request: Request):
     return await _deck_writeup(deck_id, request, "primer")
+
+
+# ---- Guided primer builder: page, draft autosave, suggestions, saved primer, description ----------------
+
+def _storage_error(exc: Exception):
+    from analytics.deck_writeup import WriteupError
+
+    if isinstance(exc, WriteupError):
+        status = 404 if exc.kind == "not_found" else 413 if exc.kind == "too_large" else 422
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    logging.getLogger("commander_lab.app").warning("primer storage failed: %s", exc)
+    return JSONResponse(status_code=503, content={"success": False, "error": "Storage is unavailable.",
+                                                  "error_kind": "storage"})
+
+
+def _primer_build_context(deck_name: str) -> dict:
+    """Bootstrap JSON for templates/deck_primer_build.html (read-only; no model calls)."""
+    from analytics.deck_writeup import service as writeup_service, store, suggest
+
+    deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None) or {}
+    rid = registry.registry_id_of(deck) if deck else ""
+    meta = writeup_service.card_meta_for_deck(r, deck)
+    spirit = writeup_service.spirit_for_deck(r, deck)
+    try:
+        facts = writeup_service.table_facts_for_deck(r, deck, meta)
+    except Exception:  # noqa: BLE001
+        facts = {"facts": []}
+    draft, primer = store.load_draft(r, rid), store.load_primer(r, rid)
+    # Rebuild with guide starts from the saved answers; a newer autosaved draft wins over them.
+    answers = (draft or {}).get("answers") if draft and (not primer or draft["updated_at"] >= primer["updated_at"]) \
+        else (primer or {}).get("answers")
+    genre = spirit.get("genre") or {}
+    tier = ((journal_mod.public(journal_mod.load_journal(r, deck) or {}).get("target_power_level") or {}).get("tier")
+            if spirit.get("confirmed") else None)
+    boot = {"deck": {"id": rid, "name": deck_name, "cmdr": ", ".join(deck.get("commanders") or []),
+                     "ci": [] if deck.get("color") in (None, "", "C") else list(deck["color"]),
+                     "archetype": [deck_genre.label_of("archetype", a) for a in genre.get("archetype") or []],
+                     "themes": [deck_genre.label_of("theme", t) for t in genre.get("theme") or []],
+                     "kindred": [deck_genre.label_of("kindred", k) for k in genre.get("kindred") or []],
+                     "bracket": _resolve_bracket(deck, spirit), "ttw": spirit.get("target_turn_win"),
+                     "tone": {"casual": "casual", "competitive": "competitive"}.get(tier or "", "focused"),
+                     "cards": sum(int(c.get("quantity") or 1) for c in deck.get("cards") or [])},
+            "win": suggest.win_candidates(spirit, meta, facts),
+            "cards": suggest.key_card_candidates(deck, meta, spirit),
+            "facts": facts.get("facts") or [], "answers": answers or {}, "has_primer": bool(primer),
+            "has_draft": bool(draft), "journal_url": f"/deck/{urllib.parse.quote(deck_name)}/journal"}
+    return {"primer_bootstrap": boot}
+
+
+@app.get("/deck/{deck_name}/primer/build", response_class=HTMLResponse)
+async def deck_primer_build_view(request: Request, deck_name: str):
+    """Guided Primer Builder: 5-step wizard (docs: SPEC PF). Answers autosave as a server-side draft."""
+    return await _deck_tab(request, deck_name, "deck_primer_build.html", "overview", extra=_primer_build_context)
+
+
+@app.get("/api/decks/{deck_id}/primer/draft")
+async def api_primer_draft_get(deck_id: str):
+    from analytics.deck_writeup import store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    try:
+        rec = await asyncio.to_thread(store.load_draft, r, rid)
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    if rec is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "No draft saved."})
+    return {"success": True, "answers": rec["answers"], "updated_at": rec["updated_at"]}
+
+
+@app.put("/api/decks/{deck_id}/primer/draft")
+async def api_primer_draft_put(deck_id: str, request: Request):
+    from analytics.deck_writeup import store
+    from fastapi import Response
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    answers = body.get("answers") if isinstance(body, dict) else None
+    try:
+        await asyncio.to_thread(store.save_draft, r, registry.registry_id_of(deck), answers)
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    return Response(status_code=204)
+
+
+@app.post("/api/decks/{deck_id}/primer/suggest")
+async def api_primer_suggest(deck_id: str, request: Request):
+    """Field proposals ({pitch, early, mid, late, mull, mist, weak}: [text, ...]) and per-card `why` lines for
+    blank key cards. Deterministic and grounded in the deck, so it never waits on the oracle."""
+    from analytics.deck_writeup import service as writeup_service, suggest
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    answers = body.get("answers") if isinstance(body.get("answers"), dict) else {}
+
+    def _build():
+        meta = writeup_service.card_meta_for_deck(r, deck)
+        spirit = writeup_service.spirit_for_deck(r, deck)
+        try:
+            facts = writeup_service.table_facts_for_deck(r, deck, meta)
+        except Exception:  # noqa: BLE001
+            facts = None
+        by_name = {c["name"]: c for c in meta}
+        cands = {c["name"]: c for c in suggest.key_card_candidates(deck, meta, spirit)}
+        why = {}
+        for c in answers.get("cards") or []:
+            name = c.get("name") if isinstance(c, dict) else None
+            if name and c.get("on", True) and not str(c.get("why") or "").strip() and name in by_name:
+                why[name] = suggest.why_for(by_name[name], (cands.get(name) or {}).get("roles") or [])
+        for name, cand in cands.items():
+            if name not in why and not any(isinstance(c, dict) and c.get("name") == name for c in answers.get("cards") or []):
+                why[name] = suggest.why_for(by_name[name], cand["roles"])
+        field = body.get("field")
+        sug = suggest.suggest_fields(deck, meta, spirit, facts)
+        if field in suggest.FIELDS:
+            sug = {field: sug[field]}
+        return {"success": True, "suggestions": sug, "why": why, "facts": (facts or {}).get("facts") or []}
+
+    try:
+        return await asyncio.to_thread(_build)
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+
+
+@app.get("/api/decks/{deck_id}/primer")
+async def api_primer_get(deck_id: str):
+    from analytics.deck_writeup import store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+
+    def _load():
+        return store.load_primer(r, rid), store.load_staged(r, rid), store.has_undo(r, rid)
+
+    try:
+        primer, staged, undo = await asyncio.to_thread(_load)
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    return {"success": True, "primer": primer, "has_undo": undo,
+            "staged_description": (staged or {}).get("description")}
+
+
+@app.post("/api/decks/{deck_id}/primer")
+async def api_primer_save(deck_id: str, request: Request):
+    from analytics.deck_writeup import service as writeup_service, store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("expected a JSON object"))
+    rid = registry.registry_id_of(deck)
+
+    def _save():
+        meta = writeup_service.card_meta_for_deck(r, deck)
+        rec = store.save_primer(r, rid, body.get("html"), _writeup_known_cards(deck, meta), body.get("answers"),
+                                body.get("markdown") or "", body.get("sections"))
+        return rec, store.has_undo(r, rid)
+
+    try:
+        rec, undo = await asyncio.to_thread(_save)
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    return {"success": True, "version": rec["version"], "html": rec["html"], "has_undo": undo}
+
+
+@app.post("/api/decks/{deck_id}/primer/undo")
+async def api_primer_undo(deck_id: str):
+    from analytics.deck_writeup import store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        rec = await asyncio.to_thread(store.undo_primer, r, registry.registry_id_of(deck))
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    if rec is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Nothing to undo."})
+    return {"success": True, "version": rec["version"], "html": rec["html"], "has_undo": False}
+
+
+@app.put("/api/decks/{deck_id}/description")
+async def api_deck_description_put(deck_id: str, request: Request):
+    """Save the short deck description (<= 280 chars) with its provenance ('draft' | 'yours')."""
+    from analytics.deck_writeup import store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    try:
+        out = await asyncio.to_thread(store.save_description, r, registry.registry_id_of(deck),
+                                      body.get("description"), body.get("src") or "yours")
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    return {"success": True, **out}
+
+
+@app.post("/api/decks/{deck_id}/description/undo")
+async def api_deck_description_undo(deck_id: str):
+    from analytics.deck_writeup import store
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        out = await asyncio.to_thread(store.undo_description, r, registry.registry_id_of(deck))
+    except Exception as exc:  # noqa: BLE001
+        return _storage_error(exc)
+    if out is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Nothing to undo."})
+    return {"success": True, **out}
 
 
 @app.post("/api/genres")
