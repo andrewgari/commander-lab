@@ -385,6 +385,16 @@
             <span class="badge" id="sessionStatusBadge" style="background: #1e3a8a; color: #93c5fd; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
                 Status: Pending Preferences
             </span>
+            <span class="badge" id="dryRunSessionBadge" style="display: none; margin-left: 0.5rem; background: #78350f; color: #fcd34d; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
+                DRY RUN — NO DECOMMISSION
+            </span>
+        </div>
+    </div>
+
+    <div class="alert alert-warning" id="dryRunNoticeBanner" style="display: none; margin-bottom: 1rem;">
+        <i class="fa-solid fa-flask"></i>
+        <div>
+            <strong>Dry run:</strong> source decks were not decommissioned and no cards were moved. Pools and drafts are counted exactly as a real Reconstruct would; drafts cannot be accepted.
         </div>
     </div>
 
@@ -392,7 +402,7 @@
     <div class="stepper" id="reconstructStepper" style="display: none;">
         <div class="step-item completed" id="step1">
             <div class="step-bubble"><i class="fa-solid fa-check"></i></div>
-            <span>1. Decommission</span>
+            <span id="step1Label">1. Decommission</span>
         </div>
         <div class="step-separator"></div>
         <div class="step-item" id="step2">
@@ -450,12 +460,17 @@
                 </div>
             </div>
 
-            <div class="alert alert-warning" style="margin-top: 0.5rem;">
+            <div class="alert alert-warning" id="landingDecomWarning" style="margin-top: 0.5rem;">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <div>
                     <strong>Note:</strong> Starting reconstruct will immediately decommission and retire the selected deck(s), returning their cards to your unassigned inventory.
                 </div>
             </div>
+
+            <label for="landingDryRunToggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem; cursor: pointer; color: var(--text-dim); font-size: 0.9rem;">
+                <input type="checkbox" id="landingDryRunToggle" onchange="onLandingDryRunChange(this.checked)" style="margin-top: 0.2rem;">
+                <span>Dry Run (No Decommission) — Count cards and preview available pools &amp; drafts without retiring decks, moving cards, or deleting anything</span>
+            </label>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
                 <button class="btn btn-primary" id="btnLandingStart" onclick="startReconstructFromLanding()">
@@ -509,6 +524,10 @@
                 <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
                     <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Source Decks</div>
                     <div style="font-size: 1.5rem; font-weight: 600; color: #60a5fa; margin-top: 0.25rem;" id="poolSourceDecksCount">0</div>
+                </div>
+                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; display: none;" id="poolOwnedCollectionCardsBox">
+                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Free Owned Copies (Tier 2)</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: #34d399; margin-top: 0.25rem;" id="poolOwnedCollectionCards">0</div>
                 </div>
                 <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
                     <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Combined Color Identity</div>
@@ -1203,6 +1222,21 @@
             }
         }
 
+        const dry = Boolean(currentSession.dry_run);
+        const dryBadge = document.getElementById('dryRunSessionBadge');
+        if (dryBadge) dryBadge.style.display = dry ? 'inline-block' : 'none';
+        const dryBanner = document.getElementById('dryRunNoticeBanner');
+        if (dryBanner) dryBanner.style.display = dry ? 'flex' : 'none';
+        const step1Label = document.getElementById('step1Label');
+        if (step1Label) step1Label.textContent = dry ? '1. Snapshot (Dry Run)' : '1. Decommission';
+        const acceptBtnDry = document.getElementById('btnAcceptSave');
+        if (acceptBtnDry) {
+            acceptBtnDry.style.display = dry ? 'none' : '';
+            if (dry) acceptBtnDry.disabled = true;
+        }
+        const abandonBtnDry = document.getElementById('btnAbandonDraft');
+        if (abandonBtnDry && dry) abandonBtnDry.textContent = 'Close Dry Run';
+
         renderPoolScreen();
         prefillPreferencesForm();
 
@@ -1238,7 +1272,13 @@
         const deckNames = decks.map(d => d.name).join(' & ');
 
         document.getElementById('poolHeaderTitle').textContent = `Pooled Resources: ${deckNames}`;
-        document.getElementById('poolHeaderDecks').textContent = `Decommissioned decks: ${deckNames}`;
+        document.getElementById('poolHeaderDecks').textContent = currentSession.dry_run
+            ? `Dry run source decks (not decommissioned): ${deckNames}`
+            : `Decommissioned decks: ${deckNames}`;
+        const ownedBox = document.getElementById('poolOwnedCollectionCardsBox');
+        if (ownedBox) ownedBox.style.display = currentSession.dry_run ? 'block' : 'none';
+        document.getElementById('poolOwnedCollectionCards').textContent =
+            (currentSession.pool_summary && currentSession.pool_summary.tier2_total_qty) || 0;
         document.getElementById('prefPoolSummary').textContent = `Pool: ${deckNames} (${decks.length} deck${decks.length > 1 ? 's' : ''})`;
 
         let totalCards = 0;
@@ -2067,7 +2107,8 @@
                     <tbody>
                         ${sessions.map(s => {
                             const sourceNames = (s.source_decks || []).map(d => d.name).join(' & ') || (s.source_deck_ids || []).join(', ');
-                            const statusBadge = `<span class="badge" style="background:#1e293b; color:#93c5fd;">${s.status.replace('_', ' ')}</span>`;
+                            const dryBadge = s.dry_run === true ? ' <span class="badge badge-dry-run" style="background:#78350f; color:#fcd34d;">DRY RUN</span>' : '';
+                            const statusBadge = `<span class="badge" style="background:#1e293b; color:#93c5fd;">${s.status.replace('_', ' ')}</span>${dryBadge}`;
                             const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '-';
                             return `
                                 <tr>
@@ -2119,6 +2160,16 @@
         }
     }
 
+    function onLandingDryRunChange(checked) {
+        const btn = document.getElementById('btnLandingStart');
+        if (btn.disabled) return;
+        btn.innerHTML = checked
+            ? '<i class="fa-solid fa-flask"></i> Start Dry Run'
+            : '<i class="fa-solid fa-wand-magic-sparkles"></i> Start Reconstruct';
+        const warn = document.getElementById('landingDecomWarning');
+        if (warn) warn.style.display = checked ? 'none' : '';
+    }
+
     async function startReconstructFromLanding() {
         const deck1 = document.getElementById('landingDeck1Select').value;
         const deck2 = document.getElementById('landingDeck2Select').value;
@@ -2140,7 +2191,11 @@
             const res = await fetch('/api/reconstruct/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deck_ids: deckIds, tag: 'removed' })
+                body: JSON.stringify({
+                    deck_ids: deckIds,
+                    tag: 'removed',
+                    dry_run: Boolean(document.getElementById('landingDryRunToggle') && document.getElementById('landingDryRunToggle').checked)
+                })
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
@@ -2151,6 +2206,7 @@
             showGlobalError(`Failed to start reconstruct: ${e.message}`);
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Start Reconstruct';
+            onLandingDryRunChange(document.getElementById('landingDryRunToggle').checked);
         }
     }
 

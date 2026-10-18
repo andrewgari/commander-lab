@@ -698,6 +698,70 @@ def _make_test(fn):
     return test
 
 
+def _dry_session(src_ids=("archidekt:42",)):
+    sess = make_session([
+        {**make_source_deck("A", [("Sol Ring", 2), ("Cultivate", 1)]), "id": 42, "registry_id": "archidekt:42"},
+    ])
+    sess["source_deck_ids"] = list(src_ids)
+    return sess
+
+
+def check_source_deck_keys_collects_ids_and_registry_ids():
+    sess = _dry_session()
+    sess["source_decks"][0]["id"] = 42  # non-string ignored
+    assert rp._source_deck_keys(sess) == {"archidekt:42"}
+    assert rp._source_deck_keys({}) == set()
+
+
+def check_free_owned_counts_counts_source_in_deck_only_with_keys():
+    inst = [
+        make_instance("Sol Ring"),
+        make_instance("Sol Ring", "in_deck", deck_id="archidekt:42"),
+        make_instance("Sol Ring", "in_deck", deck_id="archidekt:9"),
+        make_instance("Sol Ring", "in_mail"),
+    ]
+    assert rp.free_owned_counts(inst) == {"Sol Ring": 1}
+    assert rp.free_owned_counts(inst, source_deck_keys=["archidekt:42"]) == {"Sol Ring": 2}
+
+
+def check_dry_run_pools_match_decommissioned_pools(catalog):
+    # Decommissioned: source copies moved to in_collection (+1 spare). Dry run: still in_deck.
+    real = _dry_session()
+    after_decom = [make_instance("Sol Ring") for _ in range(3)] + [make_instance("Cultivate")]
+    p_real = build_candidate_pools(real, catalog=catalog, owned_instances=after_decom, price_lookup=price_fn({}))
+
+    dry = _dry_session()
+    dry["dry_run"] = True
+    still_in_deck = (
+        [make_instance("Sol Ring", "in_deck", deck_id="archidekt:42") for _ in range(2)]
+        + [make_instance("Sol Ring")]
+        + [make_instance("Cultivate", "in_deck", deck_id="archidekt:42")]
+    )
+    # unique ids are needed only for the Redis path; the list path counts directly
+    p_dry = build_candidate_pools(dry, catalog=catalog, owned_instances=still_in_deck, price_lookup=price_fn({}))
+    for tier in (1, 2, 3):
+        assert p_dry.tier_cards(tier) == p_real.tier_cards(tier), tier
+    assert p_dry.available_quantities() == p_real.available_quantities()
+    assert {c.name: c.available_qty for c in p_dry.tier2} == {"Sol Ring": 1}
+
+
+def check_dry_run_loads_source_in_deck_instances_from_redis(catalog):
+    import instances as inst_store
+    r = FakeRedis()
+    for _ in range(2):
+        inst_store.create_instance(r, "Sol Ring", ownership_status="in_deck", deck_id="archidekt:42", deck_name="A")
+    inst_store.create_instance(r, "Sol Ring", ownership_status="in_collection")
+    inst_store.create_instance(r, "Cultivate", ownership_status="in_deck", deck_id="archidekt:9", deck_name="Other")
+    dry = _dry_session()
+    dry["dry_run"] = True
+    p = build_candidate_pools(dry, r, catalog=catalog, price_lookup=price_fn({}))
+    assert {c.name: c.available_qty for c in p.tier2} == {"Sol Ring": 1}
+    real = _dry_session()
+    p2 = build_candidate_pools(real, r, catalog=catalog, price_lookup=price_fn({}))
+    # non-dry run does not look at in_deck instances: only the in_collection copy, fully absorbed by Tier 1
+    assert {c.name: c.available_qty for c in p2.tier2} == {}
+
+
 class TestReconstructPools(unittest.TestCase):
     pass
 

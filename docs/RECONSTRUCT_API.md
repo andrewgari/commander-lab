@@ -113,6 +113,19 @@ Snapshots source decklists, executes physical decommission (retires decks, remov
 
 ---
 
+**Dry run** (`"dry_run": true` in the body, or `?dry_run=true`; default `false`): validates and snapshots
+exactly like a real start but does **not** call `registry.decommission_decks`. Nothing is written to decks,
+`deck_status:*`, tags, `decommissioned_at` or card instances. The session has `"dry_run": true`,
+`"decommission_results": []` and a `pool_summary`
+(`tier1_unique`, `tier1_total_qty`, `tier2_unique`, `tier2_total_qty`). Tier 1/2/3 counts are identical to a real run
+(see `docs/RECONSTRUCT_POOLS.md`). `POST /api/reconstruct/{session_id}/accept` on a dry-run session returns `400`
+and performs no writes; use abandon to close it.
+
+### 1b. Get Session Pools
+`GET /api/reconstruct/{session_id}/pools` -> `200 {"success": true, "session_id", "dry_run", "summary", "tier1": [...], "tier2": [...]}`
+(`tier1` rows: `name, tier, tier_label, available_qty, is_commander, source_decks`; `tier2` rows: `name, tier, tier_label, available_qty`).
+`404` if the session does not exist. Output is identical for `dry_run` true and false on the same data.
+
 ### 2. Get Reconstruct Session
 **Endpoint**: `GET /api/reconstruct/{session_id}`
 

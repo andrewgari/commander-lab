@@ -58,5 +58,13 @@ A card outside every pool is tagged Tier 3 with `in_pool=False` and priced from 
 `available_quantities()` is never narrowed by the Tier 3 filter/cap or `to_llm_payload`. Sum each card's
 quantity across the two target decks (`tag_cards`) and compare with `Availability.quantity`.
 
+## Dry run (`session["dry_run"] == True`)
+A dry run skips decommission, so source-deck copies are still `in_deck` in Redis. `build_candidate_pools`
+therefore also counts instances that are `in_deck` on the session's source decks
+(`_source_deck_keys(session)` = `source_deck_ids` plus each snapshot's `registry_id`/`id`) as free:
+`free_owned_counts(instances, source_deck_keys=...)`. Instances `in_deck` on any other deck, `in_mail` and
+`not_owned` stay excluded. The existing `n -= tier1_qty` subtraction is unchanged, so `tier1`, `tier2`, `tier3` and
+`available_quantities()` match a real (decommissioned) run. `GET /api/reconstruct/{session_id}/pools` exposes Tier 1/2.
+
 ## Tests
 `pytest tests/test_reconstruct_pools.py` (fixtures, factories, in-memory Redis; no network).

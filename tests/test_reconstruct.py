@@ -430,5 +430,126 @@ class TestReconstructEndpoints(unittest.TestCase):
         self.assertEqual(res.json()["session"]["status"], "abandoned")
 
 
+class TestReconstructDryRun(unittest.TestCase):
+    def setUp(self):
+        self.r = FakeRedis()
+        self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends")
+        self.r.set("decks", json.dumps([self.deck1]))
+        self.sol = [
+            instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
+                                      deck_id="archidekt:42", deck_name="Atraxa Superfriends")
+            for _ in range(1)
+        ]
+        instances.create_instance(self.r, "Sol Ring", ownership_status="in_collection")  # spare
+        reconstruct.set_builder(reconstruct.StubReconstructBuilder())
+
+    def _snapshot(self):
+        inst = sorted(
+            (i["id"], i["ownership_status"], i.get("deck_id")) for i in instances.list_instances(self.r)
+        )
+        return self.r.get("decks"), inst, self.r.get("deck_status:archidekt:42")
+
+    def test_dry_run_makes_zero_writes(self):
+        before = self._snapshot()
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"], dry_run=True)
+        after = self._snapshot()
+        self.assertEqual(before, after)
+        self.assertIs(session["dry_run"], True)
+        self.assertEqual(session["decommission_results"], [])
+        deck = registry.find_deck(self.r, "archidekt:42")
+        self.assertEqual(deck["status"], "physical")
+        self.assertIn("removed", deck["tags"])
+        self.assertIn("custom_tag", deck["tags"])
+        self.assertFalse(deck.get("decommissioned_at"))
+
+    def test_dry_run_still_validates(self):
+        with self.assertRaises(ValueError):
+            reconstruct.start_reconstruct(self.r, ["archidekt:9999"], dry_run=True)
+        with self.assertRaises(ValueError):
+            reconstruct.start_reconstruct(self.r, [], dry_run=True)
+
+    def test_pool_summary_and_pools_match_real_run(self):
+        dry = reconstruct.start_reconstruct(self.r, ["archidekt:42"], dry_run=True)
+        dry_pools = reconstruct.get_session_pools(self.r, dry["session_id"])
+        real = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
+        self.assertIs(real["dry_run"], False)
+        real_pools = reconstruct.get_session_pools(self.r, real["session_id"])
+        self.assertTrue(dry_pools["dry_run"])
+        self.assertFalse(real_pools["dry_run"])
+        self.assertEqual(dry_pools["tier1"], real_pools["tier1"])
+        self.assertEqual(dry_pools["tier2"], real_pools["tier2"])
+        self.assertEqual(dry_pools["summary"], real_pools["summary"])
+        self.assertEqual(dry["pool_summary"], real["pool_summary"])
+        # 1 source Sol Ring + 1 spare owned copy -> one spare in Tier 2 (#157)
+        self.assertEqual([c["available_qty"] for c in dry_pools["tier2"] if c["name"] == "Sol Ring"], [1])
+
+    def test_get_session_pools_missing(self):
+        with self.assertRaises(ValueError):
+            reconstruct.get_session_pools(self.r, "recon_nope")
+
+    def test_accept_draft_rejected_on_dry_run_without_writes(self):
+        session = reconstruct.start_reconstruct(self.r, ["archidekt:42"], dry_run=True)
+        sid = session["session_id"]
+        reconstruct.submit_preferences(self.r, sid, [{"name": "New"}])
+        reconstruct.trigger_build(self.r, sid, sync=True)
+        before = self._snapshot()
+        with self.assertRaisesRegex(ValueError, "dry_run"):
+            reconstruct.accept_draft(self.r, sid)
+        self.assertEqual(before, self._snapshot())
+
+
+class TestReconstructDryRunEndpoints(unittest.TestCase):
+    def setUp(self):
+        import app as app_module
+        self.r = FakeRedis()
+        self.r.set("decks", json.dumps([make_deck(deck_id=42, name="Atraxa")]))
+        for _ in range(2):
+            instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
+                                      deck_id="archidekt:42", deck_name="Atraxa")
+        instances.create_instance(self.r, "Sol Ring", ownership_status="in_collection")
+        reconstruct.set_builder(reconstruct.StubReconstructBuilder())
+        self.patch = patch.object(app_module, "r", self.r)
+        self.patch.start()
+        self.client = TestClient(app_module.app)
+
+    def tearDown(self):
+        self.patch.stop()
+
+    def test_start_dry_run_body_and_query(self):
+        res = self.client.post("/api/reconstruct/start", json={"deck_ids": ["archidekt:42"], "dry_run": True})
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.json()["session"]["dry_run"])
+        res = self.client.post("/api/reconstruct/start?dry_run=true", json={"deck_ids": ["archidekt:42"]})
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.json()["session"]["dry_run"])
+        self.assertEqual(registry.find_deck(self.r, "archidekt:42")["status"], "physical")
+
+    def test_pools_endpoint_identical_for_dry_and_real(self):
+        dry = self.client.post("/api/reconstruct/start", json={"deck_ids": ["archidekt:42"], "dry_run": True}).json()
+        dry_pools = self.client.get(f"/api/reconstruct/{dry['session_id']}/pools")
+        self.assertEqual(dry_pools.status_code, 200)
+        real = self.client.post("/api/reconstruct/start", json={"deck_ids": ["archidekt:42"]}).json()
+        real_pools = self.client.get(f"/api/reconstruct/{real['session_id']}/pools").json()
+        d = dry_pools.json()
+        self.assertTrue(d["success"])
+        self.assertEqual(d["tier1"], real_pools["tier1"])
+        self.assertEqual(d["tier2"], real_pools["tier2"])
+
+    def test_pools_endpoint_404(self):
+        self.assertEqual(self.client.get("/api/reconstruct/recon_nope/pools").status_code, 404)
+
+    def test_accept_dry_run_returns_400_with_zero_writes(self):
+        sid = self.client.post("/api/reconstruct/start", json={"deck_ids": ["archidekt:42"], "dry_run": True}).json()["session_id"]
+        self.client.post(f"/api/reconstruct/{sid}/preferences", json={"preferences": [{"name": "New"}]})
+        self.client.post(f"/api/reconstruct/{sid}/build?sync=true")
+        decks_before = self.r.get("decks")
+        inst_before = sorted((i["id"], i["ownership_status"], i.get("deck_id")) for i in instances.list_instances(self.r))
+        res = self.client.post(f"/api/reconstruct/{sid}/accept", json={})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("dry_run", res.json()["error"])
+        self.assertEqual(decks_before, self.r.get("decks"))
+        self.assertEqual(inst_before, sorted((i["id"], i["ownership_status"], i.get("deck_id")) for i in instances.list_instances(self.r)))
+
+
 if __name__ == "__main__":
     unittest.main()
