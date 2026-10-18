@@ -230,7 +230,20 @@ def effective_caps(r, rec: Mapping) -> dict:
     for k, src in (("hard_cap", "hard_source"), ("soft_cap", "soft_source")):
         v = bc.get(k)
         out[k], out[src] = (float(v), "deck") if v is not None else (d[k], "global")
+    # effective soft = min(soft, hard): a deck hard cap under the global soft cap must not invert them.
+    if out["soft_cap"] > out["hard_cap"]:
+        out["soft_cap"], out["soft_source"] = out["hard_cap"], out["hard_source"]
     return out
+
+
+def soft_penalty(price, soft, hard) -> float:
+    """Ranking penalty (0.05..0.15) for a BUY priced in (soft, hard]; 0 otherwise.
+    Owned / in-deck cards must never be passed here."""
+    if price is None or soft is None or price <= soft or (hard is not None and price > hard):
+        return 0.0
+    if hard is None or hard <= soft:
+        return 0.10
+    return 0.05 + 0.10 * (price - soft) / (hard - soft)
 
 
 # ---------------------------------------------------------------------------
@@ -340,20 +353,6 @@ def _value(field: str, rec: Mapping, ctx: Mapping, caps: Mapping) -> dict:
     raise JournalError(f"Unknown field '{field}'.")
 
 
-def _over(prices: Mapping, names: List[str], cap: float, lo_exclusive: Optional[float] = None) -> List[tuple]:
-    out = []
-    for n in names:
-        p = prices.get(n)
-        if p is not None and p > cap and (lo_exclusive is None or p <= lo_exclusive):
-            out.append((n, p))
-    return sorted(out, key=lambda x: (-x[1], x[0]))
-
-
-def _over_line(rows: List[tuple], kind: str, cap: float) -> str:
-    listed = ", ".join(f"{n} {money(p)}" for n, p in rows[:3]) + (f", …{len(rows) - 3} more" if len(rows) > 3 else "")
-    return f"{_plural(len(rows), 'card')} over {kind} cap {money(cap)} ({listed})."
-
-
 def _evidence(field: str, rec: Mapping, ctx: Mapping, caps: Mapping, deck: Mapping) -> Optional[str]:
     names = sorted(deck_entries(deck)) if deck else []
     if field == "vision":
@@ -369,19 +368,12 @@ def _evidence(field: str, rec: Mapping, ctx: Mapping, caps: Mapping, deck: Mappi
         bc = rec["budget_constraints"]
         if bc.get("no_budget"):
             return None
-        out, price, prices = [], ctx.get("price"), ctx.get("prices") or {}
-        if bc.get("total_budget") and price is not None:
-            out.append(f"Deck is {money(price)}, {round(100 * price / bc['total_budget'])}% of budget.")
-        hard, soft = caps.get("hard_cap"), caps.get("soft_cap")
-        if hard is not None:
-            rows = _over(prices, names, hard)
-            if rows:
-                out.append(_over_line(rows, "hard", hard))
-        if soft is not None:
-            rows = _over(prices, names, soft, lo_exclusive=hard)
-            if rows:
-                out.append(_over_line(rows, "soft", soft))
-        return " ".join(out) or None
+        # Price only matters for cards that would have to be bought. Cards already in the
+        # deck are owned/in-deck and never compared to caps or total_budget (budget rules).
+        spend = ctx.get("accepted_buy_spend")
+        if bc.get("total_budget") and spend:
+            return f"Accepted buys: {money(spend)} of {money(bc['total_budget'])}."
+        return None
     if field == "pets":
         pets = list(rec.get("pet_cards") or [])
         if not pets:
