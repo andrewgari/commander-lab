@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import instances as instance_store
 import registry
+import reconstruct_pools
 
 RECONSTRUCT_SESSION_PREFIX = "reconstruct:session:"
 RECONSTRUCT_SESSIONS_INDEX = "reconstruct:sessions"
@@ -333,8 +334,12 @@ def start_reconstruct(
     r: Any,
     deck_ids: Any,
     tag: str = registry.DEFAULT_DECOMMISSION_TAG,
+    dry_run: bool = False,
 ) -> dict:
     """Start a Reconstruct flow on 1 or 2 physical decks.
+
+    With dry_run=True step 4 is skipped entirely: no deck, tag, status or card
+    instance is written; pools are counted as if the decks had been decommissioned.
 
     1. Validates that 1 or 2 decks are requested.
     2. Validates that all requested decks exist, are physical, and not already decommissioned.
@@ -387,28 +392,81 @@ def start_reconstruct(
             "url": target.get("url", ""),
         })
 
-    # Execute existing decommission on all source decks atomically
-    decom_result = registry.decommission_decks(r, canonical_ids, tag=tag)
-    if decom_result.get("failed"):
-        first_fail = decom_result["failed"][0]
-        raise registry.DecommissionError(f"decommission failed for {first_fail['deck_id']}: {first_fail['reason']}")
+    if dry_run:
+        # Dry run: zero writes to decks, tags, statuses or card instances.
+        decommission_results: list = []
+    else:
+        # Execute existing decommission on all source decks atomically
+        decom_result = registry.decommission_decks(r, canonical_ids, tag=tag)
+        if decom_result.get("failed"):
+            first_fail = decom_result["failed"][0]
+            raise registry.DecommissionError(
+                f"decommission failed for {first_fail['deck_id']}: {first_fail['reason']}"
+            )
+        decommission_results = decom_result["succeeded"]
 
     now = _now()
     session_id = f"recon_{uuid.uuid4().hex[:12]}"
     session = {
         "session_id": session_id,
         "status": STATUS_PENDING_PREFERENCES,
+        "dry_run": bool(dry_run),
         "source_deck_ids": canonical_ids,
         "source_decks": snapshots,
-        "decommission_results": decom_result["succeeded"],
+        "decommission_results": decommission_results,
         "preferences": [],
         "drafts": [],
         "created_at": now,
         "updated_at": now,
     }
+    session["pool_summary"] = _pool_summary(
+        reconstruct_pools.build_candidate_pools(session, r, price_lookup=lambda _: {})
+    )
 
     _save_session(r, session)
     return session
+
+
+def _pool_summary(pools: Any) -> dict:
+    return {
+        "tier1_unique": len(pools.tier1),
+        "tier1_total_qty": sum(c.available_qty or 0 for c in pools.tier1),
+        "tier2_unique": len(pools.tier2),
+        "tier2_total_qty": sum(c.available_qty or 0 for c in pools.tier2),
+    }
+
+
+def get_session_pools(r: Any, session_id: str) -> dict:
+    """Tier 1 / Tier 2 pools for a session (identical for dry-run and real runs)."""
+    session = get_session(r, session_id)
+    if not session:
+        raise ValueError(f"session not found: {session_id}")
+    pools = reconstruct_pools.build_candidate_pools(session, r, price_lookup=lambda _: {})
+    return {
+        "session_id": session_id,
+        "dry_run": bool(session.get("dry_run", False)),
+        "summary": _pool_summary(pools),
+        "tier1": [
+            {
+                "name": c.name,
+                "tier": int(c.tier),
+                "tier_label": c.tier_label,
+                "available_qty": c.available_qty,
+                "is_commander": c.is_commander,
+                "source_decks": [list(sd) for sd in c.source_decks],
+            }
+            for c in pools.tier1
+        ],
+        "tier2": [
+            {
+                "name": c.name,
+                "tier": int(c.tier),
+                "tier_label": c.tier_label,
+                "available_qty": c.available_qty,
+            }
+            for c in pools.tier2
+        ],
+    }
 
 
 def get_session(r: Any, session_id: str) -> Optional[dict]:
@@ -528,6 +586,10 @@ def accept_draft(
     session = get_session(r, session_id)
     if not session:
         raise ValueError(f"session not found: {session_id}")
+    if session.get("dry_run"):
+        raise ValueError(
+            "cannot accept draft on a dry_run session (dry run does not create decks or move cards)"
+        )
     if session["status"] != STATUS_DRAFTS_READY:
         raise ValueError(
             f"cannot accept draft when session status is '{session['status']}' (expected '{STATUS_DRAFTS_READY}')"

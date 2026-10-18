@@ -264,6 +264,44 @@ console.log(JSON.stringify(errs.map(e => e.id)));
         self.assertEqual(json.loads(res.stdout.strip()), ["pref_partner_cmdr_0"])
 
 
+class TestReconstructDryRunUI(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+        self.deck_html = self.client.get("/deck/Lathril%20Elves").text
+        self.recon_html = self.client.get("/reconstruct/recon_abc").text
+
+    def test_deck_modal_has_dry_run_toggle(self):
+        self.assertIn('id="reconstructDryRunToggle"', self.deck_html)
+        self.assertIn("onDeckReconstructDryRunChange(this.checked)", self.deck_html)
+        self.assertIn("Start Dry Run", self.deck_html)
+        self.assertIn("dry_run: Boolean(document.getElementById('reconstructDryRunToggle')", self.deck_html)
+        self.assertIn("reconstructDryRunToggle').checked = false", self.deck_html)
+
+    def test_reconstruct_page_dry_run_elements(self):
+        for el in ("landingDryRunToggle", "dryRunSessionBadge", "dryRunNoticeBanner", "poolOwnedCollectionCards"):
+            self.assertIn(f'id="{el}"', self.recon_html)
+        for text in ("onLandingDryRunChange", "1. Snapshot (Dry Run)", "Dry run source decks (not decommissioned)",
+                     "Close Dry Run", "DRY RUN", "dry_run: Boolean(document.getElementById('landingDryRunToggle')"):
+            self.assertIn(text, self.recon_html)
+
+    def test_dry_run_inline_scripts_are_valid_javascript(self):
+        import shutil
+        import subprocess
+        import tempfile
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        for html in (self.deck_html, self.recon_html):
+            scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+            self.assertTrue(scripts)
+            with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+                fh.write(scripts[-1])
+            res = subprocess.run([node, "--check", fh.name], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stderr)
+
+
+
 class TestReconstructUserFlowEndToEnd(unittest.TestCase):
     """Tests the full backend flow that the UI drives:
     Start -> Preferences -> Build -> Drafts -> Accept -> Dedicated cards.

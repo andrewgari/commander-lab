@@ -132,6 +132,7 @@ flagged, sorted last, and the weakest pet becomes the single `pet_notice`.
     PUT    /api/decks/{id}/identity/thesis               {"text", "emphasis"} | {"action": "accept_draft"}
     POST   /api/decks/{id}/identity/pillars              {"name", "description"}  (user pillar, pinned)
     PATCH  /api/decks/{id}/identity/pillars/{pid}        {"action": pin|unpin|keep|reject|restore} and/or {"name","description"}
+    POST   /api/decks/{id}/identity/pillars/describe     {"name"?,"prompt"?,"description"?,"pillar_id"?} -> {"description","mode"}; LLM generate/improve, saves nothing (422 bad input, 502 providers failed, 503 no LLM)
     PUT    /api/decks/{id}/identity/pillars/order        {"order": [pid, ...]}
     GET    /api/decks/{id}/edhrec[?refresh=true]
     GET    /api/decks/{id}/weak-performers[?limit=N]
