@@ -234,12 +234,18 @@ class TestDeltasAndRows(unittest.TestCase):
         self.assertEqual(rows["pets"]["value_list"], ["Platinum Angel", "Lord of the Void"])
         self.assertEqual(rows["pillars"]["value"], "Payoffs worth cheating · Swing twice")
 
-    def test_budget_evidence(self):
-        ev = self._rows()["budget"]["evidence"]
-        self.assertEqual(ev, "Deck is $468, 94% of budget. 1 card over soft cap $15 (Necropotence $31).")
-        ev = self._rows(c=ctx(prices={"Necropotence": 55.0}, price=100.0))["budget"]["evidence"]
-        self.assertIn("1 card over hard cap $40 (Necropotence $55)", ev)
+    def test_budget_evidence_never_prices_cards_already_in_the_deck(self):
+        # Necropotence ($31) is in DECK and over the $15 soft cap; the deck is $468 of a $500 budget.
+        # None of that is evidence: price only matters for cards that would have to be bought.
+        self.assertIsNone(self._rows()["budget"]["evidence"])
+        ev = self._rows(c=ctx(prices={"Necropotence": 5500.0}, price=5600.0))["budget"]["evidence"]
+        self.assertIsNone(ev)
         self.assertIsNone(self._rows(payload={"budget_constraints": {"no_budget": True}})["budget"]["evidence"])
+
+    def test_budget_evidence_shows_accepted_buy_spend_only(self):
+        ev = self._rows(c=ctx(accepted_buy_spend=42.0))["budget"]["evidence"]
+        self.assertEqual(ev, "Accepted buys: $42 of $500.")
+        self.assertNotIn("% of budget", ev)
 
     def test_pet_evidence(self):
         ev = self._rows()["pets"]["evidence"]
