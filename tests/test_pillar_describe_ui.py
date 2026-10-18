@@ -28,6 +28,7 @@ class TestIdentityPageWiring(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tpl = (ROOT / "templates" / "deck_identity.html").read_text()
+        cls.css = (ROOT / "static" / "css" / "hud.css").read_text()
 
     def test_script_loaded_and_mounted(self):
         self.assertRegex(self.tpl, r'<script src="/static/js/pillar_describe\.js\?v=')
@@ -39,7 +40,7 @@ class TestIdentityPageWiring(unittest.TestCase):
     def test_key_classes_are_styled(self):
         for cls in ["pd-gen", "pd-sugg", "pd-skel", "pd-undo", "pd-count"]:
             with self.subTest(cls=cls):
-                self.assertIn(f".{cls}", self.tpl)
+                self.assertIn(f".{cls}", self.css)
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
