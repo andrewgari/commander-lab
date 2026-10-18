@@ -14,7 +14,7 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -34,6 +34,7 @@ from analytics.models import (
     DecklistInput,
 )
 from user_intent import UserDeckIntent
+from analytics import journal as journal_mod
 
 logger = logging.getLogger(__name__)
 
@@ -878,8 +879,14 @@ class RecommendationGenerator:
         analysis: DeckAnalysisReport,
         intent: Optional[UserDeckIntent] = None,
         external_recommendations: Optional[CardRecommendations] = None,
+        pricing: Optional[Mapping[str, Any]] = None,
     ) -> RecommendationSet:
         """
+        `pricing` (optional) = {"prices": {name: usd|None}, "owned": {names}, "caps": {hard_cap, soft_cap,
+        no_budget}} (caps from journal.effective_caps; prices from analytics.prices). Price applies ONLY to
+        additions the user would have to buy: owned cards are never priced, filtered or penalised, and cuts
+        are always price-blind. Without `pricing` nothing is price-filtered (no hard-coded price is read).
+
         Generate a comprehensive set of additions, cuts, and 1-to-1 card swaps.
         """
         # 1. Extract deck card names & commanders
@@ -913,7 +920,7 @@ class RecommendationGenerator:
         power_scale = intent.target_power_level.scale
         power_tier = intent.target_power_level.tier.lower()
         deck_vision_intent = intent.deck_vision.intent.lower()  # tune_up, new_build, overhaul
-        max_card_price = intent.budget_constraints.max_card_price
+        pricing = self._resolve_pricing(pricing, intent)
 
         # 3. Score and curate candidate additions
         additions = self._evaluate_candidate_additions(
@@ -927,7 +934,7 @@ class RecommendationGenerator:
             power_scale=power_scale,
             power_tier=power_tier,
             deck_vision_intent=deck_vision_intent,
-            max_card_price=max_card_price,
+            pricing=pricing,
             external_recommendations=external_recommendations,
             analysis=analysis,
         )
@@ -992,6 +999,38 @@ class RecommendationGenerator:
             summary=summary,
         )
 
+    @staticmethod
+    def _resolve_pricing(pricing: Optional[Mapping[str, Any]], intent: Any) -> Optional[Dict[str, Any]]:
+        if not pricing:
+            return None
+        caps = dict(pricing.get("caps") or {})
+        if not caps:
+            mcp = intent.budget_constraints.max_card_price
+            caps = {"hard_cap": mcp, "soft_cap": None, "no_budget": mcp is None}
+        hard, soft = caps.get("hard_cap"), caps.get("soft_cap")
+        if hard is not None and soft is not None and soft > hard:
+            caps["soft_cap"] = hard  # effective soft = min(soft, hard)
+        return {"prices": {normalize_card_name(k): v for k, v in (pricing.get("prices") or {}).items()},
+                "owned": {normalize_card_name(n) for n in (pricing.get("owned") or ())}, "caps": caps}
+
+    @staticmethod
+    def _budget_adjust(name: str, score: float, pricing: Optional[Mapping[str, Any]]) -> Optional[float]:
+        """Score after the budget rules, or None when the card must be dropped.
+        Owned cards: untouched. Buys: unpriced -> drop; price > hard -> drop; soft < price <= hard ->
+        score minus journal.soft_penalty. no_budget / no pricing: untouched."""
+        if not pricing or pricing["caps"].get("no_budget"):
+            return score
+        key = normalize_card_name(name)
+        if key in pricing["owned"]:
+            return score
+        price = pricing["prices"].get(key)
+        if price is None:
+            return None
+        hard, soft = pricing["caps"].get("hard_cap"), pricing["caps"].get("soft_cap")
+        if hard is not None and price > hard:
+            return None
+        return max(0.0, score - journal_mod.soft_penalty(price, soft, hard))
+
     # -------------------------------------------------------------------------
     # Helper: Evaluate Candidate Additions
     # -------------------------------------------------------------------------
@@ -1008,7 +1047,7 @@ class RecommendationGenerator:
         power_scale: int,
         power_tier: str,
         deck_vision_intent: str,
-        max_card_price: Optional[float],
+        pricing: Optional[Mapping[str, Any]],
         external_recommendations: Optional[CardRecommendations],
         analysis: DeckAnalysisReport,
     ) -> List[CardRecommendation]:
@@ -1020,6 +1059,9 @@ class RecommendationGenerator:
                 if is_already_in_deck(ext.card_name, existing_names):
                     continue
                 score = min(1.0, (ext.score or 0.85) + 0.10)
+                score = self._budget_adjust(ext.card_name, score, pricing)
+                if score is None:
+                    continue
                 synergy = ext.synergy or 0.5
                 reason = ext.reason or f"Synergistic addition recommended by external provider data."
                 cats = list(ext.categories or ["External Analytics"])
@@ -1038,10 +1080,6 @@ class RecommendationGenerator:
         # B. Evaluate internal curated knowledge base
         for card in self.catalog:
             if is_already_in_deck(card.name, existing_names):
-                continue
-
-            # Respect budget limit if defined
-            if max_card_price is not None and card.approx_price_usd > max_card_price:
                 continue
 
             # Check archetype exclusions
@@ -1139,6 +1177,9 @@ class RecommendationGenerator:
                 categories.append("Mana & Ramp")
 
             final_score = min(0.99, max(0.10, base_score))
+            final_score = self._budget_adjust(card.name, final_score, pricing)
+            if final_score is None:
+                continue
             final_synergy = min(1.0, max(-1.0, synergy_score))
 
             if not reasons:

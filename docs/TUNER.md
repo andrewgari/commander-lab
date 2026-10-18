@@ -60,11 +60,17 @@ A cut is scored with the same formula, so "gap" always compares like with like.
   `buy.score − best_owned.score ≥ GAP_WORTH` (0.10). Otherwise the row
   shows the near buy: "Keep yours: +0.08 isn't worth $39.58 (Ancient Brass
   Dragon)."
-- **Soft cap**: the buy is shown with `over soft cap $X` and a
-  justification line. The numbers in that line are filled in by the code;
-  only its reason sentence comes from the LLM. The pick stays owned unless
-  the gap is at least `GAP_SOFT_OVERRIDE` (0.25).
-- **Hard cap**: never shown as an option. It is only counted: "1 better buy
+- **Price applies only to buys.** A card you own (free, sleeved elsewhere via a
+  steal, or already in the deck) is never priced, filtered, penalised or
+  flagged. A 2nd copy of a card sleeved elsewhere with no fair steal is a buy.
+- **Soft cap** (effective soft = min(soft, hard)): a buy priced in
+  (soft, hard] loses `0.05 + 0.10 × (price − soft) / (hard − soft)` (0.05 to
+  0.15) from its score for sorting, `MIN_UPGRADE` and `GAP_WORTH`. The UI shows
+  the raw score plus `over soft cap $X` and a justification line ("needs
+  +0.25 over your owned X"). The numbers are filled in by the code; only the
+  reason sentence comes from the LLM. A soft buy that fails `GAP_WORTH` on its
+  adjusted score becomes the near buy ("keep yours").
+- **Hard cap**: never shown as an option. It is only counted (the page never names or prices the hidden cards): "1 better buy
   hidden · over hard cap $40".
 - **Modes** (`mode=`, the filter bar):
   1. `free` **Owned, not in a deck**: only owned cards in no physical deck
@@ -147,7 +153,7 @@ render. If the LLM is down, the rows simply have no prose line.
 
 Swap shape: `{cut:{name, weak_score, score, why:{edges, fit, edhrec, played?}, rows,
 on_plan}, own|null, buy|null, gap, pick: own|buy, verdict:
-owned|keep_yours|worth_buying|owned_good_enough|buy|best, near_buy|null,
+owned|keep_yours|worth_buying|buy|best, near_buy|null,
 hidden_hard, soft_note|null, why|null, decision, decision_add}`. An option
 is `{name, score, pillar, source: free|deck|buy, deck, price, cap:
 soft|null, on_plan}`. A `source: deck` option (AN-8) also carries

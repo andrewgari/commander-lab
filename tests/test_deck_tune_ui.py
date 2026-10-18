@@ -54,12 +54,12 @@ class _TunePage(_DeckPage):
 
 
 class TestTunePage(_TunePage, unittest.TestCase):
-    def test_hidden_note_is_an_accessible_toggle(self):
-        self.assertIn('data-hidden-toggle', self.body)
-        self.assertIn('"aria-expanded"', self.body.replace("'", '"'))
-        self.assertRegex(self.body, r'aria-controls')
-        self.assertRegex(self.body, r'<button type="button" class="tn-hidden-toggle"')
-        self.assertIn('Showing the top', self.body)  # truncation is stated
+    def test_hidden_note_is_a_count_only(self):
+        # Budget rules: a card over the hard cap is never named or priced on the page.
+        self.assertIn("better buy", self.body)
+        self.assertIn("tn-hidden-count", self.body)
+        self.assertNotIn("data-hidden-toggle", self.body)
+        self.assertNotIn("hidden_hard_cards", self.body)
 
     def test_kit_structure(self):
         for cls_ in ["hud-filterbar", "hud-seg", "hud-toggle", "hud-tune", "hud-swaps", "hud-changes", "hud-caps",
@@ -195,8 +195,8 @@ class TestCheckinFinishLandsOnTune(unittest.TestCase):
 
 
 def _fake_compute(r, deck, mode="flex", in_deck=True, buy=True, **kw):
-    cands = [cand("Owned Ok", 4, 0.75, 0.35, owned=True, available=1),
-             cand("Soft Buy", 4, 0.9, 0.45, price=18.50),
+    cands = [cand("Owned Ok", 1, 0.4, 0.05, owned=True, available=1),
+             cand("Soft Buy", 4, 0.95, 0.5, price=18.50),
              cand("Pricey Bomb", 4, 0.99, 0.5, price=95.0)]
     out = tuner.build_tune(deck, WEAK, COMP, cands, tuner.caps_for(r, deck), p75=4.0, has_pillars=True,
                            has_edhrec=True, mode=mode, in_deck=in_deck, buy=buy, state=tuner.load_state(r, deck))
