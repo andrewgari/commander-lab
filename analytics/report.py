@@ -440,6 +440,7 @@ class DeckReviewPipeline:
         external_metrics: Optional[Union[DeckAnalyticsResult, Dict[str, Any]]] = None,
         card_metadata: Optional[Dict[str, Any]] = None,
         external_recommendations: Optional[CardRecommendations] = None,
+        pricing: Optional[Dict[str, Any]] = None,
     ) -> DeckReview:
         """
         Synthesize a comprehensive DeckReview report from raw or structured deck inputs.
@@ -461,6 +462,7 @@ class DeckReviewPipeline:
             analysis=analysis,
             intent=resolved_intent,
             external_recommendations=external_recommendations,
+            pricing=pricing,
         )
 
         # Step 3: Synthesize Executive Summaries, Strengths, and Cohesion Gaps
@@ -615,6 +617,7 @@ def generate_deck_review(
     external_metrics: Optional[Union[DeckAnalyticsResult, Dict[str, Any]]] = None,
     card_metadata: Optional[Dict[str, Any]] = None,
     external_recommendations: Optional[CardRecommendations] = None,
+    pricing: Optional[Dict[str, Any]] = None,
 ) -> DeckReview:
     """
     Public entrypoint to generate a full DeckReview report.
@@ -625,4 +628,5 @@ def generate_deck_review(
         external_metrics=external_metrics,
         card_metadata=card_metadata,
         external_recommendations=external_recommendations,
+        pricing=pricing,
     )

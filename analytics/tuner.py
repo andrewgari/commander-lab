@@ -34,8 +34,10 @@ buy.score - best_owned.score >= GAP_WORTH. Otherwise the row says "keep
 yours" and names the near buy with its gap and price. Price caps (USD per
 card, Scryfall; Journal override, else global default):
     hard cap  never an option; only counted in hidden_hard
-    soft cap  shown, flagged, with a justification; the pick stays owned
-              unless the gap is >= GAP_SOFT_OVERRIDE
+    soft cap  a buy priced in (soft, hard] is devalued by 0.05..0.15
+              (journal.soft_penalty) for sorting, MIN_UPGRADE and GAP_WORTH;
+              the raw score is what the UI shows. Owned / in-deck cards are
+              never priced, filtered or penalised.
 Modes (ownership filter, replaces owned_first / owned_only / best-regardless):
     free   Owned, not in a deck: only cards in no physical deck (available > 0).
     flex   Owned, plus in-deck and/or buy: free cards always; `in_deck` adds owned cards
@@ -72,7 +74,6 @@ from . import weak_performers as weak_mod
 log = logging.getLogger("commander_lab.tuner")
 
 GAP_WORTH = 0.10
-GAP_SOFT_OVERRIDE = 0.25
 MIN_UPGRADE = 0.05
 EDHREC_FULL = weak_mod.EDHREC_FULL
 GLUE_REASONS = weak_mod.GLUE_REASONS
@@ -177,12 +178,24 @@ def _cap_of(price: Optional[float], caps: Mapping) -> Optional[str]:
     return None
 
 
+def _price_buy(c: dict, caps: Mapping) -> dict:
+    """Set c["penalty"] / c["adj"]. Only a BUY (not owned) is ever priced; owned and in-deck cards
+    always have penalty 0 and adj == score, whatever list price they carry."""
+    pen = 0.0
+    if not c.get("owned") and not caps.get("no_budget"):
+        pen = journal_mod.soft_penalty(c.get("price"), caps.get("soft_cap"), caps.get("hard_cap"))
+    c["penalty"] = round(pen, 4)
+    c["adj"] = round(c["score"] - pen, 4)
+    return c
+
+
 def _option(c: Mapping, s: float, buy: bool, caps: Mapping, steal: Optional[Mapping] = None) -> dict:
     o = {"name": c["name"], "score": s, "pillar": c.get("pillar"), "edges": c.get("edges", 0),
          "fit": c.get("fit"), "edhrec": c.get("inclusion"), "played": c.get("played"),
          "on_plan": bool(c.get("on_plan")), "combo": c.get("combo")}
     if buy:
-        o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps))
+        o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps),
+                 penalty=c.get("penalty") or 0.0, adj_score=c.get("adj", c["score"]))
     else:
         free = (c.get("available") or 0) > 0
         o.update(source="free" if free else "deck", deck=None if free else ((c.get("decks") or [None])[0]),
@@ -203,7 +216,8 @@ def _best_option(c: Mapping, caps: Mapping) -> dict:
     if c.get("owned"):
         o.update(source="best", price=0.0, cap=None)
     else:
-        o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps))
+        o.update(source="buy", price=c.get("price"), cap=_cap_of(c.get("price"), caps),
+                 penalty=c.get("penalty") or 0.0, adj_score=c.get("adj", c["score"]))
     return o
 
 
@@ -344,13 +358,14 @@ def soft_note(buy: Mapping, own: Optional[Mapping], gap: Optional[float], caps: 
     head += "."
     if reason:
         head += " " + reason.strip().rstrip(".") + "."
-    if pick == "buy":
-        tail = (f" Picked anyway: the gap is at least {GAP_SOFT_OVERRIDE:.2f}, which is worth breaking your "
-                f"{money(caps.get('soft_cap'))} soft cap.")
-    else:
-        tail = (f" Kept owned: {buy['name']} is over your {money(caps.get('soft_cap'))} soft cap, and breaking"
-                f" the soft cap takes a gap of {GAP_SOFT_OVERRIDE:.2f} or more.")
-    return head + tail
+    pen = buy.get("penalty")
+    if pen is None:
+        pen = journal_mod.soft_penalty(buy.get("price"), caps.get("soft_cap"), caps.get("hard_cap"))
+    need = GAP_WORTH + pen
+    if own:
+        head += (f" Over your {money(caps.get('soft_cap'))} soft cap, so it needs +{need:.2f} over your owned"
+                 f" {own['name']}.")
+    return head
 
 
 def _deck_colors(deck: Mapping) -> str:
@@ -474,8 +489,9 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
             continue  # an unpriced card can't be a buy
         c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec,
                            _played(c.get("played")))
+        _price_buy(c, caps)
         pool.append(c)
-    pool.sort(key=lambda c: (-c["score"], c["name"]))
+    pool.sort(key=lambda c: (-c["adj"], -c["score"], c["name"]))
 
     used = set()
     used_y: set = set()  # free cards already promised to a donor deck
@@ -498,14 +514,14 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                           _played(w.get("played")))
         fits = [c for c in pool if c["name"] not in used and c["name"] not in used_y
                 and _role_ok(w.get("rows") or [], c)
-                and c["score"] >= cut_score + MIN_UPGRADE]
+                and c["adj"] >= cut_score + MIN_UPGRADE]
         steal = None
         if best_mode:
             # Best card: ownership is ignored. One option, no deck / steal labelling.
             allowed = [c for c in fits if c.get("owned") or _cap_of(c.get("price"), caps) != "hard"]
             top = allowed[0] if allowed else None
             hidden_cards = [c for c in fits if not c.get("owned") and _cap_of(c.get("price"), caps) == "hard"
-                            and (top is None or c["score"] > top["score"])]
+                            and (top is None or c["score"] > top["adj"])]
             hidden = len(hidden_cards)
             if not top:
                 continue
@@ -527,6 +543,12 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                     best_own, steal = c, t
                     break
                 dropped.add(c["name"])
+                # A 2nd copy is a buy: priced, capped and penalised like any other (list_price).
+                if buy and c.get("price") is not None:
+                    sc = _price_buy({**c, "owned": False, "second_copy": True}, caps)
+                    if sc["adj"] >= cut_score + MIN_UPGRADE:
+                        buys.append(sc)
+            buys.sort(key=lambda c: (-c["adj"], -c["score"], c["name"]))
             base = best_own["score"] if best_own else cut_score
             need = GAP_WORTH if best_own else MIN_UPGRADE
             allowed = [c for c in buys if _cap_of(c.get("price"), caps) != "hard"]
@@ -534,8 +556,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                             and (best_own is None or c["score"] > best_own["score"])]
             hidden = len(hidden_cards)
             best_buy = allowed[0] if allowed else None
-            show_buy = bool(best_buy and (best_own is None or best_buy["score"] - best_own["score"] >= need)
-                            and (best_own is None or best_buy["score"] > best_own["score"]))
+            show_buy = bool(best_buy and (best_own is None or best_buy["adj"] - best_own["score"] >= need)
+                            and (best_own is None or best_buy["adj"] > best_own["score"]))
             if not best_own and not show_buy:
                 continue
             own_o = None
@@ -552,10 +574,9 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                         "gap": round(best_buy["score"] - own_o["score"], 4), "score": best_buy["score"],
                         "cap": _cap_of(best_buy.get("price"), caps)}
             if own_o and buy_o:
-                if buy_o["cap"] == "soft" and gap < GAP_SOFT_OVERRIDE:
-                    pick, verdict = "own", "owned_good_enough"
-                else:
-                    pick, verdict = "buy", "worth_buying"
+                # A soft-cap buy that can't clear GAP_WORTH on its adjusted score never gets here
+                # (it becomes near_buy / "keep yours"), so a shown buy is always worth buying.
+                pick, verdict = "buy", "worth_buying"
             elif buy_o:
                 pick, verdict = "buy", "buy"
             else:
@@ -609,7 +630,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
                    **({} if best_mode else {
                        "steals": sum(1 for s in swaps if (s.get("own") or {}).get("donor_deck")),
                        "steals_dropped": len(dropped - {(s.get("own") or {}).get("name") for s in swaps})})},
-        "constants": {"gap_worth": GAP_WORTH, "gap_soft_override": GAP_SOFT_OVERRIDE, "min_upgrade": MIN_UPGRADE,
+        "constants": {"gap_worth": GAP_WORTH, "soft_penalty": [0.05, 0.15], "min_upgrade": MIN_UPGRADE,
                       "p75_degree": p75, "edhrec_full_at": EDHREC_FULL},
         "inputs": {"pillars": has_pillars, "edhrec": has_edhrec, "played": has_played and neutral is not None,
                    "played_neutral": neutral if has_played else None},

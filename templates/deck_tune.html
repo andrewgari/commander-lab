@@ -22,11 +22,6 @@
     #recomputeError { margin: var(--sp-2) 0 0; }
     .tn-filter-note { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-4); border-bottom: var(--stroke-faint); color: var(--text-3); font-size: var(--fs-xs); }
     .tn-filter-note[hidden] { display: none; }
-    .tn-hidden-toggle { background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--text-3); text-decoration: underline dotted; cursor: pointer; }
-    .tn-hidden-toggle:hover, .tn-hidden-toggle:focus-visible { color: var(--text-1); }
-    .tn-hidden-list { grid-column: 1 / -1; margin: 0; padding: var(--sp-2) var(--sp-4); list-style: none; background: var(--surface-0); color: var(--text-3); font-size: var(--fs-xs); }
-    .tn-hidden-list[hidden] { display: none; }
-    .tn-hidden-list li { padding: 2px 0; }
     .hud-swap.is-dismissed { transition: opacity var(--dur-base) var(--ease); }
     .tn-moves { margin: var(--sp-2) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-3); }
     .tn-keys dt { white-space: nowrap; }
@@ -204,19 +199,12 @@ document.addEventListener("DOMContentLoaded", function () {
             '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" +
             (o.pillar ? '<span class="hud-opt-src" title="' + esc(o.pillar) + '">' + esc(o.pillar) + "</span>" : "") + cap + "</div>";
     }
-    var openHidden = {};
+    // Count only: never name or price a card that is over the hard cap (budget rules §2).
     function hiddenNote(s) {
         if (!s.hidden_hard) return "";
-        var cards = s.hidden_hard_cards || [], key = s.cut.name, open = !!openHidden[key], id = "hid" + cards.length + "-" + esc(key).replace(/[^a-z0-9]/gi, "_");
         var label = s.hidden_hard + " better buy" + (s.hidden_hard === 1 ? "" : "s") + " hidden";
-        var items = cards.map(function (c) {
-            return '<li><span class="hud-card-name">' + esc(c.name) + "</span> " + esc(A.money(c.price)) + " · score " + c.score.toFixed(2) +
-                ' · <span class="tn-hidden-why">' + esc(c.reason || "hidden") + " " + esc(A.money(T.caps.hard_cap)) + "</span></li>";
-        }).join("");
-        var more = s.hidden_hard > cards.length ? '<li class="tn-hidden-more">Showing the top ' + cards.length + " of " + s.hidden_hard + ".</li>" : "";
-        return '<div class="hud-gapline"><button type="button" class="tn-hidden-toggle" data-hidden-toggle="' + esc(key) + '" aria-expanded="' + open +
-            '" aria-controls="' + id + '">' + label + (open ? " ▾" : " ▸") + "</button>" + H.chip("over hard cap " + A.money(T.caps.hard_cap), "danger") + "</div>" +
-            '<ul class="tn-hidden-list" id="' + id + '"' + (open ? "" : " hidden") + ">" + items + more + "</ul>";
+        return '<div class="hud-gapline"><span class="tn-hidden-count">' + label + "</span>" +
+            H.chip("over hard cap " + A.money(T.caps.hard_cap), "danger") + "</div>";
     }
     function swapRow(s, i) {
         var d = s.decision, accepted = d === "own" || d === "buy";
@@ -468,14 +456,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     $("swaps").addEventListener("click", function (e) {
         if (e.target.id === "clearFilter") { rowFilter = null; renderSwaps(); return; }
-        var tg = e.target.closest("[data-hidden-toggle]");
-        if (tg) {
-            var k = tg.getAttribute("data-hidden-toggle"), now = tg.getAttribute("aria-expanded") !== "true";
-            openHidden[k] = now; tg.setAttribute("aria-expanded", String(now));
-            tg.textContent = tg.textContent.replace(/ [▾▸]$/, "") + (now ? " ▾" : " ▸");
-            var ul = document.getElementById(tg.getAttribute("aria-controls")); if (ul) ul.hidden = !now;
-            return;
-        }
         var b = e.target.closest("[data-act]"); if (!b) return;
         var li = b.closest(".hud-swap"); cur = rows().indexOf(li); act(li, b.getAttribute("data-act"));
     });
