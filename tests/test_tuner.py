@@ -11,8 +11,9 @@ Every number here is deterministic. The LLM only writes the "why" prose.
 
 Owned-first (D5): a buy is shown only when buy.score - best_owned.score >= GAP_WORTH (0.10).
 Otherwise the row says "keep yours", with the gap and the price.
-Soft cap: the buy is shown with a flag and a justification. The pick stays owned unless
-the gap is >= GAP_SOFT_OVERRIDE (0.25). Hard cap: never an option, only counted
+Soft cap: a buy priced in (soft, hard] is devalued by 0.05..0.15 (journal.soft_penalty) for
+sorting, MIN_UPGRADE and GAP_WORTH; a soft buy that can't clear GAP_WORTH on its adjusted score
+becomes "keep yours". Owned / in-deck cards are never priced. Hard cap: never an option, only counted
 ("1 better buy hidden"). Pets are never cut. Caps come from the Journal (deck override)
 or the global default.
 
@@ -115,7 +116,7 @@ class TestScore(unittest.TestCase):
 
     def test_constants_match_the_spec(self):
         self.assertEqual(tuner.GAP_WORTH, 0.10)
-        self.assertEqual(tuner.GAP_SOFT_OVERRIDE, 0.25)
+        self.assertFalse(hasattr(tuner, "GAP_SOFT_OVERRIDE"))
 
 
 class TestOwnedFirst(unittest.TestCase):
@@ -299,28 +300,33 @@ class TestOwnershipModes(unittest.TestCase):
 
 
 class TestPriceCaps(unittest.TestCase):
-    def test_soft_cap_buy_is_flagged_and_owned_stays_picked_below_override(self):
+    def test_soft_cap_buy_that_misses_gap_worth_after_penalty_is_keep_yours(self):
+        # raw gap 0.117 >= GAP_WORTH, but the $18.50 penalty (0.064) drops it to 0.052.
         out = build([cand("Owned Ok", 4, 0.75, 0.35, owned=True, available=1),
                      cand("Soft Buy", 4, 0.9, 0.45, price=18.50)])
         s = swap(out, "Weak Plan")
-        self.assertEqual(s["buy"]["name"], "Soft Buy")
-        self.assertEqual(s["buy"]["cap"], "soft")
-        self.assertTrue(tuner.GAP_WORTH <= s["gap"] < tuner.GAP_SOFT_OVERRIDE, s["gap"])
+        self.assertIsNone(s["buy"])
         self.assertEqual(s["pick"], "own")
-        self.assertEqual(s["verdict"], "owned_good_enough")
-        # The justification's numbers are computed, not written by the LLM.
-        self.assertIn("$18.50", s["soft_note"])
-        self.assertIn("Owned Ok", s["soft_note"])
-        self.assertIn(f"{s['gap']:.2f}", s["soft_note"])
-        self.assertIn("$15", s["soft_note"])
+        self.assertEqual(s["verdict"], "keep_yours")
+        self.assertEqual(s["near_buy"]["name"], "Soft Buy")
+        self.assertEqual(s["near_buy"]["cap"], "soft")
+        self.assertGreater(s["near_buy"]["gap"], tuner.GAP_WORTH)  # the raw gap is what's displayed
 
-    def test_soft_cap_buy_is_picked_when_the_gap_is_huge(self):
+    def test_soft_cap_buy_is_picked_when_the_adjusted_gap_is_big(self):
         out = build([cand("Owned Weak", 1, 0.4, 0.05, owned=True, available=1),
                      cand("Soft Buy", 4, 0.95, 0.5, price=18.50)])
         s = swap(out, "Weak Plan")
-        self.assertGreaterEqual(s["gap"], tuner.GAP_SOFT_OVERRIDE)
         self.assertEqual(s["pick"], "buy")
+        self.assertEqual(s["verdict"], "worth_buying")
         self.assertEqual(s["buy"]["cap"], "soft")
+        self.assertAlmostEqual(s["buy"]["penalty"], 0.05 + 0.10 * 3.5 / 25, places=4)
+        self.assertAlmostEqual(s["buy"]["adj_score"], s["buy"]["score"] - s["buy"]["penalty"], places=4)
+        # The justification's numbers are computed, not written by the LLM.
+        self.assertIn("$18.50", s["soft_note"])
+        self.assertIn("Owned Weak", s["soft_note"])
+        self.assertIn(f"{s['gap']:.2f}", s["soft_note"])
+        self.assertIn("$15", s["soft_note"])
+        self.assertIn(f"+{tuner.GAP_WORTH + s['buy']['penalty']:.2f}", s["soft_note"])
 
     def test_hard_cap_is_never_suggested_only_counted(self):
         out = build([cand("Owned Ok", 3, 0.6, 0.2, owned=True, available=1),
@@ -689,14 +695,14 @@ class ProseProvider(llm_mod.LLMTagProvider):
 class TestProse(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
-        self.tune = build([cand("Owned Ok", 4, 0.75, 0.35, owned=True, available=1),
-                           cand("Soft Buy", 4, 0.9, 0.45, price=18.50)])
+        self.tune = build([cand("Owned Ok", 1, 0.4, 0.05, owned=True, available=1),
+                           cand("Soft Buy", 4, 0.95, 0.5, price=18.50)])
 
     def test_llm_writes_only_prose_and_cost_is_logged(self):
         p = ProseProvider()
         out = tuner.generate_prose(self.r, DECK, self.tune, llm_mod.LLMChain([p]))
         s = swap(self.tune, "Weak Plan")
-        self.assertEqual(out["prose"]["Weak Plan"]["why"], "Owned Ok attacks harder than Weak Plan.")
+        self.assertEqual(out["prose"]["Weak Plan"]["why"], "Soft Buy attacks harder than Weak Plan.")
         # The numbers in the soft-cap line come from the tuner, the reason from the LLM.
         self.assertIn("$18.50", out["prose"]["Weak Plan"]["soft_note"])
         self.assertIn("Soft Buy attacks harder", out["prose"]["Weak Plan"]["soft_note"])
@@ -708,7 +714,7 @@ class TestProse(unittest.TestCase):
         self.assertGreater(run["llm_cost_usd"], 0)
         # Numbers never go to the LLM as something to restate.
         self.assertIn("never", tuner.PROSE_SYSTEM.lower())
-        self.assertEqual(s["pick"], "own")
+        self.assertEqual(s["pick"], "buy")
 
     def test_prose_is_cached(self):
         p = ProseProvider()

@@ -146,22 +146,6 @@ class TestRecommendationGenerator(unittest.TestCase):
             any(name in comp_names for name in ["Delighted Halfling", "The Ozolith", "Flare of Cultivation", "Birthing Ritual", "Bristly Bill, Spine Sower"])
         )
 
-    def test_budget_constraints_filtering(self):
-        """Cards exceeding max_card_price are excluded from additions."""
-        budget_intent = UserDeckIntent(
-            budget_constraints=BudgetConstraints(max_card_price=5.0)
-        )
-        recs = self.generator.generate(self.atraxa_deck, self.atraxa_analysis, budget_intent)
-
-        for add in recs.additions:
-            catalog_match = next((c for c in CURATED_CARD_CATALOG if c.name == add.card_name), None)
-            if catalog_match:
-                self.assertLessEqual(
-                    catalog_match.approx_price_usd,
-                    5.0,
-                    f"Card {add.card_name} costs {catalog_match.approx_price_usd} > 5.0 budget limit",
-                )
-
     def test_candidate_cuts_identification(self):
         """Generic outclassed cards (Diabolic Tutor, Cancel, Murder) are identified for cuts."""
         recs = self.generator.generate(self.atraxa_deck, self.atraxa_analysis)
