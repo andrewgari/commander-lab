@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from app import app
-from repo_status import (
+from src.services.repo_status import (
     DEFAULT_CACHE_TTL,
     RepoStatus,
     clear_repo_status_cache,
