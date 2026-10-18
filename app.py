@@ -2560,6 +2560,35 @@ async def api_update_pillar(deck_id: str, pillar_id: str, request: Request):
     return {"success": True, "pillar": p}
 
 
+@app.post("/api/decks/{deck_id}/identity/pillars/describe")
+async def api_describe_pillar(deck_id: str, request: Request):
+    """Generate or improve one pillar description. Body: {"name"?, "prompt"?, "description"?, "pillar_id"?}
+    (at least one of name/prompt/description). Nothing is saved; returns {"description", "mode"}."""
+    from analytics import pillar_describe
+    from analytics.interactions.llm import default_chain
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    pillar_id = body.get("pillar_id") if isinstance(body, dict) else None
+
+    def _run():
+        ident = identity_mod.load_identity(r, deck)
+        return pillar_describe.describe_pillar(
+            deck, default_chain(), insights.card_texts(r, deck), body, ident,
+            exclude_id=pillar_id if isinstance(pillar_id, str) else None)
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except pillar_describe.PillarDescribeError as exc:
+        return _bad_request(exc, 422)
+    except pillar_describe.PillarDescribeUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
+
+
 @app.get("/api/decks/{deck_id}/edhrec")
 async def api_deck_edhrec(deck_id: str, refresh: bool = False):
     """EDHREC inclusion per card for the deck's commander (cached 7 days)."""
