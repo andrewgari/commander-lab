@@ -3261,6 +3261,73 @@ async def api_genres_autofill(request: Request):
     return {"success": True, "draft": draft}
 
 
+@app.get("/api/deck-writeup/primer-form")
+async def api_primer_form():
+    """Field definitions for the guided primer form."""
+    from analytics.deck_writeup import PRIMER_FIELDS
+
+    return {"success": True, "fields": PRIMER_FIELDS}
+
+
+async def _deck_writeup(deck_id: str, request: Request, kind: str):
+    """Shared handler: body is the form object (primer) or optional hints (description). Nothing is saved."""
+    from analytics import deck_writeup
+    from analytics.deck_writeup import service as writeup_service
+    from analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    form = body if isinstance(body, dict) else {}
+    meta = await asyncio.to_thread(writeup_service.card_meta_for_deck, r, deck)
+    gen = deck_writeup.generate_primer if kind == "primer" else deck_writeup.generate_description
+    if kind == "primer":
+        missing = deck_writeup.missing_required(deck_writeup.clean_form(form)) if _form_ok(form) else []
+        if missing:
+            return _bad_request(ValueError(f"Fill in: {', '.join(missing)}."), 422)
+    offline = await asyncio.to_thread(_oracle_preflight)
+    if offline is not None:
+        return offline
+
+    def _run():
+        client = _oracle_client()
+        client.timeout = GENRE_AUTOFILL_TIMEOUT_S
+        return gen(deck, meta, lambda system, user: client.ask(user, system=system), form)
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except deck_writeup.WriteupError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    except OracleUnavailable as exc:
+        return _oracle_offline(exc.detail)
+    except OracleAuthError:
+        return _oracle_offline("oracle rejected the API key")
+    except OracleError as exc:
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
+    return {"success": True, kind: out["text"], "warnings": out["warnings"]}
+
+
+def _form_ok(form: dict) -> bool:
+    from analytics.deck_writeup import FormError, clean_form
+
+    try:
+        clean_form(form)
+        return True
+    except FormError:
+        return False
+
+
+@app.post("/api/decks/{deck_id}/description/generate")
+async def api_deck_description_generate(deck_id: str, request: Request):
+    return await _deck_writeup(deck_id, request, "description")
+
+
+@app.post("/api/decks/{deck_id}/primer/generate")
+async def api_deck_primer_generate(deck_id: str, request: Request):
+    return await _deck_writeup(deck_id, request, "primer")
+
+
 @app.post("/api/genres")
 async def api_genres_create(request: Request):
     from analytics import genres as genres_mod
