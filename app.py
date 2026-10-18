@@ -2224,6 +2224,74 @@ async def api_deck_review_job(deck_id: str, job_id: str):
 
 
 # ---------------------------------------------------------------------------
+# SM-3: one-off Forge simulation + Oracle sim review (analytics/sim_service.py)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/sim")
+async def api_get_deck_sim(deck_id: str):
+    """Saved simulation doc + meta + the opponent pool the Run form can pick from. Read-only."""
+    from analytics import sim_service
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    view = await asyncio.to_thread(sim_service.saved_view, r, deck)
+    pool = await asyncio.to_thread(sim_service.build_opponent_pool, r, None, deck)
+    running = await asyncio.to_thread(sim_service.active_job, r, deck)
+    return {"success": True, **view, "opponent_pool": pool["opponents"], "opponent_pool_error": pool["daemon_error"],
+            "running_job": sim_service.public_job(running) if running else None}
+
+
+@app.post("/api/decks/{deck_id}/sim/run")
+async def api_run_deck_sim(deck_id: str, request: Request):
+    """{"opponent_mode": "standard"|"random"|"specific", "opponents": [3 ids], "games": 20|60, "notes": str}
+    -> 202 {job_id}. Poll GET .../sim/jobs/{job_id}. The previous saved report stays until the run succeeds."""
+    from analytics import sim_client, sim_service
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    try:
+        job = await asyncio.to_thread(sim_service.begin_run, r, deck, body if isinstance(body, dict) else {})
+    except sim_service.SimParamError as exc:
+        return _bad_request(exc, 422)
+    except sim_service.SimRunBusy as exc:
+        return JSONResponse(status_code=409, content={"success": False, "error": str(exc), "error_kind": "busy",
+                                                      "job_id": exc.job_id})
+    except sim_client.SimBusy as exc:
+        return JSONResponse(status_code=409, content={"success": False, "error": str(exc), "error_kind": "busy"})
+    except sim_client.SimUnavailable as exc:
+        return JSONResponse(status_code=503, content={"success": False, "error": str(exc), "error_kind": "sim_unavailable"})
+    except sim_client.SimClientError as exc:
+        return JSONResponse(status_code=502, content={"success": False, "error": str(exc), "error_kind": "sim_error"})
+    except ValueError as exc:  # deck can't be exported (no commander / not 100 cards)
+        return _bad_request(exc, 422)
+    try:
+        sim_service.start_thread(r, job, deck, None, _oracle_client)
+    except Exception:
+        sim_service.release(job["deck_id"], job["job_id"])
+        raise
+    return JSONResponse(status_code=202, content={
+        "success": True, "job_id": job["job_id"], "status": job["status"],
+        "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
+
+
+@app.get("/api/decks/{deck_id}/sim/jobs/{job_id}")
+async def api_deck_sim_job(deck_id: str, job_id: str):
+    from analytics import sim_service
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    job = await asyncio.to_thread(sim_service.load_job, r, job_id)
+    if not job or job.get("deck_id") != _theory_deck_id(deck):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Job '{job_id}' not found"})
+    return {"success": True, **sim_service.public_job(job)}
+
+
+# ---------------------------------------------------------------------------
 # Single Card Review (keep/remove debate + replacements) -- see docs/CARD_REVIEW.md
 # ---------------------------------------------------------------------------
 
