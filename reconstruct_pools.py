@@ -523,11 +523,34 @@ def tier1_from_snapshots(source_decks: Iterable[Mapping]) -> List[PoolCard]:
     ]
 
 
-def free_owned_counts(instances: Iterable[Mapping]) -> Dict[str, int]:
-    """{name: copies} of owned copies not dedicated to any deck (ownership_status == in_collection)."""
+def _source_deck_keys(session: Mapping) -> set:
+    """Non-empty deck id keys (registry ids / ids) of the session's source decks."""
+    keys: set = set()
+    candidates: List[Any] = list(session.get("source_deck_ids") or [])
+    for sd in session.get("source_decks") or []:
+        candidates.extend((sd.get("registry_id"), sd.get("id")))
+    for k in candidates:
+        if isinstance(k, str) and k.strip():
+            keys.add(k.strip())
+    return keys
+
+
+def free_owned_counts(
+    instances: Iterable[Mapping],
+    source_deck_keys: Optional[Iterable[str]] = None,
+) -> Dict[str, int]:
+    """{name: copies} of owned copies not dedicated to any deck (ownership_status == in_collection).
+
+    `source_deck_keys` (dry run only): copies still `in_deck` on those source decks
+    are counted as free too, mirroring what decommission would have released.
+    """
+    src_keys = {str(k).strip() for k in (source_deck_keys or ()) if k is not None and str(k).strip()}
     counts: Dict[str, int] = {}
     for inst in instances:
-        if inst.get("ownership_status") != "in_collection" or inst.get("deck_id"):
+        status = inst.get("ownership_status")
+        free = status == "in_collection" and not inst.get("deck_id")
+        in_source = bool(src_keys) and status == "in_deck" and str(inst.get("deck_id") or "").strip() in src_keys
+        if not (free or in_source):
             continue
         name = inst.get("card_name")
         if name:
@@ -608,9 +631,20 @@ def build_candidate_pools(
     # Source-deck copies are decommissioned to in_collection, so they appear in
     # the owned count and are subtracted by copy count (not by name): only the
     # genuinely spare copies remain (#157).
+    # Dry run: nothing was decommissioned, so source-deck copies are still
+    # in_deck; count them as free so the result matches a real run.
+    src_keys = _source_deck_keys(session) if session.get("dry_run") else set()
     if owned_instances is None and r is not None:
-        owned_instances = instance_store.list_instances(r, ownership_status="in_collection")
-    owned = free_owned_counts(owned_instances or [])
+        owned_list = list(instance_store.list_instances(r, ownership_status="in_collection"))
+        if src_keys:
+            seen_ids = {i.get("id") for i in owned_list}
+            for key in sorted(src_keys):
+                for inst in instance_store.list_instances(r, deck_id=key):
+                    if inst.get("ownership_status") == "in_deck" and inst.get("id") not in seen_ids:
+                        seen_ids.add(inst.get("id"))
+                        owned_list.append(inst)
+        owned_instances = owned_list
+    owned = free_owned_counts(owned_instances or [], source_deck_keys=src_keys)
     tier2: List[PoolCard] = []
     merged: Dict[str, Tuple[str, int]] = {}
     for name, n in owned.items():

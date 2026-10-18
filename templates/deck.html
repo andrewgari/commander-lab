@@ -192,7 +192,11 @@
             <p>Decommission <strong id="reconstructDeckName"></strong> and use its cards to draft up to 2 new Commander decks with the deckbuilding agent.</p>
             <label for="reconstructSecondDeckSelect" class="hud-muted">Pool with a second physical deck (optional)</label>
             <select id="reconstructSecondDeckSelect"><option value="">Single deck (this deck only)</option></select>
-            <p class="hud-muted"><strong>Warning:</strong> selected deck(s) will be retired and moved to the Retired category. Their cards will be returned to your inventory and form the free card pool for the new draft(s).</p>
+            <label for="reconstructDryRunToggle" class="hud-muted" style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; cursor:pointer;">
+                <input type="checkbox" id="reconstructDryRunToggle" onchange="onDeckReconstructDryRunChange(this.checked)">
+                <span>Dry run (count cards &amp; preview without decommissioning or moving cards)</span>
+            </label>
+            <p class="hud-muted" id="reconstructWarningText"><strong>Warning:</strong> selected deck(s) will be retired and moved to the Retired category. Their cards will be returned to your inventory and form the free card pool for the new draft(s).</p>
             <div id="reconstructError" class="hud-muted" role="alert" hidden></div>
             <div class="deck-primer-actions">
                 <button type="button" class="hud-btn hud-btn--sm" id="reconstructCancelBtn" onclick="closeReconstructDialog()">Cancel</button>
@@ -438,6 +442,8 @@
         if (!currentDeck) return;
         document.getElementById('reconstructDeckName').textContent = currentDeck.name;
         document.getElementById('reconstructError').hidden = true;
+        document.getElementById('reconstructDryRunToggle').checked = false;
+        onDeckReconstructDryRunChange(false);
         const sel = document.getElementById('reconstructSecondDeckSelect');
         sel.innerHTML = '<option value="">Single deck (this deck only)</option>';
         try {
@@ -454,6 +460,14 @@
             });
         } catch (e) { console.error('Failed to load physical decks for reconstruct:', e); }
         HUD.openModal('reconstructModal');
+    }
+
+    const RECONSTRUCT_WARNING_REAL = '<strong>Warning:</strong> selected deck(s) will be retired and moved to the Retired category. Their cards will be returned to your inventory and form the free card pool for the new draft(s).';
+    const RECONSTRUCT_WARNING_DRY = '<strong>Dry run:</strong> nothing is retired, retagged, moved or deleted. Cards are counted and pools shown exactly as a real Reconstruct would.';
+
+    function onDeckReconstructDryRunChange(checked) {
+        document.getElementById('reconstructConfirmBtn').textContent = checked ? 'Start Dry Run' : 'Decommission & Reconstruct';
+        document.getElementById('reconstructWarningText').innerHTML = checked ? RECONSTRUCT_WARNING_DRY : RECONSTRUCT_WARNING_REAL;
     }
 
     function closeReconstructDialog() {
@@ -476,7 +490,11 @@
             const res = await fetch('/api/reconstruct/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deck_ids: deckIds, tag: 'removed' })
+                body: JSON.stringify({
+                    deck_ids: deckIds,
+                    tag: 'removed',
+                    dry_run: Boolean(document.getElementById('reconstructDryRunToggle') && document.getElementById('reconstructDryRunToggle').checked)
+                })
             });
             let data = {};
             try { data = await res.json(); } catch (e) {}
@@ -487,7 +505,7 @@
             errEl.hidden = false;
             confirmBtn.disabled = false;
             cancelBtn.disabled = false;
-            confirmBtn.textContent = 'Decommission & Reconstruct';
+            onDeckReconstructDryRunChange(document.getElementById('reconstructDryRunToggle').checked);
         }
     }
 
