@@ -28,6 +28,7 @@ services:
       - ARCHIDEKT_TOKEN=${ARCHIDEKT_TOKEN:-}
       - MOXFIELD_TOKEN=${MOXFIELD_TOKEN:-}
       - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
     depends_on:
       - redis
