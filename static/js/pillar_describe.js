@@ -93,7 +93,7 @@
             var gen = $("[data-pd-gen]");
             $("[data-pd-genl]").textContent = labelFor(m, busy);
             gen.setAttribute("aria-busy", String(busy));
-            gen.setAttribute("aria-disabled", String(!ok));
+            gen.setAttribute("aria-disabled", String(!ok || busy));   // busy locks the button (stays focusable; request() ignores clicks)
             gen.title = titleFor(ok, m);
             var c = $("[data-pd-count]"); c.textContent = S.text.length + "/" + MAX; c.classList.toggle("is-over", S.text.length >= MAX);
             var src = $("[data-pd-src]");
