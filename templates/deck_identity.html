@@ -30,6 +30,27 @@
     /* `hidden` must win over the kit's display:grid. */
     .id-proposal[hidden] { display: none; }
     @media (max-width: 900px) { .id-top { grid-template-columns: minmax(0, 1fr); } .id-fit { margin-top: 0; } }
+    /* Pillar description assist (pillar_describe.js) */
+    .pd-lab { display: flex; align-items: center; gap: var(--sp-3); }
+    .pd-lab .hud-label { flex: 1; }
+    .pd-count, .pd-src { font-size: var(--fs-xs); color: var(--text-3); }
+    .pd-count.is-over { color: var(--warn, var(--signal)); }
+    .pd-gen[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+    .pd-gen[aria-busy="true"] { cursor: progress; }
+    .pd-gen[aria-busy="true"] .pd-gen-g { display: inline-block; animation: pd-spin 1s linear infinite; }
+    .pd-sugg { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; margin-top: var(--sp-2); padding: var(--sp-3); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--data); }
+    .pd-sugg.is-err { border-left-color: var(--danger, #d9534f); }
+    .pd-sugg-t, .pd-sugg-meta { margin: 0; }
+    .pd-sugg-t { color: var(--text-2); font-size: var(--fs-sm); }
+    .pd-sugg-meta, .pd-hint { color: var(--text-3); font-size: var(--fs-xs); }
+    .pd-sugg-a { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .pd-skel { display: block; height: .7rem; margin: .35rem 0; background: var(--surface-2, var(--surface-1)); animation: pd-pulse 1.2s ease-in-out infinite; }
+    .pd-undo { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
+    .pd-hint-dyn.is-warn { color: var(--warn, var(--signal)); }
+    @keyframes pd-spin { to { transform: rotate(360deg); } }
+    @keyframes pd-pulse { 50% { opacity: .4; } }
+    @media (prefers-reduced-motion: reduce) { .pd-gen-g, .pd-skel { animation: none !important; } }
+    @media (max-width: 640px) { .pd-sugg { grid-template-columns: minmax(0, 1fr); } }
 </style>
 {% endblock %}
 
@@ -75,6 +96,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/pillar_describe.js?v={{ version }}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
@@ -168,8 +190,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var body, actions;
         if (isEdit) {
             body = '<label class="hud-label" for="pn-' + esc(p.id) + '">Name</label><input id="pn-' + esc(p.id) + '" data-field="name" value="' + esc(p.name) + '" maxlength="' + NAME_MAX + '">' +
-                '<label class="hud-label" for="pd-' + esc(p.id) + '">What belongs here</label><textarea id="pd-' + esc(p.id) + '" data-field="description">' + esc(p.description || "") + "</textarea>" +
-                '<span class="hud-field-hint">Describe it in words: cards are scored against this text (embeddings), not tags.</span>';
+                PillarDescribe.fieldHtml({ id: p.id, description: p.description }) + "";
             actions = '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="done">Done</button>' +
                 '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel">Cancel</button>' +
                 '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="up" aria-label="Move pillar up">↑</button>' +
@@ -202,7 +223,12 @@ document.addEventListener("DOMContentLoaded", function () {
                   (lastError ? '<span class="id-error">' + esc(lastError) + "</span>" : "") + "</div>";
         }
         $("pillars").innerHTML = ps.map(pillarTile).join("") + add;
-        if (editing) { var f = document.querySelector('[data-id="' + editing + '"] input'); if (f) f.focus(); }
+        PillarDescribe.unmount();
+        if (editing) {
+            var et = document.querySelector('[data-id="' + editing + '"]');
+            if (et) PillarDescribe.mount(et, { url: API + "/pillars/describe", pillarId: editing });
+            var f = document.querySelector('[data-id="' + editing + '"] input'); if (f) f.focus();
+        }
     }
     function renderTray() {
         var rj = work.rejected;
@@ -316,6 +342,7 @@ document.addEventListener("DOMContentLoaded", function () {
     $("discardBtn").addEventListener("click", function () { lastError = ""; load(); });
     window.addEventListener("beforeunload", function (e) { if (ops.length) { e.preventDefault(); e.returnValue = ""; } });
     document.addEventListener("keydown", function (e) {
+        if (PillarDescribe.handleKey(e)) return;
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); if (editing) { var t = document.querySelector('[data-id="' + editing + '"]'); if (t) act("done", editing, t); } save(); return; }
         if (A.inTextField(e.target)) {
             if (e.key === "Escape") { if (thesisEditing) act("thesis-cancel"); else if (editing) act("cancel"); }
