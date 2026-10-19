@@ -103,6 +103,16 @@
         color: #6b7280;
         font-size: 0.7rem;
     }
+
+    .card-tag-source {
+        margin-left: 0.3rem;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.75;
+    }
+    .card-tag-source.learned { color: #93c5fd; }
+    .card-tag-source.manual { color: #fcd34d; }
     
     .btn {
         padding: 0.4rem 0.75rem;
@@ -346,7 +356,7 @@
             tagData.archidekt_tags = tagData.archidekt_tags || [];
             
             // Filter by tag if needed
-            if (tagFilter && !tagData.lab_tags.includes(tagFilter)) {
+            if (tagFilter && !tagData.lab_tags.some(t => t.tag === tagFilter)) {
                 continue;
             }
             
@@ -355,9 +365,9 @@
             
             let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
             
-            // Show Lab tags (our source of truth)
+            // Show Lab tags (our source of truth), each labeled learned vs manual
             const labTagsHtml = tagData.lab_tags.map(t => 
-                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t}</span>`
+                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span></span>`
             ).join('');
             
             // Show Archidekt tags for reference (grayed out)
@@ -395,16 +405,16 @@
         const container = document.getElementById('currentTagsList');
         container.innerHTML = '';
         
-        // Show Lab tags (editable)
+        // Show Lab tags (editable), each tagged learned vs manual
         data.lab_tags.forEach(t => {
             const badge = document.createElement('span');
             badge.className = 'tag-badge';
             badge.style.background = '#1e40af';
             badge.style.borderColor = '#3b82f6';
-            badge.innerHTML = `${t}`;
-            badge.onclick = () => removeTag(t);
+            badge.innerHTML = `${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span>`;
+            badge.onclick = () => removeTag(t.tag);
             badge.style.cursor = 'pointer';
-            badge.title = 'Click to remove';
+            badge.title = `Click to remove (${t.source})`;
             container.appendChild(badge);
         });
         

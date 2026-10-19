@@ -8,6 +8,7 @@ import time
 
 import cards as card_store
 import registry
+import lab_tags as lab_tag_store
 
 # Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
 # that the legacy card:{name} inventory keys have been purged. sync.py checks
@@ -311,6 +312,8 @@ def sync_inventory():
                     if confidence >= 0.5 and tag not in STRUCTURAL_CATEGORIES:
                         high_conf_tags.append(tag)
                 lab_tags[card_name] = high_conf_tags
+                for tag in high_conf_tags:
+                    lab_tag_store.set_source(r, card_name, tag, lab_tag_store.LEARNED)
             else:
                 lab_tags[card_name] = []
     

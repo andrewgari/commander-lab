@@ -21,6 +21,7 @@ import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
 import tags as tag_store
+import lab_tags as lab_tag_store
 import autotag
 from providers import fetch_deck, ProviderError
 import linked_accounts
@@ -1148,7 +1149,7 @@ async def get_card_tags(card_name: str):
     
     return {
         "card_name": card_name,
-        "lab_tags": card_lab_tags,
+        "lab_tags": lab_tag_store.with_source(r, card_name, card_lab_tags),
         "archidekt_tags": archidekt_stats,
         "total_decks": total_decks,
         "core_tags": core_tags
@@ -1182,7 +1183,11 @@ async def toggle_core_tag(request: Request):
 
 @app.post("/api/card/{card_name:path}/tags")
 async def update_card_tags(card_name: str, request: Request):
-    """Add or remove Lab tags from a card"""
+    """Add or remove Lab tags from a card.
+
+    A tag added through this endpoint is always "manual" — the only other
+    source, "learned", comes from sync.py's Archidekt-confidence seeding.
+    """
     data = await request.json()
     tag = data.get("tag")
     action = data.get("action")  # "add" or "remove"
@@ -1201,15 +1206,17 @@ async def update_card_tags(card_name: str, request: Request):
     # Update Lab tags
     if action == "add" and tag not in lab_tags[card_name]:
         lab_tags[card_name].append(tag)
+        lab_tag_store.set_source(r, card_name, tag, lab_tag_store.MANUAL)
     elif action == "remove" and tag in lab_tags[card_name]:
         lab_tags[card_name].remove(tag)
+        lab_tag_store.clear_source(r, card_name, tag)
     
     # Save Lab tags
     r.set("lab_tags", json.dumps(lab_tags))
     
     return {
         "success": True,
-        "lab_tags": lab_tags[card_name],
+        "lab_tags": lab_tag_store.with_source(r, card_name, lab_tags[card_name]),
         "action": action,
         "tag": tag
     }

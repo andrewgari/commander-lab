@@ -1049,7 +1049,7 @@
             .then(tagData => {
                 const tags = tagData.lab_tags || [];
                 document.getElementById('modalTagsContainer').innerHTML = tags.length
-                    ? tags.map(t => `<span class="hud-chip hud-chip--ghost">${esc(t)}<button type="button" class="hud-chip-remove" data-tag="${esc(t)}" aria-label="Remove ${esc(t)}">✕</button></span>`).join('')
+                    ? tags.map(t => `<span class="hud-chip hud-chip--ghost">${esc(t.tag)}<span class="hud-sr"> (${esc(t.source)})</span><span class="at-glyph" aria-hidden="true" title="${esc(t.source)}">${t.source === 'manual' ? '\u25C6' : '\u25C7'}</span><button type="button" class="hud-chip-remove" data-tag="${esc(t.tag)}" aria-label="Remove ${esc(t.tag)}">✕</button></span>`).join('')
                     : '<span class="hud-muted">No tags</span>';
                 document.querySelectorAll('#modalTagsContainer .hud-chip-remove').forEach(b => {
                     b.addEventListener('click', () => removeModalTag(index, b.dataset.tag));

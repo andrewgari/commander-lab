@@ -176,7 +176,7 @@ class TestCardTagsEndpoint(Phase0Case):
     def test_card_tags_without_legacy_card_key(self):
         res = self.client.get("/api/card/Sol Ring/tags")
         self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json()["lab_tags"], ["Ramp"])
+        self.assertEqual(res.json()["lab_tags"], [{"tag": "Ramp", "source": "learned"}])
 
     def test_unknown_card_404(self):
         self.assertEqual(self.client.get("/api/card/Nope Card/tags").status_code, 404)
