@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Archetypes | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Archetypes"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="arVersion" class="hud-freshness">Loading…</span>{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Vocab PR3 archetype registry. HUD tokens only; stacks to one column on the 390px rail. */
+    .ar-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--sp-6); align-items: start; }
+    .ar-list { list-style: none; margin: 0; padding: 0; }
+    .ar-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: var(--stroke-faint);
+               color: var(--text-1); padding: var(--sp-4) var(--sp-5); cursor: pointer; font: inherit; }
+    .ar-item:hover { background: var(--surface-2); }
+    .ar-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+    .ar-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
+    .ar-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+    .ar-roles { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .ar-role { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem auto; gap: var(--sp-3); align-items: end; }
+    .ar-role .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+    .ar-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .ar-actions .ar-spacer { flex: 1; }
+    .ar-msg { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); color: var(--text-2); overflow-wrap: anywhere; }
+    .ar-msg.is-error { color: var(--danger); }
+    .ar-msg.is-ok { color: var(--ok); }
+    @media (max-width: 900px) {
+        .ar-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 520px) {
+        .ar-role { grid-template-columns: minmax(0, 1fr) 1fr 1fr; }
+        .ar-role .ar-rm { grid-column: 1 / -1; justify-self: start; }
+        .ar-item { padding: var(--sp-3) var(--sp-4); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Archetypes", eyebrow="Global registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="arNew">New archetype</button>
+{% endcall %}
+<p class="ar-msg" style="margin-bottom: var(--sp-5)">Archetypes are a global, editable list. Each has a name, a description, and required card roles (a role is a produces/consumes tag from the interaction graph). A deck's archetype is picked here, or derived from how well the whole deck fills an archetype's required roles.</p>
+
+<div class="ar-layout">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="arCount"></div></header>
+        <div class="hud-panel-body" style="padding:0">
+            <ul class="ar-list" id="arList" aria-label="Archetypes"></ul>
+        </div>
+    </section>
+
+    <section class="hud-panel" id="arEditor" aria-live="polite">
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="arEditorTitle">New archetype</h3><div class="hud-panel-meta" id="arEditorMeta"></div></header>
+        <div class="hud-panel-body">
+            <form class="hud-form-stack" id="arForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
+                <div class="hud-field">
+                    <label for="arName">Name</label>
+                    <input id="arName" maxlength="60" required>
+                </div>
+                <div class="hud-field">
+                    <label for="arDesc">Description</label>
+                    <textarea id="arDesc" rows="4" maxlength="1200"></textarea>
+                </div>
+                <div class="hud-field">
+                    <span class="hud-field-label">Required roles</span>
+                    <span class="hud-field-hint">Cards in the deck that produce or consume the resource. Min count = copies needed to fill the role; weight = how much it matters.</span>
+                    <div class="ar-roles" id="arRoles"></div>
+                    <div><button type="button" class="hud-btn hud-btn--sm" id="arAddRole">Add role</button></div>
+                </div>
+                <p class="ar-msg" id="arMsg" role="status"></p>
+                <div class="ar-actions">
+                    <button type="submit" class="hud-btn hud-btn--primary" id="arSave">Save</button>
+                    <button type="button" class="hud-btn hud-btn--ghost" id="arCancel">Reset</button>
+                    <span class="ar-spacer"></span>
+                    <button type="button" class="hud-btn hud-btn--danger hud-btn--sm" id="arDelete" hidden>Delete</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const state = { archetypes: [], vocab: [], version: 0, current: null };
+
+    function el(tag, props, kids) {
+        const n = document.createElement(tag);
+        Object.entries(props || {}).forEach(([k, v]) => { if (k === 'text') n.textContent = v; else n.setAttribute(k, v); });
+        (kids || []).forEach(k => n.appendChild(k));
+        return n;
+    }
+    function msg(id, text, tone) { const m = $(id); m.textContent = text || ''; m.className = 'ar-msg' + (tone ? ' is-' + tone : ''); }
+    async function api(method, url, body) {
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, data };
+        } catch (e) {
+            return { ok: false, status: 0, data: { error: 'Network error. Check your connection and try again.' } };
+        }
+    }
+
+    function renderList() {
+        const ul = $('arList'); ul.replaceChildren();
+        $('arCount').textContent = state.archetypes.length + ' archetypes';
+        $('arVersion').textContent = 'Registry v' + state.version;
+        if (!state.archetypes.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No archetypes yet. Add one.' }));
+        state.archetypes.forEach(a => {
+            const name = el('span', { class: 'ar-item-name' }, [el('span', { text: a.name })]);
+            const chip = (text, tone) => el('span', { class: 'hud-chip hud-chip--' + tone, text });
+            if (a.draft) name.appendChild(chip('draft', 'neutral'));
+            name.appendChild(chip((a.required_roles || []).length + ' roles', 'neutral'));
+            const b = el('button', { type: 'button', class: 'ar-item', 'data-id': a.id, 'aria-current': String(a.id === state.current) },
+                [name, el('p', { class: 'ar-item-desc', text: a.description || '' })]);
+            b.addEventListener('click', () => edit(a.id));
+            ul.appendChild(el('li', {}, [b]));
+        });
+    }
+
+    function roleRow(role) {
+        const sel = el('select', { 'aria-label': 'Role tag' });
+        state.vocab.forEach(v => { const o = el('option', { value: v.tag, text: v.label, title: v.meaning }); if (v.tag === role.tag) o.selected = true; sel.appendChild(o); });
+        const num = (cls, val, min, max, step, lab) => {
+            const i = el('input', { type: 'number', min, max, step: lab.toLowerCase().includes('weight') ? 'any' : step, value: val, 'aria-label': lab }); i.className = cls; return i;
+        };
+        const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost ar-rm', text: 'Remove' });
+        const row = el('div', { class: 'ar-role' }, [
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Role' }), sel]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Min' }), num('ar-min', role.min_count, 1, 40, 1, 'Min count')]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Weight' }), num('ar-weight', role.weight, 0.1, 10, 0.1, 'Weight')]),
+            rm,
+        ]);
+        rm.addEventListener('click', () => row.remove());
+        return row;
+    }
+    function setRoles(roles) { const box = $('arRoles'); box.replaceChildren(); (roles || []).forEach(r => box.appendChild(roleRow(r))); }
+    function readRoles() {
+        return Array.from($('arRoles').children).map(row => ({
+            tag: row.querySelector('select').value,
+            min_count: Number(row.querySelector('.ar-min').value),
+            weight: Number(row.querySelector('.ar-weight').value),
+        }));
+    }
+
+    function fill(a) {
+        $('arName').value = a.name || ''; $('arDesc').value = a.description || '';
+        setRoles(a.required_roles);
+    }
+    function edit(id) {
+        const a = state.archetypes.find(x => x.id === id); if (!a) return;
+        state.current = id; fill(a);
+        $('arEditorTitle').textContent = a.name; $('arEditorMeta').textContent = a.draft ? 'draft' : (a.updated_at || '').slice(0, 10);
+        $('arDelete').hidden = false; msg('arMsg', ''); renderList();
+    }
+    function fresh() {
+        state.current = null; fill({ required_roles: [] });
+        $('arEditorTitle').textContent = 'New archetype'; $('arEditorMeta').textContent = '';
+        $('arDelete').hidden = true; msg('arMsg', ''); renderList();
+    }
+
+    async function load(keep) {
+        const { ok, data } = await api('GET', '/api/archetypes');
+        if (!ok) { msg('arMsg', data.error || 'Could not load archetypes.', 'error'); return; }
+        state.archetypes = data.archetypes; state.vocab = data.vocabulary; state.version = data.version;
+        keep && state.archetypes.some(a => a.id === keep) ? edit(keep) : fresh();
+    }
+
+    $('arNew').addEventListener('click', fresh);
+    $('arCancel').addEventListener('click', () => state.current ? edit(state.current) : fresh());
+    $('arAddRole').addEventListener('click', () => $('arRoles').appendChild(roleRow({ tag: state.vocab[0].tag, min_count: 1, weight: 1 })));
+
+    $('arForm').addEventListener('submit', async ev => {
+        ev.preventDefault();
+        const body = { name: $('arName').value, description: $('arDesc').value, required_roles: readRoles() };
+        $('arSave').disabled = true; msg('arMsg', 'Saving…');
+        const r = state.current ? await api('PUT', '/api/archetypes/' + encodeURIComponent(state.current), body) : await api('POST', '/api/archetypes', body);
+        $('arSave').disabled = false;
+        if (!r.ok) { msg('arMsg', r.data.error || 'Save failed.', 'error'); return; }
+        await load(r.data.archetype.id); msg('arMsg', 'Saved. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    $('arDelete').addEventListener('click', async () => {
+        if (!state.current || !confirm('Delete this archetype?')) return;
+        const r = await api('DELETE', '/api/archetypes/' + encodeURIComponent(state.current));
+        if (!r.ok) { msg('arMsg', r.data.error || 'Delete failed.', 'error'); return; }
+        await load(); msg('arMsg', 'Deleted. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    load();
+})();
+</script>
+{% endblock %}

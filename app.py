@@ -148,6 +148,12 @@ async def genres_view(request: Request):
     return templates.TemplateResponse(request=request, name="genres.html")
 
 
+@app.get("/archetypes", response_class=HTMLResponse)
+async def archetypes_view(request: Request):
+    """Archetype registry (vocab PR3): the global, user-editable list of deck archetypes."""
+    return templates.TemplateResponse(request=request, name="archetypes.html")
+
+
 @app.get("/composition/presets", response_class=HTMLResponse)
 async def composition_presets_view(request: Request):
     """Composition Presets registry: create/edit/delete, compare side by side."""
@@ -4384,6 +4390,134 @@ async def api_deck_genres(deck_id: str):
                 qty[c["name"]] = qty.get(c["name"], 0) + 1
     return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
                           matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph, qty), genres))
+
+
+# ---------------------------------------------------------------------------
+# Archetype registry (vocab PR3) -- see analytics/archetypes.py
+# ---------------------------------------------------------------------------
+
+def _archetype_payload(**extra):
+    from analytics import archetypes as archetypes_mod
+
+    return {"success": True, "version": archetypes_mod.get_version(r), **extra}
+
+
+@app.get("/api/archetypes")
+async def api_archetypes_list():
+    from analytics import archetypes as archetypes_mod
+
+    archetypes = await asyncio.to_thread(archetypes_mod.list_archetypes, r)
+    return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary())
+
+
+@app.post("/api/archetypes")
+async def api_archetypes_create(request: Request):
+    from analytics import archetypes as archetypes_mod
+
+    try:
+        archetype, version = await asyncio.to_thread(archetypes_mod.create_archetype, r, await _json_body(request))
+    except archetypes_mod.ArchetypeError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content={"success": True, "archetype": archetype, "version": version})
+
+
+@app.get("/api/archetypes/{archetype_id}")
+async def api_archetypes_get(archetype_id: str):
+    from analytics import archetypes as archetypes_mod
+
+    try:
+        archetype = await asyncio.to_thread(archetypes_mod.get_archetype, r, archetype_id)
+    except archetypes_mod.ArchetypeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
+    return _archetype_payload(archetype=archetype)
+
+
+@app.put("/api/archetypes/{archetype_id}")
+async def api_archetypes_update(archetype_id: str, request: Request):
+    from analytics import archetypes as archetypes_mod
+
+    try:
+        archetype, version = await asyncio.to_thread(archetypes_mod.update_archetype, r, archetype_id, await _json_body(request))
+    except archetypes_mod.ArchetypeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
+    except archetypes_mod.ArchetypeError as exc:
+        return _bad_request(exc)
+    return {"success": True, "archetype": archetype, "version": version}
+
+
+@app.delete("/api/archetypes/{archetype_id}")
+async def api_archetypes_delete(archetype_id: str):
+    from analytics import archetypes as archetypes_mod
+
+    try:
+        version = await asyncio.to_thread(archetypes_mod.delete_archetype, r, archetype_id)
+    except archetypes_mod.ArchetypeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
+    return {"success": True, "version": version}
+
+
+def _archetype_deck_qty(deck: dict) -> dict:
+    qty: dict = {}
+    for c in deck.get("cards") or []:
+        if c.get("name"):
+            try:
+                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
+            except (TypeError, ValueError):
+                qty[c["name"]] = qty.get(c["name"], 0) + 1
+    return qty
+
+
+@app.get("/api/decks/{deck_id}/archetype")
+async def api_deck_archetype(deck_id: str):
+    """Resolved archetype for this deck: a manual override, else the best whole-deck derived
+    match (role coverage from the deck's interaction tags), plus the full ranking."""
+    from analytics import archetypes as archetypes_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    qty = _archetype_deck_qty(deck)
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, qty)
+    return {"success": True, "deck": deck.get("name"), **out}
+
+
+@app.put("/api/decks/{deck_id}/archetype")
+async def api_set_deck_archetype(deck_id: str, request: Request):
+    """Body {mode:'auto'} or {mode:'manual', archetype_id}."""
+    from analytics import archetypes as archetypes_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    rid = registry.registry_id_of(deck)
+    try:
+        await asyncio.to_thread(archetypes_mod.set_selection, r, rid, body)
+    except archetypes_mod.ArchetypeError as exc:
+        return _bad_request(exc)
+    except archetypes_mod.ArchetypeNotFound as exc:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{exc}' not found"})
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    return {"success": True, "deck": deck.get("name"), **out}
+
+
+@app.delete("/api/decks/{deck_id}/archetype")
+async def api_reset_deck_archetype(deck_id: str):
+    from analytics import archetypes as archetypes_mod
+
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    await asyncio.to_thread(archetypes_mod.reset_selection, r, rid)
+    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    return {"success": True, "deck": deck.get("name"), **out}
 
 
 def _theory_deck_id(deck) -> str:
