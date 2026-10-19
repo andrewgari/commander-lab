@@ -281,7 +281,7 @@ def unknown_mentions(text: str, known: set) -> List[str]:
         for raw in rx.findall(text or ""):
             if raw.rstrip().endswith(":"):
                 continue  # '**Early:**' style label
-            name = raw.strip().strip(":").strip()
+            name = raw.strip().rstrip(".,;!?").strip(":").strip()
             k = _key(name)
             if (not name or k in known or k in skip or k.split(" // ")[0] in known or len(name.split()) > 8
                     or re.match(r"^(turns?|t)\s*[\d–-]", k) or re.fullmatch(r"[\d\s.,%+–-]+", k)):
