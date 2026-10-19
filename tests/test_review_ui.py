@@ -267,7 +267,7 @@ class _ReviewPage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], list("1234567"))
+        self.assertEqual([k for _, k in tabs], list("12345678"))
         self.assertEqual(tabs[6][0], "/deck/Holy%20Hellfire/review")
         active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], ["Review"])
@@ -378,7 +378,7 @@ class TestStorageDown(unittest.TestCase):
 class TestHotkeys(unittest.TestCase):
     def test_seven_key_switches_tab(self):
         js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
-        self.assertIn("/^[1-7]$/", js)
+        self.assertIn("/^[1-8]$/", js)
 
 
 if __name__ == "__main__":

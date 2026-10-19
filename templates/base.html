@@ -94,7 +94,14 @@
             <div class="app-topbar-meta">{% block topbar_meta %}{% endblock %}</div>
         </div>
         {%- endif %}
+        {#- Ultrawide work-area wrapper (docs/design/ultrawide/SPEC.md). Below
+            1921px this is a no-op; above it, hud.css centers and caps this
+            layer instead of letting .main-content stretch edge to edge.
+            Pages with a denser two/three-zone layout (Review, Tune) opt into
+            the narrower "detail" cap via {% block work_class %}. -#}
+        <div class="hud-work{% block work_class %}{% endblock %}">
         {% block content %}{% endblock %}
+        </div>
     </main>
 
     {# Deck printing map (card_refs.py) for HUD.cardName()/rankList; only deck pages have one. #}
