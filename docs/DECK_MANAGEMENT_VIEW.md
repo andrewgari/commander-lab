@@ -172,3 +172,12 @@ creating parallel duplicate instances.
    yet — confirmed acceptable for now, Scryfall lookup is a fast-follow.
 3. Duplicate physical copies of the same card in one deck: supported (each
    is its own instance), remove flow needs a picker if count > 1.
+
+## Decommission (single + bulk)
+
+- `POST /api/decks/{registry_id}/decommission` — one physical deck (optional `{"tag"}`).
+- `POST /api/decks/decommission` — bulk. Body `{"deck_ids": [...], "tag"?: "removed"}`.
+  Returns per-deck results `{success, requested, succeeded: [...], failed: [{deck_id, reason, code}]}`.
+  Empty/invalid list → 400. Duplicates collapsed; already-decommissioned = no-op success;
+  `code` is `not_found` or `not_physical`. Max 100 ids. All successes commit in one Redis MULTI/EXEC.
+  Shared logic: `registry._apply_decommission`.

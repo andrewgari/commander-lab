@@ -108,6 +108,7 @@
 
     let deckColorMap = {};
     let deckCommanderMap = {};
+    let deckRoleMap = {};  // deck name -> {card name: role} from commander_roles.py
 
     async function loadDecks() {
         const res = await fetch(`/api/decks`);
@@ -117,6 +118,7 @@
             allDecks.push(deck.name);
             deckColorMap[deck.name] = deck.color;
             deckCommanderMap[deck.name] = deck.commanders && deck.commanders.length > 0 ? deck.commanders.join(' & ') : 'None';
+            deckRoleMap[deck.name] = Object.fromEntries(HUD.commanderRoles(deck).map(c => [c.name, c.role]));
             const option = document.createElement('option');
             option.value = deck.name;
             datalist.appendChild(option);
@@ -247,6 +249,11 @@
         });
         
         const tbody = document.getElementById('inventoryList');
+        // Re-rendering drops the focused card name; remember it so keyboard users keep their place.
+        const focusedEl = document.activeElement;
+        const focusedKey = focusedEl && tbody.contains(focusedEl) && focusedEl.hasAttribute('data-card-preview')
+            ? { name: focusedEl.textContent, n: Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedEl.textContent).indexOf(focusedEl) }
+            : null;
         tbody.innerHTML = '';
         currentlyOpen = null; // reset open rows on fresh fetch
         
@@ -258,7 +265,9 @@
             const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C');
             const deckColorString = deckColorMap[card.deck] || 'C';
             
-            let displayName = card.name;
+            const ref = HUD.cardRef(card);
+            const refAttrs = HUD.cardRefAttrString(ref);
+            let displayName = `<span class="hud-cp-name" tabindex="0" data-card-preview${refAttrs}>${HUD.esc(card.name)}</span>`;
             if (card.alt_name && card.alt_name !== card.name) {
                 displayName += ` <span style="color:#6b7280; font-size: 0.85em; font-family: 'Inter', sans-serif;">(${card.alt_name})</span>`;
             }
@@ -278,24 +287,18 @@
                 const superTypes = card.super_types ? card.super_types.join(' ') : '';
                 let baseType = `${superTypes} ${card.type}`.trim();
                 
-                const deckCmdrs = deckCommanderMap[card.deck] ? deckCommanderMap[card.deck].split(' & ') : [];
-                let isPartner = false;
-                
-                if (deckCmdrs.length > 1) {
-                    isPartner = true;
-                } else {
-                    const oracleText = (card.oracle_text || '').toLowerCase();
-                    if (oracleText.includes('partner') || oracleText.includes('choose a background') || oracleText.includes('friends forever') || oracleText.includes("doctor's companion")) {
-                        isPartner = true;
-                    }
-                }
+                // Role from the shared helper (commander_roles.py via /api/decks).
+                const role = (deckRoleMap[card.deck] || {})[card.name] || 'commander';
+                const isPartner = role === 'partner' || role === 'doctor' || role === 'doctors_companion';
                 
                 const isPlaneswalker = card.type.includes('Planeswalker') || (card.super_types && card.super_types.includes('Planeswalker'));
                 const isNonCreatureArtifact = card.type.includes('Artifact') && card.categories && !card.categories.includes('Creature');
                 const crownSvg = (fill, stroke = 'none', strokeWidth = '0') => `<svg viewBox="0 0 24 24" width="14" height="14" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" style="vertical-align: -0.15em; overflow: visible;"><path d="M2 19h20v2H2v-2zm1.6-4.9l1.8-8.2L9 10l3-8 3 8 3.6-4.1 1.8 8.2H3.6z"/></svg>`;
                 
                 let crownIcons = '';
-                if (isPlaneswalker) {
+                if (role === 'companion') {
+                    crownIcons = `<span style="margin-right: 4px;" title="Companion">${crownSvg('none', '#cbd5e1', '1.5')}</span>`;
+                } else if (isPlaneswalker) {
                     crownIcons = `<span style="margin-right: 4px;" title="Planeswalker Commander">${crownSvg('#7dd3fc')}</span>`;
                 } else if (isNonCreatureArtifact) {
                     crownIcons = `<span style="margin-right: 4px;" title="Artifact/Vehicle Commander">${crownSvg('#000000', '#ffffff', '1.5')}</span>`;
@@ -324,7 +327,8 @@
             trDetails.id = `details-${index}`;
             trDetails.style.display = 'none';
             
-            const imgUrl = card.uid ? `https://api.scryfall.com/cards/${card.uid}?format=image` : '';
+            const img = HUD.scryfall(card.uid, 'normal');
+            const imgUrl = img.src;
             const cats = card.categories && card.categories.length > 0 ? card.categories.join(', ') : 'None';
             const primaryTag = card.primary_tag ? `<span class="badge" style="margin-left: 6px;">${card.primary_tag}</span>` : '';
             
@@ -345,7 +349,7 @@
                 <td colspan="7" style="padding: 0; border: none;">
                     <div class="details-container">
                         <div class="details-image">
-                            ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy">` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
+                            ${imgUrl ? `<img src="${imgUrl}" alt="${card.name}" loading="lazy" data-fallback="${img.fallback}" data-card-preview${refAttrs}>` : '<div style="width:200px; height:280px; background:#222; display:flex; align-items:center; justify-content:center; border-radius:10px;">No Image</div>'}
                         </div>
                         <div class="details-info">
                             <p><strong>Set:</strong> ${card.set_name} (${card.set})</p>
@@ -368,19 +372,28 @@
             `;
             tbody.appendChild(trDetails);
         });
+
+        if (focusedKey) {
+            const same = Array.from(tbody.querySelectorAll('[data-card-preview]')).filter(e => e.textContent === focusedKey.name);
+            const target = same[Math.max(focusedKey.n, 0)] || same[0];
+            if (target) target.focus({ preventScroll: true });
+        }
     }
     
-    loadDecks().then(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const deckParam = urlParams.get('deck');
-        if (deckParam) {
-            // Need to handle if allDecks is loaded, which it is because loadDecks finished
-            if (allDecks.includes(deckParam) && !selectedDecks.includes(deckParam)) {
-                selectedDecks.push(deckParam);
-                renderPills();
+    // Start once deferred hud.js has run (loadDecks uses HUD).
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDecks().then(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const deckParam = urlParams.get('deck');
+            if (deckParam) {
+                // Need to handle if allDecks is loaded, which it is because loadDecks finished
+                if (allDecks.includes(deckParam) && !selectedDecks.includes(deckParam)) {
+                    selectedDecks.push(deckParam);
+                    renderPills();
+                }
             }
-        }
-        fetchInventory();
+            fetchInventory();
+        });
     });
 </script>
 {% endblock %}
