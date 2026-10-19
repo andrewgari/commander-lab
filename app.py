@@ -3501,6 +3501,25 @@ async def api_genres_autofill(request: Request):
     return {"success": True, "draft": draft}
 
 
+@app.post("/api/deck-genre/improve-text")
+async def api_deck_genre_improve_text(request: Request):
+    """Reword one short Journal genre tag (theme/kindred custom entry). Body: {kind, text}.
+    Stateless, never saves: {text, original, kind, provider, model}. The caller shows the
+    suggestion and only overwrites the field if the user accepts it (GN-TXT-1)."""
+    from analytics import genre_text_improve as gti
+    from analytics.interactions.llm import default_chain
+
+    body = await _json_body(request)
+    try:
+        out = await asyncio.to_thread(gti.improve_text, default_chain(), body)
+    except gti.GenreTextImproveError as exc:
+        return _bad_request(exc, 422)
+    except gti.GenreTextImproveUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
+
+
 # ---------------------------------------------------------------------------
 # Category registry (CT) -- see analytics/categories.py, docs/design/categories/SPEC.md
 # ---------------------------------------------------------------------------

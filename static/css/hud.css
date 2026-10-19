@@ -1997,6 +1997,15 @@ main.main-content { padding-bottom: var(--sp-16); }
 .hud-tagfield-picks { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
 .hud-tagfield-picks[hidden] { display: none; }
 .hud-tagfield-picks .hud-label { margin-right: var(--sp-1); }
+
+/* ---- KIT: tag field AI "improve" (GN-TXT-1) ------------------------------- */
+.hud-tagfield-improve { flex: 0 0 auto; font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; }
+.hud-tagfield-sugg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); font: var(--fs-sm) var(--font-card); }
+.hud-tagfield-sugg[hidden] { display: none; }
+.hud-tagfield-sugg-text { color: var(--text-1); }
+.hud-tagfield-sugg-a { display: flex; gap: var(--sp-1); margin-left: auto; }
+.hud-tagfield-sugg-meta { color: var(--text-2); }
+.hud-tagfield-sugg-meta.is-error { color: var(--danger, #e5484d); }
 .hud-tagopt { display: inline-flex; align-items: center; gap: var(--sp-1); height: 1.5rem; padding: 0 var(--sp-2); background: transparent; border: var(--hairline) solid var(--line); border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-xs) var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
 .hud-tagopt::before { content: "+"; color: var(--text-3); font-family: var(--font-mono); }
 .hud-tagopt:hover { background: var(--surface-2); border-color: var(--line-strong); color: var(--text-1); }

@@ -187,8 +187,11 @@ document.addEventListener("DOMContentLoaded", function () {
     extras.excluded_archetypes = {{ j.archetype_preferences.excluded_archetypes | tojson }};
     extras.custom_themes = {{ j.archetype_preferences.custom_themes | tojson }};
     var genre = {}, genreInit = G.fromJournal({ archetype_preferences: {{ j.archetype_preferences | tojson }}, deck_genre: {{ j.deck_genre | tojson }} });
+    function improveGenreText(kind, text) {
+        return send("POST", "/api/deck-genre/improve-text", { kind: kind, text: text }).then(function (r) { return r.text; });
+    }
     ["archetype", "theme", "kindred"].forEach(function (k) {
-        genre[k] = new G.TagField(document.getElementById("f-" + k), k, genreInit[k], function () { changed(); });
+        genre[k] = new G.TagField(document.getElementById("f-" + k), k, genreInit[k], function () { changed(); }, improveGenreText);
     });
     function genreValues() { return { archetype: genre.archetype.value.slice(), theme: genre.theme.value.slice(), kindred: genre.kindred.value.slice() }; }
     function paintGenreStrip(j) {
