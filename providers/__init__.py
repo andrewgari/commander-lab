@@ -68,6 +68,16 @@ def push_deck(provider: str, identifier: str, cards: list, commanders=None) -> d
     return mod.push_deck(identifier, cards, commanders)
 
 
+def create_deck(provider: str, name: str, cards: list, commanders=None, description: str = "", private: bool = True) -> dict:
+    """Create a NEW deck on `provider` from a decklist. Explicit user export only."""
+    mod = PROVIDERS.get(provider)
+    if not mod:
+        raise ProviderError(f"unknown provider: {provider}")
+    if not hasattr(mod, "create_deck"):
+        raise PushNotConfigured(f"{provider} does not support deck creation")
+    return mod.create_deck(name, cards, commanders, description, private)
+
+
 def push_configured(provider: str) -> bool:
     mod = PROVIDERS.get(provider)
     return bool(mod and hasattr(mod, "push_configured") and mod.push_configured())

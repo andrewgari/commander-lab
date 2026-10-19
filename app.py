@@ -27,6 +27,7 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 import deck_links
 from deck_links import DeckLinkError
+import deck_export
 import deck_sync
 from deck_sync import DeckSyncError
 from version import __version__, VERSION
@@ -35,6 +36,8 @@ from src.services.repo_status import enrich_decks_with_repo_status
 from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
 from analytics import composition as composition_mod
+from analytics import composition_service as comp_svc
+from analytics.composition_models import CompositionValidationError, ImmutablePresetError
 from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
@@ -747,6 +750,39 @@ async def trigger_reconstruct_build(
         "status": session["status"],
         "session": session,
     }
+
+
+@app.post("/api/export/deck")
+async def export_deck_api(request: Request):
+    """Create a NEW deck on Moxfield and/or Archidekt from a decklist. Body:
+    {"name", "cards": [{"name","quantity"}], "commanders": [], "providers":
+    ["moxfield","archidekt"], "description", "private": true, "dry_run": bool}.
+    Per-provider outcomes are in results; 200 if all succeeded, 207 if any failed."""
+    data = await _sync_body(request)
+    try:
+        out = await asyncio.to_thread(
+            deck_export.export_decklist, data.get("name"), data.get("cards") or [],
+            data.get("commanders") or [], data.get("providers"),
+            data.get("description") or "", data.get("private", True) is not False,
+            bool(data.get("dry_run")))
+    except deck_export.ExportError as e:
+        return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
+    return JSONResponse(status_code=200 if out["success"] else 207, content=out)
+
+
+@app.post("/api/reconstruct/{session_id}/drafts/{draft_index}/export")
+async def export_reconstruct_draft(session_id: str, draft_index: int, request: Request):
+    """Export one Reconstruct draft as a new deck on Moxfield/Archidekt.
+    Body (optional): {"providers": [...], "description", "private", "dry_run"}."""
+    data = await _sync_body(request)
+    try:
+        out = await asyncio.to_thread(
+            deck_export.export_draft, r, session_id, draft_index, data.get("providers"),
+            data.get("description") or "", data.get("private", True) is not False,
+            bool(data.get("dry_run")))
+    except deck_export.ExportError as e:
+        return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
+    return JSONResponse(status_code=200 if out["success"] else 207, content=out)
 
 
 @app.get("/api/reconstruct/{session_id}/drafts")
@@ -2549,6 +2585,101 @@ async def api_reset_composition_template(deck_id: str):
     if err:
         return err
     return {"success": True, "template": composition_mod.reset_template(r, deck)}
+
+
+def _comp_error(exc: Exception):
+    if isinstance(exc, comp_svc.PresetNotFound):
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Preset '{exc.args[0]}' not found"})
+    if isinstance(exc, ImmutablePresetError):
+        return JSONResponse(status_code=403, content={"success": False, "error": str(exc)})
+    if isinstance(exc, CompositionValidationError):
+        issues = getattr(exc, "issues", None)
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "issues": issues})
+    raise exc
+
+
+@app.get("/api/composition/presets")
+async def api_list_presets(kind: Optional[str] = None):
+    """Built-in + user composition presets. ?kind=builtin|user filters."""
+    return {"success": True, "presets": await asyncio.to_thread(comp_svc.list_all, r, kind)}
+
+
+@app.post("/api/composition/presets")
+async def api_create_preset(request: Request):
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    try:
+        p = await asyncio.to_thread(comp_svc.create, r, body)
+    except (CompositionValidationError, ImmutablePresetError) as exc:
+        return _comp_error(exc)
+    return JSONResponse(status_code=201, content={"success": True, "preset": p})
+
+
+@app.get("/api/composition/presets/{preset_id}")
+async def api_get_preset(preset_id: str):
+    try:
+        return {"success": True, "preset": await asyncio.to_thread(comp_svc.get, r, preset_id)}
+    except comp_svc.PresetNotFound as exc:
+        return _comp_error(exc)
+
+
+@app.put("/api/composition/presets/{preset_id}")
+async def api_update_preset(preset_id: str, request: Request):
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    try:
+        p = await asyncio.to_thread(comp_svc.update, r, preset_id, body)
+    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+        return _comp_error(exc)
+    return {"success": True, "preset": p}
+
+
+@app.delete("/api/composition/presets/{preset_id}")
+async def api_delete_preset(preset_id: str):
+    try:
+        await asyncio.to_thread(comp_svc.delete, r, preset_id)
+    except (comp_svc.PresetNotFound, ImmutablePresetError) as exc:
+        return _comp_error(exc)
+    return {"success": True, "deleted": preset_id}
+
+
+@app.get("/api/decks/{deck_id}/composition/selection")
+async def api_deck_preset_selection(deck_id: str):
+    """Resolved preset for this deck (pinned, or auto-selected by archetype/tags/commander MV)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    out = await asyncio.to_thread(comp_svc.resolve_for_deck, r, deck, registry.registry_id_of(deck))
+    return {"success": True, "selection": out}
+
+
+@app.put("/api/decks/{deck_id}/composition/selection")
+async def api_set_deck_preset_selection(deck_id: str, request: Request):
+    """Body {mode:'auto'} or {mode:'pinned', preset_id, lands?, overrides?}."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    rid = registry.registry_id_of(deck)
+    try:
+        await asyncio.to_thread(comp_svc.set_deck_selection, r, rid, body)
+    except CompositionValidationError as exc:
+        return _comp_error(exc)
+    return {"success": True, "selection": await asyncio.to_thread(comp_svc.resolve_for_deck, r, deck, rid)}
+
+
+@app.delete("/api/decks/{deck_id}/composition/selection")
+async def api_reset_deck_preset_selection(deck_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rid = registry.registry_id_of(deck)
+    await asyncio.to_thread(comp_svc.reset_deck_selection, r, rid)
+    return {"success": True, "selection": await asyncio.to_thread(comp_svc.resolve_for_deck, r, deck, rid)}
 
 
 @app.get("/api/decks/{deck_id}/identity")
