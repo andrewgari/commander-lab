@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderFixes() {
         var f = T.fixes || [];
         $("fixT").textContent = "Shape fixes · " + f.length;
-        if (!f.length) { $("fixes").innerHTML = '<div class="hud-empty">Every composition row is within 1 of the template.</div>'; return; }
+        if (!f.length) { $("fixes").innerHTML = '<div class="hud-empty">Every composition row is within 1 of the preset.</div>'; return; }
         $("fixes").innerHTML = f.map(function (x, i) {
             var act = x.action ? '<button class="hud-btn hud-btn--sm" type="button" data-fix="' + i + '">' + esc(x.action.label) + "</button>" : "<span></span>";
             var owned = x.action && x.action.kind === "filter"

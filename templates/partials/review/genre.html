@@ -18,7 +18,7 @@
     {%- for g in d.secondary or [] %}{{ genre_panel(g, "secondary") }}{% endfor %}
 </div>
 {%- else %}
-{{ hud.empty("No genre reached the coverage threshold.") }}
+{{ hud.empty("No tag reached the coverage threshold.") }}
 {%- endif %}
 {%- if d.ranking %}
 <p class="hud-rv-meta">Scored:
