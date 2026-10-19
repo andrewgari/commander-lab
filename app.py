@@ -2682,6 +2682,51 @@ async def api_reset_deck_preset_selection(deck_id: str):
     return {"success": True, "selection": await asyncio.to_thread(comp_svc.resolve_for_deck, r, deck, rid)}
 
 
+def _presetgen_run(deck: dict, mode: str, body: dict):
+    """Build the presetgen packet for one deck and run generate/improve (drafts are never saved)."""
+    from analytics import presetgen
+    from analytics.interactions.llm import default_chain
+
+    rid = registry.registry_id_of(deck)
+    texts, card_tags, deck_tags, _tpl = _cat_load(deck)
+    users = comp_svc.user_presets(r)
+    current = None
+    if mode == "improve":
+        pid = body.get("preset_id")
+        current = comp_svc.get(r, pid) if pid else comp_svc.resolve_for_deck(r, deck, rid).get("preset")
+    packet = presetgen.build_packet(
+        deck, texts, card_tags, deck_tags=deck_tags, ident=identity_mod.load_identity(r, deck),
+        current_preset=current, global_custom_ids=[c["id"] for c in categories_mod.list_global(r)],
+        existing_preset_names=[p.get("name", "") for p in comp_svc.list_all(r)], user_presets=users)
+    chain = default_chain() if body.get("ai", True) is not False else None
+    return presetgen.generate(packet, chain) if mode == "generate" else presetgen.improve(packet, chain)
+
+
+async def _presetgen_route(deck_id: str, request: Request, mode: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    body = body if isinstance(body, dict) else {}
+    try:
+        out = await asyncio.to_thread(_presetgen_run, deck, mode, body)
+    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+        return _comp_error(exc)
+    return {"success": True, "draft": out}
+
+
+@app.post("/api/decks/{deck_id}/composition/presets/generate")
+async def api_presetgen_generate(deck_id: str, request: Request):
+    """Draft a new preset for this deck (Baseline, or AI draft). Body {ai?: bool}. Nothing is saved."""
+    return await _presetgen_route(deck_id, request, "generate")
+
+
+@app.post("/api/decks/{deck_id}/composition/presets/improve")
+async def api_presetgen_improve(deck_id: str, request: Request):
+    """Draft an improved copy of the deck's current (or body.preset_id) preset. Nothing is saved."""
+    return await _presetgen_route(deck_id, request, "improve")
+
+
 @app.get("/api/decks/{deck_id}/identity")
 async def api_deck_identity(deck_id: str, cards: bool = True):
     """Thesis + pillars with pillar fit (local embeddings). ?cards=false drops per_card."""
