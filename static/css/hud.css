@@ -529,8 +529,9 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
    centering fix in #214. Scope landed here: Tune queue/compare/change-list
    3-zone split at >=2800px, and a narrower fixed cap + registry rail width
    for the registry pages (Genres/Categories) per §3/§4.
-   Review index/body/dock and the Overview summary+gallery split are tracked
-   as follow-up work (see the linked child card). */
+   Review index/body/dock, Overview summary+gallery split and the dock
+   collapse/expand primitive are in deck_review.html / deck.html / hud.js;
+   the Stats engine|canvas|inspector rail caps are just below. */
 @media (min-width: 2800px) {
     /* Tune: queue (fixes+weak) | swap comparison | change list, per §4 "Tune / Triage". */
     .hud-tune {
@@ -551,6 +552,18 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 }
 @media (min-width: 2800px) {
     .gn-layout, .ct-layout { grid-template-columns: 432px minmax(0, 1fr) !important; }
+}
+
+/* Stats/analytics graph screen (engine list | canvas | inspector), per §4
+   "Stats / Analytics". `.hud-graph` is the engine|canvas|inspector grid
+   (1450 below); its base 14rem/17rem rails are fine up to 1920px, then get
+   wider fixed rails same as Tune's queue/change-list so the canvas doesn't
+   stretch unreadably: engines 288/320, inspector 352/400 (UW1/UW2). */
+@media (min-width: 1921px) {
+    .hud-graph { grid-template-columns: 288px minmax(0, 1fr) 352px !important; }
+}
+@media (min-width: 2800px) {
+    .hud-graph { grid-template-columns: 320px minmax(0, 1fr) 400px !important; }
 }
 
 
@@ -1720,6 +1733,22 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-changes li .op { font-family: var(--font-mono); }
 .hud-changes li .op.out { color: var(--text-3); } .hud-changes li .op.in { color: var(--ok); }
 .hud-changes .hud-card-name { font-size: var(--fs-sm); }
+
+/* Ultrawide dock collapse/expand (SPEC.md §5): generic [data-hud-dock]
+   behavior. Collapsed = 44px rail, toggle stays visible/focusable, content
+   hidden (not discarded -- state/selection persists underneath). Only
+   offered as a feature at >=1200px; narrower layouts keep their existing
+   always-expanded stacked behavior (collapsing a stacked rail buys nothing). */
+[data-hud-dock-toggle] { display: none; }
+@media (min-width: 1200px) {
+    [data-hud-dock] { position: relative; }
+    [data-hud-dock-toggle] {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; top: 0; right: 0; width: 44px; height: 44px; z-index: 1;
+    }
+    [data-hud-dock].hud-dock--collapsed { width: 44px; min-width: 44px; overflow: hidden; }
+    [data-hud-dock].hud-dock--collapsed > *:not([data-hud-dock-toggle]) { display: none; }
+}
 .hud-caps { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hairline); background: var(--line); border: var(--stroke); }
 .hud-caps div { padding: var(--sp-3); background: var(--surface-1); display: flex; flex-direction: column; gap: 2px; }
 .hud-caps b { color: var(--text-1); font: var(--fw-medium) var(--fs-lg) var(--font-mono); }
