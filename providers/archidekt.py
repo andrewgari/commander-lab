@@ -259,3 +259,39 @@ def push_deck(identifier: str, cards: list, commanders=None) -> dict:
         if not out.ok:
             raise PushError(f"Archidekt modifyCards failed: HTTP {out.status_code} {out.text[:200]}")
     return {"url": f"https://archidekt.com/decks/{deck_id}", "operations": len(ops)}
+
+
+COMMANDER_FORMAT_ID = 3  # Archidekt deckFormat id for Commander / EDH
+
+
+def create_deck(name: str, cards: list, commanders=None, description: str = "", private: bool = True) -> dict:
+    """Create a NEW Archidekt deck and fill it with `cards`.
+
+    Two calls: POST /api/decks/v2/ (create empty deck) then modifyCards via
+    push_deck. Neither is verified against a live account (see
+    docs/DECK_EXPORT.md). If the fill step fails the empty deck already exists
+    remotely, so the PushError message carries its URL for manual cleanup.
+    """
+    headers = _push_headers()
+    res = requests.post(
+        "https://archidekt.com/api/decks/v2/",
+        json={"name": name, "deckFormat": COMMANDER_FORMAT_ID, "private": private,
+              "description": description or ""},
+        headers=headers, timeout=30,
+    )
+    if res.status_code in (401, 403):
+        raise PushError(f"Archidekt rejected the token (HTTP {res.status_code}); refresh {PUSH_TOKEN_ENV}")
+    if not res.ok:
+        raise PushError(f"Archidekt deck creation failed: HTTP {res.status_code} {res.text[:200]}")
+    try:
+        deck_id = str(res.json()["id"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise PushError("Archidekt deck creation returned no deck id") from exc
+    url = f"https://archidekt.com/decks/{deck_id}"
+    try:
+        push_deck(deck_id, cards, commanders)
+    except PushError as exc:
+        raise PushError(f"{exc} (empty deck was created at {url})") from exc
+    except requests.RequestException as exc:
+        raise PushError(f"Archidekt fill failed: {exc} (empty deck was created at {url})") from exc
+    return {"url": url, "source_id": deck_id}

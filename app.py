@@ -27,6 +27,7 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 import deck_links
 from deck_links import DeckLinkError
+import deck_export
 import deck_sync
 from deck_sync import DeckSyncError
 from version import __version__, VERSION
@@ -747,6 +748,39 @@ async def trigger_reconstruct_build(
         "status": session["status"],
         "session": session,
     }
+
+
+@app.post("/api/export/deck")
+async def export_deck_api(request: Request):
+    """Create a NEW deck on Moxfield and/or Archidekt from a decklist. Body:
+    {"name", "cards": [{"name","quantity"}], "commanders": [], "providers":
+    ["moxfield","archidekt"], "description", "private": true, "dry_run": bool}.
+    Per-provider outcomes are in results; 200 if all succeeded, 207 if any failed."""
+    data = await _sync_body(request)
+    try:
+        out = await asyncio.to_thread(
+            deck_export.export_decklist, data.get("name"), data.get("cards") or [],
+            data.get("commanders") or [], data.get("providers"),
+            data.get("description") or "", data.get("private", True) is not False,
+            bool(data.get("dry_run")))
+    except deck_export.ExportError as e:
+        return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
+    return JSONResponse(status_code=200 if out["success"] else 207, content=out)
+
+
+@app.post("/api/reconstruct/{session_id}/drafts/{draft_index}/export")
+async def export_reconstruct_draft(session_id: str, draft_index: int, request: Request):
+    """Export one Reconstruct draft as a new deck on Moxfield/Archidekt.
+    Body (optional): {"providers": [...], "description", "private", "dry_run"}."""
+    data = await _sync_body(request)
+    try:
+        out = await asyncio.to_thread(
+            deck_export.export_draft, r, session_id, draft_index, data.get("providers"),
+            data.get("description") or "", data.get("private", True) is not False,
+            bool(data.get("dry_run")))
+    except deck_export.ExportError as e:
+        return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
+    return JSONResponse(status_code=200 if out["success"] else 207, content=out)
 
 
 @app.get("/api/reconstruct/{session_id}/drafts")
