@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from analytics.deck_writeup import (FormError, WriteupError, clean_form, generate_description, generate_primer,
                                     missing_required, summarize_cards)
-from analytics.deck_writeup.service import build_user_prompt
+from analytics.deck_writeup.service import build_user_prompt, unknown_mentions
 
 DECK = {"name": "Goblin Party", "commanders": ["Krenko, Mob Boss"]}
 META = [
@@ -151,3 +151,9 @@ def test_primer_bad_model_reply_is_422_and_offline_is_503():
     assert (res.status_code, res.json()["error_kind"]) == (422, "format")
     res, _ = _post("/api/decks/d1/description/generate", {}, preflight=app_module._oracle_offline("down"))
     assert res.status_code == 503
+
+
+def test_unknown_mentions_strips_trailing_sentence_punctuation():
+    known = {"kaalia of the vast"}
+    text = "**Kaalia of the Vast.** swings in. **Protection** keeps her alive, **Shivan Dragon!**"
+    assert unknown_mentions(text, known) == ["Protection", "Shivan Dragon"]

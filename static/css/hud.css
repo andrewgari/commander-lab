@@ -3379,7 +3379,8 @@ button.hud-menu-item { width: 100%; box-sizing: border-box; background: none; bo
 @media (max-width: 640px) {
     .pf-page { padding: var(--sp-4) var(--sp-3) calc(var(--sp-16) + var(--sp-8)); }
     .pf-card-head, .pf-card-body { padding: var(--sp-4); }
-    .pf-card-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: var(--sp-3) var(--sp-4); border-top: var(--stroke-strong); }
+    .pf-card-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: var(--sp-3) var(--sp-4); border-top: var(--stroke-strong); flex-wrap: wrap; row-gap: var(--sp-2); }
+    .pf-card-foot > * { flex: 0 0 auto; }
     .pf-row, .pf-row--3 { grid-template-columns: minmax(0, 1fr); }
     .pf-cr { grid-template-columns: 1.5rem 2.5rem minmax(0, 1fr); }
     .pf-cr-why { grid-column: 1 / -1; }
