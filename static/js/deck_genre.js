@@ -159,17 +159,23 @@
 
         // ---- TagField ----------------------------------------------------------------------------
         /* root: the .hud-field container. value: array (archetype: [primary, ...secondaries]).
-           onChange(value) fires after every add/remove/promote. */
-        function TagField(root, kind, value, onChange) {
+           onChange(value) fires after every add/remove/promote. improveFn(kind, text) -> Promise<string>
+           (GN-TXT-1): when given, a custom-capable field (theme/kindred) shows an "Improve" button next
+           to the input; the suggestion is shown inline for the user to accept (fills the input, not yet
+           added as a tag) or discard (input unchanged). Never auto-applies. */
+        function TagField(root, kind, value, onChange, improveFn) {
             var cfg = FIELDS[kind], self = this, active = -1, rows = [];
             var id = "gn-" + kind;
+            var canImprove = !!(improveFn && cfg.custom);
             this.value = (value || []).slice();
             root.innerHTML =
                 '<div class="hud-tagfield-head"><label for="' + id + '-in" id="' + id + '-l">' + cfg.label + "</label>" +
                 '<span class="hud-tagfield-count" id="' + id + '-n" data-testid="genre-' + kind + '-count" aria-hidden="true"></span></div>' +
                 '<div class="hud-picker" id="' + id + '-box" role="group" aria-labelledby="' + id + '-l" aria-describedby="' + id + '-h">' +
                 '<input id="' + id + '-in" data-testid="genre-' + kind + '-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="' + id + '-list" autocomplete="off" spellcheck="false" maxlength="' + CUSTOM_MAX + '">' +
+                (canImprove ? '<button type="button" class="hud-btn hud-btn--sm hud-tagfield-improve" id="' + id + '-imp" data-testid="genre-' + kind + '-improve" title="Reword with AI">◇ Improve</button>' : "") +
                 '<ul class="hud-picker-list" id="' + id + '-list" role="listbox" aria-label="' + cfg.label + ' options" hidden></ul></div>' +
+                (canImprove ? '<div class="hud-tagfield-sugg" id="' + id + '-sugg" data-testid="genre-' + kind + '-sugg" hidden></div>' : "") +
                 '<div class="hud-tagfield-picks" id="' + id + '-picks"></div>' +
                 '<span class="hud-field-hint" id="' + id + '-h">' + esc(cfg.hint) + "</span>" +
                 (kind === "archetype" ? '<span class="hud-field-hint hud-tagfield-read" id="gn-read" hidden></span>' : "") +
@@ -179,7 +185,48 @@
             var box = root.querySelector("#" + id + "-box"), input = root.querySelector("#" + id + "-in"),
                 list = root.querySelector("#" + id + "-list"), picks = root.querySelector("#" + id + "-picks"),
                 count = root.querySelector("#" + id + "-n"), note = root.querySelector("#" + id + "-note"), live = root.querySelector("#" + id + "-live");
+            var impBtn = canImprove ? root.querySelector("#" + id + "-imp") : null;
+            var sugg = canImprove ? root.querySelector("#" + id + "-sugg") : null;
             var moreOpen = false;
+
+            // ---- AI "Improve" (GN-TXT-1): suggestion is shown, never auto-applied --------------
+            function renderImprove() {
+                if (!impBtn) return;
+                var t = clean(input.value);
+                impBtn.disabled = !t || t.length > CUSTOM_MAX;
+            }
+            function hideSugg() { if (sugg) { sugg.hidden = true; sugg.innerHTML = ""; } }
+            function askImprove() {
+                if (!impBtn || impBtn.disabled) return;
+                var original = clean(input.value);
+                if (!original) return;
+                impBtn.disabled = true; impBtn.textContent = "Improving…";
+                sugg.hidden = false; sugg.innerHTML = '<span class="hud-tagfield-sugg-meta">Improving “' + esc(original) + '”…</span>';
+                improveFn(kind, original).then(function (text) {
+                    impBtn.disabled = false; impBtn.textContent = "◇ Improve";
+                    if (!text || low(text) === low(original)) { hideSugg(); if (!text) say("Couldn't improve that text"); return; }
+                    sugg.innerHTML = '<span class="hud-tagfield-sugg-text">“' + esc(text) + '”</span>' +
+                        '<span class="hud-tagfield-sugg-a">' +
+                        '<button type="button" class="hud-btn hud-btn--sm hud-btn--primary" data-sugg="accept" data-testid="genre-' + kind + '-sugg-accept">Accept</button>' +
+                        '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-sugg="discard" data-testid="genre-' + kind + '-sugg-discard">Discard</button></span>';
+                    sugg.setAttribute("data-suggested", text);
+                }).catch(function (e) {
+                    impBtn.disabled = false; impBtn.textContent = "◇ Improve";
+                    sugg.innerHTML = '<span class="hud-tagfield-sugg-meta is-error">' + esc((e && e.message) || "Couldn't improve that text") + "</span>";
+                });
+            }
+            if (impBtn) {
+                impBtn.textContent = "◇ Improve";
+                impBtn.addEventListener("click", askImprove);
+                sugg.addEventListener("click", function (e) {
+                    var b = e.target.closest("[data-sugg]"); if (!b) return;
+                    if (b.getAttribute("data-sugg") === "accept") {
+                        input.value = sugg.getAttribute("data-suggested") || input.value;
+                        say("Replaced with the AI suggestion"); input.focus();
+                    } else { say("Discarded the AI suggestion"); }
+                    hideSugg(); renderImprove();
+                });
+            }
 
             function say(msg) { live.textContent = ""; setTimeout(function () { live.textContent = msg; }, 30); }
             var noteTimer = null;
@@ -239,6 +286,7 @@
                 count.classList.toggle("is-full", full());
                 input.placeholder = full() ? cfg.max + " of " + cfg.max + " · remove one to add" : (self.value.length ? "Add another…" : cfg.placeholder);
                 picks.innerHTML = quickHtml(); picks.hidden = !picks.innerHTML;
+                renderImprove();
             }
 
             // Mutations. Archetype rule: index 0 is the primary; the first add becomes primary.
@@ -352,14 +400,14 @@
             function pick(i) {
                 var r = rows.filter(function (x) { return x.idx === i; })[0];
                 if (!r || r.disabled) return;
-                if (add(r.value)) { input.value = ""; commit(); }
+                if (add(r.value)) { input.value = ""; hideSugg(); commit(); }
                 close();
             }
 
             // Opens on typing, ArrowDown or a pointer click; not on focus, so tabbing through
             // (or focus returning after a chip ×) doesn't pop a 30-row list.
             input.addEventListener("click", function () { if (list.hidden) open(); });
-            input.addEventListener("input", open);
+            input.addEventListener("input", function () { open(); renderImprove(); hideSugg(); });
             input.addEventListener("blur", function () { setTimeout(close, 150); });
             input.addEventListener("keydown", function (e) {
                 if (e.key === "ArrowDown") { e.preventDefault(); if (list.hidden) open(); move(1); }
