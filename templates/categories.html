@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Categories | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Categories"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="ctVersion" class="hud-freshness">Loading…</span>{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/pd_assist.css?v={{ version }}">
+<link rel="stylesheet" href="/static/css/categories.css?v={{ version }}">
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Categories", eyebrow="Card role registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="ctNew">New category <span class="hud-kbd">N</span></button>
+{% endcall %}
+<p class="ct-intro">A category is a job a card does in a deck: Ramp, Card Draw, Interaction. <strong>Core</strong> categories exist in every deck. <strong>Custom</strong> ones add nuance, either for all decks or for one deck only. Core definitions are locked; custom ones you write yourself.</p>
+
+<div class="ct-scope">
+    <div>
+        <span class="hud-label" id="ctScopeL">Scope</span>
+        <div class="hud-seg" role="radiogroup" aria-labelledby="ctScopeL" style="display:flex;margin-top:var(--sp-1)">
+            <input type="radio" name="scope" id="scG" value="global" checked><label for="scG">Global</label>
+            <input type="radio" name="scope" id="scD" value="deck"><label for="scD">Deck-specific</label>
+        </div>
+    </div>
+    <div class="hud-field ct-scope-deck" id="ctDeckF" hidden>
+        <label class="hud-label" for="ctDeck">Deck</label>
+        <select id="ctDeck"></select>
+    </div>
+    <p class="ct-scope-sum" id="ctSum" aria-live="polite"></p>
+</div>
+
+<div class="ct-layout" id="ctLayout" data-view="list">
+    <section class="hud-panel" id="ctRegistry">
+        <header class="hud-panel-head"><h2 class="hud-panel-title">Registry</h2><div class="hud-panel-meta" id="ctCount"></div></header>
+        <div class="ct-filter"><label class="hud-sr" for="ctQ" style="position:absolute;left:-9999px">Filter categories</label><input id="ctQ" type="search" placeholder="Filter  ( / )" autocomplete="off"></div>
+        <div class="hud-panel-body" style="padding:0"><ul class="ct-list" id="ctList" aria-label="Categories"><li class="hud-empty">Loading…</li></ul></div>
+    </section>
+
+    <section class="hud-panel" id="ctEditor" aria-live="polite">
+        <header class="hud-panel-head"><h2 class="hud-panel-title" id="ctTitle">Category</h2><div class="hud-panel-meta" id="ctMeta"></div></header>
+        <div class="hud-panel-body">
+            <form class="ct-form" id="ctForm" autocomplete="off" novalidate></form>
+        </div>
+    </section>
+</div>
+<p class="ct-msg" id="ctPageMsg" role="status" style="margin-top:var(--sp-4)"></p>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/categories.js?v={{ version }}"></script>
+{% endblock %}
