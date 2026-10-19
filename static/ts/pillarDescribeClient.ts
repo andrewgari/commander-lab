@@ -80,6 +80,8 @@ export async function describePillar(
   }
 
   try {
+    // Short-circuit before the request goes out when the caller already aborted.
+    if (opts.signal?.aborted) throw new PillarDescribeError("Request aborted", 0, undefined, false, true);
     let res: Response;
     try {
       res = await doFetch(pillarDescribeUrl(deckId, opts.baseUrl), {

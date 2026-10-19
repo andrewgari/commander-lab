@@ -739,6 +739,54 @@
         });
     }
 
+    // Ultrawide dock collapse/expand (SPEC.md §5). A "dock" is a right-hand
+    // rail: `data-hud-dock="<pageFamily>"` on the aside/panel, a toggle button
+    // with `data-hud-dock-toggle` (aria-expanded/aria-controls set here), and
+    // the rail's own id as aria-controls target. Collapsing never touches the
+    // dock's content (selection/change-list state); it only hides it visually
+    // behind a 44px rail and restores focus to the toggle after reflow.
+    // State persists per page family in sessionStorage (prototype keeps it in
+    // memory only per SPEC; production persists -- sessionStorage here).
+    function dockStoreKey(family) { return "hudDock:" + family; }
+    function dockSaved(family) {
+        try { return sessionStorage.getItem(dockStoreKey(family)); } catch (e) { return null; }
+    }
+    function dockSave(family, expanded) {
+        try { sessionStorage.setItem(dockStoreKey(family), expanded ? "1" : "0"); } catch (e) { /* private mode */ }
+    }
+    function setDockState(dock, toggle, expanded) {
+        dock.classList.toggle("hud-dock--collapsed", !expanded);
+        toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        toggle.setAttribute("aria-label", expanded ? "Collapse panel" : "Expand panel");
+    }
+    function initDocks() {
+        var docks = document.querySelectorAll("[data-hud-dock]");
+        for (var i = 0; i < docks.length; i++) {
+            var dock = docks[i];
+            var family = dock.getAttribute("data-hud-dock");
+            var toggle = dock.querySelector("[data-hud-dock-toggle]");
+            if (!toggle) continue;
+            if (!dock.id) dock.id = "dock-" + family;
+            toggle.setAttribute("aria-controls", dock.id);
+            var saved = dockSaved(family);
+            // Default expanded above 1920px; crossing back below keeps the
+            // app's existing narrow behavior without clearing the preference.
+            var expanded = saved !== null ? saved === "1" : (window.innerWidth > 1920);
+            setDockState(dock, toggle, expanded);
+            toggle.addEventListener("click", function () {
+                var d = this.closest("[data-hud-dock]");
+                var fam = d.getAttribute("data-hud-dock");
+                var willExpand = d.classList.contains("hud-dock--collapsed");
+                setDockState(d, this, willExpand);
+                dockSave(fam, willExpand);
+                // Restore focus to the toggle after reflow (layout shift from
+                // the primary content recovering/giving up the freed width).
+                var t = this;
+                window.requestAnimationFrame(function () { t.focus({ preventScroll: true }); });
+            });
+        }
+    }
+
     window.HUD = {
         DECK_STATUS_OPTIONS: DECK_STATUS_OPTIONS,
         DECK_LOCK_NOTE: DECK_LOCK_NOTE,
@@ -769,15 +817,17 @@
         initSortable: initSortable,
         initDocIndex: initDocIndex,
         initMenus: initMenus,
+        initDocks: initDocks,
         openMenu: function (trigger) { showMenu(typeof trigger === "string" ? document.getElementById(trigger) : trigger, null); },
         closeMenu: closeMenu
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { initSortable(); initDocIndex(); initMenus(); });
+        document.addEventListener("DOMContentLoaded", function () { initSortable(); initDocIndex(); initMenus(); initDocks(); });
     } else {
         initSortable();
         initDocIndex();
         initMenus();
+        initDocks();
     }
 })();
