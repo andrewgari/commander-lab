@@ -343,7 +343,7 @@ class TestPagesAndApi(_Pages):
     def test_journal_section_follows_vision(self):
         body = self.get("/deck/Holy%20Hellfire/journal").text
         ids = re.findall(r'<section class="hud-form-section" id="([^"]+)"', body)
-        self.assertEqual(ids[:3], ["j-vision", "j-genre", "j-win"])
+        self.assertEqual(ids[:4], ["j-vision", "j-genre", "j-archetype", "j-win"])
         self.assertIn('<a href="#j-genre">Deck Tags</a>', body)
         for k in ("archetype", "theme", "kindred"):
             self.assertIn(f'id="f-{k}" data-genre-field="{k}"', body)

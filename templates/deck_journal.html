@@ -61,7 +61,7 @@
 
 {#- ===== The form (Journal tab, or "Change" from the check-in) ===== #}
 {{ hud.section_head("Deck journal", "01") }}
-<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-genre">Deck Tags</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-genre">Deck Tags</a><a href="#j-archetype">Archetype</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
 
 {%- set dv = j.deck_vision -%}
 {%- set wc = j.preferred_win_conditions -%}
@@ -93,6 +93,13 @@
         <div class="hud-field" id="f-theme" data-genre-field="theme"></div>
         <div class="hud-field" id="f-kindred" data-genre-field="kindred"></div>
     {% endcall %}
+
+    {#- Archetype (vocab PR3, analytics/archetypes.py): pick or derive the deck's archetype from a global, editable registry. -#}
+    {% call hud.form_section("j-archetype", "Archetype", "Chosen from the global registry, or derived from how well the whole deck fills an archetype's required card roles.") %}
+        <div class="hud-field" id="archetypePicker">{{ hud.empty("Loading…") }}</div>
+        <span class="hud-field-hint"><a href="/archetypes">Manage the archetype registry</a></span>
+    {% endcall %}
+
 
     {% call hud.form_section("j-win", "Win cons", "Primary is one choice. Secondary can be several. Excluded means the tuner will never push you toward it.") %}
         <div class="hud-field"><span class="hud-field-label" id="wcP">Primary</span>
@@ -656,6 +663,56 @@ document.addEventListener("DOMContentLoaded", function () {
         var use_ = box.querySelector('[data-v="use"]');
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && use_) { e.preventDefault(); use(use_.dataset.t); }
     });
+});
+</script>
+
+{#- Archetype picker (vocab PR3): resolved deck archetype (manual override or whole-deck
+    derived match) + a dropdown to pick/override from the global registry. Self-contained;
+    does not touch deck_genre.js's TagFields. -#}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var box = document.getElementById("archetypePicker");
+    if (!box) return;
+    var esc = window.HUD.esc;
+    var API = "/api/decks/" + encodeURIComponent({{ deck_id | tojson }}) + "/archetype";
+    var all = [];
+
+    function render(data) {
+        var sel = data.selection || { mode: "auto" };
+        var current = data.archetype;
+        var opts = ['<option value="">— none —</option>'].concat(all.map(function (a) {
+            var picked = sel.mode === "manual" && sel.archetype_id === a.id;
+            return '<option value="' + esc(a.id) + '"' + (picked ? " selected" : "") + '>' + esc(a.name) + '</option>';
+        }));
+        var derivedLabel = current && sel.mode !== "manual"
+            ? '<span class="hud-chip hud-chip--data">derived: ' + esc(current.name) + '</span>'
+            : (sel.mode !== "manual" ? '<span class="hud-muted">No archetype matches this deck yet.</span>' : "");
+        box.innerHTML =
+            '<div class="hud-field-row" style="align-items:center;gap:var(--sp-3)">' +
+            '<select id="archetypeSelect" aria-label="Deck archetype (manual override)">' + opts.join("") + '</select>' +
+            (sel.mode === "manual" ? '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" id="archetypeAuto">Use derived instead</button>' : "") +
+            '</div><div style="margin-top:var(--sp-2)">' + derivedLabel + '</div>';
+        var selEl = document.getElementById("archetypeSelect");
+        selEl.addEventListener("change", function () {
+            var id = selEl.value;
+            if (!id) { reset(); return; }
+            fetch(API, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "manual", archetype_id: id }) })
+                .then(function (r) { return r.json(); }).then(render);
+        });
+        var autoBtn = document.getElementById("archetypeAuto");
+        if (autoBtn) autoBtn.addEventListener("click", reset);
+    }
+    function reset() {
+        fetch(API, { method: "DELETE" }).then(function (r) { return r.json(); }).then(render);
+    }
+    Promise.all([
+        fetch("/api/archetypes").then(function (r) { return r.json(); }),
+        fetch(API).then(function (r) { return r.json(); }),
+    ]).then(function (res) {
+        all = res[0].archetypes || [];
+        render(res[1]);
+    }).catch(function () { box.innerHTML = '<div class="hud-empty">Archetype unavailable</div>'; });
 });
 </script>
 {% endblock %}
