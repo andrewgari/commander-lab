@@ -11,6 +11,38 @@
     .rv-error:empty { display: none; }
     .rv-job { margin-bottom: var(--sp-4); }
     .rv-empty { display: flex; flex-direction: column; gap: var(--sp-4); align-items: flex-start; }
+
+    /* Ultrawide "Deep Review" index | body | dock (SPEC.md §4). Both tiers
+       use the 3-column layout: index rail 176px (UW1) / 208px (UW2); dock
+       352px (UW1) / 400px (UW2), matching §2's rail table. Below 1921px
+       the index/dock would just be extra stacked blocks above a 960px doc,
+       so they stay out of the DOM order entirely narrow (rv-index duplicates
+       the in-body sticky doc_index; rv-dock has no selection plumbing worth
+       showing at that width). The dock itself still follows the generic
+       [data-hud-dock] collapse rule in hud.css (default expanded >=1920px,
+       collapsible 44px rail at any width the grid applies). */
+    .rv-index, .rv-dock { display: none; }
+    @media (min-width: 1921px) {
+        .rv-grid { display: grid; grid-template-columns: 176px minmax(0, 1fr) 352px; gap: var(--sp-6); align-items: start; }
+        .rv-index, .rv-body, .rv-dock { min-width: 0; }
+        .rv-index { display: block; position: sticky; top: calc(var(--topbar-h, 0px) + var(--sp-4)); }
+        .rv-dock { display: block; }
+        .rv-body .hud-doc-index { display: none; }
+    }
+    @media (min-width: 2800px) {
+        .rv-grid { grid-template-columns: 208px minmax(0, 1fr) 400px; gap: var(--sp-8); }
+    }
+    /* .hud-doc's 960px reading-measure cap is for plain document pages; the
+       Review body column needs the width the grid gives it, not a second
+       cap fighting it. Lifted only here (classified ultrawide Review). */
+    @media (min-width: 1921px) {
+        .rv-body .hud-doc { max-width: none; }
+    }
+    .rv-dock-empty { color: var(--text-3); font-size: var(--fs-xs); padding: var(--sp-3); }
+    .rv-dock-card { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
+    .rv-dock-card img { width: 100%; border-radius: var(--radius-sm, 6px); display: block; }
+    .rv-dock-card h3 { margin: 0; font-size: var(--fs-md); }
+    .rv-dock-card .rv-dock-meta { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
 </style>
 {% endblock %}
 
@@ -43,6 +75,11 @@
     </div></div>
 </article>
 {%- else %}
+<div class="rv-grid">
+{%- if sections | length > 1 %}
+<nav class="rv-index">{{ hud.doc_index(rv.doc_index(sections)) }}</nav>
+{%- endif %}
+<div class="rv-body">
 <article class="hud-doc" id="doc" data-state="{{ "stale" if meta.stale else "fresh" }}" data-doc="{{ meta.doc_id }}">
     <header class="hud-doc-head">
         <div>
@@ -82,6 +119,14 @@
     <div class="hud-doc-section">{{ hud.empty("This review has no sections.") }}</div>
     {%- endfor %}
 </article>
+</div>
+<aside class="rv-dock" data-hud-dock="review" id="reviewDock" aria-label="Selected card">
+    <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-dock-toggle title="Collapse / expand">⟷</button>
+    <div class="hud-panel"><div class="hud-panel-body" id="reviewDockBody">
+        <p class="rv-dock-empty" id="reviewDockEmpty">Click a card name in the review to inspect it here.</p>
+    </div></div>
+</aside>
+</div>
 {%- endif %}
 {% endblock %}
 
@@ -184,6 +229,28 @@ document.addEventListener("DOMContentLoaded", function () {
     $("jobDismiss").addEventListener("click", function () { $("job").hidden = true; });
     var pending = saved();
     if (pending && pending.job_id) { busy(true); showJob("running", pending); poll(pending); }
+
+    // Ultrawide Review dock (SPEC.md §4): click a card-preview trigger inside
+    // the doc to pin its hover-preview data (image + name + set) into the
+    // right-hand inspector, instead of a one-off popover. Reuses
+    // CardHoverPreview's own resolver (ScryfallImage) via modelFor -- no new
+    // API, no new card data source.
+    var doc = $("doc"), dockBody = $("reviewDockBody");
+    if (doc && dockBody && window.CardHoverPreview) {
+        doc.addEventListener("click", function (e) {
+            var t = window.CardHoverPreview.findTrigger(e.target);
+            if (!t) return;
+            var cp = window.CardHoverPreview.init();
+            var m = cp.modelFor(t);
+            var face = m.faces && m.faces[0];
+            var img = face && face.url ? '<img src="' + face.url + '" alt="' + (face.name || m.name || "Card").replace(/"/g, "&quot;") + '">' : "";
+            var meta = m.set ? (m.set.toUpperCase() + (m.cn ? " · " + m.cn : "")) : "";
+            dockBody.innerHTML = '<div class="rv-dock-card">' + img +
+                "<h3>" + (m.name || "Card").replace(/</g, "&lt;") + "</h3>" +
+                (meta ? '<span class="rv-dock-meta">' + meta + "</span>" : "") +
+                "</div>";
+        });
+    }
 });
 </script>
 {% endblock %}

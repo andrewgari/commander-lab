@@ -39,6 +39,20 @@
     .deck-group-count { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
     .deck-table tbody tr { cursor: pointer; }
 
+    /* Ultrawide Overview split (SPEC.md §4 "Deck Overview"): summary (hero +
+       briefing) and gallery (decklist) each get their own named zone so the
+       grid applies only above 2800px; DOM order stays summary-then-decklist
+       at every width (no duplicate decklist, no fixed cap on the gallery
+       below the breakpoint). Summary first in the row so a classifier can
+       target it without touching the gallery's own internal layout. */
+    .ov-summary, .ov-gallery { min-width: 0; }
+    @media (min-width: 2800px) {
+        .ov-split { display: grid; grid-template-columns: minmax(640px, .9fr) minmax(0, 1.5fr); gap: var(--sp-8); align-items: start; }
+        .ov-gallery { max-width: 1800px; }
+        .ov-summary .hud-grid--2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .deck-list-head { margin-top: 0; }
+    }
+
     .card-modal-body { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: var(--sp-6); }
     .card-modal-body .hud-art { align-self: start; }
     .card-modal-info { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
@@ -80,6 +94,8 @@
 {#- Auto Tag (AT-UI): deck tags, role counts, the Auto Tag button. static/js/auto_tag.js. -#}
 <div id="autoTag"></div>
 
+<div class="ov-split">
+<div class="ov-summary">
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
@@ -171,7 +187,9 @@
         </div>
     </section>
 </div>
+</div>
 
+<div class="ov-gallery">
 <div class="deck-list-head">
     <div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count" id="decklistCount"></span></div>
     <nav class="hud-tabs" aria-label="Decklist view" id="decklistViews">
@@ -181,6 +199,9 @@
 </div>
 <div id="atFilterbar" hidden></div>
 <div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
+</div>
+</div>
+
 
 <div class="pf-toast" id="deckToast" role="status" hidden></div>
 
