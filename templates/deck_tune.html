@@ -35,6 +35,7 @@
 
 {% block crumbs %}{{ dh.crumbs(head, "Tune") }}{% endblock %}
 {% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
 
 {% block content %}
 {% call dh.header(head, tab) %}
@@ -57,13 +58,13 @@
 </div>
 
 <div class="hud-tune">
-    <div>
-        <section class="tn-section" aria-labelledby="fixT">
+    <div class="tn-primary">
+        <section class="tn-section tn-queue" id="fixesSection" aria-labelledby="fixT">
             <div class="hud-section-head"><span class="hud-section-id">01</span><h2 id="fixT">Shape fixes</h2></div>
             <div class="hud-panel hud-panel--flush"><div class="hud-panel-body" id="fixes">{{ hud.empty("Loading…") }}</div></div>
         </section>
 
-        <section class="tn-section" aria-labelledby="swT">
+        <section class="tn-section tn-compare" id="swapsSection" aria-labelledby="swT">
             <div class="hud-section-head"><span class="hud-section-id">02</span><h2 id="swT">Swaps · cut → add</h2></div>
             <div class="hud-panel hud-panel--flush">
                 <div class="tn-filter-note" id="swapFilter" hidden></div>
@@ -72,7 +73,7 @@
             <p class="tn-error" id="swapError" role="alert"></p>
         </section>
 
-        <section class="tn-section" id="weak" aria-labelledby="wkT">
+        <section class="tn-section tn-queue" id="weak" aria-labelledby="wkT">
             <div class="hud-section-head"><span class="hud-section-id">03</span><h2 id="wkT">Weak performers · computed</h2></div>
             <section class="hud-panel hud-panel--flush">
                 <div class="hud-table-wrap"><table class="hud-table tn-weak" data-hud-sortable>
@@ -92,7 +93,8 @@
         </section>
     </div>
 
-    <aside class="hud-changes" aria-label="Pending changes">
+    <aside class="hud-changes" aria-label="Pending changes" data-hud-dock="tune" id="tuneDock">
+        <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-dock-toggle title="Collapse / expand">⟷</button>
         <section class="hud-panel">
             <header class="hud-panel-head"><h3 class="hud-panel-title">Change list</h3><span class="hud-panel-meta" id="changeMeta">empty</span></header>
             <div class="hud-panel-body">
