@@ -71,10 +71,10 @@
 
         var FIELDS = {
             archetype: {
-                label: "Archetype", max: LIM.archetype, primary: true, custom: false, noun: "archetype",
+                label: "Style", max: LIM.archetype, primary: true, custom: false, noun: "style",
                 groups: T.archetype_groups, options: T.archetypes, map: ARCH,
                 quick: ["tokens", "aristocrats", "voltron", "spellslinger", "counters", "ramp", "combo", "control", "graveyard", "blink"], quickShow: 6,
-                placeholder: "Search " + T.archetypes.length + " archetypes…",
+                placeholder: "Search " + T.archetypes.length + " styles…",
                 hint: "How the deck plays. The first is the primary (★); up to " + (LIM.archetype - 1) + " more. Feeds Deep Review and the tuner."
             },
             theme: {
@@ -88,7 +88,7 @@
                 label: "Kindred", max: LIM.kindred, primary: false, custom: true, noun: "creature type",
                 quick: T.kindred.suggestions || [], quickShow: 8, kindredGroups: T.kindred.groups || [],
                 placeholder: "Search " + TYPES.length + " creature types…",
-                hint: "Creature types the deck cares about. Up to " + LIM.kindred + ". Picking Kindred as an archetype is separate and optional."
+                hint: "Creature types the deck cares about. Up to " + LIM.kindred + ". Picking Kindred as a style is separate and optional."
             }
         };
 
@@ -145,7 +145,7 @@
             function more(n, cls, from) {
                 if (n <= 0) return "";
                 var rest = items.slice(from).map(function (it) { return labelOf(it.kind, it.v); }).join(", ");
-                return '<a class="hud-chip hud-chip--neutral ' + cls + '" href="' + esc(href) + '" title="' + esc(rest) + '" aria-label="' + n + " more genre tags: " + esc(rest) + '. Open the Journal.">+' + n + "</a>";
+                return '<a class="hud-chip hud-chip--neutral ' + cls + '" href="' + esc(href) + '" title="' + esc(rest) + '" aria-label="' + n + " more deck tags: " + esc(rest) + '. Open the Journal.">+' + n + "</a>";
             }
             return chips + more(items.length - 4, "hud-chip-more-desktop", 4) + more(items.length - 2, "hud-chip-more-phone", 2);
         }
@@ -356,7 +356,7 @@
                     });
                 });
                 if (cfg.custom && s && !exact) out.push(createRow(q));
-                if (!out.length) out.push({ note: "No " + cfg.noun + " matches “" + esc(q.trim()) + "”. Archetypes are a fixed list: try a theme instead." });
+                if (!out.length) out.push({ note: "No " + cfg.noun + " matches “" + esc(q.trim()) + "”. Styles are a fixed list: try a theme instead." });
                 return out;
             }
             function createRow(q) {

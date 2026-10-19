@@ -47,7 +47,7 @@ MAX_PROSE = 900
 MATH_SECTIONS = ("genre", "composition", "curve_tempo", "focus", "strong_cards", "stragglers", "combos_engines")
 SECTION_ORDER = MATH_SECTIONS + ("oracle_summary",)
 TITLES = {
-    "genre": "Genre", "composition": "Composition", "curve_tempo": "Curve & tempo", "focus": "Focus",
+    "genre": "Deck Tags", "composition": "Composition", "curve_tempo": "Curve & tempo", "focus": "Focus",
     "strong_cards": "Strong cards", "stragglers": "Stragglers", "combos_engines": "Combos & engines",
     "oracle_summary": "Oracle summary",
 }

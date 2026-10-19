@@ -424,7 +424,7 @@ class TestEmptyState:
             assert g.chip_values(kind) == [], kind
             assert g.count(kind) == f"0 / {cap}", kind
         expect(page.locator("#f-archetype [data-testid=genre-archetype-input]")).to_have_attribute(
-            "placeholder", re.compile(r"^Search \d+ archetypes…$"))
+            "placeholder", re.compile(r"^Search \d+ styles…$"))
         expect(page.locator("#deckGenre")).to_be_hidden()
         expect(page.locator("#gn-read")).to_be_hidden()
         assert g.strip_text() == ""
