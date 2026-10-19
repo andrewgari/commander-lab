@@ -319,6 +319,17 @@ def _review_page_context(deck_name: str) -> dict:
     return out
 
 
+@app.get("/deck/{deck_name}/sim", response_class=HTMLResponse)
+async def deck_sim_view(request: Request, deck_name: str):
+    """Simulate (SM-4, docs/design/sim/UX_SPEC.md): one-off Forge simulation + Oracle sim review.
+
+    The page itself is static chrome; static/js/deck_sim.js fetches /api/decks/{id}/sim and
+    renders the builder/job/report exactly like docs/design/sim/mockup.html, but against the
+    real API instead of sample data.
+    """
+    return await _deck_tab(request, deck_name, "deck_sim.html", "sim")
+
+
 @app.get("/deck/{deck_name}/ideas/{doc_id}", response_class=HTMLResponse)
 async def deck_theory_view(request: Request, deck_name: str, doc_id: str):
     """One theory doc: one partial per section type, generic fallback for unknown types."""
