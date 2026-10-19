@@ -115,19 +115,19 @@ document.addEventListener("DOMContentLoaded", function () {
         $("thesisBar").innerHTML = (cols.length ? cols : ["C"]).map(function (c) { return '<span style="background:var(--mana-' + c.toLowerCase() + ')"></span>'; }).join("");
         var t = work.thesis, gen = server.generator;
         if (!t || !t.text) {
-            $("thesis").innerHTML = '<span class="hud-label" id="thesisLabel">Thesis</span>' +
-                '<p class="hud-muted">No thesis yet. Draft one from the cards, or write it yourself.</p>' +
-                '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="generate">Draft thesis + pillars</button>' +
+            $("thesis").innerHTML = '<span class="hud-label" id="thesisLabel">Game Plan</span>' +
+                '<p class="hud-muted">No Game Plan yet. Draft one from the cards, or write it yourself.</p>' +
+                '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="generate">Draft Game Plan + pillars</button>' +
                 '<button class="hud-btn hud-btn--sm" type="button" data-act="thesis-edit">Write it</button></div>' + (thesisEditing ? thesisForm("") : "");
             return;
         }
         var who = t.updated_by === "user" ? "edited by you" : "generated";
-        var label = "Thesis · " + (t.state === "pinned" ? "pinned" : "draft") + " · " + who + (t.updated_at ? " " + A.age(t.updated_at) : "");
+        var label = "Game Plan · " + (t.state === "pinned" ? "pinned" : "draft") + " · " + who + (t.updated_at ? " " + A.age(t.updated_at) : "");
         var quote = esc(t.text);
         if (t.emphasis && t.text.indexOf(t.emphasis) !== -1) quote = esc(t.text).replace(esc(t.emphasis), "<em>" + esc(t.emphasis) + "</em>");
         var meta = '<div class="hud-thesis-meta">' +
             (thesisEditing ? "" : '<button class="hud-btn hud-btn--sm" type="button" data-act="thesis-edit">Edit <span class="hud-kbd">e</span></button>') +
-            (t.state !== "pinned" ? '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="thesis-keep">Keep thesis</button>' : "") +
+            (t.state !== "pinned" ? '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="thesis-keep">Keep Game Plan</button>' : "") +
             (t.draft_text && t.draft_text !== t.text ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="thesis-draft" aria-expanded="' + showDraft + '">' + (showDraft ? "Hide" : "Show") + " generated draft</button>" : "") +
             (gen ? '<span class="hud-freshness">Generated draft from <b>' + esc((gen.generated_at || "").slice(0, 10)) + "</b> · " + esc(gen.provider || "") + "</span>" : "") + "</div>";
         $("thesis").innerHTML = '<span class="hud-label" id="thesisLabel">' + esc(label) + "</span>" +
@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (thesisEditing) { var ta = $("thesisText"); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
     }
     function thesisForm(text) {
-        return '<label class="hud-label" for="thesisText">Thesis</label><textarea id="thesisText" maxlength="280">' + esc(text) + "</textarea>" +
+        return '<label class="hud-label" for="thesisText">Game Plan</label><textarea id="thesisText" maxlength="280">' + esc(text) + "</textarea>" +
             '<div class="hud-thesis-meta"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="thesis-done">Done</button>' +
             '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="thesis-cancel">Cancel <span class="hud-kbd">Esc</span></button></div>';
     }
@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var pinned = work.pillars.filter(function (x) { return x.state === "pinned"; }).length;
         el.hidden = false;
         el.innerHTML = "<p><b>Re-sync proposed " + n + " new pillar" + (n === 1 ? "" : "s") + ".</b> Your " + pinned + " pinned pillar" + (pinned === 1 ? "" : "s") +
-            " and the thesis were not touched. Proposals are drafts until you keep them.</p>" +
+            " and the Game Plan were not touched. Proposals are drafts until you keep them.</p>" +
             '<a class="hud-btn hud-btn--sm" href="#pillars">Review proposal ↓</a>';
     }
     function pillarTile(p, i) {
@@ -271,12 +271,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!text || (work.thesis && text === work.thesis.text)) { renderThesis(); return; }
                 var em = work.thesis && work.thesis.emphasis && text.indexOf(work.thesis.emphasis) !== -1 ? work.thesis.emphasis : "";
                 work.thesis = Object.assign({}, work.thesis || {}, { text: text, emphasis: em, state: "pinned", updated_by: "user", updated_at: null });
-                queue({ label: "thesis edited", method: "PUT", path: "/thesis", body: { text: text, emphasis: em } }); break;
+                queue({ label: "Game Plan edited", method: "PUT", path: "/thesis", body: { text: text, emphasis: em } }); break;
             case "thesis-keep":
-                work.thesis.state = "pinned"; queue({ label: "thesis kept", method: "PUT", path: "/thesis", body: { text: work.thesis.text, emphasis: work.thesis.emphasis || "" } }); break;
+                work.thesis.state = "pinned"; queue({ label: "Game Plan kept", method: "PUT", path: "/thesis", body: { text: work.thesis.text, emphasis: work.thesis.emphasis || "" } }); break;
             case "thesis-accept":
                 work.thesis = Object.assign({}, work.thesis, { text: work.thesis.draft_text, emphasis: work.thesis.draft_emphasis || "", state: "pinned" }); showDraft = false;
-                queue({ label: "thesis = draft", method: "PUT", path: "/thesis", body: { action: "accept_draft" } }); break;
+                queue({ label: "Game Plan = draft", method: "PUT", path: "/thesis", body: { action: "accept_draft" } }); break;
             case "thesis-draft": showDraft = !showDraft; renderThesis(); break;
         }
     }

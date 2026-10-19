@@ -92,7 +92,7 @@ class TestSectionRenderers(unittest.TestCase):
 
     def test_genre_none_picked_and_missing_roles(self):
         sec = {"type": "genre", "data": {"primary": None, "secondary": [], "ranking": []}}
-        self.assertIn("No genre reached", render(sec))
+        self.assertIn("No tag reached", render(sec))
         sec = {"type": "genre", "data": {"primary": {"id": "x", "name": "Storm", "coverage": 0.4, "roles_hit": [],
                                                       "roles_missing": [{"tag": "produces:rituals"}]},
                                           "secondary": [], "ranking": []}}

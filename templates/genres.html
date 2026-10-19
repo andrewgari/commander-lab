@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% import "partials/hud.html" as hud %}
 
-{% block title %}Genres | Commander Lab{% endblock %}
+{% block title %}Deck Tags | Commander Lab{% endblock %}
 
-{% block crumbs %}{{ hud.crumbs([{"label": "Genres"}]) }}{% endblock %}
+{% block crumbs %}{{ hud.crumbs([{"label": "Deck Tags"}]) }}{% endblock %}
 {% block topbar_meta %}<span id="gnVersion" class="hud-freshness">Loading…</span>{% endblock %}
 {% block work_class %} hud-work--detail{% endblock %}
 
@@ -41,21 +41,21 @@
 {% endblock %}
 
 {% block content %}
-{% call hud.page_head("Genres", eyebrow="Deep review registry") %}
-    <button type="button" class="hud-btn hud-btn--primary" id="gnNew">New genre</button>
+{% call hud.page_head("Deck Tags", eyebrow="Deep review registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="gnNew">New tag</button>
 {% endcall %}
-<p class="gn-msg" style="margin-bottom: var(--sp-5)">Deep Reviews label a deck only with genres from this list. A role is a produces/consumes tag from the interaction graph; a genre's coverage is how many of its roles the deck fills.</p>
+<p class="gn-msg" style="margin-bottom: var(--sp-5)">Deep Reviews label a deck only with tags from this list. A role is a produces/consumes tag from the interaction graph; a tag's coverage is how many of its roles the deck fills.</p>
 
 <div class="gn-layout">
     <section class="hud-panel">
         <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="gnCount"></div></header>
         <div class="hud-panel-body" style="padding:0">
-            <ul class="gn-list" id="gnList" aria-label="Genres"></ul>
+            <ul class="gn-list" id="gnList" aria-label="Deck tags"></ul>
         </div>
     </section>
 
     <section class="hud-panel" id="gnEditor" aria-live="polite">
-        <header class="hud-panel-head"><h3 class="hud-panel-title" id="gnEditorTitle">New genre</h3><div class="hud-panel-meta" id="gnEditorMeta"></div></header>
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="gnEditorTitle">New tag</h3><div class="hud-panel-meta" id="gnEditorMeta"></div></header>
         <div class="hud-panel-body">
             <form class="hud-form-stack" id="gnForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
                 <div class="gn-autofill">
@@ -115,9 +115,9 @@
 
     function renderList() {
         const ul = $('gnList'); ul.replaceChildren();
-        $('gnCount').textContent = state.genres.length + ' genres';
+        $('gnCount').textContent = state.genres.length + ' tags';
         $('gnVersion').textContent = 'Registry v' + state.version;
-        if (!state.genres.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No genres yet. Add one.' }));
+        if (!state.genres.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No tags yet. Add one.' }));
         state.genres.forEach(g => {
             const name = el('span', { class: 'gn-item-name' }, [el('span', { text: g.name })]);
             const chip = (text, tone) => { const c = el('span', { class: 'hud-chip hud-chip--' + tone, text }); return c; };
@@ -168,13 +168,13 @@
     }
     function fresh() {
         state.autofillTicket++; $('gnAutofill').disabled = false; state.current = null; fill({ required_roles: [] });
-        $('gnEditorTitle').textContent = 'New genre'; $('gnEditorMeta').textContent = '';
+        $('gnEditorTitle').textContent = 'New tag'; $('gnEditorMeta').textContent = '';
         $('gnDelete').hidden = true; msg('gnMsg', ''); msg('gnAutofillMsg', ''); renderList();
     }
 
     async function load(keep) {
         const { ok, data } = await api('GET', '/api/genres');
-        if (!ok) { msg('gnMsg', data.error || 'Could not load genres.', 'error'); return; }
+        if (!ok) { msg('gnMsg', data.error || 'Could not load tags.', 'error'); return; }
         state.genres = data.genres; state.vocab = data.vocabulary; state.version = data.version;
         keep && state.genres.some(g => g.id === keep) ? edit(keep) : fresh();
     }
@@ -194,7 +194,7 @@
     });
 
     $('gnDelete').addEventListener('click', async () => {
-        if (!state.current || !confirm('Delete this genre?')) return;
+        if (!state.current || !confirm('Delete this tag?')) return;
         const r = await api('DELETE', '/api/genres/' + encodeURIComponent(state.current));
         if (!r.ok) { msg('gnMsg', r.data.error || 'Delete failed.', 'error'); return; }
         await load(); msg('gnMsg', 'Deleted. Registry is now v' + r.data.version + '.', 'ok');

@@ -181,7 +181,7 @@ _ALIAS_LOW = {k.lower(): v for k, v in KINDRED_ALIASES.items()}
 _SNAPSHOT_LOW = {t.lower(): t for t in CREATURE_TYPES_SNAPSHOT}
 
 # Header strip / field labels (UX spec §3.4: title="Archetype: Tokens / Go-Wide").
-FIELD_LABELS = {"archetype": "Archetype", "theme": "Themes", "kindred": "Kindred"}
+FIELD_LABELS = {"archetype": "Style", "theme": "Themes", "kindred": "Kindred"}
 STRIP_DESKTOP = 4
 STRIP_PHONE = 2
 

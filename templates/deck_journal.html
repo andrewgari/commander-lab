@@ -61,7 +61,7 @@
 
 {#- ===== The form (Journal tab, or "Change" from the check-in) ===== #}
 {{ hud.section_head("Deck journal", "01") }}
-<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-genre">Genre</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+<nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-genre">Deck Tags</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
 
 {%- set dv = j.deck_vision -%}
 {%- set wc = j.preferred_win_conditions -%}
@@ -82,13 +82,13 @@
         <div class="hud-field"><label for="vision">Vision <button type="button" class="hud-btn hud-btn--sm pf-ask" id="visionDraftBtn">Draft</button></label>
             <textarea id="vision" name="vision" maxlength="1000">{{ dv.description }}</textarea>
             <div id="visionSugg" aria-live="polite"></div>
-            <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
+            <span class="hud-field-hint">Feeds the Game Plan generator. Your words beat the draft.</span></div>
         <div class="hud-field jr-ttw"><label for="ttw">Target win turn <span class="hud-field-hint">(optional)</span></label>
             <input id="ttw" name="ttw" type="number" min="1" max="20" inputmode="numeric" value="{{ dv.target_turn_win if dv.target_turn_win is not none else '' }}"></div>
     {% endcall %}
 
     {#- Deck Genre (GN, docs/DECK_GENRE_UX_SPEC.md): three TagFields, built by static/js/deck_genre.js. -#}
-    {% call hud.form_section("j-genre", "Genre", "What the deck is: how it plays, what it's about, which creature types it loves. Vision above is the sentence; these are the tags.") %}
+    {% call hud.form_section("j-genre", "Deck Tags", "What the deck is: how it plays, what it's about, which creature types it loves. Vision above is the sentence; these are the tags.") %}
         <div class="hud-field" id="f-archetype" data-genre-field="archetype"></div>
         <div class="hud-field" id="f-theme" data-genre-field="theme"></div>
         <div class="hud-field" id="f-kindred" data-genre-field="kindred"></div>
@@ -376,7 +376,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (a !== b) s += " · power " + a + " → " + b;
             var ba = base.target_bracket, bb = collect().target_bracket;
             if (ba !== bb) s += " · bracket " + (ba || "off") + " → " + (bb || "off");
-            if (d.indexOf("archetype_preferences") !== -1 || d.indexOf("deck_genre") !== -1) s += " · genre";
+            if (d.indexOf("archetype_preferences") !== -1 || d.indexOf("deck_genre") !== -1) s += " · deck tags";
             $("saveSummary").innerHTML = "<b>" + esc(s) + "</b>";
         }
     }

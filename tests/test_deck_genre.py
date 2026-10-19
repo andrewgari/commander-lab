@@ -306,7 +306,7 @@ class TestHeaderStrip(unittest.TestCase):
         self.assertEqual([i["rank"] for i in s["items"]], [1, 2, 3, 4])
         self.assertEqual(s["more_desktop"], {"n": 2, "labels": "Vampire, Budget"})
         self.assertEqual(s["more_phone"]["n"], 4)
-        self.assertEqual(s["items"][0]["title"], "Archetype: Aristocrats")
+        self.assertEqual(s["items"][0]["title"], "Style: Aristocrats")
 
     def test_custom_flag(self):
         s = G.header_strip({"deck_genre": {"genres": ["Noir-ish"], "kindred": ["Blorbo"]}})
@@ -344,14 +344,14 @@ class TestPagesAndApi(_Pages):
         body = self.get("/deck/Holy%20Hellfire/journal").text
         ids = re.findall(r'<section class="hud-form-section" id="([^"]+)"', body)
         self.assertEqual(ids[:3], ["j-vision", "j-genre", "j-win"])
-        self.assertIn('<a href="#j-genre">Genre</a>', body)
+        self.assertIn('<a href="#j-genre">Deck Tags</a>', body)
         for k in ("archetype", "theme", "kindred"):
             self.assertIn(f'id="f-{k}" data-genre-field="{k}"', body)
         self.assertIn("/static/js/deck_genre.js", body)
         self.assertIn('"aristocrats"', body)        # option lists rendered with | tojson
         self.assertIn('"Assembly-Worker"', body)    # the creature-type catalog too
         self.assertIn('"archetype_preferences", "deck_genre"', body)  # both keys dirty-tracked
-        self.assertIn(" · genre", body)
+        self.assertIn(" · deck tags", body)
 
     def test_strip_hidden_without_genre_and_for_phantom_midrange(self):
         for path in ("/deck/Holy%20Hellfire/journal", "/deck/Legacy%20Deck/journal", "/deck/Legacy%20Deck/stats"):
@@ -374,7 +374,7 @@ class TestPagesAndApi(_Pages):
             with self.subTest(path=path):
                 s = self.strip(self.get(path).text)
                 self.assertNotIn(" hidden>", s.split(">", 1)[0] + ">")
-                self.assertIn('data-rank="1" title="Archetype: Aristocrats"', s)
+                self.assertIn('data-rank="1" title="Style: Aristocrats"', s)
                 self.assertIn('hud-chip--ghost hud-chip--custom" data-rank="2" title="Kindred: Blorbo"', s)
                 self.assertIn('href="/deck/Holy%20Hellfire/journal#j-genre"', s)
         # >max is a 400 with the reason, and nothing changes
