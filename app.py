@@ -4081,6 +4081,24 @@ def _primer_build_context(deck_name: str) -> dict:
     return {"primer_bootstrap": boot}
 
 
+def _composition_page_context(deck_name: str) -> dict:
+    """Read-only resolved composition preset for the deck composition page (no AI, no writes)."""
+    deck = _find_deck_any(deck_name)
+    if not deck:
+        return {"selection": None, "preset": None, "slots": []}
+    sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
+    preset = sel.get("preset") or {}
+    return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
+            "lands": (preset.get("structure") or {}).get("lands")}
+
+
+@app.get("/deck/{deck_name}/composition", response_class=HTMLResponse)
+async def deck_composition_view(request: Request, deck_name: str):
+    """Deck composition: the resolved preset (name, category targets), read-only."""
+    return await _deck_tab(request, deck_name, "deck_composition.html", "composition",
+                           extra=_composition_page_context)
+
+
 @app.get("/deck/{deck_name}/primer/build", response_class=HTMLResponse)
 async def deck_primer_build_view(request: Request, deck_name: str):
     """Guided Primer Builder: 5-step wizard (docs: SPEC PF). Answers autosave as a server-side draft."""
