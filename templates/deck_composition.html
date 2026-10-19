@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Composition · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout for Deck Composition view */
+    .comp-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-6); margin-top: var(--sp-4); align-items: start; }
+    .comp-meta-panel { display: flex; flex-direction: column; gap: var(--sp-4); }
+    .comp-slots-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+    .comp-slots-table th, .comp-slots-table td { padding: var(--sp-3) var(--sp-4); text-align: left; border-bottom: var(--stroke-faint); }
+    .comp-slots-table th { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-3); text-transform: uppercase; }
+    @media (max-width: 900px) {
+        .comp-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Composition") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/stats">Stats</a>
+{% endcall %}
+
+<div id="deckCompositionContainer" data-deck-id="{{ deck_id }}" data-deck-name="{{ deck_name }}">
+    <div class="hud-stat-strip" id="compStatStrip">
+        <div class="hud-stat">
+            <span class="hud-stat-label">Resolved Preset</span>
+            <span class="hud-stat-value" id="compPresetName">{{ preset.name if preset and preset.name else "Command Zone 2025" }}</span>
+        </div>
+        <div class="hud-stat">
+            <span class="hud-stat-label">Selection Mode</span>
+            <span class="hud-stat-value" id="compMode">{{ selection.mode | capitalize if selection and selection.mode else "Auto" }}</span>
+        </div>
+        <div class="hud-stat">
+            <span class="hud-stat-label">Target Lands</span>
+            <span class="hud-stat-value" id="compLands">{{ lands if lands is not none else (preset.structure.lands if preset and preset.structure and preset.structure.lands is not none else "38") }}</span>
+        </div>
+    </div>
+
+    {{ hud.section_head("Composition Preset", code="01") }}
+    <div class="comp-grid">
+        <section class="hud-panel">
+            <header class="hud-panel-head">
+                <h3 class="hud-panel-title" id="presetTitle">{{ preset.name if preset and preset.name else "Preset Overview" }}</h3>
+                <div class="hud-panel-meta">
+                    <span id="presetKindChip" class="hud-chip hud-chip--neutral">{{ preset.kind if preset and preset.kind else "builtin" }}</span>
+                </div>
+            </header>
+            <div class="hud-panel-body comp-meta-panel">
+                <p id="presetDesc" class="hud-prose">{{ preset.description if preset and preset.description else "Standard composition profile for Commander deckbuilding." }}</p>
+                {% if preset and preset.source %}
+                <div class="hud-field-hint" id="presetSource">
+                    <strong>Source:</strong> {{ preset.source }}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="hud-panel">
+            <header class="hud-panel-head">
+                <h3 class="hud-panel-title">Category Ratios &amp; Targets</h3>
+            </header>
+            <div class="hud-panel-body">
+                <table class="comp-slots-table" id="slotsTable">
+                    <thead>
+                        <tr>
+                            <th>Category / Ref</th>
+                            <th>Target</th>
+                            <th>Min–Max</th>
+                        </tr>
+                    </thead>
+                    <tbody id="slotsTableBody">
+                        {% if slots %}
+                            {% for slot in slots %}
+                            <tr>
+                                <td>
+                                    <strong>{{ slot.ref | replace('core:', '') | replace('group:', '') | replace('_', ' ') | title }}</strong>
+                                    {% if slot.why %}
+                                    <div class="hud-field-hint">{{ slot.why }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>{{ slot.target }} cards</td>
+                                <td>
+                                    {% if slot.min is not none and slot.max is not none %}
+                                        {{ slot.min }} – {{ slot.max }}
+                                    {% elif slot.min is not none %}
+                                        &ge; {{ slot.min }}
+                                    {% elif slot.max is not none %}
+                                        &le; {{ slot.max }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3">{{ hud.empty("Loading slots…") }}</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <footer class="hud-panel-foot">Read-only composition targets derived from resolved preset profile.</footer>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("deckCompositionContainer");
+    if (!container) return;
+    const deckId = container.dataset.deckId;
+    if (!deckId) return;
+
+    fetch("/api/decks/" + encodeURIComponent(deckId) + "/composition/selection")
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(data) {
+            if (!data || !data.success || !data.selection) return;
+            const sel = data.selection;
+            const preset = sel.preset || {};
+            
+            const nameEl = document.getElementById("compPresetName");
+            if (nameEl && preset.name) nameEl.textContent = preset.name;
+            
+            const titleEl = document.getElementById("presetTitle");
+            if (titleEl && preset.name) titleEl.textContent = preset.name;
+            
+            const modeEl = document.getElementById("compMode");
+            if (modeEl && sel.mode) modeEl.textContent = sel.mode.charAt(0).toUpperCase() + sel.mode.slice(1);
+            
+            const descEl = document.getElementById("presetDesc");
+            if (descEl && preset.description) descEl.textContent = preset.description;
+            
+            const kindChip = document.getElementById("presetKindChip");
+            if (kindChip && preset.kind) kindChip.textContent = preset.kind;
+            
+            const landsEl = document.getElementById("compLands");
+            if (landsEl && preset.structure && preset.structure.lands !== undefined) {
+                landsEl.textContent = preset.structure.lands;
+            }
+
+            const slots = preset.slots || [];
+            if (slots.length > 0) {
+                const tbody = document.getElementById("slotsTableBody");
+                if (tbody) {
+                    tbody.innerHTML = "";
+                    slots.forEach(function(slot) {
+                        const tr = document.createElement("tr");
+                        
+                        const tdCategory = document.createElement("td");
+                        const catName = (slot.ref || "").replace(/^(core:|group:)/, "").replace(/_/g, " ");
+                        const formattedCat = catName.charAt(0).toUpperCase() + catName.slice(1);
+                        tdCategory.appendChild(document.createElement("strong")).textContent = formattedCat;
+                        if (slot.why) {
+                            const hintDiv = document.createElement("div");
+                            hintDiv.className = "hud-field-hint";
+                            hintDiv.textContent = slot.why;
+                            tdCategory.appendChild(hintDiv);
+                        }
+                        
+                        const tdTarget = document.createElement("td");
+                        tdTarget.textContent = (slot.target !== undefined ? slot.target : "—") + " cards";
+                        
+                        const tdBounds = document.createElement("td");
+                        let boundsText = "—";
+                        if (slot.min !== undefined && slot.max !== undefined && slot.min !== null && slot.max !== null) {
+                            boundsText = slot.min + " – " + slot.max;
+                        } else if (slot.min !== undefined && slot.min !== null) {
+                            boundsText = "≥ " + slot.min;
+                        } else if (slot.max !== undefined && slot.max !== null) {
+                            boundsText = "≤ " + slot.max;
+                        }
+                        tdBounds.textContent = boundsText;
+                        
+                        tr.appendChild(tdCategory);
+                        tr.appendChild(tdTarget);
+                        tr.appendChild(tdBounds);
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error("Failed to load composition selection:", err);
+        });
+});
+</script>
+{% endblock %}
