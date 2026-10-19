@@ -3498,7 +3498,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-tray > .sm-tray-body { padding: var(--sp-4); }
 
 /* ---- Job (determinate variant of hud-job) ------------------------------ */
-.sm-job { margin-bottom: var(--sp-6); }
+.sm-job { --p: 0; margin-bottom: var(--sp-6); }
 .sm-job .hud-job-track i { transform-origin: left; width: 100%; transform: scaleX(var(--p, 0)); animation: none; transition: transform var(--dur-slow) var(--ease); }
 .sm-job[data-phase="queued"] .hud-job-track i,
 .sm-job[data-phase="oracle"] .hud-job-track i { width: 30%; transform: none; animation: job-slide 1.6s var(--ease) infinite; }

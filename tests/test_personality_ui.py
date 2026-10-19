@@ -145,6 +145,8 @@ class TestStylesheet(unittest.TestCase):
         self.assertNotIn("gradient(", self.section)
         for shadow in re.findall(r"box-shadow:\s*([^;]+);", self.section):
             with self.subTest(shadow=shadow):
+                if shadow.strip() == "none":
+                    continue  # resetting a box-shadow (disabled rows) is not a new shadow
                 self.assertRegex(shadow, r"^inset (0|var\(--indicator\)) (0|var\(--indicator\)) 0 var\(--[a-z0-9-]+\)$")
 
     def test_no_per_axis_colours(self):

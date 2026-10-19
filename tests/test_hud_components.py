@@ -124,6 +124,8 @@ class TestStyleguidePage(unittest.TestCase):
         self.assertNotIn("backdrop-filter", kit)
         # box-shadow is only allowed as a hard inset indicator bar or 1px ring (no blur).
         for shadow in re.findall(r"box-shadow:\s*([^;]+);", kit):
+            if shadow.strip() == "none":
+                continue  # resetting a box-shadow (e.g. disabled combobox rows) is not a new shadow
             self.assertRegex(shadow, r"^inset (0|var\(--indicator\)) (0|var\(--indicator\)) 0( 1px)? var\(--[a-z-]+\)$")
 
 
