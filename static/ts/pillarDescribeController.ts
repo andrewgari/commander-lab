@@ -67,7 +67,7 @@ export class PillarDescribeController {
         // _ctl is cleared by cancel(); if it's still set the error came from the request itself
         if (!this._ctl) return;
         this._ctl = null;
-        const e = err instanceof PillarDescribeError ? err : new PillarDescribeError(String(err), 0);
+        const e = err instanceof PillarDescribeError ? err : new PillarDescribeError(err instanceof Error ? err.message : String(err), 0);
         this.transition("error");
         this._callbacks.onError?.(e);
       });
