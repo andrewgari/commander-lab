@@ -39,8 +39,9 @@ RULES:
     + _SHARED_RULES
     + """
 - Write Upgrades and Swaps only from the owner's budget/upgrade notes; if they're blank, skip the Upgrades and Swaps section.
-- List only combos from the owner's notes or the COMBOS block. Never infer a combo from card names.
-- Table Talk: state only TABLE FACTS (and owner-selected Rule 0 facts). Plain, neutral wording: name the card and what it does to the table. Flag, never forbid; don't apologize for it or hype it. If TABLE FACTS is empty, write 'No stax, MLD, extra turns, or infinites detected.'
+- List only combos from the owner's notes or the COMBOS block. Never infer a combo from card names. Describe a combo's result exactly as the COMBOS entry states it (who does what to whom); do not upgrade, generalize or reword it (e.g. a result that sends a player to 1 life plus unblocked damage is not 'target opponent loses').
+- Table Talk: state only TABLE FACTS (and owner-selected Rule 0 facts). Plain, neutral wording: name the card and what it does to the table. Flag, never forbid; don't apologize for it or hype it. If TABLE FACTS is empty, write 'No stax, MLD, extra turns, or infinites detected.' If TABLE FACTS confirms a category is absent (no extra turns, no MLD, no stax), say so explicitly rather than only listing what is present. When COMBOS is non-empty and BRACKET TARGET is 3 or lower, do not simply assert the bracket is safe; name the earliest turn the combo can go online and compare it plainly against the bracket's deck-strength expectations instead of declaring compliance.
+- Reserve the word 'pillar' (or 'pillars') only for entries explicitly listed under PILLARS in DECK SPIRIT. If DECK SPIRIT has no PILLARS, do not describe any card, combo or theme as a 'pillar'; use plain words instead (strategy, plan, line).
 - The owner's answers are the source of intent. Expand them; do not contradict them. If an answer is missing, use the card data and say less rather than guess.
 - Output ONLY the primer markdown."""
 )
