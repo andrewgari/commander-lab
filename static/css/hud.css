@@ -525,6 +525,34 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .app-topbar { padding-left: max(48px, var(--content-pad)); padding-right: max(48px, var(--content-pad)); }
 }
 
+/* Ultrawide grid restructuring (SPEC.md §4), follow-up to the container/
+   centering fix in #214. Scope landed here: Tune queue/compare/change-list
+   3-zone split at >=2800px, and a narrower fixed cap + registry rail width
+   for the registry pages (Genres/Categories) per §3/§4.
+   Review index/body/dock and the Overview summary+gallery split are tracked
+   as follow-up work (see the linked child card). */
+@media (min-width: 2800px) {
+    /* Tune: queue (fixes+weak) | swap comparison | change list, per §4 "Tune / Triage". */
+    .hud-tune {
+        grid-template-columns: 368px minmax(0, 1fr) 400px;
+        gap: var(--sp-8);
+        align-items: start;
+    }
+    .hud-tune .tn-primary { display: contents; }
+    .hud-tune .tn-queue { grid-column: 1; min-width: 0; }
+    .hud-tune .tn-compare { grid-column: 2; min-width: 0; }
+    .hud-tune .hud-changes { grid-column: 3; }
+}
+
+/* Registries (Genres/Categories): keep the narrower "detail" cap instead of
+   the general 2880px tier, and give the registry rail a fixed width per §4. */
+@media (min-width: 1921px) {
+    .gn-layout, .ct-layout { grid-template-columns: 384px minmax(0, 1fr) !important; }
+}
+@media (min-width: 2800px) {
+    .gn-layout, .ct-layout { grid-template-columns: 432px minmax(0, 1fr) !important; }
+}
+
 
 /* 5. COMPONENTS ============================================================ */
 /* Every kit class is prefixed `hud-` so it can't collide with the per-page

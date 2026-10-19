@@ -58,13 +58,13 @@
 </div>
 
 <div class="hud-tune">
-    <div>
-        <section class="tn-section" aria-labelledby="fixT">
+    <div class="tn-primary">
+        <section class="tn-section tn-queue" id="fixesSection" aria-labelledby="fixT">
             <div class="hud-section-head"><span class="hud-section-id">01</span><h2 id="fixT">Shape fixes</h2></div>
             <div class="hud-panel hud-panel--flush"><div class="hud-panel-body" id="fixes">{{ hud.empty("Loading…") }}</div></div>
         </section>
 
-        <section class="tn-section" aria-labelledby="swT">
+        <section class="tn-section tn-compare" id="swapsSection" aria-labelledby="swT">
             <div class="hud-section-head"><span class="hud-section-id">02</span><h2 id="swT">Swaps · cut → add</h2></div>
             <div class="hud-panel hud-panel--flush">
                 <div class="tn-filter-note" id="swapFilter" hidden></div>
@@ -73,7 +73,7 @@
             <p class="tn-error" id="swapError" role="alert"></p>
         </section>
 
-        <section class="tn-section" id="weak" aria-labelledby="wkT">
+        <section class="tn-section tn-queue" id="weak" aria-labelledby="wkT">
             <div class="hud-section-head"><span class="hud-section-id">03</span><h2 id="wkT">Weak performers · computed</h2></div>
             <section class="hud-panel hud-panel--flush">
                 <div class="hud-table-wrap"><table class="hud-table tn-weak" data-hud-sortable>
