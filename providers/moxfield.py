@@ -225,3 +225,43 @@ def push_deck(identifier: str, cards: list, commanders=None) -> dict:
     if body.get("isSuccessful") is False or body.get("errors"):
         raise PushError(f"Moxfield import reported errors: {body.get('errors')}")
     return {"url": data.get("publicUrl", f"https://moxfield.com/decks/{public_id}"), "operations": 1}
+
+
+def create_deck(name: str, cards: list, commanders=None, description: str = "", private: bool = True) -> dict:
+    """Create a NEW Moxfield deck and fill it with `cards`.
+
+    POST /v2/decks (create, private commander deck) then the bulk text import
+    via push_deck. Unofficial and unverified against a live account (see
+    docs/DECK_EXPORT.md). If the fill step fails the empty deck already exists
+    remotely, so the PushError message carries its URL for manual cleanup.
+    """
+    token = os.getenv(PUSH_TOKEN_ENV, "").strip()
+    if not token:
+        raise PushNotConfigured(
+            f"Moxfield push is not configured: set {PUSH_TOKEN_ENV} to a bearer token from a logged-in browser"
+        )
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json",
+               "Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    res = requests.post(
+        "https://api2.moxfield.com/v2/decks",
+        json={"name": name, "format": "commander",
+              "visibility": "private" if private else "public",
+              "description": description or ""},
+        headers=headers, timeout=30,
+    )
+    if res.status_code == 401:
+        raise PushError(f"Moxfield rejected the token (HTTP 401); refresh {PUSH_TOKEN_ENV}")
+    if not res.ok:
+        raise PushError(f"Moxfield deck creation failed: HTTP {res.status_code} {res.text[:200]}")
+    try:
+        public_id = res.json()["publicId"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise PushError("Moxfield deck creation returned no publicId") from exc
+    url = f"https://moxfield.com/decks/{public_id}"
+    try:
+        push_deck(public_id, cards, commanders)
+    except PushError as exc:
+        raise PushError(f"{exc} (empty deck was created at {url})") from exc
+    except requests.RequestException as exc:
+        raise PushError(f"Moxfield fill failed: {exc} (empty deck was created at {url})") from exc
+    return {"url": url, "source_id": public_id}

@@ -982,6 +982,27 @@
     </div>
 </div>
 
+<!-- Export Draft Modal -->
+<div id="exportModal" class="modal-overlay" onclick="closeExportModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <h2 id="exportTitle" style="margin: 0 0 0.25rem; font-size: 1.25rem; color: #f8fafc;">Export decklist</h2>
+        <p id="exportDeckName" style="margin: 0 0 1rem; color: #94a3b8; font-size: 0.875rem;"></p>
+        <p style="color: #94a3b8; font-size: 0.8rem; margin: 0 0 1rem;">Creates a <strong>new</strong> deck on each selected site. Nothing existing is changed.</p>
+        <fieldset style="border: 0; padding: 0; margin: 0 0 1rem;">
+            <legend style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem;">Destination</legend>
+            <label style="display: block; margin-bottom: 0.3rem;"><input type="checkbox" id="exportProvMoxfield" value="moxfield" checked> Moxfield</label>
+            <label style="display: block;"><input type="checkbox" id="exportProvArchidekt" value="archidekt" checked> Archidekt</label>
+        </fieldset>
+        <label style="display: block; margin-bottom: 0.4rem;"><input type="checkbox" id="exportPrivate" checked> Private deck</label>
+        <label style="display: block; margin-bottom: 1rem;"><input type="checkbox" id="exportDryRun"> Dry run (validate only, create nothing)</label>
+        <div id="exportStatus" role="status" aria-live="polite" style="font-size: 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button" class="btn" id="exportCancelBtn" onclick="closeExportModal()">Close</button>
+            <button type="button" class="btn btn-primary" id="exportConfirmBtn" onclick="submitExport()">Export</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1865,6 +1886,9 @@
                         <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
                             ${cards.length} cards total
                         </div>
+                        <button type="button" class="btn export-draft-btn" data-draft-index="${idx}" onclick="openExportModal(${idx})" style="margin-top: 0.75rem;">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Export to Moxfield / Archidekt
+                        </button>
                     </div>
                 </div>
 
@@ -2035,6 +2059,90 @@
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Accept & Save Deck(s)';
         }
     }
+
+    // ---- Export a draft as a NEW deck on Moxfield / Archidekt ----
+    let exportDraftIndex = null;
+    let exportBusy = false;
+
+    function openExportModal(idx) {
+        const draft = ((currentSession && currentSession.drafts) || [])[idx];
+        if (!draft) return;
+        exportDraftIndex = idx;
+        document.getElementById('exportDeckName').textContent = draft.name || `Draft Deck ${idx + 1}`;
+        document.getElementById('exportStatus').innerHTML = '';
+        const btn = document.getElementById('exportConfirmBtn');
+        btn.disabled = false;
+        btn.textContent = 'Export';
+        document.getElementById('exportModal').style.display = 'flex';
+    }
+
+    function closeExportModal() {
+        if (exportBusy) return;
+        document.getElementById('exportModal').style.display = 'none';
+    }
+
+    function renderExportResults(results) {
+        const labels = { moxfield: 'Moxfield', archidekt: 'Archidekt' };
+        return Object.keys(results || {}).map(p => {
+            const r = results[p] || {};
+            const name = labels[p] || esc(p);
+            if (r.status === 'created') {
+                const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:#60a5fa;">Open deck</a>` : '';
+                return `<div style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> ${name}: created.${link}</div>`;
+            }
+            if (r.status === 'dry_run') return `<div style="color:#93c5fd;"><i class="fa-solid fa-flask"></i> ${name}: dry run OK, nothing created.</div>`;
+            if (r.status === 'not_configured') return `<div style="color:#fcd34d;"><i class="fa-solid fa-key"></i> ${name}: not configured (missing token).</div>`;
+            const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:#60a5fa;">Partial deck</a>` : '';
+            return `<div style="color:#fb7185;" role="alert"><i class="fa-solid fa-circle-exclamation"></i> ${name}: failed${r.error ? ' — ' + esc(r.error) : ''}.${link}</div>`;
+        }).join('');
+    }
+
+    async function submitExport() {
+        if (exportBusy || exportDraftIndex === null || !currentSessionId) return;
+        const providers = ['exportProvMoxfield', 'exportProvArchidekt']
+            .map(id => document.getElementById(id))
+            .filter(el => el.checked).map(el => el.value);
+        const statusEl = document.getElementById('exportStatus');
+        if (providers.length === 0) {
+            statusEl.innerHTML = '<div style="color:#fb7185;" role="alert">Select at least one destination.</div>';
+            return;
+        }
+        const btn = document.getElementById('exportConfirmBtn');
+        exportBusy = true;
+        btn.disabled = true;
+        btn.textContent = 'Exporting…';
+        statusEl.innerHTML = '';
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/drafts/${exportDraftIndex}/export`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    providers,
+                    private: document.getElementById('exportPrivate').checked,
+                    dry_run: document.getElementById('exportDryRun').checked
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 200 || res.status === 207) {
+                statusEl.innerHTML = renderExportResults(data.results);
+                const allOk = res.status === 200;
+                btn.textContent = allOk ? 'Export again' : 'Retry';
+            } else {
+                statusEl.innerHTML = `<div style="color:#fb7185;" role="alert">${esc(data.error || data.detail || `Export failed (${res.status})`)}</div>`;
+                btn.textContent = 'Retry';
+            }
+        } catch (e) {
+            statusEl.innerHTML = `<div style="color:#fb7185;" role="alert">Export failed: ${esc(e.message)}</div>`;
+            btn.textContent = 'Retry';
+        } finally {
+            exportBusy = false;
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeExportModal();
+    });
 
     function closeAcceptModal() {
         document.getElementById('acceptModal').style.display = 'none';
