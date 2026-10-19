@@ -79,8 +79,9 @@
     {% call hud.form_section("j-vision", "Vision", "One or two sentences. What does a good game with this deck look like?") %}
         <div class="hud-field"><span class="hud-field-label" id="intentL">Intent</span>
             {{ hud.seg("intent", intents, dv.intent, label_id="intentL", id_prefix="int") }}</div>
-        <div class="hud-field"><label for="vision">Vision</label>
+        <div class="hud-field"><label for="vision">Vision <button type="button" class="hud-btn hud-btn--sm pf-ask" id="visionDraftBtn">Draft</button></label>
             <textarea id="vision" name="vision" maxlength="1000">{{ dv.description }}</textarea>
+            <div id="visionSugg" aria-live="polite"></div>
             <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
         <div class="hud-field jr-ttw"><label for="ttw">Target win turn <span class="hud-field-hint">(optional)</span></label>
             <input id="ttw" name="ttw" type="number" min="1" max="20" inputmode="numeric" value="{{ dv.target_turn_win if dv.target_turn_win is not none else '' }}"></div>
@@ -610,6 +611,48 @@ document.addEventListener("DOMContentLoaded", function () {
     syncDerived();
     // BR-7: deep links (#j-power from the deck page's bracket banner) land on the section.
     if (location.hash) requestAnimationFrame(function () { goToSection(location.hash, false); });
+});
+</script>
+<script>
+{#- Vision ◇ Draft (Guided Primer Builder): proposes a line from the deck + Journal; "Use" fills #vision, never auto-overwrites. -#}
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var btn = document.getElementById("visionDraftBtn"), box = document.getElementById("visionSugg"), ta = document.getElementById("vision");
+    if (!btn || !box || !ta) return;
+    var API = "/api/decks/" + encodeURIComponent({{ deck_id | tojson }}), esc = window.HUD.esc;
+    function clear() { box.innerHTML = ""; }
+    function fail(msg) {
+        box.innerHTML = '<div class="pf-sugg"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t"><span class="hud-chip hud-chip--danger">Failed</span> ' + esc(msg) + ' The field is untouched.</div><div class="pf-sugg-a"><button type="button" class="hud-btn hud-btn--sm" data-v="retry">Retry</button><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-v="no" aria-label="Dismiss suggestion">✕</button></div></div>';
+    }
+    function show(text) {
+        box.innerHTML = '<div class="pf-sugg" role="group" aria-label="Suggested vision"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t">' + esc(text) + ' <em>· from the deck + Journal</em></div>' +
+            '<div class="pf-sugg-a"><button type="button" class="hud-btn hud-btn--sm hud-btn--primary" data-v="use" data-t="' + esc(text) + '">Use <span class="hud-kbd">⌘↵</span></button><button type="button" class="hud-btn hud-btn--sm" data-v="retry">Another</button><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-v="no" aria-label="Dismiss suggestion">✕</button></div></div>';
+    }
+    function use(text) {
+        var before = ta.value;
+        ta.value = text.slice(0, 1000);
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        box.innerHTML = '<div class="pf-sugg"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t">Used the suggestion. Save the Journal to keep it.</div><div class="pf-sugg-a"><button type="button" class="hud-btn hud-btn--sm" data-v="undo">Undo</button></div></div>';
+        box.querySelector('[data-v="undo"]').onclick = function () { ta.value = before; ta.dispatchEvent(new Event("input", { bubbles: true })); clear(); };
+    }
+    function draft() {
+        btn.disabled = true;
+        box.innerHTML = '<div class="pf-sugg is-busy"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t"><span class="pf-skel"></span><span class="pf-skel"></span><span class="hud-muted">Drafting from your deck…</span></div></div>';
+        fetch(API + "/description/suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (x) { if (!x.ok || !x.d.success) fail(x.d.error || "Request failed."); else show(x.d.description); })
+            .catch(function () { fail("The server could not be reached."); })
+            .then(function () { btn.disabled = false; });
+    }
+    btn.addEventListener("click", draft);
+    box.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-v]"); if (!b) return;
+        if (b.dataset.v === "use") use(b.dataset.t); else if (b.dataset.v === "retry") draft(); else if (b.dataset.v === "no") { clear(); ta.focus(); }
+    });
+    ta.addEventListener("keydown", function (e) {
+        var use_ = box.querySelector('[data-v="use"]');
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && use_) { e.preventDefault(); use(use_.dataset.t); }
+    });
 });
 </script>
 {% endblock %}

@@ -128,26 +128,39 @@
 
 <div class="hud-section-head"><h2>Briefing</h2></div>
 <div class="hud-grid">
-    <section class="hud-panel" id="deckDescriptionPanel" hidden>
-        <header class="hud-panel-head"><h3 class="hud-panel-title">Description</h3><div class="hud-panel-meta">Archidekt</div></header>
-        <div class="hud-panel-body"><div id="deckDescription" class="deck-prose"></div></div>
+    {#- Description (Guided Primer Builder, SPEC PF "Description"): always visible; ◇ Draft proposes, never overwrites. -#}
+    <section class="hud-panel" id="deckDescriptionPanel" aria-labelledby="descTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="descTitle">Description</h3>
+            <div class="hud-panel-meta">
+                <span class="pf-src" id="descProv" data-src="" style="margin-left:0"></span>
+                <button type="button" class="hud-btn hud-btn--sm pf-ask" id="descDraftBtn">Draft</button>
+                <button type="button" class="hud-btn hud-btn--sm" id="descEditBtn">Edit</button>
+            </div>
+        </header>
+        <div class="hud-panel-body">
+            <div id="deckDescription" class="deck-prose"><span class="hud-muted">Loading…</span></div>
+            <div id="descEdit" class="deck-primer-edit" hidden>
+                <textarea id="descTextarea" maxlength="280" aria-label="Deck description (280 characters max)"></textarea>
+                <div class="deck-primer-actions">
+                    <span class="pf-count" id="descCount">0/280</span>
+                    <button type="button" class="hud-btn hud-btn--sm" id="descCancelBtn">Cancel</button>
+                    <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="descSaveBtn">Save</button>
+                </div>
+            </div>
+            <div id="descSugg" aria-live="polite"></div>
+        </div>
     </section>
     <section class="hud-panel">
         <header class="hud-panel-head">
             <h3 class="hud-panel-title">Primer</h3>
-            <div class="hud-panel-meta"><button type="button" class="hud-btn hud-btn--sm" onclick="togglePrimerEdit()" id="primerEditBtn">Edit</button></div>
+            <div class="hud-panel-meta" id="primerActions" hidden>
+                <a class="hud-btn hud-btn--sm hud-btn--primary" id="primerBuildBtn" href="/deck/{{ deck_name | urlencode }}/primer/build">Rebuild with guide</a>
+                <button type="button" class="hud-btn hud-btn--sm" onclick="togglePrimerEdit()" id="primerEditBtn">Edit</button>
+            </div>
         </header>
         <div class="hud-panel-body">
-            <div id="primerView" class="deck-prose">
-                <p><strong>Overview:</strong> This deck leverages synergistic interactions and robust card advantage loops to control the tempo of the game before executing its primary win condition.</p>
-                <p><strong>Strategy & Game Plan:</strong></p>
-                <ul>
-                    <li><strong>Early Game (Turn 1-3):</strong> Focus on ramp, establishing early mana rocks or mana dorks, and setting up card advantage engines.</li>
-                    <li><strong>Mid Game (Turn 4-7):</strong> Deploy key pieces, leverage interaction to disrupt opponents, and protect board state.</li>
-                    <li><strong>Late Game:</strong> Assemble combo pieces or overwhelm opponents through superior board presence and resilient recursive loops.</li>
-                </ul>
-                <p><strong>Mulligan Guide:</strong> Look for at least 2-3 lands, early ramp (e.g., Sol Ring, Farseek), and a low-to-mid tier interaction piece.</p>
-            </div>
+            <div id="primerView" class="deck-prose"><p class="hud-muted">Loading primer…</p></div>
             <div id="primerEdit" class="deck-primer-edit" hidden>
                 <textarea id="primerTextarea" aria-label="Primer HTML"></textarea>
                 <div class="deck-primer-actions">
@@ -168,6 +181,8 @@
 </div>
 <div id="atFilterbar" hidden></div>
 <div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
+
+<div class="pf-toast" id="deckToast" role="status" hidden></div>
 
 <!-- Card Details Modal -->
 <div id="syncConfirmModal" class="hud-modal" aria-hidden="true">
@@ -260,6 +275,8 @@
 <script>
     const deckNameStr = {{ deck_name | tojson }};
     const enabledProviders = {{ providers | tojson }};
+    const DECK_API_ID = {{ (head.registry_id or deck_name) | tojson }};  // registry id: /api/decks/{id}/primer, /description
+    const DECK_API = '/api/decks/' + encodeURIComponent(DECK_API_ID);
     const STRUCTURAL = ["Commander", "Sideboard", "Maybeboard", "Considering"];
     // Archidekt's default per-type categories ("Land", "Creature"…) say nothing
     // about the deck's plan, so they don't count toward the archetype either.
@@ -529,6 +546,7 @@
                 document.getElementById('footerLinks').innerHTML = '<span class="hud-muted">No deck metadata.</span>';
             }
             renderCommanders();
+            if (!currentDeck) renderDescription(null);
             renderStats();
             renderCards();
             deckLoaded = true;
@@ -540,6 +558,7 @@
         } catch (e) {
             console.error("Error loading deck data:", e);
             document.getElementById('decklistContainer').innerHTML = '<div class="hud-empty">Could not load deck</div>';
+            renderDescription(currentDeck || null);
         }
     }
 
@@ -559,21 +578,7 @@
         document.getElementById('reconstructBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
-        if (deck.description) {
-            let descText = '';
-            try {
-                const parsed = JSON.parse(deck.description);
-                descText = parsed.ops ? parsed.ops.map(op => typeof op.insert === 'string' ? op.insert : '').join('') : deck.description;
-            } catch (e) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = deck.description;
-                descText = tempDiv.textContent || tempDiv.innerText;
-            }
-            if (descText.trim()) {
-                document.getElementById('deckDescription').textContent = descText;
-                document.getElementById('deckDescriptionPanel').hidden = false;
-            }
-        }
+        renderDescription(deck);
     }
 
     function renderCommanders() {
@@ -666,17 +671,148 @@
             : '<span class="hud-muted">None</span>';
     }
 
+    // ---- Description: always visible; "◇ Draft" proposes a suggestion row, nothing is written until "Use" ----
+    let descSuggestion = null;   // {text, staged}
+    const descEls = () => ({
+        text: document.getElementById('deckDescription'), prov: document.getElementById('descProv'),
+        edit: document.getElementById('descEdit'), ta: document.getElementById('descTextarea'),
+        sugg: document.getElementById('descSugg'), editBtn: document.getElementById('descEditBtn'),
+        draftBtn: document.getElementById('descDraftBtn'), count: document.getElementById('descCount')
+    });
+    function plainDescription(raw) {
+        if (!raw) return '';
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.ops) return parsed.ops.map(op => typeof op.insert === 'string' ? op.insert : '').join('');
+        } catch (e) { /* plain text or HTML */ }
+        const tmp = document.createElement('div');
+        tmp.innerHTML = raw;
+        return tmp.textContent || tmp.innerText || '';
+    }
+    function renderDescription(deck) {
+        const el = descEls();
+        const text = plainDescription((deck && deck.description) || '').trim();
+        el.text.innerHTML = text ? '' : '<span class="hud-muted">No short description yet.</span>';
+        if (text) el.text.textContent = text;
+        const src = deck && deck.description_src;
+        const prov = !text ? '' : src === 'draft' ? '◇ Drafted' : src === 'yours' ? '◆ Yours' : (deck.source || 'Archidekt');
+        el.prov.textContent = prov;
+        el.prov.dataset.src = src === 'draft' ? 'draft' : src === 'yours' ? 'yours' : '';
+        el.ta.value = text;
+        renderDescSuggestion();
+    }
+    function renderDescSuggestion(state) {
+        const el = descEls();
+        if (state === 'busy') {
+            el.sugg.innerHTML = '<div class="pf-sugg is-busy"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t"><span class="pf-skel"></span><span class="pf-skel"></span><span class="hud-muted">Drafting from your deck…</span></div></div>';
+            return;
+        }
+        if (state && state.error) {
+            el.sugg.innerHTML = '<div class="pf-sugg"><span class="pf-sugg-g" aria-hidden="true">◇</span><div class="pf-sugg-t"><span class="hud-chip hud-chip--danger">Failed</span> ' + esc(state.error) + ' The description is unchanged.</div><div class="pf-sugg-a"><button type="button" class="hud-btn hud-btn--sm" id="descRetry">Retry</button><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" id="descDismiss" aria-label="Dismiss suggestion">✕</button></div></div>';
+            document.getElementById('descRetry').onclick = draftDescription;
+            document.getElementById('descDismiss').onclick = () => renderDescSuggestion();
+            return;
+        }
+        if (!descSuggestion) { el.sugg.innerHTML = ''; return; }
+        el.sugg.innerHTML = '<div class="pf-sugg" role="group" aria-label="Suggested description"><span class="pf-sugg-g" aria-hidden="true">◇</span>' +
+            '<div class="pf-sugg-t">' + esc(descSuggestion.text) + ' <em>· ' + (descSuggestion.staged ? 'from the primer builder' : 'from the deck + Journal') + ' · ' + descSuggestion.text.length + '/280</em></div>' +
+            '<div class="pf-sugg-a"><button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="descUse">Use <span class="hud-kbd">⌘↵</span></button>' +
+            '<button type="button" class="hud-btn hud-btn--sm" id="descAnother">Another</button>' +
+            '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" id="descDismiss" aria-label="Dismiss suggestion">✕</button></div></div>';
+        document.getElementById('descUse').onclick = useDescSuggestion;
+        document.getElementById('descAnother').onclick = draftDescription;
+        document.getElementById('descDismiss').onclick = () => { descSuggestion = null; renderDescSuggestion(); };
+    }
+    async function draftDescription() {
+        const btn = descEls().draftBtn;
+        btn.disabled = true;
+        renderDescSuggestion('busy');
+        try {
+            const res = await fetch(DECK_API + '/description/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.error || 'Request failed (' + res.status + ').');
+            descSuggestion = { text: data.description, staged: false };
+            renderDescSuggestion();
+        } catch (e) {
+            renderDescSuggestion({ error: e.message });
+        } finally {
+            btn.disabled = false;
+        }
+    }
+    async function putDescription(text, src) {
+        const res = await fetch(DECK_API + '/description', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ description: text, src }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Save failed (' + res.status + ').');
+        if (currentDeck) { currentDeck.description = data.description; currentDeck.description_src = data.src; }
+        renderDescription(currentDeck || { description: data.description, description_src: data.src });
+        deckToast('Description saved.', async () => {
+            const u = await fetch(DECK_API + '/description/undo', { method: 'POST' });
+            const ud = await u.json().catch(() => ({}));
+            if (u.ok && ud.success) { if (currentDeck) { currentDeck.description = ud.description; currentDeck.description_src = ud.src; } renderDescription(currentDeck); }
+        });
+    }
+    async function useDescSuggestion() {
+        if (!descSuggestion) return;
+        const text = descSuggestion.text;
+        try { await putDescription(text, 'draft'); descSuggestion = null; renderDescSuggestion(); }
+        catch (e) { renderDescSuggestion({ error: e.message }); }
+    }
+    function toggleDescEdit(open) {
+        const el = descEls();
+        el.edit.hidden = !open; el.text.hidden = open;
+        el.editBtn.textContent = open ? 'Cancel' : 'Edit';
+        if (open) { el.ta.focus(); el.count.textContent = el.ta.value.length + '/280'; }
+    }
+    function deckToast(msg, undoFn) {
+        const t = document.getElementById('deckToast');
+        t.hidden = false;
+        t.innerHTML = '<span>' + esc(msg) + '</span>' + (undoFn ? '<button type="button" class="hud-btn hud-btn--sm" id="deckToastUndo">Undo</button>' : '');
+        if (undoFn) document.getElementById('deckToastUndo').onclick = () => { undoFn(); t.hidden = true; };
+        clearTimeout(deckToast._t);
+        deckToast._t = setTimeout(() => { t.hidden = true; }, 8000);
+    }
+
+    // ---- Primer: saved, sanitised HTML from /api/decks/{id}/primer; built by the guided builder or by hand ----
+    let primerRec = null;
     let isEditingPrimer = false;
+    function renderPrimer() {
+        const view = document.getElementById('primerView');
+        const actions = document.getElementById('primerActions');
+        const buildUrl = '/deck/' + encodeURIComponent(deckNameStr) + '/primer/build';
+        if (primerRec && primerRec.html) {
+            view.innerHTML = primerRec.html;  // sanitised server-side on save
+            actions.hidden = false;
+        } else {
+            actions.hidden = true;
+            view.innerHTML = '<div class="hud-empty"><p>No primer yet. Answer a few questions, or let us draft one from the ' + ((currentDeck && currentDeck.cards ? currentDeck.cards.length : 0) || 100) + ' cards.</p>' +
+                '<p><a class="hud-btn hud-btn--sm hud-btn--primary" href="' + buildUrl + '" id="primerBuildEmpty">Build with guide</a> ' +
+                '<button type="button" class="hud-btn hud-btn--sm" onclick="togglePrimerEdit()">Write by hand</button></p></div>';
+        }
+    }
+    async function loadPrimer() {
+        try {
+            const res = await fetch(DECK_API + '/primer');
+            const data = await res.json();
+            primerRec = data.success ? data.primer : null;
+            if (data.success && data.staged_description) {
+                descSuggestion = { text: data.staged_description, staged: true };
+                renderDescSuggestion();
+            }
+        } catch (e) { primerRec = null; }
+        renderPrimer();
+        if (location.hash === '#primer-edit' && !isEditingPrimer) togglePrimerEdit();
+    }
     function togglePrimerEdit() {
         isEditingPrimer = !isEditingPrimer;
         const viewEl = document.getElementById('primerView');
         const editEl = document.getElementById('primerEdit');
         const btnEl = document.getElementById('primerEditBtn');
         if (isEditingPrimer) {
-            document.getElementById('primerTextarea').value = viewEl.innerHTML.trim();
+            document.getElementById('primerTextarea').value = primerRec && primerRec.html ? primerRec.html : '';
             viewEl.hidden = true;
             editEl.hidden = false;
             btnEl.textContent = 'Cancel';
+            document.getElementById('primerTextarea').focus();
         } else {
             viewEl.hidden = false;
             editEl.hidden = true;
@@ -684,10 +820,23 @@
         }
     }
 
-    function savePrimer() {
+    async function savePrimer() {
         const val = document.getElementById('primerTextarea').value;
-        document.getElementById('primerView').innerHTML = val;
-        togglePrimerEdit();
+        try {
+            const res = await fetch(DECK_API + '/primer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: val }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.error || 'Save failed (' + res.status + ').');
+            primerRec = Object.assign({}, primerRec || {}, { html: data.html, version: data.version });
+            renderPrimer();
+            togglePrimerEdit();
+            deckToast('Primer saved.' + (data.has_undo ? ' Previous version kept.' : ''), data.has_undo ? async () => {
+                const u = await fetch(DECK_API + '/primer/undo', { method: 'POST' });
+                const ud = await u.json().catch(() => ({}));
+                if (u.ok && ud.success) { primerRec = Object.assign({}, primerRec, { html: ud.html, version: ud.version }); renderPrimer(); }
+            } : null);
+        } catch (e) {
+            deckToast('Could not save the primer: ' + e.message);
+        }
     }
 
     function extLink(label, href) {
@@ -1198,7 +1347,20 @@
         }
         cardReview = CardReview.mount({ modalId: 'cardReviewModal', deckId: DECK_RID || deckNameStr, deckName: deckNameStr,
             deckKind: () => isPhysicalDeck() ? 'physical' : 'digital', onBack: openCardModal });
-        loadDeckData(); loadBracket();
+        loadDeckData(); loadBracket(); loadPrimer();  // the primer does not depend on the inventory fetch
+        // Description panel (Guided Primer Builder): Draft / Edit / Save.
+        const dEl = descEls();
+        dEl.draftBtn.addEventListener('click', draftDescription);
+        dEl.editBtn.addEventListener('click', () => toggleDescEdit(dEl.edit.hidden));
+        document.getElementById('descCancelBtn').addEventListener('click', () => { dEl.ta.value = plainDescription((currentDeck && currentDeck.description) || '').trim(); toggleDescEdit(false); });
+        dEl.ta.addEventListener('input', () => { dEl.count.textContent = dEl.ta.value.length + '/280'; });
+        document.getElementById('descSaveBtn').addEventListener('click', async () => {
+            try { await putDescription(dEl.ta.value, 'yours'); toggleDescEdit(false); }
+            catch (e) { deckToast('Could not save the description: ' + e.message); }
+        });
+        document.getElementById('deckDescriptionPanel').addEventListener('keydown', (ev) => {
+            if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter' && descSuggestion) { ev.preventDefault(); useDescSuggestion(); }
+        });
     });
     document.addEventListener('DOMContentLoaded', loadPersonality);
 </script>
