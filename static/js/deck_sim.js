@@ -8,8 +8,8 @@
    ========================================================================== */
 (function () {
     "use strict";
-    var H = window.HUD;
-    var esc = H.esc;
+    function H() { return (typeof window !== "undefined" && window.HUD) || {}; }
+    var esc = function (s) { return (window.HUD && window.HUD.esc) ? window.HUD.esc(s) : String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
 
     var DECK_ID = null, API = null, STORE = null;
     var POLL_MS = 2500, STALE_MS = 15 * 60 * 1000;
@@ -46,7 +46,7 @@
         return '<span class="hud-chip hud-chip--' + esc(tone || "neutral") + '"' + (title ? ' title="' + esc(title) + '"' : "") + '>' +
             (dot ? '<span class="hud-chip-dot" aria-hidden="true"></span>' : "") + esc(t) + "</span>";
     }
-    function card(name) { return H.cardName(name, (window.HUD_CARD_REFS || null)); }
+    function card(name) { return H().cardName(name, (window.HUD_CARD_REFS || null)); }
     function pct(x) { return x == null ? null : Math.round(x * 100); }
     function fmtPct(x) { var p = pct(x); return p == null ? '<span class="sm-na">n/a</span>' : p + "%"; }
     function fmtNum(x, nd) { return x == null ? '<span class="sm-na">n/a</span>' : (nd ? Number(x).toFixed(nd) : String(x)); }
@@ -235,17 +235,17 @@
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         var avail = metricsAvailable(report);
         var wr = pod.win_rate;
-        var s = H.stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: "even odds 25%", mod: "signal" }) +
-            H.stat("Avg game", pod.avg_total_turns == null ? "n/a" : pod.avg_total_turns, { unit: "turns", foot: "table turns" });
+        var s = H().stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: "even odds 25%", mod: "signal" }) +
+            H().stat("Avg game", pod.avg_total_turns == null ? "n/a" : pod.avg_total_turns, { unit: "turns", foot: "table turns" });
         if (!avail) {
-            s += H.stat("Commander cast", "n/a", { foot: "not recorded in random mode" }) + H.stat("Mana used T2–T6", "n/a", { foot: "not recorded in random mode" });
+            s += H().stat("Commander cast", "n/a", { foot: "not recorded in random mode" }) + H().stat("Mana used T2–T6", "n/a", { foot: "not recorded in random mode" });
         } else {
             var cmdrT = tc.sim && tc.sim.avg_first_commander_turn;
             var mana = tc.sim && tc.sim.avg_mana_utilization_t2_t6;
             var staticT = tc.static && tc.static.commander_cmc;
             var staticMana = tc.static && tc.static.mana_utilization_t2_t6;
-            s += H.stat("Commander cast", cmdrT == null ? "n/a" : "T" + cmdrT, { unit: "avg", foot: "static: T" + (staticT == null ? "?" : staticT) }) +
-                H.stat("Mana used T2–T6", mana == null ? "n/a" : pct(mana) + "%", { foot: "static math: " + (staticMana == null ? "n/a" : pct(staticMana) + "%") });
+            s += H().stat("Commander cast", cmdrT == null ? "n/a" : "T" + cmdrT, { unit: "avg", foot: "static: T" + (staticT == null ? "?" : staticT) }) +
+                H().stat("Mana used T2–T6", mana == null ? "n/a" : pct(mana) + "%", { foot: "static math: " + (staticMana == null ? "n/a" : pct(staticMana) + "%") });
         }
         return '<div class="hud-stat-strip" style="margin-top:var(--sp-6)">' + s + "</div>";
     }
@@ -420,7 +420,7 @@
             if (form) form.querySelectorAll("fieldset").forEach(function (f) { f.disabled = true; });
         }
         if (job && job.status !== "done") wireJob(job, !!(d.sim && d.sim.report));
-        H.initSortable(r);
+        H().initSortable(r);
         wireLog();
         wireCardGroups();
     }
