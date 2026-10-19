@@ -506,6 +506,25 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .nav-items + .nav-section-label { display: block; height: 0; padding: 0; overflow: hidden; }
 }
 
+/* Ultrawide (docs/design/ultrawide/SPEC.md): below 1921px `.hud-work` is a
+   no-op wrapper and `.main-content` keeps its historical content-box
+   max-width/padding behaviour untouched. Above the breakpoints, `.hud-work`
+   takes over centering and capping so the workbench stays readable instead
+   of stretching corner to corner; `.main-content` just fills the remaining
+   viewport right of the fixed sidebar. Width-based tiers only; screen
+   aspect ratio/resolution is irrelevant. */
+@media (min-width: 1921px) {
+    .main-content { max-width: none; padding-left: 0; padding-right: 0; padding-top: var(--content-pad); padding-bottom: var(--content-pad); }
+    .app-topbar { margin-left: 0; margin-right: 0; padding-left: max(40px, var(--content-pad)); padding-right: max(40px, var(--content-pad)); }
+    .hud-work { max-width: 2160px; margin-inline: auto; padding-inline: 40px; box-sizing: border-box; }
+    .hud-work--detail { max-width: 2160px; }
+}
+@media (min-width: 2800px) {
+    .hud-work { max-width: 2880px; padding-inline: 48px; }
+    .hud-work--detail { max-width: 2560px; }
+    .app-topbar { padding-left: max(48px, var(--content-pad)); padding-right: max(48px, var(--content-pad)); }
+}
+
 
 /* 5. COMPONENTS ============================================================ */
 /* Every kit class is prefixed `hud-` so it can't collide with the per-page
