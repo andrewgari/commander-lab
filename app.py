@@ -147,6 +147,12 @@ async def genres_view(request: Request):
     return templates.TemplateResponse(request=request, name="genres.html")
 
 
+@app.get("/composition/presets", response_class=HTMLResponse)
+async def composition_presets_view(request: Request):
+    """Composition Presets registry: create/edit/delete, compare side by side."""
+    return templates.TemplateResponse(request=request, name="composition_presets.html")
+
+
 @app.get("/instances", response_class=HTMLResponse)
 async def instances_view(request: Request):
     """Instance list view: ownership source of truth for physical card copies."""

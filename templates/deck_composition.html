@@ -109,6 +109,45 @@
             <footer class="hud-panel-foot">Read-only composition targets derived from resolved preset profile.</footer>
         </section>
     </div>
+
+    {{ hud.section_head("Preset Selection", code="02") }}
+    <section class="hud-panel" id="compPickerPanel">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title">Change this deck's preset</h3>
+            <div class="hud-panel-meta"><a class="hud-btn hud-btn--sm" href="/composition/presets">Manage presets</a></div>
+        </header>
+        <div class="hud-panel-body">
+            <form id="compPickerForm" style="display:flex; flex-direction:column; gap: var(--sp-5);">
+                <div class="hud-field">
+                    <span class="hud-field-label">Mode</span>
+                    <span class="hud-field-hint">Auto picks a preset from this deck's archetype, tags and commander CMC. Pin locks it to one preset.</span>
+                    <div style="display:flex; gap: var(--sp-5);">
+                        <label><input type="radio" name="compMode" value="auto" id="compModeAuto"> Auto</label>
+                        <label><input type="radio" name="compMode" value="pinned" id="compModePinned"> Pin a preset</label>
+                    </div>
+                </div>
+                <div class="hud-field">
+                    <label for="compPresetSelect">Preset</label>
+                    <select id="compPresetSelect"></select>
+                </div>
+                <div class="hud-field">
+                    <label for="compLandsOverride">Lands override (optional)</label>
+                    <input id="compLandsOverride" type="number" min="0" max="99" placeholder="leave blank to use preset's lands">
+                </div>
+                <div class="hud-field">
+                    <span class="hud-field-label">Category overrides (optional)</span>
+                    <span class="hud-field-hint">Deviate from the pinned preset's numbers for individual categories.</span>
+                    <div id="compOverrides" style="display:flex; flex-direction:column; gap: var(--sp-3);"></div>
+                    <div><button type="button" class="hud-btn hud-btn--sm" id="compAddOverride">Add override</button></div>
+                </div>
+                <p class="hud-field-hint" id="compPickerMsg" role="status"></p>
+                <div style="display:flex; gap: var(--sp-3);">
+                    <button type="submit" class="hud-btn hud-btn--primary" id="compPickerSave">Save selection</button>
+                    <button type="button" class="hud-btn hud-btn--ghost" id="compPickerReset">Reset to auto</button>
+                </div>
+            </form>
+        </div>
+    </section>
 </div>
 {% endblock %}
 
@@ -191,6 +230,144 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(function(err) {
             console.error("Failed to load composition selection:", err);
         });
+
+    // -----------------------------------------------------------------
+    // Preset picker: mode (auto/pinned), preset select, lands & overrides
+    // -----------------------------------------------------------------
+    const pickerState = { presets: [], record: null };
+
+    function overrideRow(o) {
+        o = o || { ref: "", target: null, min: null, max: null };
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.gap = "var(--sp-3)";
+        row.style.alignItems = "end";
+        const mkInput = (type, val, ph, label) => {
+            const i = document.createElement("input");
+            i.type = type;
+            if (type === "number") { i.min = "0"; i.max = "99"; }
+            if (val !== null && val !== undefined) i.value = val;
+            if (ph) i.placeholder = ph;
+            i.setAttribute("aria-label", label);
+            return i;
+        };
+        const ref = mkInput("text", o.ref, "core:ramp", "Category ref");
+        const target = mkInput("number", o.target, "target", "Target");
+        const min = mkInput("number", o.min, "min", "Min");
+        const max = mkInput("number", o.max, "max", "Max");
+        const rm = document.createElement("button");
+        rm.type = "button"; rm.className = "hud-btn hud-btn--sm hud-btn--ghost"; rm.textContent = "Remove";
+        rm.addEventListener("click", function () { row.remove(); });
+        [ref, target, min, max].forEach(function (inp) { row.appendChild(inp); });
+        row.appendChild(rm);
+        return row;
+    }
+    function setOverrides(overrides) {
+        const box = document.getElementById("compOverrides");
+        box.innerHTML = "";
+        (overrides || []).forEach(function (o) { box.appendChild(overrideRow(o)); });
+    }
+    function readOverrides() {
+        return Array.from(document.getElementById("compOverrides").children).map(function (row) {
+            const inputs = row.querySelectorAll("input");
+            const ref = inputs[0].value.trim();
+            const num = function (v) { return v.value === "" ? null : Number(v.value); };
+            return { ref: ref, target: num(inputs[1]), min: num(inputs[2]), max: num(inputs[3]) };
+        }).filter(function (o) { return o.ref; });
+    }
+    function setPickerMsg(text, tone) {
+        const m = document.getElementById("compPickerMsg");
+        m.textContent = text || "";
+        m.style.color = tone === "error" ? "var(--danger)" : (tone === "ok" ? "var(--ok)" : "");
+    }
+    function applyModeVisibility() {
+        const pinned = document.getElementById("compModePinned").checked;
+        ["compPresetSelect", "compLandsOverride"].forEach(function (id) {
+            document.getElementById(id).closest(".hud-field").style.display = pinned ? "" : "none";
+        });
+        document.getElementById("compOverrides").closest(".hud-field").style.display = pinned ? "" : "none";
+    }
+
+    async function loadPickerPresets() {
+        const res = await fetch("/api/composition/presets");
+        const data = await res.ok ? await res.json() : null;
+        if (!data || !data.success) return;
+        pickerState.presets = data.presets || [];
+        const sel = document.getElementById("compPresetSelect");
+        sel.innerHTML = "";
+        pickerState.presets.forEach(function (p) {
+            const opt = document.createElement("option");
+            opt.value = p.id;
+            opt.textContent = p.name + (p.kind === "builtin" ? " (built-in)" : " (custom)");
+            sel.appendChild(opt);
+        });
+    }
+
+    async function loadPickerSelection() {
+        const res = await fetch("/api/decks/" + encodeURIComponent(deckId) + "/composition/selection");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.success) return;
+        const rec = (data.selection && data.selection.record) || { mode: "auto" };
+        pickerState.record = rec;
+        document.getElementById(rec.mode === "pinned" ? "compModePinned" : "compModeAuto").checked = true;
+        if (rec.mode === "pinned" && rec.preset_id) {
+            document.getElementById("compPresetSelect").value = rec.preset_id;
+        } else if (data.selection && data.selection.preset_id) {
+            document.getElementById("compPresetSelect").value = data.selection.preset_id;
+        }
+        document.getElementById("compLandsOverride").value = (rec.lands !== null && rec.lands !== undefined) ? rec.lands : "";
+        setOverrides(rec.overrides);
+        applyModeVisibility();
+    }
+
+    document.getElementById("compModeAuto").addEventListener("change", applyModeVisibility);
+    document.getElementById("compModePinned").addEventListener("change", applyModeVisibility);
+    document.getElementById("compAddOverride").addEventListener("click", function () {
+        document.getElementById("compOverrides").appendChild(overrideRow());
+    });
+
+    document.getElementById("compPickerForm").addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        const mode = document.getElementById("compModePinned").checked ? "pinned" : "auto";
+        const body = { mode: mode };
+        if (mode === "pinned") {
+            body.preset_id = document.getElementById("compPresetSelect").value;
+            const landsVal = document.getElementById("compLandsOverride").value;
+            body.lands = landsVal === "" ? null : Number(landsVal);
+            body.overrides = readOverrides();
+        }
+        setPickerMsg("Saving…");
+        try {
+            const res = await fetch("/api/decks/" + encodeURIComponent(deckId) + "/composition/selection", {
+                method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+            });
+            const data = await res.json().catch(function () { return {}; });
+            if (!res.ok) {
+                const issues = (data.issues || []).map(function (i) { return i.message; }).join(" ");
+                setPickerMsg(issues || data.error || "Save failed.", "error");
+                return;
+            }
+            setPickerMsg("Saved.", "ok");
+            location.reload();
+        } catch (e) {
+            setPickerMsg("Network error.", "error");
+        }
+    });
+
+    document.getElementById("compPickerReset").addEventListener("click", async function () {
+        setPickerMsg("Resetting…");
+        try {
+            const res = await fetch("/api/decks/" + encodeURIComponent(deckId) + "/composition/selection", { method: "DELETE" });
+            if (!res.ok) { setPickerMsg("Reset failed.", "error"); return; }
+            setPickerMsg("Reset to auto.", "ok");
+            location.reload();
+        } catch (e) {
+            setPickerMsg("Network error.", "error");
+        }
+    });
+
+    loadPickerPresets().then(loadPickerSelection);
 });
 </script>
 {% endblock %}
