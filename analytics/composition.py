@@ -114,6 +114,18 @@ def set_template_override(r, deck: dict, values: Mapping) -> dict:
     return get_template(r, deck)
 
 
+def reset_row(r, deck: dict, key: str) -> dict:
+    """Drop one row's override (back to the default); other overridden rows stay."""
+    if key not in DEFAULT_TEMPLATE:
+        raise CompositionError(f"unknown template row {key!r}")
+    rest = {k: v for k, v in _load_override(r, deck).items() if k != key}
+    if rest:
+        r.set(override_key(deck), json.dumps(rest, sort_keys=True))
+    else:
+        r.delete(override_key(deck))
+    return get_template(r, deck)
+
+
 def reset_template(r, deck: dict) -> dict:
     r.delete(override_key(deck))
     return get_template(r, deck)
