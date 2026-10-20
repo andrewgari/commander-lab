@@ -570,6 +570,10 @@
         if (STATE.mode === "specific" || STATE.mode === "standard" || STATE.mode === "rapid1v1") {
              var picks = STATE.picks || ["", "", ""];
              if (STATE.mode === "rapid1v1") body.opponents = [picks[0]];
+             else if (STATE.mode === "standard") {
+                 var filled = picks.map(function(p, i) { return p || STANDARD_POD[i][0]; });
+                 if (picks.some(function(x) { return !!x; })) body.opponents = filled;
+             }
              else if (picks.some(function(x) { return !!x; })) body.opponents = picks;
         }
         call("POST", API + "/run", body).then(function (res) {
