@@ -404,9 +404,10 @@ def validate_auto_select(a: Any) -> List[dict]:
     out: List[dict] = []
     if not isinstance(a, Mapping):
         return [issue("E3", "error", "auto_select must be an object.", None)]
-    from deck_genre import ARCHETYPE_IDS
+    from deck_genre import archetype_ids
+    allowed = archetype_ids()
     for arch in a.get("archetypes") or []:
-        if arch not in ARCHETYPE_IDS:
+        if arch not in allowed:
             out.append(issue("E3", "error", f"Unknown archetype '{arch}'.", None, archetype=arch))
     for th in a.get("themes") or []:
         if th != "kindred:*" and check_ref(f"theme:{th}"):
