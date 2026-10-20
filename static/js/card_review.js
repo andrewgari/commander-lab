@@ -523,9 +523,13 @@
             var rawRepl = res.replacements || [];
             if (!rawRepl.length) {
                 var droppedCount = (res.replacement_meta && res.replacement_meta.dropped ? res.replacement_meta.dropped.length : 0);
+                var emptyReason = (droppedCount || 1) + " candidates were considered, but none met the criteria.";
+                if (res.edhrec && res.edhrec.status !== "ok") {
+                    emptyReason = "EDHREC is unavailable or has no data, so no suggestions could be found.";
+                }
                 s.repl = {
                     state: "empty",
-                    reason: (droppedCount || 1) + " candidates were considered, but none met the criteria.",
+                    reason: emptyReason,
                     items: []
                 };
             } else {
