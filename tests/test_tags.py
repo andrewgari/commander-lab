@@ -16,7 +16,7 @@ def test_get_all_tags():
     r = requests.get(f"{BASE_URL}/tags")
     r.raise_for_status()
     data = r.json()
-    tags = data["tags"]
+    tags = data[0]["tags"]
     print(f"Found {len(tags)} unique tags")
     print(f"First 10 tags: {tags[:10]}")
     return tags
@@ -26,10 +26,10 @@ def test_get_card_tags(card_name):
     r = requests.get(f"{BASE_URL}/card/{card_name}/tags")
     r.raise_for_status()
     data = r.json()
-    print(f"Card: {data['card_name']}")
-    print(f"Appears in {data['total_decks']} decks")
+    print(f"Card: {data[0]['card_name']}")
+    print(f"Appears in {data[0]['total_decks']} decks")
     print("Tags:")
-    for tag_info in data["tags"]:
+    for tag_info in data[0]["tags"]:
         confidence_pct = int(tag_info["confidence"] * 100)
         print(f"  - {tag_info['tag']}: {tag_info['count']}/{tag_info['total_decks']} ({confidence_pct}%)")
     return data
