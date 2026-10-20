@@ -3258,6 +3258,7 @@ button.hud-menu-item { width: 100%; box-sizing: border-box; background: none; bo
 .pf-src[data-src="journal"] { color: var(--text-2); }
 .pf-f textarea, .pf-f input[type="text"], .pf-f input[type="number"] { width: 100%; box-sizing: border-box; }
 .pf-f textarea { min-height: 4.5rem; resize: vertical; line-height: var(--lh-base); }
+.pf-f textarea.pf-area--auto { min-height: 2.75rem; resize: none; overflow: hidden; }
 .pf-f[data-src="draft"] textarea, .pf-f[data-src="draft"] input { border-left: 2px solid var(--data); }
 .pf-f[data-src="yours"] textarea, .pf-f[data-src="yours"] input { border-left: 2px solid var(--signal); }
 

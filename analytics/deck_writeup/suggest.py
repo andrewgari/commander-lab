@@ -151,8 +151,30 @@ def suggest_fields(deck: Mapping[str, Any], card_meta: Sequence[Mapping[str, Any
 
 
 def _clip(s: str, n: int) -> str:
+    """Fit `s` within `n` chars as a complete sentence — never hard-truncate with an ellipsis.
+
+    Prefers cutting at the last clause boundary (. ; ,) before the limit, else the last
+    word boundary, then ensures the result ends with terminal punctuation.
+    """
     s = " ".join(str(s).split())
-    return s if len(s) <= n else s[: n - 1].rsplit(" ", 1)[0] + "…"
+    if len(s) <= n:
+        return s
+    budget = n - 1  # leave room for a trailing "."
+    window = s[:budget]
+    best = -1
+    for sep in (". ", "; ", ", "):
+        idx = window.rfind(sep)
+        if idx > best:
+            best = idx
+    if best > 0:
+        clause = window[:best].rstrip(" .;,")
+    else:
+        clause = window.rsplit(" ", 1)[0].rstrip(" .;,") if " " in window else window.rstrip(" .;,")
+    if not clause:
+        clause = window.rstrip(" .;,")
+    if not clause.endswith((".", "!", "?")):
+        clause += "."
+    return clause[:n]
 
 
 def win_candidates(spirit: Optional[Mapping[str, Any]], card_meta: Sequence[Mapping[str, Any]],
