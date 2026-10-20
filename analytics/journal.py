@@ -130,13 +130,13 @@ def public(rec: Optional[Mapping]) -> dict:
     return out
 
 
-def _normalize(payload: dict, types=None) -> dict:
+def _normalize(payload: dict, types=None, r=None) -> dict:
     p = copy.deepcopy(payload)
     # Deck Genre (GN): canonical ids / creature-type spelling, deduped, primary never a secondary.
     if "archetype_preferences" in p:
         p["archetype_preferences"] = deck_genre.normalize_archetypes(p["archetype_preferences"])
     if "deck_genre" in p:
-        p["deck_genre"] = deck_genre.normalize_deck_genre(p["deck_genre"], types)
+        p["deck_genre"] = deck_genre.normalize_deck_genre(p["deck_genre"], types, r)
     pl = p.get("target_power_level")
     if isinstance(pl, dict):
         pl.pop("tier", None)  # the tier is derived from the scale, never picked
@@ -170,8 +170,8 @@ def save_journal(r, deck: Mapping, payload: Mapping, snapshot: Optional[dict] = 
     meta = dict((old or {}).get("_journal") or {})
     merged = {k: v for k, v in (old or {}).items() if k != "_journal"}
     merged.update({k: v for k, v in payload.items() if k != "_journal"})
-    merged = _normalize(merged, deck_genre.creature_types(r))
-    ok, errors = validate_intent(merged, strict_coherence=False)
+    merged = _normalize(merged, deck_genre.creature_types(r), r)
+    ok, errors = validate_intent(merged, strict_coherence=False, r=r)
     if not ok:
         raise JournalError("Invalid journal: " + "; ".join(errors), errors)
     rec = public(merged)

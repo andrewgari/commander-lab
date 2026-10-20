@@ -36,9 +36,10 @@ ALLOWED_WIN_CONDITIONS: Set[str] = {
     "lockout",
 }
 
-# The 30 Deck Genre archetype ids (docs/deck_genre_taxonomy.yaml). The original 14 are a
-# subset and keep their ids; deck_genre.py owns the list, labels and cardinality rules.
-ALLOWED_ARCHETYPES: Set[str] = set(deck_genre.ARCHETYPE_IDS)
+def allowed_archetypes(r=None) -> Set[str]:
+    """The Deck Genre archetype ids (Redis-backed, deck_genre.list_archetypes()). r=None
+    falls back to the seed defaults -- see deck_genre.py's module docstring."""
+    return set(deck_genre.archetype_ids(r))
 
 # Mapping between numeric scale and named tier
 POWER_SCALE_TIER_MAP = {
@@ -249,7 +250,7 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
 
 
 def validate_intent(
-    payload: Dict[str, Any], strict_coherence: bool = True
+    payload: Dict[str, Any], strict_coherence: bool = True, r: Any = None
 ) -> Tuple[bool, List[str]]:
     """
     Validate a user intent payload against business rules and constraints.
@@ -502,10 +503,11 @@ def validate_intent(
         if not isinstance(ap, dict):
             errors.append("archetype_preferences must be an object.")
         else:
+            allowed_arch = allowed_archetypes(r)
             prim_arch = ap.get("primary_archetype")
-            if prim_arch is not None and prim_arch not in ALLOWED_ARCHETYPES:
+            if prim_arch is not None and prim_arch not in allowed_arch:
                 errors.append(
-                    f"archetype_preferences.primary_archetype '{prim_arch}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                    f"archetype_preferences.primary_archetype '{prim_arch}' is invalid. Allowed: {sorted(allowed_arch)}"
                 )
 
             sec_arch = ap.get("secondary_archetypes", [])
@@ -513,9 +515,9 @@ def validate_intent(
                 errors.append("archetype_preferences.secondary_archetypes must be a list.")
             else:
                 for item in sec_arch:
-                    if item not in ALLOWED_ARCHETYPES:
+                    if item not in allowed_arch:
                         errors.append(
-                            f"archetype_preferences.secondary_archetypes item '{item}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                            f"archetype_preferences.secondary_archetypes item '{item}' is invalid. Allowed: {sorted(allowed_arch)}"
                         )
 
             excl_arch = ap.get("excluded_archetypes", [])
@@ -523,9 +525,9 @@ def validate_intent(
                 errors.append("archetype_preferences.excluded_archetypes must be a list.")
             else:
                 for item in excl_arch:
-                    if item not in ALLOWED_ARCHETYPES:
+                    if item not in allowed_arch:
                         errors.append(
-                            f"archetype_preferences.excluded_archetypes item '{item}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                            f"archetype_preferences.excluded_archetypes item '{item}' is invalid. Allowed: {sorted(allowed_arch)}"
                         )
 
             # Mutual-exclusivity constraint
@@ -579,7 +581,7 @@ def validate_intent(
 
 
 def parse_user_intent(
-    payload: Optional[Dict[str, Any]] = None, strict_coherence: bool = True
+    payload: Optional[Dict[str, Any]] = None, strict_coherence: bool = True, r: Any = None
 ) -> UserDeckIntent:
     """
     Validate, resolve defaults, and parse a raw payload into a strongly-typed
@@ -589,7 +591,7 @@ def parse_user_intent(
     if payload is None:
         payload = {}
 
-    is_valid, errors = validate_intent(payload, strict_coherence=strict_coherence)
+    is_valid, errors = validate_intent(payload, strict_coherence=strict_coherence, r=r)
     if not is_valid:
         raise ValueError(f"Invalid user intent configuration: {'; '.join(errors)}")
 
