@@ -179,7 +179,7 @@
                 "<b>03</b> which cards earned their slot · <b>04</b> every game, opponents and result.</footer></section>";
         }
         var report = d.sim.report, params = report.params || {};
-        var last = (params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod") +
+        var last = (params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod") +
             " · " + (params.games || "?") + " games";
         return '<details class="hud-tray sm-tray" id="tray"><summary><span>Run new simulation</span><span class="sm-tray-last">Last run: ' + esc(last) + "</span></summary>" +
             '<div class="sm-tray-body">' + builderBody("Run new simulation", mode, pool, picks, games, notes) + "</div></details>";
@@ -229,7 +229,7 @@
         var params = report.params || {}, pod = (report.comparison && report.comparison.pod_breakdown) || {};
         var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
-            chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
+            chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
             chip((params.games || pod.games_played || "?") + " games", "neutral") +
             chip("Won " + (pod.user_wins != null ? pod.user_wins : "?") + " of " + (pod.games_played != null ? pod.games_played : (params.games || "?")), (pod.user_wins || 0) * 4 >= (pod.games_played || 1) ? "ok" : "neutral");
         var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>' +
