@@ -29,6 +29,8 @@ SKILL_NAME = "deck-sim-review"
 RUN_PREFIX = "deck:sim:run:"
 JOB_TTL_S = 7 * 24 * 3600
 OPPONENT_MODES = ("standard", "random", "specific", "rapid1v1")
+RANDOM_POOLS = ("all", "mine")
+DEFAULT_RANDOM_COUNT = 3
 GAME_PRESETS = (20, 60, 5)
 MAX_TEST_GAMES = 100
 MAX_NOTES = 1000
@@ -232,7 +234,16 @@ def validate_params(raw: Any) -> dict:
             raise SimParamError("rapid1v1 mode needs exactly 1 opponent")
     else:
         opponents = []
-    return {"opponent_mode": mode, "games": games, "opponents": opponents, "notes": notes}
+    out = {"opponent_mode": mode, "games": games, "opponents": opponents, "notes": notes}
+    if mode == "random":
+        pool = raw.get("random_pool", "all")
+        if pool not in RANDOM_POOLS:
+            raise SimParamError("random_pool must be 'all' (All decks) or 'mine' (My decks only)")
+        count = raw.get("opponent_count", DEFAULT_RANDOM_COUNT)
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 5:
+            raise SimParamError("opponent_count must be an integer from 1 to 5")
+        out["random_pool"], out["opponent_count"] = pool, count
+    return out
 
 
 # ---------------------------------------------------------------------------------------------
@@ -324,11 +335,25 @@ def build_payload(r, deck: Mapping, params: Mapping, client: sim_client.SimClien
         if missing:
             raise SimParamError(f"opponent deck(s) can't be exported (not a complete 100-card deck): {', '.join(missing)}")
     elif mode == "random":
-        pool = list(by_id.values())
-        random.shuffle(pool)
-        texts = _export_user_decks(pool[:MAX_USER_DECK_EXPORTS])
-        payload["opponent_pool"] = [o["id"] for o in build_opponent_pool(r, client, deck)["opponents"]
-                                    if o["source"] == "precon"] + list(texts)
+        # Mirrors of the tested deck (same registry id or identical list) are never drawn.
+        target_fp = review_metrics.fingerprint(deck)
+        eligible = [d for d in by_id.values() if review_metrics.fingerprint(d) != target_fp]
+        random.shuffle(eligible)
+        texts = _export_user_decks(eligible[:MAX_USER_DECK_EXPORTS])
+        precons: List[str] = []
+        if params.get("random_pool", "all") == "all":
+            precons = [o["id"] for o in build_opponent_pool(r, client, deck)["opponents"] if o["source"] == "precon"]
+        count = params.get("opponent_count", DEFAULT_RANDOM_COUNT)
+        available = len(precons) + len(texts)
+        if available < count:
+            label = "My decks only" if params.get("random_pool") == "mine" else "All decks"
+            raise SimParamError(f"{label} has {available} eligible deck(s) after excluding the tested deck and its "
+                                f"mirrors, but {count} opponent(s) were requested. Lower the opponent count"
+                                + (" or switch to All decks." if label == "My decks only" else "."))
+        payload["opponent_pool"] = precons + list(texts)  # "mine" never includes precons
+        payload["random_pool"] = params.get("random_pool", "all")
+        payload["opponent_count"] = count
+        payload["owned_opponent_ids"] = list(texts)  # flagged for card metrics wherever they land in a pod
     else:
         texts = {}
     if texts:
