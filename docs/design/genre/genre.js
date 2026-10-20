@@ -33,9 +33,9 @@
         return null;
     }
     function hl(text, q) {
-        var i = low(text).indexOf(low(q));
-        if (!q || i < 0) return esc(text);
-        return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + q.trim().length)) + "</mark>" + esc(text.slice(i + q.trim().length));
+        var t = String(q || "").trim(), i = low(text).indexOf(low(t));
+        if (!t || i < 0) return '<span class="hud-tagopt-label">' + esc(text) + '</span>';
+        return '<span class="hud-tagopt-label">' + esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + t.length)) + "</mark>" + esc(text.slice(i + t.length)) + '</span>';
     }
 
     /* Field configs. kind decides chips, search and rules. */
@@ -104,8 +104,8 @@
             var lab = labelOf(kind, v), custom = isCustom(kind, v), tone, star = "";
             if (cfg.primary) {
                 tone = i === 0 ? "signal" : "data";
-                star = i === 0 ? '<span class="hud-chip-star is-on" aria-hidden="true">★</span><span class="hud-sr">Primary: </span>'
-                               : '<button class="hud-chip-star" type="button" data-act="primary" aria-label="Make ' + esc(lab) + ' primary" title="Make primary">☆</button>';
+                star = i === 0 ? '<button class="hud-chip-star is-on" type="button" aria-pressed="true" aria-disabled="true" data-testid="genre-' + kind + '-promote">★<span class="hud-sr">Primary: </span></button>'
+                               : '<button class="hud-chip-star" type="button" data-testid="genre-' + kind + '-promote" data-act="primary" aria-label="Make ' + esc(lab) + ' primary" title="Make primary">☆</button>';
             } else tone = custom ? "ghost hud-chip--custom" : "ghost";
             var title = custom ? (kind === "kindred" ? "Custom: not an official creature type" : "Custom theme") : (cfg.map && cfg.map[v] ? cfg.map[v].desc : "");
             return '<span class="hud-chip hud-chip--' + tone + ' hud-tagchip" data-value="' + esc(v) + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + star +
@@ -221,6 +221,26 @@
                 return '<li role="option" id="' + id + "-o" + r.idx + '" aria-selected="false"' + (r.disabled ? ' aria-disabled="true"' : "") + (r.create ? ' class="is-create"' : "") + ' data-i="' + r.idx + '">' + r.html + "</li>";
             }).join("");
             list.hidden = false; input.setAttribute("aria-expanded", "true");
+            
+            // On touch devices, ensure list is visible above the save bar and on screen
+            if (window.matchMedia("(pointer: coarse)").matches) {
+                var rect = box.getBoundingClientRect();
+                var saveBar = document.getElementById("hudSaveBar") || document.getElementById("journalSaveBar");
+                var saveHeight = saveBar && !saveBar.hidden ? saveBar.offsetHeight : 0;
+                var spaceBelow = window.innerHeight - rect.bottom - saveHeight;
+                
+                if (spaceBelow < 200 && rect.top > 250) {
+                    list.style.bottom = "100%";
+                    list.style.top = "auto";
+                    list.style.maxHeight = (rect.top - 20) + "px";
+                } else {
+                    list.style.top = "calc(100% + 2px)";
+                    list.style.bottom = "auto";
+                    list.style.maxHeight = Math.max(100, spaceBelow - 20) + "px";
+                    box.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }
+            
             active = -1;
             // Typing makes the first enabled option active, so Enter picks the best match.
             if (input.value.trim()) move(1);
@@ -264,7 +284,7 @@
             var b = e.target.closest("button"); if (!b || b.disabled || !root.contains(b)) return;
             var c = b.closest(".hud-tagchip"), act = b.getAttribute("data-act");
             if (act === "remove" && c) { remove(c.getAttribute("data-value")); commit(); input.focus(); }
-            else if (act === "primary" && c) { var v = c.getAttribute("data-value"); promote(v); commit(); var s = box.querySelector('.hud-tagchip[data-value="' + CSS.escape(v) + '"] .hud-chip-remove'); if (s) s.focus(); }
+            else if (act === "primary" && c) { var v = c.getAttribute("data-value"); promote(v); commit(); var s = box.querySelector('.hud-tagchip[data-value="' + CSS.escape(v) + '"] .hud-chip-star'); if (s) s.focus(); }
             else if (act === "more") { moreOpen = !moreOpen; render(); var m = picks.querySelector('[data-act="more"]'); if (m) m.focus(); }
             else if (b.hasAttribute("data-add")) {
                 if (add(b.getAttribute("data-add"))) commit();

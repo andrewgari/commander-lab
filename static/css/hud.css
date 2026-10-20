@@ -2018,6 +2018,7 @@ main.main-content { padding-bottom: var(--sp-16); }
 
 /* Listbox rows: label + one-line description; group headers; "add custom" row. */
 .hud-tagfield .hud-picker-list [role="option"] { display: flex; flex-direction: column; gap: 1px; font: var(--fs-sm) var(--font-sans); }
+.hud-tagopt-label { display: inline; }
 .hud-tagfield .hud-picker-list [role="option"] small { color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); }
 .hud-tagfield .hud-picker-list [role="option"] mark { background: none; color: var(--signal); }
 /* Already-added rows: no hover bar (a 0-width inset shadow, the only shadow form the kit allows). */
@@ -2050,9 +2051,12 @@ a.hud-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--foc
     .hud-genre-strip .hud-chip-more-desktop { display: none; }
     .hud-genre-strip .hud-chip-more-phone { display: inline-flex; }
     .hud-tagfield .hud-picker .hud-chip, .hud-tagfield .hud-picker input { height: 1.75rem; }
-    .hud-chip-remove, .hud-chip-star { min-width: 1.5rem; min-height: 1.5rem; }
     .hud-tagopt { height: 2rem; }
     .hud-tagfield .hud-picker input { min-width: 100%; }
+}
+
+@media (pointer: coarse) {
+    .hud-chip-remove, .hud-chip-star { min-width: 2.75rem; min-height: 2.75rem; }
 }
 
 /* =======================================================================
