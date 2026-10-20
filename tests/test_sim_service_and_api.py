@@ -116,7 +116,7 @@ class TestValidation(unittest.TestCase):
             self.assertEqual(svc.validate_params({"games": g})["games"], g)
         p = svc.validate_params({"opponent_mode": "specific", "opponents": ["a", "b", "c"], "notes": "  hi  "})
         self.assertEqual((p["opponents"], p["notes"]), (["a", "b", "c"], "hi"))
-        self.assertEqual(svc.validate_params({"opponent_mode": "random", "opponents": ["a"]})["opponents"], [])
+        self.assertEqual(svc.validate_params({"opponent_mode": "rapid1v1", "opponents": ["a"]})["opponents"], ["a"])
         self.assertEqual(len(svc.validate_params({"notes": "x" * 1000})["notes"]), 1000)
 
 
