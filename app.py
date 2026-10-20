@@ -3417,7 +3417,7 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True, goal: str = "balanced"):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
     mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
@@ -3427,7 +3427,7 @@ async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, 
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
@@ -3472,10 +3472,11 @@ async def api_deck_tune_recompute(deck_id: str, request: Request):
     mode = body.get("mode", "flex")
     in_deck = body.get("in_deck", True)
     buy = body.get("buy", True)
+    goal = body.get("goal", "balanced")
     if not isinstance(in_deck, bool) or not isinstance(buy, bool):
         return _bad_request(tuner_mod.TunerError("in_deck and buy must be booleans."))
     try:
-        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy)
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy, goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     except tune_store.TuneStoreError as exc:
@@ -3509,8 +3510,9 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     mode = body.get("mode", "flex")
     in_deck = bool(body.get("in_deck", True))
     buy = bool(body.get("buy", True))
+    goal = body.get("goal", "balanced")
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain

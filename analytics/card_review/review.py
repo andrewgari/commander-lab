@@ -33,7 +33,7 @@ def _roles(ev: EvaluationResult) -> dict:
 
 def run_review(ev: EvaluationResult, ctx: ReviewContext, deck_names: Sequence[str], *, llm: DebateLLM,
                fact_lookup: FactLookup, rounds: int = cfg.DEFAULT_ROUNDS, annotate: Optional[Annotator] = None,
-               on_event: Optional[Event] = None) -> dict:
+               on_event: Optional[Event] = None, source_lookup=None) -> dict:
     emit = on_event or (lambda e: None)
     name = ev.card.name
     if name_key(name) in {name_key(c) for c in ev.commanders}:
@@ -55,7 +55,7 @@ def run_review(ev: EvaluationResult, ctx: ReviewContext, deck_names: Sequence[st
         emit({"stage": "gate", "gate": "illegal"})
         why = "banned or not legal in Commander" if not ev.card.legal else "outside the commander's colour identity"
         brief = {"mode": "like_for_like", "target_roles": [r.role for r in ev.roles[:1]], "avoid": []}
-        res = suggest_replacements(ev, brief, ctx, deck_names, fact_lookup, annotate)
+        res = suggest_replacements(ev, brief, ctx, deck_names, fact_lookup, annotate, source_lookup=source_lookup)
         return {**base, "verdict": "remove", "confidence": cfg.GATE_ILLEGAL_CONFIDENCE, "gate": "illegal",
                 "key_reasons": [f"Illegal: {why}"], "deciding_tier": "gate", "replacement_brief": brief,
                 "replacements": res["suggestions"], "replacement_meta": _meta(res), "flags": res["flags"]}
@@ -84,7 +84,7 @@ def run_review(ev: EvaluationResult, ctx: ReviewContext, deck_names: Sequence[st
     # --- replacements ---------------------------------------------------------------------------
     if v["verdict"] == "remove":
         emit({"stage": "replacements"})
-        res = suggest_replacements(ev, v["replacement_brief"], ctx, deck_names, fact_lookup, annotate)
+        res = suggest_replacements(ev, v["replacement_brief"], ctx, deck_names, fact_lookup, annotate, source_lookup=source_lookup)
         out.update(replacement_brief=v["replacement_brief"], replacements=res["suggestions"],
                    replacement_meta=_meta(res))
         out["flags"] = flags + res["flags"]

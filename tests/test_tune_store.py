@@ -73,9 +73,9 @@ class Gen:
     def __init__(self):
         self.calls = 0
 
-    def __call__(self, r, deck, mode, in_deck, buy):
+    def __call__(self, r, deck, mode, in_deck, buy, **kw):
         self.calls += 1
-        return {"n": self.calls, "mode": mode, "swaps": []}
+        return {"n": self.calls, "mode": mode, "swaps": [], "goal": kw.get("goal", "balanced")}
 
 
 def actives(r, deck_id="archidekt:417707"):
@@ -107,7 +107,7 @@ class TestStore(unittest.TestCase):
         self.assertTrue(old["archived_at"])
         stored_old = ts._load(self.r, first["id"])  # persisted, not deleted, payload intact
         self.assertEqual((stored_old["status"], stored_old["payload"]["n"]), ("archived", 1))
-        self.assertEqual(second["params"], {"mode": "best", "in_deck": False, "buy": False})
+        self.assertEqual(second["params"], {"mode": "best", "in_deck": False, "buy": False, "goal": "balanced"})
         self.assertEqual(ts.get_active(self.r, "archidekt:417707")["id"], second["id"])
 
     def test_only_one_active_per_deck(self):
@@ -123,7 +123,7 @@ class TestStore(unittest.TestCase):
     def test_failed_generation_keeps_previous_active(self):
         first, _ = ts.recompute(self.r, DECK, self.gen)
 
-        def boom(*a):
+        def boom(*a, **kw):
             raise tuner.TunerError("nope")
 
         with self.assertRaises(tuner.TunerError):

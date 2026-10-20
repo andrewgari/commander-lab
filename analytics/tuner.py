@@ -120,15 +120,32 @@ def _rid(deck: Mapping) -> str:
 
 
 def score(edges: int, p75: float, fit: Optional[float], inclusion: Optional[float], has_pillars: bool,
-          has_edhrec: bool, played: Optional[float] = None) -> float:
-    parts = [min(1.0, max(0.0, (edges or 0) / (p75 or 1.0)))]
+          has_edhrec: bool, played: Optional[float] = None, goal: str = "balanced") -> float:
+    edge_val = min(1.0, max(0.0, (edges or 0) / (p75 or 1.0)))
+    fit_val = min(1.0, max(0.0, fit if fit is not None else 0.0))
+    inc_val = min(1.0, max(0.0, (inclusion or 0.0) / EDHREC_FULL))
+    played_val = min(1.0, max(0.0, played if played is not None else 0.0))
+
+    w_edge, w_fit, w_inc, w_played = 1.0, 1.0, 1.0, 1.0
+    if goal == "efficiency":
+        w_edge, w_fit, w_inc, w_played = 0.8, 1.0, 1.0, 1.5
+    elif goal == "expression":
+        w_edge, w_fit, w_inc, w_played = 1.0, 1.5, 0.25, 0.8
+    elif goal == "synergy":
+        w_edge, w_fit, w_inc, w_played = 1.5, 1.0, 0.5, 1.0
+    else:  # balanced / default
+        w_edge, w_fit, w_inc, w_played = 1.0, 1.0, 1.0, 1.0
+
+    parts, weights = [], []
+    parts.append(edge_val); weights.append(w_edge)
     if has_pillars:
-        parts.append(min(1.0, max(0.0, fit if fit is not None else 0.0)))
+        parts.append(fit_val); weights.append(w_fit)
     if has_edhrec:
-        parts.append(min(1.0, max(0.0, (inclusion or 0.0) / EDHREC_FULL)))
-    if played is not None:  # AN-7 card2vec: only when the model knows the card
-        parts.append(min(1.0, max(0.0, played)))
-    return round(sum(parts) / len(parts), 4)
+        parts.append(inc_val); weights.append(w_inc)
+    if played is not None:
+        parts.append(played_val); weights.append(w_played)
+        
+    return round(sum(p * w for p, w in zip(parts, weights)) / (sum(weights) or 1.0), 4)
 
 
 def in_identity(card_colors: Optional[str], deck_colors: Optional[str]) -> bool:
@@ -378,7 +395,7 @@ def _signed(d: float) -> str:
 
 
 def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: int = 3,
-                donors: Optional[Any] = None, used_y: Optional[set] = None, best: bool = False) -> List[dict]:
+                donors: Optional[Any] = None, used_y: Optional[set] = None, best: bool = False, goal: str = "balanced") -> List[dict]:
     """Rows 2+ short. An owned card sleeved in another deck is listed only when
     that deck gets a replacement that leaves it no worse off (AN-8)."""
     out = []
@@ -441,6 +458,18 @@ def shape_fixes(comp_rows: List[dict], cands: List[dict], deck: Mapping, limit: 
                     "gap": row["delta"], "owned": [c["name"] for c in owned], "free": [c["name"] for c in free],
                     "steals": [{"name": c["name"], **t, "steal_line": steal_line(c["name"], t)} for c, t in elsewhere],
                     "advice": advice, "action": action})
+
+    if goal == "efficiency":
+        out.sort(key=lambda x: (0 if x["key"] in ("ramp", "draw", "removal", "lands") else 1, x["gap"]))
+        for x in out: x["advice"] = ("Efficiency focus: " if x["key"] in ("ramp", "draw", "removal", "lands") else "") + x["advice"]
+    elif goal == "synergy":
+        out.sort(key=lambda x: (0 if x["key"] in ("glue", "plan", "commander") else 1, x["gap"]))
+        for x in out: x["advice"] = ("Synergy focus: " if x["key"] in ("glue", "plan") else "") + x["advice"]
+    elif goal == "expression":
+        # Any row could be expression, but usually non-lands.
+        out.sort(key=lambda x: (1 if x["key"] == "lands" else 0, x["gap"]))
+        for x in out: x["advice"] = ("Expression focus: " if x["key"] != "lands" else "") + x["advice"]
+
     return out
 
 
@@ -449,7 +478,7 @@ HIDDEN_LIST_MAX = 10  # most hidden cards listed per swap; hidden_hard is still 
 
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
                p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "flex", in_deck: bool = True, buy: bool = True,
-               pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
+               goal: str = "balanced", pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
                donors: Optional[Any] = None) -> dict:
     """`donors` (AN-8): {deck name: donor context} (see donor_trade), usually a
     lazy DonorBook. A card sleeved in another deck is an option only when that
@@ -488,7 +517,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         elif c.get("price") is None:
             continue  # an unpriced card can't be a buy
         c["score"] = score(c.get("edges", 0), p75, c.get("fit"), c.get("inclusion"), has_pillars, has_edhrec,
-                           _played(c.get("played")))
+                           _played(c.get("played")), goal=goal)
         _price_buy(c, caps)
         pool.append(c)
     pool.sort(key=lambda c: (-c["adj"], -c["score"], c["name"]))
@@ -511,7 +540,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         if dec.get("decision") == "dismissed":
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
-                          _played(w.get("played")))
+                          _played(w.get("played")), goal=goal)
         fits = [c for c in pool if c["name"] not in used and c["name"] not in used_y
                 and _role_ok(w.get("rows") or [], c)
                 and c["adj"] >= cut_score + MIN_UPGRADE]
@@ -623,7 +652,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     fixes = shape_fixes(composition.get("rows") or [], pool, deck, donors=donors, used_y=used_y, best=best_mode)
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
-        "mode": mode, "in_deck": in_deck, "buy": buy, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
+        "mode": mode, "in_deck": in_deck, "buy": buy, "goal": goal, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
         "weak": weak_table, "pet_notice": notice,
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
@@ -1131,7 +1160,7 @@ class DonorBook:
         return out
 
 
-def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: bool = True, embedder=None,
+def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: bool = True, goal: str = "balanced", embedder=None,
             fetch_prices: Optional[Callable] = None, scryfall=None, donors: Optional[Any] = None) -> dict:
     """Full Tune payload for one deck (GET /api/decks/{id}/tune)."""
     from . import embeddings
@@ -1160,7 +1189,7 @@ def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: boo
     state = load_state(r, deck)
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,
-                     in_deck=in_deck, buy=buy, pets=pets, state=state,
+                     in_deck=in_deck, buy=buy, goal=goal, pets=pets, state=state,
                      donors=donors if donors is not None else DonorBook(r, deck, embedder=emb))
     attach_cached_prose(r, deck, out)
     price_ages = []
