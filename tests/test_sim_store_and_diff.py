@@ -94,6 +94,9 @@ class FakeRedis:
         self.kv[k] = v
         return True
 
+    def delete(self, *keys):
+        return sum(self.kv.pop(k, None) is not None for k in keys)
+
 
 class FakeResp(io.BytesIO):
     def __enter__(self):
