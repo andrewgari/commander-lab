@@ -159,47 +159,6 @@ def slugify(name: str) -> str:
     return s or "archetype"
 
 
-# -- seeds (ported from the Deep Review genre registry's draft themes, which already
-#    described real deck archetypes) ------------------------------------------------------------
-
-def _roles(*rows) -> List[dict]:
-    return [{"tag": t, "min_count": n, "weight": w} for t, n, w in rows]
-
-
-SEED_ARCHETYPES: Tuple[dict, ...] = (
-    {"id": "aristocrats", "name": "Aristocrats",
-     "description": "Sacrifice creatures for value: outlets, death triggers and fodder, drained out as damage or life loss.",
-     "required_roles": _roles(("produces:sacrifice", 3, 2), ("consumes:death", 4, 2), ("produces:tokens", 4, 1), ("produces:life_loss", 2, 1))},
-    {"id": "storm", "name": "Storm",
-     "description": "Chain many cheap spells in one turn with mana and card flow, then cash in with a payoff.",
-     "required_roles": _roles(("produces:mana", 7, 2), ("consumes:spells", 10, 2), ("produces:cards", 6, 1), ("produces:spells", 10, 1))},
-    {"id": "spellslinger", "name": "Spellslinger",
-     "description": "Instants and sorceries as the engine: magecraft and prowess payoffs, cheap spells and card flow.",
-     "required_roles": _roles(("produces:spells", 12, 2), ("consumes:spells", 6, 2), ("produces:cards", 6, 1))},
-    {"id": "voltron", "name": "Voltron",
-     "description": "Win through one heavily equipped or enchanted attacker: attack enablers, attack payoffs, auras and equipment.",
-     "required_roles": _roles(("produces:attacks", 4, 2), ("consumes:attacks", 4, 2), ("consumes:artifacts", 3, 1), ("consumes:enchantments", 3, 1))},
-    {"id": "tokens", "name": "Tokens",
-     "description": "Make many tokens, then go wide with anthems and token payoffs.",
-     "required_roles": _roles(("produces:tokens", 10, 2), ("consumes:tokens", 5, 2), ("consumes:etb", 3, 1))},
-    {"id": "plus-one-counters", "name": "+1/+1 counters",
-     "description": "Put counters on things, multiply them (doublers, proliferate) and pay off having them.",
-     "required_roles": _roles(("produces:counters", 8, 2), ("consumes:counters", 6, 2))},
-    {"id": "reanimator", "name": "Reanimator",
-     "description": "Fill the graveyard, then return big creatures to the battlefield cheaply.",
-     "required_roles": _roles(("produces:graveyard", 6, 2), ("consumes:graveyard", 6, 2), ("produces:etb", 3, 1))},
-    {"id": "landfall", "name": "Landfall",
-     "description": "Extra land drops and fetches, paid off whenever a land enters.",
-     "required_roles": _roles(("produces:lands", 8, 2), ("consumes:lands", 6, 2))},
-    {"id": "stax", "name": "Stax",
-     "description": "Tax or lock the table's resources while you run ahead on mana. Edit to taste.",
-     "required_roles": _roles(("produces:mana", 8, 2), ("produces:artifacts", 4, 1), ("consumes:artifacts", 3, 1))},
-    {"id": "group-hug", "name": "Group hug",
-     "description": "Give every player cards, mana or life and steer the table with the goodwill.",
-     "required_roles": _roles(("produces:cards", 6, 1), ("produces:mana", 6, 1), ("produces:life_gain", 3, 1))},
-)
-
-
 # -- storage ----------------------------------------------------------------------------------
 
 # Read-modify-write of the single ``archetypes`` JSON key: serialise writers so concurrent
@@ -232,14 +191,8 @@ def get_version(r) -> int:
 
 
 def ensure_seeded(r) -> None:
-    """First read creates the registry from SEED_ARCHETYPES. NX so two racers seed once."""
-    if r.get(ARCHETYPES_KEY) is not None:
-        return
-    now = _now()
-    seeds = [{**s, "required_roles": [dict(x) for x in s["required_roles"]], "source": "user",
-              "draft": True, "updated_at": now} for s in SEED_ARCHETYPES]
-    if r.set(ARCHETYPES_KEY, json.dumps(seeds), nx=True):
-        _bump(r)
+    """No-op: the registry starts empty and stays empty until a user creates an archetype."""
+    return
 
 
 def _load(r) -> List[dict]:

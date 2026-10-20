@@ -2524,7 +2524,7 @@ async def api_brackets(refresh: bool = False):
 async def api_deck_engines(deck_id: str):
     """Engines detected in the deck's interaction graph: resource chains
     (sources -> converters -> payoffs, with fuel) and two-card loops, each
-    named ("Aristocrats: tokens → sac → drain") and scored."""
+    named by the dominant resource (e.g. "tokens → sacrifice → drain") and scored."""
     deck = _find_deck_any(deck_id)
     if not deck:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})

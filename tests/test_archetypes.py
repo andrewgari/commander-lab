@@ -36,18 +36,14 @@ class TestStore(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
 
-    def test_seeds_on_first_read_once(self):
-        names = {a["name"] for a in AR.list_archetypes(self.r)}
-        self.assertEqual(len(names), len(AR.SEED_ARCHETYPES))
-        for want in ("Aristocrats", "Storm", "Voltron", "Tokens", "Landfall"):
-            self.assertIn(want, names)
-        self.assertEqual(AR.get_version(self.r), 1)
+    def test_starts_empty_no_seed_call(self):
+        """No built-in seed data: an unread registry is simply absent, and reading it
+        never materializes anything -- it stays an empty list with version 0."""
+        self.assertEqual(AR.list_archetypes(self.r), [])
+        self.assertEqual(AR.get_version(self.r), 0)
+        self.assertIsNone(self.r.get(AR.ARCHETYPES_KEY))
         AR.list_archetypes(self.r)
-        self.assertEqual(AR.get_version(self.r), 1)  # reading never bumps
-
-    def test_seeds_use_valid_vocabulary(self):
-        for s in AR.SEED_ARCHETYPES:
-            self.assertEqual(AR.clean_roles(s["required_roles"]), s["required_roles"], s["id"])
+        self.assertEqual(AR.get_version(self.r), 0)  # reading never bumps or seeds
 
     def test_crud_and_version_bump(self):
         v0 = AR.get_version(self.r)
@@ -63,6 +59,7 @@ class TestStore(unittest.TestCase):
             AR.get_archetype(self.r, "sac-package")
 
     def test_failed_write_does_not_bump(self):
+        AR.create_archetype(self.r, {"name": "Storm"})
         v = AR.get_version(self.r)
         for body in ({"name": ""}, {"name": "X", "required_roles": [{"tag": "produces:nope"}]}, {"name": "Storm"}):
             with self.assertRaises(AR.ArchetypeError):
@@ -158,6 +155,11 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.json()
         self.assertTrue(body["success"])
+        created0 = self.client.post("/api/archetypes", json={"name": "Seed", "description": "d",
+                                                              "required_roles": [ROLE]})
+        self.assertEqual(created0.status_code, 201)
+        res = self.client.get("/api/archetypes")
+        body = res.json()
         self.assertTrue(len(body["archetypes"]) >= 1)
         self.assertTrue(len(body["vocabulary"]) >= 1)
 
