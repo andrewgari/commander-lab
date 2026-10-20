@@ -65,7 +65,8 @@
         var modes = [
             ["standard", "Standard pod", "Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game.", "Full curve + card metrics"],
             ["random", "Random each game", "Three new opponents on every game, from Forge precons and your synced decks.", "Game log + outcomes only"],
-            ["specific", "Specific 3", "You pick all three from precons and synced decks. Fixed for the run.", "Full curve + card metrics"]
+            ["specific", "Specific 3", "You pick all three from precons and synced decks. Fixed for the run.", "Full curve + card metrics"],
+            ["rapid1v1", "Rapid 1v1", "Test against a single opponent. 5 games. Fastest way to see how a specific matchup plays.", "1v1 game logs"]
         ];
         return '<div class="sm-modes" role="radiogroup" aria-labelledby="lgMode">' + modes.map(function (m) {
             return '<div class="sm-mode"><input type="radio" name="mode" id="m-' + m[0] + '" value="' + m[0] + '"' + (mode === m[0] ? " checked" : "") + '>' +
@@ -111,17 +112,20 @@
         if (d.length) out += '<li class="sm-combo-group" role="presentation">Your synced decks · ' + decks.length + "</li>" + d.map(row).join("");
         return out;
     }
-    function pickers(pool, picks) {
+    function pickers(pool, picks, count) {
+        count = count || 3;
         var ai = ["Reckless", "Default", "Cautious"];
         var opts = (pool && pool.opponents) || [];
         var byId = {}; opts.forEach(function (o) { byId[o.id] = o; });
         var taken = {}; picks.forEach(function (id, k) { if (id) taken[id] = k + 2; });
-        return '<div class="sm-pickers">' + [0, 1, 2].map(function (k) {
+        var arr = [];
+        for (var k = 0; k < count; k++) arr.push(k);
+        return '<div class="sm-pickers">' + arr.map(function (k) {
             var val = picks[k] ? (byId[picks[k]] ? byId[picks[k]].name : picks[k]) : "";
-            return '<div class="sm-combo" data-seat="' + k + '"><label for="opp' + k + '"><b>Seat ' + (k + 2) + "</b> · " + ai[k] + '</label>' +
-                '<input id="opp' + k + '" role="combobox" aria-expanded="false" aria-controls="lb' + k + '" aria-autocomplete="list" autocomplete="off" ' +
+            return '<div class="sm-combo" data-seat="' + k + '"><label for="opp' + count + '_' + k + '"><b>Seat ' + (k + 2) + "</b> · " + ai[k] + '</label>' +
+                '<input id="opp' + count + '_' + k + '" role="combobox" aria-expanded="false" aria-controls="lb' + count + '_' + k + '" aria-autocomplete="list" autocomplete="off" ' +
                 'placeholder="Search ' + opts.length + ' decks…" value="' + esc(val) + '" data-value="' + esc(picks[k] || "") + '">' +
-                '<ul class="sm-combo-list" id="lb' + k + '" role="listbox" aria-label="Seat ' + (k + 2) + ' opponent" hidden>' +
+                '<ul class="sm-combo-list" id="lb' + count + '_' + k + '" role="listbox" aria-label="Seat ' + (k + 2) + ' opponent" hidden>' +
                 comboRows(opts.map(function (o) { return Object.assign({ _seatKey: k + 2 }, o); }), taken, "") + "</ul>" +
                 '<p class="sm-combo-err" role="alert" hidden></p></div>';
         }).join("") + "</div>";
@@ -135,14 +139,17 @@
             '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '><p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> Three distinct decks drawn at random from <b style="color:var(--text-1)">' +
             opps.length + '</b>: ' + preconCount + " Forge precons plus " + syncedCount +
             ' of your synced decks. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p></div>' +
-            '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks) +
-            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Seat order sets the AI: Reckless, Default, Cautious. A deck can only sit in one seat.</p></div>';
+            '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks, 3) +
+            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Seat order sets the AI: Reckless, Default, Cautious. A deck can only sit in one seat.</p></div>' +
+            '<div class="sm-opp" id="oppRapid1v1"' + (mode === "rapid1v1" ? "" : " hidden") + '>' + pickers(pool, picks, 1) +
+            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Test 1v1 matchup.</p></div>';
     }
     function builderBody(btnLabel, mode, pool, picks, games, notes) {
         return '<form id="simForm" class="sm-form" novalidate>' +
             '<fieldset><legend id="lgMode">Opponents</legend>' + modeTiles(mode) + "</fieldset>" + detail(mode, pool, picks) +
             '<fieldset><legend id="lgGames">Games</legend><div class="sm-count"><div class="hud-seg" role="radiogroup" aria-labelledby="lgGames">' +
-            '<input type="radio" name="games" id="g20" value="20"' + (games === 60 ? "" : " checked") + '><label for="g20">20 games · ~10 min</label>' +
+            '<input type="radio" name="games" id="g5" value="5"' + (games === 5 ? " checked" : "") + '><label for="g5">5 games · ~2 min</label>' +
+            '<input type="radio" name="games" id="g20" value="20"' + (games === 20 ? " checked" : "") + '><label for="g20">20 games · ~10 min</label>' +
             '<input type="radio" name="games" id="g60" value="60"' + (games === 60 ? " checked" : "") + '><label for="g60">60 games · ~30 min</label></div>' +
             '<span class="sm-count-note">More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it.</span></div></fieldset>' +
             '<div class="hud-field"><label for="notes">Test notes <span class="hud-muted">(optional)</span></label>' +
@@ -164,7 +171,7 @@
                 "<b>03</b> which cards earned their slot · <b>04</b> every game, opponents and result.</footer></section>";
         }
         var report = d.sim.report, params = report.params || {};
-        var last = (params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : "Standard pod") +
+        var last = (params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod") +
             " · " + (params.games || "?") + " games";
         return '<details class="hud-tray sm-tray" id="tray"><summary><span>Run new simulation</span><span class="sm-tray-last">Last run: ' + esc(last) + "</span></summary>" +
             '<div class="sm-tray-body">' + builderBody("Run new simulation", mode, pool, picks, games, notes) + "</div></details>";
@@ -214,7 +221,7 @@
         var params = report.params || {}, pod = (report.comparison && report.comparison.pod_breakdown) || {};
         var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
-            chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : "Standard pod", "data") +
+            chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific 3" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
             chip((params.games || pod.games_played || "?") + " games", "neutral") +
             chip("Won " + (pod.user_wins != null ? pod.user_wins : "?") + " of " + (pod.games_played != null ? pod.games_played : (params.games || "?")), (pod.user_wins || 0) * 4 >= (pod.games_played || 1) ? "ok" : "neutral");
         var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>' +
@@ -452,9 +459,18 @@
         document.querySelectorAll('input[name="mode"]').forEach(function (rb) {
             rb.addEventListener("change", function () {
                 STATE.mode = rb.value;
-                ["Standard", "Random", "Specific"].forEach(function (n) {
+                if (STATE.mode === "rapid1v1") {
+                    STATE.games = 5;
+                    var g5 = $("g5");
+                    if (g5) g5.checked = true;
+                } else if (STATE.games === 5) {
+                    STATE.games = 20;
+                    var g20 = $("g20");
+                    if (g20) g20.checked = true;
+                }
+                ["Standard", "Random", "Specific", "Rapid1v1"].forEach(function (n) {
                     var el = $("opp" + n);
-                    if (el) el.hidden = n.toLowerCase() !== rb.value;
+                    if (el) el.hidden = n.toLowerCase() !== rb.value.toLowerCase();
                 });
             });
         });
@@ -524,11 +540,13 @@
     }
 
     function validate() {
-        if (STATE.mode !== "specific") return true;
+        if (STATE.mode !== "specific" && STATE.mode !== "rapid1v1") return true;
         var picks = STATE.picks || ["", "", ""];
-        for (var i = 0; i < 3; i++) {
+        var count = STATE.mode === "rapid1v1" ? 1 : 3;
+        for (var i = 0; i < count; i++) {
             if (!picks[i]) {
-                var combo = document.querySelector('.sm-combo[data-seat="' + i + '"]');
+                var combo = document.querySelector('.sm-opp:not([hidden]) .sm-combo[data-seat="' + i + '"]');
+                if (!combo) return false;
                 combo.classList.add("is-invalid");
                 var err = combo.querySelector(".sm-combo-err");
                 err.hidden = false; err.textContent = "Pick a deck for Seat " + (i + 2) + ".";
@@ -545,6 +563,7 @@
         btn.disabled = true;
         var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "" };
         if (STATE.mode === "specific") body.opponents = STATE.picks;
+        else if (STATE.mode === "rapid1v1") body.opponents = [STATE.picks[0]];
         call("POST", API + "/run", body).then(function (res) {
             var j = { job_id: res.job_id, started: new Date().toISOString() };
             remember(j);
