@@ -24,7 +24,7 @@ from analytics import composition_presets as cp
 from analytics import presetgen as pg
 from tests.test_identity import JsonProvider
 from tests.test_presetgen_backend import (by_ref, chain, deck_g1, deck_g2, deck_g3, deck_g4,
-                                          pk, preset, slot)
+                                          get_fixture_preset, pk, preset, slot)
 
 
 def draft_from(base_result, mutate=None, name="AI Draft", lands=None):
@@ -279,7 +279,7 @@ class BaselineFixtureTests(unittest.TestCase):
         b = pg.baseline(deck_g3())
         p = b["preset"]
         s = by_ref(p)
-        self.assertEqual(b["selected"]["preset_id"], "tcz_2025")
+        self.assertIsNone(b["selected"]["preset_id"])
         self.assertEqual(p["structure"]["lands"], 39)
         self.assertEqual(s["core:card_advantage"]["target"], 10)   # 12 - 2 (M2), floor 4 does not bind
         self.assertEqual(s["core:card_advantage"]["why"],
@@ -294,7 +294,7 @@ class BaselineFixtureTests(unittest.TestCase):
         b = pg.baseline(deck_g4())
         p = b["preset"]
         s = by_ref(p)
-        self.assertEqual(b["selected"]["preset_id"], "tcz_2025")
+        self.assertIsNone(b["selected"]["preset_id"])
         self.assertEqual(p["structure"]["lands"], 41)
         # before fit: 12 + 12 + 12 + 6 = 42, R = 16; walk: draw 11, wipe 5, draw 10, wipe 4
         self.assertEqual({r: x["target"] for r, x in s.items()},
@@ -307,7 +307,7 @@ class BaselineFixtureTests(unittest.TestCase):
                          "Commander costs 5; ramp floor is 12, giving 70.4% to see one by turn 2.")
         self.assertEqual(s["core:card_advantage"]["why"], "Trimmed to keep 20 cards for the deck's own plan.")
         self.assertEqual(s["core:board_wipe"]["why"], "Trimmed to keep 20 cards for the deck's own plan.")
-        self.assertEqual(s["group:targeted_interaction"]["why"], "Kept from Command Zone 2025.")
+        self.assertEqual(s["group:targeted_interaction"]["why"], "Kept from Baseline.")
         self.assertEqual({e["ref"]: e["p"] for e in b["reliability"]},
                          {"core:ramp": 0.704, "core:card_advantage": 0.71,
                           "group:targeted_interaction": 0.778, "core:board_wipe": 0.462})
@@ -481,7 +481,7 @@ class ImproveCandidateFixtureTests(unittest.TestCase):
 
     def test_x1_exact_candidate_records(self):
         d = deck_g2()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         out = pg.improve_candidates(d, cur)
         self.assertEqual(out["candidates"], [
             {"id": "c1", "trig": "R3", "priority": "P1", "op": "set", "ref": "core:board_wipe",
@@ -576,7 +576,7 @@ class ImproveCandidateFixtureTests(unittest.TestCase):
 
     def test_x5_r7_plus_gap_survives(self):
         d = deck_g3()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         d["evaluation"]["counts"] = {"core:card_advantage": 8}
         out = pg.improve_candidates(d, cur)
         self.assertEqual([(c["trig"], c["ref"], c["to"]) for c in out["candidates"]],
@@ -656,7 +656,7 @@ class ImproveCandidateFixtureTests(unittest.TestCase):
         self.assertEqual((g["status"], g["need"]), ("low", 3))
         # 'short': count above the floor but below the band (target 12 - BAND 1 = 11): MV 4, no cmd job.
         d2 = pk(mv=4, ci=("W", "U", "B", "G"), avg=3.3, cheap=10, facets={"facet:answers_artifact_enchantment": 9})
-        cur2 = cp.get_builtin("tcz_2025")
+        cur2 = get_fixture_preset("tcz_2025")
         d2["evaluation"]["counts"] = {"core:card_advantage": 10}    # 10 < band_lo 11, >= floor 7 -> short
         out2 = pg.improve_candidates(d2, cur2)
         self.assertEqual(out2["candidates"], [])                    # a deck gap is never an op (A12)
@@ -689,8 +689,8 @@ class ImproveCandidateFixtureTests(unittest.TestCase):
                          [f"c{i}" for i in range(1, len(out["candidates"]) + 1)])
 
     def test_candidate_invariants_never_tutor_or_below_floor(self):
-        for d, cur in ((deck_g1(), cp.get_builtin("standard_36")), (deck_g2(), cp.get_builtin("tcz_2025")),
-                       (deck_g3(), cp.get_builtin("control")), (deck_g4(), cp.get_builtin("go_wide"))):
+        for d, cur in ((deck_g1(), get_fixture_preset("standard_36")), (deck_g2(), get_fixture_preset("tcz_2025")),
+                       (deck_g3(), get_fixture_preset("control")), (deck_g4(), get_fixture_preset("go_wide"))):
             dd = copy.deepcopy(d)
             dd["current_preset"] = copy.deepcopy(cur)
             out = pg.improve_candidates(dd)
@@ -862,7 +862,7 @@ class AiContractTests(unittest.TestCase):
 
     def test_a12_exempt_for_r7_candidate(self):
         d = deck_g3()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         d["evaluation"]["counts"] = {"core:card_advantage": 8}
         cands = pg.improve_candidates(d, cur)["candidates"]
         op = {"candidate_id": "c1", "op": "set", "ref": "core:card_advantage", "to": {"target": 10},
@@ -1040,7 +1040,7 @@ class GenerateImproveStatusTests(unittest.TestCase):
 
     def test_improve_ai_off_applies_top_six(self):
         d = deck_g2()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         res = pg.improve(d, None, preset=cur)
         self.assertEqual(res["ai"], {"status": "off", "reason": "no_llm"})
         self.assertEqual([o["candidate_id"] for o in res["ops"]], ["c1", "c2", "c3"])
@@ -1077,7 +1077,7 @@ class GenerateImproveStatusTests(unittest.TestCase):
 
     def test_improve_success_rewords_and_marks_ok(self):
         d = deck_g2()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         cands = pg.improve_candidates(d, cur)["candidates"]
         ops = [{"candidate_id": c["id"], "op": c["op"], "ref": c["ref"], "to": c["to"], "why": "Reworded."}
                for c in cands]
@@ -1118,7 +1118,7 @@ class GenerateImproveStatusTests(unittest.TestCase):
 
     def test_improve_original_preset_untouched(self):
         d = deck_g2()
-        cur = cp.get_builtin("tcz_2025")
+        cur = get_fixture_preset("tcz_2025")
         before = copy.deepcopy(cur)
         pg.improve(d, None, preset=cur)
         self.assertEqual(cur, before)

@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from analytics import composition as comp
-from autotag.engine import THEME_TAGS
+from autotag import engine as autotag_engine
 
 SPEC_VERSION = "categories-v1"
 GLOBAL_KEY = "categories:global"
@@ -157,7 +157,14 @@ def check_name(name: Any) -> str:
     return name
 
 
-def validate_rule(rule: Any) -> str:
+def theme_tags(r: Any = None) -> List[str]:
+    """Current theme-tag vocabulary (autotag/tag_registry.py), refreshed if ``r`` is given."""
+    if r is not None:
+        autotag_engine.load_tag_vocab(r)
+    return list(autotag_engine.THEME_TAGS)
+
+
+def validate_rule(rule: Any, r: Any = None) -> str:
     """'' or 'kind:value' with kind in RULE_KINDS. autotag values must be a theme tag."""
     if rule in (None, ""):
         return ""
@@ -171,12 +178,14 @@ def validate_rule(rule: Any) -> str:
         raise CategoryError(f"A rule value is 1-{RULE_VALUE_MAX} characters.", 400, "rule")
     if kind == "autotag":
         value = value.lower()
-        if value not in THEME_TAGS:
+        if r is not None:
+            autotag_engine.load_tag_vocab(r)
+        if value not in autotag_engine.THEME_TAGS:
             raise CategoryError(f"“{value}” is not an autotag theme.", 400, "rule")
     return f"{kind}:{value}"
 
 
-def _clean_fields(body: Any, base: Optional[dict] = None) -> dict:
+def _clean_fields(body: Any, base: Optional[dict] = None, r: Any = None) -> dict:
     if not isinstance(body, dict):
         raise CategoryError("Body must be a JSON object.", 400)
     base = base or {}
@@ -199,7 +208,7 @@ def _clean_fields(body: Any, base: Optional[dict] = None) -> dict:
     pillar = pick("pillar_id") or ""
     if not isinstance(pillar, str) or len(pillar) > 64:
         raise CategoryError("pillar_id must be a short string.", 400)
-    return {"name": name, "description": desc, "group": group, "rule": validate_rule(pick("rule")),
+    return {"name": name, "description": desc, "group": group, "rule": validate_rule(pick("rule"), r),
             "pillar_id": pillar}
 
 
@@ -293,7 +302,7 @@ def create(r, body: Any, registry_id: Optional[str] = None) -> dict:
         raise CategoryError("scope must be global or deck.", 400)
     if scope == "deck" and not registry_id:
         raise CategoryError("A deck category needs a deck.", 400)
-    f = _clean_fields(body)
+    f = _clean_fields(body, r=r)
     if scope == "global":
         f["pillar_id"] = ""
     if _name_clash(r, f["name"], scope, registry_id, None):
@@ -321,7 +330,7 @@ def update(r, cat_id: str, body: Any, registry_id: Optional[str] = None) -> dict
     if isinstance(body, dict) and "scope" in body:
         raise CategoryError("A category's scope can't change. Use Make global.", 400)
     cat, key, scope = find(r, cat_id, registry_id)
-    f = _clean_fields(body, base=cat)
+    f = _clean_fields(body, base=cat, r=r)
     if scope == "global":
         f["pillar_id"] = ""
     if _name_clash(r, f["name"], scope, registry_id, cat_id):
@@ -531,7 +540,7 @@ def theme_suggestions(deck_tags: Iterable[str], deck_cats: Iterable[dict]) -> Li
     out, seen = [], set()
     for t in deck_tags:
         t = str(t)
-        if t in THEME_TAGS:
+        if t in autotag_engine.THEME_TAGS:
             theme, rule = t, f"autotag:{t}"
         elif t.startswith("kindred:") and t[8:]:
             theme, rule = t, f"kindred:{t[8:].title()}"

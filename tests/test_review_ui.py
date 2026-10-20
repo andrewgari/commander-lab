@@ -100,7 +100,7 @@ class TestSectionRenderers(unittest.TestCase):
 
     def test_composition(self):
         h = render(_section("composition"))
-        self.assertIn("vs Command Zone 2025", h)
+        self.assertIn("vs Default", h)
         self.assertIn('data-row="lands"', h)
         self.assertIn("−6", h)
         self.assertIn("hud-chip--danger", h)  # status short

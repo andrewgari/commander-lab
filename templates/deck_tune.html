@@ -39,12 +39,19 @@
 
 {% block content %}
 {% call dh.header(head, tab) %}
+    <span class="hud-chip hud-chip--signal" id="activeGoalBadge" style="margin-right:auto;text-transform:capitalize" hidden></span>
     <span class="hud-freshness" id="tuneGenerated" aria-live="polite" hidden></span>
     <button class="hud-btn" type="button" id="recompute" title="Runs the tuner again and saves the result. The current saved recommendation is archived, not deleted." disabled>Recompute</button>
 {% endcall %}
 <p class="tn-error" id="recomputeError" role="alert"></p>
 
 <div class="hud-filterbar">
+    <span class="hud-seg" role="radiogroup" aria-label="Goal preference">
+        <input type="radio" name="goal" id="goal-balanced" value="balanced" checked><label for="goal-balanced">Balanced</label>
+        <input type="radio" name="goal" id="goal-synergy" value="synergy"><label for="goal-synergy">Synergy</label>
+        <input type="radio" name="goal" id="goal-efficiency" value="efficiency"><label for="goal-efficiency">Card efficiency</label>
+        <input type="radio" name="goal" id="goal-expression" value="expression"><label for="goal-expression">Expression/Uniqueness</label>
+    </span>
     <span class="hud-seg" role="radiogroup" aria-label="Source preference">
         <input type="radio" name="src" id="src-free" value="free"><label for="src-free">Owned, not in a deck</label>
         <input type="radio" name="src" id="src-flex" value="flex" checked><label for="src-flex">Owned, plus in-deck and/or buy</label>
@@ -149,12 +156,13 @@ document.addEventListener("DOMContentLoaded", function () {
     var LEGACY = { owned_only: "free", owned_first: "flex" };
     function normMode(v) { v = LEGACY[v] || v; return v === "free" || v === "best" ? v : "flex"; }
     function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "flex"; }
-    function opts() { return { mode: mode(), in_deck: $("inDeck").checked, buy: $("buy").checked }; }
-    function query() { var o = opts(); return "?mode=" + o.mode + "&in_deck=" + o.in_deck + "&buy=" + o.buy; }
+    function goal() { var x = document.querySelector('input[name="goal"]:checked'); return x ? x.value : "balanced"; }
+    function opts() { return { mode: mode(), in_deck: $("inDeck").checked, buy: $("buy").checked, goal: goal() }; }
+    function query() { var o = opts(); return "?mode=" + o.mode + "&in_deck=" + o.in_deck + "&buy=" + o.buy + "&goal=" + o.goal; }
     function syncToggles() { $("flexToggles").hidden = mode() !== "flex"; }
     (function restore() {
-        var saved = params.get("mode"); if (!saved) return;
-        var el = document.getElementById("src-" + normMode(saved)); if (el) el.checked = true;
+        var saved = params.get("mode"); if (saved) { var el = document.getElementById("src-" + normMode(saved)); if (el) el.checked = true; }
+        var saved_goal = params.get("goal"); if (saved_goal) { var el2 = document.getElementById("goal-" + saved_goal); if (el2) el2.checked = true; }
     })();
 
     // ---- Filter bar ------------------------------------------------------------------
@@ -360,6 +368,14 @@ document.addEventListener("DOMContentLoaded", function () {
         var pm = p.mode || T.mode || "flex";
         var radio = document.getElementById("src-" + (LEGACY[pm] || pm));
         if (radio) radio.checked = true;
+        var pg = p.goal || T.goal || "balanced";
+        var goalRadio = document.getElementById("goal-" + pg);
+        if (goalRadio) goalRadio.checked = true;
+        var activeGoalBadge = document.getElementById("activeGoalBadge");
+        if (activeGoalBadge) {
+            activeGoalBadge.textContent = "Goal: " + pg;
+            activeGoalBadge.hidden = false;
+        }
         $("inDeck").checked = p.in_deck !== undefined ? !!p.in_deck : true;
         $("buy").checked = p.buy !== undefined ? !!p.buy : true;
         syncToggles();
@@ -481,6 +497,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // The filters apply to the next Recompute; they don't touch the saved result.
     function filtersChanged() { if (REC && !busy) showGenerated("filters changed: Recompute to apply"); }
     document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); filtersChanged(); }); });
+    document.querySelectorAll('input[name="goal"]').forEach(function (x) { x.addEventListener("change", filtersChanged); });
     $("inDeck").addEventListener("change", filtersChanged);
     $("buy").addEventListener("change", filtersChanged);
     syncToggles();

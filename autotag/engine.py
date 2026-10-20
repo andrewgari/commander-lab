@@ -57,27 +57,37 @@ DEFAULT_CONFIG = AutoTagConfig()
 # Tag taxonomy (§1)
 # ---------------------------------------------------------------------------
 
-FUNCTION_TAGS = [
-    "ramp", "card_advantage", "removal", "board_wipe", "counterspell",
-    "finisher", "tutor", "recursion", "protection", "mana_fixing",
-]
+# The vocabulary (which tag ids exist at all) is a Redis-backed, user-editable
+# registry -- see autotag/tag_registry.py for the full design rationale. These
+# module-level names default to the builtin taxonomy (so importing this module
+# without a Redis client, e.g. in unit tests, behaves exactly as before) and
+# get refreshed in place by ``load_tag_vocab(r)``, which callers with a Redis
+# client (app.py) should invoke before running the engine or validating
+# anything against the vocabulary.
+from autotag.tag_registry import BUILTIN_FUNCTION_TAGS, BUILTIN_THEME_TAGS
 
-THEME_TAGS = [
-    "lands_matter", "tokens", "counters", "sacrifice", "graveyard",
-    "spellslinger", "artifacts", "enchantments", "lifegain", "voltron", "blink",
-]
+FUNCTION_TAGS: list[str] = list(BUILTIN_FUNCTION_TAGS)
+THEME_TAGS: list[str] = list(BUILTIN_THEME_TAGS)
+ALL_TAGS: set[str] = set(FUNCTION_TAGS) | set(THEME_TAGS)
 
-ALL_TAGS = set(FUNCTION_TAGS) | set(THEME_TAGS)
+# PRIORITY order (§6.3): function tags, then kindred, then theme tags, in
+# registry order. Derived, not hardcoded -- stays in sync with FUNCTION_TAGS/
+# THEME_TAGS whenever those are reassigned by load_tag_vocab().
+PRIORITY_ORDER: list[str] = FUNCTION_TAGS + ["kindred:*"] + THEME_TAGS
 
 
-# PRIORITY order (§6.3)
-PRIORITY_ORDER: list[str] = (
-    ["ramp", "card_advantage", "removal", "board_wipe", "counterspell",
-     "finisher", "tutor", "protection", "recursion", "mana_fixing"]
-    + ["kindred:*", "tokens", "sacrifice", "artifacts", "enchantments",
-       "counters", "graveyard", "spellslinger", "lands_matter", "lifegain",
-       "voltron", "blink"]
-)
+def load_tag_vocab(r) -> None:
+    """Refresh FUNCTION_TAGS/THEME_TAGS/ALL_TAGS/PRIORITY_ORDER from the Redis
+    tag registry (seeding it from the builtin taxonomy on first use). Every
+    other function in this module reads these as module globals, so
+    reassigning them here takes effect for every call made afterwards."""
+    global FUNCTION_TAGS, THEME_TAGS, ALL_TAGS, PRIORITY_ORDER
+    from autotag import tag_registry
+    tag_registry.ensure_seeded(r)
+    FUNCTION_TAGS = tag_registry.get_function_ids(r)
+    THEME_TAGS = tag_registry.get_theme_ids(r)
+    ALL_TAGS = set(FUNCTION_TAGS) | set(THEME_TAGS)
+    PRIORITY_ORDER = FUNCTION_TAGS + ["kindred:*"] + THEME_TAGS
 
 def _tag_priority(tag: str) -> int:
     if tag.startswith("kindred:"):
@@ -1278,6 +1288,18 @@ def run_auto_tag(deck: dict, config: AutoTagConfig | None = None) -> dict:
 
     deck_tags = compute_deck_tags(themes, cfg)
     health = compute_health(deck, card_results, cfg)
+
+    # Filter against the live vocabulary (§1): a tag string a heuristic rule
+    # still fires for (RULES are hardcoded regexes, see tag_registry.py) but
+    # whose name was deleted from the registry is dropped here rather than
+    # surfaced -- the registry, not the rule table, decides what's a valid
+    # output. kindred:* tags aren't part of the registry and always pass.
+    def _registered(tag: str) -> bool:
+        return tag.startswith("kindred:") or tag in ALL_TAGS
+
+    for c in output_cards:
+        c["tags"] = [t for t in c["tags"] if _registered(t.get("tag", ""))]
+    deck_tags = [t for t in deck_tags if _registered(t.get("tag", ""))]
 
     return {
         "version": cfg.version,

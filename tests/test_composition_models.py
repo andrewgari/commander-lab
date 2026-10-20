@@ -8,24 +8,23 @@ from tests.test_interactions import FakeRedis
 
 from analytics.composition_models import (
     # Constants
-    SPEC_VERSION, DECK_SIZE, FALLBACK_PRESET_ID, MAX_USER_PRESETS, MAX_SLOTS, MAX_OVERRIDES,
+    SPEC_VERSION, DECK_SIZE, MAX_USER_PRESETS, MAX_SLOTS, MAX_OVERRIDES,
     MIN_PLAN_ROOM, MAX_NAME, MAX_DESCRIPTION, MAX_WHY,
-    KIND_BUILTIN, KIND_USER, CONFIDENCES, MODE_AUTO, MODE_PINNED,
+    KIND_USER, CONFIDENCES, MODE_AUTO, MODE_PINNED,
     CORE_IDS, GROUP_IDS, TYPE_IDS, FACET_IDS, FLAG_IDS, FLOORS, SUPERSETS,
     # Refs
     normalize_ref, check_ref,
     # Helpers
     collapse_ws, spells_for, slot_bounds, band_of, plan_room,
-    # Built-ins
-    BUILTIN_PRESETS, BUILTIN_BY_ID, LEGACY_ROW_REFS,
+    # Legacy
+    LEGACY_ROW_REFS,
     # Validation
     issue, errors_of, validate_preset, validate_auto_select, validate_deck_composition,
     normalize_preset, user_preset_id,
     # Exceptions
-    CompositionValidationError, ImmutablePresetError,
+    CompositionValidationError,
     # Auto-selection
     resolve_preset, default_deck_composition,
-    # Legacy
     legacy_override_to_record,
 )
 from analytics.composition_store import (
@@ -54,6 +53,31 @@ def _preset(pid, name, lands, slots, **kw):
                                                               "commander_mv_min": None, "priority": 0}),
         "version": 1, "created_at": None, "updated_at": None,
     }
+
+
+# Literal fixture presets (not production data): used only to give the
+# presetgen-style auto-selection tests concrete things to match against.
+TOKENS_PRESET = _preset("fx-go-wide", "Go Wide (fixture)", 36,
+                        [_slot("core:ramp", 10), _slot("core:card_advantage", 10),
+                         _slot("group:targeted_interaction", 10), _slot("core:board_wipe", max=1)],
+                        auto_select={"archetypes": ["tokens", "aristocrats", "tribal"],
+                                     "themes": ["tokens", "sacrifice", "kindred:*"],
+                                     "commander_mv_min": None, "priority": 0})
+CONTROL_PRESET = _preset("fx-control", "Control (fixture)", 38,
+                         [_slot("core:ramp", 10), _slot("core:card_advantage", 12),
+                          _slot("group:targeted_interaction", 15), _slot("core:board_wipe", 5)],
+                         auto_select={"archetypes": ["control", "stax", "pillowfort"], "themes": [],
+                                      "commander_mv_min": None, "priority": 0})
+GRAVEYARD_PRESET = _preset("fx-graveyard", "Graveyard (fixture)", 37,
+                           [_slot("core:ramp", 10), _slot("core:card_advantage", 8),
+                            _slot("core:recursion", 8), _slot("group:targeted_interaction", 10),
+                            _slot("core:board_wipe", 2), _slot("theme:graveyard", min=10)],
+                           auto_select={"archetypes": ["graveyard", "reanimator"], "themes": ["graveyard"],
+                                        "commander_mv_min": None, "priority": 0})
+DEFAULT_PRESET = _preset("fx-default", "Default (fixture)", 38,
+                         [_slot("core:ramp", 10), _slot("core:card_advantage", 12),
+                          _slot("group:targeted_interaction", 12), _slot("core:board_wipe", 6)])
+ALL_FIXTURES = [TOKENS_PRESET, CONTROL_PRESET, GRAVEYARD_PRESET, DEFAULT_PRESET]
 
 
 # ---------------------------------------------------------------------------
@@ -151,11 +175,12 @@ class TestPresetValidation:
         issues = validate_preset(p2, [p1])
         assert any(i["code"] == "E1" for i in issues)
 
-    def test_reserved_id(self):
+    def test_no_reserved_ids(self):
+        """Every preset is a plain user record now; no id is reserved."""
         p = self._valid()
-        p["id"] = "tcz_2025"
+        p["id"] = "anything-goes"
         issues = validate_preset(p)
-        assert any(i["code"] == "E1" for i in issues)
+        assert not any(i["code"] == "E1" and "reserved" in i["message"] for i in issues)
 
     def test_bad_confidence(self):
         p = self._valid()
@@ -268,51 +293,58 @@ class TestPresetValidation:
 
 class TestAutoSelection:
     def test_pinned(self):
-        rec = {"mode": MODE_PINNED, "preset_id": "tcz_2025"}
-        result = resolve_preset(rec, [])
-        assert result["preset_id"] == "tcz_2025"
+        rec = {"mode": MODE_PINNED, "preset_id": "fx-default"}
+        result = resolve_preset(rec, ALL_FIXTURES)
+        assert result["preset_id"] == "fx-default"
         assert result["mode"] == MODE_PINNED
         assert result["reason"]["step"] == 1
 
-    def test_pinned_missing_fallback(self):
+    def test_pinned_missing_no_fallback(self):
+        """A pinned preset that no longer exists -> no preset selected, not a hardcoded default."""
         rec = {"mode": MODE_PINNED, "preset_id": "nonexistent"}
         result = resolve_preset(rec, [])
-        assert result["preset_id"] == FALLBACK_PRESET_ID
+        assert result["preset_id"] is None
         assert any(i["code"] == "I3" for i in result["issues"])
 
     def test_primary_archetype(self):
         journal = {"archetype_preferences": {"primary_archetype": "tokens"}}
-        result = resolve_preset(None, [], journal=journal)
-        assert result["preset_id"] == "go_wide"
+        result = resolve_preset(None, ALL_FIXTURES, journal=journal)
+        assert result["preset_id"] == "fx-go-wide"
         assert result["reason"]["step"] == 2
 
     def test_secondary_archetype(self):
         journal = {"archetype_preferences": {"secondary_archetypes": ["control"]}}
-        result = resolve_preset(None, [], journal=journal)
-        assert result["preset_id"] == "control"
+        result = resolve_preset(None, ALL_FIXTURES, journal=journal)
+        assert result["preset_id"] == "fx-control"
         assert result["reason"]["step"] == 3
 
     def test_deck_tag_match(self):
-        result = resolve_preset(None, [], deck_tags=["graveyard"])
-        assert result["preset_id"] == "graveyard"
+        result = resolve_preset(None, ALL_FIXTURES, deck_tags=["graveyard"])
+        assert result["preset_id"] == "fx-graveyard"
         assert result["reason"]["step"] == 4
 
-    def test_default_fallback(self):
+    def test_no_preset_selected_when_nothing_matches(self):
+        """No signal matches and there's no hardcoded default: preset_id is None."""
         result = resolve_preset(None, [], journal={}, deck_tags=[])
-        assert result["preset_id"] == FALLBACK_PRESET_ID
+        assert result["preset_id"] is None
         assert result["reason"]["step"] == 6
+
+    def test_no_preset_selected_even_with_user_presets_present(self):
+        result = resolve_preset(None, ALL_FIXTURES, journal={}, deck_tags=[])
+        assert result["preset_id"] is None
 
     def test_user_preset_priority(self):
         up = _preset("custom-tokens", "Custom Tokens", 36, [_slot("core:ramp", 10)],
                      auto_select={"archetypes": ["tokens"], "themes": [],
                                   "commander_mv_min": None, "priority": 10})
-        result = resolve_preset(None, [up], journal={"archetype_preferences": {"primary_archetype": "tokens"}})
+        result = resolve_preset(None, [up] + ALL_FIXTURES,
+                                journal={"archetype_preferences": {"primary_archetype": "tokens"}})
         assert result["preset_id"] == "custom-tokens"
 
     def test_legacy_phantom_midrange(self):
         journal = {"archetype_preferences": {"primary_archetype": "midrange"}}
         result = resolve_preset(None, [], journal=journal)
-        assert result["reason"]["step"] == 6  # falls through to default
+        assert result["reason"]["step"] == 6  # falls through, no match
 
 
 # ---------------------------------------------------------------------------
@@ -320,30 +352,33 @@ class TestAutoSelection:
 # ---------------------------------------------------------------------------
 
 class TestDeckCompositionValidation:
+    def _by_id(self):
+        return {p["id"]: p for p in ALL_FIXTURES}
+
     def test_auto_mode_valid(self):
         rec = default_deck_composition()
-        issues = validate_deck_composition(rec, BUILTIN_BY_ID)
+        issues = validate_deck_composition(rec, self._by_id())
         assert not errors_of(issues)
 
     def test_auto_mode_rejects_data(self):
-        rec = {"mode": MODE_AUTO, "preset_id": "tcz_2025"}
-        issues = validate_deck_composition(rec, BUILTIN_BY_ID)
+        rec = {"mode": MODE_AUTO, "preset_id": "fx-default"}
+        issues = validate_deck_composition(rec, self._by_id())
         assert errors_of(issues)
 
     def test_pinned_valid(self):
-        rec = {"mode": MODE_PINNED, "preset_id": "tcz_2025", "lands": None, "overrides": []}
-        issues = validate_deck_composition(rec, BUILTIN_BY_ID)
+        rec = {"mode": MODE_PINNED, "preset_id": "fx-default", "lands": None, "overrides": []}
+        issues = validate_deck_composition(rec, self._by_id())
         assert not errors_of(issues)
 
     def test_pinned_bad_preset(self):
         rec = {"mode": MODE_PINNED, "preset_id": "nope", "lands": None, "overrides": []}
-        issues = validate_deck_composition(rec, BUILTIN_BY_ID)
+        issues = validate_deck_composition(rec, self._by_id())
         assert errors_of(issues)
 
     def test_too_many_overrides(self):
-        rec = {"mode": MODE_PINNED, "preset_id": "tcz_2025", "lands": None,
+        rec = {"mode": MODE_PINNED, "preset_id": "fx-default", "lands": None,
                "overrides": [{"ref": "core:ramp", "target": 10}] * (MAX_OVERRIDES + 1)}
-        issues = validate_deck_composition(rec, BUILTIN_BY_ID)
+        issues = validate_deck_composition(rec, self._by_id())
         assert any(i["code"] == "E8" for i in issues)
 
 
@@ -352,12 +387,13 @@ class TestDeckCompositionValidation:
 # ---------------------------------------------------------------------------
 
 class TestLegacyMigration:
-    def test_override_to_record(self):
+    def test_override_to_record_has_no_preset(self):
+        """There's no built-in default preset to pin the migrated record to."""
         legacy = {"ramp": "10", "card_advantage": "12", "targeted_disruption": "12",
                   "mass_disruption": "6", "plan": "21"}
         record, dropped = legacy_override_to_record(legacy, "2026-01-01T00:00:00Z")
         assert record["mode"] == MODE_PINNED
-        assert record["preset_id"] == FALLBACK_PRESET_ID
+        assert record["preset_id"] is None
         assert dropped == 21
         refs = [o["ref"] for o in record["overrides"]]
         assert "core:ramp" in refs
@@ -373,25 +409,25 @@ class TestLegacyMigration:
         assert record["mode"] == MODE_PINNED
         assert record["overrides"] == []
 
+    def test_migrated_record_resolves_without_crashing(self):
+        """Reading back a migrated legacy record must not crash or re-seed a default."""
+        legacy = {"ramp": "10"}
+        record, _dropped = legacy_override_to_record(legacy, "2026-01-01T00:00:00Z")
+        result = resolve_preset(record, [])
+        assert result["preset_id"] is None
+
 
 # ---------------------------------------------------------------------------
-# Store CRUD (FakeRedis)
+# Store CRUD (FakeRedis) -- every preset is a plain user record
 # ---------------------------------------------------------------------------
 
 class TestStore:
     def _r(self):
         return FakeRedis()
 
-    def test_list_presets_has_builtins(self):
+    def test_list_presets_starts_empty(self):
         r = self._r()
-        presets = list_presets(r)
-        ids = [p["id"] for p in presets]
-        assert "tcz_2025" in ids
-
-    def test_get_builtin_preset(self):
-        r = self._r()
-        p = get_preset(r, "tcz_2025")
-        assert p["id"] == "tcz_2025"
+        assert list_presets(r) == []
 
     def test_get_missing_preset(self):
         r = self._r()
@@ -417,10 +453,10 @@ class TestStore:
         assert updated["name"] == "Updated"
         assert updated["version"] == 2
 
-    def test_update_builtin_raises(self):
+    def test_update_missing_raises_value_error(self):
         r = self._r()
-        with pytest.raises(ImmutablePresetError):
-            update_preset(r, "tcz_2025", {"name": "Changed"})
+        with pytest.raises(ValueError):
+            update_preset(r, "nonexistent", {"name": "Changed"})
 
     def test_delete_preset(self):
         r = self._r()
@@ -428,14 +464,17 @@ class TestStore:
         assert delete_preset(r, p["id"]) is True
         assert get_preset(r, p["id"]) is None
 
-    def test_delete_builtin_raises(self):
-        r = self._r()
-        with pytest.raises(ImmutablePresetError):
-            delete_preset(r, "tcz_2025")
-
     def test_delete_missing(self):
         r = self._r()
         assert delete_preset(r, "nonexistent") is False
+
+    def test_deleted_preset_stays_deleted(self):
+        """No read path re-seeds a deleted preset."""
+        r = self._r()
+        p = create_preset(r, {"name": "Test", "slots": [_slot("core:ramp", 10)], "structure": {"lands": 38}})
+        delete_preset(r, p["id"])
+        assert get_preset(r, p["id"]) is None
+        assert list_presets(r) == []
 
     def test_get_deck_composition_default(self):
         r = self._r()
@@ -444,28 +483,19 @@ class TestStore:
 
     def test_set_deck_composition(self):
         r = self._r()
+        p = create_preset(r, {"name": "Test", "slots": [_slot("core:ramp", 10)], "structure": {"lands": 38}})
         rec = set_deck_composition(r, "archidekt:123",
-                                    {"mode": MODE_PINNED, "preset_id": "tcz_2025", "lands": None, "overrides": []})
+                                    {"mode": MODE_PINNED, "preset_id": p["id"], "lands": None, "overrides": []})
         assert rec["mode"] == MODE_PINNED
         found = get_deck_composition(r, "archidekt:123")
-        assert found["preset_id"] == "tcz_2025"
+        assert found["preset_id"] == p["id"]
 
 
 # ---------------------------------------------------------------------------
-# Built-in preset sanity
+# Legacy row refs sanity (unrelated to built-ins)
 # ---------------------------------------------------------------------------
 
-class TestBuiltins:
-    def test_all_builtins_valid(self):
-        for p in BUILTIN_PRESETS:
-            others = [bp for bp in BUILTIN_PRESETS if bp["id"] != p["id"]]
-            issues = validate_preset(p, others)
-            errs = errors_of(issues)
-            assert not errs, f"{p['id']} failed: {errs}"
-
-    def test_fallback_exists(self):
-        assert FALLBACK_PRESET_ID in BUILTIN_BY_ID
-
+class TestLegacyRowRefs:
     def test_legacy_row_refs(self):
         for row, ref in LEGACY_ROW_REFS.items():
             if ref is not None:

@@ -8,9 +8,7 @@ from __future__ import annotations
 from typing import Any, List, Mapping, Optional
 
 from analytics import composition_store as store
-from analytics.composition_models import (
-    BUILTIN_BY_ID, CompositionValidationError, ImmutablePresetError, resolve_preset,
-)
+from analytics.composition_models import CompositionValidationError, resolve_preset
 
 
 class PresetNotFound(KeyError):
@@ -18,13 +16,13 @@ class PresetNotFound(KeyError):
 
 
 def user_presets(r) -> List[dict]:
-    return [p for p in store.list_presets(r) if p.get("id") not in BUILTIN_BY_ID]
+    return store.list_presets(r)
 
 
 def list_all(r, kind: Optional[str] = None) -> List[dict]:
     items = store.list_presets(r)
-    if kind in ("builtin", "user"):
-        items = [p for p in items if (p.get("kind") or ("builtin" if p.get("id") in BUILTIN_BY_ID else "user")) == kind]
+    if kind in ("builtin",):
+        return []
     return items
 
 
@@ -101,4 +99,4 @@ def reset_deck_selection(r, registry_id: str) -> dict:
     return set_deck_selection(r, registry_id, {"mode": "auto"})
 
 
-__all__ = ["PresetNotFound", "ImmutablePresetError", "CompositionValidationError"]
+__all__ = ["PresetNotFound", "CompositionValidationError"]

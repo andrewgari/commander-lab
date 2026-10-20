@@ -94,7 +94,7 @@ def compute_strength(inclusion, synergy, role_conf, role_need, w: cfg.ScoringWei
                "role_need": w.role_need}
     live = {k: v for k, v in comps.items() if v is not None and weights[k] > 0}
     total = sum(weights[k] for k in live)
-    score = 100.0 * sum(weights[k] * live[k] for k in live) / total if total else 0.0
+    score = 100.0 * sum(weights[k] * live[k] for k in live) / total if total else 50.0
     return round(score, 1), StrengthBreakdown(**{k: (None if v is None else round(v, 4)) for k, v in comps.items()})
 
 
@@ -176,7 +176,7 @@ def evaluate_card(r, card: str, deck: DeckContext, *, edhrec_client: Optional[ED
     roles = _merge_roles(scores, heur, (entry or {}).get("tags") or [])
 
     # 4. Strength.
-    role_conf = roles[0].confidence if roles and roles[0].source == "model" else None
+    role_conf = roles[0].confidence if roles else None
     role_need = None
     deck_recs: Dict[str, dict] = {}
     if roles and deck_names:

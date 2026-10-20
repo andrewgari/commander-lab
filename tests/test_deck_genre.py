@@ -1,8 +1,10 @@
 """GN: the Journal's Deck Genre section (archetype / themes / kindred).
 
-Spec: docs/DECK_GENRE_TAXONOMY.md (data rules), docs/DECK_GENRE_UX_SPEC.md (UI).
+Spec: docs/DECK_GENRE_UX_SPEC.md (UI). The archetype/theme pick-lists
+(deck_genre.list_archetypes / list_genres) are Redis-backed, user-editable registries --
+see deck_genre.py's module docstring for why this is deliberately separate from
+analytics/archetypes.py and analytics/genres.py.
 
-- deck_genre.py constants are docs/deck_genre_taxonomy.yaml as-is (drift fails here);
 - normalization: kindred aliases / plurals -> catalog spelling, theme labels -> seed ids, dedupe,
   primary never a secondary; validation: >max and >32 chars are 400s;
 - the journal round-trips null primary, primary-only, 1+3, custom values, and clearing;
@@ -34,24 +36,12 @@ import deck_genre as G
 from analytics import journal
 from tests.test_deck_stats_ui import DECK, INVENTORY
 from tests.test_interactions import FakeRedis
-from user_intent import ALLOWED_ARCHETYPES, DeckGenre, parse_user_intent, resolve_intent_defaults, validate_intent
+from user_intent import DeckGenre, allowed_archetypes, parse_user_intent, resolve_intent_defaults, validate_intent
 
 ROOT = Path(__file__).resolve().parents[1]
-YAML = ROOT / "docs" / "deck_genre_taxonomy.yaml"
-TAXONOMY_JS = ROOT / "docs" / "design" / "genre" / "taxonomy.js"
-TYPES_JS = ROOT / "docs" / "design" / "genre" / "creature_types.js"
 GENRE_JS = ROOT / "static" / "js" / "deck_genre.js"
 ORIGINAL_14 = {"aggro", "midrange", "control", "combo", "stax", "spellslinger", "aristocrats", "tokens", "graveyard",
                "voltron", "ramp", "tribal", "group_hug", "group_slug"}
-
-
-def _taxonomy():
-    """The yaml when PyYAML is installed (it isn't in requirements.txt), else the mockup's JSON copy of it."""
-    try:
-        import yaml
-        return yaml.safe_load(YAML.read_text())
-    except ImportError:
-        return json.loads(re.search(r"=\s*(\{.*\})\s*;?\s*$", TAXONOMY_JS.read_text(), re.S).group(1))
 
 
 def _legacy_record(**ap):
@@ -62,34 +52,22 @@ def _legacy_record(**ap):
             "archetype_preferences": arch, "_journal": {"created_at": "2026-01-01T00:00:00+00:00"}}
 
 
-class TestTaxonomyConstants(unittest.TestCase):
-    def test_counts_and_unique_ids(self):
-        self.assertEqual(len(G.ARCHETYPE_IDS), 30)
-        self.assertEqual(len(G.GENRE_IDS), 33)
+class TestRegistryDefaults(unittest.TestCase):
+    """The pick-lists fall back to the seed defaults with r=None, and are Redis-backed
+    (editable, deletable, never re-seeded once the key exists) with r given."""
+
+    def test_counts_and_unique_ids_with_no_redis(self):
+        self.assertEqual(len(G.archetype_ids()), 30)
+        self.assertEqual(len(G.genre_ids()), 33)
         self.assertEqual(len(G.KINDRED_SUGGESTIONS), 35)
-        self.assertEqual(len(set(G.ARCHETYPE_IDS)), 30)
-        self.assertEqual(len(set(G.GENRE_IDS)), 33)
+        self.assertEqual(len(set(G.archetype_ids())), 30)
+        self.assertEqual(len(set(G.genre_ids())), 33)
         self.assertEqual(len(G.CREATURE_TYPES_SNAPSHOT), 351)
 
-    def test_constants_match_the_yaml(self):
-        t = _taxonomy()
-        strip = lambda rows, keys: [{k: r[k] for k in keys} for r in rows]  # noqa: E731
-        self.assertEqual(strip(t["archetypes"], ("id", "group", "label", "desc")), list(G.ARCHETYPES))
-        self.assertEqual(strip(t["genres"], ("id", "group", "label", "desc")), list(G.GENRES))
-        self.assertEqual(t["archetype_groups"], list(G.ARCHETYPE_GROUPS))
-        self.assertEqual(t["genre_groups"], list(G.GENRE_GROUPS))
-        self.assertEqual(t["kindred"]["suggestions"], list(G.KINDRED_SUGGESTIONS))
-        self.assertEqual(t["kindred"]["groups"], list(G.KINDRED_GROUPS))
-        self.assertEqual(t["kindred"]["aliases"], G.KINDRED_ALIASES)
-        self.assertEqual(t["limits"]["secondary_archetypes"]["max"], G.MAX_SECONDARY)
-        self.assertEqual(t["limits"]["genres"]["max"], G.MAX_GENRES)
-        self.assertEqual(t["limits"]["kindred"]["max"], G.MAX_KINDRED)
-        self.assertEqual(t["limits"]["genres"]["custom_max_len"], G.CUSTOM_MAX_LEN)
-
     def test_original_ids_kept_and_allowed(self):
-        self.assertTrue(ORIGINAL_14 <= set(G.ARCHETYPE_IDS))
-        self.assertEqual(ALLOWED_ARCHETYPES, set(G.ARCHETYPE_IDS))
-        self.assertEqual(G.ARCHETYPE_LABELS["tribal"], "Kindred (type matters)")
+        self.assertTrue(ORIGINAL_14 <= set(G.archetype_ids()))
+        self.assertEqual(allowed_archetypes(), set(G.archetype_ids()))
+        self.assertEqual(G.archetype_labels()["tribal"], "Kindred (type matters)")
 
     def test_kindred_seed_values_are_catalog_types(self):
         cat = set(G.CREATURE_TYPES_SNAPSHOT)
@@ -98,9 +76,41 @@ class TestTaxonomyConstants(unittest.TestCase):
             self.assertTrue(set(g["members"]) <= cat, g)
         self.assertTrue(set(G.KINDRED_ALIASES.values()) <= cat)
 
-    def test_snapshot_matches_the_design_fixture(self):
-        js = json.loads(re.search(r"=\s*(\[.*\])", TYPES_JS.read_text(), re.S).group(1))
-        self.assertEqual(js, list(G.CREATURE_TYPES_SNAPSHOT))
+    def test_redis_seeds_once_and_never_reseeds(self):
+        r = FakeRedis()
+        self.assertEqual(len(G.list_archetypes(r)), 30)
+        G.delete_archetype(r, "aggro")
+        self.assertEqual(len(G.list_archetypes(r)), 29)
+        # A second read of the now-29-item key must not bring "aggro" back.
+        self.assertEqual(len(G.list_archetypes(r)), 29)
+        self.assertNotIn("aggro", G.archetype_ids(r))
+
+    def test_redis_crud_archetype(self):
+        r = FakeRedis()
+        created = G.create_archetype(r, {"group": "gameplan", "label": "Burn", "desc": "Direct damage."})
+        self.assertEqual(created["id"], "burn")
+        self.assertIn("burn", G.archetype_ids(r))
+        G.update_archetype(r, "burn", {"label": "Burn", "desc": "Direct damage to the dome."})
+        self.assertEqual(G.get_archetype(r, "burn")["desc"], "Direct damage to the dome.")
+        G.delete_archetype(r, "burn")
+        self.assertNotIn("burn", G.archetype_ids(r))
+        with self.assertRaises(G.DeckGenreNotFound):
+            G.get_archetype(r, "burn")
+
+    def test_redis_crud_genre_item(self):
+        r = FakeRedis()
+        created = G.create_genre_item(r, {"group": "vibe", "label": "Grindy", "desc": "Long games."})
+        self.assertIn("grindy", G.genre_ids(r))
+        with self.assertRaises(G.DeckGenreError):
+            G.create_genre_item(r, {"group": "vibe", "label": "Grindy", "desc": "Dup."})
+        G.delete_genre_item(r, created["id"])
+        self.assertNotIn("grindy", G.genre_ids(r))
+
+    def test_create_rejects_bad_group(self):
+        r = FakeRedis()
+        with self.assertRaises(G.DeckGenreError):
+            G.create_archetype(r, {"group": "not-a-group", "label": "X", "desc": ""})
+
 
 
 class TestNormalization(unittest.TestCase):

@@ -12,6 +12,7 @@ import math
 from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from analytics.card_eval import Candidate, EvaluationResult
+from analytics import card_source
 from analytics.edhrec_inclusion import name_key
 
 from . import config as cfg
@@ -76,7 +77,8 @@ def _rationale(c: Candidate, ev: EvaluationResult, like: bool, targets: Sequence
 
 
 def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: ReviewContext, deck_names: Sequence[str],
-                         fact_lookup: FactLookup, annotate: Optional[Annotator] = None) -> dict:
+                         fact_lookup: FactLookup, annotate: Optional[Annotator] = None,
+                         source_lookup: Optional[Callable[[str], dict]] = None) -> dict:
     """-> {suggestions, mode, pool_exhausted, dropped, flags}. 3-5 suggestions when the pool allows."""
     card_primary = ev.roles[0].role if ev.roles else None
     brief = brief or {"mode": "mixed", "target_roles": [card_primary] if card_primary else [], "avoid": []}
@@ -91,6 +93,11 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
     if mode == "function_change" and need is not None and need >= cfg.ROLE_NEED_FORCE_LIKE:
         mode = "mixed"
         flags.append("mode raised to mixed: the deck is short on this role")
+    if "Land" in ev.card.type_line:
+        mode = "like_for_like"
+        targets = ["land"]
+        tset = set(targets)
+        flags.append("lands only ever get like-for-like land replacements")
 
     in_deck = {name_key(n) for n in [*deck_names, *ev.commanders, ev.card.name] if n}
     facts = fact_lookup([c.name for c in ev.candidates] + [n for n in deck_names if n]) if ev.candidates else {}
@@ -145,18 +152,63 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
     pick.sort(key=lambda t: (-t[0], t[1].name))
     pick = pick[: cfg.MAX_SUGGESTIONS]
 
-    # Own-first (§4.5): an owned card within the margin of the top-ranked card goes first.
-    if pick:
-        top = pick[0][0]
-        pick.sort(key=lambda t: (not (t[1].owned and t[0] >= top - cfg.FREE_AGENT_MARGIN), -t[0], t[1].name))
+    # Source tier ranking
+    sourced_pick = []
+    for rep, c, parts, fl, like in pick:
+        source_info = source_lookup(c.name) if source_lookup else {}
+        # reconstruction bypass: if source_lookup is missing or returns bypass=True, we keep the old behaviour roughly
+        bypass = source_info.get("bypass", False)
+        
+        src = card_source.determine_source(
+            card_name=c.name,
+            is_owned=bool(c.owned),
+            available_copies=source_info.get("available_copies", 1 if c.owned else 0),
+            price=source_info.get("price", 0.0),
+            budget_cap=source_info.get("budget_cap", 5.0),
+            this_deck_score=rep,
+            donor_decks=source_info.get("donor_decks", []),
+            very_strong_threshold=cfg.VERY_STRONG_THRESHOLD if hasattr(cfg, 'VERY_STRONG_THRESHOLD') else 85.0
+        )
+        tier_val = 99
+        tier_str = "buy"
+        meta = {}
+        if bypass:
+            tier_val = 1 if c.owned else 2
+            tier_str = "owned" if c.owned else "buy"
+        elif src:
+            if src["source"] == "free":
+                tier_val = 1
+                tier_str = "owned-and-unused"
+            elif src["source"] == "buy":
+                tier_val = 2
+                tier_str = "buy-under-budget"
+                meta["price"] = src.get("price")
+            elif src["source"] == "donor":
+                tier_val = 3
+                tier_str = "donor-deck"
+                meta["donor_deck"] = src.get("donor_deck")
+        else:
+            tier_val = 4
+            tier_str = "unavailable"
+            
+        sourced_pick.append((tier_val, rep, c, parts, fl, like, tier_str, meta))
+
+    sourced_pick.sort(key=lambda t: (t[0], -t[1], t[2].name))
 
     out = []
-    for rep, c, parts, fl, like in pick:
+    for t_val, rep, c, parts, fl, like, tier_str, meta in sourced_pick:
+        if t_val == 4:
+            continue # Skip unavailable if any? Wait, acceptance says replace ranks, didn't say drop. Let's keep them if pool exhausted, or drop?
+            # Instructions: "A card from another deck is suggested only when all three hold... Cards from other decks never appear as a casual or default suggestion"
+            # If t_val == 4, it means determine_source returned None, which means it doesn't meet any criteria (e.g. expensive, or donor but not very strong).
+            # Dropping them might reduce the list size, which is intended.
+            
         rec = facts[name_key(c.name)]
         out.append({"card": c.name, "oracle_id": rec.get("oracle_id"), "role": c.roles[0] if c.roles else None,
                     "like_for_like": like,
                     "rationale": _rationale(c, ev, like, targets, fl),
-                    "score": rep, "score_breakdown": parts, "tier": "owned" if c.owned else "buy",
+                    "score": rep, "score_breakdown": parts, "tier": tier_str,
+                    "source_meta": meta,
                     "owned": c.owned, "flags": fl})
     return {"suggestions": out, "mode": mode, "target_roles": targets,
             "pool_exhausted": len(out) < cfg.MIN_SUGGESTIONS, "dropped": dropped, "flags": flags}

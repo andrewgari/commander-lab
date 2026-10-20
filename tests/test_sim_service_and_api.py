@@ -40,7 +40,7 @@ class FakeSim:
         if self.down:
             raise sc.SimUnavailable("down")
         return {"opponents": [{"id": "precon_a", "name": "Precon A"}, {"id": "precon_b", "name": "Precon B"},
-                              {"id": "precon_c", "name": "Precon C"}]}
+                              {"id": "precon_c", "name": "Precon C"}, {"id": "Explorers of the Deep", "name": "Explorers of the Deep"}]}
 
     def start_job(self, payload):
         if self.down:
@@ -116,8 +116,16 @@ class TestValidation(unittest.TestCase):
             self.assertEqual(svc.validate_params({"games": g})["games"], g)
         p = svc.validate_params({"opponent_mode": "specific", "opponents": ["a", "b", "c"], "notes": "  hi  "})
         self.assertEqual((p["opponents"], p["notes"]), (["a", "b", "c"], "hi"))
-        self.assertEqual(svc.validate_params({"opponent_mode": "random", "opponents": ["a"]})["opponents"], [])
+        self.assertEqual(svc.validate_params({"opponent_mode": "rapid1v1", "opponents": ["a"]})["opponents"], ["a"])
         self.assertEqual(len(svc.validate_params({"notes": "x" * 1000})["notes"]), 1000)
+        
+        # Standard overrides
+        p_std = svc.validate_params({"opponent_mode": "standard", "opponents": ["a", "b", "c"]})
+        self.assertEqual(p_std["opponents"], ["a", "b", "c"])
+        p_std_empty = svc.validate_params({"opponent_mode": "standard"})
+        self.assertEqual(p_std_empty["opponents"], [])
+        with self.assertRaises(svc.SimParamError):
+            svc.validate_params({"opponent_mode": "standard", "opponents": ["a", "b"]})
 
 
 class TestPool(Base):
@@ -165,6 +173,17 @@ class TestRunModes(Base):
         with self.assertRaises(svc.SimParamError):
             svc.begin_run(self.r, self.deck, {"opponent_mode": "specific", "opponents": ["precon_a", "user_901", "user_904"]}, FakeSim())
         self.assertEqual(svc._INFLIGHT, {})
+        
+    def test_standard_mode_custom_opponents(self):
+        sim = FakeSim()
+        params = {"opponent_mode": "standard", "opponents": ["user_901", "Explorers of the Deep", "user_902"]}
+        job = run_sync(self.r, self.deck, params, sim, FakeOracle(good_reply))
+        self.assertEqual(job["status"], "done", job.get("error"))
+        p = sim.payloads[0]
+        self.assertEqual(p["opponent_mode"], "standard")
+        self.assertEqual(p["opponents"], ["user_901", "Explorers of the Deep", "user_902"])
+        self.assertEqual(set(p["opponent_decks"]), {"user_901", "user_902"})
+        self.assertIn("Name=user_901", p["opponent_decks"]["user_901"])
 
     def test_random_mode_sends_pool_and_per_game_selection_is_reported(self):
         sim = FakeSim()

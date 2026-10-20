@@ -93,7 +93,7 @@ def build_prompt(req: dict, deck: Optional[dict] = None, card_texts: Optional[Ma
                  deck_tags: Optional[List[str]] = None, pillars: Optional[List[dict]] = None) -> str:
     lines = ["CORE categories (id: definition):"]
     lines += [f"- {c['id']}: {c['description']}" for c in cat.CORE]
-    lines += ["", "Allowed autotag themes: " + ", ".join(cat.THEME_TAGS)]
+    lines += ["", "Allowed autotag themes: " + ", ".join(cat.theme_tags())]
     if deck is not None:
         texts = card_texts or {}
         cmdrs = [n for n in deck.get("commanders") or [] if isinstance(n, str)]

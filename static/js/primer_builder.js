@@ -29,7 +29,7 @@
         { id: "gen", t: "Review & generate", s: "Draft · save" }
     ];
     var F = {
-        pitch: { step: 0, kind: "input", label: "One-line pitch", max: 140, ph: "What does this deck do, in one breath?", hint: "Becomes the Overview's first line and the short description." },
+        pitch: { step: 0, kind: "area", autosize: true, label: "One-line pitch", max: 140, ph: "What does this deck do, in one breath?", hint: "Becomes the Overview's first line and the short description." },
         early: { step: 1, kind: "area", label: "Early game · turns 1–3", ph: "Ramp, first tokens, set up the engine…" },
         mid: { step: 1, kind: "area", label: "Mid game · turns 4–7", ph: "Deploy the engine, protect the board…" },
         late: { step: 1, kind: "area", label: "Closing · turn 8+", ph: "How the game actually ends…" },
@@ -167,7 +167,7 @@
         var d = F[k], f = S.f[k], id = "pf-" + k;
         var ctl = d.kind === "input"
             ? '<input type="text" id="' + id + '" data-k="' + k + '" maxlength="' + d.max + '" value="' + esc(f.v) + '" placeholder="' + esc(d.ph) + '">'
-            : '<textarea id="' + id + '" data-k="' + k + '" maxlength="600" placeholder="' + esc(d.ph) + '">' + esc(f.v) + "</textarea>";
+            : '<textarea id="' + id + '" data-k="' + k + '" class="pf-area' + (d.autosize ? " pf-area--auto" : "") + '" maxlength="' + (d.max || 600) + '" placeholder="' + esc(d.ph) + '">' + esc(f.v) + "</textarea>";
         var cnt = d.max ? '<span class="pf-count' + (f.v.length > d.max * 0.9 ? " is-over" : "") + '" id="' + id + '-n">' + f.v.length + "/" + d.max + "</span>" : "";
         return '<div class="pf-f" data-src="' + f.src + '" data-field="' + k + '">' +
             '<label for="' + id + '">' + esc(d.label) + (d.opt ? ' <span class="pf-opt">optional</span>' : "") + '<span class="pf-src" data-src="' + f.src + '">' + glyph(f.src) + "</span>" + cnt + "</label>" +
@@ -208,6 +208,17 @@
         var had = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.k === k && document.activeElement.tagName !== "BUTTON";
         var tmp = document.createElement("div"); tmp.innerHTML = field(k); old.replaceWith(tmp.firstChild);
         if (had) { var el = $("#pf-" + k); if (el) el.focus(); }
+        autosizeAll();
+    }
+    /* Grow textarea.pf-area--auto to fit its content (no CSS field-sizing fallback needed). */
+    function autosizeTA(t) {
+        if (!t || t.tagName !== "TEXTAREA" || !t.classList.contains("pf-area--auto")) return;
+        t.style.height = "auto";
+        t.style.height = t.scrollHeight + "px";
+    }
+    function autosizeAll() {
+        var list = document.querySelectorAll("textarea.pf-area--auto");
+        for (var i = 0; i < list.length; i++) autosizeTA(list[i]);
     }
     function use(k) {
         var s = S.sugg[k]; if (!s || s.busy || s.failed) return;
@@ -421,6 +432,7 @@
         if (last) { renderDoc(); }
         $("#pfStep").textContent = "Step " + (i + 1) + " of 5: " + STEPS[i].t;
         history.replaceState(null, "", "#step=" + (i + 1));
+        autosizeAll();
     }
     function go(i, dir) {
         S.step = Math.max(0, Math.min(STEPS.length - 1, i)); S.sugg = {}; SUG = {};
@@ -480,6 +492,7 @@
             var sp = $(".pf-src", wrap); if (sp) { sp.dataset.src = S.f[k].src; sp.textContent = glyph(S.f[k].src); }
             var n = $("#pf-" + k + "-n"); if (n) { n.textContent = t.value.length + "/" + F[k].max; n.classList.toggle("is-over", t.value.length > F[k].max * 0.9); }
             if (S.sugg[k]) { delete S.sugg[k]; var row = $(".pf-sugg", wrap); if (row) { var holder = document.createElement("div"); holder.innerHTML = '<button type="button" class="hud-btn hud-btn--sm pf-ask" data-act="ask" data-k="' + k + '">Suggest another</button>'; row.replaceWith(holder); } }
+            autosizeTA(t);
             renderSide(); saved();
         } else if (t.dataset && t.dataset.why != null) {
             var c = S.cards[+t.dataset.why]; c.why = { v: t.value, src: t.value.trim() ? "yours" : "empty" }; t.closest(".pf-f").dataset.src = c.why.src; saved();

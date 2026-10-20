@@ -10,6 +10,8 @@ import github_sync
 import json
 import time
 import html
+import markdown
+import bleach
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -23,6 +25,8 @@ import card_refs as card_refs_mod
 import tags as tag_store
 import lab_tags as lab_tag_store
 import autotag
+from autotag import engine as autotag_engine_mod
+from autotag import tag_registry
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -38,7 +42,7 @@ from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
 from analytics import composition as composition_mod
 from analytics import composition_service as comp_svc
-from analytics.composition_models import CompositionValidationError, ImmutablePresetError
+from analytics.composition_models import CompositionValidationError
 from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
@@ -154,6 +158,13 @@ async def archetypes_view(request: Request):
     return templates.TemplateResponse(request=request, name="archetypes.html")
 
 
+@app.get("/staple-themes", response_class=HTMLResponse)
+async def staple_themes_view(request: Request):
+    """Staple theme registry (vocab PR5): user-editable card-name -> theme vocabulary used
+    by the offline heuristic theme/archetype aligner (analytics/engine.py)."""
+    return templates.TemplateResponse(request=request, name="staple_themes.html")
+
+
 @app.get("/composition/presets", response_class=HTMLResponse)
 async def composition_presets_view(request: Request):
     """Composition Presets registry: create/edit/delete, compare side by side."""
@@ -247,7 +258,7 @@ def _deck_head_context(deck_name: str) -> dict:
         # GN view mode: the archetype / kindred / theme chip strip (None = hidden).
         rec = journal_mod.load_journal(r, deck)
         if rec:
-            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r))
+            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r), r)
     except Exception:
         pass
     return out
@@ -428,22 +439,47 @@ async def get_version(request: Request):
 
 
 
+_CHANGELOG_ALLOWED_TAGS = [
+    "p", "ul", "ol", "li", "strong", "em", "code", "pre", "blockquote",
+    "h1", "h2", "h3", "h4", "a", "br", "hr",
+]
+_CHANGELOG_ALLOWED_ATTRS = {"a": ["href", "title", "rel"]}
+
+
+def render_release_body(body: str | None) -> str:
+    """Render a full GitHub release body as sanitized HTML.
+
+    Unlike the old extract_short_description(), this never truncates --
+    the full prose, headings, and bullet lists are preserved so the
+    changelog page shows the complete, readable release notes.
+    """
+    if not body:
+        return ""
+    html_out = markdown.markdown(body.strip(), extensions=["fenced_code", "nl2br"])
+    return bleach.clean(
+        html_out,
+        tags=_CHANGELOG_ALLOWED_TAGS,
+        attributes=_CHANGELOG_ALLOWED_ATTRS,
+        strip=True,
+    )
+
+
 def extract_short_description(body: str | None, max_length: int = 280) -> str:
-    """Extract a concise summary from a GitHub release body."""
+    """Deprecated: kept only for backward compatibility with callers that
+    still want a plain-text summary. The changelog page itself now uses
+    render_release_body() and never truncates. No "..." is ever appended
+    here either -- callers that need a hard-capped label should truncate
+    on their own with an explicit, visible affordance (e.g. a tooltip).
+    """
     if not body:
         return ""
     lines = [line.strip() for line in body.strip().splitlines()]
-    # Ignore markdown headings
     content_lines = [line for line in lines if line and not line.startswith("#")]
     if not content_lines:
         content_lines = [line for line in lines if line]
     if not content_lines:
         return ""
-    text = " ".join(content_lines)
-    if len(text) > max_length:
-        truncated = text[:max_length].rsplit(" ", 1)[0]
-        return f"{truncated}..."
-    return text
+    return " ".join(content_lines)
 
 
 @app.get("/changelog", response_class=HTMLResponse)
@@ -493,6 +529,7 @@ async def changelog(request: Request):
             rel_dict = dict(rel)
             body = rel.get("body") or ""
             rel_dict["short_description"] = extract_short_description(body)
+            rel_dict["body_html"] = render_release_body(body)
             pub_date = rel.get("published_at")
             rel_dict["release_date"] = pub_date[:10] if pub_date else "Unknown date"
             formatted_releases.append(rel_dict)
@@ -1181,6 +1218,48 @@ async def toggle_core_tag(request: Request):
     r.set("core_tags", json.dumps(list(core_tags)))
     return {"success": True, "core_tags": list(core_tags)}
 
+
+@app.get("/api/autotag-tags")
+async def list_autotag_tags():
+    """The Auto Tag engine's editable vocabulary (Vocab cleanup PR4): the FUNCTION_TAGS/
+    THEME_TAGS taxonomy the heuristic engine is allowed to assign, as a Redis-backed registry
+    instead of hardcoded lists. Builtin entries were seeded once from the original taxonomy;
+    renamed/deleted entries never come back."""
+    tags = tag_registry.list_tags(r)
+    return {"tags": tags, "categories": list(tag_registry.CATEGORIES)}
+
+
+@app.post("/api/autotag-tags")
+async def create_autotag_tag(request: Request):
+    data = await request.json()
+    try:
+        tag = tag_registry.create_tag(r, data.get("name"), data.get("category"))
+    except tag_registry.TagRegistryError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"success": True, "tag": tag}
+
+
+@app.patch("/api/autotag-tags/{tag_id}")
+async def rename_autotag_tag(tag_id: str, request: Request):
+    data = await request.json()
+    try:
+        tag = tag_registry.rename_tag(r, tag_id, data.get("name"))
+    except tag_registry.TagNotFound:
+        return JSONResponse({"error": "Tag not found"}, status_code=404)
+    except tag_registry.TagRegistryError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"success": True, "tag": tag}
+
+
+@app.delete("/api/autotag-tags/{tag_id}")
+async def delete_autotag_tag(tag_id: str):
+    try:
+        tag = tag_registry.delete_tag(r, tag_id)
+    except tag_registry.TagNotFound:
+        return JSONResponse({"error": "Tag not found"}, status_code=404)
+    return {"success": True, "tag": tag}
+
+
 @app.post("/api/card/{card_name:path}/tags")
 async def update_card_tags(card_name: str, request: Request):
     """Add or remove Lab tags from a card.
@@ -1747,6 +1826,7 @@ async def auto_tag_deck(deck_id: str, request: Request):
         return JSONResponse({"error": "Deck not found"}, status_code=404)
 
     enriched = _enrich_deck_for_autotag(r, deck)
+    autotag_engine_mod.load_tag_vocab(r)
     engine_result = autotag.run_auto_tag(enriched)
     result = tag_store.apply_auto_tags(r, registry.registry_id_of(deck), engine_result)
     return result
@@ -2197,6 +2277,7 @@ async def api_deck_review(request: Request):
     from deck_review import review_deck
     from user_intent import parse_user_intent
 
+    engine_mod.load_staple_theme_vocab(r)
     deck_id = data.get("deck_id")
     deck_input = data.get("deck") or data.get("decklist") or data.get("cards")
 
@@ -2213,7 +2294,7 @@ async def api_deck_review(request: Request):
     intent_obj = None
     if intent_data:
         try:
-            intent_obj = parse_user_intent(intent_data)
+            intent_obj = parse_user_intent(intent_data, r=r)
         except Exception as e:
             return JSONResponse(status_code=422, content={"success": False, "error": f"Invalid user intent: {str(e)}"})
 
@@ -2261,6 +2342,7 @@ async def api_deck_review_rebuild(deck_id: str):
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
+    engine_mod.load_staple_theme_vocab(r)
     try:
         job = review_doc.new_job(r, {**deck, "registry_id": _theory_deck_id(deck)})
     except review_doc.ReviewBusy as exc:
@@ -2341,7 +2423,8 @@ async def api_run_deck_sim(deck_id: str, request: Request):
         raise
     return JSONResponse(status_code=202, content={
         "success": True, "job_id": job["job_id"], "status": job["status"],
-        "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
+            "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
+
 
 
 @app.get("/api/decks/{deck_id}/sim/jobs/{job_id}")
@@ -2524,7 +2607,7 @@ async def api_brackets(refresh: bool = False):
 async def api_deck_engines(deck_id: str):
     """Engines detected in the deck's interaction graph: resource chains
     (sources -> converters -> payoffs, with fuel) and two-card loops, each
-    named ("Aristocrats: tokens → sac → drain") and scored."""
+    named by the dominant resource (e.g. "tokens → sacrifice → drain") and scored."""
     deck = _find_deck_any(deck_id)
     if not deck:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
@@ -2587,7 +2670,7 @@ def _wake_bracket_worker(deck_id: str = "") -> None:
 @app.get("/api/decks/{deck_id}/composition")
 async def api_deck_composition(deck_id: str):
     """Cards classified into Lands / Ramp / Card advantage / Targeted disruption /
-    Mass disruption / Plan, vs the deck's template (Command Zone 2025 by default)."""
+    Mass disruption / Plan, vs the deck's template (default unless overridden)."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
@@ -2620,8 +2703,6 @@ async def api_reset_composition_template(deck_id: str):
 def _comp_error(exc: Exception):
     if isinstance(exc, comp_svc.PresetNotFound):
         return JSONResponse(status_code=404, content={"success": False, "error": f"Preset '{exc.args[0]}' not found"})
-    if isinstance(exc, ImmutablePresetError):
-        return JSONResponse(status_code=403, content={"success": False, "error": str(exc)})
     if isinstance(exc, CompositionValidationError):
         issues = getattr(exc, "issues", None)
         return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "issues": issues})
@@ -2630,7 +2711,8 @@ def _comp_error(exc: Exception):
 
 @app.get("/api/composition/presets")
 async def api_list_presets(kind: Optional[str] = None):
-    """Built-in + user composition presets. ?kind=builtin|user filters."""
+    """User composition presets (there are no built-ins). ?kind=user is a no-op filter; ?kind=builtin
+    always returns []."""
     return {"success": True, "presets": await asyncio.to_thread(comp_svc.list_all, r, kind)}
 
 
@@ -2641,7 +2723,7 @@ async def api_create_preset(request: Request):
         return _bad_request(ValueError("JSON object body required"))
     try:
         p = await asyncio.to_thread(comp_svc.create, r, body)
-    except (CompositionValidationError, ImmutablePresetError) as exc:
+    except (CompositionValidationError) as exc:
         return _comp_error(exc)
     return JSONResponse(status_code=201, content={"success": True, "preset": p})
 
@@ -2661,7 +2743,7 @@ async def api_update_preset(preset_id: str, request: Request):
         return _bad_request(ValueError("JSON object body required"))
     try:
         p = await asyncio.to_thread(comp_svc.update, r, preset_id, body)
-    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound, CompositionValidationError) as exc:
         return _comp_error(exc)
     return {"success": True, "preset": p}
 
@@ -2670,7 +2752,7 @@ async def api_update_preset(preset_id: str, request: Request):
 async def api_delete_preset(preset_id: str):
     try:
         await asyncio.to_thread(comp_svc.delete, r, preset_id)
-    except (comp_svc.PresetNotFound, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound) as exc:
         return _comp_error(exc)
     return {"success": True, "deleted": preset_id}
 
@@ -2740,7 +2822,7 @@ async def _presetgen_route(deck_id: str, request: Request, mode: str):
     body = body if isinstance(body, dict) else {}
     try:
         out = await asyncio.to_thread(_presetgen_run, deck, mode, body)
-    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound, CompositionValidationError) as exc:
         return _comp_error(exc)
     return {"success": True, "draft": out}
 
@@ -3203,7 +3285,7 @@ def _journal_error(exc: Exception, status: int = 400):
 @app.get("/api/deck-genre/options")
 async def api_deck_genre_options():
     """GN: the Deck Genre option lists (docs/deck_genre_taxonomy.yaml) + the creature-type catalog."""
-    return {"success": True, "options": deck_genre.page_options(),
+    return {"success": True, "options": deck_genre.page_options(r),
             "creature_types": await asyncio.to_thread(deck_genre.creature_types, r)}
 
 
@@ -3335,7 +3417,7 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 @app.get("/api/decks/{deck_id}/tune")
-async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True):
+async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, buy: bool = True, goal: str = "balanced"):
     """Shape fixes, swaps (cut -> best owned / best buy), weak performers and the
     pet notice. Deterministic; cached LLM 'why' lines are attached when present.
     mode = free | flex | best. flex honours in_deck (owned cards sleeved in another
@@ -3345,7 +3427,7 @@ async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, 
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
@@ -3390,10 +3472,11 @@ async def api_deck_tune_recompute(deck_id: str, request: Request):
     mode = body.get("mode", "flex")
     in_deck = body.get("in_deck", True)
     buy = body.get("buy", True)
+    goal = body.get("goal", "balanced")
     if not isinstance(in_deck, bool) or not isinstance(buy, bool):
         return _bad_request(tuner_mod.TunerError("in_deck and buy must be booleans."))
     try:
-        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy)
+        new, old = await asyncio.to_thread(tune_store.recompute, r, deck, tuner_mod.compute, mode, in_deck, buy, goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     except tune_store.TuneStoreError as exc:
@@ -3427,8 +3510,9 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     mode = body.get("mode", "flex")
     in_deck = bool(body.get("in_deck", True))
     buy = bool(body.get("buy", True))
+    goal = body.get("goal", "balanced")
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain
@@ -3683,7 +3767,7 @@ async def api_categories_list(deck_id: Optional[str] = None):
         rows += [categories_mod.custom_row(c, card_tags if deck else None, deck, decks_using=usage.get(c["id"], 0))
                  for c in categories_mod.list_global(r)]
         out = {"success": True, "version": categories_mod.get_version(r), "spec": categories_mod.SPEC_VERSION,
-               "groups": list(categories_mod.GROUPS), "themes": list(categories_mod.THEME_TAGS),
+               "groups": list(categories_mod.GROUPS), "themes": categories_mod.theme_tags(r),
                "rule_kinds": list(categories_mod.RULE_KINDS), "caps": {"deck": categories_mod.DECK_CAP},
                "aliases": categories_mod.ALIASES, "group_aliases": list(categories_mod.GROUP_ALIASES),
                "limits": {"name": categories_mod.NAME_MAX, "description": categories_mod.DESC_MAX,
@@ -4117,9 +4201,9 @@ def _primer_build_context(deck_name: str) -> dict:
             if spirit.get("confirmed") else None)
     boot = {"deck": {"id": rid, "name": deck_name, "cmdr": ", ".join(deck.get("commanders") or []),
                      "ci": [] if deck.get("color") in (None, "", "C") else list(deck["color"]),
-                     "archetype": [deck_genre.label_of("archetype", a) for a in genre.get("archetype") or []],
-                     "themes": [deck_genre.label_of("theme", t) for t in genre.get("theme") or []],
-                     "kindred": [deck_genre.label_of("kindred", k) for k in genre.get("kindred") or []],
+                     "archetype": [deck_genre.label_of("archetype", a, r) for a in genre.get("archetype") or []],
+                     "themes": [deck_genre.label_of("theme", t, r) for t in genre.get("theme") or []],
+                     "kindred": [deck_genre.label_of("kindred", k, r) for k in genre.get("kindred") or []],
                      "bracket": _resolve_bracket(deck, spirit), "ttw": spirit.get("target_turn_win"),
                      "tone": {"casual": "casual", "competitive": "competitive"}.get(tier or "", "focused"),
                      "cards": sum(int(c.get("quantity") or 1) for c in deck.get("cards") or [])},
@@ -4454,6 +4538,56 @@ async def api_archetypes_delete(archetype_id: str):
     except archetypes_mod.ArchetypeNotFound:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
     return {"success": True, "version": version}
+
+
+# ---------------------------------------------------------------------------
+# Staple theme registry (vocab PR5) -- see analytics/staple_theme_registry.py
+# ---------------------------------------------------------------------------
+
+@app.get("/api/staple-themes")
+async def api_staple_themes_list():
+    from analytics import staple_theme_registry as st_mod
+
+    entries = await asyncio.to_thread(st_mod.list_entries, r)
+    return {"success": True, "entries": entries}
+
+
+@app.post("/api/staple-themes")
+async def api_staple_themes_create(request: Request):
+    from analytics import staple_theme_registry as st_mod
+
+    body = await _json_body(request)
+    try:
+        entry = await asyncio.to_thread(st_mod.set_entry, r, body.get("card"), body.get("themes"))
+    except st_mod.StapleThemeError as exc:
+        return _bad_request(exc)
+    engine_mod.load_staple_theme_vocab(r)
+    return JSONResponse(status_code=201, content={"success": True, "entry": entry})
+
+
+@app.put("/api/staple-themes/{card_name}")
+async def api_staple_themes_update(card_name: str, request: Request):
+    from analytics import staple_theme_registry as st_mod
+
+    body = await _json_body(request)
+    try:
+        entry = await asyncio.to_thread(st_mod.set_entry, r, card_name, body.get("themes"))
+    except st_mod.StapleThemeError as exc:
+        return _bad_request(exc)
+    engine_mod.load_staple_theme_vocab(r)
+    return {"success": True, "entry": entry}
+
+
+@app.delete("/api/staple-themes/{card_name}")
+async def api_staple_themes_delete(card_name: str):
+    from analytics import staple_theme_registry as st_mod
+
+    try:
+        entry = await asyncio.to_thread(st_mod.delete_entry, r, card_name)
+    except st_mod.StapleThemeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"No staple theme entry for '{card_name}'"})
+    engine_mod.load_staple_theme_vocab(r)
+    return {"success": True, "entry": entry}
 
 
 def _archetype_deck_qty(deck: dict) -> dict:

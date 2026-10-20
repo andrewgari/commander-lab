@@ -195,7 +195,7 @@ def test_weights_are_configurable():
     hi = ScoringWeights(inclusion=1.0, synergy=0, role_confidence=0, role_need=0)
     assert run(weights=hi).strength == 100.0  # 0.9 inclusion >= inclusion_full
     s, br = compute_strength(None, None, None, None, ScoringWeights())
-    assert s == 0.0 and br.inclusion is None
+    assert s == 50.0 and br.inclusion is None
     assert ScoringWeights.from_env({"CARD_EVAL_WEIGHTS": '{"inclusion": 0.9, "bogus": 1}'}).inclusion == 0.9
     assert ScoringWeights.from_env({"CARD_EVAL_WEIGHTS": "not json"}) == ScoringWeights()
 

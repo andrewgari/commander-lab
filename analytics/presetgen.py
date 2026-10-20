@@ -27,6 +27,23 @@ from analytics import composition_presets as cp
 
 SPEC_VERSION = "presetgen-v1"
 
+# Internal structural skeleton used by baseline() when nothing is
+# auto-selected (no pin, no archetype/theme/MV signal, no user preset
+# matches). This is not a user-facing named preset -- just the four core
+# refs Baseline always evaluates -- so there is no silent "default preset"
+# substitution; auto_select's "no preset selected" result is honoured and
+# this skeleton only supplies the shape to generate slots from scratch.
+_BASELINE_SKELETON: Dict[str, Any] = {
+    "id": None,
+    "name": None,
+    "slots": [
+        {"ref": "core:ramp", "target": 10, "min": None, "max": None, "why": None, "pillar_id": None},
+        {"ref": "core:card_advantage", "target": 12, "min": None, "max": None, "why": None, "pillar_id": None},
+        {"ref": "group:targeted_interaction", "target": 12, "min": None, "max": None, "why": None, "pillar_id": None},
+        {"ref": "core:board_wipe", "target": 6, "min": None, "max": None, "why": None, "pillar_id": None},
+    ],
+}
+
 # ---------------------------------------------------------------------------------------------
 # Config (spec §8, `composition.generate`). Tests may patch values in this dict.
 # ---------------------------------------------------------------------------------------------
@@ -410,8 +427,8 @@ def baseline(packet: Mapping) -> dict:
     facts = Facts(packet)
     cfg = CONFIG
     sel = cp.auto_select(facts.journal, facts.deck_tags, facts.commander_mv, facts.user_presets, skip_pin=True)
-    base = sel["preset"]
-    base_name = base.get("name") or base["id"]
+    base = sel["preset"] or _BASELINE_SKELETON
+    base_name = base.get("name") or base.get("id") or "Baseline"
     slots = [dict(s, why=None, pillar_id=None) for s in copy.deepcopy(base["slots"])]
     preset = {"structure": {"deck_size": 100, "commanders": facts.commanders, "lands": facts.land["lands"]},
               "slots": slots}
