@@ -199,7 +199,7 @@
                 out.push({ group: g.label });
                 opts.forEach(function (x) {
                     var picked = has(x.o.id);
-                    out.push({ value: x.o.id, disabled: picked, html: hl(x.o.label, q) + (picked ? " · added" : "") + "<small>" + esc(x.o.desc) + "</small>" });
+                    out.push({ value: x.o.id, disabled: picked, html: "<span class=\"hud-tagopt-label\">" + hl(x.o.label, q) + (picked ? " · added" : "") + "</span>" + "<small>" + esc(x.o.desc) + "</small>" });
                 });
             });
             if (cfg.custom && s && !exact) out.push(createRow(q));
@@ -264,7 +264,7 @@
             var b = e.target.closest("button"); if (!b || b.disabled || !root.contains(b)) return;
             var c = b.closest(".hud-tagchip"), act = b.getAttribute("data-act");
             if (act === "remove" && c) { remove(c.getAttribute("data-value")); commit(); input.focus(); }
-            else if (act === "primary" && c) { var v = c.getAttribute("data-value"); promote(v); commit(); var s = box.querySelector('.hud-tagchip[data-value="' + CSS.escape(v) + '"] .hud-chip-remove'); if (s) s.focus(); }
+            else if (act === "primary" && c) { var v = c.getAttribute("data-value"); promote(v); commit(); input.focus(); }
             else if (act === "more") { moreOpen = !moreOpen; render(); var m = picks.querySelector('[data-act="more"]'); if (m) m.focus(); }
             else if (b.hasAttribute("data-add")) {
                 if (add(b.getAttribute("data-add"))) commit();

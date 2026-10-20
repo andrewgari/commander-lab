@@ -352,7 +352,7 @@
                     out.push({ group: g.label });
                     opts.forEach(function (x) {
                         var picked = has(x.o.id);
-                        out.push({ rank: x.rank, value: x.o.id, disabled: picked, html: hl(x.o.label, q) + (picked ? " · added" : "") + "<small>" + esc(x.o.desc) + "</small>" });
+                        out.push({ rank: x.rank, value: x.o.id, disabled: picked, html: "<span class=\"hud-tagopt-label\">" + hl(x.o.label, q) + (picked ? " · added" : "") + "</span>" + "<small>" + esc(x.o.desc) + "</small>" });
                     });
                 });
                 if (cfg.custom && s && !exact) out.push(createRow(q));
@@ -363,6 +363,28 @@
                 var t = clean(q);
                 if (has(t)) return { disabled: true, create: true, html: "“" + esc(t) + "” is already added" };
                 return { rank: 3, value: t, create: true, html: "<b>+</b><span>Add “" + esc(t) + "” as a custom " + cfg.noun + "</span>" };
+            }
+            function positionList() {
+                // Touch: keep the listbox fully visible above the sticky save bar.
+                // Scroll the field into view (accounting for the save bar height),
+                // then cap the list height / flip above the field if it won't fit below.
+                var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+                if (!coarse) return;
+                var savebar = document.querySelector(".hud-savebar:not([hidden])");
+                var savebarH = savebar ? savebar.getBoundingClientRect().height : 0;
+                var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                var fieldRect = input.closest(".hud-picker").getBoundingClientRect();
+                var below = vh - savebarH - fieldRect.bottom;
+                var above = fieldRect.top;
+                list.style.top = ""; list.style.bottom = ""; list.style.maxHeight = "";
+                if (below < 120 && above > below) {
+                    list.style.bottom = "calc(100% + 2px)";
+                    list.style.top = "auto";
+                    list.style.maxHeight = Math.max(120, above - 8) + "px";
+                } else {
+                    list.style.maxHeight = Math.max(120, below - 8) + "px";
+                }
+                input.closest(".hud-picker").scrollIntoView({ block: "nearest" });
             }
             function open() {
                 rows = search(input.value);
@@ -375,6 +397,7 @@
                 }).join("");
                 list.hidden = false; input.setAttribute("aria-expanded", "true");
                 active = -1;
+                positionList();
                 /* Typing highlights the best match so Enter picks it: lowest rank (label prefix, then label
                    substring), first in list order on ties. A description-only hit (rank 2) is never
                    auto-highlighted, so "spel" can't land on Ramp. */
@@ -435,8 +458,7 @@
                 if (act === "remove" && c) { remove(c.getAttribute("data-value")); commit(); input.focus(); }
                 else if (act === "primary" && c) {
                     var v = c.getAttribute("data-value"); promote(v); commit();
-                    var chips = box.querySelectorAll(".hud-tagchip"), s = chips[0] && chips[0].querySelector(".hud-chip-remove");
-                    if (s) s.focus();
+                    input.focus();
                 }
                 else if (act === "more") { moreOpen = !moreOpen; render(); var m = picks.querySelector('[data-act="more"]'); if (m) m.focus(); }
                 else if (b.hasAttribute("data-add")) {
