@@ -23,6 +23,8 @@ import card_refs as card_refs_mod
 import tags as tag_store
 import lab_tags as lab_tag_store
 import autotag
+from autotag import engine as autotag_engine_mod
+from autotag import tag_registry
 from providers import fetch_deck, ProviderError
 import linked_accounts
 from linked_accounts import LinkedAccountError
@@ -1181,6 +1183,48 @@ async def toggle_core_tag(request: Request):
     r.set("core_tags", json.dumps(list(core_tags)))
     return {"success": True, "core_tags": list(core_tags)}
 
+
+@app.get("/api/autotag-tags")
+async def list_autotag_tags():
+    """The Auto Tag engine's editable vocabulary (Vocab cleanup PR4): the FUNCTION_TAGS/
+    THEME_TAGS taxonomy the heuristic engine is allowed to assign, as a Redis-backed registry
+    instead of hardcoded lists. Builtin entries were seeded once from the original taxonomy;
+    renamed/deleted entries never come back."""
+    tags = tag_registry.list_tags(r)
+    return {"tags": tags, "categories": list(tag_registry.CATEGORIES)}
+
+
+@app.post("/api/autotag-tags")
+async def create_autotag_tag(request: Request):
+    data = await request.json()
+    try:
+        tag = tag_registry.create_tag(r, data.get("name"), data.get("category"))
+    except tag_registry.TagRegistryError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"success": True, "tag": tag}
+
+
+@app.patch("/api/autotag-tags/{tag_id}")
+async def rename_autotag_tag(tag_id: str, request: Request):
+    data = await request.json()
+    try:
+        tag = tag_registry.rename_tag(r, tag_id, data.get("name"))
+    except tag_registry.TagNotFound:
+        return JSONResponse({"error": "Tag not found"}, status_code=404)
+    except tag_registry.TagRegistryError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"success": True, "tag": tag}
+
+
+@app.delete("/api/autotag-tags/{tag_id}")
+async def delete_autotag_tag(tag_id: str):
+    try:
+        tag = tag_registry.delete_tag(r, tag_id)
+    except tag_registry.TagNotFound:
+        return JSONResponse({"error": "Tag not found"}, status_code=404)
+    return {"success": True, "tag": tag}
+
+
 @app.post("/api/card/{card_name:path}/tags")
 async def update_card_tags(card_name: str, request: Request):
     """Add or remove Lab tags from a card.
@@ -1747,6 +1791,7 @@ async def auto_tag_deck(deck_id: str, request: Request):
         return JSONResponse({"error": "Deck not found"}, status_code=404)
 
     enriched = _enrich_deck_for_autotag(r, deck)
+    autotag_engine_mod.load_tag_vocab(r)
     engine_result = autotag.run_auto_tag(enriched)
     result = tag_store.apply_auto_tags(r, registry.registry_id_of(deck), engine_result)
     return result
@@ -3682,7 +3727,7 @@ async def api_categories_list(deck_id: Optional[str] = None):
         rows += [categories_mod.custom_row(c, card_tags if deck else None, deck, decks_using=usage.get(c["id"], 0))
                  for c in categories_mod.list_global(r)]
         out = {"success": True, "version": categories_mod.get_version(r), "spec": categories_mod.SPEC_VERSION,
-               "groups": list(categories_mod.GROUPS), "themes": list(categories_mod.THEME_TAGS),
+               "groups": list(categories_mod.GROUPS), "themes": categories_mod.theme_tags(r),
                "rule_kinds": list(categories_mod.RULE_KINDS), "caps": {"deck": categories_mod.DECK_CAP},
                "aliases": categories_mod.ALIASES, "group_aliases": list(categories_mod.GROUP_ALIASES),
                "limits": {"name": categories_mod.NAME_MAX, "description": categories_mod.DESC_MAX,
