@@ -180,7 +180,7 @@ class TestHolyHellfire(unittest.TestCase):
         self.assertEqual(rows["mass_disruption"]["delta"], 1)
         self.assertEqual(rows["mass_disruption"]["status"], "ok")
         self.assertEqual(rows["plan"]["status"], "over")
-        self.assertEqual(self.out["template"]["name"], comp.TEMPLATE_NAME)
+        self.assertEqual(self.out["template"]["name"], "Default")
 
     def test_unknown_card_text_goes_to_plan_and_is_flagged(self):
         out = comp.compute_composition({"commanders": ["A"], "cards": [{"name": "A", "quantity": 1},

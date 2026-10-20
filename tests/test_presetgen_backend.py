@@ -24,7 +24,7 @@ def chain(*answers, fail=False):
 
 
 def pk(mv=4, ci=("G",), avg=3.0, cheap=8, tags=(), cmd_tags=(), journal=None, counts=None, facets=None,
-       current=None, mdfc=0.0, commanders=1, pillars=(), name="Test Deck"):
+       current=None, mdfc=0.0, commanders=1, pillars=(), name="Test Deck", user_presets=None):
     tags = list(tags)
     themes = [t for t in tags if t not in pg.GENERIC_TAGS]
     cdoes = {}
@@ -43,7 +43,8 @@ def pk(mv=4, ci=("G",), avg=3.0, cheap=8, tags=(), cmd_tags=(), journal=None, co
         "current_preset": copy.deepcopy(current) if current else {},
         "floors": ca.modified_floors(mv, cdoes, "tokens" in tags), "commander_does": cdoes,
         "deck_name": name, "deck_card_names": [], "registry_id": "archidekt:1", "existing_preset_names": [],
-        "commander_tags": list(cmd_tags), "mdfc_eq": mdfc, "facet_counts": dict(facets or {}), "user_presets": [],
+        "commander_tags": list(cmd_tags), "mdfc_eq": mdfc, "facet_counts": dict(facets or {}),
+        "user_presets": fixture_presets() if user_presets is None else user_presets,
     }
 
 
@@ -58,6 +59,69 @@ def preset(lands, *slots, commanders=1):
 
 def by_ref(p):
     return {s["ref"]: s for s in p["slots"]}
+
+
+# Literal fixture presets replacing the removed built-ins (unrelated to
+# testing "builtin-ness" -- these are just convenient fixed presets for
+# presetgen algorithm tests).
+_FIXTURE_PRESETS = {
+    "tcz_2025": {
+        "id": "tcz_2025", "name": "Command Zone 2025", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 38},
+        "slots": [slot("core:ramp", 10), slot("core:card_advantage", 12),
+                  slot("group:targeted_interaction", 12), slot("core:board_wipe", 6)],
+    },
+    "standard_36": {
+        "id": "standard_36", "name": "Standard 36", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 36},
+        "slots": [slot("core:ramp", 12), slot("core:card_advantage", 7),
+                  slot("group:targeted_interaction", 10), slot("core:board_wipe", 2)],
+    },
+    "big_mana": {
+        "id": "big_mana", "name": "Big Mana", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 38},
+        "slots": [slot("core:ramp", 14), slot("core:card_advantage", 10),
+                  slot("group:targeted_interaction", 10), slot("core:board_wipe", 3)],
+        "auto_select": {"archetypes": ["ramp"], "themes": [], "commander_mv_min": 6, "priority": 0},
+    },
+    "go_wide": {
+        "id": "go_wide", "name": "Go Wide", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 36},
+        "slots": [slot("core:ramp", 10), slot("core:card_advantage", 10),
+                  slot("group:targeted_interaction", 10), slot("core:board_wipe", max=1),
+                  slot("core:protection", min=3), slot("core:finisher", min=3)],
+        "auto_select": {"archetypes": ["tokens", "aristocrats", "tribal"],
+                        "themes": ["tokens", "sacrifice", "kindred:*"],
+                        "commander_mv_min": None, "priority": 0},
+    },
+    "control": {
+        "id": "control", "name": "Control", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 38},
+        "slots": [slot("core:ramp", 10), slot("core:card_advantage", 12),
+                  slot("group:targeted_interaction", 15), slot("core:board_wipe", 5)],
+        "auto_select": {"archetypes": ["control", "stax", "pillowfort"], "themes": [],
+                        "commander_mv_min": None, "priority": 0},
+    },
+    "voltron": {
+        "id": "voltron", "name": "Voltron", "version": 1,
+        "structure": {"deck_size": 100, "commanders": 1, "lands": 37},
+        "slots": [slot("core:ramp", 10), slot("core:card_advantage", 10),
+                  slot("core:protection", 10), slot("group:targeted_interaction", 10),
+                  slot("core:board_wipe", 2), slot("theme:voltron", min=10)],
+        "auto_select": {"archetypes": ["voltron"], "themes": ["voltron"],
+                        "commander_mv_min": None, "priority": 0},
+    },
+}
+
+
+def get_fixture_preset(preset_id):
+    """Stand-in for the removed composition_presets.get_builtin()."""
+    return copy.deepcopy(_FIXTURE_PRESETS[preset_id])
+
+
+def fixture_presets():
+    """Stand-in for the removed composition_presets.builtin_presets()."""
+    return [copy.deepcopy(p) for p in _FIXTURE_PRESETS.values()]
 
 
 # fixture decks ------------------------------------------------------------------------------
@@ -192,7 +256,7 @@ class BaselineTests(unittest.TestCase):
     def test_g3_commander_does_the_job(self):
         b = pg.baseline(deck_g3())
         s = by_ref(b["preset"])
-        self.assertEqual(b["selected"]["preset_id"], "tcz_2025")
+        self.assertIsNone(b["selected"]["preset_id"])
         self.assertEqual(b["preset"]["structure"]["lands"], 39)
         self.assertEqual(s["core:card_advantage"]["target"], 10)
         self.assertEqual(s["core:card_advantage"]["why"], "The commander already does this job, so 2 fewer are needed.")
@@ -213,7 +277,7 @@ class BaselineTests(unittest.TestCase):
                                         "core:board_wipe": "TRIM"})
         self.assertEqual(s["core:ramp"]["why"], "Commander costs 5; ramp floor is 12, giving 70.4% to see one by turn 2.")
         self.assertEqual(s["core:board_wipe"]["why"], "Trimmed to keep 20 cards for the deck's own plan.")
-        self.assertEqual(s["group:targeted_interaction"]["why"], "Kept from Command Zone 2025.")
+        self.assertEqual(s["group:targeted_interaction"]["why"], "Kept from Baseline.")
 
     def test_no_blue_drops_counterspell_slots(self):
         p = pk(mv=4, ci=("G",), journal={"primary_archetype": "control"})
@@ -271,34 +335,38 @@ class BaselineTests(unittest.TestCase):
 
 class AutoSelectTests(unittest.TestCase):
     def test_steps(self):
-        pick = lambda j, t, mv, **kw: cp.auto_select(j, t, mv, **kw)
+        fx = fixture_presets()
+        pick = lambda j, t, mv, **kw: cp.auto_select(j, t, mv, fx, **kw)
         self.assertEqual(pick({"primary_archetype": "ramp"}, [], 2)["reason"]["step"], 2)
         self.assertEqual(pick({"primary_archetype": "x", "secondary_archetypes": ["tokens"]}, [], 2)["preset_id"], "go_wide")
         self.assertEqual(pick({}, ["kindred:elf"], 2)["reason"], {"step": 4, "signal": "deck tag: kindred:elf"})
         self.assertEqual(pick({}, [], 7)["reason"], {"step": 5, "signal": "commander MV 7"})
-        self.assertEqual(pick({}, [], 3)["preset_id"], "tcz_2025")
+        # no archetype/theme/MV signal matches at mv=3 -> no preset selected (no hardcoded default)
+        self.assertIsNone(pick({}, [], 3)["preset_id"])
+        self.assertEqual(pick({}, [], 3)["reason"], {"step": 6, "signal": "no preset selected"})
         # phantom midrange counts as unset
         self.assertEqual(pick({"primary_archetype": "midrange"}, [], 3)["reason"]["step"], 6)
 
     def test_pin_and_user_presets_first(self):
+        fx = fixture_presets()
         user = {"id": "p-mine", "name": "Mine", "slots": [], "structure": {},
                 "auto_select": {"archetypes": ["ramp"], "themes": [], "commander_mv_min": None, "priority": 10}}
-        sel = cp.auto_select({"primary_archetype": "ramp"}, [], 3, [user])
+        sel = cp.auto_select({"primary_archetype": "ramp"}, [], 3, [user] + fx)
         self.assertEqual((sel["preset_id"], sel["also_matched"]), ("p-mine", ["big_mana"]))
-        self.assertEqual(cp.auto_select({}, [], 3, [user], pin="standard_36")["mode"], "pinned")
-        self.assertEqual(cp.auto_select({}, [], 3, [user], pin="standard_36", skip_pin=True)["mode"], "auto")
+        self.assertEqual(cp.auto_select({}, [], 3, [user] + fx, pin="standard_36")["mode"], "pinned")
+        self.assertEqual(cp.auto_select({}, [], 3, [user] + fx, pin="standard_36", skip_pin=True)["mode"], "auto")
 
     def test_builtin_plan_rooms(self):
-        for p in cp.builtin_presets():
+        for p in fixture_presets():
             self.assertEqual([i for i in ca.validate_preset(dict(p, name=p["name"]), None) if i["level"] == "error"], [])
-        self.assertEqual(ca.plan_room(cp.get_builtin("tcz_2025")), 21)
-        self.assertEqual(ca.plan_room(cp.get_builtin("standard_36")), 32)
+        self.assertEqual(ca.plan_room(get_fixture_preset("tcz_2025")), 21)
+        self.assertEqual(ca.plan_room(get_fixture_preset("standard_36")), 32)
 
 
 class ImproveCandidateTests(unittest.TestCase):
     def test_x1_goblins_on_tcz(self):
         d = deck_g2()
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         out = pg.improve_candidates(d)
         got = [(c["id"], c["trig"], c["priority"], c["op"], c["ref"], c["from"], c["to"]) for c in out["candidates"]]
         self.assertEqual(got, [
@@ -331,7 +399,7 @@ class ImproveCandidateTests(unittest.TestCase):
 
     def test_x5_r7_commander_does_it_and_gap_still_listed(self):
         d = deck_g3()
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         d["evaluation"]["counts"] = {"core:card_advantage": 8}
         out = pg.improve_candidates(d)
         self.assertEqual([(c["trig"], c["ref"], c["to"]) for c in out["candidates"]],
@@ -395,7 +463,7 @@ class ImproveCandidateTests(unittest.TestCase):
 
     def test_deterministic(self):
         d = deck_g2()
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         self.assertEqual(json.dumps(pg.improve_candidates(d)), json.dumps(pg.improve_candidates(copy.deepcopy(d))))
 
 
@@ -468,7 +536,7 @@ class ValidatorTests(unittest.TestCase):
     def test_prompt_packet_has_no_card_names_and_system_prompt_is_verbatim(self):
         d = deck_g2()
         d["deck_card_names"] = ["Goblin Guide"]
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         cands = pg.improve_candidates(d)
         pp = pg.prompt_packet(d, "improve", pg.baseline(d), cands["candidates"], cands["deck_gaps"], [])
         self.assertNotIn("Goblin Guide", json.dumps(pp))
@@ -552,7 +620,7 @@ class ValidatorTests(unittest.TestCase):
 
     def test_a12_exempt_for_candidate_r7(self):
         d = deck_g3()
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         d["evaluation"]["counts"] = {"core:card_advantage": 8}
         cands = pg.improve_candidates(d)["candidates"]
         op = {"candidate_id": "c1", "op": "set", "ref": "core:card_advantage", "to": {"target": 10}, "why": "Commander draws."}
@@ -561,7 +629,7 @@ class ValidatorTests(unittest.TestCase):
 
     def test_improve_ai_off_applies_top_six(self):
         d = deck_g2()
-        d["current_preset"] = cp.get_builtin("tcz_2025")
+        d["current_preset"] = get_fixture_preset("tcz_2025")
         res = pg.improve(d, None)
         self.assertEqual(res["ai"]["status"], "off")
         self.assertEqual([o["candidate_id"] for o in res["ops"]], ["c1", "c2", "c3"])

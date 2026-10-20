@@ -18,7 +18,6 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 SPEC_VERSION = "composition-v1"
 DECK_SIZE = 100
-FALLBACK_PRESET_ID = "tcz_2025"
 MAX_USER_PRESETS = 50
 MAX_SLOTS = 24
 MAX_OVERRIDES = 12
@@ -27,7 +26,6 @@ MAX_NAME = 40
 MAX_DESCRIPTION = 400
 MAX_WHY = 160
 
-KIND_BUILTIN = "builtin"
 KIND_USER = "user"
 CONFIDENCES = ("exact", "model", "heuristic", "empirical", "observed")
 MODE_AUTO = "auto"
@@ -84,10 +82,6 @@ class CompositionValidationError(ValueError):
     def __init__(self, issues: List[dict]):
         self.issues = issues
         super().__init__("; ".join(f"{i['code']}: {i['message']}" for i in errors_of(issues)) or "invalid")
-
-
-class ImmutablePresetError(PermissionError):
-    """E9: built-in presets can't be written (HTTP 403)."""
 
 
 # ---------------------------------------------------------------------------
@@ -178,77 +172,9 @@ def band_of(slot: Mapping, band: int = 1) -> Tuple[Optional[int], Optional[int]]
 # ---------------------------------------------------------------------------
 
 
-def _slot(ref: str, target: Optional[int] = None, min: Optional[int] = None,  # noqa: A002
-          max: Optional[int] = None, why: str = "") -> dict:  # noqa: A002
-    return {"ref": ref, "target": target, "min": min, "max": max, "why": why, "pillar_id": None}
-
-
-def _builtin(pid: str, name: str, lands: int, slots: List[dict], *, source: str, confidence: str,
-             description: str = "", auto: Optional[dict] = None) -> dict:
-    return {
-        "id": pid, "schema": SPEC_VERSION, "kind": KIND_BUILTIN, "name": name, "description": description,
-        "source": source, "confidence": confidence, "based_on": None,
-        "structure": {"deck_size": DECK_SIZE, "commanders": 1, "lands": lands},
-        "slots": slots, "auto_select": auto or empty_auto_select(), "version": 1,
-        "created_at": None, "updated_at": None,
-    }
-
-
 def empty_auto_select() -> dict:
     return {"archetypes": [], "themes": [], "commander_mv_min": None, "priority": 0}
 
-
-_TCZ = ("The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18)")
-_ARCH = "heuristic archetype preset (composition-v1)"
-
-
-def _core_slots(ramp, draw, inter, wipe) -> List[dict]:
-    return [_slot("core:ramp", ramp), _slot("core:card_advantage", draw),
-            _slot("group:targeted_interaction", inter), _slot("core:board_wipe", wipe)]
-
-
-BUILTIN_PRESETS: Tuple[dict, ...] = (
-    _builtin(FALLBACK_PRESET_ID, "Command Zone 2025", 38, _core_slots(10, 12, 12, 6),
-             source=_TCZ, confidence="heuristic", description="Default template; equals the legacy AN-3 template."),
-    _builtin("standard_36", "Standard 36", 36, _core_slots(12, 7, 10, 2),
-             source="MtGDS, The Deck of Many Things, EDHREC (2022-07-05): 36 lands / 63 spells / 1 commander",
-             confidence="empirical"),
-    _builtin("big_mana", "Big Mana", 38, _core_slots(14, 10, 10, 3), source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["ramp"], "themes": [], "commander_mv_min": 6, "priority": 0}),
-    _builtin("go_wide", "Go Wide", 36,
-             [_slot("core:ramp", 10), _slot("core:card_advantage", 10), _slot("group:targeted_interaction", 10),
-              _slot("core:board_wipe", max=1), _slot("core:protection", min=3), _slot("core:finisher", min=3)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["tokens", "aristocrats", "tribal"], "themes": ["tokens", "sacrifice", "kindred:*"],
-                   "commander_mv_min": None, "priority": 0}),
-    _builtin("spellslinger", "Spellslinger", 36,
-             _core_slots(10, 12, 12, 3) + [_slot("type:instant_sorcery", min=25), _slot("type:creature", max=15)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["spellslinger", "storm"], "themes": ["spellslinger"],
-                   "commander_mv_min": None, "priority": 0}),
-    _builtin("control", "Control", 38,
-             _core_slots(10, 12, 15, 5) + [_slot("facet:instant_speed", min=10), _slot("core:finisher", min=2)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["control", "stax", "pillowfort"], "themes": [],
-                   "commander_mv_min": None, "priority": 0}),
-    _builtin("voltron", "Voltron", 37,
-             [_slot("core:ramp", 10), _slot("core:card_advantage", 10), _slot("core:protection", 10),
-              _slot("group:targeted_interaction", 10), _slot("core:board_wipe", 2),
-              _slot("theme:voltron", min=10), _slot("type:creature", max=20)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["voltron"], "themes": ["voltron"], "commander_mv_min": None, "priority": 0}),
-    _builtin("graveyard", "Graveyard", 37,
-             [_slot("core:ramp", 10), _slot("core:card_advantage", 8), _slot("core:recursion", 8),
-              _slot("group:targeted_interaction", 10), _slot("core:board_wipe", 2), _slot("theme:graveyard", min=10)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["graveyard", "reanimator"], "themes": ["graveyard"],
-                   "commander_mv_min": None, "priority": 0}),
-    _builtin("landfall", "Landfall", 38,
-             _core_slots(12, 10, 10, 2) + [_slot("theme:lands_matter", min=10)],
-             source=_ARCH, confidence="heuristic",
-             auto={"archetypes": ["landfall"], "themes": ["lands_matter"], "commander_mv_min": None, "priority": 0}),
-)
-BUILTIN_BY_ID: Dict[str, dict] = {p["id"]: p for p in BUILTIN_PRESETS}
 
 # Legacy AN-3 template row -> ref (spec section 9). `plan` is dropped (derived).
 LEGACY_ROW_REFS = {
@@ -320,8 +246,6 @@ def validate_preset(preset: Mapping, existing: Iterable[Mapping] = (), *, ai: bo
         taken = {collapse_ws(p.get("name")).lower() for p in existing}
         if name.lower() in taken:
             out.append(issue("E1", "error", f"A preset named '{name}' already exists.", None))
-    if preset.get("kind") != KIND_BUILTIN and str(preset.get("id") or "") in BUILTIN_BY_ID:
-        out.append(issue("E1", "error", "Built-in ids are reserved.", None))
     if len(str(preset.get("description") or "")) > MAX_DESCRIPTION:
         out.append(issue("E1", "error", f"Description is over {MAX_DESCRIPTION} characters.", None))
     if preset.get("confidence", "heuristic") not in CONFIDENCES:
@@ -515,23 +439,25 @@ def resolve_preset(record: Optional[Mapping], user_presets: Iterable[Mapping], *
                    commander_mv: Optional[float] = None) -> dict:
     """Returns {preset_id, mode, reason: {step, signal}, also_matched, issues}.
 
-    Never writes anything. User presets are tried before built-ins; within a
-    group sort by priority desc, then id asc."""
+    Never writes anything. No built-in presets exist; only user presets are
+    considered, sorted by priority desc then id asc. When nothing matches (or
+    a pinned preset no longer exists), preset_id is None ("no preset
+    selected") instead of silently falling back to a hardcoded default."""
     record = record or default_deck_composition()
     user_presets_list: List[dict] = list(user_presets)  # type: ignore[arg-type]
-    by_id = {**BUILTIN_BY_ID, **{p["id"]: p for p in user_presets_list}}
+    by_id = {p["id"]: p for p in user_presets_list}
     if record.get("mode") == MODE_PINNED:
         pid = record.get("preset_id")
         if pid in by_id:
             return {"preset_id": pid, "mode": MODE_PINNED, "reason": {"step": 1, "signal": "pinned"},
                     "also_matched": [], "issues": []}
-        return {"preset_id": FALLBACK_PRESET_ID, "mode": MODE_PINNED,
+        return {"preset_id": None, "mode": MODE_PINNED,
                 "reason": {"step": 1, "signal": "pinned preset missing"}, "also_matched": [],
                 "issues": [issue("I3", "info", f"Pinned preset '{pid}' no longer exists.", None, stale_pin=pid)]}
 
     def ordered() -> List[dict]:
         key = lambda p: (-int((p.get("auto_select") or {}).get("priority") or 0), p["id"])  # noqa: E731
-        return list(sorted(user_presets_list, key=key)) + list(sorted(BUILTIN_PRESETS, key=key))
+        return list(sorted(user_presets_list, key=key))
 
     primary, secondary = _journal_archetypes(journal)
     tags = list(deck_tags)
@@ -565,7 +491,7 @@ def resolve_preset(record: Optional[Mapping], user_presets: Iterable[Mapping], *
                     also.append(p["id"])
             return {"preset_id": first["id"], "mode": MODE_AUTO, "reason": {"step": step, "signal": signal},
                     "also_matched": also, "issues": []}
-    return {"preset_id": FALLBACK_PRESET_ID, "mode": MODE_AUTO, "reason": {"step": 6, "signal": "default"},
+    return {"preset_id": None, "mode": MODE_AUTO, "reason": {"step": 6, "signal": "no preset selected"},
             "also_matched": [], "issues": []}
 
 
@@ -577,9 +503,9 @@ def resolve_preset(record: Optional[Mapping], user_presets: Iterable[Mapping], *
 def legacy_override_to_record(legacy: Mapping, now: str) -> Tuple[dict, Optional[int]]:
     """AN-3 `composition:template:*` override -> deck composition record.
 
-    Returns (record, dropped_plan). Rows equal to the AN-3 default are already
-    absent from legacy overrides, so they stay absent here (the pinned preset
-    `tcz_2025` supplies them)."""
+    Returns (record, dropped_plan). There is no built-in default preset to pin
+    to anymore, so the migrated record carries the raw overrides with no
+    preset_id ("no preset selected"); callers must handle that gracefully."""
     overrides = []
     lands = None
     dropped = None
@@ -593,5 +519,5 @@ def legacy_override_to_record(legacy: Mapping, now: str) -> Tuple[dict, Optional
         else:
             overrides.append({"ref": LEGACY_ROW_REFS[row], "target": int(value), "min": None, "max": None})
     overrides.sort(key=lambda o: o["ref"])
-    return ({"mode": MODE_PINNED, "preset_id": FALLBACK_PRESET_ID, "lands": lands,
+    return ({"mode": MODE_PINNED, "preset_id": None, "lands": lands,
              "overrides": overrides, "updated_at": now}, dropped)

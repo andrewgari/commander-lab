@@ -38,7 +38,7 @@ from analytics.interactions import service as interactions_service
 from analytics.interactions import combos
 from analytics import composition as composition_mod
 from analytics import composition_service as comp_svc
-from analytics.composition_models import CompositionValidationError, ImmutablePresetError
+from analytics.composition_models import CompositionValidationError
 from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
@@ -2587,7 +2587,7 @@ def _wake_bracket_worker(deck_id: str = "") -> None:
 @app.get("/api/decks/{deck_id}/composition")
 async def api_deck_composition(deck_id: str):
     """Cards classified into Lands / Ramp / Card advantage / Targeted disruption /
-    Mass disruption / Plan, vs the deck's template (Command Zone 2025 by default)."""
+    Mass disruption / Plan, vs the deck's template (default unless overridden)."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
@@ -2620,8 +2620,6 @@ async def api_reset_composition_template(deck_id: str):
 def _comp_error(exc: Exception):
     if isinstance(exc, comp_svc.PresetNotFound):
         return JSONResponse(status_code=404, content={"success": False, "error": f"Preset '{exc.args[0]}' not found"})
-    if isinstance(exc, ImmutablePresetError):
-        return JSONResponse(status_code=403, content={"success": False, "error": str(exc)})
     if isinstance(exc, CompositionValidationError):
         issues = getattr(exc, "issues", None)
         return JSONResponse(status_code=422, content={"success": False, "error": str(exc), "issues": issues})
@@ -2630,7 +2628,8 @@ def _comp_error(exc: Exception):
 
 @app.get("/api/composition/presets")
 async def api_list_presets(kind: Optional[str] = None):
-    """Built-in + user composition presets. ?kind=builtin|user filters."""
+    """User composition presets (there are no built-ins). ?kind=user is a no-op filter; ?kind=builtin
+    always returns []."""
     return {"success": True, "presets": await asyncio.to_thread(comp_svc.list_all, r, kind)}
 
 
@@ -2641,7 +2640,7 @@ async def api_create_preset(request: Request):
         return _bad_request(ValueError("JSON object body required"))
     try:
         p = await asyncio.to_thread(comp_svc.create, r, body)
-    except (CompositionValidationError, ImmutablePresetError) as exc:
+    except (CompositionValidationError) as exc:
         return _comp_error(exc)
     return JSONResponse(status_code=201, content={"success": True, "preset": p})
 
@@ -2661,7 +2660,7 @@ async def api_update_preset(preset_id: str, request: Request):
         return _bad_request(ValueError("JSON object body required"))
     try:
         p = await asyncio.to_thread(comp_svc.update, r, preset_id, body)
-    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound, CompositionValidationError) as exc:
         return _comp_error(exc)
     return {"success": True, "preset": p}
 
@@ -2670,7 +2669,7 @@ async def api_update_preset(preset_id: str, request: Request):
 async def api_delete_preset(preset_id: str):
     try:
         await asyncio.to_thread(comp_svc.delete, r, preset_id)
-    except (comp_svc.PresetNotFound, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound) as exc:
         return _comp_error(exc)
     return {"success": True, "deleted": preset_id}
 
@@ -2740,7 +2739,7 @@ async def _presetgen_route(deck_id: str, request: Request, mode: str):
     body = body if isinstance(body, dict) else {}
     try:
         out = await asyncio.to_thread(_presetgen_run, deck, mode, body)
-    except (comp_svc.PresetNotFound, CompositionValidationError, ImmutablePresetError) as exc:
+    except (comp_svc.PresetNotFound, CompositionValidationError) as exc:
         return _comp_error(exc)
     return {"success": True, "draft": out}
 
