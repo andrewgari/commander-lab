@@ -1002,7 +1002,7 @@
     }
 
     function getVisiblePhysicalDecks() {
-        return allDecks.filter(d => (d.status || '').toLowerCase() === 'physical');
+        return allDecks.filter(d => ['physical', 'retired'].includes((d.status || '').toLowerCase()) && !d.decommissioned_at);
     }
 
     function toggleSelectMode(forceState) {
@@ -1806,7 +1806,7 @@
 
         const decomBtn = document.getElementById('modalDecommissionBtn');
         if (decomBtn) {
-            decomBtn.style.display = (deck.status || '').toLowerCase() === 'physical' ? 'inline-block' : 'none';
+            decomBtn.style.display = ['physical', 'retired'].includes((deck.status || '').toLowerCase()) && !deck.decommissioned_at ? 'inline-block' : 'none';
         }
         
         document.getElementById('deckModal').style.display = 'flex';
@@ -2011,7 +2011,7 @@
                 const deckIdStr = String(deck.id);
                 const isSelected = selectedDeckIds.has(deckIdStr);
                 const isFailed = failedDeckIds.has(deckIdStr);
-                const canSelect = isPhysical;
+                const canSelect = (isPhysical || statusName === 'retired') && !deck.decommissioned_at;
 
                 let cardClasses = 'deck-card hud-enter';
                 if (selectionMode) {
@@ -2038,7 +2038,7 @@
                     : '';
 
                 const tip = selectionMode && !canSelect
-                    ? `${deck.name}: only Physical decks can be decommissioned`
+                    ? `${deck.name}: only Physical or Retired decks can be decommissioned`
                     : `${deck.name} · ${HUD.commanderRoles(deck).map(c => c.name).filter(Boolean).join(' & ') || 'No commanders set'}`;
 
                 return `
