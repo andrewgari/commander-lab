@@ -603,9 +603,9 @@ def _apply_decommission(r, decks: list, registry_id: str, tag: str, pipe, now: s
             "unassigned_instance_ids": [],
         }
 
-    if target.get("status") != "physical":
+    if target.get("status") not in ("physical", "retired"):
         raise DecommissionError(
-            f"only physical decks can be decommissioned (deck status is {target.get('status')!r})"
+            f"only physical or retired decks can be decommissioned (deck status is {target.get('status')!r})"
         )
 
     reg_id = registry_id_of(target)
