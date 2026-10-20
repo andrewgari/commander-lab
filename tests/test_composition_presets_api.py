@@ -3,12 +3,18 @@ preset feature (composition-v1, PR #210).
 
 Layers covered:
   * analytics/composition_service.py  — thin service glue (CRUD passthroughs,
-    user-vs-builtin filtering, resolve_for_deck wiring, set/reset selection)
+    resolve_for_deck wiring, set/reset selection)
   * app.py routes                     — /api/composition/presets CRUD and
     /api/decks/{id}/composition/selection GET/PUT/DELETE via TestClient with a
     FakeRedis patched over `app.r`
   * auto-selection edge cases         — step precedence, ordering, MV gates,
     W2 floors, stale pins, kindred themes, phantom midrange
+
+Every preset is a plain user record now: there are no built-ins, no
+read-only/immutable preset ids, and nothing re-seeds a deleted preset. Tests
+that used to exercise "built-in" fixtures (tcz_2025, big_mana, go_wide, ...)
+now create those same shapes as ordinary user presets via literal fixture
+dicts defined in this file.
 
 tests/test_composition_models.py already covers the pure model layer
 (refs, validate_preset basics, plan_room, legacy_override_to_record) and
@@ -31,9 +37,9 @@ from fastapi.testclient import TestClient
 from analytics import composition_service as svc
 from analytics import composition_store as store
 from analytics.composition_models import (
-    BUILTIN_BY_ID, BUILTIN_PRESETS, DECK_SIZE, FALLBACK_PRESET_ID, MAX_USER_PRESETS,
+    DECK_SIZE, MAX_USER_PRESETS,
     MODE_AUTO, MODE_PINNED, SPEC_VERSION,
-    CompositionValidationError, ImmutablePresetError,
+    CompositionValidationError,
     band_of, default_deck_composition, errors_of, resolve_preset, validate_preset,
 )
 from app import app
@@ -135,6 +141,80 @@ def user_preset(pid, name, archetypes=(), themes=(), mv_min=None, priority=0,
     }
 
 
+# Fixture preset bodies mirroring the old (now-removed) built-ins. These are
+# plain user presets -- nothing in production code treats their ids
+# specially. Used both to seed FakeRedis (via svc.create) for API/service
+# tests and, as fully-normalized dicts, for pure resolve_preset tests.
+FIXTURE_BODIES = [
+    dict(id="tcz_2025", name="Command Zone 2025",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 38},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 12),
+                slot("group:targeted_interaction", 12), slot("core:board_wipe", 6)]),
+    dict(id="big_mana", name="Big Mana",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 38},
+         slots=[slot("core:ramp", 14), slot("core:card_advantage", 10),
+                slot("group:targeted_interaction", 10), slot("core:board_wipe", 3)],
+         auto_select={"archetypes": ["ramp"], "themes": [], "commander_mv_min": 6, "priority": 0}),
+    dict(id="go_wide", name="Go Wide",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 36},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 10),
+                slot("group:targeted_interaction", 10), slot("core:board_wipe", max=1)],
+         auto_select={"archetypes": ["tokens", "aristocrats", "tribal"],
+                      "themes": ["tokens", "sacrifice", "kindred:*"],
+                      "commander_mv_min": None, "priority": 0}),
+    dict(id="spellslinger", name="Spellslinger",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 36},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 12),
+                slot("group:targeted_interaction", 12), slot("core:board_wipe", 3)],
+         auto_select={"archetypes": ["spellslinger", "storm"], "themes": ["spellslinger"],
+                      "commander_mv_min": None, "priority": 0}),
+    dict(id="control", name="Control",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 38},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 12),
+                slot("group:targeted_interaction", 15), slot("core:board_wipe", 5)],
+         auto_select={"archetypes": ["control", "stax", "pillowfort"], "themes": [],
+                      "commander_mv_min": None, "priority": 0}),
+    dict(id="voltron", name="Voltron",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 37},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 10),
+                slot("core:protection", 10), slot("group:targeted_interaction", 10),
+                slot("core:board_wipe", 2), slot("theme:voltron", min=10)],
+         auto_select={"archetypes": ["voltron"], "themes": ["voltron"],
+                      "commander_mv_min": None, "priority": 0}),
+    dict(id="graveyard", name="Graveyard",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 37},
+         slots=[slot("core:ramp", 10), slot("core:card_advantage", 8),
+                slot("core:recursion", 8), slot("group:targeted_interaction", 10),
+                slot("core:board_wipe", 2), slot("theme:graveyard", min=10)],
+         auto_select={"archetypes": ["graveyard", "reanimator"], "themes": ["graveyard"],
+                      "commander_mv_min": None, "priority": 0}),
+    dict(id="landfall", name="Landfall",
+         structure={"deck_size": DECK_SIZE, "commanders": 1, "lands": 38},
+         slots=[slot("core:ramp", 12), slot("core:card_advantage", 10),
+                slot("group:targeted_interaction", 10), slot("core:board_wipe", 2),
+                slot("theme:lands_matter", min=10)],
+         auto_select={"archetypes": ["landfall"], "themes": ["lands_matter"],
+                      "commander_mv_min": None, "priority": 0}),
+]
+
+
+def seed_fixtures(r):
+    """Create every FIXTURE_BODIES entry as a plain user preset in r."""
+    for body in FIXTURE_BODIES:
+        store.create_preset(r, body)
+
+
+def fixture_preset_dicts():
+    """Normalized fixture dicts for pure resolve_preset(...) calls (no redis)."""
+    from analytics.composition_models import normalize_preset
+    out = []
+    for body in FIXTURE_BODIES:
+        norm = normalize_preset(body)
+        norm["id"] = body["id"]
+        out.append(norm)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Unit: composition_service glue (FakeRedis, no HTTP)
 # ---------------------------------------------------------------------------
@@ -146,37 +226,38 @@ class ServiceBase(unittest.TestCase):
 
 
 class TestServiceUserPresets(ServiceBase):
-    def test_user_presets_excludes_builtins(self):
+    def test_user_presets_starts_empty(self):
         self.assertEqual(svc.user_presets(self.r), [])
         p = svc.create(self.r, valid_body())
         ids = [x["id"] for x in svc.user_presets(self.r)]
         self.assertEqual(ids, [p["id"]])
-        for bp in BUILTIN_PRESETS:
-            self.assertNotIn(bp["id"], ids)
 
     def test_list_all_default_includes_everything(self):
+        seed_fixtures(self.r)
         items = svc.list_all(self.r)
         ids = [p["id"] for p in items]
-        self.assertIn(FALLBACK_PRESET_ID, ids)
-        self.assertEqual(len(items), len(BUILTIN_PRESETS))
+        self.assertIn("tcz_2025", ids)
+        self.assertEqual(len(items), len(FIXTURE_BODIES))
 
-    def test_list_all_kind_filters(self):
-        p = svc.create(self.r, valid_body(name="Custom One"))
-        b_ids = [x["id"] for x in svc.list_all(self.r, "builtin")]
-        u_ids = [x["id"] for x in svc.list_all(self.r, "user")]
-        self.assertEqual(set(b_ids), set(BUILTIN_BY_ID))
-        self.assertEqual(u_ids, [p["id"]])
+    def test_list_all_builtin_kind_is_always_empty(self):
+        seed_fixtures(self.r)
+        self.assertEqual(svc.list_all(self.r, "builtin"), [])
+
+    def test_list_all_user_kind_returns_everything(self):
+        seed_fixtures(self.r)
+        self.assertEqual(len(svc.list_all(self.r, "user")), len(FIXTURE_BODIES))
 
     def test_list_all_unknown_kind_unfiltered(self):
-        """?kind=magic is not validated by the route; it just returns everything."""
-        self.assertEqual(len(svc.list_all(self.r, "magic")), len(BUILTIN_PRESETS))
+        seed_fixtures(self.r)
+        self.assertEqual(len(svc.list_all(self.r, "magic")), len(FIXTURE_BODIES))
 
 
 class TestServiceGetCreate(ServiceBase):
-    def test_get_builtin(self):
-        p = svc.get(self.r, FALLBACK_PRESET_ID)
-        self.assertEqual(p["id"], FALLBACK_PRESET_ID)
-        self.assertEqual(p["kind"], "builtin")
+    def test_get_seeded_preset(self):
+        seed_fixtures(self.r)
+        p = svc.get(self.r, "tcz_2025")
+        self.assertEqual(p["id"], "tcz_2025")
+        self.assertEqual(p["kind"], "user")
 
     def test_get_missing_raises(self):
         with self.assertRaises(svc.PresetNotFound) as cm:
@@ -190,7 +271,6 @@ class TestServiceGetCreate(ServiceBase):
         self.assertTrue(p["id"].startswith("p-spaced-name-"))
         self.assertIsNotNone(p["created_at"])
         self.assertEqual(p["schema"], SPEC_VERSION)
-        # persisted under comp:presets only (built-ins are code constants)
         raw = json.loads(self.r.get(store.PRESET_KEY))
         self.assertEqual([x["id"] for x in raw], [p["id"]])
 
@@ -201,10 +281,10 @@ class TestServiceGetCreate(ServiceBase):
         self.assertIn("E1", codes)
         self.assertIn("E3", codes)
 
-    def test_create_reserved_builtin_id_rejected(self):
-        with self.assertRaises(CompositionValidationError) as cm:
-            svc.create(self.r, dict(valid_body(), id=FALLBACK_PRESET_ID))
-        self.assertTrue(any("reserved" in i["message"].lower() for i in cm.exception.issues))
+    def test_create_with_arbitrary_id_allowed(self):
+        """No id is reserved: any preset, including former built-in ids, can be created."""
+        p = svc.create(self.r, dict(valid_body(name="Totally New"), id="tcz_2025"))
+        self.assertEqual(p["id"], "tcz_2025")
 
     def test_create_cap_max_user_presets(self):
         existing = [valid_body(name=f"P{i}") for i in range(MAX_USER_PRESETS)]
@@ -232,10 +312,11 @@ class TestServiceUpdateDelete(ServiceBase):
         with self.assertRaises(svc.PresetNotFound):
             svc.update(self.r, "ghost", valid_body())
 
-    def test_update_builtin_raises_immutable(self):
-        # store raises ImmutablePresetError before the ValueError mapping kicks in
-        with self.assertRaises(ImmutablePresetError):
-            svc.update(self.r, FALLBACK_PRESET_ID, valid_body(name="Nope"))
+    def test_update_seeded_preset_succeeds(self):
+        """Every preset is fully editable now -- no immutable/read-only preset."""
+        seed_fixtures(self.r)
+        updated = svc.update(self.r, "tcz_2025", valid_body(name="Renamed Default"))
+        self.assertEqual(updated["name"], "Renamed Default")
 
     def test_update_invalid_stays_422_class(self):
         p = self._make()
@@ -249,12 +330,24 @@ class TestServiceUpdateDelete(ServiceBase):
         with self.assertRaises(svc.PresetNotFound):
             svc.delete(self.r, p["id"])
 
-    def test_delete_builtin_raises_immutable(self):
-        with self.assertRaises(ImmutablePresetError):
-            svc.delete(self.r, "go_wide")
+    def test_delete_seeded_preset_succeeds(self):
+        seed_fixtures(self.r)
+        svc.delete(self.r, "go_wide")
+        with self.assertRaises(svc.PresetNotFound):
+            svc.get(self.r, "go_wide")
+
+    def test_deleted_preset_stays_deleted(self):
+        """Nothing re-seeds a deleted preset on a later read."""
+        seed_fixtures(self.r)
+        svc.delete(self.r, "go_wide")
+        self.assertNotIn("go_wide", [p["id"] for p in svc.list_all(self.r)])
 
 
 class TestServiceDeckSelection(ServiceBase):
+    def setUp(self):
+        super().setUp()
+        seed_fixtures(self.r)
+
     def test_set_auto_clears_fields(self):
         rec = svc.set_deck_selection(self.r, RID, {
             "mode": "auto", "preset_id": "tcz_2025", "lands": 40,
@@ -298,6 +391,7 @@ class TestResolveForDeck(ServiceBase):
 
     def setUp(self):
         super().setUp()
+        seed_fixtures(self.r)
         self.deck = make_deck()
 
     def _with_journal(self, rec):
@@ -309,12 +403,12 @@ class TestResolveForDeck(ServiceBase):
         self.r.set(f"card_interactions:{name}", json.dumps(
             {"card": {"cmc": cmc, "type_line": "Legendary Creature", "oracle_text": "..."}}))
 
-    def test_nothing_set_falls_back(self):
+    def test_nothing_matches_no_preset_selected(self):
         out = svc.resolve_for_deck(self.r, self.deck, RID)
-        self.assertEqual(out["preset_id"], FALLBACK_PRESET_ID)
-        self.assertEqual(out["reason"], {"step": 6, "signal": "default"})
+        self.assertIsNone(out["preset_id"])
+        self.assertEqual(out["reason"], {"step": 6, "signal": "no preset selected"})
         self.assertEqual(out["mode"], MODE_AUTO)
-        self.assertEqual(out["preset"]["id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(out["preset"])
         self.assertEqual(out["record"], default_deck_composition())
 
     def test_journal_primary_drives_selection(self):
@@ -336,7 +430,7 @@ class TestResolveForDeck(ServiceBase):
         # big_mana gates on mv>=6; Atraxa cmc 5 must NOT match.
         self._with_card("Atraxa, Grand Unifier", 5)
         out = svc.resolve_for_deck(self.r, self.deck, RID)
-        self.assertEqual(out["preset_id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(out["preset_id"])
         # now a genuinely high-MV commander (deck registry_id drives the lookup)
         deck = make_deck(commanders=["Blasphemous Engineer"], id=778, registry_id="archidekt:778")
         self._with_card("Blasphemous Engineer", 6)
@@ -363,15 +457,15 @@ class TestResolveForDeck(ServiceBase):
         svc.resolve_for_deck(self.r, self.deck, RID)
         self.assertIsNone(self.r.get(store.DECK_KEY.format(registry_id=RID)))
 
-    def test_corrupt_journal_degrades_to_default(self):
+    def test_corrupt_journal_degrades_to_no_selection(self):
         self.r.set(f"journal:deck:{RID}", "{not json")
         out = svc.resolve_for_deck(self.r, self.deck, RID)
-        self.assertEqual(out["preset_id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(out["preset_id"])
 
     def test_corrupt_deck_tags_are_ignored(self):
         self.r.set(f"deck_tags:{RID}", "{not json")
         out = svc.resolve_for_deck(self.r, self.deck, RID)
-        self.assertEqual(out["preset_id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(out["preset_id"])
 
     def test_missing_card_texts_means_no_mv_signal(self):
         # No card_interactions entries -> commander_mv None -> step 5 skipped.
@@ -385,35 +479,38 @@ class TestResolveForDeck(ServiceBase):
 
 
 class TestAutoSelectionEdges(unittest.TestCase):
+    def setUp(self):
+        self.fixtures = fixture_preset_dicts()
+
     def test_step_precedence_journal_beats_tag_beats_mv(self):
         # primary 'graveyard' (step2) vs tag 'voltron' (step4) vs mv 6 (step5)
-        res = resolve_preset(None, [], journal=journal_with(primary="graveyard"),
+        res = resolve_preset(None, self.fixtures, journal=journal_with(primary="graveyard"),
                              deck_tags=["voltron"], commander_mv=7.0)
         self.assertEqual((res["preset_id"], res["reason"]["step"]), ("graveyard", 2))
 
     def test_tag_beats_mv(self):
-        res = resolve_preset(None, [], deck_tags=["voltron"], commander_mv=7.0)
+        res = resolve_preset(None, self.fixtures, deck_tags=["voltron"], commander_mv=7.0)
         self.assertEqual((res["preset_id"], res["reason"]["step"]), ("voltron", 4))
 
     def test_mv_gate_boundary_exact_match_counts(self):
-        res = resolve_preset(None, [], commander_mv=6.0)
+        res = resolve_preset(None, self.fixtures, commander_mv=6.0)
         self.assertEqual(res["preset_id"], "big_mana")
         self.assertEqual(res["reason"]["step"], 5)
         self.assertNotIn("big_mana", res["also_matched"])
 
-    def test_mv_gate_below_threshold_skips(self):
-        res = resolve_preset(None, [], commander_mv=5.9)
-        self.assertEqual(res["preset_id"], FALLBACK_PRESET_ID)
+    def test_mv_gate_below_threshold_no_selection(self):
+        res = resolve_preset(None, self.fixtures, commander_mv=5.9)
+        self.assertIsNone(res["preset_id"])
 
     def test_mv_signal_formats_integral_float(self):
-        res = resolve_preset(None, [], commander_mv=6.0)
+        res = resolve_preset(None, self.fixtures, commander_mv=6.0)
         self.assertEqual(res["reason"]["signal"], "commander MV 6")
-        res = resolve_preset(None, [], commander_mv=6.5)
+        res = resolve_preset(None, self.fixtures, commander_mv=6.5)
         self.assertEqual(res["reason"]["signal"], "commander MV 6.5")
 
-    def test_user_presets_tried_before_builtins_same_step(self):
-        up = user_preset("p-custom", "Custom Ramp", archetypes=["ramp"])
-        res = resolve_preset(None, [up], journal=journal_with(primary="ramp"))
+    def test_higher_priority_user_preset_wins_same_step(self):
+        up = user_preset("p-custom", "Custom Ramp", archetypes=["ramp"], priority=100)
+        res = resolve_preset(None, [up] + self.fixtures, journal=journal_with(primary="ramp"))
         self.assertEqual(res["preset_id"], "p-custom")
         self.assertEqual(res["also_matched"], ["big_mana"])
 
@@ -421,38 +518,38 @@ class TestAutoSelectionEdges(unittest.TestCase):
         lo = user_preset("p-a", "A", archetypes=["tokens"], priority=1)
         hi = user_preset("p-z", "Z", archetypes=["tokens"], priority=9)
         same1 = user_preset("p-m", "M", archetypes=["tokens"], priority=1)
-        res = resolve_preset(None, [lo, hi, same1], journal=journal_with(primary="tokens"))
+        res = resolve_preset(None, [lo, hi, same1] + self.fixtures, journal=journal_with(primary="tokens"))
         self.assertEqual(res["preset_id"], "p-z")
-        # among priority ties: id asc -> p-a before p-m before builtins
-        res = resolve_preset(None, [same1, lo], journal=journal_with(primary="tokens"))
+        # among priority ties: id asc -> p-a before p-m before go_wide
+        res = resolve_preset(None, [same1, lo] + self.fixtures, journal=journal_with(primary="tokens"))
         self.assertEqual(res["preset_id"], "p-a")
         self.assertIn("p-m", res["also_matched"])
         self.assertIn("go_wide", res["also_matched"])
 
     def test_also_matched_dedupes_and_excludes_winner(self):
         # tag 'tokens' matches go_wide themes; secondary 'aristocrats' also go_wide
-        res = resolve_preset(None, [], journal=journal_with(secondary=["aristocrats", "tokens"]),
+        res = resolve_preset(None, self.fixtures, journal=journal_with(secondary=["aristocrats", "tokens"]),
                              deck_tags=["tokens"])
         self.assertEqual(res["preset_id"], "go_wide")
         self.assertNotIn("go_wide", res["also_matched"])
 
     def test_kindred_theme_tag_matches_go_wide(self):
-        res = resolve_preset(None, [], deck_tags=["kindred:Elf"])
+        res = resolve_preset(None, self.fixtures, deck_tags=["kindred:Elf"])
         self.assertEqual(res["preset_id"], "go_wide")
         self.assertEqual(res["reason"]["step"], 4)
 
     def test_non_kindred_tag_does_not_match_kindred_pattern(self):
-        res = resolve_preset(None, [], deck_tags=["elves"])
-        self.assertEqual(res["preset_id"], FALLBACK_PRESET_ID)
+        res = resolve_preset(None, self.fixtures, deck_tags=["elves"])
+        self.assertIsNone(res["preset_id"])
 
     def test_sacrifice_tag_matches_go_wide(self):
-        res = resolve_preset(None, [], deck_tags=["sacrifice"])
+        res = resolve_preset(None, self.fixtures, deck_tags=["sacrifice"])
         self.assertEqual(res["preset_id"], "go_wide")
 
     def test_phantom_midrange_needs_genre_v_stamp(self):
         # Deliberate midrange saved post-GN (has genre_v) survives load-time
-        # migration but no builtin lists 'midrange', so it still falls through.
-        res = resolve_preset(None, [], journal=journal_with(primary="midrange"))
+        # migration but no fixture lists 'midrange', so it still falls through.
+        res = resolve_preset(None, self.fixtures, journal=journal_with(primary="midrange"))
         self.assertEqual(res["reason"]["step"], 6)
         # Legacy record without genre_v: migrate_phantom_midrange nulls it.
         legacy = {"archetype_preferences": {"primary_archetype": "midrange"}}
@@ -463,15 +560,14 @@ class TestAutoSelectionEdges(unittest.TestCase):
         self.assertIsNone(cleared["archetype_preferences"]["primary_archetype"])
 
     def test_explicit_midrange_secondary_still_matches(self):
-        # secondary archetypes aren't phantom-cleared; 'counters' has no builtin,
-        # but 'control' does — sanity that unknown secondaries are simply no-ops.
-        res = resolve_preset(None, [], journal=journal_with(secondary=["nonexistent_arch"]))
+        # secondary archetypes aren't phantom-cleared; 'nonexistent_arch' matches nothing.
+        res = resolve_preset(None, self.fixtures, journal=journal_with(secondary=["nonexistent_arch"]))
         self.assertEqual(res["reason"]["step"], 6)
 
-    def test_stale_pin_reports_issue_and_falls_back(self):
+    def test_stale_pin_reports_issue_no_fallback(self):
         rec = {"mode": MODE_PINNED, "preset_id": "p-deleted"}
-        res = resolve_preset(rec, [])
-        self.assertEqual(res["preset_id"], FALLBACK_PRESET_ID)
+        res = resolve_preset(rec, self.fixtures)
+        self.assertIsNone(res["preset_id"])
         self.assertEqual(res["mode"], MODE_PINNED)
         self.assertEqual(res["issues"][0]["code"], "I3")
         self.assertEqual(res["issues"][0]["data"]["stale_pin"], "p-deleted")
@@ -482,18 +578,23 @@ class TestAutoSelectionEdges(unittest.TestCase):
         self.assertEqual(res["preset_id"], "p-back")
         self.assertEqual(res["issues"], [])
 
-    def test_builtin_tag_themes_spellslinger(self):
-        res = resolve_preset(None, [], deck_tags=["spellslinger"])
+    def test_tag_themes_spellslinger(self):
+        res = resolve_preset(None, self.fixtures, deck_tags=["spellslinger"])
         self.assertEqual(res["preset_id"], "spellslinger")
 
     def test_landfall_via_lands_matter_tag(self):
-        res = resolve_preset(None, [], deck_tags=["lands_matter"])
+        res = resolve_preset(None, self.fixtures, deck_tags=["lands_matter"])
         self.assertEqual(res["preset_id"], "landfall")
 
     def test_empty_string_journal_values_treated_unset(self):
-        res = resolve_preset(None, [], journal={"archetype_preferences":
+        res = resolve_preset(None, self.fixtures, journal={"archetype_preferences":
                                                 {"primary_archetype": "", "secondary_archetypes": []}})
         self.assertEqual(res["reason"]["step"], 6)
+
+    def test_no_presets_at_all_no_selection(self):
+        res = resolve_preset(None, [])
+        self.assertIsNone(res["preset_id"])
+        self.assertEqual(res["reason"], {"step": 6, "signal": "no preset selected"})
 
 
 # ---------------------------------------------------------------------------
@@ -589,6 +690,7 @@ class ApiBase(unittest.TestCase):
         self.r = FakeRedis()
         self.deck = make_deck()
         put_decks(self.r, self.deck)
+        seed_fixtures(self.r)
         self.p = patch("app.r", self.r)
         self.p.start()
         self.addCleanup(self.p.stop)
@@ -596,27 +698,30 @@ class ApiBase(unittest.TestCase):
 
 
 class TestPresetListApi(ApiBase):
-    def test_list_returns_builtins(self):
+    def test_list_returns_seeded_presets(self):
         resp = self.client.get("/api/composition/presets")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertTrue(body["success"])
         ids = [p["id"] for p in body["presets"]]
         self.assertIn("tcz_2025", ids)
-        self.assertEqual(len(ids), len(BUILTIN_PRESETS))
+        self.assertEqual(len(ids), len(FIXTURE_BODIES))
 
     def test_list_kind_filter(self):
         created = self.client.post("/api/composition/presets", json=valid_body()).json()["preset"]
         b = self.client.get("/api/composition/presets", params={"kind": "builtin"}).json()
         u = self.client.get("/api/composition/presets", params={"kind": "user"}).json()
-        self.assertTrue(all(p["kind"] == "builtin" for p in b["presets"]))
-        self.assertEqual([p["id"] for p in u["presets"]], [created["id"]])
+        self.assertEqual(b["presets"], [])
+        u_ids = {p["id"] for p in u["presets"]}
+        self.assertIn(created["id"], u_ids)
+        self.assertEqual(len(u["presets"]), len(FIXTURE_BODIES) + 1)
 
     def test_newest_user_preset_first(self):
         first = self.client.post("/api/composition/presets", json=valid_body(name="First")).json()["preset"]
         second = self.client.post("/api/composition/presets", json=valid_body(name="Second")).json()["preset"]
-        u = self.client.get("/api/composition/presets", params={"kind": "user"}).json()["presets"]
-        self.assertEqual([p["id"] for p in u], [second["id"], first["id"]])
+        ids = [p["id"] for p in self.client.get("/api/composition/presets").json()["presets"]]
+        self.assertEqual(ids[0], second["id"])
+        self.assertEqual(ids[1], first["id"])
 
 
 class TestPresetCreateApi(ApiBase):
@@ -636,7 +741,7 @@ class TestPresetCreateApi(ApiBase):
         self.assertFalse(body["success"])
         self.assertTrue(any(i["code"] == "E1" for i in body["issues"]))
 
-    def test_create_collides_with_builtin_name_422(self):
+    def test_create_collides_with_existing_preset_name_422(self):
         resp = self.client.post("/api/composition/presets", json=valid_body(name="Big Mana"))
         self.assertEqual(resp.status_code, 422)
 
@@ -656,14 +761,16 @@ class TestPresetCreateApi(ApiBase):
                                 headers={"Content-Type": "application/json"})
         self.assertEqual(resp.status_code, 400)
 
-    def test_create_reserved_id_422(self):
+    def test_create_with_existing_id_allowed_if_name_unique(self):
+        """ids aren't reserved, but a reused id overwrites a different preset's data path --
+        creation still goes through normal validation (name uniqueness, etc.)."""
         resp = self.client.post("/api/composition/presets",
-                                json=dict(valid_body(name="Clone Zone"), id="control"))
-        self.assertEqual(resp.status_code, 422)
-        self.assertTrue(any("reserved" in i["message"].lower() for i in resp.json()["issues"]))
+                                json=dict(valid_body(name="Clone Zone"), id="some-arbitrary-id"))
+        self.assertEqual(resp.status_code, 201)
 
     def test_create_at_cap_422_e8(self):
-        for i in range(MAX_USER_PRESETS):
+        # already seeded len(FIXTURE_BODIES); fill up to the cap.
+        for i in range(MAX_USER_PRESETS - len(FIXTURE_BODIES)):
             r = self.client.post("/api/composition/presets", json=valid_body(name=f"Cap {i}"))
             assert r.status_code == 201, r.text
         resp = self.client.post("/api/composition/presets", json=valid_body(name="Over Cap"))
@@ -672,7 +779,7 @@ class TestPresetCreateApi(ApiBase):
 
 
 class TestPresetGetApi(ApiBase):
-    def test_get_builtin(self):
+    def test_get_seeded_preset(self):
         resp = self.client.get("/api/composition/presets/tcz_2025")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["preset"]["name"], "Command Zone 2025")
@@ -711,10 +818,10 @@ class TestPresetUpdateApi(ApiBase):
         got = self.client.get(f"/api/composition/presets/{pid}").json()["preset"]
         self.assertEqual(got["name"], "Post Update")
 
-    def test_update_builtin_403(self):
-        resp = self.client.put("/api/composition/presets/big_mana", json=valid_body(name="X"))
-        self.assertEqual(resp.status_code, 403)
-        self.assertIn("read-only", resp.json()["error"])
+    def test_update_seeded_preset_is_editable(self):
+        resp = self.client.put("/api/composition/presets/big_mana", json=valid_body(name="Big Mana Mk2"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["preset"]["name"], "Big Mana Mk2")
 
     def test_update_missing_404(self):
         resp = self.client.put("/api/composition/presets/nope", json=valid_body())
@@ -734,8 +841,7 @@ class TestPresetUpdateApi(ApiBase):
         resp = self.client.put(f"/api/composition/presets/{pid1}", json=valid_body(name="Other"))
         self.assertEqual(resp.status_code, 422)
 
-    def test_update_can_claim_builtin_name_after_none_exists(self):
-        # renaming to a builtin's name is blocked (E1 uniqueness against builtins)
+    def test_update_rename_to_seeded_preset_name_422(self):
         pid = self._pid()
         resp = self.client.put(f"/api/composition/presets/{pid}", json=valid_body(name="Go Wide"))
         self.assertEqual(resp.status_code, 422)
@@ -749,9 +855,10 @@ class TestPresetDeleteApi(ApiBase):
         self.assertEqual(resp.json()["deleted"], pid)
         self.assertEqual(self.client.get(f"/api/composition/presets/{pid}").status_code, 404)
 
-    def test_delete_builtin_403(self):
+    def test_delete_seeded_preset_succeeds(self):
         resp = self.client.delete("/api/composition/presets/control")
-        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self.client.get("/api/composition/presets/control").status_code, 404)
 
     def test_delete_missing_404(self):
         self.assertEqual(self.client.delete("/api/composition/presets/ghost").status_code, 404)
@@ -771,20 +878,20 @@ class TestSelectionApi(ApiBase):
     def url(self, deck_id=RID):
         return f"/api/decks/{deck_id}/composition/selection"
 
-    def test_get_default_auto(self):
+    def test_get_default_no_selection(self):
         resp = self.client.get(self.url())
         self.assertEqual(resp.status_code, 200)
         sel = resp.json()["selection"]
-        self.assertEqual(sel["preset_id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(sel["preset_id"])
         self.assertEqual(sel["mode"], MODE_AUTO)
-        self.assertEqual(sel["preset"]["id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(sel["preset"])
         self.assertEqual(sel["record"], default_deck_composition())
 
     def test_get_by_numeric_id_and_name(self):
         for ident in ("777", "Test Deck"):
             resp = self.client.get(self.url(ident))
             self.assertEqual(resp.status_code, 200, ident)
-            self.assertEqual(resp.json()["selection"]["preset_id"], FALLBACK_PRESET_ID)
+            self.assertIsNone(resp.json()["selection"]["preset_id"])
 
     def test_get_unknown_deck_404(self):
         resp = self.client.get(self.url("does-not-exist"))
@@ -799,7 +906,7 @@ class TestSelectionApi(ApiBase):
         self.assertEqual(sel["mode"], MODE_AUTO)
         self.assertIsNone(sel["record"]["preset_id"])
 
-    def test_put_pin_builtin(self):
+    def test_put_pin_seeded_preset(self):
         resp = self.client.put(self.url(), json={"mode": "pinned", "preset_id": "go_wide"})
         self.assertEqual(resp.status_code, 200)
         sel = resp.json()["selection"]
@@ -837,10 +944,11 @@ class TestSelectionApi(ApiBase):
     def test_auto_mode_leftovers_rejected_at_model_layer(self):
         # The strict rule lives in validate_deck_composition; show it fires when
         # the record bypasses the service's normalization (defense-in-depth check).
-        from analytics.composition_models import validate_deck_composition, BUILTIN_BY_ID
+        from analytics.composition_models import validate_deck_composition
+        presets_by_id = {p["id"]: p for p in fixture_preset_dicts()}
         issues = validate_deck_composition(
             {"mode": MODE_AUTO, "preset_id": "tcz_2025", "lands": None, "overrides": []},
-            BUILTIN_BY_ID)
+            presets_by_id)
         self.assertTrue([i for i in issues if i["code"] == "E3"])
 
     def test_put_overrides_deck_category_allowed(self):
@@ -875,7 +983,7 @@ class TestSelectionApi(ApiBase):
         self.assertEqual(resp.status_code, 200)
         sel = resp.json()["selection"]
         self.assertEqual(sel["mode"], MODE_AUTO)
-        self.assertEqual(sel["reason"], {"step": 6, "signal": "default"})
+        self.assertEqual(sel["reason"], {"step": 6, "signal": "no preset selected"})
 
     def test_delete_unknown_deck_404(self):
         self.assertEqual(self.client.delete(self.url("ghost-deck")).status_code, 404)
@@ -887,7 +995,7 @@ class TestSelectionApi(ApiBase):
         self.assertEqual(self.client.get(self.url()).json()["selection"]["preset_id"], pid)
         self.client.delete(f"/api/composition/presets/{pid}")
         sel = self.client.get(self.url()).json()["selection"]
-        self.assertEqual(sel["preset_id"], FALLBACK_PRESET_ID)
+        self.assertIsNone(sel["preset_id"])
         self.assertEqual(sel["mode"], MODE_PINNED)  # pin kept, preset gone
         self.assertEqual(sel["issues"][0]["code"], "I3")
         self.assertEqual(sel["reason"]["signal"], "pinned preset missing")

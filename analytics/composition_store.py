@@ -13,10 +13,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 import redis
 
 from analytics.composition_models import (
-    BUILTIN_BY_ID, BUILTIN_PRESETS, SPEC_VERSION, KIND_BUILTIN, KIND_USER,
-    FALLBACK_PRESET_ID, MAX_USER_PRESETS, MODE_AUTO, MODE_PINNED,
+    SPEC_VERSION, KIND_USER,
+    MAX_USER_PRESETS, MODE_AUTO, MODE_PINNED,
     normalize_preset, validate_preset, validate_deck_composition,
-    CompositionValidationError, ImmutablePresetError, user_preset_id,
+    CompositionValidationError, user_preset_id,
     legacy_override_to_record, default_deck_composition,
 )
 
@@ -43,14 +43,11 @@ def _set_json(r: redis.Redis, key: str, value: Any) -> None:
 
 
 def list_presets(r: redis.Redis) -> List[dict]:
-    """All presets: built-in + user.  User presets sorted newest first."""
-    user = _get_json(r, PRESET_KEY) or []
-    return list(BUILTIN_PRESETS) + user
+    """All user presets, newest first. There are no built-ins."""
+    return _get_json(r, PRESET_KEY) or []
 
 
 def get_preset(r: redis.Redis, preset_id: str) -> Optional[dict]:
-    if preset_id in BUILTIN_BY_ID:
-        return BUILTIN_BY_ID[preset_id]
     user = _get_json(r, PRESET_KEY) or []
     for p in user:
         if p["id"] == preset_id:
@@ -66,9 +63,6 @@ def create_preset(r: redis.Redis, raw: Mapping, *, existing: Optional[Iterable[M
     if not norm["id"]:
         norm["id"] = user_preset_id(norm["name"], uuid.uuid4().hex[:8])
     issues = validate_preset(norm, existing_list)
-    if norm["id"] in BUILTIN_BY_ID:
-        issues.append({"code": "E1", "level": "error", "message": "Built-in ids are reserved.",
-                        "ref": None, "data": {}})
     if any(i["level"] == "error" for i in issues):
         raise CompositionValidationError(issues)
     user = _get_json(r, PRESET_KEY) or []
@@ -87,9 +81,7 @@ def create_preset(r: redis.Redis, raw: Mapping, *, existing: Optional[Iterable[M
 
 
 def update_preset(r: redis.Redis, preset_id: str, raw: Mapping) -> dict:
-    """Update a user preset.  Raises ImmutablePresetError for built-ins."""
-    if preset_id in BUILTIN_BY_ID:
-        raise ImmutablePresetError("Built-in presets are read-only")
+    """Update a user preset.  Every preset is fully editable."""
     user = _get_json(r, PRESET_KEY) or []
     found = None
     for i, p in enumerate(user):
@@ -98,7 +90,7 @@ def update_preset(r: redis.Redis, preset_id: str, raw: Mapping) -> dict:
             break
     if found is None:
         raise ValueError(f"Preset '{preset_id}' not found")
-    existing_list = [u for u in user if u["id"] != preset_id] + list(BUILTIN_PRESETS)
+    existing_list = [u for u in user if u["id"] != preset_id]
     norm = normalize_preset(raw)
     issues = validate_preset(norm, existing_list)
     if any(i["level"] == "error" for i in issues):
@@ -115,9 +107,9 @@ def update_preset(r: redis.Redis, preset_id: str, raw: Mapping) -> dict:
 
 
 def delete_preset(r: redis.Redis, preset_id: str) -> bool:
-    """Delete a user preset.  Returns True if deleted, False if not found."""
-    if preset_id in BUILTIN_BY_ID:
-        raise ImmutablePresetError("Built-in presets are read-only")
+    """Delete a user preset.  Returns True if deleted, False if not found.
+
+    A deleted preset stays deleted: nothing re-seeds it on a later read."""
     user = _get_json(r, PRESET_KEY) or []
     new_user = [p for p in user if p["id"] != preset_id]
     if len(new_user) == len(user):
@@ -137,7 +129,7 @@ def get_deck_composition(r: redis.Redis, registry_id: str) -> dict:
 
 
 def set_deck_composition(r: redis.Redis, registry_id: str, rec: Mapping) -> dict:
-    presets = {**BUILTIN_BY_ID, **{p["id"]: p for p in (_get_json(r, PRESET_KEY) or [])}}
+    presets = {p["id"]: p for p in (_get_json(r, PRESET_KEY) or [])}
     issues = validate_deck_composition(rec, presets)
     if any(i["level"] == "error" for i in issues):
         raise CompositionValidationError(issues)
