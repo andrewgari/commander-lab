@@ -39,6 +39,8 @@ MAX_POLL_S = 6 * 3600
 PROSE_MAX = 900
 TWEAK_MAX = 300
 TWEAK_RANGE = (2, 4)
+POD_KEY = "sim:standard_pod"
+POD_MAX = 5
 ACTIVE_STATES = ("queued", "running", "writing_review")
 
 _INFLIGHT: Dict[str, str] = {}
@@ -115,6 +117,86 @@ def build_opponent_pool(r, client: Optional[sim_client.SimClient] = None, exclud
 
 
 # ---------------------------------------------------------------------------------------------
+# Standard pod (user-defined, saved in Redis; there is no default)
+# ---------------------------------------------------------------------------------------------
+
+def get_pod(r) -> Optional[dict]:
+    """The saved pod doc {"decks": [{id, name, source}], "updated_at"} or None when undefined."""
+    try:
+        doc = _loads(r.get(POD_KEY))
+    except Exception:  # noqa: BLE001 - Redis trouble == undefined pod, never a default
+        log.warning("could not read standard pod", exc_info=True)
+        return None
+    if not doc or not isinstance(doc.get("decks"), list) or not doc["decks"]:
+        return None
+    return doc
+
+
+def clear_pod(r) -> None:
+    r.delete(POD_KEY)
+
+
+def save_pod(r, ids: Any, client: Optional[sim_client.SimClient] = None) -> dict:
+    if not isinstance(ids, list) or not all(isinstance(i, str) and i.strip() for i in ids):
+        raise SimParamError("decks must be a list of deck ids")
+    ids = [i.strip() for i in ids]
+    if not 1 <= len(ids) <= POD_MAX:
+        raise SimParamError(f"a Standard pod needs 1 to {POD_MAX} decks")
+    if len(set(ids)) != len(ids):
+        raise SimParamError("duplicate decks not allowed in a pod")
+    pool = {o["id"]: o for o in build_opponent_pool(r, client)["opponents"]}
+    unknown = [i for i in ids if i not in pool]
+    if unknown:
+        raise SimParamError(f"unknown deck(s): {', '.join(unknown)}")
+    doc = {"decks": [{"id": i, "name": pool[i]["name"], "source": pool[i]["source"]} for i in ids],
+           "updated_at": _now_iso()}
+    r.set(POD_KEY, json.dumps(doc))
+    return doc
+
+
+def resolve_pod(r, deck: Optional[Mapping] = None, client: Optional[sim_client.SimClient] = None) -> dict:
+    """{"status": empty|ok|invalid, "decks": [{id,name,source,problem?}], "problems": [str], "updated_at"}.
+    Every saved entry is kept (never dropped); broken ones carry a `problem`."""
+    doc = get_pod(r)
+    if not doc:
+        return {"status": "empty", "decks": [], "problems": [], "updated_at": None}
+    try:
+        import registry
+
+        by_id = {user_opponent_id(d): d for d in registry.list_decks(r)}
+    except Exception:  # noqa: BLE001
+        by_id = {}
+    precons = None
+    try:
+        precons = {x["id"] for x in _precon_rows((client or sim_client.SimClient()).list_opponents())}
+    except Exception:  # noqa: BLE001 - can't verify precons right now; the run itself will surface it
+        pass
+    target = user_opponent_id(deck) if deck else None
+    decks, problems = [], []
+    for e in doc["decks"]:
+        item = {"id": e["id"], "name": e.get("name") or e["id"], "source": e.get("source") or "user_deck"}
+        prob = None
+        if item["source"] == "precon":
+            if precons is not None and e["id"] not in precons:
+                prob = "Forge precon no longer available"
+        elif e["id"] == target:
+            prob = "this is the deck being simulated"
+        elif e["id"] not in by_id:
+            prob = "deck was deleted or is no longer synced"
+        else:
+            if not _export_user_decks([by_id[e["id"]]]):
+                prob = "not a complete, valid 100-card deck"
+            else:
+                item["name"] = by_id[e["id"]].get("name") or item["name"]
+        if prob:
+            item["problem"] = prob
+            problems.append(f"{item['name']}: {prob}")
+        decks.append(item)
+    return {"status": "invalid" if problems else "ok", "decks": decks, "problems": problems,
+            "updated_at": doc.get("updated_at")}
+
+
+# ---------------------------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------------------------
 
@@ -144,8 +226,7 @@ def validate_params(raw: Any, catalog: Optional[List[Mapping]] = None) -> dict:
         if not (1 <= len(opponents) <= 5):
             raise SimParamError("specific mode needs 1 to 5 opponents")
     elif mode == "standard":
-        if opponents and len(opponents) != 3:
-            raise SimParamError("standard mode needs exactly 3 opponents if specified")
+        opponents = []  # Standard always uses the user's saved pod (begin_run fills it in)
     elif mode == "rapid1v1":
         if len(opponents) != 1:
             raise SimParamError("rapid1v1 mode needs exactly 1 opponent")
@@ -268,6 +349,15 @@ def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.Sim
     sim_focus.ensure_seeded(r)
     params = validate_params(raw_params, sim_focus.available_catalog(r))
     deck = dict(deck)
+    if params["opponent_mode"] == "standard":
+        pod = resolve_pod(r, deck, client)
+        if pod["status"] == "empty":
+            raise SimParamError("No Standard pod is defined. Define one on the Simulate page first.")
+        if pod["status"] != "ok":
+            raise SimParamError("Standard pod has problems: " + "; ".join(pod["problems"]))
+        params["opponents"] = [d["id"] for d in pod["decks"]]
+        params["pod"] = {"decks": [{k: d[k] for k in ("id", "name", "source")} for d in pod["decks"]],
+                         "saved_at": pod["updated_at"]}
     rid = _rid(deck)
     job_id = uuid.uuid4().hex[:12]
     _reserve(rid, job_id)
@@ -357,6 +447,15 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
     final["params"] = {**(report.get("params") or {}), **job["params"]}
     final["comparison"] = comparison
     final["oracle_review"] = {"source": source, "note": note, **review}
+    try:
+        import registry
+
+        from . import sim_telemetry
+
+        owned = sim_telemetry.owned_deck_ids(registry.list_decks(r), deck)
+        final["telemetry"] = sim_telemetry.build_telemetry(deck, job["params"], report, owned)
+    except Exception:  # noqa: BLE001 - telemetry must never block saving the run
+        log.warning("could not build sim telemetry", exc_info=True)
     saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})
     if saved is None:
         raise RuntimeError("could not save the completed simulation")
