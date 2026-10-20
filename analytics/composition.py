@@ -24,7 +24,6 @@ import json
 import re
 from typing import Dict, Iterable, List, Mapping, Optional
 
-TEMPLATE_NAME = "Command Zone 2025"
 TEMPLATE_SOURCE = ("The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): "
                    "https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-"
                    "the-command-zone-658-mtg-edh-magic-gathering")
@@ -78,7 +77,7 @@ def _load_override(r, deck: dict) -> dict:
 
 def get_template(r, deck: dict) -> dict:
     override = _load_override(r, deck)
-    out = {"name": TEMPLATE_NAME if not override else f"{TEMPLATE_NAME} (custom)",
+    out = {"name": "Custom" if override else "Default",
            "source": TEMPLATE_SOURCE, **DEFAULT_TEMPLATE, **override,
            "overridden": bool(override), "overridden_rows": sorted(override),
            "default": dict(DEFAULT_TEMPLATE)}
@@ -235,7 +234,7 @@ def _deck_entries(deck: dict) -> List[tuple]:
 
 def compute_composition(deck: dict, card_texts: Mapping[str, dict], template: Optional[dict] = None) -> dict:
     """Pure: deck + {name: {type_line, oracle_text, mana_cost}} -> composition."""
-    tpl = template or {"name": TEMPLATE_NAME, "source": TEMPLATE_SOURCE, **DEFAULT_TEMPLATE,
+    tpl = template or {"name": "Default", "source": TEMPLATE_SOURCE, **DEFAULT_TEMPLATE,
                        "overridden": False, "overridden_rows": [], "default": dict(DEFAULT_TEMPLATE),
                        "total": sum(DEFAULT_TEMPLATE.values())}
     actual = {k: 0 for k in ROW_KEYS}

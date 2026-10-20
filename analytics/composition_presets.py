@@ -1,11 +1,10 @@
-"""Built-in composition presets and auto-selection (composition-v1 §5-§6).
+"""Composition preset auto-selection (composition-v1 §6).
 
-Pure data + a pure function. Built-ins are code constants (kind "builtin"); user presets are
-passed in by the caller. Nothing here touches Redis, the Journal or the LLM.
+Pure functions only. Presets are plain user-created data passed in by the
+caller (there are no built-ins and nothing here re-seeds one). Nothing here
+touches Redis, the Journal or the LLM.
 
-    builtin_presets()        deep copies of the nine built-ins, in a stable order
-    get_builtin(preset_id)   one built-in, or None
-    auto_select(...)         §6 steps 2-6 (step 1, the pin, is skipped for Baseline: ``skip_pin``)
+    auto_select(...)   §6 steps 2-6 (step 1, the pin, is skipped for Baseline: ``skip_pin``)
 """
 from __future__ import annotations
 
@@ -13,83 +12,9 @@ import copy
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 SPEC_VERSION = "composition-v1"
-FALLBACK_ID = "tcz_2025"
 
 # Legacy phantom (DECK_GENRE_TAXONOMY §0): a bare "midrange" primary counts as unset.
 PHANTOM_PRIMARY = "midrange"
-
-
-def _s(ref: str, target: Optional[int] = None, min: Optional[int] = None, max: Optional[int] = None) -> dict:
-    return {"ref": ref, "target": target, "min": min, "max": max, "why": None, "pillar_id": None}
-
-
-def _auto(archetypes=(), themes=(), mv_min=None, priority=50) -> dict:
-    return {"archetypes": list(archetypes), "themes": list(themes), "commander_mv_min": mv_min,
-            "priority": priority}
-
-
-def _preset(pid: str, name: str, source: str, confidence: str, lands: int, slots: List[dict],
-            auto: Optional[dict] = None, description: str = "") -> dict:
-    return {"id": pid, "schema": SPEC_VERSION, "kind": "builtin", "name": name, "description": description,
-            "source": source, "confidence": confidence, "based_on": None,
-            "structure": {"deck_size": 100, "commanders": 1, "lands": lands},
-            "slots": slots, "auto_select": auto, "version": 1}
-
-
-_TCZ = "The Command Zone ep. 658 (2025-02-18)"
-_MTGDS = "MtGDS, The Deck of Many Things, EDHREC (2022-07-05)"
-
-# Order matters only for display; auto-select sorts by (priority desc, id asc).
-_BUILTINS: List[dict] = [
-    _preset("tcz_2025", "Command Zone 2025", _TCZ, "heuristic", 38,
-            [_s("core:ramp", 10), _s("core:card_advantage", 12), _s("group:targeted_interaction", 12),
-             _s("core:board_wipe", 6)],
-            description="The Command Zone template; the default fallback."),
-    _preset("standard_36", "Standard 36", _MTGDS, "empirical", 36,
-            [_s("core:ramp", 12), _s("core:card_advantage", 7), _s("group:targeted_interaction", 10),
-             _s("core:board_wipe", 2)],
-            description="36 lands, 63 spells, 1 commander (EDHREC medians)."),
-    _preset("big_mana", "Big Mana", "heuristic", "heuristic", 38,
-            [_s("core:ramp", 14), _s("core:card_advantage", 10), _s("group:targeted_interaction", 10),
-             _s("core:board_wipe", 3)],
-            _auto(["ramp"], [], 6)),
-    _preset("go_wide", "Go Wide", "heuristic", "heuristic", 36,
-            [_s("core:ramp", 10), _s("core:card_advantage", 10), _s("group:targeted_interaction", 10),
-             _s("core:board_wipe", max=1), _s("core:protection", min=3), _s("core:finisher", min=3)],
-            _auto(["tokens", "aristocrats", "tribal"], ["tokens", "sacrifice", "kindred:*"])),
-    _preset("spellslinger", "Spellslinger", "heuristic", "heuristic", 36,
-            [_s("core:ramp", 10), _s("core:card_advantage", 12), _s("group:targeted_interaction", 12),
-             _s("core:board_wipe", 3), _s("type:instant_sorcery", min=25), _s("type:creature", max=15)],
-            _auto(["spellslinger", "storm"], ["spellslinger"])),
-    _preset("control", "Control", "heuristic", "heuristic", 38,
-            [_s("core:ramp", 10), _s("core:card_advantage", 12), _s("group:targeted_interaction", 15),
-             _s("core:board_wipe", 5), _s("facet:instant_speed", min=10), _s("core:finisher", min=2)],
-            _auto(["control", "stax", "pillowfort"])),
-    _preset("voltron", "Voltron", "heuristic", "heuristic", 37,
-            [_s("core:ramp", 10), _s("core:card_advantage", 10), _s("core:protection", 10),
-             _s("group:targeted_interaction", 10), _s("core:board_wipe", 2), _s("theme:voltron", min=10),
-             _s("type:creature", max=20)],
-            _auto(["voltron"], ["voltron"])),
-    _preset("graveyard", "Graveyard", "heuristic", "heuristic", 37,
-            [_s("core:ramp", 10), _s("core:card_advantage", 8), _s("core:recursion", 8),
-             _s("group:targeted_interaction", 10), _s("core:board_wipe", 2), _s("theme:graveyard", min=10)],
-            _auto(["graveyard", "reanimator"], ["graveyard"])),
-    _preset("landfall", "Landfall", "heuristic", "heuristic", 38,
-            [_s("core:ramp", 12), _s("core:card_advantage", 10), _s("group:targeted_interaction", 10),
-             _s("core:board_wipe", 2), _s("theme:lands_matter", min=10)],
-            _auto(["landfall"], ["lands_matter"])),
-]
-
-
-def builtin_presets() -> List[dict]:
-    return copy.deepcopy(_BUILTINS)
-
-
-def get_builtin(preset_id: str) -> Optional[dict]:
-    for p in _BUILTINS:
-        if p["id"] == preset_id:
-            return copy.deepcopy(p)
-    return None
 
 
 def effective_primary(journal: Mapping) -> Optional[str]:
@@ -108,12 +33,10 @@ def _theme_match(pattern: str, tag: str) -> bool:
 
 
 def _ordered(user_presets: Iterable[Mapping]) -> List[dict]:
-    """User presets first, then built-ins; each group by priority desc, id asc."""
+    """User presets, sorted by priority desc, id asc."""
     def key(p):
         return (-int((p.get("auto_select") or {}).get("priority", 50)), str(p.get("id")))
-    users = sorted((dict(p) for p in user_presets or [] if p.get("auto_select")), key=key)
-    built = sorted((p for p in builtin_presets() if p.get("auto_select")), key=key)
-    return users + built
+    return sorted((dict(p) for p in user_presets or [] if p.get("auto_select")), key=key)
 
 
 def auto_select(journal: Mapping, deck_tags: Iterable[str], commander_mv: float,
@@ -122,11 +45,11 @@ def auto_select(journal: Mapping, deck_tags: Iterable[str], commander_mv: float,
     """§6. Returns {preset, preset_id, mode, reason: {step, signal}, also_matched}.
 
     ``skip_pin`` ignores a pinned preset (Baseline's B0). ``pin`` is only honoured without it.
-    Auto-selection never writes anything.
+    Auto-selection never writes anything. When nothing matches, preset is None
+    ("no preset selected") -- there is no hardcoded default to fall back to.
     """
     users = list(user_presets or [])
-    by_id: Dict[str, dict] = {p["id"]: p for p in builtin_presets()}
-    by_id.update({str(p.get("id")): copy.deepcopy(dict(p)) for p in users if p.get("id")})
+    by_id: Dict[str, dict] = {str(p.get("id")): copy.deepcopy(dict(p)) for p in users if p.get("id")}
     if pin and not skip_pin:
         if pin in by_id:
             return _result(by_id[pin], "pinned", 1, "pinned", [])
@@ -161,9 +84,14 @@ def auto_select(journal: Mapping, deck_tags: Iterable[str], commander_mv: float,
         if hits:
             found = (5, f"commander MV {int(commander_mv)}", hits)
     if not found:
-        return _result(by_id[FALLBACK_ID], "auto", 6, "default", [])
+        return _no_selection()
     step, signal, hits = found
     return _result(hits[0], "auto", step, signal, [p["id"] for p in hits[1:]])
+
+
+def _no_selection() -> dict:
+    return {"preset": None, "preset_id": None, "mode": "auto",
+            "reason": {"step": 6, "signal": "no preset selected"}, "also_matched": []}
 
 
 def _result(preset: Mapping, mode: str, step: int, signal: str, also: List[str]) -> dict:

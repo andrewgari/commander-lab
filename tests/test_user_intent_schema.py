@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 
 from user_intent import (
-    ALLOWED_ARCHETYPES,
     ALLOWED_DECK_INTENTS,
     ALLOWED_POWER_TIERS,
     ALLOWED_WIN_CONDITIONS,
+    allowed_archetypes,
     load_schema,
     parse_user_intent,
     resolve_intent_defaults,
@@ -89,11 +89,12 @@ class TestUserIntentSchema(unittest.TestCase):
 
         # archetype_preferences
         ap_props = properties["archetype_preferences"]["properties"]
-        # GN: nullable, default null (no phantom "midrange"); enum = the 30 Deck Genre ids + null.
+        # GN: nullable, default null (no phantom "midrange"); enum = the Deck Genre ids + null.
+        allowed_arch = allowed_archetypes()
         self.assertIsNone(ap_props["primary_archetype"]["default"])
         self.assertEqual(ap_props["primary_archetype"]["type"], ["string", "null"])
-        self.assertEqual(set(ap_props["primary_archetype"]["enum"]) - {None}, ALLOWED_ARCHETYPES)
-        self.assertEqual(set(ap_props["secondary_archetypes"]["items"]["enum"]), ALLOWED_ARCHETYPES)
+        self.assertEqual(set(ap_props["primary_archetype"]["enum"]) - {None}, allowed_arch)
+        self.assertEqual(set(ap_props["secondary_archetypes"]["items"]["enum"]), allowed_arch)
         self.assertEqual(ap_props["secondary_archetypes"]["maxItems"], 3)
 
     def test_minimal_payload_example(self):
