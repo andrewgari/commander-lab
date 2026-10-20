@@ -298,13 +298,38 @@ def test_game_changer_penalty_is_a_flag_not_a_filter():
     assert "adds-gc (0->1)" in flagged["rationale"]
 
 
+
+def test_card_source_tiers_applied():
+    from analytics.card_review.replacements import suggest_replacements
+    from analytics.card_review import config as cfg
+    cfg.VERY_STRONG_THRESHOLD = 0.0
+    cands = [cand("BuyMe", ["board_wipe"], inc=0.9, syn=0.5), cand("DonorMe", ["board_wipe"], inc=0.8, syn=0.4), cand("FreeMe", ["board_wipe"], inc=0.7, syn=0.3, owned=True)]
+    
+    def mock_source_lookup(name):
+        if name == "FreeMe":
+            return {"available_copies": 1, "price": 0.5, "budget_cap": 5.0, "donor_decks": []}
+        elif name == "BuyMe":
+            return {"available_copies": 0, "price": 1.0, "budget_cap": 5.0, "donor_decks": []}
+        elif name == "DonorMe":
+            return {"available_copies": 0, "price": 10.0, "budget_cap": 5.0, "donor_decks": [{"name": "Deck B", "donor_score": 50.0}]}
+        return {}
+        
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "like_for_like", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK, lambda ns: {n.lower(): {"oracle_id": n, "color_identity": "R", "legal": True} for n in ns},
+                               source_lookup=mock_source_lookup)
+                               
+    tiers = [s["tier"] for s in res["suggestions"]]
+    assert "owned-and-unused" in tiers
+    assert "buy-under-budget" in tiers
+    assert "donor-deck" in tiers
+
 def test_owned_card_within_margin_is_listed_first_and_unknown_identity_is_flagged():
     cands = [cand("Pricey", ["board_wipe"], inc=0.6, syn=0.4), cand("Binder Card", ["board_wipe"], inc=0.5, syn=0.35, owned=True),
              cand("Third", ["board_wipe"], inc=0.1, syn=0.0), cand("Fourth", ["board_wipe"], inc=0.1, syn=0.0)]
     res = suggest_replacements(make_ev(cands=cands), {"mode": "like_for_like", "target_roles": ["board_wipe"], "avoid": []},
                                ctx(commander_identity=None), DECK,
                                lambda ns: {n.lower(): {"oracle_id": n, "color_identity": "R", "legal": True} for n in ns})
-    assert res["suggestions"][0]["card"] == "Binder Card" and res["suggestions"][0]["tier"] == "owned"
+    assert res["suggestions"][0]["card"] == "Binder Card" and res["suggestions"][0]["tier"] == "owned-and-unused"
     assert any("colour identity unknown" in f for f in res["flags"])
 
 
