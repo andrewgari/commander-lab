@@ -142,6 +142,17 @@ class TestMergeNormalizedDecks(unittest.TestCase):
         )
         self.assertEqual(commanders, ["Atraxa, Praetors' Voice"])
 
+    def test_commander_uids_stay_aligned_with_names(self):
+        a = dict(ARCHIDEKT_DECK, commanders=["Doctor"], commander_uids=["a"])
+        m = dict(MOXFIELD_DECK, commanders=["Doctor", "Rose"], commander_uids=["b", "r"])
+        _, commanders, uids, _, _ = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m})
+        self.assertEqual(commanders, ["Doctor", "Rose"])
+        self.assertEqual(uids, ["a", "r"])  # one printing per name, first source wins
+        # A commander with no pairable printing: no uids, views use name images.
+        m2 = dict(MOXFIELD_DECK, commanders=["Doctor", "Rose"], commander_uids=["b"])
+        _, _, uids, _, _ = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m2})
+        self.assertEqual(uids, [])
+
     def test_single_source_has_no_conflicts(self):
         _, _, _, _, conflicts = deck_sync.merge_normalized_decks({"archidekt": ARCHIDEKT_DECK})
         self.assertEqual(conflicts, [])

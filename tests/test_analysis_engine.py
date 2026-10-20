@@ -533,5 +533,81 @@ class TestFacadeParity(unittest.TestCase):
         self.assertIs(deck_analysis.parse_mana_cost, parse_mana_cost)
 
 
+class _FakeRedis:
+    """Minimal in-memory redis stand-in, mirroring tests/test_autotag_tag_registry.py."""
+
+    def __init__(self):
+        self.store: Dict[str, str] = {}
+
+    def get(self, k):
+        return self.store.get(k)
+
+    def set(self, k, v, nx=False, ex=None):
+        if nx and k in self.store:
+            return None
+        self.store[k] = v
+        return True
+
+    def exists(self, k):
+        return 1 if k in self.store else 0
+
+
+class TestStapleThemeRegistry(unittest.TestCase):
+    """Vocab cleanup PR5: KNOWN_STAPLE_THEMES is now a Redis-backed registry (analytics/
+    staple_theme_registry.py), seeded once from the original hardcoded mapping."""
+
+    def setUp(self):
+        import analytics.engine as engine_mod
+        self.engine_mod = engine_mod
+        self.original = dict(engine_mod.KNOWN_STAPLE_THEMES)
+
+    def tearDown(self):
+        self.engine_mod.KNOWN_STAPLE_THEMES = self.original
+
+    def test_default_module_global_matches_builtins_without_redis(self):
+        from analytics.staple_theme_registry import BUILTIN_STAPLE_THEMES
+
+        self.assertEqual(self.engine_mod.KNOWN_STAPLE_THEMES, BUILTIN_STAPLE_THEMES)
+
+    def test_seeds_once_from_builtin_mapping(self):
+        from analytics import staple_theme_registry as st
+
+        r = _FakeRedis()
+        st.ensure_seeded(r)
+        self.assertEqual(st.get_map(r), st.BUILTIN_STAPLE_THEMES)
+
+    def test_deleted_entry_is_not_reseeded(self):
+        from analytics import staple_theme_registry as st
+
+        r = _FakeRedis()
+        st.ensure_seeded(r)
+        st.delete_entry(r, "Hardened Scales")
+        st.ensure_seeded(r)  # calling again must be a no-op
+        self.assertNotIn("Hardened Scales", st.get_map(r))
+
+    def test_load_staple_theme_vocab_refreshes_engine_global(self):
+        from analytics import staple_theme_registry as st
+
+        r = _FakeRedis()
+        st.ensure_seeded(r)
+        st.delete_entry(r, "Hardened Scales")
+        st.set_entry(r, "Sol Ring", ["ramp", "fast mana"])
+
+        self.engine_mod.load_staple_theme_vocab(r)
+
+        self.assertNotIn("Hardened Scales", self.engine_mod.KNOWN_STAPLE_THEMES)
+        self.assertEqual(self.engine_mod.KNOWN_STAPLE_THEMES["Sol Ring"], ["ramp", "fast mana"])
+
+    def test_theme_scan_uses_live_registry_after_load(self):
+        """Deleting a staple's theme via the registry stops it crediting that theme."""
+        from analytics import staple_theme_registry as st
+
+        r = _FakeRedis()
+        st.ensure_seeded(r)
+        st.delete_entry(r, "Doubling Season")
+        self.engine_mod.load_staple_theme_vocab(r)
+        self.assertNotIn("Doubling Season", self.engine_mod.KNOWN_STAPLE_THEMES)
+
+
 if __name__ == "__main__":
     unittest.main()

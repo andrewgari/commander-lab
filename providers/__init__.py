@@ -20,6 +20,7 @@ NORMALIZED_DECK_SHAPE = {
 }
 """
 from . import archidekt, moxfield  # noqa: F401
+from .errors import PushError, PushNotConfigured  # noqa: F401
 
 PROVIDERS = {
     "archidekt": archidekt,
@@ -53,3 +54,30 @@ def list_decks(provider: str, username: str) -> list:
 
 def registry_id(deck: dict) -> str:
     return f"{deck['source']}:{deck['source_id']}"
+
+
+def push_deck(provider: str, identifier: str, cards: list, commanders=None) -> dict:
+    """Write `cards` to the provider's deck (commander.lab -> external).
+    Only called from deck_sync.push_deck, i.e. an explicit user Push.
+    Raises PushNotConfigured when the provider's credential env var is unset."""
+    mod = PROVIDERS.get(provider)
+    if not mod:
+        raise ProviderError(f"unknown provider: {provider}")
+    if not hasattr(mod, "push_deck"):
+        raise PushNotConfigured(f"{provider} does not support push")
+    return mod.push_deck(identifier, cards, commanders)
+
+
+def create_deck(provider: str, name: str, cards: list, commanders=None, description: str = "", private: bool = True) -> dict:
+    """Create a NEW deck on `provider` from a decklist. Explicit user export only."""
+    mod = PROVIDERS.get(provider)
+    if not mod:
+        raise ProviderError(f"unknown provider: {provider}")
+    if not hasattr(mod, "create_deck"):
+        raise PushNotConfigured(f"{provider} does not support deck creation")
+    return mod.create_deck(name, cards, commanders, description, private)
+
+
+def push_configured(provider: str) -> bool:
+    mod = PROVIDERS.get(provider)
+    return bool(mod and hasattr(mod, "push_configured") and mod.push_configured())

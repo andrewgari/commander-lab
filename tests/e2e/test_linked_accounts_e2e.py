@@ -1,5 +1,5 @@
 """
-Playwright E2E tests for the linked-accounts UI on /decks page.
+Playwright E2E tests for the linked-accounts UI on /settings page (Sync section).
 
 These tests verify:
 - The linked-accounts section renders correctly
@@ -11,7 +11,7 @@ These tests verify:
 Prerequisites:
 - Server running at BASE_URL (default: http://localhost:8000)
 - Redis backend available
-- templates/decks.html with linked-accounts UI implemented
+- templates/settings.html with linked-accounts UI implemented
 - /api/linked-accounts endpoints in app.py
 
 Run with: pytest tests/e2e/test_linked_accounts_e2e.py --base-url=http://localhost:8000
@@ -39,9 +39,9 @@ except ImportError as exc:  # pytest/playwright are E2E-only deps (not in requir
 class TestLinkedAccountsSectionRendering:
     """Tests for linked-accounts section visibility and structure."""
 
-    def test_linked_accounts_section_visible_on_decks_page(self, page: Page, base_url: str):
-        """The linked-accounts section should be visible on /decks page."""
-        page.goto(f"{base_url}/decks")
+    def test_linked_accounts_section_visible_on_settings_page(self, page: Page, base_url: str):
+        """The linked-accounts section should be visible on /settings page."""
+        page.goto(f"{base_url}/settings")
         
         section = page.locator('.linked-accounts-section')
         expect(section).to_be_visible()
@@ -50,7 +50,7 @@ class TestLinkedAccountsSectionRendering:
 
     def test_linked_accounts_has_title(self, page: Page, base_url: str):
         """The linked-accounts section should have a 'Linked Accounts' title."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         title = page.locator('.linked-accounts-title')
         expect(title).to_be_visible()
@@ -58,7 +58,7 @@ class TestLinkedAccountsSectionRendering:
 
     def test_linked_accounts_has_link_account_button(self, page: Page, base_url: str):
         """The linked-accounts section should have a 'Link Account' button."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         expect(link_button).to_be_visible()
@@ -66,7 +66,7 @@ class TestLinkedAccountsSectionRendering:
 
     def test_linked_accounts_has_sync_all_button(self, page: Page, base_url: str):
         """The linked-accounts section should have a 'Sync All' button."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         sync_all_button = page.locator('button:has-text("Sync All"), #syncAllBtn')
         expect(sync_all_button).to_be_visible()
@@ -77,7 +77,7 @@ class TestLinkedAccountsEmptyState:
 
     def test_empty_state_shows_message(self, page: Page, base_url: str):
         """When no accounts are linked, an empty state message should display."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         # Mock empty accounts response
         page.route("**/api/linked-accounts", lambda route: route.fulfill(
@@ -134,7 +134,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         # Wait for accounts to load
         page.wait_for_selector('.account-card', timeout=5000)
@@ -151,7 +151,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         username = page.locator('.account-username')
@@ -165,7 +165,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         provider_badge = page.locator('.account-provider-badge')
@@ -179,7 +179,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Provider icon should be visible (styled div or img)
@@ -194,7 +194,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-icon.archidekt', timeout=5000)
         
         archidekt_icon = page.locator('.account-icon.archidekt')
@@ -208,7 +208,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-icon.moxfield', timeout=5000)
         
         moxfield_icon = page.locator('.account-icon.moxfield')
@@ -222,7 +222,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Look for deck count in the meta section
@@ -237,7 +237,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Should show sync status (time or "Never synced")
@@ -252,7 +252,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Second account has last_synced_at: None
@@ -267,7 +267,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Sync button in account actions
@@ -282,7 +282,7 @@ class TestLinkedAccountsDisplay:
             body=json.dumps(mock_accounts_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Remove button with danger styling
@@ -295,14 +295,14 @@ class TestAddAccountFlow:
 
     def test_add_account_form_hidden_by_default(self, page: Page, base_url: str):
         """The add account form should be hidden by default."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         form = page.locator('#addAccountForm')
         expect(form).not_to_have_class("visible")
 
     def test_clicking_link_account_shows_form(self, page: Page, base_url: str):
         """Clicking 'Link Account' button should reveal the add account form."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -312,7 +312,7 @@ class TestAddAccountFlow:
 
     def test_add_account_form_has_provider_select(self, page: Page, base_url: str):
         """The add account form should have a provider dropdown."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -322,7 +322,7 @@ class TestAddAccountFlow:
 
     def test_provider_select_has_archidekt_option(self, page: Page, base_url: str):
         """The provider dropdown should have an 'Archidekt' option."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -333,7 +333,7 @@ class TestAddAccountFlow:
 
     def test_provider_select_has_moxfield_option(self, page: Page, base_url: str):
         """The provider dropdown should have a 'Moxfield' option."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -344,7 +344,7 @@ class TestAddAccountFlow:
 
     def test_add_account_form_has_username_input(self, page: Page, base_url: str):
         """The add account form should have a username input field."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -355,7 +355,7 @@ class TestAddAccountFlow:
 
     def test_add_account_form_has_add_button(self, page: Page, base_url: str):
         """The add account form should have an 'Add' submit button."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -365,7 +365,7 @@ class TestAddAccountFlow:
 
     def test_add_account_form_has_cancel_button(self, page: Page, base_url: str):
         """The add account form should have a 'Cancel' button."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -375,7 +375,7 @@ class TestAddAccountFlow:
 
     def test_clicking_cancel_hides_form(self, page: Page, base_url: str):
         """Clicking 'Cancel' should hide the add account form."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -388,7 +388,7 @@ class TestAddAccountFlow:
 
     def test_can_enter_username(self, page: Page, base_url: str):
         """User should be able to type a username into the input field."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -400,7 +400,7 @@ class TestAddAccountFlow:
 
     def test_can_select_provider(self, page: Page, base_url: str):
         """User should be able to select a provider from the dropdown."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -412,7 +412,7 @@ class TestAddAccountFlow:
 
     def test_submit_add_account_calls_api(self, page: Page, base_url: str):
         """Submitting the add account form should POST to /api/linked-accounts."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         # Track API call
         api_called = []
@@ -448,7 +448,7 @@ class TestAddAccountFlow:
     @pytest.mark.skip(reason="Route interception timing issue - works in isolation but flaky in CI")
     def test_add_account_success_shows_feedback(self, page: Page, base_url: str):
         """Successful account linking should show positive feedback."""
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         # Set up route interception after page load for the exact endpoint
         page.route(f"{base_url}/api/linked-accounts", lambda route: route.fulfill(
@@ -485,7 +485,7 @@ class TestAddAccountFlow:
         
         page.route("**/api/linked-accounts", handle_route)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         # Open form and submit
         link_button = page.locator('button:has-text("Link Account")')
@@ -513,7 +513,7 @@ class TestAddAccountFlow:
             )
         )[1])
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         link_button = page.locator('button:has-text("Link Account")')
         link_button.click()
@@ -554,7 +554,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Click remove button
@@ -573,7 +573,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         remove_button = page.locator('.btn-icon.btn-danger').first
@@ -590,7 +590,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         remove_button = page.locator('.btn-icon.btn-danger').first
@@ -607,7 +607,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         remove_button = page.locator('.btn-icon.btn-danger').first
@@ -624,7 +624,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         remove_button = page.locator('.btn-icon.btn-danger').first
@@ -644,7 +644,7 @@ class TestRemoveAccountFlow:
             body=json.dumps(mock_single_account)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         remove_button = page.locator('.btn-icon.btn-danger').first
@@ -677,7 +677,7 @@ class TestRemoveAccountFlow:
         
         page.route("**/api/linked-accounts**", handle_request)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Click remove then unlink
@@ -737,7 +737,7 @@ class TestSyncAccountFlow:
         
         page.route("**/api/linked-accounts**", handle_request)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         # Click sync button (first btn-icon that's not btn-danger)
@@ -770,7 +770,7 @@ class TestSyncAccountFlow:
         
         page.route("**/api/linked-accounts**", handle_request)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         sync_button = page.locator('.account-actions .btn-icon:not(.btn-danger)').first
@@ -820,7 +820,7 @@ class TestSyncAllFlow:
         
         page.route("**/api/linked-accounts**", handle_request)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         sync_all_button = page.locator('#syncAllBtn, button:has-text("Sync All")')
         sync_all_button.click()
@@ -854,7 +854,7 @@ class TestSyncAllFlow:
         
         page.route("**/api/linked-accounts**", handle_request)
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         
         sync_all_button = page.locator('#syncAllBtn')
         sync_all_button.click()
@@ -885,7 +885,7 @@ class TestSyncStatusIndicators:
             body=json.dumps(mock_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         green_dot = page.locator('.sync-status-dot.success')
@@ -913,7 +913,7 @@ class TestSyncStatusIndicators:
             body=json.dumps(mock_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         warning_dot = page.locator('.sync-status-dot.warning')
@@ -938,7 +938,7 @@ class TestSyncStatusIndicators:
             body=json.dumps(mock_response)
         ))
         
-        page.goto(f"{base_url}/decks")
+        page.goto(f"{base_url}/settings")
         page.wait_for_selector('.account-card', timeout=5000)
         
         gray_dot = page.locator('.sync-status-dot.never')

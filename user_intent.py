@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import deck_genre
+
 SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "user_intent.schema.json"
 
 ALLOWED_DECK_INTENTS: Set[str] = {"new_build", "tune_up", "overhaul"}
@@ -18,6 +20,10 @@ ALLOWED_DECK_INTENTS: Set[str] = {"new_build", "tune_up", "overhaul"}
 ALLOWED_POWER_TIERS: Set[str] = {"casual", "focused", "optimized", "competitive"}
 
 ALLOWED_CURRENCIES: Set[str] = {"USD", "EUR", "GBP", "CAD", "AUD"}
+
+# Official Commander Brackets (analytics/brackets.py, docs/BRACKETS_SPEC.md).
+MIN_BRACKET = 1
+MAX_BRACKET = 5
 
 ALLOWED_WIN_CONDITIONS: Set[str] = {
     "combat",
@@ -30,22 +36,10 @@ ALLOWED_WIN_CONDITIONS: Set[str] = {
     "lockout",
 }
 
-ALLOWED_ARCHETYPES: Set[str] = {
-    "aggro",
-    "midrange",
-    "control",
-    "combo",
-    "stax",
-    "spellslinger",
-    "aristocrats",
-    "tokens",
-    "graveyard",
-    "voltron",
-    "ramp",
-    "tribal",
-    "group_hug",
-    "group_slug",
-}
+def allowed_archetypes(r=None) -> Set[str]:
+    """The Deck Genre archetype ids (Redis-backed, deck_genre.list_archetypes()). r=None
+    falls back to the seed defaults -- see deck_genre.py's module docstring."""
+    return set(deck_genre.archetype_ids(r))
 
 # Mapping between numeric scale and named tier
 POWER_SCALE_TIER_MAP = {
@@ -85,8 +79,10 @@ class TargetPowerLevel:
 class BudgetConstraints:
     no_budget: bool = False
     total_budget: Optional[float] = None
-    max_card_price: Optional[float] = None
+    max_card_price: Optional[float] = None  # alias of hard_cap (AN-5)
     currency: str = "USD"
+    hard_cap: Optional[float] = None
+    soft_cap: Optional[float] = None
 
 
 @dataclass
@@ -99,10 +95,18 @@ class PreferredWinConditions:
 
 @dataclass
 class ArchetypePreferences:
-    primary_archetype: str = "midrange"
+    # None = not set (GN). Analytics falls back to "midrange" when scoring.
+    primary_archetype: Optional[str] = None
     secondary_archetypes: List[str] = field(default_factory=list)
     excluded_archetypes: List[str] = field(default_factory=list)
     custom_themes: List[str] = field(default_factory=list)
+
+
+@dataclass
+class DeckGenre:
+    """Journal Deck Genre tags (GN): flavor themes (seed id or custom) + creature types."""
+    genres: List[str] = field(default_factory=list)
+    kindred: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -116,6 +120,12 @@ class UserDeckIntent:
     archetype_preferences: ArchetypePreferences = field(
         default_factory=ArchetypePreferences
     )
+    deck_genre: DeckGenre = field(default_factory=DeckGenre)
+    pet_cards: List[str] = field(default_factory=list)
+    novelties: str = ""
+    # Official Commander Bracket 1-5 (BR-2); None = unset, no bracket checks.
+    # Separate from target_power_level and never derived from it.
+    target_bracket: Optional[int] = None
     freeform_notes: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -167,11 +177,17 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
 
     # 3. budget_constraints
     bc_in = payload.get("budget_constraints") or {}
+    # max_card_price is an alias of hard_cap; hard_cap wins when both are set.
+    hard_cap = bc_in.get("hard_cap")
+    if hard_cap is None:
+        hard_cap = bc_in.get("max_card_price")
     resolved["budget_constraints"] = {
         "no_budget": bool(bc_in.get("no_budget", False)),
         "total_budget": bc_in.get("total_budget", None),
-        "max_card_price": bc_in.get("max_card_price", None),
+        "max_card_price": hard_cap,
         "currency": bc_in.get("currency", "USD"),
+        "hard_cap": hard_cap,
+        "soft_cap": bc_in.get("soft_cap", None),
     }
 
     # 4. preferred_win_conditions
@@ -186,11 +202,26 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
     # 5. archetype_preferences
     ap_in = payload.get("archetype_preferences") or {}
     resolved["archetype_preferences"] = {
-        "primary_archetype": ap_in.get("primary_archetype", "midrange"),
+        "primary_archetype": ap_in.get("primary_archetype"),
         "secondary_archetypes": list(ap_in.get("secondary_archetypes", [])),
         "excluded_archetypes": list(ap_in.get("excluded_archetypes", [])),
         "custom_themes": list(ap_in.get("custom_themes", [])),
     }
+
+    # 5b. Deck Genre (GN): labels only, never scored by the engine.
+    dg_in = payload.get("deck_genre")
+    dg_in = dg_in if isinstance(dg_in, dict) else {}
+    resolved["deck_genre"] = {
+        "genres": list(dg_in.get("genres") or []),
+        "kindred": list(dg_in.get("kindred") or []),
+    }
+
+    # 6. Deck Journal fields (AN-5)
+    resolved["pet_cards"] = list(payload.get("pet_cards") or [])
+    resolved["novelties"] = payload.get("novelties") or ""
+
+    # 7. Commander Bracket target (BR-2): optional, never derived from power level.
+    resolved["target_bracket"] = payload.get("target_bracket")
 
     # Freeform & metadata
     resolved["freeform_notes"] = payload.get("freeform_notes", "")
@@ -203,6 +234,10 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
         "budget_constraints",
         "preferred_win_conditions",
         "archetype_preferences",
+        "deck_genre",
+        "pet_cards",
+        "novelties",
+        "target_bracket",
         "freeform_notes",
         "metadata",
     }
@@ -215,7 +250,7 @@ def resolve_intent_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[st
 
 
 def validate_intent(
-    payload: Dict[str, Any], strict_coherence: bool = True
+    payload: Dict[str, Any], strict_coherence: bool = True, r: Any = None
 ) -> Tuple[bool, List[str]]:
     """
     Validate a user intent payload against business rules and constraints.
@@ -352,8 +387,37 @@ def validate_intent(
                 else:
                     currency_val = curr
 
+            # Per-card caps (AN-5). hard_cap supersedes its alias max_card_price.
+            caps: Dict[str, Optional[float]] = {}
+            for cap_key in ("hard_cap", "soft_cap"):
+                cv = bc.get(cap_key)
+                if cv is None:
+                    caps[cap_key] = None
+                elif (not isinstance(cv, (int, float))) or isinstance(cv, bool):
+                    errors.append(
+                        f"budget_constraints.{cap_key} must be a number, got {type(cv).__name__}"
+                    )
+                    caps[cap_key] = None
+                elif cv < 0:
+                    errors.append(f"budget_constraints.{cap_key} cannot be negative, got {cv}")
+                    caps[cap_key] = None
+                else:
+                    caps[cap_key] = float(cv)
+            if caps["hard_cap"] is not None:
+                max_card_price = caps["hard_cap"]
+            if (
+                caps["soft_cap"] is not None
+                and max_card_price is not None
+                and caps["soft_cap"] > max_card_price
+            ):
+                errors.append(
+                    f"budget_constraints.soft_cap ({caps['soft_cap']}) cannot exceed hard_cap ({max_card_price})."
+                )
+
             # Mutual exclusivity constraint: no_budget vs explicit limits
-            if no_budget and (total_budget is not None or max_card_price is not None):
+            if no_budget and (
+                total_budget is not None or max_card_price is not None or caps["soft_cap"] is not None
+            ):
                 errors.append(
                     "budget_constraints conflict: no_budget is true, but total_budget or max_card_price was specified."
                 )
@@ -439,10 +503,11 @@ def validate_intent(
         if not isinstance(ap, dict):
             errors.append("archetype_preferences must be an object.")
         else:
+            allowed_arch = allowed_archetypes(r)
             prim_arch = ap.get("primary_archetype")
-            if prim_arch is not None and prim_arch not in ALLOWED_ARCHETYPES:
+            if prim_arch is not None and prim_arch not in allowed_arch:
                 errors.append(
-                    f"archetype_preferences.primary_archetype '{prim_arch}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                    f"archetype_preferences.primary_archetype '{prim_arch}' is invalid. Allowed: {sorted(allowed_arch)}"
                 )
 
             sec_arch = ap.get("secondary_archetypes", [])
@@ -450,9 +515,9 @@ def validate_intent(
                 errors.append("archetype_preferences.secondary_archetypes must be a list.")
             else:
                 for item in sec_arch:
-                    if item not in ALLOWED_ARCHETYPES:
+                    if item not in allowed_arch:
                         errors.append(
-                            f"archetype_preferences.secondary_archetypes item '{item}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                            f"archetype_preferences.secondary_archetypes item '{item}' is invalid. Allowed: {sorted(allowed_arch)}"
                         )
 
             excl_arch = ap.get("excluded_archetypes", [])
@@ -460,9 +525,9 @@ def validate_intent(
                 errors.append("archetype_preferences.excluded_archetypes must be a list.")
             else:
                 for item in excl_arch:
-                    if item not in ALLOWED_ARCHETYPES:
+                    if item not in allowed_arch:
                         errors.append(
-                            f"archetype_preferences.excluded_archetypes item '{item}' is invalid. Allowed: {sorted(ALLOWED_ARCHETYPES)}"
+                            f"archetype_preferences.excluded_archetypes item '{item}' is invalid. Allowed: {sorted(allowed_arch)}"
                         )
 
             # Mutual-exclusivity constraint
@@ -485,11 +550,38 @@ def validate_intent(
                     "archetype_preferences.custom_themes must be a list of strings."
                 )
 
+            # Deck Genre cardinality (GN): primary 0-1, secondaries 0-3 and never the primary.
+            errors.extend(deck_genre.validate_archetype_cardinality(ap))
+
+    # 5b. deck_genre (GN): genres/kindred 0-5 each, custom text <= 32 chars.
+    errors.extend(deck_genre.validate_deck_genre(payload.get("deck_genre")))
+
+    # 6. Deck Journal fields (AN-5)
+    pets = payload.get("pet_cards")
+    if pets is not None and (not isinstance(pets, list) or not all(isinstance(p, str) for p in pets)):
+        errors.append("pet_cards must be a list of card names (strings).")
+    nov = payload.get("novelties")
+    if nov is not None and not isinstance(nov, str):
+        errors.append("novelties must be a string.")
+
+    # 7. Commander Bracket target (BR-2): integer 1-5 or null (unset).
+    tb = payload.get("target_bracket")
+    if tb is not None:
+        if not isinstance(tb, int) or isinstance(tb, bool):
+            errors.append(
+                f"target_bracket must be an integer between {MIN_BRACKET} and {MAX_BRACKET} or null, "
+                f"got {type(tb).__name__}"
+            )
+        elif tb < MIN_BRACKET or tb > MAX_BRACKET:
+            errors.append(
+                f"target_bracket must be an integer between {MIN_BRACKET} and {MAX_BRACKET} or null, got {tb}"
+            )
+
     return (len(errors) == 0, errors)
 
 
 def parse_user_intent(
-    payload: Optional[Dict[str, Any]] = None, strict_coherence: bool = True
+    payload: Optional[Dict[str, Any]] = None, strict_coherence: bool = True, r: Any = None
 ) -> UserDeckIntent:
     """
     Validate, resolve defaults, and parse a raw payload into a strongly-typed
@@ -499,7 +591,7 @@ def parse_user_intent(
     if payload is None:
         payload = {}
 
-    is_valid, errors = validate_intent(payload, strict_coherence=strict_coherence)
+    is_valid, errors = validate_intent(payload, strict_coherence=strict_coherence, r=r)
     if not is_valid:
         raise ValueError(f"Invalid user intent configuration: {'; '.join(errors)}")
 
@@ -526,6 +618,8 @@ def parse_user_intent(
             total_budget=bc_data["total_budget"],
             max_card_price=bc_data["max_card_price"],
             currency=bc_data["currency"],
+            hard_cap=bc_data["hard_cap"],
+            soft_cap=bc_data["soft_cap"],
         ),
         preferred_win_conditions=PreferredWinConditions(
             primary=wc_data["primary"],
@@ -539,6 +633,13 @@ def parse_user_intent(
             excluded_archetypes=ap_data["excluded_archetypes"],
             custom_themes=ap_data["custom_themes"],
         ),
+        deck_genre=DeckGenre(
+            genres=resolved["deck_genre"]["genres"],
+            kindred=resolved["deck_genre"]["kindred"],
+        ),
+        pet_cards=resolved["pet_cards"],
+        novelties=resolved["novelties"],
+        target_bracket=resolved["target_bracket"],
         freeform_notes=resolved["freeform_notes"],
         metadata=resolved["metadata"],
     )

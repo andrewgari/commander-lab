@@ -45,6 +45,10 @@ from user_intent import (
     parse_user_intent,
 )
 
+# Estimated vs target power (1-10) further apart than this = not aligned.
+# Shared by power_aligned below, the journal check-in and the bracket evaluator.
+POWER_ALIGN_TOLERANCE = 1.5
+
 # =============================================================================
 # Domain Models for Analysis Engine
 # =============================================================================
@@ -556,47 +560,27 @@ ARCHETYPE_PATTERNS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Known staple card themes for offline heuristic alignment
-KNOWN_STAPLE_THEMES: Dict[str, List[str]] = {
-    "Hardened Scales": ["counters", "+1/+1 counters", "midrange"],
-    "Evolution Sage": ["counters", "+1/+1 counters", "proliferate", "landfall", "midrange"],
-    "Doubling Season": ["counters", "+1/+1 counters", "tokens", "proliferate", "midrange"],
-    "Conclave Mentor": ["counters", "+1/+1 counters", "lifegain", "midrange"],
-    "The Ozolith": ["counters", "+1/+1 counters", "midrange"],
-    "Inexorable Tide": ["counters", "+1/+1 counters", "proliferate", "spellslinger"],
-    "Deepglow Skate": ["counters", "+1/+1 counters", "proliferate", "midrange"],
-    "Atraxa, Praetors' Voice": ["counters", "+1/+1 counters", "proliferate", "midrange"],
-    "Viscera Seer": ["aristocrats", "sacrifice"],
-    "Blood Artist": ["aristocrats", "sacrifice", "drain"],
-    "Zulaport Cutthroat": ["aristocrats", "sacrifice", "drain"],
-    "Carrion Feeder": ["aristocrats", "sacrifice"],
-    "Young Pyromancer": ["tokens", "spellslinger"],
-    "Lingering Souls": ["tokens", "graveyard"],
-    "Goblin Chieftain": ["tribal", "aggro"],
-    "Goblin Warchief": ["tribal", "aggro"],
-    "Goblin King": ["tribal", "aggro"],
-    "Goblin Piledriver": ["tribal", "aggro"],
-    "Dragon Fodder": ["tokens", "tribal"],
-    "Krenko's Command": ["tokens", "tribal"],
-    "Hordeling Outburst": ["tokens", "tribal"],
-    "Purphoros, God of the Forge": ["tokens", "aggro"],
-    "Impact Tremors": ["tokens", "aggro"],
-    "Winter Orb": ["stax"],
-    "Static Orb": ["stax"],
-    "Armageddon": ["stax", "mass land destruction"],
-    "Stasis": ["stax"],
-    "Drannith Magistrate": ["stax"],
-    "Opposition Agent": ["stax"],
-    "Thassa's Oracle": ["combo"],
-    "Demonic Consultation": ["combo"],
-    "Isochron Scepter": ["combo", "spellslinger"],
-    "Dramatic Reversal": ["combo", "spellslinger"],
-    "Swords to Plowshares": ["control", "removal", "midrange"],
-    "Counterspell": ["control", "counterspell", "midrange"],
-    "Cyclonic Rift": ["control", "board wipe", "midrange"],
-    "Rhystic Study": ["control", "card draw", "midrange"],
-    "Beast Within": ["control", "removal", "midrange"],
-}
+# Known staple card themes for offline heuristic alignment. This is a Redis-backed,
+# user-editable registry (vocab cleanup PR5) -- see analytics/staple_theme_registry.py
+# for the full design rationale. This module-level name defaults to the builtin
+# mapping (so importing this module without a Redis client, e.g. in unit tests,
+# behaves exactly as before) and gets refreshed in place by
+# ``load_staple_theme_vocab(r)``, which callers with a Redis client (app.py) should
+# invoke before running the engine against a live deck.
+from analytics.staple_theme_registry import BUILTIN_STAPLE_THEMES
+
+KNOWN_STAPLE_THEMES: Dict[str, List[str]] = dict(BUILTIN_STAPLE_THEMES)
+
+
+def load_staple_theme_vocab(r) -> None:
+    """Refresh KNOWN_STAPLE_THEMES from the Redis staple-theme registry (seeding it
+    from BUILTIN_STAPLE_THEMES on first use). Every analysis that reads the module
+    global afterwards picks up the change."""
+    global KNOWN_STAPLE_THEMES
+    from analytics import staple_theme_registry
+
+    staple_theme_registry.ensure_seeded(r)
+    KNOWN_STAPLE_THEMES = staple_theme_registry.get_map(r)
 
 _MANA_SYMBOL_RE = re.compile(r"\{([A-Za-z0-9/]+)\}")
 
@@ -916,7 +900,16 @@ class DeckAnalysisEngine:
         and excluded archetype violations.
         """
         primary_archetype = (intent.archetype_preferences.primary_archetype or "midrange").lower()
-        secondary_archetypes = [s.lower() for s in intent.archetype_preferences.secondary_archetypes]
+        # Deck Genre ids with no ARCHETYPE_PATTERNS entry (landfall, storm, ...) would score 0%
+        # and report "Low archetype alignment" for a deck that may fit fine. Skip them: an
+        # unpatterned primary is scored like an unset one ("midrange"), unpatterned
+        # secondaries are left out (DECK_GENRE_TAXONOMY.md §0.2).
+        unscored = sorted({a for a in [primary_archetype] + [s.lower() for s in intent.archetype_preferences.secondary_archetypes]
+                           if a not in ARCHETYPE_PATTERNS})
+        if primary_archetype not in ARCHETYPE_PATTERNS:
+            primary_archetype = "midrange"
+        secondary_archetypes = [s.lower() for s in intent.archetype_preferences.secondary_archetypes
+                                if s.lower() in ARCHETYPE_PATTERNS and s.lower() != primary_archetype]
         excluded_archetypes = [e.lower() for e in intent.archetype_preferences.excluded_archetypes]
         custom_themes = [t.lower() for t in intent.archetype_preferences.custom_themes]
 
@@ -1062,6 +1055,8 @@ class DeckAnalysisEngine:
         )
         if violations:
             desc += f" Warning: {len(violations)} card(s) violate excluded archetypes: {', '.join(excluded_archetypes)}."
+        if unscored:
+            desc += f" Not scored (no card pattern yet): {', '.join(unscored)}."
 
         return ThemeAnalysisBreakdown(
             score=round(final_score, 1),
@@ -1654,7 +1649,7 @@ class DeckAnalysisEngine:
 
         # 1. Power level alignment
         target_scale = intent.target_power_level.scale
-        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= 1.5
+        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= POWER_ALIGN_TOLERANCE
         if power_aligned:
             details.append(f"Power level {playfeel.power_level_estimate} matches target {target_scale}.")
         else:

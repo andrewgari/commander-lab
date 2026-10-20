@@ -123,6 +123,7 @@ When fields or entire field groups are omitted by the user, `resolve_intent_defa
 - `preferred_win_conditions`: `{"primary": "combat", "secondary": [], "disliked_or_excluded": [], "custom_win_conditions": []}`
 - `archetype_preferences`: `{"primary_archetype": "midrange", "secondary_archetypes": [], "excluded_archetypes": [], "custom_themes": []}`
 - `freeform_notes`: `""`
+- `target_bracket`: `null` (unset; integer 1–5 when set, never derived from `target_power_level`)
 - `metadata`: `{}`
 
 ---

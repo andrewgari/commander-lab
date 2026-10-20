@@ -1,10 +1,12 @@
+import asyncio
 import json
 import unittest
 from unittest.mock import patch, MagicMock, AsyncMock
 import httpx
 from fastapi.testclient import TestClient
 
-from app import app, extract_short_description
+import github_sync
+from app import app, extract_short_description, render_release_body
 
 
 class TestChangelog(unittest.TestCase):
@@ -38,28 +40,78 @@ class TestChangelog(unittest.TestCase):
         self.assertNotIn("## What's Changed", desc)
         self.assertIn("Added feature A", desc)
 
-        # Truncation with ellipsis
+        # No truncation, no ellipsis -- the full text is always returned
         long_body = "word " * 100
-        desc_truncated = extract_short_description(long_body, max_length=50)
-        self.assertTrue(desc_truncated.endswith("..."))
-        self.assertLessEqual(len(desc_truncated), 53)
+        desc_full = extract_short_description(long_body, max_length=50)
+        self.assertFalse(desc_full.endswith("..."))
+        self.assertIn("word", desc_full)
+        self.assertEqual(desc_full.count("word"), 100)
 
-    @patch("app.r")
+    def test_render_release_body_empty(self):
+        self.assertEqual(render_release_body(None), "")
+        self.assertEqual(render_release_body(""), "")
+
+    def test_render_release_body_preserves_headings_and_bullets(self):
+        body = "## What's Changed\n* Added feature A\n* Added feature B\n* Fixed bug C"
+        html_out = render_release_body(body)
+        self.assertIn("<h2>", html_out)
+        self.assertIn("<ul>", html_out)
+        self.assertIn("<li>", html_out)
+        self.assertIn("Added feature A", html_out)
+        self.assertIn("Fixed bug C", html_out)
+
+    def test_render_release_body_never_truncates_long_text(self):
+        long_body = "## Release notes\n" + "\n".join(f"* Item number {i}" for i in range(100))
+        html_out = render_release_body(long_body)
+        self.assertNotIn("...", html_out)
+        self.assertIn("Item number 0", html_out)
+        self.assertIn("Item number 99", html_out)
+
+    def test_render_release_body_sanitizes_dangerous_html(self):
+        body = "Hello <script>alert('xss')</script> world\n\n<img src=x onerror=alert(1)>"
+        html_out = render_release_body(body)
+        self.assertNotIn("<script", html_out)
+        self.assertNotIn("onerror", html_out)
+        self.assertIn("Hello", html_out)
+        self.assertIn("world", html_out)
+
     @patch("httpx.AsyncClient")
-    def test_changelog_renders_html_with_releases_from_api(self, mock_client_cls, mock_redis):
-        # Redis cache miss initially
-        mock_redis.get.return_value = None
-
-        # Mock httpx response
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = self.sample_releases
-        mock_resp.raise_for_status = MagicMock()
+    def test_github_sync_caches_releases_from_api(self, mock_client_cls):
+        # The GitHub fetch runs in the background (github_sync.update_github_data)
+        # and writes both the active and stale changelog cache keys.
+        tags_resp = MagicMock()
+        tags_resp.json.return_value = [{"name": "v1.2.0", "commit": {"sha": "abc"}}]
+        releases_resp = MagicMock()
+        releases_resp.json.return_value = self.sample_releases
 
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
+        mock_client.get.side_effect = [tags_resp, releases_resp]
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
         mock_client_cls.return_value = mock_client
+
+        mock_redis = MagicMock()
+        asyncio.run(github_sync.update_github_data(mock_redis))
+
+        mock_redis.setex.assert_any_call(github_sync.CACHE_VERSION_KEY, 600, "1.2.0")
+        changelog_writes = [
+            c for c in mock_redis.setex.call_args_list
+            if c.args[0] == github_sync.CACHE_CHANGELOG_KEY
+        ]
+        self.assertEqual(len(changelog_writes), 1)
+        cached = json.loads(changelog_writes[0].args[2])
+        self.assertEqual([r["tag_name"] for r in cached], ["v1.2.0", "v1.1.0-beta.1"])
+        mock_redis.set.assert_any_call(
+            github_sync.STALE_CHANGELOG_KEY, changelog_writes[0].args[2]
+        )
+
+    @patch("app.r")
+    @patch("httpx.AsyncClient")
+    def test_changelog_renders_html_with_releases(self, mock_client_cls, mock_redis):
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "1.2.0",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(self.sample_releases),
+        }.get(key)
 
         response = self.client.get("/changelog")
         self.assertEqual(response.status_code, 200)
@@ -79,21 +131,14 @@ class TestChangelog(unittest.TestCase):
         self.assertIn("v1.1.0-beta.1", html)
         self.assertIn("Pre-release", html)
 
-        # Verify Redis caching was performed
-        mock_redis.setex.assert_called_once_with(
-            "github_releases", 600, json.dumps(self.sample_releases)
-        )
-        mock_redis.set.assert_called_once_with(
-            "github_releases_stale", json.dumps(self.sample_releases)
-        )
-
     @patch("app.r")
     @patch("httpx.AsyncClient")
     def test_changelog_serves_from_redis_cache_without_api_call(self, mock_client_cls, mock_redis):
-        # Redis cache hit
-        mock_redis.get.side_effect = lambda key: (
-            json.dumps(self.sample_releases) if key == "github_releases" else None
-        )
+        # Redis cache hit for both the version and the changelog
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "1.2.0",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(self.sample_releases),
+        }.get(key)
 
         response = self.client.get("/changelog")
         self.assertEqual(response.status_code, 200)
@@ -134,7 +179,7 @@ class TestChangelog(unittest.TestCase):
     ):
         # Active cache is expired (None), but stale cache has data
         def redis_get(key):
-            if key == "github_releases_stale":
+            if key == github_sync.STALE_CHANGELOG_KEY:
                 return json.dumps(self.sample_releases)
             return None
 

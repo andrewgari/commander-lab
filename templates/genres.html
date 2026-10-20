@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Deck Tags | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Deck Tags"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="gnVersion" class="hud-freshness">Loading…</span>{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* RV-1 genre registry. HUD tokens only; stacks to one column on the 390px rail. */
+    .gn-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--sp-6); align-items: start; }
+    .gn-list { list-style: none; margin: 0; padding: 0; }
+    .gn-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: var(--stroke-faint);
+               color: var(--text-1); padding: var(--sp-4) var(--sp-5); cursor: pointer; font: inherit; }
+    .gn-item:hover { background: var(--surface-2); }
+    .gn-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+    .gn-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
+    .gn-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+    .gn-roles { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .gn-role { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem auto; gap: var(--sp-3); align-items: end; }
+    .gn-role .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+    .gn-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .gn-actions .gn-spacer { flex: 1; }
+    .gn-autofill { display: flex; gap: var(--sp-3); align-items: end; flex-wrap: wrap; }
+    .gn-autofill .hud-field { flex: 1; min-width: 10rem; }
+    .gn-msg { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); color: var(--text-2); overflow-wrap: anywhere; }
+    .gn-msg.is-error { color: var(--danger); }
+    .gn-msg.is-ok { color: var(--ok); }
+    .gn-msg.is-warn { color: var(--signal); }
+    @media (max-width: 900px) {
+        .gn-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 520px) {
+        .gn-role { grid-template-columns: minmax(0, 1fr) 1fr 1fr; }
+        .gn-role .gn-rm { grid-column: 1 / -1; justify-self: start; }
+        .gn-item { padding: var(--sp-3) var(--sp-4); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Deck Tags", eyebrow="Deep review registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="gnNew">New tag</button>
+{% endcall %}
+<p class="gn-msg" style="margin-bottom: var(--sp-5)">Deep Reviews label a deck only with tags from this list. A role is a produces/consumes tag from the interaction graph; a tag's coverage is how many of its roles the deck fills.</p>
+
+<div class="gn-layout">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="gnCount"></div></header>
+        <div class="hud-panel-body" style="padding:0">
+            <ul class="gn-list" id="gnList" aria-label="Deck tags"></ul>
+        </div>
+    </section>
+
+    <section class="hud-panel" id="gnEditor" aria-live="polite">
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="gnEditorTitle">New tag</h3><div class="hud-panel-meta" id="gnEditorMeta"></div></header>
+        <div class="hud-panel-body">
+            <form class="hud-form-stack" id="gnForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
+                <div class="gn-autofill">
+                    <div class="hud-field">
+                        <label for="gnName">Name</label>
+                        <input id="gnName" maxlength="60" required>
+                    </div>
+                    <button type="button" class="hud-btn" id="gnAutofill" title="oracle drafts the description and roles">Autofill</button>
+                </div>
+                <p class="gn-msg" id="gnAutofillMsg" role="status"></p>
+                <div class="hud-field">
+                    <label for="gnDesc">Description</label>
+                    <textarea id="gnDesc" rows="4" maxlength="1200"></textarea>
+                </div>
+                <div class="hud-field">
+                    <span class="hud-field-label">Required roles</span>
+                    <span class="hud-field-hint">Cards in the deck that produce or consume the resource. Min count = copies needed to fill the role; weight = how much it matters.</span>
+                    <div class="gn-roles" id="gnRoles"></div>
+                    <div><button type="button" class="hud-btn hud-btn--sm" id="gnAddRole">Add role</button></div>
+                </div>
+                <p class="gn-msg" id="gnMsg" role="status"></p>
+                <div class="gn-actions">
+                    <button type="submit" class="hud-btn hud-btn--primary" id="gnSave">Save</button>
+                    <button type="button" class="hud-btn hud-btn--ghost" id="gnCancel">Reset</button>
+                    <span class="gn-spacer"></span>
+                    <button type="button" class="hud-btn hud-btn--danger hud-btn--sm" id="gnDelete" hidden>Delete</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const state = { genres: [], vocab: [], version: 0, current: null, source: 'user', autofillTicket: 0 };
+
+    function el(tag, props, kids) {
+        const n = document.createElement(tag);
+        Object.entries(props || {}).forEach(([k, v]) => { if (k === 'text') n.textContent = v; else n.setAttribute(k, v); });
+        (kids || []).forEach(k => n.appendChild(k));
+        return n;
+    }
+    function msg(id, text, tone) { const m = $(id); m.textContent = text || ''; m.className = 'gn-msg' + (tone ? ' is-' + tone : ''); }
+    async function api(method, url, body) {
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, data };
+        } catch (e) {
+            return { ok: false, status: 0, data: { error: 'Network error. Check your connection and try again.' } };
+        }
+    }
+    const label = tag => (state.vocab.find(v => v.tag === tag) || { label: tag }).label;
+
+    function renderList() {
+        const ul = $('gnList'); ul.replaceChildren();
+        $('gnCount').textContent = state.genres.length + ' tags';
+        $('gnVersion').textContent = 'Registry v' + state.version;
+        if (!state.genres.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No tags yet. Add one.' }));
+        state.genres.forEach(g => {
+            const name = el('span', { class: 'gn-item-name' }, [el('span', { text: g.name })]);
+            const chip = (text, tone) => { const c = el('span', { class: 'hud-chip hud-chip--' + tone, text }); return c; };
+            if (g.draft) name.appendChild(chip('draft', 'neutral'));
+            if (g.source === 'autofill') name.appendChild(chip('autofill', 'data'));
+            name.appendChild(chip((g.required_roles || []).length + ' roles', 'neutral'));
+            const b = el('button', { type: 'button', class: 'gn-item', 'data-id': g.id, 'aria-current': String(g.id === state.current) },
+                [name, el('p', { class: 'gn-item-desc', text: g.description || '' })]);
+            b.addEventListener('click', () => edit(g.id));
+            ul.appendChild(el('li', {}, [b]));
+        });
+    }
+
+    function roleRow(role) {
+        const sel = el('select', { 'aria-label': 'Role tag' });
+        state.vocab.forEach(v => { const o = el('option', { value: v.tag, text: v.label, title: v.meaning }); if (v.tag === role.tag) o.selected = true; sel.appendChild(o); });
+        const num = (cls, val, min, max, step, lab) => {
+            const i = el('input', { type: 'number', min, max, step: lab.toLowerCase().includes('weight') ? 'any' : step, value: val, 'aria-label': lab }); i.className = cls; return i;
+        };
+        const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost gn-rm', text: 'Remove' });
+        const row = el('div', { class: 'gn-role' }, [
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Role' }), sel]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Min' }), num('gn-min', role.min_count, 1, 40, 1, 'Min count')]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Weight' }), num('gn-weight', role.weight, 0.1, 10, 0.1, 'Weight')]),
+            rm,
+        ]);
+        rm.addEventListener('click', () => row.remove());
+        return row;
+    }
+    function setRoles(roles) { const box = $('gnRoles'); box.replaceChildren(); (roles || []).forEach(r => box.appendChild(roleRow(r))); }
+    function readRoles() {
+        return Array.from($('gnRoles').children).map(row => ({
+            tag: row.querySelector('select').value,
+            min_count: Number(row.querySelector('.gn-min').value),
+            weight: Number(row.querySelector('.gn-weight').value),
+        }));
+    }
+
+    function fill(g) {
+        $('gnName').value = g.name || ''; $('gnDesc').value = g.description || '';
+        setRoles(g.required_roles); state.source = g.source || 'user';
+    }
+    function edit(id) {
+        const g = state.genres.find(x => x.id === id); if (!g) return;
+        state.autofillTicket++; $('gnAutofill').disabled = false; state.current = id; fill(g);
+        $('gnEditorTitle').textContent = g.name; $('gnEditorMeta').textContent = g.draft ? 'draft' : (g.updated_at || '').slice(0, 10);
+        $('gnDelete').hidden = false; msg('gnMsg', ''); msg('gnAutofillMsg', ''); renderList();
+    }
+    function fresh() {
+        state.autofillTicket++; $('gnAutofill').disabled = false; state.current = null; fill({ required_roles: [] });
+        $('gnEditorTitle').textContent = 'New tag'; $('gnEditorMeta').textContent = '';
+        $('gnDelete').hidden = true; msg('gnMsg', ''); msg('gnAutofillMsg', ''); renderList();
+    }
+
+    async function load(keep) {
+        const { ok, data } = await api('GET', '/api/genres');
+        if (!ok) { msg('gnMsg', data.error || 'Could not load tags.', 'error'); return; }
+        state.genres = data.genres; state.vocab = data.vocabulary; state.version = data.version;
+        keep && state.genres.some(g => g.id === keep) ? edit(keep) : fresh();
+    }
+
+    $('gnNew').addEventListener('click', fresh);
+    $('gnCancel').addEventListener('click', () => state.current ? edit(state.current) : fresh());
+    $('gnAddRole').addEventListener('click', () => $('gnRoles').appendChild(roleRow({ tag: state.vocab[0].tag, min_count: 1, weight: 1 })));
+
+    $('gnForm').addEventListener('submit', async ev => {
+        ev.preventDefault();
+        const body = { name: $('gnName').value, description: $('gnDesc').value, required_roles: readRoles(), source: state.source };
+        $('gnSave').disabled = true; msg('gnMsg', 'Saving…');
+        const r = state.current ? await api('PUT', '/api/genres/' + encodeURIComponent(state.current), body) : await api('POST', '/api/genres', body);
+        $('gnSave').disabled = false;
+        if (!r.ok) { msg('gnMsg', r.data.error || 'Save failed.', 'error'); return; }
+        await load(r.data.genre.id); msg('gnMsg', 'Saved. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    $('gnDelete').addEventListener('click', async () => {
+        if (!state.current || !confirm('Delete this tag?')) return;
+        const r = await api('DELETE', '/api/genres/' + encodeURIComponent(state.current));
+        if (!r.ok) { msg('gnMsg', r.data.error || 'Delete failed.', 'error'); return; }
+        await load(); msg('gnMsg', 'Deleted. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    $('gnAutofill').addEventListener('click', async () => {
+        const theme = $('gnName').value.trim();
+        const ticket = ++state.autofillTicket;
+        if (!theme) { msg('gnAutofillMsg', 'Type the theme name first (e.g. "Aristocrats").', 'warn'); return; }
+        $('gnAutofill').disabled = true; msg('gnAutofillMsg', 'Asking oracle… this can take a minute.');
+        const r = await api('POST', '/api/genres/autofill', { theme });
+        if (ticket !== state.autofillTicket) return;  // a newer selection/autofill superseded this response
+        $('gnAutofill').disabled = false;
+        if (!r.ok) {
+            const offline = r.data.error_kind === 'oracle_offline';
+            msg('gnAutofillMsg', (r.data.error || 'Autofill failed.') + (offline ? ' You can still fill it in by hand.' : ''), offline ? 'warn' : 'error');
+            return;
+        }
+        const d = r.data.draft;
+        if (d.description) $('gnDesc').value = d.description;
+        state.source = 'autofill'; setRoles(d.required_roles);
+        const fl = d.flagged || [];
+        msg('gnAutofillMsg', 'Draft loaded: ' + d.required_roles.length + ' roles. Review it, then Save.' +
+            (fl.length ? ' Dropped ' + fl.length + ' not in the tag vocabulary: ' + fl.map(f => f.tag + ' (' + f.reason + ')').join(', ') + '.' : ''), fl.length ? 'warn' : 'ok');
+    });
+
+    load();
+})();
+</script>
+{% endblock %}

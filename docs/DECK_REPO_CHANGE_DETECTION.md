@@ -2,7 +2,7 @@
 
 ## Overview
 
-Commander Lab automatically monitors local Git repositories associated with Magic: The Gathering decks. The status detection service (`src/services/repo_status.py`, re-exported via `repo_status.py`) provides real-time change detection with configurable caching and bounded concurrency.
+Commander Lab automatically monitors local Git repositories associated with Magic: The Gathering decks. The status detection service (`src/services/repo_status.py`) provides real-time change detection with configurable caching and bounded concurrency.
 
 ## Status Indicator States
 
@@ -39,7 +39,7 @@ Git status inspection is backed by single-subprocess `git status --porcelain=v2 
 ### Runtime Controls
 
 ```python
-from repo_status import get_cache_ttl, set_cache_ttl, clear_repo_status_cache
+from src.services.repo_status import get_cache_ttl, set_cache_ttl, clear_repo_status_cache
 
 # Read current default TTL
 ttl = get_cache_ttl()
