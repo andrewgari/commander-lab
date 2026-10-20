@@ -23,7 +23,7 @@ class TestDeckSearch(unittest.TestCase):
             "card_meta:Sol Ring": json.dumps({"type": "Artifact", "cmc": 1}),
             "card_meta:Solemn Simulacrum": json.dumps({"type": "Artifact Creature", "cmc": 4}),
             "card_meta:Lightning Bolt": json.dumps({"type": "Instant", "cmc": 1}),
-        }[key]
+        }.get(key)
 
         response = self.client.get("/api/decks/archidekt:123/search?q=sol")
 
@@ -101,7 +101,7 @@ class TestDeckSearch(unittest.TestCase):
         mock_redis.get.side_effect = lambda key: {
             "card_meta:Sol Ring": json.dumps({"type": "Artifact", "cmc": 1}),
             "card_meta:Broken Card": "not valid json",
-        }[key]
+        }.get(key)
 
         response = self.client.get("/api/decks/archidekt:123/search?q=card")
 

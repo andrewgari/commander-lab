@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Tune · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (UX_SPEC §3.4). Components are hud.css section 7. */
+    .tn-section + .tn-section { margin-top: var(--sp-8); }
+    .tn-section .hud-section-head { margin-top: 0; }
+    .tn-fix-text { margin: 0; font-size: var(--fs-sm); color: var(--text-2); }
+    .tn-fix-owned { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+    .tn-fix-owned[hidden] { display: none; }
+    .tn-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-4); }
+    .tn-why { grid-column: 1 / -1; margin: 0; padding: var(--sp-2) var(--sp-3); color: var(--text-2); font-size: var(--fs-xs); }
+    .tn-steal { grid-column: 1 / -1; margin: 0; padding: var(--sp-2) var(--sp-3); color: var(--text-1); font-size: var(--fs-xs); border-top: var(--hairline) solid var(--line); }
+    .tn-pet { grid-template-columns: minmax(0, 1fr) auto; }
+    .tn-pet .hud-card-name { color: var(--text-2); }
+    .tn-error { color: var(--danger); font-size: var(--fs-xs); }
+    .tn-error:empty { display: none; }
+    #recomputeError { margin: var(--sp-2) 0 0; }
+    .tn-filter-note { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-4); border-bottom: var(--stroke-faint); color: var(--text-3); font-size: var(--fs-xs); }
+    .tn-filter-note[hidden] { display: none; }
+    .hud-swap.is-dismissed { transition: opacity var(--dur-base) var(--ease); }
+    .tn-moves { margin: var(--sp-2) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-3); }
+    .tn-keys dt { white-space: nowrap; }
+    .hud-opt-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 640px) {
+        .tn-weak .tn-col-opt { display: none; }
+        .hud-filterbar .hud-freshness { margin-left: 0; white-space: normal; }
+    }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Tune") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <span class="hud-freshness" id="tuneGenerated" aria-live="polite" hidden></span>
+    <button class="hud-btn" type="button" id="recompute" title="Runs the tuner again and saves the result. The current saved recommendation is archived, not deleted." disabled>Recompute</button>
+{% endcall %}
+<p class="tn-error" id="recomputeError" role="alert"></p>
+
+<div class="hud-filterbar">
+    <span class="hud-seg" role="radiogroup" aria-label="Source preference">
+        <input type="radio" name="src" id="src-free" value="free"><label for="src-free">Owned, not in a deck</label>
+        <input type="radio" name="src" id="src-flex" value="flex" checked><label for="src-flex">Owned, plus in-deck and/or buy</label>
+        <input type="radio" name="src" id="src-best" value="best"><label for="src-best">Best card</label>
+    </span>
+    <span class="hud-toggles" id="flexToggles">
+        <label class="hud-toggle"><input type="checkbox" id="inDeck" checked> In a physical deck</label>
+        <label class="hud-toggle"><input type="checkbox" id="buy" checked> Would have to buy</label>
+    </span>
+    <span class="hud-freshness" id="capsLine">Caps —</span>
+</div>
+
+<div class="hud-tune">
+    <div class="tn-primary">
+        <section class="tn-section tn-queue" id="fixesSection" aria-labelledby="fixT">
+            <div class="hud-section-head"><span class="hud-section-id">01</span><h2 id="fixT">Shape fixes</h2></div>
+            <div class="hud-panel hud-panel--flush"><div class="hud-panel-body" id="fixes">{{ hud.empty("Loading…") }}</div></div>
+        </section>
+
+        <section class="tn-section tn-compare" id="swapsSection" aria-labelledby="swT">
+            <div class="hud-section-head"><span class="hud-section-id">02</span><h2 id="swT">Swaps · cut → add</h2></div>
+            <div class="hud-panel hud-panel--flush">
+                <div class="tn-filter-note" id="swapFilter" hidden></div>
+                <ul class="hud-swaps hud-panel-body" id="swaps" aria-live="polite"><li class="hud-swap">{{ hud.empty("Loading…") }}</li></ul>
+            </div>
+            <p class="tn-error" id="swapError" role="alert"></p>
+        </section>
+
+        <section class="tn-section tn-queue" id="weak" aria-labelledby="wkT">
+            <div class="hud-section-head"><span class="hud-section-id">03</span><h2 id="wkT">Weak performers · computed</h2></div>
+            <section class="hud-panel hud-panel--flush">
+                <div class="hud-table-wrap"><table class="hud-table tn-weak" data-hud-sortable>
+                    <thead><tr>
+                        <th scope="col" data-sort="text" aria-sort="none"><button type="button" class="hud-sort">Card</button></th>
+                        <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">Edges</button></th>
+                        <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">Pillar fit</button></th>
+                        <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt"><button type="button" class="hud-sort">EDHREC</button></th>
+                        <th scope="col" data-sort="num" aria-sort="none" class="is-num tn-col-opt" title="card2vec: how often real decklists play this card with the rest of the deck"><button type="button" class="hud-sort">Played with</button></th>
+                        <th scope="col" data-sort="num" aria-sort="descending" class="is-num"><button type="button" class="hud-sort">Weak score</button></th>
+                        <th scope="col" class="is-shrink" aria-label="Action"></th>
+                    </tr></thead>
+                    <tbody id="weakRows"></tbody>
+                </table></div>
+                <footer class="hud-panel-foot">Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec, real decklists; — = card not in the model, counted as typical), equally weighted. No game logs. Pets (♥) are listed but never suggested as cuts.</footer>
+            </section>
+        </section>
+    </div>
+
+    <aside class="hud-changes" aria-label="Pending changes" data-hud-dock="tune" id="tuneDock">
+        <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-dock-toggle title="Collapse / expand">⟷</button>
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Change list</h3><span class="hud-panel-meta" id="changeMeta">empty</span></header>
+            <div class="hud-panel-body">
+                <ol id="changeItems"></ol>
+                <p class="hud-muted" id="changeEmpty">Accept a swap or a fix to start the list.</p>
+                <div class="hud-caps" style="margin-top:var(--sp-4)">
+                    <div><span class="hud-label">Spend</span><b id="spend">$0</b><span class="hud-freshness" id="spendNote">owned</span></div>
+                    <div><span class="hud-label">On-plan</span><b id="onPlan">—</b><span class="hud-freshness">projected</span></div>
+                </div>
+                <div class="tn-actions">
+                    <button class="hud-btn hud-btn--primary" type="button" id="copyText">Copy as text</button>
+                    <span class="hud-field-hint" id="moveHint">Physical moves appear in Manage after you change the Archidekt list.</span>
+                    <ul class="tn-moves" id="moves"></ul>
+                    <span class="hud-field-hint" id="copyState" aria-live="polite"></span>
+                </div>
+            </div>
+        </section>
+        <section class="hud-panel" style="margin-top:var(--sp-4)">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Keys</h3></header>
+            <dl class="hud-panel-body hud-kv tn-keys" style="font-size:var(--fs-xs)">
+                <dt><span class="hud-kbd">j</span> <span class="hud-kbd">k</span></dt><dd>Next / previous suggestion</dd>
+                <dt><span class="hud-kbd">a</span></dt><dd>Accept (picked option)</dd>
+                <dt><span class="hud-kbd">b</span></dt><dd>Accept the buy instead</dd>
+                <dt><span class="hud-kbd">x</span></dt><dd>Dismiss (won't return this review)</dd>
+                <dt><span class="hud-kbd">h</span></dt><dd>Mark cut card as pet</dd>
+            </dl>
+        </section>
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var H = window.HUD, A = window.DeckAnalytics, esc = H.esc;
+    var DECK_ID = {{ deck_id | tojson }}, DECK_NAME = {{ deck_name | tojson }};
+    var API = "/api/decks/" + encodeURIComponent(DECK_ID);
+    var BASE = "/deck/" + encodeURIComponent(DECK_NAME);
+    var $ = function (id) { return document.getElementById(id); };
+    var params = new URLSearchParams(location.search);
+    var T = null, cur = 0, rowFilter = null, whyAsked = false;
+
+    function send(method, path, body) {
+        return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" },
+                                   body: body === undefined ? undefined : JSON.stringify(body) })
+            .then(function (r) { return r.json().then(function (j) {
+                if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status));
+                return j; }); });
+    }
+    // Saved/legacy values: owned_only -> free, owned_first -> flex (best is unchanged).
+    var LEGACY = { owned_only: "free", owned_first: "flex" };
+    function normMode(v) { v = LEGACY[v] || v; return v === "free" || v === "best" ? v : "flex"; }
+    function mode() { var x = document.querySelector('input[name="src"]:checked'); return x ? x.value : "flex"; }
+    function opts() { return { mode: mode(), in_deck: $("inDeck").checked, buy: $("buy").checked }; }
+    function query() { var o = opts(); return "?mode=" + o.mode + "&in_deck=" + o.in_deck + "&buy=" + o.buy; }
+    function syncToggles() { $("flexToggles").hidden = mode() !== "flex"; }
+    (function restore() {
+        var saved = params.get("mode"); if (!saved) return;
+        var el = document.getElementById("src-" + normMode(saved)); if (el) el.checked = true;
+    })();
+
+    // ---- Filter bar ------------------------------------------------------------------
+    function capsLine(t) {
+        var c = t.caps || {};
+        if (c.no_budget) return "Caps <b>none</b> (no budget) · prices <b>Scryfall</b>";
+        var src = c.hard_source === "deck" || c.soft_source === "deck" ? "deck override" : "global default";
+        return '<a href="' + BASE + '/journal#j-budget">Caps <b>hard ' + esc(A.money(c.hard_cap)) + " · soft " + esc(A.money(c.soft_cap)) +
+            "</b></a> (" + src + ") · prices <b>Scryfall" + (t.prices_at ? " " + esc(A.age(new Date(t.prices_at * 1000).toISOString())) : "") + "</b>";
+    }
+
+    // ---- 01 Shape fixes --------------------------------------------------------------
+    function renderFixes() {
+        var f = T.fixes || [];
+        $("fixT").textContent = "Shape fixes · " + f.length;
+        if (!f.length) { $("fixes").innerHTML = '<div class="hud-empty">Every composition row is within 1 of the preset.</div>'; return; }
+        $("fixes").innerHTML = f.map(function (x, i) {
+            var act = x.action ? '<button class="hud-btn hud-btn--sm" type="button" data-fix="' + i + '">' + esc(x.action.label) + "</button>" : "<span></span>";
+            var owned = x.action && x.action.kind === "filter"
+                ? '<div class="tn-fix-owned" id="fixOwned' + i + '" hidden>' + x.owned.slice(0, 12).map(function (n) {
+                    return '<button type="button" class="hud-chip hud-chip--ghost hud-card-name" data-add-card="' + esc(n) + '" data-add-src="' + esc(x.label) + '" title="Add to the change list">+ ' + esc(n) + "</button>";
+                  }).join("") + (x.owned.length > 12 ? '<span class="hud-muted">+' + (x.owned.length - 12) + " more</span>" : "") + "</div>" : "";
+            return '<div class="hud-fix"><div><span class="hud-label">' + esc(x.label) + '</span><span class="hud-fix-gap">' +
+                esc(String(x.gap).replace("-", "\u2212")) + "<small>" + esc(x.actual + " / " + x.target) + "</small></span></div>" +
+                '<p class="tn-fix-text">' + esc(x.advice) + "</p>" + act + owned + "</div>";
+        }).join("");
+    }
+
+    // ---- 02 Swaps --------------------------------------------------------------------
+    function why(w) {
+        return '<div class="hud-why">' + A.whyBars(w).map(function (b) {
+            return "<span>" + esc(b.key) + '</span><span class="t' + (b.low ? " is-low" : "") + '"><i style="width:' + b.pct + '%"></i></span><span class="v">' + esc(b.text) + "</span>";
+        }).join("") + "</div>";
+    }
+    function opt(o, picked, emptyText) {
+        if (!o) return '<div class="hud-opt is-empty">' + emptyText + "</div>";
+        var srcText = o.source === "free" ? "free · not in a deck" : "in " + (o.deck || "another deck");
+        var src = o.source === "buy" ? '<span class="hud-opt-src">Buy · <b style="color:var(--text-1)">' + esc(A.money(o.price)) + "</b></span>"
+            : (o.source === "best" ? '<span class="hud-opt-src"><b>Best card</b></span>'
+            : '<span class="hud-opt-src" title="Owned · ' + esc(srcText) + '"><b>Owned</b> · ' + esc(srcText) + "</span>");
+        var cap = o.cap === "soft" ? H.chip("over soft cap " + A.money(T.caps.soft_cap), "signal") : "";
+        return '<div class="hud-opt' + (picked ? " is-pick" : "") + (o.source === "buy" ? " is-buy" : "") + '">' + src +
+            '<span class="hud-card-name">' + H.cardName(o.name) + "</span>" +
+            '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" +
+            (o.pillar ? '<span class="hud-opt-src" title="' + esc(o.pillar) + '">' + esc(o.pillar) + "</span>" : "") + cap + "</div>";
+    }
+    // Count only: never name or price a card that is over the hard cap (budget rules §2).
+    function hiddenNote(s) {
+        if (!s.hidden_hard) return "";
+        var label = s.hidden_hard + " better buy" + (s.hidden_hard === 1 ? "" : "s") + " hidden";
+        return '<div class="hud-gapline"><span class="tn-hidden-count">' + label + "</span>" +
+            H.chip("over hard cap " + A.money(T.caps.hard_cap), "danger") + "</div>";
+    }
+    function swapRow(s, i) {
+        var d = s.decision, accepted = d === "own" || d === "buy";
+        var pick = accepted ? d : s.pick;
+        var buyEmpty = s.hidden_hard && !s.near_buy ? "Best buy hidden: over your hard cap."
+            : (s.near_buy ? esc(A.keepYoursLine(s)) : (!$("buy").checked || mode() === "free" ? "Buys are off." : "No buy beats the owned pick by ≥ " + T.constants.gap_worth.toFixed(2) + ".<br>Good enough: keep it free."));
+        var ownEmpty = '<div class="hud-opt is-empty">Nothing you own beats it by enough.</div>';
+        var chip = A.verdictChip(s);
+        var gap = s.gap != null ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.gap) + "</b> buy vs owned" + (chip ? H.chip(chip[0], chip[1]) : "") + "</div>"
+            : (s.near_buy ? '<div class="hud-gapline">Gap <b>' + A.gapText(s.near_buy.gap) + "</b> best buy vs owned · " + esc(A.money(s.near_buy.price)) + H.chip("keep yours", "ok") + "</div>" : "");
+        var just = s.soft_note ? '<div class="hud-justify">' + esc(s.soft_note) + "</div>" : "";
+        var hard = hiddenNote(s);
+        var whyLine = s.why ? '<p class="tn-why">' + esc(s.why) + "</p>" : "";
+        // AN-8: a card taken from another deck always names what that deck gets back.
+        var stealO = (s.own && s.own.steal_line) ? s.own : null;
+        var stealLine = stealO ? '<p class="tn-steal" title="' + esc(stealO.donor_deck) + ' scores ' +
+            esc(A.gapText(stealO.donor_delta)) + ' after the trade; this deck gains ' + esc(A.gapText(stealO.receiver_delta)) + '">' +
+            esc(stealO.steal_line) + "</p>" : "";
+        var acts = accepted
+            ? '<span class="hud-chip hud-chip--ok">Accepted</span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="undo">Undo</button>'
+            : '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="accept" aria-label="Accept: ' + esc((A.tuneOption(s, s.pick) || {}).name || "picked option") + '">Accept</button>' +
+              (s.buy && s.own && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button" data-act="buy" aria-label="Buy instead: ' + esc(s.buy.name) + '">Buy instead</button>' : "") +
+              '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="dismiss">Dismiss</button>';
+        return '<li class="hud-swap' + (i === cur ? " is-current" : "") + (accepted ? " is-accepted" : "") + '" tabindex="-1" data-cut="' + esc(s.cut.name) + '">' +
+            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + H.cardName(s.cut.name) + "</span>" +
+            '<span class="hud-opt-score">' + s.cut.score.toFixed(2) + " <small>score</small></span>" + why(s.cut.why) + "</div>" +
+            '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
+            '<div class="hud-opts">' + (s.verdict === "best" ? opt(s.own, pick === "own") : (s.own ? opt(s.own, pick === "own") : ownEmpty) + opt(s.buy, pick === "buy", buyEmpty)) + gap + stealLine + whyLine + just + hard + "</div>" +
+            '<div class="hud-swap-act">' + acts + "</div></li>";
+    }
+    function petRow(p) {
+        return '<li class="hud-swap tn-pet" data-pet="1"><span><span class="hud-card-name">♥ ' + H.cardName(p.name) + '</span> <span class="hud-field-hint">· pet · weakest pet in the deck (' +
+            esc(String(p.edges == null ? 0 : p.edges)) + " edges" + (p.fit != null ? ", fit " + p.fit.toFixed(2) : "") + ") but pets are never cut. Shown once so you know it was considered.</span></span>" +
+            '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="' + BASE + '/journal#j-pets">Edit pets</a></li>';
+    }
+    function visibleSwaps() {
+        return (T.swaps || []).filter(function (s) {
+            return !rowFilter || (s.cut.rows || []).indexOf(rowFilter) !== -1;
+        });
+    }
+    function renderSwaps() {
+        var list = visibleSwaps();
+        $("swT").textContent = "Swaps · cut → add · " + (T.swaps || []).length;
+        var html = list.map(swapRow);
+        if (T.pet_notice && !rowFilter) {
+            var at = list.findIndex(function (s) { return s.cut.weak_score < (T.pet_notice.weak_score || 0); });
+            html.splice(at === -1 ? html.length : at, 0, petRow(T.pet_notice));
+        }
+        $("swaps").innerHTML = html.join("") || '<li class="hud-swap"><div class="hud-empty">No swap clears the bar: nothing you own or could buy beats a weak card by enough.</div></li>';
+        $("swapFilter").hidden = !rowFilter;
+        if (rowFilter) $("swapFilter").innerHTML = "Showing cuts in " + esc(rowFilter.replace(/_/g, " ")) + ' · <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" id="clearFilter">Show all</button>';
+    }
+    function rows() { return Array.prototype.slice.call($("swaps").querySelectorAll(".hud-swap[data-cut]")); }
+    function go(i, focus) {
+        var r = rows(); if (!r.length) return;
+        cur = Math.max(0, Math.min(r.length - 1, i));
+        r.forEach(function (li, k) { li.classList.toggle("is-current", k === cur); });
+        if (focus !== false) { r[cur].focus({ preventScroll: true }); r[cur].scrollIntoView({ block: "nearest" }); }
+    }
+    function swapOf(cut) { return (T.swaps || []).find(function (s) { return s.cut.name === cut; }); }
+
+    // ---- 03 Weak performers ----------------------------------------------------------
+    function renderWeak() {
+        $("weakRows").innerHTML = (T.weak || []).map(function (w) {
+            var fit = w.fit == null ? "—" : w.fit.toFixed(2);
+            var edh = w.edhrec == null ? "0%" : Math.round(w.edhrec * 100) + "%";
+            var played = w.played == null ? "—" : w.played.toFixed(2);
+            var act = w.pet ? H.chip("pet", "ghost") : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>');
+            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + H.cardName(w.name) + "</span></td>" +
+                '<td class="is-num tn-col-opt">' + w.edges + '</td><td class="is-num tn-col-opt" data-value="' + (w.fit == null ? -1 : w.fit) + '">' + fit +
+                '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh +
+                '</td><td class="is-num tn-col-opt" data-value="' + (w.played == null ? -1 : w.played) + '">' + played + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
+                (w.weak_score > 0.8 ? "var(--signal)" : "var(--text-1)") + '">' + w.weak_score.toFixed(2) + '</span></td><td class="is-shrink">' + act + "</td></tr>";
+        }).join("") || '<tr><td colspan="7">' + '<div class="hud-empty">No weak performers.</div></td></tr>';
+        if (H.initSortable) H.initSortable();
+    }
+
+    // ---- Change list -----------------------------------------------------------------
+    function renderChanges() {
+        var L = A.changeList(T, T.adds);
+        $("changeItems").innerHTML = L.items.map(function (i) {
+            return '<li><span class="op ' + i.op + '">' + (i.op === "out" ? "\u2212" : "+") + '</span><span class="hud-card-name">' + (i.qty > 1 ? i.qty + " " : "") + H.cardName(i.name) +
+                '</span><span class="hud-freshness">' + esc(i.source || "") + "</span></li>";
+        }).join("");
+        $("changeEmpty").hidden = L.items.length > 0;
+        var extra = (T.adds || []).length;
+        $("changeMeta").textContent = L.items.length ? L.swaps + " swap" + (L.swaps === 1 ? "" : "s") + (extra ? " · " + extra + " add" + (extra === 1 ? "" : "s") : "") : "empty";
+        $("spend").textContent = A.money(L.spend);
+        $("spendNote").textContent = L.spend ? "buys only · owned = $0" : "owned";
+        var op = L.onPlan;
+        $("onPlan").innerHTML = op[0] == null ? "—" : (op[1] == null || op[1] === op[0] ? esc(op[0] + "%") :
+            esc(op[0] + "% → ") + '<span style="color:' + (op[1] > op[0] ? "var(--ok)" : "var(--signal)") + '">' + esc(op[1] + "%") + "</span>");
+        $("moves").innerHTML = L.moves.map(function (m) { return "<li>Pull " + esc(m.name) + " from " + esc(m.from) + (m.give ? "; put " + esc(m.give) + " in it" : "") + "</li>"; }).join("");
+        $("copyText").disabled = !L.items.length;
+    }
+
+    function renderAll() {
+        $("capsLine").innerHTML = capsLine(T);
+        renderFixes(); renderSwaps(); renderWeak(); renderChanges();
+        go(cur, false);
+        if (params.get("focus")) { var f = params.get("focus"); params.delete("focus"); findSwap(f); }
+    }
+    function findSwap(name) {
+        rowFilter = null; renderSwaps();
+        var i = rows().findIndex(function (li) { return li.getAttribute("data-cut") === name; });
+        if (i !== -1) go(i);
+    }
+
+    // ---- Load ------------------------------------------------------------------------
+    // The page shows the deck's SAVED recommendation (GET /tune/saved). Only the
+    // Recompute button (POST /tune/recompute) computes a new one; the previous one is
+    // archived server-side. With nothing saved yet, the first visit generates and saves one.
+    var REC = null, busy = false;
+    var btn = $("recompute"), errBox = $("recomputeError"), genEl = $("tuneGenerated");
+
+    function setBusy(on) {
+        busy = on; btn.disabled = on; btn.setAttribute("aria-busy", on ? "true" : "false");
+        btn.textContent = on ? (REC ? "Recomputing…" : "Computing…") : (REC ? "Recompute" : "Compute");
+    }
+    function showGenerated(note) {
+        if (!REC) { genEl.hidden = true; return; }
+        genEl.hidden = false;
+        genEl.title = new Date(REC.created_at).toLocaleString();
+        genEl.textContent = "Generated " + A.age(REC.created_at) + (note ? " · " + note : "");
+    }
+    function empty(msg) {
+        $("fixes").innerHTML = '<div class="hud-empty">No saved recommendation yet.</div>';
+        $("swaps").innerHTML = '<li class="hud-swap"><div class="hud-empty">' + esc(msg) + "</div></li>";
+    }
+    // Decisions (accept / dismiss), adds and pets are stored separately from the saved snapshot and
+    // change after it was computed, so lay the current ones over it (GET /tune/state).
+    function overlay(rec, st) {
+        var t = rec.payload;
+        if (!st) return t;
+        var dec = (st.state && st.state.decisions) || {}, pets = st.pet_cards || [];
+        t.swaps = (t.swaps || []).filter(function (s) {
+            var d = dec[s.cut.name];
+            return !(d && d.decision === "dismissed") && pets.indexOf(s.cut.name) === -1;
+        }).map(function (s) {
+            var d = dec[s.cut.name];
+            s.decision = d ? d.decision : null; s.decision_add = d ? d.add : null;
+            return s;
+        });
+        (t.weak || []).forEach(function (w) { if (pets.indexOf(w.name) !== -1) { w.pet = true; w.has_swap = false; } });
+        t.adds = (st.state && st.state.adds) || [];
+        return t;
+    }
+    function apply(rec, tune, note) {
+        REC = rec; T = tune; cur = 0; rowFilter = null;
+        var p = rec.params || {};
+        var pm = p.mode || T.mode || "flex";
+        var radio = document.getElementById("src-" + (LEGACY[pm] || pm));
+        if (radio) radio.checked = true;
+        $("inDeck").checked = p.in_deck !== undefined ? !!p.in_deck : true;
+        $("buy").checked = p.buy !== undefined ? !!p.buy : true;
+        syncToggles();
+        errBox.textContent = "";
+        $("swapError").textContent = "";
+        renderAll(); setBusy(false); showGenerated(note);
+        whyAsked = false; askWhy();
+        return fromParams().then(function () { renderChanges(); });
+    }
+    function fromParams() {
+        // ?add= (Stats one-away combo) lands on the change list, which needs a loaded tune.
+        if (!params.get("add")) return Promise.resolve();
+        return addCard(params.get("add"), "combo").then(function () {
+            params.delete("add");
+            history.replaceState(null, "", location.pathname + (params.toString() ? "?" + params : "") + location.hash);
+        });
+    }
+    function recompute() {
+        if (busy) return Promise.resolve();
+        var first = !REC;
+        setBusy(true); errBox.textContent = "";
+        return send("POST", "/tune/recompute", opts()).then(function (j) {
+            var prev = j.archived;
+            return apply(j.recommendation, j.recommendation.payload, prev ? "previous result archived" : "");
+        }).catch(function (e) {
+            setBusy(false);
+            if (T) { errBox.textContent = "Recompute failed: " + e.message + ". Still showing the result from " + A.age(REC.created_at) + "."; showGenerated(); }
+            else if (first) { empty("Couldn\u2019t compute: " + e.message); errBox.textContent = ""; }
+        });
+    }
+    function loadSaved() {
+        return fetch(API + "/tune/saved").then(function (r) {
+            return r.json().then(function (j) { return { status: r.status, body: j }; });
+        }).then(function (res) {
+            var rec = res.body && res.body.recommendation;
+            if (res.status === 200 && rec && rec.payload) {
+                return fetch(API + "/tune/state").then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) { return j && j.success ? j : null; }, function () { return null; })
+                    .then(function (st) { return apply(rec, overlay(rec, st), ""); });
+            }
+            if (res.status === 404 && res.body && res.body.recommendation === null) return recompute();   // nothing saved yet
+            throw new Error((res.body && res.body.error) || ("HTTP " + res.status));
+        }).catch(function (e) {
+            setBusy(false);
+            if (!T) empty("Couldn\u2019t load the saved recommendation: " + e.message);
+            else errBox.textContent = e.message;
+        });
+    }
+    // The LLM only writes the "why" lines (cached per pair); numbers stay ours. The prose
+    // is merged only into swaps whose cut and add match the saved ones.
+    function askWhy() {
+        if (whyAsked || !T || !(T.swaps || []).some(function (s) { return !s.why; })) return;
+        whyAsked = true;
+        var mine = T;
+        send("POST", "/tune/why", { mode: mine.mode || mode(), in_deck: mine.in_deck !== false, buy: mine.buy !== false }).then(function (j) {
+            if (T !== mine) return;
+            var by = {}; (j.tune.swaps || []).forEach(function (s) { by[s.cut.name] = s; });
+            var nm = function (o) { return o ? o.name : null; };
+            (T.swaps || []).forEach(function (s) {
+                var n = by[s.cut.name];
+                if (n && !s.why && nm(n.own) === nm(s.own) && nm(n.buy) === nm(s.buy)) { s.why = n.why; if (n.soft_note) s.soft_note = n.soft_note; }
+            });
+            renderSwaps(); go(cur, false);
+        }).catch(function () { /* prose is optional */ });
+    }
+
+    // ---- Actions ---------------------------------------------------------------------
+    function decide(cut, decision) {
+        var s = swapOf(cut); if (!s) return Promise.resolve();
+        var o = decision === "dismissed" || !decision ? null : A.tuneOption(s, decision);
+        return send("PUT", "/tune/decisions", { cut: cut, decision: decision, add: o ? o.name : null }).then(function () {
+            s.decision = decision; s.decision_add = o ? o.name : null;
+        }).catch(function (e) { $("swapError").textContent = e.message; throw e; });
+    }
+    function act(li, what) {
+        var cut = li.getAttribute("data-cut"), s = swapOf(cut); if (!s) return;
+        var i = rows().indexOf(li);
+        if (what === "accept") decide(cut, s.pick).then(function () { renderSwaps(); renderChanges(); go(i + 1); });
+        else if (what === "buy" && s.buy) decide(cut, "buy").then(function () { renderSwaps(); renderChanges(); go(i + 1); });
+        else if (what === "undo") decide(cut, null).then(function () { renderSwaps(); renderChanges(); go(i); });
+        else if (what === "dismiss") decide(cut, "dismissed").then(function () {
+            li.classList.add("is-dismissed");
+            setTimeout(function () { T.swaps = T.swaps.filter(function (x) { return x !== s; }); renderSwaps(); renderChanges(); go(i); }, 240);
+        });
+        else if (what === "pet") send("POST", "/tune/pet", { name: cut }).then(function () {
+            T.swaps = T.swaps.filter(function (x) { return x !== s; });
+            (T.weak || []).forEach(function (w) { if (w.name === cut) { w.pet = true; w.has_swap = false; } });
+            renderSwaps(); renderWeak(); renderChanges(); go(i);
+        }).catch(function (e) { $("swapError").textContent = e.message; });
+    }
+    function saveAdds(adds) { return send("PUT", "/tune/adds", { adds: adds }).then(function (j) { T.adds = j.state.adds; renderChanges(); }); }
+    function addCard(name, source) {
+        var adds = (T.adds || []).slice(), hit = adds.find(function (a) { return a.name === name; });
+        if (hit) hit.qty += 1; else adds.push({ name: name, qty: 1, source: source });
+        return saveAdds(adds);
+    }
+    $("swaps").addEventListener("click", function (e) {
+        if (e.target.id === "clearFilter") { rowFilter = null; renderSwaps(); return; }
+        var b = e.target.closest("[data-act]"); if (!b) return;
+        var li = b.closest(".hud-swap"); cur = rows().indexOf(li); act(li, b.getAttribute("data-act"));
+    });
+    $("swapFilter").addEventListener("click", function (e) { if (e.target.id === "clearFilter") { rowFilter = null; renderSwaps(); } });
+    $("fixes").addEventListener("click", function (e) {
+        var c = e.target.closest("[data-add-card]");
+        if (c) { addCard(c.getAttribute("data-add-card"), c.getAttribute("data-add-src").toLowerCase()); return; }
+        var b = e.target.closest("[data-fix]"); if (!b) return;
+        var i = Number(b.getAttribute("data-fix")), f = T.fixes[i];
+        if (f.action.kind === "add_basics") {
+            var adds = (T.adds || []).filter(function (a) { return a.source !== "basic"; }), counts = {};
+            f.action.basics.forEach(function (n) { counts[n] = (counts[n] || 0) + 1; });
+            Object.keys(counts).forEach(function (n) { adds.push({ name: n, qty: counts[n], source: "basic" }); });
+            saveAdds(adds);
+        } else {
+            var box = $("fixOwned" + i); box.hidden = !box.hidden;
+            rowFilter = box.hidden ? null : f.key; renderSwaps();
+        }
+    });
+    $("weakRows").addEventListener("click", function (e) { var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find")); });
+    // The filters apply to the next Recompute; they don't touch the saved result.
+    function filtersChanged() { if (REC && !busy) showGenerated("filters changed: Recompute to apply"); }
+    document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); filtersChanged(); }); });
+    $("inDeck").addEventListener("change", filtersChanged);
+    $("buy").addEventListener("change", filtersChanged);
+    syncToggles();
+    btn.addEventListener("click", recompute);
+    $("copyText").addEventListener("click", function () {
+        var text = A.changeText(DECK_NAME, A.changeList(T, T.adds));
+        var done = function () { $("copyState").textContent = "Copied " + text.split("\n").length + " lines."; };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { $("copyState").textContent = text; });
+        else $("copyState").textContent = text;
+    });
+
+    // Keys (UX_SPEC §4): j/k move · a accept · b buy instead · x dismiss · h pet.
+    document.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey || A.inTextField(e.target) || !T) return;
+        var r = rows(), li = r[cur];
+        var map = { a: "accept", b: "buy", x: "dismiss", h: "pet" };
+        if (e.key === "j") { e.preventDefault(); go(cur + 1); }
+        else if (e.key === "k") { e.preventDefault(); go(cur - 1); }
+        else if (map[e.key] && li) {
+            var s = swapOf(li.getAttribute("data-cut"));
+            if (!s || ((s.decision === "own" || s.decision === "buy") && e.key !== "h")) return;
+            e.preventDefault(); act(li, map[e.key]);
+        }
+    });
+
+    loadSaved();
+});
+</script>
+{% endblock %}

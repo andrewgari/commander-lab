@@ -11,7 +11,7 @@ try:
 except ImportError as exc:
     raise unittest.SkipTest("pytest not installed; install pytest to run pytest-based tests") from exc
 
-from repo_status import (
+from src.services.repo_status import (
     clear_repo_status_cache,
     enrich_decks_with_repo_status,
     get_cache_size,

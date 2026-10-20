@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export Decklist · Commander Lab Mockup (EX-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="export.css">
+<style>
+    .mock-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        align-items: center;
+        padding: var(--sp-2) var(--sp-3);
+        margin-bottom: var(--sp-4);
+        background: var(--surface-2);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        font: var(--fs-xs) var(--font-mono);
+        color: var(--text-3);
+    }
+    .mock-bar a {
+        color: var(--text-2);
+        text-decoration: none;
+        padding: 2px 6px;
+        border: var(--hairline) solid var(--line);
+        border-radius: var(--radius-1);
+    }
+    .mock-bar a.is-active {
+        color: var(--text-on-signal);
+        background: var(--signal);
+        border-color: var(--signal);
+    }
+    .recon-draft-grid {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-5);
+    }
+    .recon-draft-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--sp-4);
+        flex-wrap: wrap;
+        padding-bottom: var(--sp-3);
+        border-bottom: var(--stroke);
+    }
+    .recon-draft-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        align-items: center;
+    }
+    .recon-sticky {
+        margin-top: var(--sp-6);
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--surface-1);
+        border: var(--stroke-strong);
+        border-top: 2px solid var(--signal);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-3);
+    }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="mockSwitch" class="mock-bar"></div>
+    <div id="surface"></div>
+</main>
+
+<!-- Shared Export Modal (#exportDeckModal) -->
+<div id="exportDeckModal" class="hud-modal ex-modal" aria-hidden="true">
+    <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="exModalTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="exModalTitle">Create on Moxfield / Archidekt</h3>
+            <div class="hud-panel-meta">
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close">Close ✕</button>
+            </div>
+        </header>
+        <div class="hud-panel-body ex-body" id="exModalBody"></div>
+    </section>
+</div>
+
+<script src="../../../static/js/hud.js"></script>
+<script src="../analytics/mock.js"></script>
+<script>
+(function () {
+    "use strict";
+    var M = window.MOCK;
+    var esc = HUD.esc;
+    var q = new URLSearchParams(location.search);
+    var S = q.get("s") || "modal-idle";
+
+    M.shell();
+
+    var STATES = [
+        ["reconstruct-buttons", "1. Reconstruct Surface"],
+        ["theory-buttons", "2. Theory & Tune Surfaces"],
+        ["modal-idle", "3. Modal: Ready (Both Selected)"],
+        ["modal-creating", "4. Modal: Creating…"],
+        ["modal-success", "5. Modal: Created (Both)"],
+        ["modal-partial", "6. Modal: Partial / Token Expired"],
+        ["modal-unconfigured", "7. Modal: Unconfigured + Fallback"]
+    ];
+
+    document.getElementById("mockSwitch").innerHTML =
+        '<span>STATE:</span>' +
+        STATES.map(function (st) {
+            return '<a href="?s=' + st[0] + '"' + (S === st[0] ? ' class="is-active"' : '') + '>' + esc(st[1]) + '</a>';
+        }).join("");
+
+    var EXT_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>';
+    var LINK_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+    var COPY_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+    var SPIN_ICON = '<svg class="sync-spin" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg>';
+
+    var SAMPLE_DECKLIST_MOX = [
+        "1 Kaalia of the Vast *CMDR*",
+        "1 Ancient Brass Dragon",
+        "1 Angelic Arbiter",
+        "1 Arcane Signet",
+        "1 Arid Mesa",
+        "1 Avacyn, Angel of Hope",
+        "1 Blood Crypt",
+        "1 Cavern of Souls",
+        "1 Command Tower",
+        "1 Demonic Tutor",
+        "1 Dragon Tempest",
+        "1 Esper Sentinel",
+        "1 Fellwar Stone",
+        "1 Gisela, Blade of Goldnight",
+        "1 Godless Shrine",
+        "1 Grand Abolisher",
+        "1 Hall of the Bandit Lord",
+        "1 Helm of the Host",
+        "1 Isshin, Two Heavens as One",
+        "1 Lightning Greaves",
+        "1 Lotho, Corrupt Shirriff",
+        "1 Luxury Suite",
+        "1 Marsh Flats",
+        "1 Master of Cruelties",
+        "1 Mother of Runes",
+        "1 Orzhov Signet",
+        "1 Path to Exile",
+        "1 Rakdos Signet",
+        "1 Razaketh, the Foulblooded",
+        "1 Reanimate",
+        "1 Rune-Scarred Demon",
+        "1 Sacred Foundry",
+        "1 Sephara, Sky's Blade",
+        "1 Serra's Emissary",
+        "1 Smothering Tithe",
+        "1 Sol Ring",
+        "1 Spectator Seating",
+        "1 Swords to Plowshares",
+        "1 Talisman of Conviction",
+        "1 Talisman of Hierarchy",
+        "1 Teferi's Protection",
+        "1 Terror of the Peaks",
+        "1 Urborg, Tomb of Yawgmoth",
+        "1 Vault of Champions",
+        "1 Vilis, Broker of Blood"
+    ].join("\n");
+
+    var SAMPLE_DECKLIST_ARCH = [
+        "1x Kaalia of the Vast [Commander{top}]",
+        "1x Ancient Brass Dragon [Creatures]",
+        "1x Avacyn, Angel of Hope [Creatures]",
+        "1x Gisela, Blade of Goldnight [Creatures]",
+        "1x Isshin, Two Heavens as One [Creatures]",
+        "1x Master of Cruelties [Creatures]",
+        "1x Mother of Runes [Protection]",
+        "1x Razaketh, the Foulblooded [Tutor]",
+        "1x Serra's Emissary [Protection]",
+        "1x Terror of the Peaks [Finisher]",
+        "1x Vilis, Broker of Blood [Draw]",
+        "1x Arcane Signet [Ramp]",
+        "1x Fellwar Stone [Ramp]",
+        "1x Sol Ring [Ramp]",
+        "1x Smothering Tithe [Ramp]",
+        "1x Helm of the Host [Finisher]",
+        "1x Lightning Greaves [Protection]",
+        "1x Demonic Tutor [Tutor]",
+        "1x Path to Exile [Removal]",
+        "1x Swords to Plowshares [Removal]",
+        "1x Teferi's Protection [Protection]",
+        "1x Command Tower [Lands]",
+        "1x Godless Shrine [Lands]",
+        "1x Sacred Foundry [Lands]"
+    ].join("\n");
+
+    function renderReconstructSurface() {
+        return '<div class="app-topbar"><ol class="hud-crumbs"><li><a href="#">Reconstruct</a></li><li aria-current="page">Session recon_49df99e5251a</li></ol>' +
+            '<div class="app-topbar-meta"><span class="hud-freshness">Status: <b>DRAFTS READY</b></span></div></div>' +
+            '<header class="hud-page-head"><div><span class="hud-label">Reconstruct · Step 5 of 5</span><h1>Draft Results</h1></div>' +
+            '<div class="hud-page-actions">' + HUD.chip("2 Drafts Ready", "ok", true) + '</div></header>' +
+            '<div class="recon-draft-grid">' +
+            // Draft 1 (already exported to Moxfield example)
+            '<section class="hud-panel">' +
+                '<header class="hud-panel-head"><h2 class="hud-panel-title">Draft 1 · Kraum &amp; Tymna Spellslinger</h2>' +
+                '<div class="hud-panel-meta"><span class="ex-ext-links">' +
+                    '<a class="ex-ext-link" href="#mox" title="Created on Moxfield">✓ Moxfield ' + LINK_ICON + '</a>' +
+                '</span></div></header>' +
+                '<div class="hud-panel-body">' +
+                    '<div class="recon-draft-head">' +
+                        '<div>' +
+                            '<div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">' +
+                                '<span class="hud-card-name" style="font-size:var(--fs-md)">Kraum, Ludevic\'s Opus + Tymna the Weaver</span>' +
+                                HUD.pips("WUBR", "sm") +
+                                HUD.chip("Spellslinger", "data") +
+                                HUD.chip("Tempo", "neutral") +
+                            '</div>' +
+                            '<p class="hud-muted" style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs)">64 retired pool ($0) · 24 owned collection ($0) · 12 new to buy ($18.40) · 100 cards</p>' +
+                        '</div>' +
+                        '<div class="recon-draft-actions">' +
+                            '<button type="button" class="hud-btn hud-btn--sm" onclick="window.openExportModal(0)">' + COPY_ICON + ' <span>Copy Text</span></button>' +
+                            '<button type="button" class="hud-btn hud-btn--sm sync-btn sync-btn--push ex-trigger" onclick="window.openExportModal(0)">' + EXT_ICON + ' <span>Create on Moxfield / Archidekt</span></button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="hud-table-wrap" style="margin-top:var(--sp-3);max-height:11rem;overflow-y:auto">' +
+                        '<table class="hud-table"><thead><tr><th class="is-num" style="width:3rem">Qty</th><th>Card</th><th>Source Tier</th><th class="is-num">Buy Cost</th><th>Rationale</th></tr></thead><tbody>' +
+                        '<tr><td class="is-num">1</td><td class="is-primary"><span class="hud-card-name">Kraum, Ludevic\'s Opus</span></td><td>' + HUD.chip("Retired pool", "ok") + '</td><td class="is-num">$0.00</td><td class="hud-muted">Partner commander from snapshot</td></tr>' +
+                        '<tr><td class="is-num">1</td><td class="is-primary"><span class="hud-card-name">Tymna the Weaver</span></td><td>' + HUD.chip("Retired pool", "ok") + '</td><td class="is-num">$0.00</td><td class="hud-muted">Partner commander from snapshot</td></tr>' +
+                        '<tr><td class="is-num">1</td><td class="is-primary"><span class="hud-card-name">Jeska\'s Will</span></td><td>' + HUD.chip("Owned free", "data") + '</td><td class="is-num">$0.00</td><td class="hud-muted">High-velocity ritual &amp; impulse draw</td></tr>' +
+                        '<tr><td class="is-num">1</td><td class="is-primary"><span class="hud-card-name">Ledger Shredder</span></td><td>' + HUD.chip("New · $12.50", "signal") + '</td><td class="is-num">$12.50</td><td class="hud-muted">2-drop connive engine</td></tr>' +
+                        '</tbody></table>' +
+                    '</div>' +
+                '</div>' +
+            '</section>' +
+            // Draft 2
+            '<section class="hud-panel">' +
+                '<header class="hud-panel-head"><h2 class="hud-panel-title">Draft 2 · Thrasios &amp; Vial Smasher Landfall</h2>' +
+                '<div class="hud-panel-meta"><span class="hud-freshness">Not exported yet</span></div></header>' +
+                '<div class="hud-panel-body">' +
+                    '<div class="recon-draft-head">' +
+                        '<div>' +
+                            '<div style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap">' +
+                                '<span class="hud-card-name" style="font-size:var(--fs-md)">Thrasios, Triton Hero + Vial Smasher the Fierce</span>' +
+                                HUD.pips("UBRG", "sm") +
+                                HUD.chip("Landfall", "data") +
+                                HUD.chip("Midrange", "neutral") +
+                            '</div>' +
+                            '<p class="hud-muted" style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs)">58 retired pool ($0) · 31 owned collection ($0) · 11 new to buy ($14.10) · 100 cards</p>' +
+                        '</div>' +
+                        '<div class="recon-draft-actions">' +
+                            '<button type="button" class="hud-btn hud-btn--sm" onclick="window.openExportModal(1)">' + COPY_ICON + ' <span>Copy Text</span></button>' +
+                            '<button type="button" class="hud-btn hud-btn--sm sync-btn sync-btn--push ex-trigger" onclick="window.openExportModal(1)">' + EXT_ICON + ' <span>Create on Moxfield / Archidekt</span></button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</section>' +
+            '</div>' +
+            // Sticky Action Bar
+            '<div class="recon-sticky">' +
+                '<div style="display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap">' +
+                    '<span class="hud-label">Total New Buy Cost</span>' +
+                    '<span style="font:var(--fw-semibold) var(--fs-lg) var(--font-mono);color:var(--signal)">$32.50</span>' +
+                    '<span class="hud-freshness">Tier 1 &amp; Tier 2 cards are $0.00</span>' +
+                '</div>' +
+                '<div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">' +
+                    '<button type="button" class="hud-btn">Tweak Preferences</button>' +
+                    '<button type="button" class="hud-btn">Regenerate</button>' +
+                    '<button type="button" class="hud-btn sync-btn sync-btn--push ex-trigger" onclick="window.openExportModal(0)">' + EXT_ICON + ' <span>Export to Moxfield / Archidekt…</span></button>' +
+                    '<button type="button" class="hud-btn hud-btn--primary">Accept &amp; Save Deck(s)</button>' +
+                '</div>' +
+            '</div>';
+    }
+
+    function renderTheoryAndTuneSurface() {
+        return '<div class="app-topbar"><ol class="hud-crumbs"><li><a href="#">Decks</a></li><li><a href="#">Holy Hellfire</a></li><li><a href="#">Ideas</a></li><li aria-current="page">Angel Reanimator</li></ol>' +
+            '<div class="app-topbar-meta"><span class="hud-freshness">Archidekt <b>2h ago</b></span></div></div>' +
+            // Surface B: Theory Doc View
+            '<article class="hud-doc" style="margin-bottom:var(--sp-10)">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-4);flex-wrap:wrap">' +
+                    '<a class="hud-btn hud-btn--sm hud-btn--ghost" href="#">← All ideas</a>' +
+                    '<div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">' +
+                        '<button class="hud-btn hud-btn--sm sync-btn sync-btn--push ex-trigger" type="button" onclick="window.openExportModal(0)">' + EXT_ICON + ' <span>Create on Moxfield / Archidekt</span></button>' +
+                        '<button class="hud-btn hud-btn--sm hud-btn--danger" type="button">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+                '<header class="hud-doc-head">' +
+                    '<div>' +
+                        '<span class="hud-label">Theory · thematic overhaul</span>' +
+                        '<h2>Angel Reanimator Overhaul</h2>' +
+                        '<div class="hud-doc-facts">' +
+                            '<span class="hud-freshness">Oct 18, 2026</span>' +
+                            HUD.chip("Commander kept", "neutral", true) +
+                            '<span class="hud-freshness">68 kept · 19 owned · 13 buy · 100 cards</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:var(--sp-3)">' +
+                        '<div class="hud-idea-buy">$24.80<small>buy total</small></div>' +
+                    '</div>' +
+                '</header>' +
+                '<section class="hud-doc-section">' +
+                    '<div class="hud-section-head">' +
+                        '<span class="hud-section-id">02</span><h2>Rebuilt Decklist (100 cards)</h2>' +
+                        '<button class="hud-btn hud-btn--sm ex-trigger" style="margin-left:auto" type="button" onclick="window.openExportModal(0)">' + EXT_ICON + ' <span>Export Decklist…</span></button>' +
+                    '</div>' +
+                    '<div class="hud-tlist-counts">' +
+                        HUD.chip("68 kept", "ok") + HUD.chip("19 owned", "data") + HUD.chip("13 buy", "signal") +
+                        '<span class="hud-freshness">100 cards · prices Scryfall USD</span>' +
+                    '</div>' +
+                '</section>' +
+            '</article>' +
+            // Surface C: Tune Pending Change List Aside
+            '<div class="hud-section-head"><span class="hud-section-id">C</span><h2>Tune Tab · Change List Aside (Edited Decklist Export)</h2></div>' +
+            '<div style="max-width:24rem">' +
+                '<section class="hud-panel">' +
+                    '<header class="hud-panel-head"><h3 class="hud-panel-title">Change list</h3><span class="hud-panel-meta">4 swaps · 1 add</span></header>' +
+                    '<div class="hud-panel-body">' +
+                        '<ol style="margin:0;padding:0;list-style:none;font-size:var(--fs-xs);display:flex;flex-direction:column;gap:var(--sp-1)">' +
+                            '<li><span style="color:var(--danger);font-family:var(--font-mono)">−</span> <span class="hud-card-name">Strionic Resonator</span> → <span style="color:var(--ok);font-family:var(--font-mono)">+</span> <span class="hud-card-name">Isshin, Two Heavens as One</span></li>' +
+                            '<li><span style="color:var(--danger);font-family:var(--font-mono)">−</span> <span class="hud-card-name">Isolated Chapel</span> → <span style="color:var(--ok);font-family:var(--font-mono)">+</span> <span class="hud-card-name">Vault of Champions</span></li>' +
+                        '</ol>' +
+                        '<div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-4);min-width:0">' +
+                            '<button class="hud-btn hud-btn--primary ex-trigger" type="button" onclick="window.openExportModal(0)">' + EXT_ICON + ' <span>Create Edited Deck on ' + 'Mox' + 'field / Archidekt</span></button>' +
+                            '<button class="hud-btn" type="button">' + COPY_ICON + ' <span>Copy changes as text</span></button>' +
+                            '<span class="hud-field-hint">Exports the full 100-card decklist with your 4 accepted swaps applied, or pushes to a new external copy.</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</section>' +
+            '</div>';
+    }
+
+    function renderModalContent(state) {
+        var isCreating = state === "modal-creating";
+        var isSuccess = state === "modal-success";
+        var isPartial = state === "modal-partial";
+        var isUnconf = state === "modal-unconfigured";
+
+        var moxChecked = true;
+        var archChecked = !isUnconf;
+
+        var summary =
+            '<div class="ex-draft-picker">' +
+                '<div class="hud-seg" role="radiogroup" aria-label="Select generated deck">' +
+                    '<input type="radio" name="exDraft" id="exD0" checked><label for="exD0">Draft 1 · Kraum &amp; Tymna (100)</label>' +
+                    '<input type="radio" name="exDraft" id="exD1"><label for="exD1">Draft 2 · Thrasios Landfall (100)</label>' +
+                '</div>' +
+            '</div>' +
+            '<div class="ex-summary">' +
+                '<div class="ex-summary-main">' +
+                    '<div class="ex-summary-eyebrow"><span>Reconstructed Draft 1 of 2</span> · <span>Session recon_49df99e5251a</span></div>' +
+                    '<h4 class="ex-summary-title">Kraum &amp; Tymna Spellslinger</h4>' +
+                    '<div class="ex-summary-cmdr">Kraum, Ludevic\'s Opus + Tymna the Weaver</div>' +
+                '</div>' +
+                '<div class="ex-summary-meta">' +
+                    HUD.pips("WUBR", "sm") +
+                    '<span class="hud-freshness">100 cards · 2 commanders</span>' +
+                '</div>' +
+            '</div>';
+
+        var targets =
+            '<fieldset class="ex-fieldset"' + (isCreating ? ' disabled' : '') + '>' +
+                '<legend class="ex-legend"><span>Target Accounts</span><span class="ex-legend-hint">Select one or both providers</span></legend>' +
+                '<div class="ex-targets">' +
+                    // Moxfield Tile
+                    '<div class="ex-target' + (isUnconf ? ' is-unconfigured' : '') + '">' +
+                        '<input type="checkbox" id="exProvMox" name="provider" value="moxfield"' + (moxChecked ? ' checked' : '') + '>' +
+                        '<label for="exProvMox">' +
+                            '<div class="ex-target-head">' +
+                                '<span class="ex-target-brand"><span class="ex-target-badge">M</span> Moxfield</span>' +
+                                '<span class="ex-target-check" aria-hidden="true">✓</span>' +
+                            '</div>' +
+                            '<div class="ex-target-account">@andrewgari · linked account</div>' +
+                            '<div class="ex-target-desc">Creates a new Commander deck via bulk import with *CMDR* markers and preferred printings.</div>' +
+                            '<div class="ex-target-foot">' +
+                                (isUnconf
+                                    ? HUD.chip("No token · Manual paste", "signal", true)
+                                    : isPartial
+                                    ? HUD.chip("Token expired (401)", "danger", true)
+                                    : HUD.chip("Direct API Ready", "ok", true)) +
+                            '</div>' +
+                        '</label>' +
+                    '</div>' +
+                    // Archidekt Tile
+                    '<div class="ex-target">' +
+                        '<input type="checkbox" id="exProvArch" name="provider" value="archidekt"' + (archChecked ? ' checked' : '') + '>' +
+                        '<label for="exProvArch">' +
+                            '<div class="ex-target-head">' +
+                                '<span class="ex-target-brand"><span class="ex-target-badge">A</span> Archidekt</span>' +
+                                '<span class="ex-target-check" aria-hidden="true">✓</span>' +
+                            '</div>' +
+                            '<div class="ex-target-account">@andrewgari · linked account</div>' +
+                            '<div class="ex-target-desc">Creates a new Commander deck with Commander category &amp; role tags preserved.</div>' +
+                            '<div class="ex-target-foot">' +
+                                HUD.chip("Direct API Ready", "ok", true) +
+                            '</div>' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+            '</fieldset>';
+
+        var options =
+            '<fieldset class="ex-fieldset"' + (isCreating ? ' disabled' : '') + '>' +
+                '<legend class="ex-legend"><span>Decklist Options</span><span class="ex-legend-hint">Applied to new external deck</span></legend>' +
+                '<div class="ex-options">' +
+                    '<div class="hud-field">' +
+                        '<label for="exDeckName">Deck Title</label>' +
+                        '<input type="text" id="exDeckName" value="Kraum &amp; Tymna Spellslinger [Lab]" maxlength="100">' +
+                    '</div>' +
+                    '<div class="hud-field">' +
+                        '<span class="hud-field-label" id="exVisLbl">Visibility</span>' +
+                        '<div class="hud-seg" role="radiogroup" aria-labelledby="exVisLbl">' +
+                            '<input type="radio" name="exVis" id="exVisUnlisted" value="unlisted" checked><label for="exVisUnlisted">Unlisted</label>' +
+                            '<input type="radio" name="exVis" id="exVisPublic" value="public"><label for="exVisPublic">Public</label>' +
+                            '<input type="radio" name="exVis" id="exVisPrivate" value="private"><label for="exVisPrivate">Private</label>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ex-field-full ex-checks">' +
+                        '<label class="hud-toggle"><input type="checkbox" id="exOptTags" checked> Include role &amp; sourcing tags as categories</label>' +
+                        '<label class="hud-toggle"><input type="checkbox" id="exOptLink" checked> Link created URL(s) back to this Commander Lab deck</label>' +
+                        '<label class="hud-toggle"><input type="checkbox" id="exOptDesc" checked> Include generated explanation / primer</label>' +
+                    '</div>' +
+                '</div>' +
+            '</fieldset>';
+
+        var results = "";
+        if (isCreating) {
+            results =
+                '<div class="ex-results" role="status" aria-live="polite">' +
+                    '<div class="ex-result-row is-busy">' +
+                        SPIN_ICON +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Moxfield ' + HUD.chip("Creating…", "data") + '</div>' +
+                            '<div class="ex-result-detail">POST /api/export/external · Importing 100 cards (2 commanders)…</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ex-result-row is-busy">' +
+                        SPIN_ICON +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Archidekt ' + HUD.chip("Creating…", "data") + '</div>' +
+                            '<div class="ex-result-detail">POST /api/export/external · Resolving 100 card printings &amp; categories…</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        } else if (isSuccess) {
+            results =
+                '<div class="ex-results" role="status" aria-live="polite">' +
+                    '<div class="ex-result-row is-ok">' +
+                        HUD.chip("✓ Created", "ok") +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Moxfield · Kraum &amp; Tymna Spellslinger [Lab]</div>' +
+                            '<div class="ex-result-detail">https://moxfield.com/decks/k9Xp2_aKeQjcZVg · 100 cards · Linked to deck</div>' +
+                        '</div>' +
+                        '<div class="ex-result-actions">' +
+                            '<a class="hud-btn hud-btn--sm hud-btn--primary" href="https://moxfield.com/decks/k9Xp2_aKeQjcZVg" target="_blank" rel="noopener">Open on Moxfield ' + LINK_ICON + '</a>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ex-result-row is-ok">' +
+                        HUD.chip("✓ Created", "ok") +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Archidekt · Kraum &amp; Tymna Spellslinger [Lab]</div>' +
+                            '<div class="ex-result-detail">https://archidekt.com/decks/9841205 · 100 cards · Linked to deck</div>' +
+                        '</div>' +
+                        '<div class="ex-result-actions">' +
+                            '<a class="hud-btn hud-btn--sm hud-btn--primary" href="https://archidekt.com/decks/9841205" target="_blank" rel="noopener">Open on Archidekt ' + LINK_ICON + '</a>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        } else if (isPartial) {
+            results =
+                '<div class="ex-results" role="alert" aria-live="assertive">' +
+                    '<div class="ex-result-row is-err">' +
+                        HUD.chip("✕ Failed (401)", "danger") +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Moxfield</div>' +
+                            '<div class="ex-result-detail">Moxfield rejected MOXFIELD_TOKEN (HTTP 401 expired). Copy formatted text below and open Moxfield\'s New Deck dialog, or refresh token.</div>' +
+                        '</div>' +
+                        '<div class="ex-result-actions">' +
+                            '<button type="button" class="hud-btn hud-btn--sm" onclick="window.copyFallbackText()">' + COPY_ICON + ' Copy &amp; Open Moxfield ' + LINK_ICON + '</button>' +
+                            '<button type="button" class="hud-btn hud-btn--sm">Retry</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="ex-result-row is-ok">' +
+                        HUD.chip("✓ Created", "ok") +
+                        '<div class="ex-result-info">' +
+                            '<div class="ex-result-name">Archidekt · Kraum &amp; Tymna Spellslinger [Lab]</div>' +
+                            '<div class="ex-result-detail">https://archidekt.com/decks/9841205 · 100 cards · Linked to deck</div>' +
+                        '</div>' +
+                        '<div class="ex-result-actions">' +
+                            '<a class="hud-btn hud-btn--sm hud-btn--primary" href="https://archidekt.com/decks/9841205" target="_blank" rel="noopener">Open on Archidekt ' + LINK_ICON + '</a>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }
+
+        var fallbackOpen = isPartial || isUnconf;
+        var fallback =
+            '<details class="ex-fallback" id="exFallbackTray"' + (fallbackOpen ? ' open' : '') + '>' +
+                '<summary>' +
+                    '<span>Manual Copy &amp; Quick-Import Fallback</span>' +
+                    '<span class="hud-freshness">Works without API tokens · 100 lines</span>' +
+                '</summary>' +
+                '<div class="ex-fallback-body">' +
+                    '<div class="ex-fallback-bar">' +
+                        '<div class="hud-seg" role="radiogroup" aria-label="Export text syntax">' +
+                            '<input type="radio" name="exFmt" id="exFmtMox" value="moxfield" checked onchange="window.switchFmt(\'moxfield\')"><label for="exFmtMox">Moxfield syntax (*CMDR*)</label>' +
+                            '<input type="radio" name="exFmt" id="exFmtArch" value="archidekt" onchange="window.switchFmt(\'archidekt\')"><label for="exFmtArch">Archidekt syntax (1x [Category])</label>' +
+                            '<input type="radio" name="exFmt" id="exFmtPlain" value="mtgo" onchange="window.switchFmt(\'mtgo\')"><label for="exFmtPlain">Plain MTGO (1 Card)</label>' +
+                        '</div>' +
+                        '<div class="ex-fallback-actions">' +
+                            '<span class="ex-copy-feedback" id="exCopyFeedback" aria-live="polite"></span>' +
+                            '<button type="button" class="hud-btn hud-btn--sm" onclick="window.copyFallbackText()">' + COPY_ICON + ' Copy to Clipboard</button>' +
+                            '<a class="hud-btn hud-btn--sm" href="https://www.moxfield.com/decks/personal" target="_blank" rel="noopener">Moxfield New Deck ' + LINK_ICON + '</a>' +
+                            '<a class="hud-btn hud-btn--sm" href="https://archidekt.com/decks/new" target="_blank" rel="noopener">Archidekt Sandbox ' + LINK_ICON + '</a>' +
+                        '</div>' +
+                    '</div>' +
+                    '<pre class="ex-decklist-box" id="exDecklistPre" tabindex="0" aria-label="Formatted decklist text">' + esc(SAMPLE_DECKLIST_MOX) + '</pre>' +
+                '</div>' +
+            '</details>';
+
+        var btnLabel = isCreating
+            ? SPIN_ICON + ' <span>Creating on 2 providers…</span>'
+            : isSuccess
+            ? '✓ Created on Moxfield &amp; Archidekt'
+            : isPartial
+            ? 'Retry Failed (Moxfield)'
+            : isUnconf
+            ? EXT_ICON + ' <span>Create on Moxfield (1 selected)</span>'
+            : EXT_ICON + ' <span>Create on Moxfield &amp; Archidekt</span>';
+
+        var foot =
+            '<footer class="ex-foot">' +
+                '<div class="ex-foot-left">' +
+                    '<span>Explicit user action only · never overwrites existing decks</span>' +
+                '</div>' +
+                '<div class="ex-foot-right">' +
+                    '<button type="button" class="hud-btn" data-hud-close>Cancel</button>' +
+                    '<button type="button" class="hud-btn hud-btn--primary ex-trigger" id="exSubmitBtn"' + (isCreating || isSuccess ? ' disabled' : '') + '>' + btnLabel + '</button>' +
+                '</div>' +
+            '</footer>';
+
+        return summary + targets + options + results + fallback + foot;
+    }
+
+    var surfaceEl = document.getElementById("surface");
+    if (S === "theory-buttons") {
+        surfaceEl.innerHTML = renderTheoryAndTuneSurface();
+    } else if (S.indexOf("modal-") === 0) {
+        surfaceEl.innerHTML = "";
+        surfaceEl.hidden = true;
+    } else {
+        surfaceEl.innerHTML = renderReconstructSurface();
+    }
+
+    window.openExportModal = function () {
+        document.getElementById("exModalBody").innerHTML = renderModalContent(S.indexOf("modal-") === 0 ? S : "modal-idle");
+        HUD.openModal("exportDeckModal");
+        wireTargetCheckboxes();
+    };
+
+    window.switchFmt = function (fmt) {
+        var pre = document.getElementById("exDecklistPre");
+        if (!pre) return;
+        pre.textContent = fmt === "archidekt" ? SAMPLE_DECKLIST_ARCH : SAMPLE_DECKLIST_MOX;
+    };
+
+    window.copyFallbackText = function () {
+        var fb = document.getElementById("exCopyFeedback");
+        if (fb) fb.textContent = "✓ Copied 100 cards";
+    };
+
+    function wireTargetCheckboxes() {
+        var mox = document.getElementById("exProvMox");
+        var arch = document.getElementById("exProvArch");
+        var btn = document.getElementById("exSubmitBtn");
+        if (!mox || !arch || !btn || S !== "modal-idle") return;
+        function syncBtn() {
+            var sel = [];
+            if (mox.checked) sel.push("Moxfield");
+            if (arch.checked) sel.push("Archidekt");
+            btn.disabled = sel.length === 0;
+            btn.innerHTML = sel.length
+                ? EXT_ICON + ' <span>Create on ' + sel.join(" &amp; ") + '</span>'
+                : '<span>Select a provider above</span>';
+        }
+        mox.addEventListener("change", syncBtn);
+        arch.addEventListener("change", syncBtn);
+    }
+
+    if (S.indexOf("modal-") === 0) {
+        window.openExportModal();
+    }
+
+    window.addEventListener("load", function () {
+        setTimeout(function () {
+            var de = document.documentElement;
+            document.body.dataset.h = de.scrollHeight;
+            document.body.dataset.sw = de.scrollWidth;
+            document.body.dataset.cw = de.clientWidth;
+            var off = [];
+            document.querySelectorAll("main *, #exportDeckModal.is-open *").forEach(function (el) {
+                var r = el.getBoundingClientRect();
+                if (r.right > de.clientWidth + 1 && r.width > 0 && off.length < 8) {
+                    off.push(el.tagName.toLowerCase() + "." + String(el.className).split(" ").join(".") + ":" + Math.round(r.right));
+                }
+            });
+            document.body.dataset.off = off.join(" | ");
+        }, 300);
+    });
+})();
+</script>
+</body>
+</html>

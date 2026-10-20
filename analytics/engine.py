@@ -45,6 +45,10 @@ from user_intent import (
     parse_user_intent,
 )
 
+# Estimated vs target power (1-10) further apart than this = not aligned.
+# Shared by power_aligned below, the journal check-in and the bracket evaluator.
+POWER_ALIGN_TOLERANCE = 1.5
+
 # =============================================================================
 # Domain Models for Analysis Engine
 # =============================================================================
@@ -916,7 +920,16 @@ class DeckAnalysisEngine:
         and excluded archetype violations.
         """
         primary_archetype = (intent.archetype_preferences.primary_archetype or "midrange").lower()
-        secondary_archetypes = [s.lower() for s in intent.archetype_preferences.secondary_archetypes]
+        # Deck Genre ids with no ARCHETYPE_PATTERNS entry (landfall, storm, ...) would score 0%
+        # and report "Low archetype alignment" for a deck that may fit fine. Skip them: an
+        # unpatterned primary is scored like an unset one ("midrange"), unpatterned
+        # secondaries are left out (DECK_GENRE_TAXONOMY.md §0.2).
+        unscored = sorted({a for a in [primary_archetype] + [s.lower() for s in intent.archetype_preferences.secondary_archetypes]
+                           if a not in ARCHETYPE_PATTERNS})
+        if primary_archetype not in ARCHETYPE_PATTERNS:
+            primary_archetype = "midrange"
+        secondary_archetypes = [s.lower() for s in intent.archetype_preferences.secondary_archetypes
+                                if s.lower() in ARCHETYPE_PATTERNS and s.lower() != primary_archetype]
         excluded_archetypes = [e.lower() for e in intent.archetype_preferences.excluded_archetypes]
         custom_themes = [t.lower() for t in intent.archetype_preferences.custom_themes]
 
@@ -1062,6 +1075,8 @@ class DeckAnalysisEngine:
         )
         if violations:
             desc += f" Warning: {len(violations)} card(s) violate excluded archetypes: {', '.join(excluded_archetypes)}."
+        if unscored:
+            desc += f" Not scored (no card pattern yet): {', '.join(unscored)}."
 
         return ThemeAnalysisBreakdown(
             score=round(final_score, 1),
@@ -1654,7 +1669,7 @@ class DeckAnalysisEngine:
 
         # 1. Power level alignment
         target_scale = intent.target_power_level.scale
-        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= 1.5
+        power_aligned = abs(playfeel.power_level_estimate - target_scale) <= POWER_ALIGN_TOLERANCE
         if power_aligned:
             details.append(f"Power level {playfeel.power_level_estimate} matches target {target_scale}.")
         else:

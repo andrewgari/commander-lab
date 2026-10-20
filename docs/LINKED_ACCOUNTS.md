@@ -1,8 +1,21 @@
 # Linked Accounts (pull-only sync)
 
+> Nothing here runs on a timer, schedule, or page load. Linking an account
+> (`POST /api/linked-accounts`) only records it; decks are pulled when the
+> user presses Sync (`POST /api/linked-accounts/{id}/sync` or `/sync-all`).
+> Per-deck Update/Push: docs/SYNC_UPDATE_PUSH.md.
+
 Commander Lab can sync a user's entire deck collection from Archidekt or
 Moxfield by "linking" that user's provider account via **username**, rather
 than importing decks one at a time by URL/id.
+
+## Where it lives in the UI
+
+The account manager (account list, Link Account form, Sync All, per-account
+sync and unlink) is the **Sync** section of `/settings` (`templates/settings.html`,
+sidebar: Configure → Settings). It used to sit above the deck list on `/decks`.
+The per-deck controls (modal "Sync Sources" editor, per-deck Sync button and
+provider link buttons) stay on `/decks` and the deck pages.
 
 ## Design
 
@@ -84,12 +97,33 @@ pull-only/non-destructive design above, unlinking is purely a
 registry-bookkeeping operation.
 
 ### `sync_account(r, account_id)`
-Pulls every deck for one linked account: `list_decks` + `fetch_deck` +
-`registry.upsert_deck` per deck, stamping `linked_account_id` on each
-upserted deck. One bad deck (or a failed `list_decks` call) does not abort
+Pulls every deck for one linked account (`list_decks` + `fetch_deck` per
+deck) and records `links[provider] = {identifier: <deck url>, deck_id:
+<source_id>}` on the deck it belongs to. That's the field the deck modal's
+Sync Sources boxes and `deck_sync.sync_deck` read (see deck_links.py).
+Existing links for other providers are always kept.
+
+- Archidekt: `registry.upsert_deck` per deck (refreshes the cardlist, sets
+  `links.archidekt`), stamping `linked_account_id`.
+- Moxfield: the decks are copies of decks already in the registry, so each
+  is matched to its registry deck (`registry.match_provider_deck`: an
+  existing `links.moxfield`/`moxfield_id` first, else exactly one deck with
+  the same commander set and normalized name). Only `links.moxfield` and
+  `moxfield_id` are written; status, cards, instances, journal, and identity
+  are untouched, and no `moxfield:<id>` deck is created. Decks with no
+  unique match are listed in `last_sync_result.unmatched` (with a reason)
+  so they can be linked by hand from the deck modal.
+
+One bad deck (or a failed `list_decks` call) does not abort
 the whole sync — failures are collected into `last_sync_result.failures`
 instead. Always updates and persists `last_synced_at` / `last_sync_result`
 on the account record, and returns that record.
+
+`sync.py` (the legacy full Archidekt pull) merges into the `decks` key via
+`registry.merge_full_sync` instead of overwriting it, so it can't drop
+links or decks it didn't fetch. To repair data written before this
+(t_a2966d3f): `python scripts/backfill_deck_links.py --moxfield-user <name>`
+(dry run, then `--apply`).
 
 ### `sync_all(r)`
 Runs `sync_account` for every **enabled** account. Returns the list of

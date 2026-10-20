@@ -11,7 +11,7 @@
 
 This specification defines the visual treatment, interaction model, and accessibility contract for displaying local Git repository status on Deck cards in Commander Lab.
 
-The backend service (`repo_status.py` / `src/services/repo_status.py`, delivered in `t_87ba7642`) enriches each deck in `GET /api/decks` with the additive fields:
+The backend service (`src/services/repo_status.py`, delivered in `t_87ba7642`) enriches each deck in `GET /api/decks` with the additive fields:
 ```json
 {
   "name": "Korvold Treasures",

@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 
 from user_intent import (
-    ALLOWED_ARCHETYPES,
     ALLOWED_DECK_INTENTS,
     ALLOWED_POWER_TIERS,
     ALLOWED_WIN_CONDITIONS,
+    allowed_archetypes,
     load_schema,
     parse_user_intent,
     resolve_intent_defaults,
@@ -89,8 +89,13 @@ class TestUserIntentSchema(unittest.TestCase):
 
         # archetype_preferences
         ap_props = properties["archetype_preferences"]["properties"]
-        self.assertEqual(ap_props["primary_archetype"]["default"], "midrange")
-        self.assertEqual(set(ap_props["primary_archetype"]["enum"]), ALLOWED_ARCHETYPES)
+        # GN: nullable, default null (no phantom "midrange"); enum = the Deck Genre ids + null.
+        allowed_arch = allowed_archetypes()
+        self.assertIsNone(ap_props["primary_archetype"]["default"])
+        self.assertEqual(ap_props["primary_archetype"]["type"], ["string", "null"])
+        self.assertEqual(set(ap_props["primary_archetype"]["enum"]) - {None}, allowed_arch)
+        self.assertEqual(set(ap_props["secondary_archetypes"]["items"]["enum"]), allowed_arch)
+        self.assertEqual(ap_props["secondary_archetypes"]["maxItems"], 3)
 
     def test_minimal_payload_example(self):
         """Minimal payload example file exists, validates, and parses correctly."""
@@ -148,8 +153,9 @@ class TestUserIntentSchema(unittest.TestCase):
         self.assertEqual(resolved["preferred_win_conditions"]["primary"], "combat")
         self.assertEqual(resolved["preferred_win_conditions"]["secondary"], [])
         self.assertEqual(resolved["preferred_win_conditions"]["disliked_or_excluded"], [])
-        self.assertEqual(resolved["archetype_preferences"]["primary_archetype"], "midrange")
+        self.assertIsNone(resolved["archetype_preferences"]["primary_archetype"])  # GN: unset, not "midrange"
         self.assertEqual(resolved["archetype_preferences"]["secondary_archetypes"], [])
+        self.assertEqual(resolved["deck_genre"], {"genres": [], "kindred": []})
         self.assertEqual(resolved["archetype_preferences"]["excluded_archetypes"], [])
         self.assertEqual(resolved["freeform_notes"], "")
         self.assertEqual(resolved["metadata"], {})
