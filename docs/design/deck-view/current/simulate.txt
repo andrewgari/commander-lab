@@ -1,0 +1,417 @@
+DECKS
+HOLY HELLFIRE
+SIMULATE
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+RUN NEW SIMULATION
+Last run: Specific 3 · 20 games
+SIMULATION · SAVED
+Holy Hellfire
+UP TO DATE
+SPECIFIC 3
+20 GAMES
+WON 5 OF 20
+YOUR TEST NOTES
+Tester E2E: verify Simulate tab end-to-end. Watch if Kaalia gets removed before attacking.
+WIN RATE
+25%
+even odds 25%
+AVG GAME
+20.05
+turns
+table turns
+COMMANDER CAST
+T5.73
+avg
+static: T4
+MANA USED T2–T6
+57%
+static math: 74%
+01 ORACLE REVIEW02 CURVE & TEMPO03 CARDS04 GAME LOG
+01
+ONE-OFF ORACLE SIMULATION REVIEW
+
+Over 20 simulated games the deck won 25%; see the tempo and card reads for where it diverged from the paper review.
+
+On your notes
+
+Your notes were not interpreted automatically (Oracle was unavailable). The run covered 20 games; compare the numbers below against what you were testing.
+
+Against the static review
+
+T5 mana starvation was 15% in simulation vs 41% expected on paper. The commander was first cast on turn 5.73 on average (mana value 4). Mana utilization T2-T6 was 57% vs 74% in the static model. Commander lands more than one turn later than its mana value in simulation. Simulated mana use T2-T6 is below the static spend model.
+
+Worth trying
+Lower the curve or add early ramp so the commander lands closer to its mana value.
+Re-run with more games to firm up these reads.
+02
+CURVE & TEMPO: SIMULATION VS STATIC MATH
+LAND DROP MADE ON TURN
+math: 35 lands in 99
+
+SIMULATED
+STATIC MATH
+
+T1 land drop
+100% vs 96%
+T2 land drop
+100% vs 85%
+T3 land drop
+90% vs 68%
+T4 land drop
+85% vs 50%
+T5 land drop
+50% vs 33%
+T6 land drop
+45% vs 21%
+TEMPO & COMMANDER
+simulated vs the Review's numbers
+METRIC
+SIM
+MATH
+READ
+T5 mana starvation
+lower is better
+15%
+41%
+▼ BELOW MATH
+Commander first cast
+mean turn, when cast
+T5.73
+T4
+▼ BELOW MATH
+Commander on curve
+cast on turn cmc
+n/a
+66%
+Commander casts / game
+n/a
+n/a
+Commander never cast
+n of N games
+n/a
+n/a
+Mana used, T2–T6
+spent ÷ available
+57%
+74%
+▼ BELOW MATH
+First spell cast
+mean turn
+n/a
+n/a
+
+A chip appears only when sim and math differ by more than this many games can explain. Smaller gaps read as In line.
+
+03
+CARD PERFORMANCE VS STATIC REVIEW
+
+U is how much a card did against how often it should have been drawn. 1.0 is as expected.
+
+SURPRISE DEAD DRAWS
+0 cards · static review missed these
+NO SURPRISE DEAD DRAWS.
+CONFIRMED STRAGGLERS
+0 cards · sim and static agree
+NO CONFIRMED STRAGGLERS. EVERY CARD THE REVIEW FLAGGED DID ITS JOB HERE.
+CONFIRMED WORKHORSES
+0 cards
+NO WORKHORSES STOOD OUT.
+
+0 cards were drawn too rarely to judge and are left out. More games judges more of them.
+
+04
+PER-GAME OPPONENT & OUTCOME LOG
+5 W · 15 L · same pod all 20 games
+ALL 20
+WINS
+LOSSES
+SORT
+Game #
+Turns, longest first
+Result
+#
+SEAT 2
+RECKLESS
+SEAT 3
+DEFAULT
+SEAT 4
+CAUTIOUS
+WINNER
+TURNS
+HOW IT ENDED
+#1
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+19 TURNS
+all opponents have lost
+#2
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+20 TURNS
+all opponents have lost
+#3
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Cavalry Charge [MOC] [2023]
+21 TURNS
+all opponents have lost
+#4
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+18 TURNS
+all opponents have lost
+#5
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+18 TURNS
+all opponents have lost
+#6
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+18 TURNS
+all opponents have lost
+#7
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+20 TURNS
+all opponents have lost
+#8
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+17 TURNS
+all opponents have lost
+#9
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+YOU WON
+20 TURNS
+all opponents have lost
+#10
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Endless Punishment [DSC] [2024]
+16 TURNS
+all opponents have lost
+#11
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Cavalry Charge [MOC] [2023]
+23 TURNS
+all opponents have lost
+#12
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+23 TURNS
+all opponents have lost
+#13
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+YOU WON
+26 TURNS
+all opponents have lost
+#14
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Cavalry Charge [MOC] [2023]
+23 TURNS
+all opponents have lost
+#15
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+YOU WON
+22 TURNS
+all opponents have lost
+#16
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+18 TURNS
+all opponents have lost
+#17
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+25 TURNS
+all opponents have lost
+#18
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+YOU WON
+14 TURNS
+all opponents have lost
+#19
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+YOU WON
+25 TURNS
+all opponents have lost
+#20
+SEAT 2
+Cavalry Charge [MOC] [2023]
+Reckless
+SEAT 3
+Explorers of the Deep [LCC] [2023]
+Default
+SEAT 4
+Endless Punishment [DSC] [2024]
+Cautious
+Lost to Explorers of the Deep [LCC] [2023]
+15 TURNS

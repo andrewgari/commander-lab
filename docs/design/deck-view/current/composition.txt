@@ -1,0 +1,54 @@
+DECKS
+HOLY HELLFIRE
+COMPOSITION
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+STATS
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+Resolved Preset
+Command Zone 2025
+Selection Mode
+Auto
+Target Lands
+38
+01
+COMPOSITION PRESET
+COMMAND ZONE 2025
+BUILTIN
+
+Default template; equals the legacy AN-3 template.
+
+Source: The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18)
+CATEGORY RATIOS & TARGETS
+CATEGORY / REF	TARGET	MIN–MAX
+Ramp	10 cards	—
+Card advantage	12 cards	—
+Targeted interaction	12 cards	—
+Board wipe	6 cards	—
+Read-only composition targets derived from resolved preset profile.
+02
+PRESET SELECTION
+CHANGE THIS DECK'S PRESET
+MANAGE PRESETS
+Mode
+Auto picks a preset from this deck's archetype, tags and commander CMC. Pin locks it to one preset.
+ Auto
+ Pin a preset
+
+SAVE SELECTION
+RESET TO AUTO

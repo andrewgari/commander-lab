@@ -1,0 +1,561 @@
+DECKS
+HOLY HELLFIRE
+IDEAS
+ANGELS
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+← ALL IDEAS
+DELETE
+THEORY · THEMATIC OVERHAUL
+angels
+OCT 12, 2026, 06:47 PM
+COMMANDER KEPT
+88 KEPT · 0 OWNED · 12 BUY · 100 CARDS
+$40.25
+BUY TOTAL
+01
+THESIS
+02
+DECKLIST
+03
+CUTS
+04
+BUY TOTAL
+05
+NOTES
+01
+THESIS
+Kaalia drops a host of Angels straight into combat, haste and extra combats make every swing count, and Demons stay on only to tutor and draw.
+
+Angels were already the biggest of Kaalia's three tribes; Theory leans into them and keeps the Demons that draw cards and the Dragon that gives extra combats.
+
+PILLAR 1
+Angel Host
+A deep bench of Angels Kaalia can cheat in, with Lyra, Righteous Valkyrie and Sublime Archangel making each one bigger.
+PILLAR 2
+Haste and Extra Combats
+Haste and extra combat phases so Kaalia attacks right away and gets several triggers in one turn.
+PILLAR 3
+Commander Protection
+Mother of Runes, Grand Abolisher, Swat and Teferi's Protection keep Kaalia alive through combat.
+PILLAR 4
+Trigger Doubling and Cheating
+Helm, Quicksilver Amulet, Strionic Resonator and Animate Dead give more ways to put fatties into play.
+02
+DECKLIST
+88 KEPT
+0 OWNED
+12 BUY
+100 CARDS · PRICES SCRYFALL USD
+Commander
+1
+1
+Kaalia of the Vast
+KEPT
+$4.44
+Lands
+35
+1
+Battlefield Forge
+KEPT
+$0.21
+1
+Blood Crypt
+KEPT
+$9.34
+1
+Caves of Koilos
+KEPT
+$0.30
+1
+Clifftop Retreat
+KEPT
+$0.21
+1
+Command Tower
+KEPT
+$0.24
+1
+Dragonskull Summit
+KEPT
+$0.46
+1
+Flagstones of Trokair
+KEPT
+$3.51
+1
+Godless Shrine
+KEPT
+$8.41
+1
+Homeward Path
+KEPT
+$19.54
+1
+Isolated Chapel
+KEPT
+$0.20
+5
+Mountain
+KEPT
+$0.08
+1
+Nomad Outpost
+KEPT
+$0.33
+5
+Plains
+KEPT
+$0.05
+1
+Reliquary Tower
+KEPT
+$4.98
+1
+Rogue's Passage
+KEPT
+$0.77
+1
+Rugged Prairie
+KEPT
+$0.32
+1
+Sacred Foundry
+KEPT
+$10.03
+1
+Smoldering Marsh
+KEPT
+$0.37
+6
+Swamp
+KEPT
+$0.10
+1
+Temple of Triumph
+KEPT
+$0.31
+1
+Terramorphic Expanse
+KEPT
+$0.29
+1
+Arena of Glory
+BUY
+$7.82
+Gives haste to creature spells; replaces Temple of the False God, which can't tap for mana on turns 1-3
+Ramp
+7
+1
+Arcane Signet
+KEPT
+$0.53
+1
+Boros Signet
+KEPT
+$0.67
+1
+Chromatic Lantern
+KEPT
+$0.43
+1
+Orzhov Signet
+KEPT
+$0.38
+1
+Rakdos Signet
+KEPT
+$0.41
+1
+Sol Ring
+KEPT
+$1.51
+1
+Giada, Font of Hope
+BUY
+$0.68
+2-mana Angel ramp; each later Angel enters with extra +1/+1 counters
+Card advantage
+9
+1
+Demonic Tutor
+KEPT
+$68.89
+SALT · MEDIUM · UNVERIFIED game_changer: tutor on the WotC Game Changers list
+1
+Firemane Commando
+KEPT
+$0.98
+1
+Necropotence
+KEPT
+$38.23
+SALT · MEDIUM · UNVERIFIED game_changer: big card-draw engine on the WotC Game Changers list
+1
+Phyrexian Arena
+KEPT
+$4.16
+1
+Razaketh, the Foulblooded
+KEPT
+$14.46
+SALT · MEDIUM · UNVERIFIED tutor: can tutor again and again by sacrificing creatures
+1
+Rune-Scarred Demon
+KEPT
+$1.39
+1
+Vilis, Broker of Blood
+KEPT
+$9.76
+1
+Inspiring Overseer
+BUY
+$0.24
+3-mana Angel that draws a card
+1
+Sanctuary Warden
+BUY
+$1.10
+Angel that draws a card when it enters and each time it attacks
+Targeted disruption
+7
+1
+Angel of Despair
+KEPT
+$0.95
+1
+Anguished Unmaking
+KEPT
+$1.70
+1
+Crackling Doom
+KEPT
+$0.36
+1
+Mortify
+KEPT
+$0.20
+1
+Path to Exile
+KEPT
+$0.79
+1
+Terminate
+KEPT
+$0.32
+1
+Swords to Plowshares
+BUY
+$0.99
+1-mana exile removal at instant speed
+Mass disruption
+5
+1
+Angel of Serenity
+KEPT
+$1.52
+SALT · MEDIUM · UNVERIFIED feel-bad: exiles up to three creatures
+1
+Austere Command
+KEPT
+$0.37
+SALT · MEDIUM · UNVERIFIED mass removal: modal board wipe
+1
+Merciless Eviction
+KEPT
+$0.54
+SALT · MEDIUM · UNVERIFIED mass removal: exiles every permanent of one chosen type
+1
+Ruinous Ultimatum
+KEPT
+$2.26
+SALT · HIGH · UNVERIFIED mass removal: one-sided wipe of opponents' nonland permanents
+1
+Wrath of God
+KEPT
+$3.85
+SALT · MEDIUM · UNVERIFIED mass removal: board wipe
+Angel Host
+19
+1
+Akroma, Angel of Wrath
+KEPT
+$3.32
+1
+Angelic Arbiter
+KEPT
+$4.59
+SALT · MEDIUM · UNVERIFIED feel-bad: restricts what opponents can do each turn
+1
+Avacyn, Angel of Hope
+KEPT
+$32.89
+SALT · HIGH · UNVERIFIED feel-bad: makes your whole board indestructible, so wipes stop working
+1
+Baneslayer Angel
+KEPT
+$3.69
+1
+Drana and Linvala
+KEPT
+$7.16
+SALT · MEDIUM · UNVERIFIED feel-bad: switches off opponents' creatures' activated abilities
+1
+Gisela, Blade of Goldnight
+KEPT
+$5.73
+1
+Liesa, Forgotten Archangel
+KEPT
+$1.58
+1
+Lyra Dawnbringer
+KEPT
+$0.46
+1
+Platinum Angel
+KEPT
+$10.76
+SALT · MEDIUM · UNVERIFIED lock: you can't lose the game while it's on the battlefield
+1
+Reya Dawnbringer
+KEPT
+$4.32
+1
+Sephara, Sky's Blade
+KEPT
+$3.62
+1
+Serra's Emissary
+KEPT
+$0.66
+SALT · HIGH · UNVERIFIED feel-bad: naming creature can lock opponents out of the game
+1
+Angel of the Ruins
+BUY
+$0.36
+Exiles two artifacts or enchantments when it enters; can plainscycle early
+1
+Bishop of Wings
+BUY
+$6.26
+Gain 4 life per Angel entering, a Spirit when one dies; turns on Valkyrie and Resplendent
+1
+Resplendent Angel
+BUY
+$9.86
+Makes a 4/4 Angel token each turn off Baneslayer, Lyra or Bishop lifegain
+1
+Righteous Valkyrie
+BUY
+$5.41
+Lifegain from each Angel entering; +2/+2 to your team once you're 7 life above your starting total
+1
+Seraph of the Scales
+BUY
+$0.35
+Orzhov Angel with deathtouch on demand; leaves two flyers when it dies
+1
+Sublime Archangel
+BUY
+$3.21
+Exalted stacks on Kaalia as she attacks alone
+1
+Valkyrie Harbinger
+BUY
+$3.97
+Lifelink Angel that makes a 4/4 Angel each turn
+Haste and Extra Combats
+9
+1
+Aurelia, the Warleader
+KEPT
+$5.72
+SALT · MEDIUM · UNVERIFIED long turns: extra combat phase
+1
+Basandra, Battle Seraph
+KEPT
+$3.74
+1
+Bloodthirster
+KEPT
+$26.43
+SALT · MEDIUM · UNVERIFIED long turns: extra combat phase
+1
+Dragon Tempest
+KEPT
+$3.55
+1
+Hellkite Charger
+KEPT
+$3.72
+SALT · MEDIUM · UNVERIFIED long turns: repeatable extra combats
+1
+Isshin, Two Heavens as One
+KEPT
+$3.78
+SALT · MEDIUM · UNVERIFIED long turns: doubles every attack trigger
+1
+Lightning Greaves
+KEPT
+$4.01
+1
+Rising of the Day
+KEPT
+$0.46
+1
+Swiftfoot Boots
+KEPT
+$1.54
+Commander Protection
+4
+1
+Deflecting Swat
+KEPT
+$72.77
+1
+Grand Abolisher
+KEPT
+$18.38
+SALT · MEDIUM · UNVERIFIED game_changer: opponents can't cast spells or use abilities on your turn
+1
+Mother of Runes
+KEPT
+$12.04
+1
+Teferi's Protection
+KEPT
+$45.98
+SALT · MEDIUM · UNVERIFIED game_changer: on the WotC Game Changers list
+Trigger Doubling and Cheating
+4
+1
+Animate Dead
+KEPT
+$7.46
+1
+Helm of the Host
+KEPT
+$5.17
+1
+Quicksilver Amulet
+KEPT
+$3.22
+1
+Strionic Resonator
+KEPT
+$7.16
+03
+CUTS
+LEAVES THE DECK
+12 cards
+1
+Archfiend of Depravity
+Off-theme Demon; Angels and the wipes already cover the board
+1
+Balefire Dragon
+Off-theme Dragon; Ruinous Ultimatum and the wipes already do this job
+1
+Blast-Furnace Hellkite
+Off-theme Dragon that does nothing useful through Kaalia
+1
+Bloodgift Demon
+Off-theme draw; replaced by Sanctuary Warden and Inspiring Overseer
+1
+Burning-Rune Demon
+Off-theme; Rune-Scarred Demon, Razaketh and Demonic Tutor are enough tutors
+1
+Hellkite Tyrant
+Off-theme Dragon; its artifact-steal win is narrow
+1
+Lord of the Void
+Off-theme Demon; random value per hit
+1
+Master of Cruelties
+Off-theme Demon; wins a single combat and does nothing else
+1
+Ob Nixilis, Unshackled
+Off-theme Demon; anti-tutor effect isn't part of this deck's plan
+1
+Steel Hellkite
+Off-theme Dragon; Angel of the Ruins covers artifact and enchantment removal
+1
+Temple of the False God
+Can't make mana early; swapped for Arena of Glory
+1
+Utvara Hellkite
+Dragon-token payoff with few Dragons left; Angel token makers replace it
+04
+BUY TOTAL
+BUY TOTAL
+$40.25
+Scryfall USD, re-checked by the app
+CARDS TO BUY
+12
+PER-CARD CAP
+$40.00
+hard
+soft $15.00 · applies to each buy, not the total
+1
+Resplendent Angel
+$9.86
+1
+Arena of Glory
+$7.82
+1
+Bishop of Wings
+$6.26
+1
+Righteous Valkyrie
+$5.41
+1
+Valkyrie Harbinger
+$3.97
+1
+Sublime Archangel
+$3.21
+1
+Sanctuary Warden
+$1.10
+1
+Swords to Plowshares
+$0.99
+1
+Giada, Font of Hope
+$0.68
+1
+Angel of the Ruins
+$0.36
+1
+Seraph of the Scales
+$0.35
+1
+Inspiring Overseer
+$0.24
+05
+NOTES
+ANGEL DENSITY
+23 Angels in 99 cards (up from 17): about 94% to see at least one in the first 10 cards (hypergeometric).
+BRACKET
+4 Game Changers (Demonic Tutor, Necropotence, Teferi's Protection, Grand Abolisher), so Bracket 4, same as before; no buy is a Game Changer.
+LANDS
+35 lands, under the 38 template; offset by 6 mana rocks, Giada, and Angel of the Ruins plainscycling.
+SKIPPED
+Exotic Orchard had no USD price on Scryfall; Archangel of Thune ($50.37) is over the $40 hard cap.

@@ -1,0 +1,466 @@
+DECKS
+HOLY HELLFIRE
+STATS
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+REFRESH ANALYTICS
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+ON-PLAN
+100
+%
+pillar or glue
+ENGINES
+10
+2 loops · 8 chains
+EDGES
+190
+3.8 per card
+EDHREC OVERLAP
+36
+%
+lower = more yours
+COMBOS
+2
++71 one card away
+AVG CMC
+4.69
+non-land
+01
+INTERACTIONS
+ENGINES
+10 found
+Attack cheat
+attack → ETB → attack
+CHAIN
+DRAGON, ANGEL, DEMON
+19
+Mana into combat
+mana → attack
+CHAIN
+DRAGON, ANGEL, DEMON
+22
+ETB haste
+ETB → attack → ETB
+CHAIN
+DRAGON, ANGEL, DEMON
+10
+Landfall ramp
+landfall → mana
+CHAIN
+no pillar
+9
+Aristocrat Burn
+tokens → death → ETB → drain
+CHAIN
+no pillar
+11
+Pure Draw Sink
+mana → cards
+CHAIN
+no pillar
+11
+Reanimator
+graveyard → reanimate → cards
+CHAIN
+DRAGON, ANGEL, DEMON
+6
+Suicide Black Draw
+drain → cards
+CHAIN
+DRAGON, ANGEL, DEMON
+5
+Aggressive Token Loops
+ETB ↔ attack
+LOOP
+DRAGON, ANGEL, DEMON
+4
+Extra Combat Loops
+attack
+LOOP
+DRAGON, ANGEL, DEMON
+3
+Chain = resource made → spent → paid off.
+Loop = cards that feed each other.
+Find card
+Show mana
+50 CARDS · 190 EDGES
+Akroma, Angel of Wrath
+→ Blast-Furnace Hellkite · attacking
+Aurelia, the Warleader
+→ Blast-Furnace Hellkite · attacking
+Balefire Dragon
+← Akroma · attacking
+Basandra, Battle Seraph
+→ Blast-Furnace Hellkite · attacking
+Bloodthirster
+→ Blast-Furnace Hellkite · attacking
+Dragon Tempest
+→ Blast-Furnace Hellkite · attacking
+Firemane Commando
+← Akroma · attacking
+Hellkite Charger
+→ Blast-Furnace Hellkite · attacking
+Hellkite Tyrant
+← Akroma · attacking
+Helm of the Host
+→ Blast-Furnace Hellkite · attacking · artifacts
+Isshin, Two Heavens as One
+← Akroma · attacking
+Kaalia of the Vast
+← Akroma · attacking
+Lightning Greaves
+→ Blast-Furnace Hellkite · attacking · artifacts
+Lord of the Void
+← Akroma · attacking
+Master of Cruelties
+← Akroma · attacking
+Rising of the Day
+→ Blast-Furnace Hellkite · attacking
+Swiftfoot Boots
+→ Blast-Furnace Hellkite · attacking · artifacts
+Utvara Hellkite
+← Akroma · attacking
+Attack cheat · 19 cards. Full graph on a wider screen.
+ENGINE
+Esc
+clear
+CHAIN · 19 CARDS
+Attack cheat
+
+attack → ETB → attack
+
+PILLAR
+DRAGON, ANGEL, DEMON
+MEMBERS
+Akroma, Angel of Wrath
+Aurelia, the Warleader
+Balefire Dragon
+Basandra, Battle Seraph
+Blast-Furnace Hellkite
+Bloodthirster
+Dragon Tempest
+Firemane Commando
+Hellkite Charger
+Hellkite Tyrant
+Helm of the Host
+Isshin, Two Heavens as One
+Kaalia of the Vast
+Lightning Greaves
+Lord of the Void
+Master of Cruelties
+Rising of the Day
+Swiftfoot Boots
+Utvara Hellkite
+INTERNAL EDGES
+120
+WEAKEST LINK
+Balefire Dragon
+ISOLATED · 0–1 EDGES
+Angel of Despair
+Angelic Arbiter
+Anguished Unmaking
+Avacyn, Angel of Hope
+Baneslayer Angel
+Battlefield Forge
+Blood Crypt
+Bloodgift Demon
+Caves of Koilos
+Clifftop Retreat
+Command Tower
+Deflecting Swat
+Demonic Tutor
+Dragonskull Summit
+Drana and Linvala
+Gisela, Blade of Goldnight
+Godless Shrine
+Grand Abolisher
+Homeward Path
+Isolated Chapel
+Lyra Dawnbringer
+Merciless Eviction
+Mortify
+Mother of Runes
+Mountain
+Nomad Outpost
+Phyrexian Arena
+Plains
+Rogue's Passage
+Rugged Prairie
+Sacred Foundry
+Sephara, Sky's Blade
+Serra's Emissary
+Smoldering Marsh
+Swamp
+Teferi's Protection
+Temple of Triumph
+Temple of the False God
+Terminate
+Terramorphic Expanse
+SEE IN TUNE →
+02
+SHAPE
+COMPOSITION VS PRESET
+Command Zone 2025
+OVERRIDE
+Lands
+35/38
+Ramp
+6/10
+Card advantage
+5/12
+Targeted disruption
+9/12
+Mass disruption
+7/6
+Plan
+39/22
+A card can count in two rows. Plan = everything else. Bar = this deck, tick = target.
+MANA CURVE
+avg
+4.69
+· non-land
+0
+6
+12
+18
+24
+3
+12
+10
+6
+7
+9
+18
+0
+1
+2
+3
+4
+5
+6
+7+
+CARDS AT CMC
+TEMPLATE
+COMMANDER CMC
+Dashed = template curve (most at 2, tapering), scaled to this deck's non-land count.
+03
+IDENTITY
+PILLAR FIT
+EDIT PILLARS
+53 PILLAR
+47 GLUE
+0 GENERIC
+No Mercy
+pinned · pillar 1
+2
+Dragon, Angel, Demon
+pinned
+35
+Haste and Extra Combats
+pinned
+8
+Commander Protection
+pinned
+4
+Trigger Doubling and Cheating
+pinned
+4
+LEAST ON-PLAN
+fit score
+Sol Ring
+2 edges · off-pillar
+0.32
+Anguished Unmaking
+0 edges · off-pillar
+0.35
+Wrath of God
+3 edges · off-pillar
+0.38
+Rakdos Signet
+2 edges · off-pillar
+0.39
+Ruinous Ultimatum
+3 edges · off-pillar
+0.42
+Terminate
+0 edges · off-pillar
+0.42
+EDHREC INCLUSION
+vs 40,438 decks
+0
+6
+12
+18
+24
+3
+8
+16
+24
+9
+4
+<5
+5–14
+15–29
+30–49
+50–74
+75+
+YOUR RAREST PICKS
+Baneslayer Angel
+not on EDHREC
+—
+Basandra, Battle Seraph
+not on EDHREC
+—
+Hellkite Charger
+not on EDHREC
+—
+Merciless Eviction
+5%
+Low % ≠ bad. Low % + few edges + off-pillar = weak performer.
+PLAYED WITH · MOST
+63
+/65 known · 24,784 decks
+Gisela, Blade of Goldnight
+0.94
+Reya Dawnbringer
+0.93
+Angelic Arbiter
+0.91
+Sephara, Sky's Blade
+0.90
+Mortify
+0.88
+Avacyn, Angel of Hope
+0.87
+Anguished Unmaking
+0.86
+Archfiend of Depravity
+0.85
+How often real Commander decklists play the card alongside the rest of this deck. Learned from decklists only, never card text.
+PLAYED WITH · LEAST
+0 = random card, 1 = belongs
+Necropotence
+0.12
+Deflecting Swat
+0.13
+Utvara Hellkite
+0.23
+Quicksilver Amulet
+0.26
+Demonic Tutor
+0.28
+Platinum Angel
+0.31
+Bloodthirster
+0.32
+Helm of the Host
+0.33
+
+Not in the model (2): Akroma, Angel of Wrath, Basandra, Battle Seraph
+
+Low ≠ bad: pet cards and new printings often sit here. It feeds the weak-performer score as a 4th part.
+04
+COMBOS
+COMMANDER SPELLBOOK
+ALL
+OWNED
+IN DECK · 2
+Aurelia, the Warleader
++
+Helm of the Host
+IN DECK
+Infinite combat phases · Infinite creature tokens with haste · Infinite creature ETB
+Kaalia of the Vast
++
+Master of Cruelties
+IN DECK
+Target opponent loses the game
+ONE CARD AWAY · 71
+Helm of the Host
++
+Godo, Bandit Warlord
+OWNED · IN ENCHANTED BLADE GLEAMS, EMPEROR'S FOES MEET THEIR END, MAGIC'S TRIUMPH BEAMS
+ADD
+Infinite combat phases · Infinite death triggers · Infinite creature ETB
+Animate Dead
++
+Abdel Adrian, Gorion's Ward
+OWNED · IN THE WORLD IS SLOWLY EBBING AWAY...
+ADD
+Infinite blinking · Infinite creature tokens · Infinite death triggers
+Helm of the Host
++
+Kiki-Jiki, Mirror Breaker
+OWNED · IN A 'STRATEGIC' RETREAT
+ADD
+Infinite death triggers · Infinite creature ETB · Infinite creature LTB
+Aurelia, the Warleader
++
+Sword of Hearth and Home
+OWNED · IN COME TO ME, MY NOBLE ARMIGER!
+ADD
+Infinite combat damage · Infinite combat phases · Infinite creature ETB
+Hellkite Tyrant
++
+Mycosynth Lattice
+OWNED · IN BATTERIES NOT INCLUDED
+ADD
+Gain control of all permanents an opponent controls during each of your turns · Lock · Win the game at the beginning of your next upkeep
+Helm of the Host
++
+Scourge of the Throne
+OWNED · IN A GAME OF DETHRONES
+ADD
+Infinite combat phases · Infinite creature tokens with haste · Infinite creature ETB
+Hellkite Charger
++
+The Reaver Cleaver
+OWNED · IN ALRIGHT EVERYONE, LET'S MOSEY
+ADD
+Infinite artifact ETB · Infinite artifact LTB · Infinite artifact sacrifice triggers
+Helm of the Host
++
+Akki Battle Squad
+OWNED · IN ENCHANTED BLADE GLEAMS, EMPEROR'S FOES MEET THEIR END, MAGIC'S TRIUMPH BEAMS
+ADD
+Infinite combat phases · Infinite creature tokens with haste · Infinite creature ETB
+Hellkite Charger
++
+Fire Lord Zuko
+OWNED · IN YIP! YIP!
+ADD
+Infinite combat phases
+Hellkite Charger
++
+Zuko, Firebending Master
+OWNED · IN YIP! YIP!
+ADD
+Infinite combat phases · Infinite red mana
+Hellkite Charger
++
+Sword of Feast and Famine
+OWNED · IN COME TO ME, MY NOBLE ARMIGER!
+ADD
+Infinite combat damage · Infinite combat phases · Infinite damage
+Teferi's Protection
++
+Worldfire
+OWNED · IN THE LAWS OF TIME ARE MINE!!
+ADD
+Each opponent's life total becomes 1 · Exile all cards in hands and graveyards · Exile all permanents opponents control
+SHOW ALL 71

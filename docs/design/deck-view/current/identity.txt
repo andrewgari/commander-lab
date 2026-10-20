@@ -1,0 +1,96 @@
+DECKS
+HOLY HELLFIRE
+IDENTITY
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+SEE FIT ON STATS
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+GAME PLAN · PINNED · EDITED BY YOU 3D AGO
+Cheat terrifying Angels, Demons, and Dragons directly into combat using Kaalia to overwhelm opponents with lethal aerial assaults.
+EDIT
+E
+GENERATED DRAFT FROM 2026-10-12 · GEMINI
+ON-PLAN
+100
+%
+53 PILLAR
+47 GLUE
+0 GENERIC
+
+Glue = lands, ramp, interaction (composition rows). Generic = fits no pillar and isn't glue. Scores recompute when you save.
+
+01
+PILLARS · 5 OF 5 MAX
+N NEW · E EDIT · P PIN/KEEP · X REJECT · ⇧↑↓ REORDER
+PILLAR 1 · THE ENGINE
+pinned
+No Mercy
+
+The deck is made to look and act ruthless. Cards that assist with threat assessment are a great flavor. Tutors are used as a "right tool for the job"
+
+2 cards
+Top fit: Demonic Tutor, Necropotence, Phyrexian Arena
+UNPIN
+EDIT
+REJECT
+PILLAR 2
+PINNED
+Dragon, Angel, Demon
+
+High-mana Angel, Demon, and Dragon creatures with flying and game-ending combat abilities, damage triggers, or massive stats to drop into play.
+
+35 cards
+Top fit: Lord of the Void, Sephara, Baneslayer Angel
+UNPIN
+EDIT
+REJECT
+PILLAR 3
+PINNED
+Haste and Extra Combats
+
+Spells and abilities that grant haste or grant additional combat phases to maximize Kaalia attack triggers immediately and multiply swings.
+
+8 cards
+Top fit: Rising of the Day, Dragon Tempest, Kaalia of the Vast
+UNPIN
+EDIT
+REJECT
+PILLAR 4
+PINNED
+Commander Protection
+
+Spells, equipment, and abilities providing hexproof, shroud, protection from colors, or silence effects to keep Kaalia alive through combat.
+
+4 cards
+Top fit: Kaalia of the Vast, Lord of the Void, Firemane Commando
+UNPIN
+EDIT
+REJECT
+PILLAR 5
+PINNED
+Trigger Doubling and Cheating
+
+Artifacts and triggers that copy attacking triggers or provide alternative methods to put massive creatures directly from hand onto the battlefield.
+
+4 cards
+Top fit: Strionic Resonator, Mortify, Isshin
+UNPIN
+EDIT
+REJECT
+REJECTED · 0
+NEVER RE-PROPOSED

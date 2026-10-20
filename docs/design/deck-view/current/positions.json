@@ -1,0 +1,54 @@
+{
+  "1440": [
+    {
+      "id": "syncControls",
+      "y": 1191
+    },
+    {
+      "id": "psPanel",
+      "y": 684
+    },
+    {
+      "id": "deckCurve",
+      "y": 1069
+    },
+    {
+      "id": "deckDescriptionPanel",
+      "y": 1658
+    },
+    {
+      "id": "deck-list-head",
+      "y": 2104
+    },
+    {
+      "id": "decklistContainer",
+      "y": 2152
+    }
+  ],
+  "390": [
+    {
+      "id": "syncControls",
+      "y": 1685
+    },
+    {
+      "id": "psPanel",
+      "y": 2336
+    },
+    {
+      "id": "deckCurve",
+      "y": 3042
+    },
+    {
+      "id": "deckDescriptionPanel",
+      "y": 4116
+    },
+    {
+      "id": "deck-list-head",
+      "y": 4851
+    },
+    {
+      "id": "decklistContainer",
+      "y": 4904
+    }
+  ]
+}

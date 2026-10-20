@@ -1,0 +1,510 @@
+DECKS
+HOLY HELLFIRE
+OVERVIEW
+ARCHIDEKT #417707
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+Est. B3 · Upgraded
+MANAGE
+REVIEW
+DECOMMISSION
+RECONSTRUCT
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+BRACKET · NO TARGET
+This deck plays like Bracket 3 · Upgraded
+
+No target bracket, so no bracket rules are checked. Set a target bracket in the Journal.
+
+ESTIMATED BRACKET
+3Upgraded
+no target
+ESTIMATED POWER
+6.5/10
+target 8
+▼ −1.5 · within ±1.5
+HOW THIS WAS DECIDED
+· 8 SIGNALS
+TAGS
+◇ AUTO
+◆ YOURS
+AUTO TAG
+DECK
+No deck tags
+Add tag
+No tags yet. Auto Tag labels each card by role (Ramp, Removal…) and the deck by theme.
+Kaalia of the Vast
+CMC 4
+W
+B
+R
+EXTERNAL
+EDHREC
+ARCHIDEKT
+MOXFIELD
+NOT LINKED
+COMMANDER SALT
+Archidekt #https://archidekt.com/decks/417707
+UPDATE FROM ARCHIDEKT
+PUSH TO ARCHIDEKT
+archidekt push is not configured on this server
+Last updated: never · Last pushed: never
+LIFECYCLE
+Status
+Physical
+Physical: managed by your Archidekt Commander Decks folder
+CARDS
+100
+65 spells
+AVG CMC
+4.69
+non-land
+LANDS
+35
+35% of deck
+VALUE
+—
+no price data
+ABILITY SCORES
+Evidence: click a score or press
+T
+J
+S
+V
+M
+ORACLE READ
+
+Timmy 73, Johnny 25, Spike 55, Vorthos 33, Melvin 8. Leans Timmy.
+
+Leans Timmy
+Big, splashy moments. 18 points clear of Spike.
+T
+TIMMY
++8
+from journal
+73
+Big, splashy moments
+J
+JOHNNY
++1
+from journal
+25
+Shows off a build
+S
+SPIKE
++3
+from journal
+55
+Plays to win
+V
+VORTHOS
+±0
+33
+The deck tells a story
+M
+MELVIN
+±0
+8
+Loves the mechanics
+Your average (39 physical decks)
+SCORED 4 H AGO · V1
+Your player profile →
+MANA CURVE
+Non-land
+0
+5
+10
+15
+20
+3
+12
+10
+6
+7
+9
+18
+0
+1
+2
+3
+4
+5
+6
+7+
+CARDS AT CMC
+COMMANDER CMC
+CARD TYPES
+Commanders
+1
+Creatures
+36
+Artifacts
+11
+Enchantments
+5
+Instants
+7
+Sorceries
+5
+Lands
+35
+COLOUR IDENTITY
+Non-land cards
+W
+31 · 36%
+B
+26 · 30%
+R
+20 · 23%
+C
+10 · 11%
+PROFILE
+ARCHETYPE
+INTERACTION 10
+THEMES
+Removal 10
+Board Advantage 9
+Card Advantage 8
+Ramp 7
+FOLDER
+Imported
+COMMANDER
+Kaalia of the Vast
+BRIEFING
+DESCRIPTION
+DRAFT
+EDIT
+No short description yet.
+◇
+Kaalia of the Vast swings each turn and drops a Lyra Dawnbringer, Akroma, Angel of Wrath or Angel of Despair straight into combat. You set up quietly, then make the table sweat every attack step until about turn 8, with Dragon Tempest waiting to light up a hasty Dragon swarm. · from the primer builder · 276/280
+USE
+⌘↵
+ANOTHER
+✕
+PRIMER
+REBUILD WITH GUIDE
+EDIT
+
+NO PRIMER YET. ANSWER A FEW QUESTIONS, OR LET US DRAFT ONE FROM THE 87 CARDS.
+
+BUILD WITH GUIDE WRITE BY HAND
+
+DECKLIST
+100 cards
+VISUAL
+LIST
+COMMANDERS
+1
+Kaalia of the Vast
+CMC 4
+W
+B
+R
+CREATURES
+36
+Mother of Runes
+CMC 1
+W
+Grand Abolisher
+CMC 2
+W
+Isshin, Two Heavens as One
+CMC 3
+W
+B
+R
+Drana and Linvala
+CMC 4
+W
+B
+Firemane Commando
+CMC 4
+W
+Archfiend of Depravity
+CMC 5
+B
+Baneslayer Angel
+CMC 5
+W
+Basandra, Battle Seraph
+CMC 5
+W
+R
+Bloodgift Demon
+CMC 5
+B
+Liesa, Forgotten Archangel
+CMC 5
+W
+B
+Lyra Dawnbringer
+CMC 5
+W
+Master of Cruelties
+CMC 5
+B
+R
+Aurelia, the Warleader
+CMC 6
+W
+R
+Bloodthirster
+CMC 6
+R
+Burning-Rune Demon
+CMC 6
+B
+Hellkite Charger
+CMC 6
+R
+Hellkite Tyrant
+CMC 6
+R
+Ob Nixilis, Unshackled
+CMC 6
+B
+Steel Hellkite
+CMC 6
+C
+Angel of Despair
+CMC 7
+W
+B
+Angel of Serenity
+CMC 7
+W
+Angelic Arbiter
+CMC 7
+W
+Balefire Dragon
+CMC 7
+R
+Gisela, Blade of Goldnight
+CMC 7
+W
+R
+Lord of the Void
+CMC 7
+B
+Platinum Angel
+CMC 7
+C
+Rune-Scarred Demon
+CMC 7
+B
+Sephara, Sky's Blade
+CMC 7
+W
+Serra's Emissary
+CMC 7
+W
+Akroma, Angel of Wrath
+CMC 8
+W
+Avacyn, Angel of Hope
+CMC 8
+W
+Razaketh, the Foulblooded
+CMC 8
+B
+Utvara Hellkite
+CMC 8
+R
+Vilis, Broker of Blood
+CMC 8
+B
+Blast-Furnace Hellkite
+CMC 9
+R
+Reya Dawnbringer
+CMC 9
+W
+ARTIFACTS
+11
+Sol Ring
+CMC 1
+C
+Arcane Signet
+CMC 2
+C
+Boros Signet
+CMC 2
+W
+R
+Lightning Greaves
+CMC 2
+C
+Orzhov Signet
+CMC 2
+W
+B
+Rakdos Signet
+CMC 2
+B
+R
+Strionic Resonator
+CMC 2
+C
+Swiftfoot Boots
+CMC 2
+C
+Chromatic Lantern
+CMC 3
+C
+Helm of the Host
+CMC 4
+C
+Quicksilver Amulet
+CMC 4
+C
+ENCHANTMENTS
+5
+Animate Dead
+CMC 2
+B
+Dragon Tempest
+CMC 2
+R
+Necropotence
+CMC 3
+B
+Phyrexian Arena
+CMC 3
+B
+Rising of the Day
+CMC 3
+R
+INSTANTS
+7
+Path to Exile
+CMC 1
+W
+Terminate
+CMC 2
+B
+R
+Anguished Unmaking
+CMC 3
+W
+B
+Crackling Doom
+CMC 3
+W
+B
+R
+Deflecting Swat
+CMC 3
+R
+Mortify
+CMC 3
+W
+B
+Teferi's Protection
+CMC 3
+W
+SORCERIES
+5
+Demonic Tutor
+CMC 2
+B
+Wrath of God
+CMC 4
+W
+Austere Command
+CMC 6
+W
+Merciless Eviction
+CMC 6
+W
+B
+Ruinous Ultimatum
+CMC 7
+W
+B
+R
+LANDS
+35
+Battlefield Forge
+Land
+Blood Crypt
+Land
+Caves of Koilos
+Land
+Clifftop Retreat
+Land
+Command Tower
+Land
+Dragonskull Summit
+Land
+Flagstones of Trokair
+Land
+Godless Shrine
+Land
+Homeward Path
+Land
+Isolated Chapel
+Land
+Mountain
+Land
+Mountain
+Land
+Mountain
+Land
+Mountain
+Land
+Mountain
+Land
+Nomad Outpost
+Land
+Plains
+Land
+Plains
+Land
+Plains
+Land
+Plains
+Land
+Plains
+Land
+Reliquary Tower
+Land
+Rogue's Passage
+Land
+Rugged Prairie
+Land
+Sacred Foundry
+Land
+Smoldering Marsh
+Land
+Swamp
+Land
+Swamp
+Land
+Swamp
+Land
+Swamp
+Land
+Swamp
+Land
+Swamp
+Land
+Temple of the False God
+Land
+Temple of Triumph
+Land
+Terramorphic Expanse
+Land

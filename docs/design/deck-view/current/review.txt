@@ -1,0 +1,346 @@
+DECKS
+HOLY HELLFIRE
+REVIEW
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+REBUILD REVIEW
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+DEEP REVIEW · SAVED
+Holy Hellfire
+BUILT 3D AGO
+STALE
+EXPLANATION UNAVAILABLE
+This review is out of date. genre registry changed (v2 -> v18). Press Rebuild review to refresh it.
+01
+GENRE
+02
+COMPOSITION
+03
+CURVE & TEMPO
+04
+FOCUS
+05
+STRONG CARDS
+06
+STRAGGLERS
+07
+COMBOS & ENGINES
+08
+ORACLE SUMMARY
+01
+GENRE
+GROUP HUG
+primary · 100% coverage
+PRODUCES CARDS 7/6
+PRODUCES MANA 9/6
+PRODUCES LIFE GAIN 4/3
+STAX
+secondary · 92% coverage
+PRODUCES MANA 9/8
+PRODUCES ARTIFACTS 13/4
+CONSUMES ARTIFACTS MISSING
+COMBO
+secondary · 84% coverage
+CONSUMES MANA 5/3
+PRODUCES SPELLS 12/12
+PRODUCES ARTIFACTS 13/6
+CONSUMES GRAVEYARD 5/3
+PRODUCES CARDS MISSING
+PRODUCES MANA MISSING
+PRODUCES GRAVEYARD MISSING
+
+Scored: Group hug 100% · Stax 92% · Combo 84% · Voltron 78% · Aristocrats 72%
+
+Role coverage = weighted mean of min(copies carrying the tag / min_count, 1) over each genre's required roles; picks need coverage >= 0.25; 14 genres scored.
+
+02
+COMPOSITION
+VS COMMAND ZONE 2025
+100 cards
+ROW	HAVE	TARGET	Δ	STATUS
+Lands	35	38	−3	SHORT
+Ramp	6	10	−4	SHORT
+Card advantage	5	12	−7	SHORT
+Targeted disruption	9	12	−3	SHORT
+Mass disruption	7	6	+1	OK
+Plan	39	22	+17	OVER
+
+Counts by quantity vs the Command Zone template; a card can sit in two rows.
+
+03
+CURVE & TEMPO
+COMMANDER ON CURVE
+66.2%
+Kaalia of the Vast · cmc 4 · lands only 49.8%
+UNSPENT MANA
+0.9
+/turn
+avg T2–T6
+ACTIVE SHARE
+88%
+56 of 64 nonland
+DURDLE TAX
+10%
+10 cards
+FLEX
+11%
+instant speed
+MANA BY TURN
+35 lands · 6 ramp
+TURN	MANA	SPENT	UNSPENT
+T2	1.9	0.2	1.7
+T3	3.0	3.0	0.0
+T4	3.8	2.5	1.3
+T5	4.4	4.4	0.0
+T6	4.9	3.2	1.7
+DURDLE CARDS
+10
+1
+Helm of the Host
+setup only
+1
+Lightning Greaves
+setup only
+1
+Necropotence
+pay now payoff later, setup only
+1
+Nomad Outpost
+tapland
+1
+Phyrexian Arena
+setup only
+1
+Quicksilver Amulet
+setup only
+1
+Rising of the Day
+setup only
+1
+Strionic Resonator
+setup only
+1
+Swiftfoot Boots
+setup only
+1
+Temple of Triumph
+tapland
+
+35 lands + 6 ramp in 99 cards; on the play, 7 + (t-1) cards seen by turn t; spend = min(mana, cumulative castable demand - spent).
+
+04
+FOCUS
+WIN LINE 1 · STRENGTH 58
+Combat
+Akroma, Angel of Wrath, Animate Dead, Arcane Signet, Aurelia, the Warleader, Balefire Dragon, Basandra, Battle Seraph, Blast-Furnace Hellkite, Bloodthirster, Boros Signet, Chromatic Lantern, Dragon Tempest, Firemane Commando, Flagstones of Trokair, Hellkite Charger, Hellkite Tyrant, Helm of the Host, Homeward Path, Isshin, Two Heavens as One, Kaalia of the Vast, Lightning Greaves, Lord of the Void, Master of Cruelties, Orzhov Signet, Path to Exile, Quicksilver Amulet, Rakdos Signet, Reya Dawnbringer, Rising of the Day, Rogue's Passage, Rune-Scarred Demon, Sol Ring, Steel Hellkite, Swiftfoot Boots, Temple of the False God, Terramorphic Expanse, Utvara Hellkite, Vilis, Broker of Blood
+37 cards, 7 piece(s) of evidence; strength = cards + 3*evidence.
+WIN LINE 2 · STRENGTH 39
+Attrition
+Animate Dead, Arcane Signet, Archfiend of Depravity, Austere Command, Boros Signet, Burning-Rune Demon, Chromatic Lantern, Crackling Doom, Dragon Tempest, Flagstones of Trokair, Gisela, Blade of Goldnight, Helm of the Host, Homeward Path, Necropotence, Orzhov Signet, Path to Exile, Rakdos Signet, Razaketh, the Foulblooded, Reliquary Tower, Reya Dawnbringer, Ruinous Ultimatum, Rune-Scarred Demon, Sol Ring, Temple of the False God, Utvara Hellkite, Vilis, Broker of Blood, Wrath of God
+27 cards, 4 piece(s) of evidence; strength = cards + 3*evidence.
+WIN LINE 3 · STRENGTH 20
+Combo
+Aurelia, the Warleader, Helm of the Host, Kaalia of the Vast, Master of Cruelties
+4 cards, 2 piece(s) of evidence; strength = cards + 3*evidence + 10 (decides games on its own).
+VS THE JOURNAL
+win cons claimed: combat, commander_damage
+CLAIMED, UNSUPPORTED
+NONE
+SUPPORTED, UNCLAIMED
+ATTRITION
+EXCLUDED IN JOURNAL
+COMBO LOCKOUT
+
+Also supported: lockout, alternate wincon, commander damage, burn
+
+05
+STRONG CARDS
+CARRYING THE DECK
+14 strong
+1
+Dragon Tempest
+WIN LINE
+ENGINE
+♥ PET
+1.00
+plan degree 21 >= p75 10.0; in a win line; active (etb).
+2
+Aurelia, the Warleader
+WIN LINE
+ENGINE
+1.00
+plan degree 20 >= p75 10.0; in a win line; active (creature_body).
+3
+Blast-Furnace Hellkite
+WIN LINE
+ENGINE
+1.00
+plan degree 20 >= p75 10.0; in a win line; active (creature_body).
+4
+Bloodthirster
+WIN LINE
+ENGINE
+1.00
+plan degree 20 >= p75 10.0; in a win line; active (creature_body).
+5
+Hellkite Charger
+WIN LINE
+ENGINE
+1.00
+plan degree 20 >= p75 10.0; in a win line; active (creature_body).
+6
+Hellkite Tyrant
+WIN LINE
+ENGINE
+1.00
+plan degree 20 >= p75 10.0; in a win line; active (creature_body).
+7
+Akroma, Angel of Wrath
+WIN LINE
+ENGINE
+1.00
+plan degree 12 >= p75 10.0; in a win line; active (creature_body).
+8
+Basandra, Battle Seraph
+WIN LINE
+ENGINE
+1.00
+plan degree 12 >= p75 10.0; in a win line; active (creature_body).
+9
+Lord of the Void
+WIN LINE
+ENGINE
+1.00
+plan degree 12 >= p75 10.0; in a win line; active (creature_body).
+10
+Utvara Hellkite
+WIN LINE
+ENGINE
+1.00
+plan degree 12 >= p75 10.0; in a win line; active (creature_body).
+11
+Firemane Commando
+WIN LINE
+ENGINE
+1.00
+plan degree 11 >= p75 10.0; in a win line; active (creature_body).
+12
+Balefire Dragon
+WIN LINE
+ENGINE
+1.00
+plan degree 10 >= p75 10.0; in a win line; active (creature_body).
+
+Strong = plan-graph degree >= the deck's p75, in a win line or engine, and active. Score = .4*min(1,degree/p75) + .3*win line + .15*engine + .15*active.
+
+06
+STRAGGLERS
+CUT CANDIDATES
+4 found · score ≥ 0.6
+1
+Merciless Eviction
+0.76
+weak: 0 edges · weak: off-pillar · weak: EDHREC 5% · weak: rarely played with the rest
+2
+Strionic Resonator
+DURDLE
+0.73
+weak: 2 edges · weak: EDHREC 14% · weak: rarely played with the rest · durdle: setup only
+3
+Deflecting Swat
+0.66
+weak: 0 edges · weak: rarely played with the rest
+4
+Baneslayer Angel
+0.62
+weak: 0 edges · weak: not on EDHREC
+PROTECTED PET CARDS
+never cut candidates
+♥
+Lyra Dawnbringer
+PROTECTED
+Pet card (Journal).
+♥
+Dragon Tempest
+PROTECTED
+Pet card (Journal).
+
+Straggler = Tuner weak score, averaged over the parts this deck has (+0.15 if durdle) >= 0.6, outside every win line, not a pet card. Lands and commanders are never scored.
+
+07
+COMBOS & ENGINES
+COMBOS IN THE DECK
+2
+Aurelia, the Warleader + Helm of the Host
+Infinite combat phases, Infinite creature tokens with haste, Infinite creature ETB, Infinite mana creatures you control can produce, Infinite untap of creatures you control
+Kaalia of the Vast + Master of Cruelties
+Target opponent loses the game
+ONE CARD AWAY
+71
+Godo, Bandit Warlord + Helm of the Host
+Infinite combat phases, Infinite death triggers, Infinite creature ETB, Infinite creature LTB, Infinite creature sacrifice triggers · missing Godo, Bandit Warlord (owned)
+Abdel Adrian, Gorion's Ward + Animate Dead
+Infinite blinking, Infinite creature tokens, Infinite death triggers, Infinite creature ETB, Infinite creature LTB · missing Abdel Adrian, Gorion's Ward (owned)
+Helm of the Host + Kiki-Jiki, Mirror Breaker
+Infinite death triggers, Infinite creature ETB, Infinite creature LTB, Infinite creature sacrifice triggers, Infinite tapped creature tokens · missing Kiki-Jiki, Mirror Breaker (owned)
+Aurelia, the Warleader + Sword of Hearth and Home
+Infinite combat damage, Infinite combat phases, Infinite creature ETB, Infinite creature LTB, Put all basic lands from your library onto the battlefield · missing Sword of Hearth and Home (owned)
+Hellkite Tyrant + Mycosynth Lattice
+Gain control of all permanents an opponent controls during each of your turns, Lock, Win the game at the beginning of your next upkeep · missing Mycosynth Lattice (owned)
+Helm of the Host + Scourge of the Throne
+Infinite combat phases, Infinite creature tokens with haste, Infinite creature ETB · missing Scourge of the Throne (owned)
+Hellkite Charger + The Reaver Cleaver
+Infinite artifact ETB, Infinite artifact LTB, Infinite artifact sacrifice triggers, Infinite artifact tokens, Infinite colored mana · missing The Reaver Cleaver (owned)
+Akki Battle Squad + Helm of the Host
+Infinite combat phases, Infinite creature tokens with haste, Infinite creature ETB, Infinite untap of modified creatures you control · missing Akki Battle Squad (owned)
+Fire Lord Zuko + Hellkite Charger
+Infinite combat phases · missing Fire Lord Zuko (owned)
+Hellkite Charger + Zuko, Firebending Master
+Infinite combat phases, Infinite red mana · missing Zuko, Firebending Master (owned)
+ENGINES
+10
+attacks → etb → attacks
+enables or adds attacks (haste, extra combats, attack enablers) — Akroma, Angel of Wrath, Aurelia, the Warleader, Basandra, Battle Seraph +6 more; turn attacking into enters the battlefield — Kaalia of the Vast, Lord of the Void, Utvara Hellkite; turn enters the battlefield into attacking — Dragon Tempest; payoff — Aurelia, the Warleader, Balefire Dragon, Blast-Furnace Hellkite +6 more. 243 path(s).
+mana → attacks
+produces extra mana (ramp, rocks, dorks, treasures) beyond a normal land drop — Arcane Signet, Boros Signet, Chromatic Lantern +6 more; turn mana into attacking — Basandra, Battle Seraph, Hellkite Charger; payoff — Aurelia, the Warleader, Balefire Dragon, Blast-Furnace Hellkite +8 more. 198 path(s).
+etb → attacks → etb
+puts permanents onto the battlefield or re-triggers ETBs (blink, flicker, cheat into play, creature tokens) — Animate Dead, Flagstones of Trokair, Path to Exile +2 more; turn enters the battlefield into attacking — Dragon Tempest; turn attacking into enters the battlefield — Kaalia of the Vast, Lord of the Void, Utvara Hellkite; payoff — Rune-Scarred Demon. 15 path(s).
+lands → mana
+puts extra lands onto the battlefield (extra land drops, land ramp, fetches) — Path to Exile, Terramorphic Expanse; turn lands entering into mana — Chromatic Lantern, Temple of the False God; payoff — Basandra, Battle Seraph, Hellkite Charger, Rogue's Passage +2 more. 20 path(s).
+death → etb → life_loss
+Fuel: Helm of the Host, Utvara Hellkite; makes creatures die (sac outlets, wipes, fight/removal of your own) — Archfiend of Depravity, Austere Command, Crackling Doom +3 more; turn creatures dying into enters the battlefield — Flagstones of Trokair; turn enters the battlefield into opponent life loss — Dragon Tempest; payoff — Vilis, Broker of Blood. 6 path(s).
+mana → cards
+produces extra mana (ramp, rocks, dorks, treasures) beyond a normal land drop — Arcane Signet, Boros Signet, Chromatic Lantern +6 more; turn mana into cards / draw — Vilis, Broker of Blood; payoff — Reliquary Tower. 9 path(s).
+etb → attacks
+3 card pair(s) feed each other through enters the battlefield and attacking: Dragon Tempest ⇄ Kaalia of the Vast; Dragon Tempest ⇄ Lord of the Void; Dragon Tempest ⇄ Utvara Hellkite
+graveyard → etb → cards
+fills your graveyard (self-mill, discard, loot, surveil) — Burning-Rune Demon, Necropotence; turn graveyard into enters the battlefield — Animate Dead, Reya Dawnbringer; turn enters the battlefield into cards / draw — Rune-Scarred Demon; payoff — Reliquary Tower. 4 path(s).
+life_loss → cards
+makes opponents lose life (drain, burn to face) — Crackling Doom, Dragon Tempest, Gisela, Blade of Goldnight; turn opponent life loss into cards / draw — Vilis, Broker of Blood; payoff — Reliquary Tower. 3 path(s).
+attacks
+3 card pair(s) feed each other through attacking: Aurelia, the Warleader ⇄ Bloodthirster; Aurelia, the Warleader ⇄ Hellkite Charger; Bloodthirster ⇄ Hellkite Charger
+
+Combos: Commander Spellbook included / almost-included (one card missing) for this exact decklist. Engines: resource chains and loops on the interaction graph (sources -> converters -> payoffs). Engines are reported for the cards in the deck only.
+
+08
+ORACLE SUMMARY
+EXPLANATION UNAVAILABLE
+
+Explanation unavailable: oracle's reply did not pass validation. The numbers above are complete; press Rebuild to retry.
+
+oracle reply contains no fenced ```json block

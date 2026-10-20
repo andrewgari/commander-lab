@@ -1,0 +1,230 @@
+{
+  "captures": [
+    {
+      "page": "overview",
+      "url": "http://tower:8020/deck/Holy%20Hellfire",
+      "status": 200,
+      "width": 1440,
+      "height": 7297,
+      "scrollWidth": 1440,
+      "screenshot": "overview-1440.png"
+    },
+    {
+      "page": "overview",
+      "url": "http://tower:8020/deck/Holy%20Hellfire",
+      "status": 200,
+      "width": 390,
+      "height": 52774,
+      "scrollWidth": 390,
+      "screenshot": "overview-390.png"
+    },
+    {
+      "page": "stats",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/stats",
+      "status": 200,
+      "width": 1440,
+      "height": 4015,
+      "scrollWidth": 1440,
+      "screenshot": "stats-1440.png"
+    },
+    {
+      "page": "stats",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/stats",
+      "status": 200,
+      "width": 390,
+      "height": 10097,
+      "scrollWidth": 390,
+      "screenshot": "stats-390.png"
+    },
+    {
+      "page": "identity",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/identity",
+      "status": 200,
+      "width": 1440,
+      "height": 1217,
+      "scrollWidth": 1440,
+      "screenshot": "identity-1440.png"
+    },
+    {
+      "page": "identity",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/identity",
+      "status": 200,
+      "width": 390,
+      "height": 2719,
+      "scrollWidth": 429,
+      "screenshot": "identity-390.png"
+    },
+    {
+      "page": "journal",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/journal",
+      "status": 200,
+      "width": 1440,
+      "height": 2868,
+      "scrollWidth": 1440,
+      "screenshot": "journal-1440.png"
+    },
+    {
+      "page": "journal",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/journal",
+      "status": 200,
+      "width": 390,
+      "height": 4703,
+      "scrollWidth": 390,
+      "screenshot": "journal-390.png"
+    },
+    {
+      "page": "tune",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/tune",
+      "status": 200,
+      "width": 1440,
+      "height": 7374,
+      "scrollWidth": 1440,
+      "screenshot": "tune-1440.png"
+    },
+    {
+      "page": "tune",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/tune",
+      "status": 200,
+      "width": 390,
+      "height": 11107,
+      "scrollWidth": 390,
+      "screenshot": "tune-390.png"
+    },
+    {
+      "page": "ideas",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/ideas",
+      "status": 200,
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "screenshot": "ideas-1440.png"
+    },
+    {
+      "page": "ideas",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/ideas",
+      "status": 200,
+      "width": 390,
+      "height": 1280,
+      "scrollWidth": 390,
+      "screenshot": "ideas-390.png"
+    },
+    {
+      "page": "review",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/review",
+      "status": 200,
+      "width": 1440,
+      "height": 6283,
+      "scrollWidth": 1440,
+      "screenshot": "review-1440.png"
+    },
+    {
+      "page": "review",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/review",
+      "status": 200,
+      "width": 390,
+      "height": 11818,
+      "scrollWidth": 390,
+      "screenshot": "review-390.png"
+    },
+    {
+      "page": "simulate",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/sim",
+      "status": 200,
+      "width": 1440,
+      "height": 3550,
+      "scrollWidth": 1440,
+      "screenshot": "simulate-1440.png"
+    },
+    {
+      "page": "simulate",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/sim",
+      "status": 200,
+      "width": 390,
+      "height": 7838,
+      "scrollWidth": 390,
+      "screenshot": "simulate-390.png"
+    },
+    {
+      "page": "manage",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/manage",
+      "status": 200,
+      "width": 1440,
+      "height": 7718,
+      "scrollWidth": 1440,
+      "screenshot": "manage-1440.png"
+    },
+    {
+      "page": "manage",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/manage",
+      "status": 200,
+      "width": 390,
+      "height": 21913,
+      "scrollWidth": 390,
+      "screenshot": "manage-390.png"
+    },
+    {
+      "page": "composition",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/composition",
+      "status": 200,
+      "width": 1440,
+      "height": 1110,
+      "scrollWidth": 1440,
+      "screenshot": "composition-1440.png"
+    },
+    {
+      "page": "composition",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/composition",
+      "status": 200,
+      "width": 390,
+      "height": 1684,
+      "scrollWidth": 411,
+      "screenshot": "composition-390.png"
+    },
+    {
+      "page": "primer-builder",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/primer/build",
+      "status": 200,
+      "width": 1440,
+      "height": 962,
+      "scrollWidth": 1440,
+      "screenshot": "primer-builder-1440.png"
+    },
+    {
+      "page": "primer-builder",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/primer/build",
+      "status": 200,
+      "width": 390,
+      "height": 1838,
+      "scrollWidth": 390,
+      "screenshot": "primer-builder-390.png"
+    },
+    {
+      "page": "theory",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/ideas/ef5c6036ce5e",
+      "status": 200,
+      "width": 1440,
+      "height": 4682,
+      "scrollWidth": 1440,
+      "screenshot": "theory-1440.png"
+    },
+    {
+      "page": "theory",
+      "url": "http://tower:8020/deck/Holy%20Hellfire/ideas/ef5c6036ce5e",
+      "status": 200,
+      "width": 390,
+      "height": 8157,
+      "scrollWidth": 390,
+      "screenshot": "theory-390.png"
+    }
+  ],
+  "blocked_writes": [
+    {
+      "url": "http://tower:8020/api/decks/archidekt%3A417707/tune/why",
+      "method": "POST"
+    },
+    {
+      "url": "http://tower:8020/api/decks/archidekt%3A417707/primer/suggest",
+      "method": "POST"
+    }
+  ]
+}

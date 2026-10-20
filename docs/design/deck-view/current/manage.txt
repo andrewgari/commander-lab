@@ -1,0 +1,773 @@
+Manage: Holy Hellfire
+Cards grouped by effective category (Deck Category override > Lab Tag > Uncategorized).
+← Back to Deck
+Aggro
+1
+Dragon Tempest
+Enchantment · CMC 0
+Aggro
+×
++ override
+Custom override...
+Remove
+Angels
+6
+Angel of Serenity
+Creature · CMC 0
+Angels
+×
+Interaction
+×
+Reanimator
+×
++ override
+Custom override...
+Remove
+Baneslayer Angel
+Creature · CMC 0
+Angels
+×
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Firemane Commando
+Creature · CMC 0
+Angels
+×
+Card Advantage
+×
+Aggro
+×
++ override
+Custom override...
+Remove
+Lyra Dawnbringer
+Creature · CMC 0
+Angels
+×
+Lord
+×
+Kindred
+×
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Sephara, Sky's Blade
+Creature · CMC 0
+Angels
+×
+Interaction
+×
+Lifegain
+×
+Protection
+×
++ override
+Custom override...
+Remove
+Serra's Emissary
+Creature · CMC 0
+Angels
+×
+Interaction
+×
+Kindred
+×
+Protection
+×
++ override
+Custom override...
+Remove
+Board Advantage
+4
+Akroma, Angel of Wrath
+Creature · CMC 0
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Bloodthirster
+Creature · CMC 0
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Isshin, Two Heavens as One
+Creature · CMC 0
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Lord of the Void
+Creature · CMC 0
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Card Advantage
+7
+Bloodgift Demon
+Creature · CMC 0
+Card Advantage
+×
++ override
+Custom override...
+Remove
+Burning-Rune Demon
+Creature · CMC 0
+Card Advantage
+×
++ override
+Custom override...
+Remove
+Demonic Tutor
+Sorcery · CMC 0
+Card Advantage
+×
+Tutor
+×
++ override
+Custom override...
+Remove
+Necropotence
+Enchantment · CMC 0
+Card Advantage
+×
++ override
+Custom override...
+Remove
+Razaketh, the Foulblooded
+Creature · CMC 0
+Card Advantage
+×
+Tutor
+×
++ override
+Custom override...
+Remove
+Rune-Scarred Demon
+Creature · CMC 0
+Card Advantage
+×
++ override
+Custom override...
+Remove
+Vilis, Broker of Blood
+Creature · CMC 0
+Card Advantage
+×
++ override
+Custom override...
+Remove
+Creature
+2
+Aurelia, the Warleader
+Creature · CMC 0
+Creature
+×
+Finisher
+×
++ override
+Custom override...
+Remove
+Gisela, Blade of Goldnight
+Creature · CMC 0
+Creature
+×
+Finisher
+×
++ override
+Custom override...
+Remove
+Dragon
+5
+Balefire Dragon
+Creature · CMC 0
+Dragon
+×
+Interaction
+×
+Removal
+×
++ override
+Custom override...
+Remove
+Blast-Furnace Hellkite
+Creature · CMC 0
+Dragon
+×
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Hellkite Charger
+Creature · CMC 0
+Dragon
+×
+Aggro
+×
+Extra Combat
+×
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Hellkite Tyrant
+Creature · CMC 0
+Dragon
+×
+Theft
+×
+Win Condition
+×
+Removal
+×
++ override
+Custom override...
+Remove
+Utvara Hellkite
+Creature · CMC 0
+Dragon
+×
+Board Advantage
+×
++ override
+Custom override...
+Remove
+Finisher
+1
+Master of Cruelties
+Creature · CMC 0
+Finisher
+×
++ override
+Custom override...
+Remove
+Interaction
+6
+Angel of Despair
+Creature · CMC 0
+Interaction
+×
++ override
+Custom override...
+Remove
+Basandra, Battle Seraph
+Creature · CMC 0
+Interaction
+×
++ override
+Custom override...
+Remove
+Deflecting Swat
+Instant · CMC 0
+Interaction
+×
++ override
+Custom override...
+Remove
+Mother of Runes
+Creature · CMC 0
+Interaction
+×
+Protection
+×
++ override
+Custom override...
+Remove
+Steel Hellkite
+Creature · CMC 0
+Interaction
+×
++ override
+Custom override...
+Remove
+Teferi's Protection
+Instant · CMC 0
+Interaction
+×
++ override
+Custom override...
+Remove
+Land
+35
+Battlefield Forge
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Blood Crypt
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Caves of Koilos
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Clifftop Retreat
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Command Tower
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Dragonskull Summit
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Flagstones of Trokair
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Godless Shrine
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Homeward Path
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Isolated Chapel
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Mountain
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Mountain
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Mountain
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Mountain
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Mountain
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Nomad Outpost
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Plains
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Plains
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Plains
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Plains
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Plains
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Reliquary Tower
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Rogue's Passage
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Rugged Prairie
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Sacred Foundry
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Smoldering Marsh
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Swamp
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Temple of the False God
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Temple of Triumph
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Terramorphic Expanse
+Land · CMC 0
+Land
+×
++ override
+Custom override...
+Remove
+Protection
+3
+Grand Abolisher
+Creature · CMC 0
+Protection
+×
++ override
+Custom override...
+Remove
+Platinum Angel
+Creature · CMC 0
+Protection
+×
++ override
+Custom override...
+Remove
+Swiftfoot Boots
+Artifact · CMC 0
+Protection
+×
++ override
+Custom override...
+Remove
+Ramp
+7
+Arcane Signet
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Boros Signet
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Chromatic Lantern
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Orzhov Signet
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Quicksilver Amulet
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Rakdos Signet
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Sol Ring
+Artifact · CMC 0
+Ramp
+×
++ override
+Custom override...
+Remove
+Recursion
+2
+Liesa, Forgotten Archangel
+Creature · CMC 0
+Recursion
+×
++ override
+Custom override...
+Remove
+Reya Dawnbringer
+Creature · CMC 0
+Recursion
+×
++ override
+Custom override...
+Remove
+Removal
+8
+Anguished Unmaking
+Instant · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Archfiend of Depravity
+Creature · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Austere Command
+Sorcery · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Crackling Doom
+Instant · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Merciless Eviction
+Sorcery · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Ruinous Ultimatum
+Sorcery · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Terminate
+Instant · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Wrath of God
+Sorcery · CMC 0
+Removal
+×
++ override
+Custom override...
+Remove
+Stax
+3
+Angelic Arbiter
+Creature · CMC 0
+Stax
+×
++ override
+Custom override...
+Remove
+Drana and Linvala
+Creature · CMC 0
+Stax
+×
+Board Presence
+×
++ override
+Custom override...
+Remove
+Ob Nixilis, Unshackled
+Creature · CMC 0
+Stax
+×
++ override
+Custom override...
+Remove
+Uncategorized
+10
+Animate Dead
+Enchantment · CMC 0
++ override
+Custom override...
+Remove
+Avacyn, Angel of Hope
+Creature · CMC 0
++ override
+Custom override...
+Remove
+Helm of the Host
+Artifact · CMC 0
++ override
+Custom override...
+Remove
+Kaalia of the Vast
+Creature · CMC 0
++ override
+Custom override...
+Remove
+Lightning Greaves
+Artifact · CMC 0
++ override
+Custom override...
+Remove
+Mortify
+Instant · CMC 0
++ override
+Custom override...
+Remove
+Path to Exile
+Instant · CMC 0
++ override
+Custom override...
+Remove
+Phyrexian Arena
+Enchantment · CMC 0
++ override
+Custom override...
+Remove
+Rising of the Day
+Enchantment · CMC 0
++ override
+Custom override...
+Remove
+Strionic Resonator
+Artifact · CMC 0
++ override
+Custom override...
+Remove

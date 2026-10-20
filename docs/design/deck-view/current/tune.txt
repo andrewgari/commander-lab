@@ -1,0 +1,491 @@
+DECKS
+HOLY HELLFIRE
+TUNE
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+GENERATED 20H AGO
+RECOMPUTE
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+OWNED, NOT IN A DECK
+OWNED, PLUS IN-DECK AND/OR BUY
+BEST CARD
+In a physical deck
+Would have to buy
+CAPS HARD $40 · SOFT $15 (DECK OVERRIDE) · PRICES SCRYFALL 20H AGO
+01
+SHAPE FIXES · 4
+LANDS
+−3
+35 / 38
+
+Owned, in another deck: Minas Tirith (in No The Other Frozen Throne; it gets Plains, +0.05), Exotic Orchard (in Go For The Eyes; it gets Mountain, +0.03), Windbrisk Heights (in No The Other Frozen Throne; it gets Plains, +0.07). Or add basics.
+
+ADD 3 LANDS
+RAMP
+−4
+6 / 10
+
+Nothing you own fits.
+
+CARD ADVANTAGE
+−7
+5 / 12
+
+Nothing you own fits.
+
+TARGETED DISRUPTION
+−3
+9 / 12
+
+Nothing you own fits.
+
+02
+SWAPS · CUT → ADD · 12
+CUT
+Merciless Eviction
+0.24
+score
+EDGES
+0
+FIT
+0.44
+EDHREC
+5%
+PLAYED
+0.41
+OWNED · IN CRITICALLY ACCLAIMED COMMANDER, THE FOURTEENTH DOCTOR NOW WITH FAN FAVORITE ACTOR DAVID TENNENT
+Everything Comes to Dust
+0.29
+score
+HASTE AND EXTRA COMBATS
+BUY · $3.46
+Archangel Avacyn
+0.71
+score
+DRAGON, ANGEL, DEMON
+GAP
++0.42
+BUY VS OWNED
+WORTH BUYING
+
+Take Everything Comes to Dust from Critically Acclaimed Commander, the Fourteenth Doctor now with fan favorite actor David Tennent → Critically Acclaimed Commander, the Fourteenth Doctor now with fan favorite actor David Tennent gets Merciless Eviction (+0.00)
+
+Archangel Avacyn can be cheated out by Kaalia to give your attacking board indestructible instead of exiling your own threats.
+
+ACCEPT
+DISMISS
+CUT
+Deflecting Swat
+0.34
+score
+EDGES
+0
+FIT
+0.58
+EDHREC
+32%
+PLAYED
+0.13
+OWNED · IN WE'RE TOTALLY GONNA OWN YOU LAMERS
+Mithril Coat
+0.64
+score
+COMMANDER PROTECTION
+BUY · $11.14
+Kaalia, Zenith Seeker
+0.81
+score
+COMMANDER PROTECTION
+GAP
++0.16
+BUY VS OWNED
+WORTH BUYING
+
+Take Mithril Coat from We're totally gonna own you lamers → We're totally gonna own you lamers gets Deflecting Swat (+0.05)
+
+ACCEPT
+DISMISS
+CUT
+Grand Abolisher
+0.36
+score
+EDGES
+0
+FIT
+0.48
+EDHREC
+31%
+PLAYED
+0.35
+OWNED · IN MY BIG, FAT, DEAD WEDDING
+Horn of the Mark
+0.57
+score
+TRIGGER DOUBLING AND CHEATING
+BUY · $3.20
+All-Out Assault
+0.72
+score
+HASTE AND EXTRA COMBATS
+GAP
++0.16
+BUY VS OWNED
+WORTH BUYING
+
+Take Horn of the Mark from My Big, Fat, Dead Wedding → My Big, Fat, Dead Wedding gets Grand Abolisher (+0.01)
+
+ACCEPT
+DISMISS
+CUT
+Quicksilver Amulet
+0.36
+score
+EDGES
+4
+FIT
+0.57
+EDHREC
+11%
+PLAYED
+0.26
+OWNED · IN THE WORD IS 'GAMER'
+Unstable Robot Dragon
+0.57
+score
+DRAGON, ANGEL, DEMON
+BUY · $16.25
+Avacyn, Angel of Horror
+0.75
+score
+DRAGON, ANGEL, DEMON
+OVER SOFT CAP $15
+GAP
++0.18
+BUY VS OWNED
+WORTH BUYING
+
+Take Unstable Robot Dragon from The Word is 'Gamer' → The Word is 'Gamer' gets Quicksilver Amulet (+0.04)
+
+Soft cap: Avacyn, Angel of Horror ($16.25) beats the owned Unstable Robot Dragon by 0.18. Over your $15 soft cap, so it needs +0.15 over your owned Unstable Robot Dragon.
+ACCEPT
+DISMISS
+CUT
+Baneslayer Angel
+0.38
+score
+EDGES
+0
+FIT
+0.90
+EDHREC
+0%
+PLAYED
+0.60
+Nothing you own beats it by enough.
+BUY · $0.67
+Demon of Loathing
+0.68
+score
+DRAGON, ANGEL, DEMON
+1 BETTER BUY HIDDEN
+OVER HARD CAP $40
+ACCEPT
+DISMISS
+CUT
+Necropotence
+0.38
+score
+EDGES
+6
+FIT
+0.59
+EDHREC
+10%
+PLAYED
+0.12
+OWNED · IN THE WORLD IS SLOWLY EBBING AWAY...
+Deadly Dispute
+0.57
+score
+TRIGGER DOUBLING AND CHEATING
+BUY · $2.46
+Aurelia, the Law Above
+0.81
+score
+DRAGON, ANGEL, DEMON
+GAP
++0.25
+BUY VS OWNED
+WORTH BUYING
+
+Take Deadly Dispute from The world is slowly ebbing away... → The world is slowly ebbing away... gets Necropotence (+0.02)
+
+ACCEPT
+DISMISS
+CUT
+Wrath of God
+0.40
+score
+EDGES
+3
+FIT
+0.38
+EDHREC
+13%
+PLAYED
+0.65
+Nothing you own beats it by enough.
+BUY · $1.79
+Ob Nixilis, the Ascended
+0.63
+score
+DRAGON, ANGEL, DEMON
+
+Ob Nixilis is a massive Demon that Kaalia cheats into play to pressure opponents while keeping your battlefield intact.
+
+ACCEPT
+DISMISS
+CUT
+Demonic Tutor
+0.41
+score
+EDGES
+0
+FIT
+0.64
+EDHREC
+36%
+PLAYED
+0.28
+OWNED · IN STRAIGHT OUTTA MIRKWOOD
+Witch-king, Bringer of Ruin
+0.55
+score
+COMMANDER PROTECTION
+BUY · $0.34
+Windcrag Siege
+0.68
+score
+HASTE AND EXTRA COMBATS
+GAP
++0.12
+BUY VS OWNED
+WORTH BUYING
+
+Take Witch-king, Bringer of Ruin from Straight Outta Mirkwood → Straight Outta Mirkwood gets Demonic Tutor (+0.11)
+
+ACCEPT
+DISMISS
+CUT
+Platinum Angel
+0.41
+score
+EDGES
+2
+FIT
+0.82
+EDHREC
+16%
+PLAYED
+0.31
+Nothing you own beats it by enough.
+BUY · $4.70
+Archfiend of Despair
+0.65
+score
+DRAGON, ANGEL, DEMON
+1 BETTER BUY HIDDEN
+OVER HARD CAP $40
+ACCEPT
+DISMISS
+CUT
+Terminate
+0.41
+score
+EDGES
+0
+FIT
+0.42
+EDHREC
+28%
+PLAYED
+0.68
+OWNED · IN EVERYTHING IS PERMITTED.
+Swords to Plowshares
+0.52
+score
+HASTE AND EXTRA COMBATS
+BUY · $0.50
+Drakuseth, Maw of Flames
+0.75
+score
+DRAGON, ANGEL, DEMON
+GAP
++0.23
+BUY VS OWNED
+WORTH BUYING
+
+Take Swords to Plowshares from Everything is permitted. → Everything is permitted. gets Terminate (+0.04)
+
+Drakuseth is a lethal Dragon that Kaalia can cheat tapped and attacking to incinerate blockers and opponents.
+
+ACCEPT
+DISMISS
+CUT
+Strionic Resonator
+0.42
+score
+EDGES
+2
+FIT
+0.82
+EDHREC
+14%
+PLAYED
+0.39
+OWNED · IN UNCHARTED: LARA'S LEGACY
+Aggravated Assault
+0.59
+score
+HASTE AND EXTRA COMBATS
+Keep yours: +0.06 isn't worth $5.34 (Rakdos, Patron of Chaos).
+GAP
++0.06
+BEST BUY VS OWNED · $5.34
+KEEP YOURS
+
+Take Aggravated Assault from Uncharted: Lara's Legacy → Uncharted: Lara's Legacy gets Strionic Resonator (+0.08)
+
+ACCEPT
+DISMISS
+CUT
+Mother of Runes
+0.43
+score
+EDGES
+0
+FIT
+0.57
+EDHREC
+39%
+PLAYED
+0.35
+Nothing you own beats it by enough.
+BUY · $5.34
+Rakdos, Patron of Chaos
+0.65
+score
+DRAGON, ANGEL, DEMON
+1 BETTER BUY HIDDEN
+OVER HARD CAP $40
+ACCEPT
+DISMISS
+♥ Lyra Dawnbringer · pet · weakest pet in the deck (0 edges, fit 0.60) but pets are never cut. Shown once so you know it was considered.
+EDIT PETS
+03
+WEAK PERFORMERS · COMPUTED
+CARD	WEAK SCORE
+Merciless Eviction	0.76	FIND SWAP
+Deflecting Swat	0.66	FIND SWAP
+Grand Abolisher	0.64	FIND SWAP
+Quicksilver Amulet	0.64	FIND SWAP
+Baneslayer Angel	0.62	FIND SWAP
+Necropotence	0.62	FIND SWAP
+Wrath of God	0.60	FIND SWAP
+Austere Command	0.60	no upgrade
+Demonic Tutor	0.59	FIND SWAP
+Platinum Angel	0.59	FIND SWAP
+Terminate	0.59	FIND SWAP
+Strionic Resonator	0.58	FIND SWAP
+Mother of Runes	0.57	FIND SWAP
+Steel Hellkite	0.57	no upgrade
+Rakdos Signet	0.53	no upgrade
+Animate Dead	0.53	no upgrade
+Chromatic Lantern	0.53	no upgrade
+Anguished Unmaking	0.51	no upgrade
+♥ Lyra Dawnbringer	0.51	pet
+Crackling Doom	0.50	no upgrade
+Teferi's Protection	0.50	no upgrade
+Drana and Linvala	0.50	no upgrade
+Mortify	0.50	no upgrade
+Razaketh, the Foulblooded	0.49	no upgrade
+Sol Ring	0.46	no upgrade
+Hellkite Charger	0.46	no upgrade
+Burning-Rune Demon	0.46	no upgrade
+Boros Signet	0.45	no upgrade
+Bloodgift Demon	0.45	no upgrade
+Utvara Hellkite	0.45	no upgrade
+Helm of the Host	0.43	no upgrade
+Phyrexian Arena	0.43	no upgrade
+Ruinous Ultimatum	0.43	no upgrade
+Angelic Arbiter	0.43	no upgrade
+Arcane Signet	0.43	no upgrade
+Orzhov Signet	0.41	no upgrade
+Path to Exile	0.40	no upgrade
+Serra's Emissary	0.40	no upgrade
+Bloodthirster	0.39	no upgrade
+Blast-Furnace Hellkite	0.39	no upgrade
+Angel of Serenity	0.39	no upgrade
+Basandra, Battle Seraph	0.38	no upgrade
+Ob Nixilis, Unshackled	0.38	no upgrade
+Angel of Despair	0.37	no upgrade
+Vilis, Broker of Blood	0.35	no upgrade
+Archfiend of Depravity	0.34	no upgrade
+Rising of the Day	0.33	no upgrade
+Firemane Commando	0.33	no upgrade
+Avacyn, Angel of Hope	0.32	no upgrade
+♥ Dragon Tempest	0.29	pet
+Gisela, Blade of Goldnight	0.29	no upgrade
+Sephara, Sky's Blade	0.29	no upgrade
+Reya Dawnbringer	0.25	no upgrade
+Akroma, Angel of Wrath	0.25	no upgrade
+Balefire Dragon	0.21	no upgrade
+Lightning Greaves	0.20	no upgrade
+Swiftfoot Boots	0.17	no upgrade
+Hellkite Tyrant	0.17	no upgrade
+Master of Cruelties	0.15	no upgrade
+Isshin, Two Heavens as One	0.15	no upgrade
+Rune-Scarred Demon	0.14	no upgrade
+Liesa, Forgotten Archangel	0.12	no upgrade
+Aurelia, the Warleader	0.11	no upgrade
+Lord of the Void	0.10	no upgrade
+Weak = few edges + off-pillar + low EDHREC + rarely played with the rest (card2vec, real decklists; — = card not in the model, counted as typical), equally weighted. No game logs. Pets (♥) are listed but never suggested as cuts.
+CHANGE LIST
+empty
+
+Accept a swap or a fix to start the list.
+
+SPEND
+$0
+OWNED
+ON-PLAN
+100%
+PROJECTED
+COPY AS TEXT
+Physical moves appear in Manage after you change the Archidekt list.
+KEYS
+J K
+Next / previous suggestion
+A
+Accept (picked option)
+B
+Accept the buy instead
+X
+Dismiss (won't return this review)
+H
+Mark cut card as pet

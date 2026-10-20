@@ -1,0 +1,200 @@
+DECKS
+HOLY HELLFIRE
+JOURNAL
+COMMANDER DECK · KAALIA OF THE VAST
+Holy Hellfire
+W
+B
+R
+PHYSICAL
+100 CARDS · 35 LANDS
+REVIEW
+OVERVIEW
+STATS
+IDENTITY
+5
+JOURNAL
+TUNE
+17
+IDEAS
+2
+REVIEW
+SIMULATE
+01
+DECK JOURNAL
+VISION
+DECK TAGS
+ARCHETYPE
+WIN CONS
+POWER & BRACKET
+BUDGET
+PETS & NOVELTIES
+PILLARS
+Vision
+
+One or two sentences. What does a good game with this deck look like?
+
+Intent
+NEW BUILD
+TUNE-UP
+OVERHAUL
+Vision DRAFT
+Feeds the Game Plan generator. Your words beat the draft.
+Target win turn (optional)
+Deck Tags
+
+What the deck is: how it plays, what it's about, which creature types it loves. Vision above is the sentence; these are the tags.
+
+Style
+0 / 4
+ADD
+Tokens / Go-Wide
+Aristocrats
+Voltron
+Spellslinger
++1/+1 Counters
+Ramp / Big Mana
+How the deck plays. The first is the primary (★); up to 3 more. Feeds Deep Review and the tuner.
+Deep Review's read (computed from the cards): Group hug 100% · Stax 92% · Combo 84% · stale · Open Review
+Themes
+0 / 5
+◇ IMPROVE
+ADD
+Budget
+Precon Upgrade
+Pet Deck
+Battlecruiser
+Horror / Gothic
+Meme / Jank
+Flavor, vibe, why you built it. Up to 5; type your own if it's not listed. Labels only: never scored.
+Kindred
+0 / 5
+◇ IMPROVE
+ADD
+Party
++4
+Outlaws
++5
+Elf
+Goblin
+Dragon
+Zombie
+Vampire
+Sliver
+Merfolk
+Angel
+MORE… 27
+Creature types the deck cares about. Up to 5. Picking Kindred as a style is separate and optional.
+Archetype
+
+Chosen from the global registry, or derived from how well the whole deck fills an archetype's required card roles.
+
+— none —
++1/+1 counters
+Aristocrats
+Group hug
+Landfall
+Reanimator
+Spellslinger
+Stax
+Storm
+Tokens
+Voltron
+DERIVED: GROUP HUG
+Manage the archetype registry
+Win cons
+
+Primary is one choice. Secondary can be several. Excluded means the tuner will never push you toward it.
+
+Primary
+COMBAT
+COMBO
+ATTRITION
+CMDR DMG
+MORE… 4
+Secondary
+COMBAT
+COMBO
+ATTRITION
+CMDR DMG
+MORE… 4
+Excluded
+COMBAT
+COMBO
+ATTRITION
+CMDR DMG
+LESS
+ALT WIN
+BURN
+LOCKOUT
+MILL
+Power & bracket
+
+Power is the 1–10 feel. Bracket is WotC's 1–5 rulebook: a promise to the pod. Set both; neither is derived from the other.
+
+Power · 8 · optimized
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+CASUAL
+FOCUSED
+OPTIMIZED
+CEDH
+Current estimate: 6.5 (computed) · within 1.5 of target
+Bracket · unset
+OFF
+1
+2
+3
+4
+5
+Current estimate: Bracket 3 · Upgraded (computed), marked  on the scale.
+Unset
+No target, so no bracket checks. The deck page still shows the estimate.
+Budget
+
+Per-card caps drive the tuner. Hard = never suggested. Soft = allowed, flagged, needs a reason.
+
+No budget (ignore all caps)
+Deck total
+$
+Now $597.99
+Hard cap / card
+$
+Global default $30 · overridden
+Soft cap / card
+$
+Global default $10 · overridden
+Prices: Scryfall USD, nonfoil, refreshed daily. Owned cards cost $0 against the budget.
+Pets & novelties
+
+Pets are never suggested as cuts. Novelties are things you want to see happen, scored as a bonus.
+
+Pet cards
+Dragon Tempest
+×
+Lyra Dawnbringer
+×
+Autocomplete from this deck's list only.
+Novelties
+Notes
+Pillars
+
+What the deck is built around. They live on Identity, where they're drafted from the cards and scored.
+
+NO MERCY
+DRAGON, ANGEL, DEMON
+HASTE AND EXTRA COMBATS
+COMMANDER PROTECTION
+TRIGGER DOUBLING AND CHEATING
+OPEN IDENTITY
+SAVED · EDIT ANYTIME
+DISCARD
+SAVE JOURNAL
