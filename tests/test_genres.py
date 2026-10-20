@@ -40,19 +40,14 @@ class TestStore(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
 
-    def test_seeds_on_first_read_once(self):
-        names = {g["name"] for g in G.list_genres(self.r)}
-        self.assertEqual(len(names), 13)
-        for want in ("Aristocrats", "Impulse draw / cast", "Storm", "Kindred / tribal", "Spellslinger", "Voltron",
-                     "Tokens", "+1/+1 counters", "Reanimator", "Landfall", "Superfriends", "Stax", "Group hug"):
-            self.assertIn(want, names)
-        self.assertEqual(G.get_version(self.r), 1)
+    def test_starts_empty_no_seed_call(self):
+        """No built-in seed data: an unread registry is simply absent, and reading it
+        never materializes anything -- it stays an empty list with version 0."""
+        self.assertEqual(G.list_genres(self.r), [])
+        self.assertEqual(G.get_version(self.r), 0)
+        self.assertIsNone(self.r.get(G.GENRES_KEY))
         G.list_genres(self.r)
-        self.assertEqual(G.get_version(self.r), 1)  # reading never bumps
-
-    def test_seeds_use_valid_vocabulary(self):
-        for s in G.SEED_GENRES:
-            self.assertEqual(G.clean_roles(s["required_roles"]), s["required_roles"], s["id"])
+        self.assertEqual(G.get_version(self.r), 0)  # reading never bumps or seeds
 
     def test_crud_and_version_bump(self):
         v0 = G.get_version(self.r)
@@ -68,6 +63,7 @@ class TestStore(unittest.TestCase):
             G.get_genre(self.r, "sac-package")
 
     def test_failed_write_does_not_bump(self):
+        G.create_genre(self.r, {"name": "Storm"})
         v = G.get_version(self.r)
         for body in ({"name": ""}, {"name": "X", "required_roles": [{"tag": "produces:nope"}]}, {"name": "Storm"}):
             with self.assertRaises(G.GenreError):
@@ -87,6 +83,7 @@ class TestStore(unittest.TestCase):
         self.assertEqual(G.normalize_tag("Consumes: Life gain"), "consumes:life_gain")
 
     def test_deleting_everything_does_not_reseed(self):
+        G.create_genre(self.r, {"name": "Temp", "required_roles": [ROLE]})
         for g in G.list_genres(self.r):
             G.delete_genre(self.r, g["id"])
         self.assertEqual(G.list_genres(self.r), [])
@@ -109,7 +106,7 @@ class TestApi(unittest.TestCase):
     def test_crud_roundtrip(self):
         res = self.c.get("/api/genres").json()
         v = res["version"]
-        self.assertEqual(len(res["genres"]), 13)
+        self.assertEqual(len(res["genres"]), 0)
         self.assertIn("produces:sacrifice", [x["tag"] for x in res["vocabulary"]])
         res = self.c.post("/api/genres", json={"name": "Mine", "required_roles": [ROLE]})
         self.assertEqual((res.status_code, res.json()["version"]), (201, v + 1))
@@ -128,6 +125,8 @@ class TestApi(unittest.TestCase):
         self.assertEqual(self.c.post("/api/genres", content=b"not json").status_code, 400)
 
     def test_deck_genres_endpoint(self):
+        G.create_genre(self.r, {"id": "landfall", "name": "Landfall",
+                                 "required_roles": [{"tag": "consumes:lands", "min_count": 1, "weight": 1}]})
         deck = {"name": "D", "registry_id": "archidekt:1", "cards": []}
         graph = {"counts": {"untagged": 1}, "nodes": [{"name": "A", "produces": ["lands"], "consumes": ["lands"]}]}
         with patch.object(app_module, "_deck_or_404", return_value=(deck, None)), \
@@ -182,7 +181,7 @@ class TestAutofill(unittest.TestCase):
         self.assertEqual(d["required_roles"][0], {"tag": "produces:sacrifice", "min_count": 3, "weight": 2.0})
         self.assertIn("produces:sacrifice", client.prompts[0])  # vocabulary is in the prompt
         self.assertEqual(G.get_version(self.r), v)  # nothing saved
-        self.assertEqual(len(G.list_genres(self.r)), 13)
+        self.assertEqual(len(G.list_genres(self.r)), 0)
 
     def test_unknown_tags_are_flagged_and_dropped(self):
         reply = dict(GOOD, required_roles=GOOD["required_roles"] + [
@@ -258,10 +257,20 @@ class TestGenreMatch(unittest.TestCase):
         self.assertEqual(json.dumps(a), json.dumps(G.genre_match(shuffled, list(reversed(genres)))))
         self.assertEqual(deck, _deck())  # inputs untouched
 
-    def test_seed_aristocrats_ranks_first_for_aristocrat_deck(self):
+    def test_fixture_aristocrats_ranks_first_for_aristocrat_deck(self):
+        """Local fixture standing in for the old SEED_GENRES vocabulary check."""
+        fixture_genres = [
+            {"id": "aristocrats", "name": "Aristocrats", "required_roles": [
+                {"tag": "produces:sacrifice", "min_count": 3, "weight": 2},
+                {"tag": "consumes:death", "min_count": 4, "weight": 2},
+                {"tag": "produces:tokens", "min_count": 4, "weight": 1},
+                {"tag": "produces:life_loss", "min_count": 2, "weight": 1}]},
+            {"id": "landfall", "name": "Landfall", "required_roles": [
+                {"tag": "consumes:lands", "min_count": 3, "weight": 1}]},
+        ]
         cards = [{"name": f"S{i}", "produces": ["sacrifice"], "consumes": ["death"]} for i in range(5)]
         cards += [{"name": f"T{i}", "produces": ["tokens", "life_loss"], "consumes": ["death"]} for i in range(5)]
-        out = G.genre_match({"cards": cards}, G.SEED_GENRES)
+        out = G.genre_match({"cards": cards}, fixture_genres)
         self.assertEqual(out[0]["genre"]["id"], "aristocrats")
         self.assertEqual(out[0]["coverage"], 1.0)
 
@@ -284,7 +293,7 @@ class TestGenreMatch(unittest.TestCase):
     def test_concurrent_creates_keep_every_write(self):
         import threading
         r = FakeRedis()
-        G.ensure_seeded(r)
+        G.ensure_seeded(r)  # no-op; kept to prove it never injects data under concurrency
         errs = []
         def mk(i):
             try: G.create_genre(r, {"name": f"Concurrent {i}", "required_roles": []})
