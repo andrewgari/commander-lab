@@ -430,6 +430,30 @@
             (rows || '<tr><td colspan="7"><div class="hud-empty">No games in this run.</div></td></tr>') + "</tbody></table></div></div>");
     }
 
+    // ---- Oracle diagnosis (analytics/sim_diagnosis.py; replaced on every completed run) ----
+    var DX_GROUPS = [["not_working", "Not working"], ["working", "Working"], ["missing_pillar", "Missing pillars"],
+                     ["straggler", "Stragglers"], ["context", "Context"], ["unavailable", "Not measurable from this run"]];
+    function dxEvidence(f) {
+        var e = f.evidence || {}, n = e.n == null ? "" : " · n=" + esc(e.n);
+        var src = e.source === "telemetry" ? "sim telemetry" : "decklist/review, not sim-validated";
+        return '<span class="hud-muted"> [' + esc(e.metric) + n + " · " + src + "]</span>";
+    }
+    function diagnosisHtml(report) {
+        var d = report.diagnosis;
+        if (!d) return sec("05", "Oracle diagnosis", '<div class="hud-empty">No diagnosis was generated for this run.</div>');
+        var h = '<p class="sm-headline" data-dx-status="' + esc(d.status) + '">' + esc(d.summary || "") + "</p>";
+        if (d.status === "insufficient_sample") h += '<div class="hud-empty">Insufficient sample: ' + esc(d.sample_games) + " of " + esc(d.min_games) + " games needed.</div>";
+        DX_GROUPS.forEach(function (g) {
+            var items = (d.findings || []).filter(function (f) { return f.category === g[0]; });
+            if (!items.length) return;
+            h += '<h3 class="hud-rv-h">' + g[1] + '</h3><ul class="hud-doc-list">' + items.map(function (f) { return "<li>" + esc(f.claim) + dxEvidence(f) + "</li>"; }).join("") + "</ul>";
+        });
+        if ((d.suggested_cuts || []).length) h += '<h3 class="hud-rv-h">Suggested cuts</h3><ul class="hud-doc-list">' + d.suggested_cuts.map(function (c) { return "<li>" + esc(c.card) + ": " + esc(c.reason) + "</li>"; }).join("") + "</ul>";
+        if ((d.suggested_adds || []).length) h += '<h3 class="hud-rv-h">Suggested adds</h3><ul class="hud-doc-list">' + d.suggested_adds.map(function (c) { return "<li>" + esc(c.reason) + "</li>"; }).join("") + "</ul>";
+        h += '<p class="hud-muted">' + (d.limitations || []).map(esc).join(" ") + "</p>";
+        return sec("05", "Oracle diagnosis", h);
+    }
+
     function reportHtml(d) {
         var sim = d.sim;
         if (!sim || !sim.report) return "";
@@ -437,7 +461,7 @@
         meta.deck_name = meta.deck_name || d.deck_name;
         return '<article class="hud-doc" id="doc" data-state="' + (meta.stale ? "stale" : "fresh") + '">' + reportHead(report, meta) + statStrip(report) +
             '<nav class="hud-doc-index" aria-label="Sections"><a href="#sm01">01 Oracle review</a><a href="#sm02">02 Curve &amp; tempo</a>' +
-            '<a href="#sm03">03 Cards</a><a href="#sm04">04 Game log</a></nav>' + s1(report) + s2(report) + s3(report) + s4(report) + "</article>";
+            '<a href="#sm03">03 Cards</a><a href="#sm04">04 Game log</a><a href="#sm05">05 Diagnosis</a></nav>' + s1(report) + s2(report) + s3(report) + s4(report) + diagnosisHtml(report) + "</article>";
     }
 
     // ---- Full page render ---------------------------------------------------
