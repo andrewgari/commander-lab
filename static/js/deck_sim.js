@@ -111,17 +111,19 @@
         if (d.length) out += '<li class="sm-combo-group" role="presentation">Your synced decks · ' + decks.length + "</li>" + d.map(row).join("");
         return out;
     }
-    function pickers(pool, picks) {
+    function pickers(pool, picks, modePrefix) {
         var ai = ["Reckless", "Default", "Cautious"];
         var opts = (pool && pool.opponents) || [];
         var byId = {}; opts.forEach(function (o) { byId[o.id] = o; });
         var taken = {}; picks.forEach(function (id, k) { if (id) taken[id] = k + 2; });
         return '<div class="sm-pickers">' + [0, 1, 2].map(function (k) {
             var val = picks[k] ? (byId[picks[k]] ? byId[picks[k]].name : picks[k]) : "";
-            return '<div class="sm-combo" data-seat="' + k + '"><label for="opp' + k + '"><b>Seat ' + (k + 2) + "</b> · " + ai[k] + '</label>' +
-                '<input id="opp' + k + '" role="combobox" aria-expanded="false" aria-controls="lb' + k + '" aria-autocomplete="list" autocomplete="off" ' +
-                'placeholder="Search ' + opts.length + ' decks…" value="' + esc(val) + '" data-value="' + esc(picks[k] || "") + '">' +
-                '<ul class="sm-combo-list" id="lb' + k + '" role="listbox" aria-label="Seat ' + (k + 2) + ' opponent" hidden>' +
+            var placeholder = modePrefix === "standard" ? "Default (" + STANDARD_POD[k][0] + ")" : "Search " + opts.length + " decks…";
+            var idBase = modePrefix + "opp" + k;
+            return '<div class="sm-combo" data-seat="' + k + '" data-mode="' + modePrefix + '"><label for="' + idBase + '"><b>Seat ' + (k + 2) + "</b> · " + ai[k] + '</label>' +
+                '<input id="' + idBase + '" role="combobox" aria-expanded="false" aria-controls="lb' + idBase + '" aria-autocomplete="list" autocomplete="off" ' +
+                'placeholder="' + placeholder + '" value="' + esc(val) + '" data-value="' + esc(picks[k] || "") + '">' +
+                '<ul class="sm-combo-list" id="lb' + idBase + '" role="listbox" aria-label="Seat ' + (k + 2) + ' opponent" hidden>' +
                 comboRows(opts.map(function (o) { return Object.assign({ _seatKey: k + 2 }, o); }), taken, "") + "</ul>" +
                 '<p class="sm-combo-err" role="alert" hidden></p></div>';
         }).join("") + "</div>";
@@ -130,12 +132,12 @@
         var opps = (pool && pool.opponents) || [];
         var preconCount = opps.filter(function (o) { return o.source === "precon"; }).length;
         var syncedCount = opps.length - preconCount;
-        return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + seatsHtml() +
-            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Same three Forge AIs every game. Slowest to vary, best for comparing one change against the last run.</p></div>' +
+        return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + pickers(pool, picks, "standard") +
+            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name, or leave empty for default (Cavalry Charge, Explorers of the Deep, Endless Punishment). Best for comparing one change against the last run.</p></div>' +
             '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '><p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> Three distinct decks drawn at random from <b style="color:var(--text-1)">' +
             opps.length + '</b>: ' + preconCount + " Forge precons plus " + syncedCount +
             ' of your synced decks. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p></div>' +
-            '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks) +
+            '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks, "specific") +
             '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Seat order sets the AI: Reckless, Default, Cautious. A deck can only sit in one seat.</p></div>';
     }
     function builderBody(btnLabel, mode, pool, picks, games, notes) {
@@ -524,16 +526,18 @@
     }
 
     function validate() {
-        if (STATE.mode !== "specific") return true;
         var picks = STATE.picks || ["", "", ""];
-        for (var i = 0; i < 3; i++) {
-            if (!picks[i]) {
-                var combo = document.querySelector('.sm-combo[data-seat="' + i + '"]');
-                combo.classList.add("is-invalid");
-                var err = combo.querySelector(".sm-combo-err");
-                err.hidden = false; err.textContent = "Pick a deck for Seat " + (i + 2) + ".";
-                combo.querySelector("input").focus();
-                return false;
+        if (STATE.mode === "specific" || STATE.mode === "standard") {
+            var needVal = STATE.mode === "specific";
+            for (var i = 0; i < 3; i++) {
+                if (!picks[i] && needVal) {
+                    var combo = document.querySelector('.sm-combo[data-seat="' + i + '"][data-mode="' + STATE.mode + '"]');
+                    combo.classList.add("is-invalid");
+                    var err = combo.querySelector(".sm-combo-err");
+                    err.hidden = false; err.textContent = "Pick a deck for Seat " + (i + 2) + ".";
+                    combo.querySelector("input").focus();
+                    return false;
+                }
             }
         }
         return true;
@@ -544,7 +548,10 @@
         var btn = $("runBtn");
         btn.disabled = true;
         var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "" };
-        if (STATE.mode === "specific") body.opponents = STATE.picks;
+        if (STATE.mode === "specific" || STATE.mode === "standard") {
+             var picks = STATE.picks || ["", "", ""];
+             if (picks.some(function(x) { return !!x; })) body.opponents = picks;
+        }
         call("POST", API + "/run", body).then(function (res) {
             var j = { job_id: res.job_id, started: new Date().toISOString() };
             remember(j);
