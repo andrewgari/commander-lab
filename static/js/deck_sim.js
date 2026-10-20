@@ -430,12 +430,16 @@
             (rows || '<tr><td colspan="7"><div class="hud-empty">No games in this run.</div></td></tr>') + "</tbody></table></div></div>");
     }
 
+    function diagHtml(report) {
+        return window.DeckSimReport ? window.DeckSimReport.render(report) : "";
+    }
+
     function reportHtml(d) {
         var sim = d.sim;
         if (!sim || !sim.report) return "";
         var report = sim.report, meta = sim.meta || {};
         meta.deck_name = meta.deck_name || d.deck_name;
-        return '<article class="hud-doc" id="doc" data-state="' + (meta.stale ? "stale" : "fresh") + '">' + reportHead(report, meta) + statStrip(report) +
+        return '<article class="hud-doc" id="doc" data-state="' + (meta.stale ? "stale" : "fresh") + '">' + reportHead(report, meta) + statStrip(report) + diagHtml(report) +
             '<nav class="hud-doc-index" aria-label="Sections"><a href="#sm01">01 Oracle review</a><a href="#sm02">02 Curve &amp; tempo</a>' +
             '<a href="#sm03">03 Cards</a><a href="#sm04">04 Game log</a></nav>' + s1(report) + s2(report) + s3(report) + s4(report) + "</article>";
     }
@@ -457,6 +461,7 @@
         H().initSortable(r);
         wireLog();
         wireCardGroups();
+        if (window.DeckSimReport && d.sim && d.sim.report) window.DeckSimReport.wire(r, d.sim.report);
     }
 
     function wireLog() {
