@@ -350,6 +350,15 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
     final["params"] = {**(report.get("params") or {}), **job["params"]}
     final["comparison"] = comparison
     final["oracle_review"] = {"source": source, "note": note, **review}
+    try:
+        import registry
+
+        from . import sim_telemetry
+
+        owned = sim_telemetry.owned_deck_ids(registry.list_decks(r), deck)
+        final["telemetry"] = sim_telemetry.build_telemetry(deck, job["params"], report, owned)
+    except Exception:  # noqa: BLE001 - telemetry must never block saving the run
+        log.warning("could not build sim telemetry", exc_info=True)
     saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})
     if saved is None:
         raise RuntimeError("could not save the completed simulation")
