@@ -2018,6 +2018,7 @@ main.main-content { padding-bottom: var(--sp-16); }
 
 /* Listbox rows: label + one-line description; group headers; "add custom" row. */
 .hud-tagfield .hud-picker-list [role="option"] { display: flex; flex-direction: column; gap: 1px; font: var(--fs-sm) var(--font-sans); }
+.hud-tagfield .hud-picker-list [role="option"] .hud-tagopt-label { display: block; }
 .hud-tagfield .hud-picker-list [role="option"] small { color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); }
 .hud-tagfield .hud-picker-list [role="option"] mark { background: none; color: var(--signal); }
 /* Already-added rows: no hover bar (a 0-width inset shadow, the only shadow form the kit allows). */
@@ -2050,9 +2051,18 @@ a.hud-chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--foc
     .hud-genre-strip .hud-chip-more-desktop { display: none; }
     .hud-genre-strip .hud-chip-more-phone { display: inline-flex; }
     .hud-tagfield .hud-picker .hud-chip, .hud-tagfield .hud-picker input { height: 1.75rem; }
-    .hud-chip-remove, .hud-chip-star { min-width: 1.5rem; min-height: 1.5rem; }
     .hud-tagopt { height: 2rem; }
     .hud-tagfield .hud-picker input { min-width: 100%; }
+}
+/* Touch-size the destructive/promote chip controls: 24x24 on fine pointers
+   (WCAG 2.5.8 AA), ~44px hit area on coarse (touch) pointers via a
+   transparent ::after overlay so the chip's visual height doesn't grow. */
+.hud-chip-remove, .hud-chip-star { min-width: 24px; min-height: 24px; position: relative; }
+@media (pointer: coarse) {
+    .hud-chip-remove::after, .hud-chip-star::after {
+        content: ""; position: absolute; top: 50%; left: 50%;
+        width: 2.75rem; height: 2.75rem; transform: translate(-50%, -50%);
+    }
 }
 
 /* =======================================================================
