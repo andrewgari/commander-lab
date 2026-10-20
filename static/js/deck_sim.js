@@ -146,6 +146,75 @@
             '<div class="sm-opp" id="oppRapid1v1"' + (mode === "rapid1v1" ? "" : " hidden") + '>' + pickers(pool, picks, "rapid", 1) +
             '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Test 1v1 matchup.</p></div>';
     }
+    // ---- Focus chips (catalog comes from GET .../sim -> focus) -----------------
+    var GENERIC_PLACEHOLDER = "Anything specific you want the review to look at? Optional.";
+    function focusInfo() { return (STATE.data && STATE.data.focus) || { catalog: [], suggestions: [], saved: null, max: 3 }; }
+    function focusMax() { return focusInfo().max || 3; }
+    function suggestionFor(slug) {
+        var list = (STATE.suggested || []);
+        for (var i = 0; i < list.length; i++) if (list[i].slug === slug) return list[i];
+        return null;
+    }
+    function focusPlaceholder(sel, catalog) {
+        var labels = sel.map(function (sl) { var c = catalog.filter(function (x) { return x.slug === sl; })[0]; return c ? c.label.toLowerCase() : null; })
+            .filter(Boolean);
+        if (!labels.length) return GENERIC_PLACEHOLDER;
+        return "Anything specific about " + labels.join(", ") + " you want the review to check? Optional.";
+    }
+    function focusSection(notes) {
+        var info = focusInfo(), catalog = info.catalog || [], sel = STATE.focus || [], max = focusMax();
+        var full = sel.length >= max;
+        var chips = catalog.map(function (c) {
+            var on = sel.indexOf(c.slug) !== -1, sug = on && suggestionFor(c.slug);
+            return '<div class="sm-focus-item"><button type="button" class="sm-focus-chip' + (on ? " is-on" : "") + '" data-slug="' + esc(c.slug) +
+                '" aria-pressed="' + (on ? "true" : "false") + '"' + (!on && full ? " disabled" : "") + ">" + esc(c.label) +
+                (sug ? ' <span class="sm-focus-tag">Suggested</span>' : "") + "</button>" +
+                (on ? '<p class="sm-focus-hint">' + esc("We'll watch: " + c.hint) + (sug ? " · " + esc(sug.reason) : "") + "</p>" : "") + "</div>";
+        }).join("");
+        return '<fieldset class="sm-focus"><legend id="lgFocus">Focus <span class="hud-muted">(optional, up to ' + max + ")</span></legend>" +
+            (catalog.length ? '<div class="sm-focus-chips" role="group" aria-labelledby="lgFocus">' + chips + "</div>" +
+            '<div class="sm-focus-foot"><span class="hud-field-hint" id="focusCount">' + sel.length + " of " + max + " selected" + (full ? " (max reached)" : "") +
+            (sel.length ? "" : " · balanced run") + '</span><button type="button" class="hud-btn hud-btn--ghost" id="focusClear"' + (sel.length ? "" : " hidden") + ">Clear</button></div>"
+                : '<p class="hud-field-hint">No focus areas available.</p>') + "</fieldset>" +
+            '<div class="hud-field"><label for="notes">What to watch for <span class="hud-muted">(optional)</span></label>' +
+            '<textarea id="notes" maxlength="500" rows="3" placeholder="' + esc(focusPlaceholder(sel, catalog)) + '">' + esc(notes || "") + "</textarea>" +
+            '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle uses this as emphasis; the full review still runs.</span><span class="sm-counter" aria-live="off">' +
+            (notes || "").length + " / 500</span></div></div>";
+    }
+    function toggleFocus(slug) {
+        var sel = (STATE.focus || []).slice(), i = sel.indexOf(slug);
+        if (i !== -1) sel.splice(i, 1);
+        else if (sel.length < focusMax()) sel.push(slug);
+        else return;
+        STATE.focus = sel; STATE.focusTouched = true;
+        rerenderFocus();
+    }
+    function rerenderFocus() {
+        var fs = document.querySelector(".sm-focus"), ta = $("notes");
+        if (!fs) return;
+        var holder = document.createElement("div");
+        holder.innerHTML = focusSection(ta ? ta.value : STATE.notes);
+        fs.parentNode.replaceChild(holder.firstChild, fs);
+        var oldPh = $("notes");
+        if (oldPh) oldPh.placeholder = focusPlaceholder(STATE.focus || [], focusInfo().catalog || []);
+        wireFocus();
+    }
+    function wireFocus() {
+        document.querySelectorAll(".sm-focus-chip").forEach(function (b) {
+            b.addEventListener("click", function () { toggleFocus(b.dataset.slug); });
+        });
+        var clr = $("focusClear");
+        if (clr) clr.addEventListener("click", function () { STATE.focus = []; STATE.focusTouched = true; rerenderFocus(); });
+    }
+    function initFocus(info) {
+        // Saved choice (even an empty one) wins; suggestions only when nothing is saved. Never overwrite the user's edits.
+        if (STATE.focusTouched) return;
+        var catalog = (info && info.catalog) || [];
+        var known = function (s) { return catalog.some(function (c) { return c.slug === s; }); };
+        if (info && info.saved) { STATE.focus = info.saved.filter(known).slice(0, info.max || 3); STATE.suggested = []; return; }
+        STATE.suggested = (info && info.suggestions) || [];
+        STATE.focus = STATE.suggested.map(function (x) { return x.slug; }).filter(known).slice(0, (info && info.max) || 3);
+    }
     function builderBody(btnLabel, mode, pool, picks, games, notes) {
         var opCount = 3;
         if (mode === "rapid1v1") opCount = 1;
@@ -160,9 +229,7 @@
             '<input type="radio" name="games" id="g20" value="20"' + (games === 20 ? " checked" : "") + '><label for="g20">20 games · ~' + Math.ceil(10 * multiplier) + ' min</label>' +
             '<input type="radio" name="games" id="g60" value="60"' + (games === 60 ? " checked" : "") + '><label for="g60">60 games · ~' + Math.ceil(30 * multiplier) + ' min</label></div>' +
             '<span class="sm-count-note">More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it.</span></div></fieldset>' +
-            '<div class="hud-field"><label for="notes">Test notes <span class="hud-muted">(optional)</span></label>' +
-            '<textarea id="notes" maxlength="500" rows="3" placeholder="e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4">' + esc(notes || "") + '</textarea>' +
-            '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle answers this directly in section 01.</span><span class="sm-counter" aria-live="off">' + (notes || "").length + ' / 500</span></div></div>' +
+            focusSection(notes) +
             '<p class="sm-error" id="simError" role="alert"></p>' +
             '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn">' + esc(btnLabel) + '</button>' +
             '<p class="sm-runbar-hint">Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes.</p></div></form>';
@@ -230,10 +297,12 @@
         var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
             chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
-            chip((params.games || pod.games_played || "?") + " games", "neutral") +
+            chip((params.games || pod.games_played || "?") + " games", "neutral") + focusLine +
             chip("Won " + (pod.user_wins != null ? pod.user_wins : "?") + " of " + (pod.games_played != null ? pod.games_played : (params.games || "?")), (pod.user_wins || 0) * 4 >= (pod.games_played || 1) ? "ok" : "neutral");
-        var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>' +
+        var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">What to watch for</span><q>' +
             esc(params.notes) + "</q></div></div>" : "";
+        var fsnap = Array.isArray(params.focus_snapshot) ? params.focus_snapshot : [];
+        var focusLine = fsnap.length ? chip("Focus: " + fsnap.map(function (f) { return f.label; }).join(", "), "data") : "";
         var stale = meta.stale ? '<div class="hud-panel hud-panel--signal" id="staleNote" role="status" style="margin-top:var(--sp-4)"><div class="hud-panel-body">' +
             "<b>This report is out of date.</b> " + esc(meta.stale_reason || "The decklist changed since this simulation was run.") +
             " The numbers describe the old list. Open <i>Run new simulation</i> above to refresh.</div></div>" : "";
@@ -490,6 +559,7 @@
                 });
             });
         });
+        wireFocus();
         var ta = $("notes");
         if (ta) ta.addEventListener("input", function () {
             STATE.notes = ta.value;
@@ -588,7 +658,7 @@
         if (!validate()) return;
         var btn = $("runBtn");
         btn.disabled = true;
-        var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "" };
+        var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "", focus: (STATE.focus || []).slice(0, focusMax()) };
         if (STATE.mode === "specific" || STATE.mode === "standard" || STATE.mode === "rapid1v1") {
              var picks = STATE.picks || ["", "", "", "", ""];
              if (STATE.mode === "rapid1v1") body.opponents = [picks[0]];
@@ -657,7 +727,9 @@
                 var p = d.sim && d.sim.report && d.sim.report.params;
                 if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; }
             }
+            d.focus = res.focus || null;
             STATE.data = d;
+            initFocus(d.focus);
             render(d);
             var followId = (res.running_job && res.running_job.job_id) || (pending && pending.job_id);
             if (followId) poll({ job_id: followId });

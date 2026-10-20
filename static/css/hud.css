@@ -3502,6 +3502,16 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-count { display: flex; gap: var(--sp-4); align-items: center; flex-wrap: wrap; }
 .sm-count-note { color: var(--text-3); font-size: var(--fs-xs); }
 .sm-notes-foot { display: flex; justify-content: space-between; gap: var(--sp-3); }
+.sm-focus { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sm-focus-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.sm-focus-item { display: flex; flex-direction: column; gap: var(--sp-1); max-width: 100%; }
+.sm-focus-chip { min-height: 2rem; padding: 0 var(--sp-3); background: var(--surface-2); color: var(--text-2); border: var(--stroke); border-radius: var(--radius-1); font-size: var(--fs-sm); cursor: pointer; }
+.sm-focus-chip:hover:not(:disabled) { border-color: var(--signal); color: var(--text-1); }
+.sm-focus-chip.is-on { background: var(--signal-dim); border-color: var(--signal); color: var(--signal-strong); }
+.sm-focus-chip:disabled { opacity: .45; cursor: not-allowed; }
+.sm-focus-tag { margin-left: var(--sp-1); color: var(--signal); font: var(--fs-micro) var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+.sm-focus-hint { margin: 0; color: var(--text-3); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.sm-focus-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
 .sm-counter { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
 .sm-counter.is-near { color: var(--signal); }
 

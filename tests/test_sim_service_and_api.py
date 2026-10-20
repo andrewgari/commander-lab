@@ -102,7 +102,8 @@ class Base(unittest.TestCase):
 
 class TestValidation(unittest.TestCase):
     def test_defaults(self):
-        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": ""})
+        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": "",
+                                                              "focus": [], "focus_snapshot": []})
 
     def test_bad_values(self):
         for bad in ({"opponent_mode": "wild"}, {"games": 0}, {"games": 101}, {"games": "20"}, {"games": True},
