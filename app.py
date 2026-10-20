@@ -2423,7 +2423,8 @@ async def api_run_deck_sim(deck_id: str, request: Request):
         raise
     return JSONResponse(status_code=202, content={
         "success": True, "job_id": job["job_id"], "status": job["status"],
-        "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
+            "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
+
 
 
 @app.get("/api/decks/{deck_id}/sim/jobs/{job_id}")
