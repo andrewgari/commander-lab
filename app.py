@@ -2387,8 +2387,38 @@ async def api_get_deck_sim(deck_id: str):
     view = await asyncio.to_thread(sim_service.saved_view, r, deck)
     pool = await asyncio.to_thread(sim_service.build_opponent_pool, r, None, deck)
     running = await asyncio.to_thread(sim_service.active_job, r, deck)
+    std_pod = await asyncio.to_thread(sim_service.resolve_pod, r, deck)
     return {"success": True, **view, "opponent_pool": pool["opponents"], "opponent_pool_error": pool["daemon_error"],
+            "standard_pod": std_pod,
             "running_job": sim_service.public_job(running) if running else None}
+
+
+@app.get("/api/sim/standard-pod")
+async def api_get_standard_pod():
+    from analytics import sim_service
+
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
+
+
+@app.put("/api/sim/standard-pod")
+async def api_put_standard_pod(request: Request):
+    """{"decks": [1-5 opponent ids]} -> saved pod. Forge precons only if the caller lists them."""
+    from analytics import sim_service
+
+    body = await _json_body(request)
+    try:
+        await asyncio.to_thread(sim_service.save_pod, r, (body or {}).get("decks") if isinstance(body, dict) else None)
+    except sim_service.SimParamError as exc:
+        return _bad_request(exc, 422)
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
+
+
+@app.delete("/api/sim/standard-pod")
+async def api_delete_standard_pod():
+    from analytics import sim_service
+
+    await asyncio.to_thread(sim_service.clear_pod, r)
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
 
 
 @app.post("/api/decks/{deck_id}/sim/run")
