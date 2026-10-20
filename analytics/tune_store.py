@@ -133,9 +133,9 @@ def save_active(r, deck_id: str, payload: Mapping, params: Optional[Mapping] = N
 
 
 def recompute(r, deck: Mapping, generate: Callable[..., Any], mode: str = "flex",
-              in_deck: bool = True, buy: bool = True) -> tuple:
-    """Run `generate(r, deck, mode, in_deck, buy)` (normally `tuner.compute`) and save
+              in_deck: bool = True, buy: bool = True, goal: str = "balanced") -> tuple:
+    """Run `generate(r, deck, mode, in_deck, buy, goal)` (normally `tuner.compute`) and save
     the result as the deck's active record. Nothing is saved if generation raises,
     so the previous active record stays active."""
-    payload = generate(r, deck, mode, in_deck, buy)
-    return save_active(r, deck_key(deck), payload, {"mode": mode, "in_deck": in_deck, "buy": buy})
+    payload = generate(r, deck, mode, in_deck, buy, goal=goal)
+    return save_active(r, deck_key(deck), payload, {"mode": mode, "in_deck": in_deck, "buy": buy, "goal": goal})
