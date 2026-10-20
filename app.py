@@ -10,6 +10,8 @@ import github_sync
 import json
 import time
 import html
+import markdown
+import bleach
 from typing import List, Optional
 from datetime import datetime, timezone
 
@@ -430,22 +432,47 @@ async def get_version(request: Request):
 
 
 
+_CHANGELOG_ALLOWED_TAGS = [
+    "p", "ul", "ol", "li", "strong", "em", "code", "pre", "blockquote",
+    "h1", "h2", "h3", "h4", "a", "br", "hr",
+]
+_CHANGELOG_ALLOWED_ATTRS = {"a": ["href", "title", "rel"]}
+
+
+def render_release_body(body: str | None) -> str:
+    """Render a full GitHub release body as sanitized HTML.
+
+    Unlike the old extract_short_description(), this never truncates --
+    the full prose, headings, and bullet lists are preserved so the
+    changelog page shows the complete, readable release notes.
+    """
+    if not body:
+        return ""
+    html_out = markdown.markdown(body.strip(), extensions=["fenced_code", "nl2br"])
+    return bleach.clean(
+        html_out,
+        tags=_CHANGELOG_ALLOWED_TAGS,
+        attributes=_CHANGELOG_ALLOWED_ATTRS,
+        strip=True,
+    )
+
+
 def extract_short_description(body: str | None, max_length: int = 280) -> str:
-    """Extract a concise summary from a GitHub release body."""
+    """Deprecated: kept only for backward compatibility with callers that
+    still want a plain-text summary. The changelog page itself now uses
+    render_release_body() and never truncates. No "..." is ever appended
+    here either -- callers that need a hard-capped label should truncate
+    on their own with an explicit, visible affordance (e.g. a tooltip).
+    """
     if not body:
         return ""
     lines = [line.strip() for line in body.strip().splitlines()]
-    # Ignore markdown headings
     content_lines = [line for line in lines if line and not line.startswith("#")]
     if not content_lines:
         content_lines = [line for line in lines if line]
     if not content_lines:
         return ""
-    text = " ".join(content_lines)
-    if len(text) > max_length:
-        truncated = text[:max_length].rsplit(" ", 1)[0]
-        return f"{truncated}..."
-    return text
+    return " ".join(content_lines)
 
 
 @app.get("/changelog", response_class=HTMLResponse)
@@ -495,6 +522,7 @@ async def changelog(request: Request):
             rel_dict = dict(rel)
             body = rel.get("body") or ""
             rel_dict["short_description"] = extract_short_description(body)
+            rel_dict["body_html"] = render_release_body(body)
             pub_date = rel.get("published_at")
             rel_dict["release_date"] = pub_date[:10] if pub_date else "Unknown date"
             formatted_releases.append(rel_dict)
