@@ -603,9 +603,10 @@ def _apply_decommission(r, decks: list, registry_id: str, tag: str, pipe, now: s
             "unassigned_instance_ids": [],
         }
 
-    if target.get("status") != "physical":
+    status = target.get("status")
+    if status not in ("physical", "retired"):
         raise DecommissionError(
-            f"only physical decks can be decommissioned (deck status is {target.get('status')!r})"
+            f"only physical or retired decks can be decommissioned (deck status is {status!r})"
         )
 
     reg_id = registry_id_of(target)
@@ -614,6 +615,23 @@ def _apply_decommission(r, decks: list, registry_id: str, tag: str, pipe, now: s
         for inst in instance_store.list_instances(r, deck_id=key):
             if inst.get("ownership_status") == "in_deck":
                 bound[inst["id"]] = inst
+
+    if status == "retired":
+        # #133: a deck moved out of "physical" via the status dropdown (or
+        # the folder rule) is flagged pending_removal on its still-bound
+        # in_deck instances (see set_status). That marker is how we tell
+        # "retired, but still holding physical-deck cards that need
+        # decommissioning" apart from a deck that was simply never
+        # physical / has nothing bound here: only the former is accepted.
+        left_physical = any(
+            (inst.get("pending_removal") or {}).get("reason") == LEFT_PHYSICAL_FOLDER
+            for inst in bound.values()
+        )
+        if not left_physical:
+            raise DecommissionError(
+                "only physical decks (or decks just retired from physical) can be decommissioned"
+                f" (deck status is {status!r})"
+            )
 
     tags = list(target.get("tags") or [])
     tag_removed = tag in tags

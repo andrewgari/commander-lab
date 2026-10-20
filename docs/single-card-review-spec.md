@@ -319,9 +319,9 @@ Each rule that fires adds 20, capped at 40. These are detected rules, not opinio
 
 | Missing | Handling | Confidence cap |
 |---|---|---|
-| Card not on the commander's EDHREC page | Drop I and S: `E = (0.15·R + 0.10·H)/0.25`, or `E = R` without H. Flag `edhrec_card_missing`. | 0.70 |
-| Commander has no EDHREC page (404) | Same, for every card. Flag `edhrec_commander_missing`. | 0.70 |
-| No `edhrec_rank` | `R = 50`. Flag `rank_missing`. | — |
+| Card not on the commander's EDHREC page | Drop I and S: `E = (0.15·R + 0.10·H)/0.25`, or `E = R` without H. Flag `edhrec_data_missing`. | 0.70 |
+| Commander has no EDHREC page (404) | Same, for every card. Flag `edhrec_data_missing`. | 0.70 |
+| No `edhrec_rank` | `R = 50`. | — |
 | HF unavailable | Renormalise E. Unclassified cards become `synergy_piece` with `source: "fallback"`. | — |
 | No price | Budget = 50, flag `price_unknown` | — |
 

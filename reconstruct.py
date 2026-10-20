@@ -369,9 +369,9 @@ def start_reconstruct(
             raise ValueError(f"deck not found: {did}")
         if target.get("decommissioned_at"):
             raise registry.DecommissionError(f"deck is already decommissioned: {did}")
-        if target.get("status") != "physical":
+        if target.get("status") not in ("physical", "retired"):
             raise registry.DecommissionError(
-                f"only physical decks can be decommissioned (deck status is {target.get('status')!r})"
+                f"only physical or retired decks can be decommissioned (deck status is {target.get('status')!r})"
             )
 
         reg_id = registry.registry_id_of(target)
