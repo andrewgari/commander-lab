@@ -158,6 +158,13 @@ async def archetypes_view(request: Request):
     return templates.TemplateResponse(request=request, name="archetypes.html")
 
 
+@app.get("/staple-themes", response_class=HTMLResponse)
+async def staple_themes_view(request: Request):
+    """Staple theme registry (vocab PR5): user-editable card-name -> theme vocabulary used
+    by the offline heuristic theme/archetype aligner (analytics/engine.py)."""
+    return templates.TemplateResponse(request=request, name="staple_themes.html")
+
+
 @app.get("/composition/presets", response_class=HTMLResponse)
 async def composition_presets_view(request: Request):
     """Composition Presets registry: create/edit/delete, compare side by side."""
@@ -2270,6 +2277,7 @@ async def api_deck_review(request: Request):
     from deck_review import review_deck
     from user_intent import parse_user_intent
 
+    engine_mod.load_staple_theme_vocab(r)
     deck_id = data.get("deck_id")
     deck_input = data.get("deck") or data.get("decklist") or data.get("cards")
 
@@ -2334,6 +2342,7 @@ async def api_deck_review_rebuild(deck_id: str):
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
+    engine_mod.load_staple_theme_vocab(r)
     try:
         job = review_doc.new_job(r, {**deck, "registry_id": _theory_deck_id(deck)})
     except review_doc.ReviewBusy as exc:
@@ -4526,6 +4535,56 @@ async def api_archetypes_delete(archetype_id: str):
     except archetypes_mod.ArchetypeNotFound:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
     return {"success": True, "version": version}
+
+
+# ---------------------------------------------------------------------------
+# Staple theme registry (vocab PR5) -- see analytics/staple_theme_registry.py
+# ---------------------------------------------------------------------------
+
+@app.get("/api/staple-themes")
+async def api_staple_themes_list():
+    from analytics import staple_theme_registry as st_mod
+
+    entries = await asyncio.to_thread(st_mod.list_entries, r)
+    return {"success": True, "entries": entries}
+
+
+@app.post("/api/staple-themes")
+async def api_staple_themes_create(request: Request):
+    from analytics import staple_theme_registry as st_mod
+
+    body = await _json_body(request)
+    try:
+        entry = await asyncio.to_thread(st_mod.set_entry, r, body.get("card"), body.get("themes"))
+    except st_mod.StapleThemeError as exc:
+        return _bad_request(exc)
+    engine_mod.load_staple_theme_vocab(r)
+    return JSONResponse(status_code=201, content={"success": True, "entry": entry})
+
+
+@app.put("/api/staple-themes/{card_name}")
+async def api_staple_themes_update(card_name: str, request: Request):
+    from analytics import staple_theme_registry as st_mod
+
+    body = await _json_body(request)
+    try:
+        entry = await asyncio.to_thread(st_mod.set_entry, r, card_name, body.get("themes"))
+    except st_mod.StapleThemeError as exc:
+        return _bad_request(exc)
+    engine_mod.load_staple_theme_vocab(r)
+    return {"success": True, "entry": entry}
+
+
+@app.delete("/api/staple-themes/{card_name}")
+async def api_staple_themes_delete(card_name: str):
+    from analytics import staple_theme_registry as st_mod
+
+    try:
+        entry = await asyncio.to_thread(st_mod.delete_entry, r, card_name)
+    except st_mod.StapleThemeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"No staple theme entry for '{card_name}'"})
+    engine_mod.load_staple_theme_vocab(r)
+    return {"success": True, "entry": entry}
 
 
 def _archetype_deck_qty(deck: dict) -> dict:
