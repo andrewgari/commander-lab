@@ -63,7 +63,7 @@
         }
         return '<li><button type="button" class="ct-item' + (core ? " is-dense" : "") + '" data-id="' + esc(c.id) + '" aria-current="' + cur + '">' +
             '<span class="ct-item-name"><span>' + esc(c.name) + '</span>' + chips + '</span>' +
-            '<span class="ct-item-n">' + esc(big) + '<small>' + esc(capt) + '</small></span><p class="ct-item-desc">' + esc(c.description) + '</p></button></li>';
+            '<span class="ct-item-n">' + esc(big) + '<small>' + esc(capt) + '</small></span><p class="ct-item-desc" title="' + esc(c.description) + '">' + esc(c.description) + '</p></button></li>';
     }
     function grp(label, right, note) { return '<li class="ct-grp" role="presentation"><span>' + label + '</span>' + (note ? '<span class="ct-grp-note">' + esc(note) + '</span>' : "") + '<span class="ct-grp-n">' + right + '</span></li>'; }
     function themeSuggestions() {
