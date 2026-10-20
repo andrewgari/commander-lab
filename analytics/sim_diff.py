@@ -240,7 +240,7 @@ def pod_breakdown(report: Mapping) -> dict:
     for g in log:
         won = bool(g.get("user_won"))
         wins += won
-        opps = [{"seat": o.get("seat"), "deck": o.get("deck"), "ai": o.get("ai")} for o in g.get("opponents") or []]
+        opps = [{"seat": o.get("seat"), "deck": o.get("deck"), "ai": o.get("ai"), "owned": str(o.get("deck") or "").startswith("user_")} for o in g.get("opponents") or []]
         games.append({"game": g.get("game"), "opponents": opps, "winner": g.get("winner"), "user_won": won,
                       "total_turns": g.get("total_turns"), "win_reason": g.get("win_reason")})
         if g.get("win_reason"):

@@ -92,7 +92,7 @@ Header has **no action button** (unlike Review). Reason: Review has one action; 
 |---|---|---|---|
 | `standard` | Standard pod | Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game. | Full curve + card metrics |
 | `random` | Random each game | Three new opponents on every game, from Forge precons and your synced decks. | Game log + outcomes only *(drop this flag once decision 1 ships)* |
-| `specific` | Specific 3 | You pick all three from precons and synced decks. Fixed for the run. | Full curve + card metrics |
+| `specific` | Specific | You pick 1 to 5 opponents from precons and synced decks. Fixed for the run. | Full curve + card metrics |
 
 Under the tiles, one detail block (others `hidden`), `aria-live="polite"` so a switch is announced:
 
@@ -172,7 +172,7 @@ BUILT 3H AGO  ■ UP TO DATE  [STANDARD POD] [20 GAMES] [WON 12 OF 20]
 
 - `Built {relative}` with the absolute time in `title` (same JS as Review).
 - Freshness chip: `Up to date` (ok, dot) or `Stale` (signal, dot, `title` = reason).
-- Mode chip (data tone): `Standard pod` · `Random each game` · `Specific 3`. Specific: the three deck names are in the chip's `title`.
+- Mode chip (data tone): `Standard pod` · `Random each game` · `Specific`. Specific: the deck names are in the chip's `title`.
 - Games chip (neutral): `20 games`. Result chip: `Won 12 of 20` (ok when wins ≥ ¼ of games, else neutral). Draws are counted in the log, not hidden.
 - Notes callout (`hud-callout`, one column): label `YOUR TEST NOTES`, the text as typed, wrapped. **Omitted entirely** if the run had no notes.
 - **Stale** adds a `hud-panel--signal` `role="status"` note: "**This report is out of date.** The decklist changed after this run: {n cards swapped (+A, +B, −C)}. The numbers describe the old list. Open *Run new simulation* above to refresh." Report content stays full-contrast (not dimmed). Cards in 03 that left the deck get a neutral `cut since` chip.
