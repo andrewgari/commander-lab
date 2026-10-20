@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulate · Holy Hellfire · Commander Lab mockup (SM-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="sim.css">
+<style>.mock-note { margin-top: var(--sp-8); color: var(--text-3); font: var(--fs-xs) var(--font-mono); }</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+    <div id="page"></div>
+    <div class="mock-note">Mockup · SM-D · deck, commander, card names and Forge pod names are real (Holy Hellfire; daemon smoke reports) · every simulated number, Oracle sentence and win/loss is ILLUSTRATIVE sample data. States: ?s=empty | empty-random | empty-specific | running | oracle | fresh | random | stale | offline</div>
+</main>
+
+<script src="../../../static/js/hud.js"></script>
+<script src="../analytics/mock.js"></script>
+<script>
+(function () {
+    "use strict";
+    var M = window.MOCK;
+    var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var q = new URLSearchParams(location.search);
+    var S = q.get("s") || "fresh";
+    var HAS_REPORT = ["running", "oracle", "fresh", "random", "stale", "offline"].indexOf(S) > -1;
+    var RANDOM = S === "random";
+    var STALE = S === "stale";
+
+    M.shell();
+
+    // ---- deck header with the 8th tab ------------------------------------
+    var TABS = [["overview", "Overview", "1"], ["stats", "Stats", "2"], ["identity", "Identity", "3", "4"], ["journal", "Journal", "4"],
+                ["tune", "Tune", "5", "9"], ["ideas", "Ideas", "6", "3"], ["review", "Review", "7"], ["sim", "Simulate", "8"]];
+    var art = HUD.scryfall(M.DECK.commanderUid, "art_crop");
+    document.getElementById("deckhead").innerHTML =
+        '<div class="app-topbar"><ol class="hud-crumbs"><li><a href="#">Decks</a></li><li><a href="#">Holy Hellfire</a></li><li aria-current="page">Simulate</li></ol>' +
+        '<div class="app-topbar-meta"><span class="hud-freshness">Archidekt <b>23h ago</b></span></div></div>' +
+        '<header class="hud-deckhead"><div class="hud-cmdrs hud-deckhead-art"><figure class="hud-cmdr hud-cmdr--commander"><span class="hud-cmdr-art"><img alt="Kaalia of the Vast" src="' + art.src + '" data-fallback="' + art.fallback + '"></span></figure></div>' +
+        '<div><span class="hud-label">Commander deck · Kaalia of the Vast</span><h1>Holy Hellfire</h1>' +
+        '<div class="hud-deckhead-meta">' + HUD.pips("WBR", "sm") + HUD.statusChip("physical") + '<span class="hud-freshness">100 cards · 35 lands</span></div></div>' +
+        '<div class="hud-deckhead-actions"></div></header>' +
+        '<nav class="hud-tabs hud-deck-tabs" aria-label="Deck sections">' + TABS.map(function (t) {
+            var on = t[0] === "sim";
+            return '<a class="hud-tab' + (on ? " active" : "") + '" href="#"' + (on ? ' aria-current="page"' : "") + ' data-key="' + t[2] + '" title="' + t[1] + " (" + t[2] + ')">' + t[1] + (t[3] ? ' <span class="hud-tab-count">' + t[3] + "</span>" : "") + "</a>";
+        }).join("") + "</nav>";
+    var strip = document.querySelector(".hud-deck-tabs"), act = strip.querySelector("[aria-current]");
+    var over = act.getBoundingClientRect().right - strip.getBoundingClientRect().right; if (over > 0) strip.scrollLeft += over;
+
+    // ---- sample data -------------------------------------------------------
+    var STD = [["Cavalry Charge", "MOC 2023", "Reckless"], ["Explorers of the Deep", "LCC 2023", "Default"], ["Endless Punishment", "DSC 2024", "Cautious"]];
+    var POOL = [["Power Hungry", "C13 2013"], ["Scrappy Survivors", "PIP 2024"], ["The Host of Mordor", "LTC 2023"], ["Avengers Assemble", "MSC 2026"], ["Blood Rites", "LCC 2023"],
+                ["Wakanda Forever", "MSC 2026"], ["Built from Scratch", "C14 2014"], ["Obscura Operation", "NCC 2022"], ["Turtle Power!", "TMC 2026"], ["Cavalry Charge", "MOC 2023"],
+                ["Explorers of the Deep", "LCC 2023"], ["Endless Punishment", "DSC 2024"]];
+    var MINE = ["Atraxa Superfriends", "Korvold Treasure", "Yuriko Ninjas", "Meren Recursion"];
+    var AI = ["Reckless", "Default", "Cautious"];
+    var seed = 7; function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    var REASONS = ["All opponents have lost", "All opponents have lost", "All opponents have lost", "Opponent has Kaalia's Helm of the Host on board…"];
+    var GAMES = [], N = 20, i, j;
+    for (i = 1; i <= N; i++) {
+        var pod;
+        if (RANDOM) { var pool = POOL.slice(), t = []; for (j = 0; j < 3; j++) t.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]); pod = t.map(function (p, k) { return [p[0], p[1], AI[k]]; }); }
+        else pod = STD;
+        var win = rnd() < 0.65, turns = 9 + Math.floor(rnd() * 22), seat = 2 + Math.floor(rnd() * 3);
+        GAMES.push({ n: i, pod: pod, win: win, turns: turns, by: win ? null : { seat: seat, deck: pod[seat - 2][0] }, why: win ? "All opponents have lost" : (rnd() < 0.5 ? "Commander damage (21)" : "All opponents have lost") });
+    }
+    GAMES[6].draw = true; GAMES[6].win = false; GAMES[6].by = null; GAMES[6].why = "Clock timeout (180 s)";
+    var WINS = GAMES.filter(function (g) { return g.win; }).length;
+
+    // ---- builder -------------------------------------------------------------
+    var mode = S === "empty-random" || RANDOM ? "random" : (S === "empty-specific" ? "specific" : "standard");
+    function seatsHtml() {
+        return '<ol class="sm-seats" aria-label="Standard pod">' + STD.map(function (o, k) {
+            return '<li class="sm-seat"><span class="sm-seat-id"><b>Seat ' + (k + 2) + '</b> · ' + o[2] + '</span><span class="sm-seat-name">' + o[0] + '</span><span class="sm-seat-set">' + o[1] + "</span></li>";
+        }).join("") + "</ol>";
+    }
+    function pickers(openIdx) {
+        var picks = ["Cavalry Charge", "", ""];
+        return '<div class="sm-pickers">' + [0, 1, 2].map(function (k) {
+            var open = openIdx === k;
+            return '<div class="sm-combo"><label for="opp' + k + '"><b>Seat ' + (k + 2) + "</b> · " + AI[k] + '</label>' +
+                '<input id="opp' + k + '" role="combobox" aria-expanded="' + open + '" aria-controls="lb' + k + '" aria-autocomplete="list" autocomplete="off" placeholder="Search 179 decks…" value="' + (k === 0 ? picks[0] : (open ? "ex" : "")) + '">' +
+                '<ul class="sm-combo-list" id="lb' + k + '" role="listbox" aria-label="Seat ' + (k + 2) + ' opponent"' + (open ? "" : " hidden") + '>' +
+                '<li class="sm-combo-group" role="presentation">Forge precons · 154</li>' +
+                '<li class="sm-combo-opt" role="option" aria-selected="true"><span><mark>Ex</mark>plorers of the Deep</span><small>LCC 2023</small></li>' +
+                '<li class="sm-combo-opt" role="option"><span>Obscura Op<mark>e</mark>ration</span><small>NCC 2022</small></li>' +
+                '<li class="sm-combo-opt" role="option" aria-disabled="true"><span>Cavalry Charge</span><small>in Seat 2</small></li>' +
+                '<li class="sm-combo-group" role="presentation">Your synced decks · 25</li>' +
+                '<li class="sm-combo-opt" role="option"><span>Korvold Treasure</span><small>physical</small></li>' +
+                '</ul></div>';
+        }).join("") + "</div>";
+    }
+    function detail() {
+        return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + seatsHtml() +
+               '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Same three Forge AIs every game. Slowest to vary, best for comparing one change against the last run.</p></div>' +
+               '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '><p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> Three distinct decks drawn at random from <b style="color:var(--text-1)">179</b>: 154 Forge precons plus 25 of your synced decks. Holy Hellfire and its Kaalia mirrors are left out. The log in section 04 shows which pod each game got.</p></div>' +
+               '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(q.get("open") ? 1 : -1) + '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Seat order sets the AI: Reckless, Default, Cautious. A deck can only sit in one seat.</p></div>';
+    }
+    function builderBody(btnLabel) {
+        return '<form id="simForm" class="sm-form" novalidate>' +
+            '<fieldset><legend id="lgMode">Opponents</legend><div class="sm-modes" role="radiogroup" aria-labelledby="lgMode">' + [
+                ["standard", "Standard pod", "Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game.", "Full curve + card metrics"],
+                ["random", "Random each game", "Three new opponents on every game, from Forge precons and your synced decks.", "Game log + outcomes only"],
+                ["specific", "Specific 3", "You pick all three from precons and synced decks. Fixed for the run.", "Full curve + card metrics"]
+            ].map(function (m) {
+                return '<div class="sm-mode"><input type="radio" name="mode" id="m-' + m[0] + '" value="' + m[0] + '"' + (mode === m[0] ? " checked" : "") + '><label for="m-' + m[0] + '"><span class="sm-mode-name">' + m[1] + '</span><span class="sm-mode-desc">' + m[2] + '</span><span class="sm-mode-flag">' + m[3] + "</span></label></div>";
+            }).join("") + "</div></fieldset>" + detail() +
+            '<fieldset><legend id="lgGames">Games</legend><div class="sm-count"><div class="hud-seg" role="radiogroup" aria-labelledby="lgGames">' +
+            '<input type="radio" name="games" id="g20" value="20" checked><label for="g20">20 games · ~10 min</label><input type="radio" name="games" id="g60" value="60"><label for="g60">60 games · ~30 min</label></div>' +
+            '<span class="sm-count-note">More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it.</span></div></fieldset>' +
+            '<div class="hud-field"><label for="notes">Test notes <span class="hud-muted">(optional)</span></label>' +
+            '<textarea id="notes" maxlength="500" rows="3" placeholder="e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4"></textarea>' +
+            '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle answers this directly in section 01.</span><span class="sm-counter" aria-live="off">0 / 500</span></div></div>' +
+            '<p class="sm-error" id="simError" role="alert"></p>' +
+            '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn">' + btnLabel + '</button>' +
+            '<p class="sm-runbar-hint">Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes.</p></div></form>';
+    }
+    var offline = S === "offline";
+    function builder() {
+        if (!HAS_REPORT) {
+            return '<section class="hud-panel hud-panel--signal sm-builder" aria-labelledby="bldH"><header class="hud-panel-head"><h2 class="hud-panel-title" id="bldH">Run a simulation</h2><span class="hud-panel-meta">No simulation saved yet</span></header>' +
+                '<div class="hud-panel-body">' + builderBody("Run simulation") + "</div>" +
+                '<footer class="hud-panel-foot">You get: <b>01</b> Oracle review of the games · <b>02</b> curve and tempo vs the math · <b>03</b> which cards earned their slot · <b>04</b> every game, opponents and result.</footer></section>';
+        }
+        var last = RANDOM ? "Random each game · 20 games" : "Standard pod · 20 games";
+        return '<details class="hud-tray sm-tray" id="tray"' + (S === "stale" && q.get("tray") ? " open" : "") + '><summary><span>Run new simulation</span><span class="sm-tray-last">Last run: ' + last + "</span></summary>" +
+               '<div class="sm-tray-body">' + (offline ? "" : builderBody("Run new simulation")) + "</div></details>";
+    }
+
+    // ---- job -------------------------------------------------------------------
+    function job() {
+        if (S !== "running" && S !== "oracle") return "";
+        var oracle = S === "oracle", done = 7;
+        return '<section class="hud-job sm-job" id="job" aria-live="polite" tabindex="-1" data-phase="' + (oracle ? "oracle" : "sim") + '" style="--p:' + (done / 20) + '">' +
+            '<div class="hud-job-head"><span class="hud-label">' + (oracle ? "Writing Oracle review" : "Simulating") + '</span><span class="hud-job-clock">' + (oracle ? "11:42" : "3:31") + "</span></div>" +
+            '<p class="hud-job-title">' + (oracle ? "All 20 games done. Oracle is reading the log." : "Simulating game 7 of 20") + "</p>" +
+            '<div class="hud-job-track" aria-hidden="true"><i></i></div>' +
+            '<p class="sm-job-count">' + (oracle ? "<b>20 / 20</b> games" : "<b>7 / 20</b> games · about 6 min left") + "</p>" +
+            '<p class="hud-job-msg">Your saved report from Oct 17 stays exactly as it is until this run finishes. You can leave this page.</p></section>';
+    }
+
+    // ---- report ----------------------------------------------------------------
+    function chip(t, tone, dot) { return '<span class="hud-chip hud-chip--' + tone + '">' + (dot ? '<span class="hud-chip-dot" aria-hidden="true"></span>' : "") + t + "</span>"; }
+    function card(name) { var c = M.CARDS[name]; var ref = HUD.cardRefAttrString(HUD.cardRef({ name: name, uid: c && c.uid || (c && c[1]) })); return '<span class="hud-card-name hud-cp-name" tabindex="0" data-card-preview' + ref + ">" + esc(name) + "</span>"; }
+    function stat(l, v, u, f, mod) { return '<div class="hud-stat' + (mod ? " " + mod : "") + '"><span class="hud-label">' + l + '</span><span class="hud-stat-value">' + v + (u ? ' <span class="hud-stat-unit">' + u + "</span>" : "") + '</span><span class="hud-stat-foot">' + f + "</span></div>"; }
+
+    function head() {
+        var bits = '<time class="hud-freshness" datetime="2026-10-18T09:40:00Z" title="Oct 18, 5:40 AM">Built 3h ago</time>' +
+            (STALE ? chip("Stale", "signal", true) : chip("Up to date", "ok", true)) +
+            chip(RANDOM ? "Random each game" : "Standard pod", "data") + chip("20 games", "neutral") + chip("Won " + WINS + " of 20", WINS > 5 ? "ok" : "neutral");
+        var notes = '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>Watch if Kaalia gets removed before attacking, or if colors brick on T4.</q></div></div>';
+        var stale = STALE ? '<div class="hud-panel hud-panel--signal" id="staleNote" role="status" style="margin-top:var(--sp-4)"><div class="hud-panel-body"><b>This report is out of date.</b> The decklist changed after this run: 3 cards swapped (+Swords to Plowshares, +Smothering Tithe, −Strionic Resonator). The numbers describe the old list. Open <i>Run new simulation</i> above to refresh.</div></div>' : "";
+        return '<header class="hud-doc-head"><div><span class="hud-label">Simulation · saved</span><h2>Holy Hellfire</h2><div class="hud-doc-facts">' + bits + "</div></div></header>" + notes + stale;
+    }
+    function statstrip() {
+        var wr = Math.round(WINS / N * 100), z = 1.96, pp = WINS / N, den = 1 + z * z / N, ctr = (pp + z * z / (2 * N)) / den, hw = z * Math.sqrt(pp * (1 - pp) / N + z * z / (4 * N * N)) / den;
+        var ci = Math.round((ctr - hw) * 100) + "–" + Math.round((ctr + hw) * 100) + "%";
+        var s = stat("Win rate", wr + "%", "", "CI " + ci + " · even odds 25%", "hud-stat--signal") + stat("Avg game", "18.4", "turns", RANDOM ? "table turns, from the log" : "table turns · fastest 9");
+        if (RANDOM) s += stat("Commander cast", '<span class="sm-na">n/a</span>', "", "not recorded in random mode") + stat("Mana used T2–T6", '<span class="sm-na">n/a</span>', "", "not recorded in random mode");
+        else s += stat("Commander cast", "T5.4", "avg", "85% cast it · static: T4") + stat("Mana used T2–T6", "61%", "", "static math: 74%");
+        return '<div class="hud-stat-strip" style="margin-top:var(--sp-6)">' + s + "</div>";
+    }
+    function sec(code, title, body) { return '<section class="hud-doc-section" aria-labelledby="sm' + code + '"><div class="hud-section-head"><span class="hud-section-id">' + code + '</span><h2 id="sm' + code + '">' + title + "</h2></div>" + body + "</section>"; }
+
+    function s1() {
+        return sec("01", "One-off Oracle simulation review",
+            '<p class="sm-headline">Kaalia gets there, but late: she resolved on T5 or later in 4 of 5 games, and that is where the 61% mana use comes from.</p>' +
+            '<div class="hud-rv-prose"><h3 class="hud-rv-h">On your notes</h3>' +
+            '<p class="hud-doc-prose"><b>Removed before attacking:</b> 3 of 17 Kaalia casts (18%) died before her first attack, twice to Swords-style removal from Cavalry Charge. Not a pattern yet at 20 games.</p>' +
+            '<p class="hud-doc-prose"><b>Colours on T4:</b> yes. In 7 of 20 games you had no white source on T4, and every one of them lost a turn of Kaalia.</p>' +
+            '<h3 class="hud-rv-h">Against the static review</h3>' +
+            '<p class="hud-doc-prose">The Review rates the curve as healthy. The games say the top end is the problem, not the early game: the deck made land drops on time through T3, then fell off. ' + card("Blast-Furnace Hellkite") + " and " + card("Bloodthirster") + ' sat in hand in most games they were drawn.</p>' +
+            '<h3 class="hud-rv-h">Worth trying</h3><ul class="hud-doc-list"><li>Swap one 6+ drop for a 2-mana white source or ramp piece.</li><li>Keep ' + card("Helm of the Host") + ' in. It was the best card in the sample.</li></ul></div>');
+    }
+    function cmpRow(name, simV, statV, unitFn, sim01, stat01, read, i) {
+        var chipHtml = read === "worse" ? chip("▼ Below math", "signal") : read === "better" ? chip("▲ Above math", "ok") : chip("In line", "neutral");
+        return '<li class="hud-comp-row' + (read === "worse" ? " is-under" : "") + '" style="--i:' + i + '"><span class="hud-comp-name">' + name + '</span><span class="hud-comp-track" role="img" aria-label="' + name + ': simulated ' + simV + ", math " + statV + '"><span class="hud-comp-fill" style="width:' + (sim01 * 100) + '%"></span><span class="hud-comp-target" style="left:' + (stat01 * 100) + '%"></span></span><span class="hud-comp-val">' + simV + " <small>vs " + statV + "</small></span>" + chipHtml + "</li>";
+    }
+    function s2() {
+        if (RANDOM) return sec("02", "Curve &amp; tempo: simulation vs static math",
+            '<div class="sm-unrec"><b>Not recorded for random pods</b><p>Random mode logs each game quietly to stay fast, so land drops, starvation, commander timing and mana use were not captured. Run a <i>Standard pod</i> or <i>Specific 3</i> simulation to compare against the math. Sections 01 and 04 still describe these 20 games.</p></div>');
+        var sim = [.95, .90, .80, .65, .45, .30], st = [.97, .89, .76, .59, .43, .28];
+        var rows = sim.map(function (v, k) { var d = v - st[k]; return cmpRow("T" + (k + 1) + " land drop", Math.round(v * 100) + "%", Math.round(st[k] * 100) + "%", 0, v, st[k], d <= -.08 ? "worse" : d >= .08 ? "better" : "in", k); }).join("");
+        var tbl = [
+            ["T5 mana starvation", "45%", "38%", "▼ Worse than math", "signal", "lower is better"],
+            ["Commander first cast", "T5.4", "T4", "▼ Later than math", "signal", "mean turn, when cast"],
+            ["Commander on curve (T4)", "35%", "58%", "▼ Below math", "signal", "cast on turn 4"],
+            ["Commander casts / game", "1.3", "n/a", "", "", "tax +2 on each recast"],
+            ["Commander never cast", "15%", "n/a", "", "", "3 of 20 games"],
+            ["Mana used, T2–T6", "61%", "74%", "▼ Below math", "signal", "spent ÷ available"],
+            ["First spell cast", "T2.6", "n/a", "", "", "mean turn"]
+        ].map(function (r) {
+            return "<tr><td class=\"is-primary c-m\">" + r[0] + '<span class="hud-field-hint" style="display:block">' + r[5] + '</span></td><td class="is-num c-s" data-l="Sim">' + r[1] + '</td><td class="is-num c-x" data-l="Math">' + (r[2] === "n/a" ? '<span class="sm-na">n/a</span>' : r[2]) + "</td><td>" + (r[3] ? chip(r[3], r[4]) : "") + "</td></tr>";
+        }).join("");
+        return sec("02", "Curve &amp; tempo: simulation vs static math",
+            '<div class="hud-panel hud-panel--flush"><header class="hud-panel-head"><h3 class="hud-panel-title">Land drop made on turn</h3><span class="hud-panel-meta">20 games · math: 35 lands in 99</span></header>' +
+            '<div class="hud-panel-body sm-cmp"><p class="sm-legend"><span><i class="k-sim"></i>Simulated</span><span><i class="k-static"></i>Static math</span></p><ul class="hud-comp" style="list-style:none;margin:0;padding:0">' + rows + "</ul></div></div>" +
+            '<div class="hud-panel hud-panel--flush sm-block"><header class="hud-panel-head"><h3 class="hud-panel-title">Tempo &amp; commander</h3><span class="hud-panel-meta">simulated vs the Review\'s numbers</span></header>' +
+            '<div class="hud-table-wrap"><table class="hud-table sm-tempo"><thead><tr><th scope="col">Metric</th><th scope="col" class="is-num">Sim</th><th scope="col" class="is-num">Math</th><th scope="col">Read</th></tr></thead><tbody>' + tbl + "</tbody></table></div></div>" +
+            '<p class="sm-foot">A chip appears only when sim and math differ by more than 20 games can explain. Smaller gaps read as In line.</p>');
+    }
+    function group(title, meta, rows, emptyTxt, signal, extra) {
+        var li = rows.map(function (r, k) {
+            var cut = r[5] ? " " + chip("cut since", "neutral") : "";
+            return '<li class="sm-card' + (k > 2 ? " is-hidden" : "") + '"><div class="hud-comp-row" style="--i:' + k + '"><span class="hud-comp-name">' + card(r[0]) + '</span><span class="hud-comp-track" role="img" aria-label="U ' + r[1] + ', 1.0 is expected"><span class="hud-comp-fill" style="width:' + Math.min(100, r[1] / 2 * 100) + '%"></span><span class="hud-comp-target" style="left:50%"></span></span><span class="hud-comp-val"><small>U</small> ' + r[1].toFixed(2) + "</span>" + chip(r[3], r[4]) + "</div><span class=\"hud-tcard-note\">" + r[2] + cut + "</span></li>";
+        }).join("");
+        return '<div class="hud-panel hud-panel--flush sm-block' + (signal ? " sm-group--signal" : "") + '"><header class="hud-panel-head"><h3 class="hud-panel-title">' + title + '</h3><span class="hud-panel-meta">' + meta + "</span></header>" +
+            (rows.length ? '<ul class="sm-cards">' + li + "</ul>" + (rows.length > 3 ? '<p class="sm-more"><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" aria-expanded="false">Show all ' + rows.length + "</button></p>" : "") : '<div class="hud-panel-body"><div class="hud-empty">' + emptyTxt + "</div></div>") + "</div>";
+    }
+    function s3() {
+        if (RANDOM) return sec("03", "Card performance vs static review",
+            '<div class="sm-unrec"><b>Not recorded for random pods</b><p>Per-card casts and stranded draws need the full game log. Run a <i>Standard pod</i> or <i>Specific 3</i> simulation to see stragglers, dead draws and workhorses.</p></div>');
+        var sg = [["Strionic Resonator", .06, "Drawn in 6 games, cast in 0. Static score 0.78.", "Both agree", "ok", true], ["Teferi's Protection", .12, "Drawn in 5, cast once, never when it mattered. Static score 0.71.", "Both agree", "ok"], ["Liesa, Forgotten Archangel", .21, "Drawn in 4, cast in 1. Static score 0.64.", "Both agree", "ok"], ["Lord of the Void", .24, "Drawn in 5, cast in 1. Static score 0.62.", "Both agree", "ok"]];
+        var dd = [["Blast-Furnace Hellkite", .08, "Stuck in hand in 5 of 6 draws, cleanup-discarded twice. Static review rates it fine (0.31): the math says castable, the games say never.", "Not in static", "signal"], ["Bloodthirster", .15, "Stuck in hand in 4 of 5 draws. Static 0.28.", "Not in static", "signal"], ["Demonic Tutor", .18, "Cast in 2 of 7 draws; the AI held it for a target. Static 0.19.", "Not in static", "signal"]];
+        var wh = [["Helm of the Host", 1.9, "Cast in 9 games, 10 triggers. Carries the deck in the Review too.", "Both agree", "ok"], ["Sol Ring", 1.6, "In the opener 7 times, cast T1 each time.", "Both agree", "ok"], ["Isshin, Two Heavens as One", 1.4, "Doubled Kaalia's triggers in 6 of 8 casts.", "Both agree", "ok"], ["Mother of Runes", 1.2, "Protected Kaalia in 3 of the 4 removal attempts it saw.", "Sim only", "data"]];
+        return sec("03", "Card performance vs static review",
+            '<p class="hud-doc-prose">U is how much a card did against how often it should have been drawn. <b>1.0</b> is as expected.</p>' +
+            group("Surprise dead draws", "3 cards · static review missed these", dd, "", true) +
+            group("Confirmed stragglers", "4 cards · sim and static agree", sg, "No confirmed stragglers. Every card the Review flagged did its job here.", false) +
+            group("Confirmed workhorses", "4 cards", wh, "No workhorses stood out.", false) +
+            '<p class="sm-foot">62 of 99 cards were drawn too rarely in 20 games to judge and are left out. 60 games judges more of them.</p>');
+    }
+    function s4() {
+        var rows = GAMES.map(function (g) {
+            var res = g.draw ? chip("No winner", "signal") : g.win ? chip("You won", "ok", true) : '<span class="sm-opp-name"><span class="sm-lab">Lost to </span>' + esc(g.by.deck) + '</span><span class="sm-opp-set">Seat ' + g.by.seat + "</span>";
+            var who = "";
+            var seats = g.pod.map(function (o, k) { return '<td class="c-seat"><span class="sm-lab">Seat ' + (k + 2) + '</span><span><span class="sm-opp-name">' + esc(o[0]) + '</span><span class="sm-opp-set">' + o[1] + "</span></span></td>"; }).join("");
+            return '<tr data-res="' + (g.draw ? "draw" : g.win ? "win" : "loss") + '"><td class="is-num c-n is-primary" data-value="' + g.n + '">#' + g.n + '</td>' + seats + '<td class="c-res" data-value="' + (g.draw ? "~ no winner" : g.win ? "you" : g.by.deck) + '">' + res + who + '</td><td class="is-num c-turns" data-value="' + g.turns + '">' + g.turns + '<span class="sm-lab"> turns</span></td><td class="c-why"><span class="sm-reason">' + esc(g.why) + "</span></td></tr>";
+        }).join("");
+        var th = [["n", "#", "num"], ["s2", "Seat 2", "text", "Reckless"], ["s3", "Seat 3", "text", "Default"], ["s4", "Seat 4", "text", "Cautious"], ["r", "Winner", "text"], ["t", "Turns", "num"], ["w", "How it ended", "text"]].map(function (c) {
+            var right = c[2] === "num";
+            return '<th scope="col" data-sort="' + c[2] + '" aria-sort="none"' + (right ? ' class="is-num"' : "") + '><button class="hud-sort" type="button">' + c[1] + "</button>" + (c[3] ? '<span class="sm-seat-ai">' + c[3] + "</span>" : "") + "</th>";
+        }).join("");
+        var distinct = RANDOM ? "20 different pods" : "same pod all 20 games";
+        return sec("04", "Per-game opponent &amp; outcome log",
+            '<div class="hud-panel hud-panel--flush"><div class="sm-logbar"><span class="hud-panel-meta" style="margin:0">' + WINS + " W · " + (N - WINS - 1) + " L · 1 timeout · " + distinct + '</span>' +
+            '<div class="hud-seg" role="radiogroup" aria-label="Filter games"><input type="radio" name="flt" id="f-all" checked><label for="f-all">All 20</label><input type="radio" name="flt" id="f-w"><label for="f-w">Wins</label><input type="radio" name="flt" id="f-l"><label for="f-l">Losses</label></div>' +
+            '<label class="sm-sortsel"><span class="hud-label">Sort</span><select aria-label="Sort games"><option>Game #</option><option>Turns, longest first</option><option>Result</option></select></label></div>' +
+            '<div class="hud-table-wrap"><table class="hud-table sm-log" data-hud-sortable aria-label="Games"><thead><tr>' + th + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>");
+    }
+
+    function report() {
+        if (!HAS_REPORT) return "";
+        return '<article class="hud-doc" id="doc" data-state="' + (STALE ? "stale" : "fresh") + '">' + head() + statstrip() +
+               '<nav class="hud-doc-index" aria-label="Sections"><a href="#sm01">01 Oracle review</a><a href="#sm02">02 Curve &amp; tempo</a><a href="#sm03">03 Cards</a><a href="#sm04">04 Game log</a></nav>' +
+               s1() + s2() + s3() + s4() + "</article>";
+    }
+    var banner = offline ? '<div class="hud-panel hud-panel--signal sm-banner" role="status"><div class="hud-panel-body"><b>The Forge simulator isn\'t reachable.</b> New runs are paused. The saved report below is unaffected. <button class="hud-btn hud-btn--sm" type="button">Check again</button></div></div>' : "";
+
+    document.getElementById("page").innerHTML = '<div class="hud-doc" style="max-width:60rem">' + banner + builder() + job() + "</div>" + report();
+    // the report is already a .hud-doc; keep the builder column the same width
+    if (HAS_REPORT) { var d = document.getElementById("doc"); }
+
+    // ---- tiny mock behaviour: mode switch, tray, filter, show-all ----------------
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener("change", function () {
+        ["Standard", "Random", "Specific"].forEach(function (n) { document.getElementById("opp" + n).hidden = n.toLowerCase() !== r.value; });
+    }); });
+    document.querySelectorAll(".sm-more button").forEach(function (b) { b.addEventListener("click", function () {
+        var ul = b.closest(".hud-panel").querySelector(".sm-cards"); ul.querySelectorAll(".is-hidden").forEach(function (l) { l.classList.remove("is-hidden"); }); b.parentNode.remove(); }); });
+    ["f-all", "f-w", "f-l"].forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener("change", function () {
+        document.querySelectorAll(".sm-log tbody tr").forEach(function (tr) { tr.classList.toggle("is-hidden", (id === "f-w" && tr.dataset.res !== "win") || (id === "f-l" && tr.dataset.res !== "loss")); }); }); });
+    var ta = document.getElementById("notes"); if (ta) ta.addEventListener("input", function () { ta.parentNode.querySelector(".sm-counter").textContent = ta.value.length + " / 500"; });
+    if (q.get("tray")) { var t = document.getElementById("tray"); if (t) t.open = true; }
+    if (q.get("notes") && ta) { ta.value = q.get("notes"); ta.dispatchEvent(new Event("input")); }
+    // screenshot tooling reads these (scripts/…: chromium --dump-dom)
+    window.addEventListener("load", function () { setTimeout(function () { var de = document.documentElement; document.body.dataset.h = de.scrollHeight; document.body.dataset.sw = de.scrollWidth; document.body.dataset.cw = de.clientWidth;
+            var off = []; document.querySelectorAll("main *").forEach(function (el) { var r = el.getBoundingClientRect(); if (r.right > de.clientWidth + 1 && r.width > 0 && off.length < 8) off.push(el.tagName.toLowerCase() + "." + String(el.className).split(" ").join(".") + ":" + Math.round(r.right)); }); document.body.dataset.off = off.join(" | "); if (window.parent !== window) window.parent.postMessage({ sim: 1, h: de.scrollHeight, sw: de.scrollWidth, cw: de.clientWidth, off: document.body.dataset.off }, "*"); }, 400); });
+})();
+</script>
+</body>
+</html>

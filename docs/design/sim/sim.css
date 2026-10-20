@@ -1,0 +1,196 @@
+/* Simulate tab (SM-D): the NEW css only. Everything else is hud.css.
+ * Tokens only; no new colours, radii, shadows or gradients. SM-4 moves this block
+ * to the end of static/css/hud.css under "Simulate tab" (class prefix `sm-`).
+ */
+
+/* ---- Builder ---------------------------------------------------------- */
+.sm-builder { margin-bottom: var(--sp-4); }
+form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
+.sm-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.sm-form legend { padding: 0; margin-bottom: var(--sp-2); color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.sm-form fieldset:disabled { opacity: 0.55; }
+
+/* Mode tiles: three radio tiles, one row on desktop, stacked on phones. */
+.sm-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.sm-mode { position: relative; }
+.sm-mode input { position: absolute; opacity: 0; pointer-events: none; }
+.sm-mode label {
+    display: flex; flex-direction: column; gap: var(--sp-1); height: 100%; box-sizing: border-box;
+    padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1);
+    cursor: pointer; transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.sm-mode label:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.sm-mode-name { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.sm-mode-desc { color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-snug); }
+.sm-mode-flag { margin-top: auto; padding-top: var(--sp-1); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.sm-mode input:checked + label { background: var(--signal-dim); border-color: var(--signal-line); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.sm-mode input:checked + label .sm-mode-name::after { content: " ✓"; color: var(--signal); }
+.sm-mode input:focus-visible + label { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* Opponent detail area under the tiles (one visible at a time). */
+.sm-opp { padding: var(--sp-3) var(--sp-4); background: var(--surface-0); border: var(--stroke); border-radius: var(--radius-1); }
+.sm-opp[hidden] { display: none; }
+.sm-opp-note { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.sm-seats { list-style: none; margin: 0; padding: 0; }
+.sm-seat { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; gap: var(--sp-3); align-items: baseline; padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-sm); }
+.sm-seat:last-child { border-bottom: 0; }
+.sm-seat-id { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.sm-seat-id b { color: var(--signal); font-weight: var(--fw-medium); }
+.sm-seat-name { color: var(--text-1); min-width: 0; overflow-wrap: anywhere; }
+.sm-seat-set { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+
+/* Combobox (ARIA 1.2): input + listbox, grouped. Native <select optgroup> is the no-JS fallback. */
+.sm-pickers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.sm-combo { position: relative; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sm-combo > label { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.sm-combo > label b { color: var(--signal); font-weight: var(--fw-medium); }
+.sm-combo input { width: 100%; }
+.sm-combo-list {
+    position: absolute; z-index: var(--z-overlay); top: 100%; left: 0; right: 0; margin: var(--sp-1) 0 0; padding: 0; list-style: none;
+    max-height: 17rem; overflow-y: auto; background: var(--surface-3); border: var(--stroke-strong); border-radius: var(--radius-1);
+}
+.sm-combo-list[hidden] { display: none; }
+.sm-combo-group { padding: var(--sp-2) var(--sp-3) var(--sp-1); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; background: var(--surface-3); position: sticky; top: 0; }
+.sm-combo-opt { display: flex; gap: var(--sp-2); justify-content: space-between; align-items: baseline; padding: var(--sp-2) var(--sp-3); color: var(--text-1); font-size: var(--fs-sm); cursor: pointer; }
+.sm-combo-opt small { color: var(--text-3); font: var(--fs-xs) var(--font-mono); white-space: nowrap; }
+.sm-combo-opt[aria-selected="true"], .sm-combo-opt:hover { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.sm-combo-opt[aria-disabled="true"] { color: var(--text-4); cursor: not-allowed; box-shadow: none; background: transparent; }
+.sm-combo-opt mark { background: transparent; color: var(--signal-strong); font-weight: var(--fw-semibold); }
+.sm-combo-empty { padding: var(--sp-3); color: var(--text-3); font-size: var(--fs-xs); }
+.sm-combo.is-invalid input { border-color: var(--danger); }
+.sm-combo-err { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
+
+.sm-count { display: flex; gap: var(--sp-4); align-items: center; flex-wrap: wrap; }
+.sm-count-note { color: var(--text-3); font-size: var(--fs-xs); }
+.sm-notes-foot { display: flex; justify-content: space-between; gap: var(--sp-3); }
+.sm-counter { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.sm-counter.is-near { color: var(--signal); }
+
+.sm-runbar { display: flex; gap: var(--sp-3) var(--sp-4); align-items: center; flex-wrap: wrap; padding-top: var(--sp-4); border-top: var(--stroke); }
+.sm-runbar .hud-btn { min-width: 11rem; height: 2.25rem; justify-content: center; }
+.sm-runbar-hint { flex: 1 1 14rem; margin: 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.sm-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
+.sm-error:empty { display: none; }
+
+/* Collapsed builder in the saved state (hud-tray = <details>). */
+.sm-tray { margin-bottom: var(--sp-6); background: var(--surface-1); border-left: var(--indicator) solid var(--signal); }
+.sm-tray > summary { min-height: 2.75rem; color: var(--text-1); }
+.sm-tray > summary .sm-tray-last { margin-left: auto; color: var(--text-3); text-transform: none; letter-spacing: 0; text-align: right; }
+.sm-tray[open] > summary { border-bottom: var(--stroke); }
+.sm-tray > .sm-tray-body { padding: var(--sp-4); }
+
+/* ---- Job (determinate variant of hud-job) ------------------------------ */
+.sm-job { margin-bottom: var(--sp-6); }
+.sm-job .hud-job-track i { transform-origin: left; width: 100%; transform: scaleX(var(--p, 0)); animation: none; transition: transform var(--dur-slow) var(--ease); }
+.sm-job[data-phase="queued"] .hud-job-track i,
+.sm-job[data-phase="oracle"] .hud-job-track i { width: 30%; transform: none; animation: job-slide 1.6s var(--ease) infinite; }
+.sm-job-count { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
+.sm-job-count b { color: var(--text-1); font-weight: var(--fw-medium); }
+
+/* ---- Report ------------------------------------------------------------ */
+.sm-notes { margin: var(--sp-4) 0 0; }
+.sm-notes q { display: block; margin-top: var(--sp-1); color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); quotes: none; overflow-wrap: anywhere; }
+.sm-headline { margin: 0 0 var(--sp-4); max-width: 46ch; color: var(--text-1); font: var(--fw-medium) clamp(var(--fs-md), 2.4vw, var(--fs-lg))/1.3 var(--font-sans); letter-spacing: var(--tracking-tight); }
+.sm-block { margin-top: var(--sp-4); }
+.sm-sub { display: flex; gap: var(--sp-2); align-items: baseline; margin: var(--sp-6) 0 var(--sp-2); }
+.sm-sub h3 { margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.sm-sub span { color: var(--text-3); font-size: var(--fs-xs); }
+
+/* sim vs static rows: hud-comp-row + wider name column + a legend. */
+.sm-cmp .hud-comp-row { grid-template-columns: 11rem minmax(0, 1fr) 8.5rem 8rem; }
+.sm-cmp { padding: var(--sp-4); }
+.sm-cmp .hud-comp-val small { display: inline-block; min-width: 3.5rem; }
+.sm-legend { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin: 0 0 var(--sp-2); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.sm-legend i { display: inline-block; vertical-align: -1px; margin-right: var(--sp-1); }
+.sm-legend .k-sim { width: 14px; height: 6px; background: var(--data); }
+.sm-legend .k-static { width: 2px; height: 12px; background: var(--text-1); vertical-align: -3px; }
+.sm-na { color: var(--text-3); }
+
+/* Not-recorded state: one panel instead of a wall of zeros. */
+.sm-unrec { display: grid; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.sm-unrec b { color: var(--text-1); font-size: var(--fs-sm); }
+.sm-unrec p { margin: 0; color: var(--text-2); font-size: var(--fs-xs); line-height: var(--lh-base); }
+
+/* Card groups (section 03): hud-comp rows + a note line. */
+.sm-cards { list-style: none; margin: 0; padding: 0 var(--sp-4); }
+.sm-card { border-bottom: var(--stroke-faint); }
+.sm-card:last-child { border-bottom: 0; }
+.sm-card .hud-comp-row { border-bottom: 0; grid-template-columns: 12rem minmax(0, 1fr) 4.5rem auto; }
+.sm-card .hud-card-name { font-family: var(--font-card); font-weight: 700; font-size: var(--fs-sm); }
+.sm-card .hud-tcard-note { display: block; margin: 0 0 var(--sp-2); padding-left: 0; }
+.sm-card.is-hidden { display: none; }
+.sm-more { margin: 0; padding: var(--sp-2) var(--sp-4); border-top: var(--stroke); }
+.sm-group--signal { border-left: var(--indicator) solid var(--signal); }
+.sm-foot { margin: var(--sp-3) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
+
+/* ---- Game log (section 04) -------------------------------------------- */
+.sm-logbar { display: flex; gap: var(--sp-3) var(--sp-4); align-items: center; justify-content: space-between; flex-wrap: wrap; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
+.sm-logbar .hud-seg label { height: 1.75rem; }
+.sm-logbar .hud-panel-meta { min-width: 0; margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.sm-log th .sm-seat-ai { display: block; color: var(--text-4); font-weight: var(--fw-regular); letter-spacing: var(--tracking-label); }
+.sm-log td { vertical-align: top; }
+.sm-log .sm-opp-name { display: block; color: var(--text-1); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+.sm-log .sm-opp-set { display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.sm-log .sm-who { display: block; margin-top: var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); }
+.sm-log tr.is-hidden { display: none; }
+.sm-log .sm-reason { color: var(--text-2); font-size: var(--fs-xs); }
+.sm-sortsel { display: none; }
+.sm-lab { display: none; }
+
+/* ---- Offline / error -------------------------------------------------- */
+.sm-banner { margin-bottom: var(--sp-4); }
+
+/* Tempo table: phone = one card per metric. */
+.sm-tempo td { vertical-align: top; }
+@media (max-width: 640px) {
+    .sm-tempo thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .sm-tempo, .sm-tempo tbody { display: block; }
+    .sm-tempo tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+    .sm-tempo td { display: block; padding: 0; border: 0; }
+    .sm-tempo td.c-m { grid-column: 1; grid-row: 1 / span 2; }
+    .sm-tempo td.c-s::before, .sm-tempo td.c-x::before { content: attr(data-l); display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+    .sm-tempo td:last-child { grid-column: 2 / -1; justify-self: end; }
+}
+
+/* ---- Responsive ------------------------------------------------------- */
+@media (max-width: 1180px) {
+    .sm-pickers { grid-template-columns: minmax(0, 1fr); }
+    .sm-cmp .hud-comp-row { grid-template-columns: 9.5rem minmax(0, 1fr) 7.5rem 7.5rem; }
+}
+@media (max-width: 900px) {
+    .sm-modes { grid-template-columns: minmax(0, 1fr); }
+    .sm-mode label { padding: var(--sp-3); }
+}
+@media (max-width: 640px) {
+    .sm-seat { grid-template-columns: minmax(0, 1fr) auto; }
+    .sm-seat-id { grid-column: 1 / -1; }
+    .sm-tray > summary { flex-wrap: wrap; row-gap: var(--sp-1); }
+    .sm-tray > summary .sm-tray-last { margin-left: 0; flex: 1 1 100%; text-align: left; }
+    .sm-runbar .hud-btn { flex: 1 1 100%; }
+    .sm-cmp .hud-comp-row,
+    .sm-card .hud-comp-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .sm-cmp .hud-comp-row .hud-comp-val { grid-column: 1 / -1; grid-row: 3; text-align: left; }
+    .sm-cmp .hud-comp-row .hud-chip { grid-column: 2; grid-row: 1; }
+    .sm-card .hud-comp-row .hud-comp-val { grid-row: 1; grid-column: 2; }
+    .sm-card .hud-comp-row .hud-chip { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+    .sm-cards { padding: 0 var(--sp-3); }
+    /* Game log: each <tr> becomes a card; header row hides, the sort <select> takes over. */
+    .sm-sortsel { display: flex; gap: var(--sp-2); align-items: center; }
+    .sm-sortsel select { flex: 1; }
+    .sm-log thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .sm-log, .sm-log tbody { display: block; }
+    .sm-log tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
+    .sm-log tr:last-child { border-bottom: 0; }
+    .sm-log td { display: block; padding: 0; border: 0; }
+    .sm-log td.c-n { grid-column: 1; grid-row: 1; }
+    .sm-log td.c-res { grid-column: 2; grid-row: 1; }
+    .sm-log td.c-turns { grid-column: 3; grid-row: 1; }
+    .sm-log td.c-seat { grid-column: 1 / -1; display: grid; grid-template-columns: 4.25rem minmax(0, 1fr); gap: var(--sp-2); align-items: baseline; }
+    .sm-log td.c-why { grid-column: 1 / -1; }
+    .sm-lab { display: inline; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+    .sm-log .sm-opp-set { display: inline; margin-left: var(--sp-2); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sm-job .hud-job-track i { transition: none; }
+    .sm-mode label { transition: none; }
+}
