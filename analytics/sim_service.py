@@ -138,9 +138,14 @@ def validate_params(raw: Any) -> dict:
     if not isinstance(opponents, list) or not all(isinstance(o, str) and o.strip() for o in opponents):
         raise SimParamError("opponents must be a list of opponent ids")
     opponents = [o.strip() for o in opponents]
-    if mode == "specific" or mode == "standard":
-        if opponents and len(opponents) != SPECIFIC_COUNT:
-            raise SimParamError(f"{mode} mode needs exactly {SPECIFIC_COUNT} opponents if specified")
+    if len(set(opponents)) != len(opponents):
+        raise SimParamError("duplicate decks not allowed in a pod")
+    if mode == "specific":
+        if not (1 <= len(opponents) <= 5):
+            raise SimParamError("specific mode needs 1 to 5 opponents")
+    elif mode == "standard":
+        if opponents and len(opponents) != 3:
+            raise SimParamError("standard mode needs exactly 3 opponents if specified")
     elif mode == "rapid1v1":
         if len(opponents) != 1:
             raise SimParamError("rapid1v1 mode needs exactly 1 opponent")
@@ -228,6 +233,9 @@ def build_payload(r, deck: Mapping, params: Mapping, client: sim_client.SimClien
 
     others = [d for d in registry.list_decks(r) if _rid(d) != _rid(deck)]
     by_id = {user_opponent_id(d): d for d in others}
+    target_id = user_opponent_id(deck)
+    if target_id in opponents:
+        raise SimParamError("deck cannot play against itself")
     if mode in ("specific", "rapid1v1") or (mode == "standard" and opponents):
         chosen = [by_id[o] for o in opponents if o in by_id]
         texts = _export_user_decks(chosen)

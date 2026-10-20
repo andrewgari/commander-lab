@@ -106,8 +106,8 @@ class TestValidation(unittest.TestCase):
 
     def test_bad_values(self):
         for bad in ({"opponent_mode": "wild"}, {"games": 0}, {"games": 101}, {"games": "20"}, {"games": True},
-                    {"notes": "x" * 1001}, {"notes": 5}, {"opponent_mode": "specific", "opponents": ["a", "b"]},
-                    {"opponent_mode": "specific", "opponents": ["a", "b", "c", "d"]}, {"opponents": "a"}):
+                    {"notes": "x" * 1001}, {"notes": 5}, {"opponent_mode": "specific", "opponents": []},
+                    {"opponent_mode": "specific", "opponents": ["a", "b", "c", "d", "e", "f"]}, {"opponents": "a"}):
             with self.assertRaises(svc.SimParamError, msg=str(bad)):
                 svc.validate_params(bad)
 
@@ -389,7 +389,7 @@ class TestApi(Base):
         self.assertTrue(meta["stale_reason"])
 
     def test_validation_422(self):
-        for body in ({"games": 7000}, {"opponent_mode": "specific", "opponents": ["a"]}, {"notes": "x" * 1001}):
+        for body in ({"games": 7000}, {"opponent_mode": "specific", "opponents": []}, {"notes": "x" * 1001}):
             self.assertEqual(self.client.post(f"/api/decks/{RID}/sim/run", json=body).status_code, 422, body)
 
     def test_409_when_already_running(self):
