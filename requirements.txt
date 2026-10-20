@@ -6,3 +6,5 @@ jinja2
 python-dotenv
 httpx
 pydantic
+Markdown
+bleach

@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import httpx
 from fastapi.testclient import TestClient
 
-from app import app, extract_short_description
+from app import app, extract_short_description, render_release_body
 
 
 class TestChangelog(unittest.TestCase):
@@ -38,11 +38,40 @@ class TestChangelog(unittest.TestCase):
         self.assertNotIn("## What's Changed", desc)
         self.assertIn("Added feature A", desc)
 
-        # Truncation with ellipsis
+        # No truncation, no ellipsis -- the full text is always returned
         long_body = "word " * 100
-        desc_truncated = extract_short_description(long_body, max_length=50)
-        self.assertTrue(desc_truncated.endswith("..."))
-        self.assertLessEqual(len(desc_truncated), 53)
+        desc_full = extract_short_description(long_body, max_length=50)
+        self.assertFalse(desc_full.endswith("..."))
+        self.assertIn("word", desc_full)
+        self.assertEqual(desc_full.count("word"), 100)
+
+    def test_render_release_body_empty(self):
+        self.assertEqual(render_release_body(None), "")
+        self.assertEqual(render_release_body(""), "")
+
+    def test_render_release_body_preserves_headings_and_bullets(self):
+        body = "## What's Changed\n* Added feature A\n* Added feature B\n* Fixed bug C"
+        html_out = render_release_body(body)
+        self.assertIn("<h2>", html_out)
+        self.assertIn("<ul>", html_out)
+        self.assertIn("<li>", html_out)
+        self.assertIn("Added feature A", html_out)
+        self.assertIn("Fixed bug C", html_out)
+
+    def test_render_release_body_never_truncates_long_text(self):
+        long_body = "## Release notes\n" + "\n".join(f"* Item number {i}" for i in range(100))
+        html_out = render_release_body(long_body)
+        self.assertNotIn("...", html_out)
+        self.assertIn("Item number 0", html_out)
+        self.assertIn("Item number 99", html_out)
+
+    def test_render_release_body_sanitizes_dangerous_html(self):
+        body = "Hello <script>alert('xss')</script> world\n\n<img src=x onerror=alert(1)>"
+        html_out = render_release_body(body)
+        self.assertNotIn("<script", html_out)
+        self.assertNotIn("onerror", html_out)
+        self.assertIn("Hello", html_out)
+        self.assertIn("world", html_out)
 
     @patch("app.r")
     @patch("httpx.AsyncClient")

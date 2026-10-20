@@ -115,7 +115,36 @@
         font-size: 0.9rem;
         line-height: 1.6;
         margin: 0;
-        white-space: pre-line;
+    }
+
+    .release-description ul,
+    .release-description ol {
+        margin: 0.5rem 0 0.5rem 1.25rem;
+        padding: 0;
+    }
+
+    .release-description li {
+        margin-bottom: 0.25rem;
+    }
+
+    .release-description h1,
+    .release-description h2,
+    .release-description h3,
+    .release-description h4 {
+        color: var(--text-heading);
+        margin: 0.75rem 0 0.4rem 0;
+        font-size: 1rem;
+    }
+
+    .release-description p {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .release-description code {
+        background: var(--bg-color);
+        border-radius: 3px;
+        padding: 0.1rem 0.3rem;
+        font-size: 0.85em;
     }
 
     .changelog-alert {
@@ -185,7 +214,7 @@
             {% if release.name and release.name != release.tag_name %}
             <h2 class="release-name">{{ release.name }}</h2>
             {% endif %}
-            <p class="release-description">{{ release.short_description or release.body or "No description provided." }}</p>
+            <div class="release-description">{{ (release.body_html or release.body or "No description provided.") | safe }}</div>
         </article>
         {% endfor %}
     </div>
