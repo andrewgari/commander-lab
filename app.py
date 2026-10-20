@@ -247,7 +247,7 @@ def _deck_head_context(deck_name: str) -> dict:
         # GN view mode: the archetype / kindred / theme chip strip (None = hidden).
         rec = journal_mod.load_journal(r, deck)
         if rec:
-            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r))
+            out["genre"] = deck_genre.header_strip(journal_mod.public(rec), deck_genre.creature_types(r), r)
     except Exception:
         pass
     return out
@@ -2213,7 +2213,7 @@ async def api_deck_review(request: Request):
     intent_obj = None
     if intent_data:
         try:
-            intent_obj = parse_user_intent(intent_data)
+            intent_obj = parse_user_intent(intent_data, r=r)
         except Exception as e:
             return JSONResponse(status_code=422, content={"success": False, "error": f"Invalid user intent: {str(e)}"})
 
@@ -2524,7 +2524,7 @@ async def api_brackets(refresh: bool = False):
 async def api_deck_engines(deck_id: str):
     """Engines detected in the deck's interaction graph: resource chains
     (sources -> converters -> payoffs, with fuel) and two-card loops, each
-    named ("Aristocrats: tokens → sac → drain") and scored."""
+    named by the dominant resource (e.g. "tokens → sacrifice → drain") and scored."""
     deck = _find_deck_any(deck_id)
     if not deck:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_id}' not found"})
@@ -3202,7 +3202,7 @@ def _journal_error(exc: Exception, status: int = 400):
 @app.get("/api/deck-genre/options")
 async def api_deck_genre_options():
     """GN: the Deck Genre option lists (docs/deck_genre_taxonomy.yaml) + the creature-type catalog."""
-    return {"success": True, "options": deck_genre.page_options(),
+    return {"success": True, "options": deck_genre.page_options(r),
             "creature_types": await asyncio.to_thread(deck_genre.creature_types, r)}
 
 
@@ -4116,9 +4116,9 @@ def _primer_build_context(deck_name: str) -> dict:
             if spirit.get("confirmed") else None)
     boot = {"deck": {"id": rid, "name": deck_name, "cmdr": ", ".join(deck.get("commanders") or []),
                      "ci": [] if deck.get("color") in (None, "", "C") else list(deck["color"]),
-                     "archetype": [deck_genre.label_of("archetype", a) for a in genre.get("archetype") or []],
-                     "themes": [deck_genre.label_of("theme", t) for t in genre.get("theme") or []],
-                     "kindred": [deck_genre.label_of("kindred", k) for k in genre.get("kindred") or []],
+                     "archetype": [deck_genre.label_of("archetype", a, r) for a in genre.get("archetype") or []],
+                     "themes": [deck_genre.label_of("theme", t, r) for t in genre.get("theme") or []],
+                     "kindred": [deck_genre.label_of("kindred", k, r) for k in genre.get("kindred") or []],
                      "bracket": _resolve_bracket(deck, spirit), "ttw": spirit.get("target_turn_win"),
                      "tone": {"casual": "casual", "competitive": "competitive"}.get(tier or "", "focused"),
                      "cards": sum(int(c.get("quantity") or 1) for c in deck.get("cards") or [])},

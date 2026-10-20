@@ -1,24 +1,39 @@
 """
 Deck Genre (GN): the journal's archetype / theme / kindred tags.
 
-Seed data is docs/deck_genre_taxonomy.yaml (rules: docs/DECK_GENRE_TAXONOMY.md,
-UI: docs/DECK_GENRE_UX_SPEC.md). The constants below are that yaml turned into
-Python as-is; tests/test_deck_genre.py fails if the two drift apart.
+Rules: docs/DECK_GENRE_TAXONOMY.md, UI: docs/DECK_GENRE_UX_SPEC.md.
+
+The journal's archetype/theme vocabulary (ARCHETYPES/GENRES below) is a Redis-backed,
+user-editable registry -- its own thing, distinct from analytics/archetypes.py and
+analytics/genres.py (the Deep Review role-coverage registries vocab PR2/PR3 added). Those
+score a deck's cards against required card roles; this is a flat, closed-ish pick-list of
+labels a user types or clicks onto a deck in the Journal, with no card-role scoring at all.
+The names rhyme but the concepts don't -- see the parent card for the PR3 decomposition.
 
 Storage (journal:deck:{registry_id}, see analytics/journal.py):
-    archetype_preferences.primary_archetype     0..1, nullable, closed list (ARCHETYPE_IDS)
-    archetype_preferences.secondary_archetypes  0..3, closed list, never includes the primary
-    deck_genre.genres                           0..5, seed id ("horror") or custom text (<= 32 chars)
+    archetype_preferences.primary_archetype     0..1, nullable, from list_archetypes()
+    archetype_preferences.secondary_archetypes  0..3, from list_archetypes(), never the primary
+    deck_genre.genres                           0..5, an archetype id (see list_genres()) or custom text (<= 32 chars)
     deck_genre.kindred                          0..5, catalog spelling ("Elf") or custom text (<= 32 chars)
 
 The UI labels deck_genre.genres "Themes" (/genres is the Deep Review registry).
-Pure module: no Redis or network at import time, no imports from the app, so
-user_intent.py can depend on it.
+
+Redis (JSON list, each item seeded once then freely editable/deletable; a deleted seed
+never comes back -- "first read creates the key" never re-seeds an existing, now-empty key):
+    deck_genre:archetypes   the Style / archetype pick-list (default: 30 seed items)
+    deck_genre:genres       the Themes pick-list (default: 33 seed items)
+
+Every list/label lookup takes an optional Redis client `r`. With r=None (no Redis in this
+call's context -- e.g. a pure validator with no app plumbed through) they fall back to the
+bundled seed values, same as creature_types(r=None) below. Pass `r` wherever you have it so
+edits made through the (future) admin UI actually take effect.
 """
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+import re
+import threading
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 TAXONOMY_VERSION = 1
 MAX_SECONDARY = 3
@@ -26,18 +41,53 @@ MAX_ARCHETYPES = 1 + MAX_SECONDARY
 MAX_GENRES = 5
 MAX_KINDRED = 5
 CUSTOM_MAX_LEN = 32
+MAX_LABEL = 60
+MAX_DESC = 400
 # Redis override for the creature-type list (a JSON array of strings). Unset = the snapshot.
 CATALOG_KEY = "catalog:creature_types"
 CATALOG_URL = "https://api.scryfall.com/catalog/creature-types"
 CATALOG_TTL = 7 * 24 * 3600
 
-# --- Seed data (generated from docs/deck_genre_taxonomy.yaml v1) -----------------------------
+# Redis keys for the editable archetype/genre pick-lists (see module docstring).
+ARCHETYPES_KEY = "deck_genre:archetypes"
+GENRES_KEY = "deck_genre:genres"
+
+# Serialise writers so two concurrent edits to the same list can't drop each other (the app
+# runs as one process; this lock is process-wide, same pattern as analytics/genres.py).
+_WRITE_LOCK = threading.RLock()
+
+
+class DeckGenreError(ValueError):
+    """Invalid archetype/genre item payload (HTTP 400)."""
+
+
+class DeckGenreNotFound(KeyError):
+    """No archetype/genre item with that id (HTTP 404)."""
+
+
+def _locked(fn):
+    def wrapper(*a, **kw):
+        with _WRITE_LOCK:
+            return fn(*a, **kw)
+    return wrapper
+
+
+# --- Groups (structural buckets for the UI, not user-editable vocabulary) -------------------
 ARCHETYPE_GROUPS = (
     {'id': 'gameplan', 'label': 'Game plan'},
     {'id': 'engine', 'label': 'Engine / mechanic'},
     {'id': 'table', 'label': 'Table dynamics'},
 )
-ARCHETYPES = (
+GENRE_GROUPS = (
+    {'id': 'flavor', 'label': 'Flavor & setting'},
+    {'id': 'vibe', 'label': 'Play vibe'},
+    {'id': 'identity', 'label': 'Build identity'},
+)
+_ARCHETYPE_GROUP_IDS = {g["id"] for g in ARCHETYPE_GROUPS}
+_GENRE_GROUP_IDS = {g["id"] for g in GENRE_GROUPS}
+
+# --- Seed data (default content of the Redis-backed registries on first read) ---------------
+SEED_ARCHETYPES: Tuple[dict, ...] = (
     {'id': 'aggro', 'group': 'gameplan', 'label': 'Aggro', 'desc': 'Gets on board fast and wins through early, relentless combat pressure.'},
     {'id': 'midrange', 'group': 'gameplan', 'label': 'Midrange', 'desc': 'Efficient threats and answers; adapts to the table and grinds out value.'},
     {'id': 'control', 'group': 'gameplan', 'label': 'Control', 'desc': 'Answers everything, controls the pace, and wins late with a few finishers.'},
@@ -69,12 +119,7 @@ ARCHETYPES = (
     {'id': 'group_hug', 'group': 'table', 'label': 'Group Hug', 'desc': 'Gives every player resources and wins by steering the table it fed.'},
     {'id': 'group_slug', 'group': 'table', 'label': 'Group Slug', 'desc': 'Punishes the whole table at once with symmetric damage and taxes.'},
 )
-GENRE_GROUPS = (
-    {'id': 'flavor', 'label': 'Flavor & setting'},
-    {'id': 'vibe', 'label': 'Play vibe'},
-    {'id': 'identity', 'label': 'Build identity'},
-)
-GENRES = (
+SEED_GENRES: Tuple[dict, ...] = (
     {'id': 'horror', 'group': 'flavor', 'label': 'Horror / Gothic', 'desc': 'Haunted, undead, monstrous: the Innistrad and graveyard-at-midnight feeling.'},
     {'id': 'eldritch', 'group': 'flavor', 'label': 'Eldritch / Cosmic Horror', 'desc': 'Unknowable things from beyond: Eldrazi, tentacles, madness.'},
     {'id': 'nautical', 'group': 'flavor', 'label': 'Pirates / Nautical', 'desc': 'Ships, sea monsters, treasure, and life on the waves.'},
@@ -133,6 +178,8 @@ KINDRED_ALIASES = {
 
 # Scryfall /catalog/creature-types, 2026-10-16 (351 types). Offline fallback for the
 # Redis catalog (CATALOG_KEY); refresh with scripts/refresh_creature_types.py.
+# NOT in scope for the Redis-registry move above: this is live reference data cached with a
+# TTL, not a hardcoded vocabulary list a user edits.
 CREATURE_TYPES_SNAPSHOT = (
     'Advisor', 'Aetherborn', 'Alien', 'Ally', 'Andorian', 'Angel', 'Antelope', 'Ape', 'Archer', 'Archon',
     'Armadillo', 'Army', 'Artificer', 'Assassin', 'Assembly-Worker', 'Astartes', 'Atog', 'Aurochs',
@@ -172,11 +219,6 @@ CREATURE_TYPES_SNAPSHOT = (
     'Wraith', 'Wurm', 'Xindi', 'Yeti', 'Zombie', 'Zubera',
 )
 
-# --- Lookups ------------------------------------------------------------------------------------
-ARCHETYPE_IDS = tuple(a["id"] for a in ARCHETYPES)
-ARCHETYPE_LABELS = {a["id"]: a["label"] for a in ARCHETYPES}
-GENRE_IDS = tuple(g["id"] for g in GENRES)
-GENRE_LABELS = {g["id"]: g["label"] for g in GENRES}
 _ALIAS_LOW = {k.lower(): v for k, v in KINDRED_ALIASES.items()}
 _SNAPSHOT_LOW = {t.lower(): t for t in CREATURE_TYPES_SNAPSHOT}
 
@@ -184,6 +226,174 @@ _SNAPSHOT_LOW = {t.lower(): t for t in CREATURE_TYPES_SNAPSHOT}
 FIELD_LABELS = {"archetype": "Style", "theme": "Themes", "kindred": "Kindred"}
 STRIP_DESKTOP = 4
 STRIP_PHONE = 2
+
+
+# --- Redis-backed archetype/genre registries -------------------------------------------------
+
+def _load_registry(r, key: str, seed: Sequence[dict]) -> List[dict]:
+    """The editable list from Redis, seeding it (NX) from `seed` on first read. A key that
+    exists but is empty (everything deleted) stays empty -- never re-seeded. r=None (no Redis
+    in this call's context) returns the seed as-is, never touching storage."""
+    if r is None:
+        return [dict(x) for x in seed]
+    raw = r.get(key)
+    if raw is None:
+        if r.set(key, json.dumps(list(seed), ensure_ascii=False), nx=True):
+            return [dict(x) for x in seed]
+        raw = r.get(key)
+    try:
+        data = json.loads(raw) if raw else []
+    except (TypeError, ValueError):
+        return []
+    return [dict(x) for x in data if isinstance(x, dict) and x.get("id")]
+
+
+def _save_registry(r, key: str, items: List[dict]) -> None:
+    r.set(key, json.dumps(items, ensure_ascii=False))
+
+
+def list_archetypes(r=None) -> List[dict]:
+    """The Style/archetype pick-list: [{id, group, label, desc}, ...]."""
+    return _load_registry(r, ARCHETYPES_KEY, SEED_ARCHETYPES)
+
+
+def list_genres(r=None) -> List[dict]:
+    """The Themes pick-list: [{id, group, label, desc}, ...]."""
+    return _load_registry(r, GENRES_KEY, SEED_GENRES)
+
+
+def archetype_ids(r=None) -> Tuple[str, ...]:
+    return tuple(a["id"] for a in list_archetypes(r))
+
+
+def archetype_labels(r=None) -> Dict[str, str]:
+    return {a["id"]: a["label"] for a in list_archetypes(r)}
+
+
+def genre_ids(r=None) -> Tuple[str, ...]:
+    return tuple(g["id"] for g in list_genres(r))
+
+
+def genre_labels(r=None) -> Dict[str, str]:
+    return {g["id"]: g["label"] for g in list_genres(r)}
+
+
+def get_archetype(r, item_id: str) -> dict:
+    for a in list_archetypes(r):
+        if a["id"] == item_id:
+            return a
+    raise DeckGenreNotFound(item_id)
+
+
+def get_genre_item(r, item_id: str) -> dict:
+    for g in list_genres(r):
+        if g["id"] == item_id:
+            return g
+    raise DeckGenreNotFound(item_id)
+
+
+def _slugify(label: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
+    return s or "item"
+
+
+def _unique_id(label: str, taken: Iterable[str]) -> str:
+    taken, base = set(taken), _slugify(label)
+    item_id, n = base, 2
+    while item_id in taken:
+        item_id, n = f"{base}_{n}", n + 1
+    return item_id
+
+
+def _clean_item_fields(body: Any, group_ids: Iterable[str], *, partial_from: Optional[dict] = None) -> dict:
+    """Validated {group, label, desc}. With partial_from, missing keys keep their value."""
+    if not isinstance(body, Mapping):
+        raise DeckGenreError("Body must be a JSON object.")
+    base = partial_from or {}
+
+    def pick(k, default):
+        return body[k] if k in body else base.get(k, default)
+
+    label = pick("label", "")
+    if not isinstance(label, str) or not label.strip():
+        raise DeckGenreError("A label is required.")
+    label = " ".join(label.split())
+    if len(label) > MAX_LABEL:
+        raise DeckGenreError(f"Label is longer than {MAX_LABEL} characters.")
+    desc = pick("desc", "")
+    if not isinstance(desc, str):
+        raise DeckGenreError("desc must be text.")
+    desc = desc.strip()
+    if len(desc) > MAX_DESC:
+        raise DeckGenreError(f"Description is longer than {MAX_DESC} characters.")
+    group = pick("group", None)
+    group_ids = set(group_ids)
+    if group is not None and group not in group_ids:
+        raise DeckGenreError(f"group must be one of {sorted(group_ids)} or null.")
+    return {"group": group, "label": label, "desc": desc}
+
+
+def _name_taken(items: List[dict], label: str, skip_id: Optional[str] = None) -> bool:
+    return any(x["id"] != skip_id and x.get("label", "").lower() == label.lower() for x in items)
+
+
+@_locked
+def _create_item(r, key: str, seed: Sequence[dict], group_ids: Iterable[str], body: Any) -> dict:
+    fields = _clean_item_fields(body, group_ids)
+    items = _load_registry(r, key, seed)
+    if _name_taken(items, fields["label"]):
+        raise DeckGenreError(f"{fields['label']!r} already exists.")
+    item = {"id": _unique_id(fields["label"], (x["id"] for x in items)), **fields}
+    items.append(item)
+    _save_registry(r, key, items)
+    return item
+
+
+@_locked
+def _update_item(r, key: str, seed: Sequence[dict], group_ids: Iterable[str], item_id: str, body: Any) -> dict:
+    items = _load_registry(r, key, seed)
+    for i, x in enumerate(items):
+        if x["id"] == item_id:
+            fields = _clean_item_fields(body, group_ids, partial_from=x)
+            if _name_taken(items, fields["label"], skip_id=item_id):
+                raise DeckGenreError(f"{fields['label']!r} already exists.")
+            items[i] = {"id": item_id, **fields}
+            _save_registry(r, key, items)
+            return items[i]
+    raise DeckGenreNotFound(item_id)
+
+
+@_locked
+def _delete_item(r, key: str, seed: Sequence[dict], item_id: str) -> None:
+    items = _load_registry(r, key, seed)
+    kept = [x for x in items if x["id"] != item_id]
+    if len(kept) == len(items):
+        raise DeckGenreNotFound(item_id)
+    _save_registry(r, key, kept)
+
+
+def create_archetype(r, body: Any) -> dict:
+    return _create_item(r, ARCHETYPES_KEY, SEED_ARCHETYPES, _ARCHETYPE_GROUP_IDS, body)
+
+
+def update_archetype(r, item_id: str, body: Any) -> dict:
+    return _update_item(r, ARCHETYPES_KEY, SEED_ARCHETYPES, _ARCHETYPE_GROUP_IDS, item_id, body)
+
+
+def delete_archetype(r, item_id: str) -> None:
+    _delete_item(r, ARCHETYPES_KEY, SEED_ARCHETYPES, item_id)
+
+
+def create_genre_item(r, body: Any) -> dict:
+    return _create_item(r, GENRES_KEY, SEED_GENRES, _GENRE_GROUP_IDS, body)
+
+
+def update_genre_item(r, item_id: str, body: Any) -> dict:
+    return _update_item(r, GENRES_KEY, SEED_GENRES, _GENRE_GROUP_IDS, item_id, body)
+
+
+def delete_genre_item(r, item_id: str) -> None:
+    _delete_item(r, GENRES_KEY, SEED_GENRES, item_id)
 
 
 def clean_text(value: Any) -> str:
@@ -214,20 +424,21 @@ def canon_kindred(value: Any, types: Optional[Iterable[str]] = None) -> str:
     return text
 
 
-def canon_genre(value: Any) -> str:
+def canon_genre(value: Any, r=None) -> str:
     """A seed id or label (case-insensitive) -> the seed id; anything else is custom text."""
     text = clean_text(value)
     low = text.lower()
-    if low.replace(" ", "_") in GENRE_LABELS:
+    labels = genre_labels(r)
+    if low.replace(" ", "_") in labels:
         return low.replace(" ", "_")
-    for gid, label in GENRE_LABELS.items():
+    for gid, label in labels.items():
         if label.lower() == low:
             return gid
     return text
 
 
-def is_custom_genre(value: str) -> bool:
-    return value not in GENRE_LABELS
+def is_custom_genre(value: str, r=None) -> bool:
+    return value not in genre_labels(r)
 
 
 def is_custom_kindred(value: str, types: Optional[Iterable[str]] = None) -> bool:
@@ -244,14 +455,14 @@ def _dedupe(values: Sequence[str]) -> List[str]:
     return out
 
 
-def normalize_deck_genre(dg: Any, types: Optional[Iterable[str]] = None) -> Any:
+def normalize_deck_genre(dg: Any, types: Optional[Iterable[str]] = None, r=None) -> Any:
     """Canonicalize + dedupe on save. Never truncates: over-limit lists stay over the
     limit so validation rejects them (400) instead of silently dropping a tag.
     Anything malformed is returned untouched for validate_deck_genre to explain."""
     if not isinstance(dg, Mapping):
         return dg
     out = dict(dg)
-    for key, canon in (("genres", canon_genre), ("kindred", lambda v: canon_kindred(v, types))):
+    for key, canon in (("genres", lambda v: canon_genre(v, r)), ("kindred", lambda v: canon_kindred(v, types))):
         vals = out.get(key)
         if isinstance(vals, list) and all(isinstance(v, str) for v in vals):
             out[key] = _dedupe([canon(v) for v in vals if v.strip()])
@@ -360,11 +571,11 @@ def refresh_creature_types(r, fetch=None) -> int:
 
 # --- View helpers -----------------------------------------------------------------------------------
 
-def page_options() -> dict:
+def page_options(r=None) -> dict:
     """Everything the Journal's TagFields need, rendered into the page with | tojson."""
     return {
-        "archetype_groups": list(ARCHETYPE_GROUPS), "archetypes": list(ARCHETYPES),
-        "genre_groups": list(GENRE_GROUPS), "genres": list(GENRES),
+        "archetype_groups": list(ARCHETYPE_GROUPS), "archetypes": list_archetypes(r),
+        "genre_groups": list(GENRE_GROUPS), "genres": list_genres(r),
         "kindred": {"suggestions": list(KINDRED_SUGGESTIONS), "groups": list(KINDRED_GROUPS),
                     "aliases": dict(KINDRED_ALIASES)},
         "limits": {"archetype": MAX_ARCHETYPES, "theme": MAX_GENRES, "kindred": MAX_KINDRED,
@@ -382,15 +593,15 @@ def values_of(journal: Optional[Mapping]) -> dict:
     return {"archetype": arch, "theme": list(dg.get("genres") or []), "kindred": list(dg.get("kindred") or [])}
 
 
-def label_of(kind: str, value: str) -> str:
+def label_of(kind: str, value: str, r=None) -> str:
     if kind == "archetype":
-        return ARCHETYPE_LABELS.get(value, value)
+        return archetype_labels(r).get(value, value)
     if kind == "theme":
-        return GENRE_LABELS.get(value, value)
+        return genre_labels(r).get(value, value)
     return value
 
 
-def strip_items(values: Mapping, types: Optional[Iterable[str]] = None) -> List[dict]:
+def strip_items(values: Mapping, types: Optional[Iterable[str]] = None, r=None) -> List[dict]:
     """Header order (UX spec §3.4): primary archetype, first kindred, first theme, then the
     remaining secondaries, kindred and themes."""
     a, k, t = list(values.get("archetype") or []), list(values.get("kindred") or []), list(values.get("theme") or [])
@@ -405,16 +616,16 @@ def strip_items(values: Mapping, types: Optional[Iterable[str]] = None) -> List[
     tmap = _type_map(types)
     out = []
     for kind, v in order:
-        custom = (kind == "theme" and is_custom_genre(v)) or (kind == "kindred" and v.lower() not in tmap)
-        lab = label_of(kind, v)
+        custom = (kind == "theme" and is_custom_genre(v, r)) or (kind == "kindred" and v.lower() not in tmap)
+        lab = label_of(kind, v, r)
         out.append({"kind": kind, "value": v, "label": lab, "custom": custom,
                     "title": f"{FIELD_LABELS[kind]}: {lab}"})
     return out
 
 
-def header_strip(journal: Optional[Mapping], types: Optional[Iterable[str]] = None) -> Optional[dict]:
+def header_strip(journal: Optional[Mapping], types: Optional[Iterable[str]] = None, r=None) -> Optional[dict]:
     """The deck-header chip strip (view mode), or None when nothing is set (the strip hides)."""
-    items = strip_items(values_of(journal), types)
+    items = strip_items(values_of(journal), types, r)
     if not items:
         return None
     for i, it in enumerate(items[:STRIP_DESKTOP]):
