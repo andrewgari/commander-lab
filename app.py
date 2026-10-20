@@ -3427,7 +3427,7 @@ async def api_deck_tune(deck_id: str, mode: str = "flex", in_deck: bool = True, 
     if err:
         return err
     try:
-        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal)
+        out = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "tune": out}
@@ -3512,7 +3512,7 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     buy = bool(body.get("buy", True))
     goal = body.get("goal", "balanced")
     try:
-        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal)
+        tune = await asyncio.to_thread(tuner_mod.compute, r, deck, mode, in_deck, buy, goal=goal)
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     from analytics.interactions.llm import default_chain
