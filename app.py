@@ -22,6 +22,7 @@ import reconstruct
 import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
+import tcgplayer
 import tags as tag_store
 import lab_tags as lab_tag_store
 import autotag
@@ -113,6 +114,8 @@ templates.env.globals["deck_groups"] = DECK_GROUPS
 templates.env.globals["card_ref_attrs"] = card_refs_mod.html_attrs
 
 templates.env.globals["card_preview_attrs"] = card_refs_mod.preview_attrs
+# "Buy on TCGplayer" cart button: {{ hud.tcg_cart(cards) }} -> tcgplayer.cart().
+templates.env.globals["tcgplayer_cart"] = tcgplayer.cart
 
 # Shared HUD stylesheet and other static assets (see docs/DESIGN_TOKENS.md).
 app.mount("/static", StaticFiles(directory="static"), name="static")
