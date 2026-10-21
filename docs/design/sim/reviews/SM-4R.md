@@ -40,9 +40,16 @@ never changed, and I hash-checked them before, during and after:
 - `deck_sim.js` md5 `a3f1d542…` = the blob at `e14a16f` (#241).
 - `hud.css` md5 `3a0aff66…`.
 
-Main has since moved `deck_sim.js` forward (#250 user-defined Standard pod, #251 random-pool toggle, plus the new
-`deck_sim_report.js`), but that code is **not** what :8020 serves yet. Findings tagged **[superseded?]** touch code
-that #250/#251 rewrote; re-check them after the next deploy.
+Main has since moved well past the served build:
+
+- #250: user-defined Standard pod.
+- #251: random-pool toggle.
+- #253: WoWLogs-style report UI (`deck_sim_report.js`).
+- #254: Focus chips replace the free-text notes field.
+
+None of that code is what :8020 serves yet. Findings tagged **[superseded?]** touch code those PRs rewrote. The
+report-section findings (F1–F3, F6, F7, F14–F18) should be re-checked against #253 after the next deploy, before
+anyone opens fix cards for them.
 
 **Evidence labels.**
 
@@ -161,7 +168,8 @@ Queued state: [shot](sm4r/fx-queued-1440.png). Failed state: [card](sm4r/fx-fail
   - mode (data tone)
   - games (neutral)
   - `Won 5 of 20` (ok tone at ≥¼)
-- The notes callout uses the label *Your test notes* and is omitted when a run has no notes.
+- The notes callout shows the run's notes as typed and is omitted when a run has no notes. Its live label is
+  the pre-#254 wording; main has since renamed the field *What to watch for*.
 - Stale adds the `role="status"` signal note, and `#doc[data-state=stale]` is set. The report is **not** dimmed
   (opacity 1).
 
