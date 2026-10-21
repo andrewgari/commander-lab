@@ -206,6 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var cap = o.cap === "soft" ? H.chip("over soft cap " + A.money(T.caps.soft_cap), "signal") : "";
         return '<div class="hud-opt' + (picked ? " is-pick" : "") + (o.source === "buy" ? " is-buy" : "") + '">' + src +
             '<span class="hud-card-name">' + H.cardName(o.name) + "</span>" +
+            (o.source === "buy" && window.TcgCart ? window.TcgCart.button([{ name: o.name, qty: 1 }], { size: "sm" }) : "") +
             '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" +
             (o.pillar ? '<span class="hud-opt-src" title="' + esc(o.pillar) + '">' + esc(o.pillar) + "</span>" : "") + cap + "</div>";
     }
