@@ -158,9 +158,17 @@
         var preconCount = opps.filter(function (o) { return o.source === "precon"; }).length;
         var syncedCount = opps.length - preconCount;
         return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + podPanel(STATE.pod, pool) + '</div>' +
-            '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '><p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> Three distinct decks drawn at random from <b style="color:var(--text-1)">' +
-            opps.length + '</b>: ' + preconCount + " Forge precons plus " + syncedCount +
-            ' of your synced decks. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p></div>' +
+            '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '>' +
+            '<div class="hud-seg" role="radiogroup" aria-label="Random pool">' +
+            '<input type="radio" name="randomPool" id="rp-all" value="all"' + (STATE.randomPool !== "mine" ? " checked" : "") + '><label for="rp-all">All decks</label>' +
+            '<input type="radio" name="randomPool" id="rp-mine" value="mine"' + (STATE.randomPool === "mine" ? " checked" : "") + '><label for="rp-mine">My decks only</label></div> ' +
+            '<label for="randomCount">Opponents</label> <select id="randomCount">' + [1, 2, 3, 4, 5].map(function (n) {
+                return '<option value="' + n + '"' + ((STATE.randomCount || 3) === n ? " selected" : "") + ">" + n + "</option>";
+            }).join("") + '</select>' +
+            '<p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> <b>All decks</b> draws from ' + preconCount + " Forge precons plus " + syncedCount +
+            ' of your synced decks (your other decks may appear). <b>My decks only</b> draws exclusively from your ' + syncedCount +
+            ' synced decks, never precons. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p>' +
+            '<p class="sm-error" id="randomPoolErr" role="alert"></p></div>' +
             '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks, "specific", 5) +
             '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Test against 1 to 5 opponents. Seat order sets the AI: Reckless, Default, Cautious.</p></div>' +
             '<div class="sm-opp" id="oppRapid1v1"' + (mode === "rapid1v1" ? "" : " hidden") + '>' + pickers(pool, picks, "rapid", 1) +
@@ -239,6 +247,7 @@
     function builderBody(btnLabel, mode, pool, picks, games, notes) {
         var opCount = 3;
         if (mode === "rapid1v1") opCount = 1;
+        if (mode === "random") opCount = STATE.randomCount || 3;
         if (mode === "specific") {
             opCount = picks.filter(function(p) { return p; }).length || 3;
         }
@@ -555,6 +564,7 @@
         function updateTimes() {
             var opCount = 3;
             if (STATE.mode === "rapid1v1") opCount = 1;
+            else if (STATE.mode === "random") opCount = STATE.randomCount || 3;
             else if (STATE.mode === "specific") opCount = (STATE.picks || []).filter(function(p) { return p; }).length || 3;
             var mult = (opCount + 1) / 4;
             var g5 = $("g5"), g20 = $("g20"), g60 = $("g60");
@@ -562,6 +572,11 @@
             if (g20 && g20.nextElementSibling) g20.nextElementSibling.textContent = "20 games · ~" + Math.ceil(10 * mult) + " min";
             if (g60 && g60.nextElementSibling) g60.nextElementSibling.textContent = "60 games · ~" + Math.ceil(30 * mult) + " min";
         }
+        document.querySelectorAll('input[name="randomPool"]').forEach(function (rb) {
+            rb.addEventListener("change", function () { STATE.randomPool = rb.value; });
+        });
+        var rc = $("randomCount");
+        if (rc) rc.addEventListener("change", function () { STATE.randomCount = parseInt(rc.value, 10); updateTimes(); });
         document.querySelectorAll('input[name="mode"]').forEach(function (rb) {
             rb.addEventListener("change", function () {
                 STATE.mode = rb.value;
@@ -700,6 +715,7 @@
         var btn = $("runBtn");
         btn.disabled = true;
         var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "", focus: (STATE.focus || []).slice(0, focusMax()) };
+        if (STATE.mode === "random") { body.random_pool = STATE.randomPool || "all"; body.opponent_count = STATE.randomCount || 3; }
         if (STATE.mode === "specific" || STATE.mode === "standard" || STATE.mode === "rapid1v1") {
              var picks = STATE.picks || ["", "", "", "", ""];
              if (STATE.mode === "rapid1v1") body.opponents = [picks[0]];

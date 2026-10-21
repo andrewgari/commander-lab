@@ -23,6 +23,9 @@ RID = "archidekt:417707"
 
 def user_deck(i):
     d = make_deck()
+    for c in d["cards"]:  # differ from the tested deck so it is not treated as a mirror
+        if c["name"] == "Filler 0":
+            c["name"] = f"Opp {i} Filler"
     d.update(id=900 + i, registry_id=f"archidekt:{900 + i}", name=f"Opp Deck {i}", commanders=["Kaalia of the Vast"])
     return d
 
@@ -239,6 +242,35 @@ class TestRunModes(Base):
         decks_seen = {o["deck"] for g in pod["games"] for o in g["opponents"]}
         self.assertEqual(len(decks_seen), 4)  # different opponents per game
         self.assertEqual(doc["report"]["params"]["opponent_mode"], "random")
+
+    def test_random_mine_never_includes_precons_and_flags_owned(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["random_pool"], "mine")
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertEqual(set(p["opponent_pool"]), {"user_901", "user_902", "user_903"})
+        self.assertEqual(set(p["owned_opponent_ids"]), set(p["opponent_pool"]))
+
+    def test_random_all_pool_keeps_precons_and_default_count(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "all"}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertIn("precon_a", p["opponent_pool"])
+        self.assertNotIn("precon_a", p["owned_opponent_ids"])
+
+    def test_random_mine_pool_too_small_is_rejected(self):
+        with self.assertRaises(svc.SimParamError) as cm:
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 4}, FakeSim())
+        self.assertIn("My decks only", str(cm.exception))
+        # boundary: exactly 3 available with 3 requested is fine
+        svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, FakeSim())
+
+    def test_random_param_validation(self):
+        for bad in ({"random_pool": "x"}, {"opponent_count": 0}, {"opponent_count": 6}):
+            with self.assertRaises(svc.SimParamError):
+                svc.validate_params({"opponent_mode": "random", **bad})
 
     def test_notes_reach_daemon_and_oracle_and_saved_params(self):
         sim, oracle = FakeSim(), FakeOracle(good_reply)
