@@ -59,7 +59,7 @@ Header (title, chips) · tabs [… Review 7 | SIMULATE 8]
 ┌ JOB CARD (only while a run is active) ─────────────────────────────┐
 ┌ REPORT (hud-doc) ──────────────────────────────────────────────────┐
 │ head: Built · Up to date|Stale · mode · games · Won X of N         │
-│ test-notes callout · stale note                                    │
+│ notes callout · stale note                                    │
 │ stat strip (win rate · avg game · commander cast · mana used)      │
 │ index 01 02 03 04                                                  │
 │ 01 Oracle review   02 Curve & tempo   03 Cards   04 Game log       │
@@ -110,7 +110,7 @@ Under the tiles, one detail block (others `hidden`), `aria-live="polite"` so a s
 
 **2. Games**: `hud-seg` radios: `20 games · ~10 min` (default) · `60 games · ~30 min`. Side note: "More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it." Estimate is ~30 s a game (from the daemon smoke runs); if SM-3 reports a better `sec_per_game` the labels use it.
 
-**3. Test notes** (optional): `<textarea maxlength="500" rows="3">`, placeholder *e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4*. Hint: "Oracle answers this directly in section 01." Counter `0 / 500`, turns amber at ≥450. ⌘/Ctrl+Enter submits.
+**3. Focus + What to watch for** (optional; Focus chips come from the persisted catalog, max 3; textarea below): `<textarea maxlength="500" rows="3">`, placeholder *e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4*. Hint: "Oracle answers this directly in section 01." Counter `0 / 500`, turns amber at ≥450. ⌘/Ctrl+Enter submits.
 
 **4. Run bar**: primary button (min 11rem, 36px) + hint "Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes."
 
@@ -165,7 +165,7 @@ Your saved report from Oct 17 stays exactly as it is until this run finishes. Yo
 SIMULATION · SAVED
 Holy Hellfire
 BUILT 3H AGO  ■ UP TO DATE  [STANDARD POD] [20 GAMES] [WON 12 OF 20]
-┌ YOUR TEST NOTES ──────────────────────────────────────────────┐
+┌ WHAT TO WATCH FOR ──────────────────────────────────────────────┐
 │ Watch if Kaalia gets removed before attacking, or if colors…   │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -174,7 +174,7 @@ BUILT 3H AGO  ■ UP TO DATE  [STANDARD POD] [20 GAMES] [WON 12 OF 20]
 - Freshness chip: `Up to date` (ok, dot) or `Stale` (signal, dot, `title` = reason).
 - Mode chip (data tone): `Standard pod` · `Random each game` · `Specific`. Specific: the deck names are in the chip's `title`.
 - Games chip (neutral): `20 games`. Result chip: `Won 12 of 20` (ok when wins ≥ ¼ of games, else neutral). Draws are counted in the log, not hidden.
-- Notes callout (`hud-callout`, one column): label `YOUR TEST NOTES`, the text as typed, wrapped. **Omitted entirely** if the run had no notes.
+- Notes callout (`hud-callout`, one column): label `WHAT TO WATCH FOR`, the text as typed, wrapped. **Omitted entirely** if the run had no notes.
 - **Stale** adds a `hud-panel--signal` `role="status"` note: "**This report is out of date.** The decklist changed after this run: {n cards swapped (+A, +B, −C)}. The numbers describe the old list. Open *Run new simulation* above to refresh." Report content stays full-contrast (not dimmed). Cards in 03 that left the deck get a neutral `cut since` chip.
 - Tray in the stale state: unchanged, closed. (Mockup `stale&tray=1` shows it open with notes.)
 
