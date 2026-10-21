@@ -104,3 +104,18 @@ def test_deck_scope_categories(page, base_url, seeded):
     o.fill(f"d-{sfx}")
     expect(page.locator("[role=option]")).to_have_count(1)
     assert f"cat:d-{sfx}" in " ".join(_options(page))
+
+
+def test_deck_did_you_mean(page, base_url, seeded):
+    deck, sfx = seeded
+    page.goto(f"{base_url}/deck/{deck['name'].replace(' ', '%20')}/composition")
+    page.check("#compModePinned")
+    page.click("#compAddOverride")
+    o = page.locator("#compOverrides input[aria-label='Category ref']").first
+    o.fill("ramp")
+    expect(page.locator("[role=option]")).to_have_count(1)
+    o.press("Escape")
+    page.click("#compPickerForm button[type=submit]")
+    fix = page.locator("#compFixes .refcb-fix-btn", has_text="core:ramp")
+    expect(fix).to_have_count(1)
+    assert o.input_value() == "ramp"

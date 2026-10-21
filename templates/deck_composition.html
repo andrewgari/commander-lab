@@ -141,6 +141,7 @@
                     <div><button type="button" class="hud-btn hud-btn--sm" id="compAddOverride">Add override</button></div>
                 </div>
                 <p class="hud-field-hint" id="compPickerMsg" role="status"></p>
+                <div id="compFixes" aria-live="polite"></div>
                 <div style="display:flex; gap: var(--sp-3);">
                     <button type="submit" class="hud-btn hud-btn--primary" id="compPickerSave">Save selection</button>
                     <button type="button" class="hud-btn hud-btn--ghost" id="compPickerReset">Reset to auto</button>
@@ -346,11 +347,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
             });
             const data = await res.json().catch(function () { return {}; });
-            const fixBox = document.getElementById("compFixes"); fixBox.innerHTML = "";
+            const fixBox = document.getElementById("compFixes"); if (fixBox) fixBox.innerHTML = "";
             if (!res.ok) {
                 const issues = (data.issues || []).map(function (i) { return i.message; }).join(" ");
                 setPickerMsg(issues || data.error || "Save failed.", "error");
-                if ((data.issues || []).some(function (i) { return i.code === "E3"; })) {
+                if (fixBox && (data.issues || []).some(function (i) { return i.code === "E3"; })) {
                     const cat = await RefCombobox.load("deck", deckId);
                     RefCombobox.showFixes(fixBox, Array.from(document.querySelectorAll("#compOverrides input[aria-label='Category ref']")), cat,
                         function () { document.getElementById("compPickerForm").requestSubmit(); });
