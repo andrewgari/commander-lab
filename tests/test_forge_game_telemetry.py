@@ -9,7 +9,7 @@ from analytics import sim_service as svc, sim_store as ss
 from tests.test_sim_service_and_api import FakeSim, Base, user_deck, put_decks, run_sync, FakeOracle  # noqa: F401
 from tests.test_sim_store_and_diff import make_report
 
-FIX = os.path.join(os.path.dirname(__file__), "fixtures", "forge", "verbose_game1.log")
+FIX = os.path.join(os.path.dirname(__file__), "fixtures", "forge", "verbose_game1.txt")
 TEXT = open(FIX, encoding="utf-8").read()
 SEATS = {1: "user_417707", 2: "user_901", 3: "Explorers of the Deep", 4: "Endless Punishment"}
 
