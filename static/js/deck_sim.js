@@ -60,6 +60,12 @@
         return age ? "Built " + age : "Built " + new Date(iso).toLocaleString();
     }
 
+    function builtTime(iso) {
+        if (!iso || isNaN(Date.parse(iso))) return "";
+        var txt = relTime(iso);
+        return txt ? '<time class="hud-freshness" id="createdAt" datetime="' + esc(iso) + '" title="">' + esc(txt) + "</time>" : "";
+    }
+
     // ---- Builder ---------------------------------------------------------
     function modeTiles(mode) {
         var modes = [
@@ -324,7 +330,8 @@
     // ---- Report: head + stat strip -----------------------------------------
     function reportHead(report, meta) {
         var params = report.params || {}, pod = (report.comparison && report.comparison.pod_breakdown) || {};
-        var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
+        var built = builtTime(meta.created_at);
+        var bits = built +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
             chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
             (params.pod && params.pod.decks ? chip("Pod: " + params.pod.decks.map(function (d) { return d.name; }).join(", "), "neutral") : "") +
@@ -340,7 +347,15 @@
         return '<header class="hud-doc-head"><div><span class="hud-label">Simulation · saved</span><h2>' + esc(meta.deck_name || "") +
             '</h2><div class="hud-doc-facts">' + bits + "</div></div></header>" + notes + stale;
     }
+    function quietMode(report) {
+        var tc = (report.comparison && report.comparison.tempo_comparison) || {};
+        return tc.metrics_available === false || (report.params || {}).verbose_log === false;
+    }
+    function unrecPanel(n) {
+        return '<div class="sm-unrec"><b>Not recorded for random pods.</b><p>Random mode logs each game quietly to stay fast, so land drops, starvation, commander timing and mana use were not captured. Run a <i>Standard pod</i> or <i>Specific 3</i> simulation to compare against the math. Sections 01 and 04 still describe these ' + esc(n == null ? "" : n) + ' games.</p></div>';
+    }
     function metricsAvailable(report) {
+        if (quietMode(report)) return false;
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         var sim = tc.sim || {};
         return sim.t5_mana_starvation_rate != null || sim.avg_first_commander_turn != null || sim.avg_mana_utilization_t2_t6 != null;
@@ -350,8 +365,10 @@
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         var avail = metricsAvailable(report);
         var wr = pod.win_rate;
-        var s = H().stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: "even odds 25%", mod: "signal" }) +
-            H().stat("Avg game", pod.avg_total_turns == null ? "n/a" : pod.avg_total_turns, { unit: "turns", foot: "table turns" });
+        var ci = pod.win_rate_ci95 || ((report.summary || {}).win_rate_ci95);
+        var ciTxt = Array.isArray(ci) && ci.length === 2 && isFinite(ci[0]) && isFinite(ci[1]) ? "95% CI " + pct(ci[0]) + "–" + pct(ci[1]) + "%" : "";
+        var s = H().stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: ciTxt ? ciTxt + " · even odds 25%" : "even odds 25%", mod: "signal" }) +
+            H().stat("Avg game", pod.avg_total_turns == null ? "n/a" : Math.round(pod.avg_total_turns), { unit: "turns", foot: "table turns" });
         if (!avail) {
             s += H().stat("Commander cast", "n/a", { foot: "not recorded in random mode" }) + H().stat("Mana used T2–T6", "n/a", { foot: "not recorded in random mode" });
         } else {
@@ -391,8 +408,16 @@
             '<span class="hud-comp-target" style="left:' + Math.max(0, Math.min(100, (stat01 || 0) * 100)) + '%"></span></span>' +
             '<span class="hud-comp-val">' + simV + " <small>vs " + statV + "</small></span>" + chipHtml + "</li>";
     }
+    function readChip(rd) {
+        var worse = rd.read === "worse";
+        return chip((worse ? "▼ " : "▲ ") + (rd.read_label || (worse ? "Worse than math" : "Better than math")), worse ? "signal" : "ok");
+    }
     function s2(report) {
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
+        if (quietMode(report)) {
+            var pb = (report.comparison && report.comparison.pod_breakdown) || {};
+            return sec("02", "Curve &amp; tempo: simulation vs static math", unrecPanel(pb.games_played));
+        }
         if (!metricsAvailable(report)) {
             return sec("02", "Curve &amp; tempo: simulation vs static math",
                 '<p class="hud-doc-prose">Curve metrics are missing from this legacy run. Run a new simulation to see them.</p>');
@@ -407,20 +432,21 @@
         }).join("");
         var st = tc.static || {}, sim = tc.sim || {};
         var tbl = [
-            ["T5 mana starvation (lower is better)", sim.t5_mana_starvation_rate, st.t5_starvation_probability, "pct", "signal", "worse", true],
-            ["Commander first cast (mean turn, when cast)", sim.avg_first_commander_turn, st.commander_cmc, "turn", "signal", "worse"],
+            ["T5 mana starvation (lower is better)", sim.t5_mana_starvation_rate, st.t5_starvation_probability, "pct", "signal", "worse", true, "t5_mana_starvation"],
+            ["Commander first cast (mean turn, when cast)", sim.avg_first_commander_turn, st.commander_cmc, "turn", "signal", "worse", false, "commander_turn"],
             ["Commander on curve (cast on turn cmc)", null, st.p_commander_on_curve, "pct", "signal", "worse"],
             ["Commander casts / game", null, null, "n", "", ""],
             ["Commander never cast (n of N games)", null, null, "n", "", ""],
-            ["Mana used, T2–T6 (spent ÷ available)", sim.avg_mana_utilization_t2_t6, st.mana_utilization_t2_t6, "pct", "signal", "worse"],
+            ["Mana used, T2–T6 (spent ÷ available)", sim.avg_mana_utilization_t2_t6, st.mana_utilization_t2_t6, "pct", "signal", "worse", false, "mana_utilization"],
             ["First spell cast (mean turn)", null, null, "turn", "", ""]
         ].map(function (r) {
             var simTxt = r[3] === "pct" ? fmtPct(r[1]) : r[3] === "turn" ? (r[1] == null ? '<span class="sm-na">n/a</span>' : "T" + r[1]) : fmtNum(r[1]);
             var mathTxt = r[3] === "pct" ? fmtPct(r[2]) : r[3] === "turn" ? (r[2] == null ? '<span class="sm-na">n/a</span>' : "T" + r[2]) : fmtNum(r[2]);
-            var showChip = r[1] != null && r[2] != null && r[4];
+            var rd = (tc.reads || {})[r[7]] || null;
+            var showChip = r[1] != null && r[2] != null && r[4] && rd && (rd.read === "worse" || rd.read === "better");
             return "<tr><td class=\"is-primary c-m\">" + esc(r[0].split(" (")[0]) + '<span class="hud-field-hint" style="display:block">' +
                 esc((r[0].match(/\(([^)]+)\)/) || [, ""])[1]) + "</span></td><td class=\"is-num c-s\" data-l=\"Sim\">" + simTxt +
-                "</td><td class=\"is-num c-x\" data-l=\"Math\">" + mathTxt + "</td><td>" + (showChip ? chip(r[5] === "worse" ? "▼ Below math" : "In line", r[4]) : "") + "</td></tr>";
+                "</td><td class=\"is-num c-x\" data-l=\"Math\">" + mathTxt + "</td><td>" + (showChip ? readChip(rd) : "") + "</td></tr>";
         }).join("");
         return sec("02", "Curve &amp; tempo: simulation vs static math",
             '<div class="hud-panel hud-panel--flush"><header class="hud-panel-head"><h3 class="hud-panel-title">Land drop made on turn</h3>' +
@@ -805,5 +831,5 @@
         load();
     }
 
-    window.DeckSim = { init: init };
+    window.DeckSim = { init: init, _test: { s2: s2, statStrip: statStrip, reportHead: reportHead } };
 })();
