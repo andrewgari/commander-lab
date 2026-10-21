@@ -3620,7 +3620,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-tempo thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .sm-tempo, .sm-tempo tbody { display: block; }
     .sm-tempo tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
-    .sm-tempo td { display: block; padding: 0; border: 0; }
+    .sm-tempo td { display: block; height: auto; padding: 0; border: 0; }
     .sm-tempo td.c-m { grid-column: 1; grid-row: 1 / span 2; }
     .sm-tempo td.c-s::before, .sm-tempo td.c-x::before { content: attr(data-l); display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
     .sm-tempo td:last-child { grid-column: 2 / -1; justify-self: end; }
@@ -3655,7 +3655,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-log, .sm-log tbody { display: block; }
     .sm-log tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
     .sm-log tr:last-child { border-bottom: 0; }
-    .sm-log td { display: block; padding: 0; border: 0; }
+    .sm-log td { display: block; height: auto; padding: 0; border: 0; }
     .sm-log td.c-n { grid-column: 1; grid-row: 1; }
     .sm-log td.c-res { grid-column: 2; grid-row: 1; }
     .sm-log td.c-turns { grid-column: 3; grid-row: 1; }
