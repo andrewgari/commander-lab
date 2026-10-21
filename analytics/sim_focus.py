@@ -42,6 +42,9 @@ COMMANDER_DEPENDENT_MIN_ROLES = 2  # core roles the commander itself provides (c
 LANDS_SHORT_BY = 2               # composition.delta_status: "short" means >= 2 under the template target
 ROW_NOUNS = {"ramp": "ramp pieces", "card_advantage": "card-draw pieces", "removal": "removal and counterspells",
              "finisher": "win conditions", "lands": "lands"}
+# Every metric key the catalog may reference: what Forge logs today plus the keys the seeds already name
+# (those become available once the engine emits them). The Manage editor's picker is limited to these.
+KNOWN_TELEMETRY = tuple(sorted(SUPPORTED_TELEMETRY | {"mana_pool", "cards_drawn", "interaction_events"}))
 RULE_KINDS = ("below_target", "below_floor", "mv_at_least", "commander_roles")
 RULE_ROWS = tuple(ROW_NOUNS)
 
@@ -142,14 +145,38 @@ def _clean(body: Mapping, base: Optional[Mapping] = None) -> dict:
     if not isinstance(hint, str) or not 1 <= len(hint.strip()) <= 140:
         raise FocusError("hint must be 1-140 characters")
     key = cur.get("telemetry_key") or None
-    if key is not None and (not isinstance(key, str) or not re.match(r"^[a-z0-9_]{1,40}$", key)):
-        raise FocusError("telemetry_key must be a short snake_case key")
+    if key is not None and key not in KNOWN_TELEMETRY:
+        raise FocusError(f"telemetry_key must be one of {', '.join(KNOWN_TELEMETRY)}")
     return {"slug": slug, "label": label.strip(), "hint": hint.strip(), "order": cur.get("order", 0),
             "telemetry_key": key, "rules": _clean_rules(cur.get("rules"))}
 
 
+def slugify(label: Any, taken: Iterable[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", str(label or "").lower()).strip("-")[:28].strip("-")
+    if not base:
+        raise FocusError("label must contain letters or digits")
+    taken = set(taken)
+    slug, n = base, 2
+    while slug in taken:
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
+def options() -> dict:
+    """Finite choices for the Manage editor's pickers (no free-typed numbers)."""
+    return {"telemetry_keys": list(KNOWN_TELEMETRY), "supported_telemetry": sorted(SUPPORTED_TELEMETRY),
+            "rule_kinds": list(RULE_KINDS), "rule_rows": list(RULE_ROWS), "row_nouns": dict(ROW_NOUNS),
+            "limits": {"label": 40, "hint": 140, "max_chips": MAX_CHIPS}}
+
+
 def create(r, body: Mapping) -> dict:
     items = list_catalog(r)
+    body = dict(body)
+    if not body.get("slug"):  # generated once, here; never recomputed on rename
+        if not isinstance(body.get("label"), str) or not body["label"].strip():
+            raise FocusError("label must be 1-40 characters")
+        body["slug"] = slugify(body["label"], (c["slug"] for c in items))
     chip = _clean(body)
     if any(c["slug"] == chip["slug"] for c in items):
         raise FocusError(f"slug '{chip['slug']}' already exists")
