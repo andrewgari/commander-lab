@@ -3677,3 +3677,10 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-n { color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
 .sm-rawpre { max-height: 16rem; overflow: auto; margin: var(--sp-2) 0 0; font: var(--fs-micro) var(--font-mono); white-space: pre-wrap; }
 @media (max-width: 640px) { .sm-score { grid-template-columns: minmax(0, 1fr); } }
+
+/* SM-4F F6: stat tile unit + foot must fit at phone width. */
+@media (max-width: 480px) {
+    .hud-stat-value { flex-wrap: wrap; }
+    .hud-stat-unit { font-size: var(--fs-xs); }
+    .hud-stat-foot { white-space: normal; overflow-wrap: anywhere; }
+}
