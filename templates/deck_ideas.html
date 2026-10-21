@@ -53,6 +53,7 @@
                     </div>
                     <div class="hud-idea-buy">{{ tv.money(d.buy_total_usd) }}<small>buy total</small></div>
                     <div class="hud-idea-act">
+                        {{ hud.tcg_cart(d.buy_cards or [], size="sm") }}
                         <a class="hud-btn hud-btn--sm" href="{{ href }}" aria-label="Open {{ d.theme }}">▶ Open</a>
                         <button class="hud-btn hud-btn--sm hud-btn--danger" type="button" data-delete="{{ d.doc_id }}" data-theme="{{ d.theme }}" aria-label="Delete {{ d.theme }}">Delete</button>
                     </div>

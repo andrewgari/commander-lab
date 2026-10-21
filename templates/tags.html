@@ -212,6 +212,21 @@
     </div>
 </div>
 
+<h2 style="margin-top: 2rem;">Simulate focus chips</h2>
+<p style="color: #9ca3af; margin-bottom: 1rem;">
+    The Focus chips offered on a deck's Simulate tab, in the order shown. The telemetry key and
+    suggestion rules are optional and chosen from metrics Commander Lab already computes; a chip
+    with no rule is selectable but never suggested. Deleting a chip is final (it is never
+    re-seeded); past reports keep the label they were run with.
+</p>
+<div id="focusChipError" class="tag-editor-msg" style="color: #f87171; display: none;"></div>
+<div id="focusChipList" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;"></div>
+<div class="tag-input-row" style="margin-bottom: 2rem; flex-wrap: wrap;">
+    <input type="text" id="focusNewLabel" placeholder="New chip label..." maxlength="40">
+    <input type="text" id="focusNewHint" placeholder="Hint (what it emphasises)..." maxlength="140">
+    <button class="btn" onclick="createFocusChip()">Add</button>
+</div>
+
 <div class="search-container">
     <input type="text" id="searchInput" placeholder="Search cards..." onkeyup="fetchCards()">
     <select id="tagFilter" onchange="fetchCards()">
@@ -605,5 +620,149 @@
     }
 
     loadAutotagTags();
+
+    // -- Simulate focus chips (Manage editor; same pattern as the vocabulary above) --
+    let focusOpts = {telemetry_keys: [], rule_kinds: [], rule_rows: [], row_nouns: {}, limits: {label: 40, hint: 140}};
+    let focusChips = [];
+
+    function focusError(msg) {
+        const el = document.getElementById('focusChipError');
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+    }
+
+    function focusRuleOptions() {
+        const out = [];
+        for (const kind of focusOpts.rule_kinds) {
+            if (kind === 'below_target' || kind === 'below_floor') {
+                for (const row of focusOpts.rule_rows) {
+                    out.push({value: kind + '|' + row, label: (kind === 'below_target' ? 'Below template target: ' : 'Below floor: ') + (focusOpts.row_nouns[row] || row)});
+                }
+            } else {
+                out.push({value: kind + '|', label: kind === 'mv_at_least' ? 'High commander mana value' : 'Commander covers several core roles'});
+            }
+        }
+        return out;
+    }
+
+    function ruleLabel(rule) {
+        const o = focusRuleOptions().find(x => x.value === rule.kind + '|' + (rule.row || ''));
+        return o ? o.label : rule.kind;
+    }
+
+    async function focusCall(url, method, body) {
+        const res = await fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok || data.success === false || data.error) { focusError(data.error || data.detail || 'Request failed'); return null; }
+        focusError(null);
+        return data;
+    }
+
+    function focusSelect(options, current, blankLabel, onChange) {
+        const sel = document.createElement('select');
+        sel.style.cssText = 'margin:0;';
+        if (blankLabel !== null) sel.appendChild(new Option(blankLabel, ''));
+        for (const o of options) sel.appendChild(new Option(o.label, o.value));
+        sel.value = current || '';
+        sel.onchange = () => onChange(sel.value);
+        return sel;
+    }
+
+    function focusChipCard(chip, idx) {
+        const card = document.createElement('div');
+        card.className = 'focus-chip-card';
+        card.dataset.slug = chip.slug;
+        card.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:0.6rem;background:var(--nav-bg);display:flex;flex-direction:column;gap:0.4rem;';
+        const top = document.createElement('div');
+        top.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;';
+        const label = document.createElement('input');
+        label.type = 'text'; label.value = chip.label; label.maxLength = focusOpts.limits.label;
+        label.style.cssText = 'flex:1;margin:0;min-width:140px;';
+        label.setAttribute('aria-label', 'Chip label');
+        const hint = document.createElement('input');
+        hint.type = 'text'; hint.value = chip.hint; hint.maxLength = focusOpts.limits.hint;
+        hint.style.cssText = 'flex:2;margin:0;min-width:200px;';
+        hint.setAttribute('aria-label', 'Chip hint');
+        const save = document.createElement('button');
+        save.className = 'btn'; save.textContent = 'Save';
+        save.onclick = async () => { if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {label: label.value, hint: hint.value})) loadFocusChips(); };
+        const up = document.createElement('button');
+        up.className = 'btn'; up.textContent = '\u2191'; up.title = 'Move up'; up.disabled = idx === 0;
+        up.onclick = () => moveFocusChip(idx, -1);
+        const down = document.createElement('button');
+        down.className = 'btn'; down.textContent = '\u2193'; down.title = 'Move down'; down.disabled = idx === focusChips.length - 1;
+        down.onclick = () => moveFocusChip(idx, 1);
+        const del = document.createElement('button');
+        del.className = 'btn'; del.textContent = 'Delete';
+        del.onclick = () => deleteFocusChip(chip);
+        top.append(label, hint, save, up, down, del);
+
+        const meta = document.createElement('div');
+        meta.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;font-size:0.8rem;color:#9ca3af;';
+        const keySel = focusSelect(focusOpts.telemetry_keys.map(k => ({value: k, label: k})), chip.telemetry_key, 'No telemetry key', async (v) => {
+            if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {telemetry_key: v || null})) loadFocusChips();
+        });
+        meta.append('Telemetry:', keySel, 'Suggest when:');
+        const rules = chip.rules || [];
+        if (!rules.length) {
+            const none = document.createElement('span'); none.textContent = 'never suggested (no rule)'; meta.appendChild(none);
+        }
+        rules.forEach((rule, i) => {
+            const tag = document.createElement('span');
+            tag.className = 'tag-badge'; tag.textContent = ruleLabel(rule) + ' \u00d7'; tag.style.cursor = 'pointer';
+            tag.title = 'Remove rule';
+            tag.onclick = async () => { if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {rules: rules.filter((_, j) => j !== i)})) loadFocusChips(); };
+            meta.appendChild(tag);
+        });
+        const addRule = focusSelect(focusRuleOptions(), '', '+ Add rule', async (v) => {
+            if (!v) return;
+            const [kind, row] = v.split('|');
+            const nr = Object.assign({kind}, row ? {row} : {});
+            if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {rules: rules.concat([nr])})) loadFocusChips();
+        });
+        meta.appendChild(addRule);
+        card.append(top, meta);
+        return card;
+    }
+
+    async function loadFocusChips() {
+        const data = await focusCall('/api/sim/focus-chips?all=1', 'GET');
+        if (!data) return;
+        focusChips = data.chips || [];
+        if (data.options) focusOpts = data.options;
+        const list = document.getElementById('focusChipList');
+        list.innerHTML = '';
+        if (!focusChips.length) {
+            const empty = document.createElement('div'); empty.style.color = '#9ca3af'; empty.textContent = 'No focus chips.'; list.appendChild(empty);
+        }
+        focusChips.forEach((c, i) => list.appendChild(focusChipCard(c, i)));
+    }
+
+    async function createFocusChip() {
+        const label = document.getElementById('focusNewLabel');
+        const hint = document.getElementById('focusNewHint');
+        if (!label.value.trim()) { focusError('Label is required'); return; }
+        if (await focusCall('/api/sim/focus-chips', 'POST', {label: label.value, hint: hint.value || label.value})) {
+            label.value = ''; hint.value = '';
+            loadFocusChips();
+        }
+    }
+
+    async function moveFocusChip(idx, delta) {
+        const slugs = focusChips.map(c => c.slug);
+        const j = idx + delta;
+        if (j < 0 || j >= slugs.length) return;
+        [slugs[idx], slugs[j]] = [slugs[j], slugs[idx]];
+        if (await focusCall('/api/sim/focus-chips/order', 'PUT', {slugs})) loadFocusChips();
+    }
+
+    async function deleteFocusChip(chip) {
+        if (!confirm(`Delete focus chip "${chip.label}"? This cannot be undone.`)) return;
+        if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'DELETE')) loadFocusChips();
+    }
+
+    loadFocusChips();
 </script>
 {% endblock %}

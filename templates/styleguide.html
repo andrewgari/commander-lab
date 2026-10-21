@@ -214,6 +214,13 @@
     <input type="search" placeholder="Search cards…" aria-label="Search sample" style="width: 14rem">
     <select aria-label="Select sample"><option>All statuses</option><option>Physical</option></select>
 </div>
+<div class="sg-row" id="buy-buttons" style="margin-top: var(--sp-3)">
+    {#- Buy-list cart (N cards), single-card cart (sm), and the empty list: renders nothing. -#}
+    {{ hud.tcg_cart([{"name": "Smothering Tithe", "qty": 1}, {"name": "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki", "qty": 1}, {"name": "Lim-Dûl's Vault"}]) }}
+    {{ hud.tcg_cart([{"name": "Esper Sentinel", "qty": 1}], size="sm") }}
+    {{ hud.tcg_cart([]) }}
+    {{ hud.chip("3 buy", "signal") }}
+</div>
 
 {{ hud.section_head("Navigation", "09", "nav") }}
 <div class="sg-nav-demo">

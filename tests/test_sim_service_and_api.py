@@ -23,6 +23,9 @@ RID = "archidekt:417707"
 
 def user_deck(i):
     d = make_deck()
+    for c in d["cards"]:  # differ from the tested deck so it is not treated as a mirror
+        if c["name"] == "Filler 0":
+            c["name"] = f"Opp {i} Filler"
     d.update(id=900 + i, registry_id=f"archidekt:{900 + i}", name=f"Opp Deck {i}", commanders=["Kaalia of the Vast"])
     return d
 
@@ -103,7 +106,8 @@ class Base(unittest.TestCase):
 
 class TestValidation(unittest.TestCase):
     def test_defaults(self):
-        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": ""})
+        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": "",
+                                                              "focus": [], "focus_snapshot": []})
 
     def test_bad_values(self):
         for bad in ({"opponent_mode": "wild"}, {"games": 0}, {"games": 101}, {"games": "20"}, {"games": True},
@@ -238,6 +242,35 @@ class TestRunModes(Base):
         decks_seen = {o["deck"] for g in pod["games"] for o in g["opponents"]}
         self.assertEqual(len(decks_seen), 4)  # different opponents per game
         self.assertEqual(doc["report"]["params"]["opponent_mode"], "random")
+
+    def test_random_mine_never_includes_precons_and_flags_owned(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["random_pool"], "mine")
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertEqual(set(p["opponent_pool"]), {"user_901", "user_902", "user_903"})
+        self.assertEqual(set(p["owned_opponent_ids"]), set(p["opponent_pool"]))
+
+    def test_random_all_pool_keeps_precons_and_default_count(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "all"}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertIn("precon_a", p["opponent_pool"])
+        self.assertNotIn("precon_a", p["owned_opponent_ids"])
+
+    def test_random_mine_pool_too_small_is_rejected(self):
+        with self.assertRaises(svc.SimParamError) as cm:
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 4}, FakeSim())
+        self.assertIn("My decks only", str(cm.exception))
+        # boundary: exactly 3 available with 3 requested is fine
+        svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, FakeSim())
+
+    def test_random_param_validation(self):
+        for bad in ({"random_pool": "x"}, {"opponent_count": 0}, {"opponent_count": 6}):
+            with self.assertRaises(svc.SimParamError):
+                svc.validate_params({"opponent_mode": "random", **bad})
 
     def test_notes_reach_daemon_and_oracle_and_saved_params(self):
         sim, oracle = FakeSim(), FakeOracle(good_reply)
@@ -473,3 +506,54 @@ class TestApi(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPoolSanitizing(unittest.TestCase):
+    """SM-4F / F5: no raw ids, no [SET] [YEAR] tags, no blank labels in the opponent pool."""
+
+    def test_strip_bracket_tags(self):
+        self.assertEqual(svc.strip_bracket_tags("Foo Bar [C21] [2021]"), "Foo Bar")
+        self.assertEqual(svc.strip_bracket_tags("  Foo  [C21]  Bar "), "Foo Bar")
+        self.assertEqual(svc.strip_bracket_tags("[C21]"), "")
+
+    def test_sample_ids_get_display_names(self):
+        rows = [{"id": "sample_mind_seize", "name": "sample_mind_seize"}, {"id": "sample_x", "name": "Real Name [C21]"}]
+        out = svc.normalize_precon_rows(rows)
+        self.assertEqual([o["name"] for o in out], ["Mind Seize", "Real Name"])
+
+    def test_user_ids_get_display_names(self):
+        out = svc.normalize_precon_rows([{"id": "user_5", "name": "user_5"}], user_names={"user_5": "My Deck [2020]"})
+        self.assertEqual(out[0]["name"], "My Deck")
+
+    def test_unresolved_id_uses_safe_fallback(self):
+        out = svc.normalize_precon_rows([{"id": "user_999", "name": "user_999"}])
+        self.assertEqual(out[0]["name"], svc.UNKNOWN_DECK_NAME)
+
+    def test_own_id_excluded(self):
+        rows = [{"id": "user_1", "name": "Mine"}, {"id": "p", "name": "P"}]
+        self.assertEqual([o["id"] for o in svc.normalize_precon_rows(rows, own_ids=["user_1"])], ["p"])
+
+    def test_tags_move_to_set_year(self):
+        out = svc.normalize_precon_rows([{"id": "a", "name": "Foo Bar [C21] [2021]"}])[0]
+        self.assertEqual((out["name"], out["set"], out["year"], out["label"]), ("Foo Bar", "C21", "2021", "C21 2021"))
+
+    def test_duplicates_get_nonblank_seat_labels(self):
+        rows = [{"id": "a", "name": "Dup"}, {"id": "b", "name": "Dup"}, {"id": "c", "name": "Solo"}]
+        out = svc.normalize_precon_rows(rows, seats={"a": 2, "b": 3})
+        self.assertEqual([o["label"] for o in out], ["in Seat 2", "in Seat 3", "precon"])
+        # without a seat assignment the label is still never blank
+        out = svc.normalize_precon_rows(rows)
+        self.assertTrue(all(o["label"].strip() for o in out))
+
+    def test_pool_never_leaks_raw_ids(self):
+        class Sim(FakeSim):
+            def list_opponents(self):
+                return {"opponents": [{"id": "sample_power_hungry", "name": "sample_power_hungry"},
+                                      {"id": "user_417707", "name": "user_417707"}, {"id": "user_901", "name": "user_901"}]}
+        b = Base(); b.setUp()
+        pool = svc.build_opponent_pool(b.r, Sim(), b.deck)["opponents"]
+        precons = [o for o in pool if o["source"] == "precon"]
+        self.assertEqual([o["name"] for o in precons], ["Power Hungry"])
+        for o in pool:
+            self.assertTrue(o["name"].strip())
+            self.assertNotRegex(o["name"], r"^(sample|user)_")

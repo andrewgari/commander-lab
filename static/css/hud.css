@@ -895,6 +895,31 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
 .hud-btn--danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
 .hud-btn--sm { height: 1.5rem; padding: 0 var(--sp-2); font-size: var(--fs-micro); }
+/* Buy: "Buy on TCGplayer" cart link (hud.tcg_cart / TcgCart.button). Wears the
+   BUY chip's amber (signal on signal-dim, signal-line edge) so it reads as the
+   action for the buy list it sits beside; fills solid signal on hover/press.
+   The count sits behind a hairline, the ↗ says "leaves the app". Keyboard
+   focus keeps the resting fill + the kit's --focus-ring (a signal ring on a
+   signal fill would vanish). */
+.hud-btn--buy { background: var(--signal-dim); border-color: var(--signal-line); color: var(--signal); }
+.hud-btn--buy:hover { background: var(--signal); border-color: var(--signal); color: var(--text-on-signal); }
+.hud-btn--buy:active { background: var(--signal-strong); border-color: var(--signal-strong); color: var(--text-on-signal); }
+.hud-btn--buy .hud-btn-icon, .hud-btn--buy .hud-btn-ext { flex-shrink: 0; }
+.hud-btn--buy .hud-btn-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hud-btn--buy .hud-btn-count { padding-left: var(--sp-2); border-left: var(--hairline) solid var(--signal-line); font-variant-numeric: tabular-nums; }
+.hud-btn--buy:hover .hud-btn-count, .hud-btn--buy:active .hud-btn-count { border-left-color: var(--text-on-signal); }
+.hud-btn--buy .hud-btn-ext { display: inline-flex; }
+.hud-btn--buy.hud-btn--sm { gap: var(--sp-1); }
+.hud-btn--buy.hud-btn--sm .hud-btn-icon { width: 12px; height: 12px; }
+.hud-btn--buy.hud-btn--sm .hud-btn-ext svg { width: 8px; height: 8px; }
+.hud-btn--buy.hud-btn--sm .hud-btn-ext path { stroke-width: 2.25; } /* keep optical weight at 8px */
+/* Motion is opt-in: reduced-motion users get the instant colour swap only. */
+@media (prefers-reduced-motion: no-preference) {
+    .hud-btn--buy { transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+    .hud-btn--buy:active { transform: translateY(var(--hairline)); }
+    .hud-btn--buy .hud-btn-ext { transition: transform var(--dur-base) var(--ease); }
+    .hud-btn--buy:hover .hud-btn-ext, .hud-btn--buy:focus-visible .hud-btn-ext { transform: translate(2px, -2px); }
+}
 
 /* Menu / flyout ------------------------------------------------------------------- */
 /* Disclosure-style flyout of links: a trigger with [data-hud-menu] +
@@ -3502,6 +3527,16 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-count { display: flex; gap: var(--sp-4); align-items: center; flex-wrap: wrap; }
 .sm-count-note { color: var(--text-3); font-size: var(--fs-xs); }
 .sm-notes-foot { display: flex; justify-content: space-between; gap: var(--sp-3); }
+.sm-focus { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sm-focus-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.sm-focus-item { display: flex; flex-direction: column; gap: var(--sp-1); max-width: 100%; }
+.sm-focus-chip { min-height: 2rem; padding: 0 var(--sp-3); background: var(--surface-2); color: var(--text-2); border: var(--stroke); border-radius: var(--radius-1); font-size: var(--fs-sm); cursor: pointer; }
+.sm-focus-chip:hover:not(:disabled) { border-color: var(--signal); color: var(--text-1); }
+.sm-focus-chip.is-on { background: var(--signal-dim); border-color: var(--signal); color: var(--signal-strong); }
+.sm-focus-chip:disabled { opacity: .45; cursor: not-allowed; }
+.sm-focus-tag { margin-left: var(--sp-1); color: var(--signal); font: var(--fs-micro) var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+.sm-focus-hint { margin: 0; color: var(--text-3); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.sm-focus-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
 .sm-counter { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
 .sm-counter.is-near { color: var(--signal); }
 
@@ -3523,6 +3558,8 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-job .hud-job-track i { transform-origin: left; width: 100%; transform: scaleX(var(--p, 0)); animation: none; transition: transform var(--dur-slow) var(--ease); }
 .sm-job[data-phase="queued"] .hud-job-track i,
 .sm-job[data-phase="oracle"] .hud-job-track i { width: 30%; transform: none; animation: job-slide 1.6s var(--ease) infinite; }
+.sm-job.is-failed .hud-job-track { display: block; }
+.sm-job[data-phase="failed"] .hud-job-track i { width: 100%; transform: none; animation: none; background: var(--danger); opacity: 1; }
 .sm-job-count { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
 .sm-job-count b { color: var(--text-1); font-weight: var(--fw-medium); }
 
@@ -3585,7 +3622,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-tempo thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .sm-tempo, .sm-tempo tbody { display: block; }
     .sm-tempo tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
-    .sm-tempo td { display: block; padding: 0; border: 0; }
+    .sm-tempo td { display: block; height: auto; padding: 0; border: 0; }
     .sm-tempo td.c-m { grid-column: 1; grid-row: 1 / span 2; }
     .sm-tempo td.c-s::before, .sm-tempo td.c-x::before { content: attr(data-l); display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
     .sm-tempo td:last-child { grid-column: 2 / -1; justify-self: end; }
@@ -3620,7 +3657,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-log, .sm-log tbody { display: block; }
     .sm-log tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
     .sm-log tr:last-child { border-bottom: 0; }
-    .sm-log td { display: block; padding: 0; border: 0; }
+    .sm-log td { display: block; height: auto; padding: 0; border: 0; }
     .sm-log td.c-n { grid-column: 1; grid-row: 1; }
     .sm-log td.c-res { grid-column: 2; grid-row: 1; }
     .sm-log td.c-turns { grid-column: 3; grid-row: 1; }
@@ -3632,4 +3669,18 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 @media (prefers-reduced-motion: reduce) {
     .sm-job .hud-job-track i { transition: none; }
     .sm-mode label { transition: none; }
+}
+
+/* ---- Sim diagnostics (WoWLogs-style report) ---------------------------- */
+.sm-score { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.sm-low { color: var(--signal); font: var(--fs-micro) var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+.sm-n { color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.sm-rawpre { max-height: 16rem; overflow: auto; margin: var(--sp-2) 0 0; font: var(--fs-micro) var(--font-mono); white-space: pre-wrap; }
+@media (max-width: 640px) { .sm-score { grid-template-columns: minmax(0, 1fr); } }
+
+/* SM-4F F6: stat tile unit + foot must fit at phone width. */
+@media (max-width: 480px) {
+    .hud-stat-value { flex-wrap: wrap; }
+    .hud-stat-unit { font-size: var(--fs-xs); }
+    .hud-stat-foot { white-space: normal; overflow-wrap: anywhere; }
 }
