@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import re
 import threading
 import time
 import uuid
@@ -92,14 +93,85 @@ def _precon_rows(payload: Any) -> List[dict]:
     return rows
 
 
+_TAG_RE = re.compile(r"\s*\[([^\]]*)\]")
+# Shown when an id cannot be resolved to a name. Deliberately generic: the raw id must never reach the UI.
+UNKNOWN_DECK_NAME = "Unknown deck"
+
+
+def split_bracket_tags(name: Any) -> tuple:
+    """'Foo Bar [C21] [2021]' -> ('Foo Bar', ['C21', '2021']). Name is whitespace-collapsed and trimmed."""
+    text = str(name or "")
+    tags = [t.strip() for t in _TAG_RE.findall(text) if t.strip()]
+    return " ".join(_TAG_RE.sub(" ", text).split()), tags
+
+
+def strip_bracket_tags(name: Any) -> str:
+    return split_bracket_tags(name)[0]
+
+
+def resolve_display_name(pool_id: str, name: Any = None, user_names: Optional[Mapping] = None) -> str:
+    """Human-readable, tag-free, never-blank name for a pool entry; never returns the raw id.
+
+    Order: user_<id> -> synced deck name; a daemon-supplied name that differs from the id; sample_* -> its
+    slug title-cased ('sample_mind_seize' -> 'Mind Seize'); otherwise UNKNOWN_DECK_NAME."""
+    pid = str(pool_id or "")
+    if pid.startswith("user_") and user_names and user_names.get(pid):
+        cand = strip_bracket_tags(user_names[pid])
+        if cand:
+            return cand
+    cand = strip_bracket_tags(name)
+    if cand and cand != pid and not re.match(r"^(sample|user)_", cand):
+        return cand
+    if pid.startswith("sample_"):
+        slug = " ".join(w.capitalize() for w in pid[len("sample_"):].split("_") if w)
+        if slug:
+            return slug
+    return UNKNOWN_DECK_NAME
+
+
+def normalize_precon_rows(rows: List[dict], own_ids: Any = (), user_names: Optional[Mapping] = None,
+                          seats: Optional[Mapping] = None) -> List[dict]:
+    """Pure: clean daemon 'precon' rows. Drops the requesting deck (own_ids); resolves names; moves [SET]/[YEAR]
+    tags into set/year; gives every row a non-blank `label` (small right-hand text). Rows sharing a name get
+    "in Seat n" when `seats` maps their id to a seat; the pool endpoint is seat-agnostic (seats are chosen
+    client-side, which shows "in Seat n" for taken rows), so otherwise the label falls back to set/year or
+    "duplicate" -- never blank."""
+    own = {str(i) for i in own_ids if i}
+    out: List[dict] = []
+    for row in rows:
+        rid = str(row.get("id") or "")
+        if rid in own:
+            continue
+        _, tags = split_bracket_tags(row.get("name"))
+        item = dict(row)
+        item["name"] = resolve_display_name(rid, row.get("name"), user_names)
+        year = next((t for t in tags if re.fullmatch(r"(19|20)\d\d", t)), None)
+        code = next((t for t in tags if t != year), None)
+        if code and not item.get("set"):
+            item["set"] = code
+        if year and not item.get("year"):
+            item["year"] = year
+        out.append(item)
+    counts: Dict[str, int] = {}
+    for it in out:
+        counts[it["name"]] = counts.get(it["name"], 0) + 1
+    for it in out:
+        base = " ".join(f"{it.get('set') or ''} {it.get('year') or ''}".split())
+        if counts[it["name"]] > 1:
+            seat = (seats or {}).get(it["id"])
+            it["label"] = f"in Seat {seat}" if seat else (base or "duplicate")
+        else:
+            it["label"] = base or "precon"
+    return out
+
+
 def build_opponent_pool(r, client: Optional[sim_client.SimClient] = None, exclude_deck: Optional[Mapping] = None) -> dict:
     """Forge precons + synced Commander Lab decks. Daemon trouble degrades to user decks only."""
     client = client or sim_client.SimClient()
-    pool: List[dict] = []
+    precons: List[dict] = []
     daemon_error = None
     try:
-        for row in _precon_rows(client.list_opponents()):
-            pool.append({**row, "source": "precon"})
+        precons = _precon_rows(client.list_opponents())
     except SimClientError as exc:
         daemon_error = str(exc)
     skip = _rid(exclude_deck) if exclude_deck else None
@@ -110,10 +182,17 @@ def build_opponent_pool(r, client: Optional[sim_client.SimClient] = None, exclud
     except Exception:  # noqa: BLE001 - pool stays usable without Redis decks
         log.warning("could not list decks for the opponent pool", exc_info=True)
         decks = []
+    user_names = {user_opponent_id(d): d["name"] for d in decks if d.get("name")}
+    own = [user_opponent_id(exclude_deck)] if exclude_deck else []
+    user_ids = set(user_names)
+    # The daemon also lists user_* decks it was fed; those are not precons (they're listed below as user decks).
+    precons = [p for p in precons if str(p["id"]) not in user_ids and not str(p["id"]).startswith("user_")]
+    pool: List[dict] = [{**p, "source": "precon"} for p in normalize_precon_rows(precons, own, user_names)]
     for d in decks:
         if not d.get("name") or (skip and _rid(d) == skip):
             continue
-        pool.append({"id": user_opponent_id(d), "name": d["name"], "source": "user_deck", "deck_id": d.get("id"),
+        pool.append({"id": user_opponent_id(d), "name": strip_bracket_tags(d["name"]) or UNKNOWN_DECK_NAME,
+                     "source": "user_deck", "deck_id": d.get("id"),
                      "commander": " + ".join(d.get("commanders") or []) or None})
     return {"opponents": pool, "daemon_error": daemon_error}
 

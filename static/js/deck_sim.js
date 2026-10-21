@@ -121,7 +121,7 @@
         }
         function row(o) {
             var disabled = taken[o.id] && taken[o.id] !== o._seatKey;
-            var right = o.source === "precon" ? ((o.set || "") + " " + (o.year || "")).trim() : (disabled ? ("in Seat " + taken[o.id]) : (o.status || "synced"));
+            var right = disabled ? ("in Seat " + taken[o.id]) : (o.source === "precon" ? (o.label || ((o.set || "") + " " + (o.year || "")).trim() || "precon") : (o.status || "synced"));
             return '<li class="sm-combo-opt" role="option" data-id="' + esc(o.id) + '"' + (disabled ? ' aria-disabled="true"' : '') + '>' +
                 "<span>" + hi(o.name) + "</span><small>" + esc(right) + "</small></li>";
         }
