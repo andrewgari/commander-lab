@@ -53,6 +53,20 @@
 </div>
 {%- endmacro %}
 
+{#- "Buy on TCGplayer" cart button: opens a pre-filled TCGplayer Mass Entry
+    cart in a new tab. cards: [{name, qty}] -- pass the SAME list that feeds
+    the surface's buy count; a single card is a one-item list. Renders nothing
+    when the list is empty (or every qty is 0). size: "sm" for single-card rows.
+    Contents/URL: tcgplayer.cart() (global `tcgplayer_cart`). JS twin for
+    client-rendered surfaces: TcgCart.button() in static/js/tcgplayer_cart.js;
+    the two must emit identical markup (tests/test_tcgplayer_cart_button.py). -#}
+{% macro tcg_cart(cards, size=none, label=none) -%}
+{%- set c = tcgplayer_cart(cards) -%}
+{%- if c.url -%}
+<a class="hud-btn hud-btn--buy{% if size %} hud-btn--{{ size }}{% endif %}" href="{{ c.url }}" target="_blank" rel="noopener noreferrer" data-tcg-cart='{{ c["items"]|tojson }}' data-tcg-count="{{ c.count }}"><svg class="hud-btn-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M1 2h2l1.5 8h8l1.5-6H4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/><rect x="4.5" y="12" width="2" height="2" fill="currentColor"/><rect x="11" y="12" width="2" height="2" fill="currentColor"/></svg><span class="hud-btn-text">{{ label or "Buy on TCGplayer" }}</span>{% if c.count > 1 %}<span class="hud-btn-count" aria-hidden="true">{{ c.count }}</span>{% endif %}<span class="hud-sr"> ({{ c.count }} card{{ "" if c.count == 1 else "s" }}, opens in a new tab)</span><span class="hud-btn-ext" aria-hidden="true"><svg viewBox="0 0 16 16" width="10" height="10" focusable="false"><path d="M4 12L12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg></span></a>
+{%- endif -%}
+{%- endmacro %}
+
 {# Status chip. tone: signal | ok | danger | data | neutral | ghost. #}
 {% macro chip(text, tone="neutral", dot=false, title=none) -%}
 <span class="hud-chip hud-chip--{{ tone }}"{% if title %} title="{{ title }}"{% endif %}>{% if dot %}<span class="hud-chip-dot" aria-hidden="true"></span>{% endif %}{{ text }}</span>
