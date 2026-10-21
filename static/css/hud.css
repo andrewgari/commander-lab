@@ -3614,6 +3614,12 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 /* ---- Offline / error -------------------------------------------------- */
 .sm-banner { margin-bottom: var(--sp-4); }
 
+/* Queued: indeterminate track (F8); failed: danger bar (F4). */
+.sm-job[data-phase="queued"] .hud-job-track i { width: 30%; animation: job-slide 1.6s var(--ease) infinite; }
+.sm-job[data-phase="sim"] .hud-job-track i, .sm-job[data-phase="oracle"] .hud-job-track i { animation: none; width: calc(var(--p, 0) * 100%); }
+.sm-job.is-failed { border-left-color: var(--danger); }
+.sm-job:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
 /* Tempo table: phone = one card per metric. */
 .sm-tempo td { vertical-align: top; }
 @media (max-width: 640px) {
@@ -3636,6 +3642,8 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-mode label { padding: var(--sp-3); }
 }
 @media (max-width: 640px) {
+    .sm-log td, .sm-tempo td { height: auto; }
+    .hud-stat-strip .hud-stat-unit { white-space: normal; }
     .sm-seat { grid-template-columns: minmax(0, 1fr) auto; }
     .sm-seat-id { grid-column: 1 / -1; }
     .sm-tray > summary { flex-wrap: wrap; row-gap: var(--sp-1); }

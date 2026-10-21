@@ -265,13 +265,27 @@ def pod_breakdown(report: Mapping) -> dict:
     }
 
 
+def metrics_available(report: Mapping, tempo: Mapping) -> bool:
+    """False when the run was quiet (random pods): parser fields come back as zeros, not data."""
+    params = report.get("params") or {}
+    if params.get("verbose_log") is False:
+        return False
+    if params.get("opponent_mode") != "random":
+        return True
+    sim = tempo.get("sim") or {}
+    real = any((p.get("sim_land_drop_rate") or 0) > 0 for p in tempo.get("land_drops") or [])
+    return real or bool(sim.get("avg_first_commander_turn")) or bool(sim.get("avg_mana_utilization_t2_t6"))
+
+
 def build_sim_comparison(deck: Mapping, sim_report: Mapping, review_metrics_or_doc: Optional[Mapping]) -> dict:
     report = sim_report.get("report") if isinstance(sim_report.get("report"), Mapping) else sim_report
     metrics = normalize_review(review_metrics_or_doc)
+    tempo = tempo_comparison(deck, report, metrics)
     return {
+        "metrics_available": metrics_available(report, tempo),
         "deck": {"name": deck.get("name"), "commanders": list(deck.get("commanders") or [])},
         "fingerprint": rm.fingerprint(deck),
-        "tempo_comparison": tempo_comparison(deck, report, metrics),
+        "tempo_comparison": tempo,
         "card_comparison": card_comparison(deck, report, metrics),
         "pod_breakdown": pod_breakdown(report),
     }

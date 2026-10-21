@@ -12,6 +12,7 @@ never touch it. Job state (what the UI polls) lives in `deck:sim:run:{job_id}`.
 from __future__ import annotations
 
 import json
+import re
 import logging
 import random
 import threading
@@ -78,6 +79,25 @@ def user_opponent_id(deck: Mapping) -> str:
     return f"user_{deck.get('id', deck.get('source_id', deck.get('name')))}"
 
 
+_SET_YEAR_RE = re.compile(r"\s*\[([^\]]+)\]\s*\[(\d{4})\]\s*$")
+_SET_ONLY_RE = re.compile(r"\s*\[([^\]]+)\]\s*$")
+
+
+def _clean_precon_name(name: str) -> dict:
+    """'Mind Seize [MOC] [2023]' -> name 'Mind Seize', set 'MOC', year '2023'."""
+    m = _SET_YEAR_RE.search(name)
+    if m:
+        return {"name": name[:m.start()].strip(), "set": m.group(1), "year": m.group(2)}
+    m = _SET_ONLY_RE.search(name)
+    if m:
+        return {"name": name[:m.start()].strip(), "set": m.group(1)}
+    return {"name": name}
+
+
+def _prettify_id(i: str) -> str:
+    return re.sub(r"^sample_", "", i).replace("_", " ").title()
+
+
 def _precon_rows(payload: Any) -> List[dict]:
     items = payload
     if isinstance(payload, Mapping):
@@ -85,10 +105,17 @@ def _precon_rows(payload: Any) -> List[dict]:
     rows = []
     for it in items or []:
         if isinstance(it, str):
-            rows.append({"id": it, "name": it})
+            if it.startswith("user_"):  # a synced deck, not a precon
+                continue
+            rows.append({"id": it, **_clean_precon_name(_prettify_id(it) if it.startswith("sample_") else it)})
         elif isinstance(it, Mapping) and (it.get("id") or it.get("name")):
-            rows.append({"id": str(it.get("id") or it.get("name")), "name": str(it.get("name") or it.get("id")),
-                         **{k: it[k] for k in ("commander", "set", "year", "colors") if k in it}})
+            rid = str(it.get("id") or it.get("name"))
+            if rid.startswith("user_"):
+                continue
+            raw_name = str(it.get("name") or _prettify_id(rid))
+            row = {"id": rid, **_clean_precon_name(raw_name),
+                   **{k: it[k] for k in ("commander", "set", "year", "colors") if k in it}}
+            rows.append(row)
     return rows
 
 

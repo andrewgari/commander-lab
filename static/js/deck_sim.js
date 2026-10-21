@@ -303,16 +303,21 @@
         if (job.status === "failed") return "Couldn't finish the simulation: " + String(job.error || "unknown error").slice(0, 300);
         return "";
     }
+    function etaMin(job, left) {
+        var a = Date.parse(job.created_at), b = Date.parse(job.updated_at) || Date.now();
+        if (!isFinite(a) || !job.games_completed) return Math.max(1, Math.ceil(left * 0.5));
+        return Math.max(1, Math.ceil(((b - a) / job.games_completed) * left / 60000));
+    }
     function jobCount(job) {
         if (job.status !== "running") return job.status === "writing_review" ? "<b>" + (job.games_total || 0) + " / " + (job.games_total || 0) + "</b> games" : "";
         var left = Math.max(0, (job.games_total || 0) - (job.games_completed || 0));
-        return "<b>" + (job.games_completed || 0) + " / " + (job.games_total || 0) + "</b> games" + (left ? " · about " + Math.ceil(left * 0.5) + " min left" : "");
+        return "<b>" + (job.games_completed || 0) + " / " + (job.games_total || 0) + "</b> games" + (left && job.games_completed >= 2 ? " · about " + etaMin(job, left) + " min left" : "");
     }
     function jobHtml(job, hasReport) {
         if (!job || job.status === "done") return "";
-        var phase = job.status === "writing_review" ? "oracle" : "sim";
+        var phase = job.status === "writing_review" ? "oracle" : job.status === "queued" ? "queued" : job.status === "failed" ? "failed" : "sim";
         var p = job.games_total ? (job.games_completed || 0) / job.games_total : 0;
-        return '<section class="hud-job sm-job" id="job" aria-live="polite" tabindex="-1" data-phase="' + phase + '" style="--p:' + p + '">' +
+        return '<section class="hud-job sm-job' + (job.status === "failed" ? " is-failed" : "") + '" id="job" aria-live="polite" tabindex="-1" data-phase="' + phase + '" style="--p:' + p + '">' +
             '<div class="hud-job-head"><span class="hud-label" id="jobLabel">' + jobLabel(job.status) + '</span><span class="hud-job-clock" id="jobClock">0:00</span></div>' +
             '<p class="hud-job-title" id="jobTitle">' + esc(jobTitle(job)) + "</p>" +
             '<div class="hud-job-track" aria-hidden="true"><i></i></div>' +
@@ -324,7 +329,8 @@
     // ---- Report: head + stat strip -----------------------------------------
     function reportHead(report, meta) {
         var params = report.params || {}, pod = (report.comparison && report.comparison.pod_breakdown) || {};
-        var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
+        var built = meta.created_at || meta.saved_at || "";
+        var bits = (built ? '<time class="hud-freshness" id="createdAt" datetime="' + esc(built) + '" title="' + esc(new Date(built).toLocaleString()) + '">' + esc(relTime(built)) + "</time>" : "") +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
             chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
             (params.pod && params.pod.decks ? chip("Pod: " + params.pod.decks.map(function (d) { return d.name; }).join(", "), "neutral") : "") +
@@ -335,23 +341,33 @@
         var fsnap = Array.isArray(params.focus_snapshot) ? params.focus_snapshot : [];
         var focusLine = fsnap.length ? chip("Focus: " + fsnap.map(function (f) { return f.label; }).join(", "), "data") : "";
         var stale = meta.stale ? '<div class="hud-panel hud-panel--signal" id="staleNote" role="status" style="margin-top:var(--sp-4)"><div class="hud-panel-body">' +
-            "<b>This report is out of date.</b> " + esc(meta.stale_reason || "The decklist changed since this simulation was run.") +
+            "<b>This report is out of date.</b> " + esc((meta.stale_reason || "The decklist changed since this simulation was run.").replace(/\s*$/, "").replace(/([^.!?])$/, "$1.")) +
             " The numbers describe the old list. Open <i>Run new simulation</i> above to refresh.</div></div>" : "";
         return '<header class="hud-doc-head"><div><span class="hud-label">Simulation · saved</span><h2>' + esc(meta.deck_name || "") +
             '</h2><div class="hud-doc-facts">' + bits + "</div></div></header>" + notes + stale;
     }
     function metricsAvailable(report) {
+        var cmp = report.comparison || {}, params = report.params || {};
+        if (typeof cmp.metrics_available === "boolean") return cmp.metrics_available;
+        if (typeof report.metrics_available === "boolean") return report.metrics_available;
+        if (params.verbose_log === false) return false;
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         var sim = tc.sim || {};
+        if (params.opponent_mode === "random") {
+            // Legacy random runs (quiet logs) carry zeros, not data: any real signal means verbose.
+            var anyLand = (tc.land_drops || []).some(function (p) { return p.sim_land_drop_rate > 0; });
+            if (!anyLand && !(sim.avg_mana_utilization_t2_t6 > 0) && !(sim.avg_first_commander_turn > 0)) return false;
+        }
         return sim.t5_mana_starvation_rate != null || sim.avg_first_commander_turn != null || sim.avg_mana_utilization_t2_t6 != null;
     }
     function statStrip(report) {
         var pod = (report.comparison && report.comparison.pod_breakdown) || {};
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         var avail = metricsAvailable(report);
-        var wr = pod.win_rate;
-        var s = H().stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: "even odds 25%", mod: "signal" }) +
-            H().stat("Avg game", pod.avg_total_turns == null ? "n/a" : pod.avg_total_turns, { unit: "turns", foot: "table turns" });
+        var wr = pod.win_rate, ci = (report.summary && report.summary.win_rate_ci95) || null;
+        var ciTxt = Array.isArray(ci) && ci.length === 2 && ci[0] != null && ci[1] != null ? " · 95% CI " + pct(ci[0]) + "–" + pct(ci[1]) + "%" : "";
+        var s = H().stat("Win rate", wr == null ? "n/a" : pct(wr) + "%", { foot: "even odds 25%" + ciTxt, mod: "signal" }) +
+            H().stat("Avg game", pod.avg_total_turns == null ? "n/a" : Number(pod.avg_total_turns).toFixed(1), { unit: "turns", foot: "table turns" });
         if (!avail) {
             s += H().stat("Commander cast", "n/a", { foot: "not recorded in random mode" }) + H().stat("Mana used T2–T6", "n/a", { foot: "not recorded in random mode" });
         } else {
@@ -383,6 +399,13 @@
     }
 
     // ---- Section 02: curve & tempo ------------------------------------------
+    // Direction of a sim-vs-math gap, honouring metric polarity (lowerBetter: starvation, commander turn).
+    function readFor(simV, mathV, lowerBetter, tol) {
+        if (simV == null || mathV == null) return "in";
+        var d = simV - mathV;
+        if (Math.abs(d) < tol) return "in";
+        return (lowerBetter ? d < 0 : d > 0) ? "better" : "worse";
+    }
     function cmpRow(name, simV, statV, sim01, stat01, read, i) {
         var chipHtml = read === "worse" ? chip("▼ Below math", "signal") : read === "better" ? chip("▲ Above math", "ok") : chip("In line", "neutral");
         return '<li class="hud-comp-row' + (read === "worse" ? " is-under" : "") + '" style="--i:' + i + '"><span class="hud-comp-name">' + esc(name) +
@@ -395,7 +418,7 @@
         var tc = (report.comparison && report.comparison.tempo_comparison) || {};
         if (!metricsAvailable(report)) {
             return sec("02", "Curve &amp; tempo: simulation vs static math",
-                '<p class="hud-doc-prose">Curve metrics are missing from this legacy run. Run a new simulation to see them.</p>');
+                '<div class="sm-unrec"><b>Not recorded for random pods.</b><p>Random mode logs each game quietly to stay fast, so land drops, starvation, commander timing and mana use were not captured. Run a Standard pod, Specific or Rapid 1v1 simulation to compare against the math. Sections 01 and 04 still describe these games.</p></div>');
         }
         var drops = tc.land_drops || [];
         var rows = drops.map(function (p, k) {
@@ -407,12 +430,12 @@
         }).join("");
         var st = tc.static || {}, sim = tc.sim || {};
         var tbl = [
-            ["T5 mana starvation (lower is better)", sim.t5_mana_starvation_rate, st.t5_starvation_probability, "pct", "signal", "worse", true],
-            ["Commander first cast (mean turn, when cast)", sim.avg_first_commander_turn, st.commander_cmc, "turn", "signal", "worse"],
-            ["Commander on curve (cast on turn cmc)", null, st.p_commander_on_curve, "pct", "signal", "worse"],
+            ["T5 mana starvation (lower is better)", sim.t5_mana_starvation_rate, st.t5_starvation_probability, "pct", "signal", readFor(sim.t5_mana_starvation_rate, st.t5_starvation_probability, true, 0.08)],
+            ["Commander first cast (mean turn, when cast)", sim.avg_first_commander_turn, st.commander_cmc, "turn", "signal", readFor(sim.avg_first_commander_turn, st.commander_cmc, true, 0.75)],
+            ["Commander on curve (cast on turn cmc)", null, st.p_commander_on_curve, "pct", "signal", "in"],
             ["Commander casts / game", null, null, "n", "", ""],
             ["Commander never cast (n of N games)", null, null, "n", "", ""],
-            ["Mana used, T2–T6 (spent ÷ available)", sim.avg_mana_utilization_t2_t6, st.mana_utilization_t2_t6, "pct", "signal", "worse"],
+            ["Mana used, T2–T6 (spent ÷ available)", sim.avg_mana_utilization_t2_t6, st.mana_utilization_t2_t6, "pct", "signal", readFor(sim.avg_mana_utilization_t2_t6, st.mana_utilization_t2_t6, false, 0.08)],
             ["First spell cast (mean turn)", null, null, "turn", "", ""]
         ].map(function (r) {
             var simTxt = r[3] === "pct" ? fmtPct(r[1]) : r[3] === "turn" ? (r[1] == null ? '<span class="sm-na">n/a</span>' : "T" + r[1]) : fmtNum(r[1]);
@@ -420,7 +443,7 @@
             var showChip = r[1] != null && r[2] != null && r[4];
             return "<tr><td class=\"is-primary c-m\">" + esc(r[0].split(" (")[0]) + '<span class="hud-field-hint" style="display:block">' +
                 esc((r[0].match(/\(([^)]+)\)/) || [, ""])[1]) + "</span></td><td class=\"is-num c-s\" data-l=\"Sim\">" + simTxt +
-                "</td><td class=\"is-num c-x\" data-l=\"Math\">" + mathTxt + "</td><td>" + (showChip ? chip(r[5] === "worse" ? "▼ Below math" : "In line", r[4]) : "") + "</td></tr>";
+                "</td><td class=\"is-num c-x\" data-l=\"Math\">" + mathTxt + "</td><td>" + (showChip ? (r[5] === "worse" ? chip("▼ Below math", "signal") : r[5] === "better" ? chip("▲ Above math", "ok") : chip("In line", "neutral")) : "") + "</td></tr>";
         }).join("");
         return sec("02", "Curve &amp; tempo: simulation vs static math",
             '<div class="hud-panel hud-panel--flush"><header class="hud-panel-head"><h3 class="hud-panel-title">Land drop made on turn</h3>' +
@@ -456,7 +479,7 @@
     function s3(report) {
         if (!metricsAvailable(report)) {
             return sec("03", "Card performance vs static review",
-                '<p class="hud-doc-prose">Card metrics are missing from this legacy run. Run a new simulation to see them.</p>');
+                '<div class="sm-unrec"><b>Not recorded for random pods.</b><p>Per-card casts and stranded draws need the full game log. Run a Standard pod, Specific or Rapid 1v1 simulation to see them.</p></div>');
         }
         var cc = (report.comparison && report.comparison.card_comparison) || {};
         var dd = cc.surprise_dead_draws || [], sg = cc.confirmed_stragglers || [], wh = cc.confirmed_workhorses || [];
@@ -488,7 +511,7 @@
             return '<tr data-res="' + (!g.winner && !g.user_won ? "draw" : g.user_won ? "win" : "loss") + '"><td class="is-num c-n is-primary" data-value="' + g.game + '">#' +
                 g.game + "</td>" + seats + '<td class="c-res" data-value="' + esc(g.user_won ? "you" : (g.winner || "~ no winner")) + '">' + res + '</td>' +
                 '<td class="is-num c-turns" data-value="' + (g.total_turns || 0) + '">' + (g.total_turns || "?") + '<span class="sm-lab"> turns</span></td>' +
-                '<td class="c-why"><span class="sm-reason">' + esc(g.win_reason || "") + "</span></td></tr>";
+                '<td class="c-why"><span class="sm-reason">' + esc(g.win_reason || "—") + "</span></td></tr>";
         }).join("");
         var seatAi = ["Reckless", "Default", "Cautious"];
         var th = [["#", "num"], ["Seat 2", "text", seatAi[0]], ["Seat 3", "text", seatAi[1]], ["Seat 4", "text", seatAi[2]], ["Winner", "text"], ["Turns", "num"], ["How it ended", "text"]]
@@ -534,6 +557,8 @@
         if (jobActive) {
             var form = $("simForm");
             if (form) form.querySelectorAll("fieldset").forEach(function (f) { f.disabled = true; });
+            var rb = $("runBtn"); if (rb) rb.disabled = true;
+            var nt = $("notes"); if (nt) nt.disabled = true;
         }
         if (job && job.status !== "done") wireJob(job, !!(d.sim && d.sim.report));
         H().initSortable(r);
@@ -623,6 +648,10 @@
             var counter = ta.parentNode.querySelector(".sm-counter");
             counter.textContent = ta.value.length + " / 500";
             counter.classList.toggle("is-near", ta.value.length >= 450);
+        });
+        var ta2 = $("notes");
+        if (ta2) ta2.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); var f = $("simForm"); if (f && f.requestSubmit) f.requestSubmit(); }
         });
         document.querySelectorAll('input[name="games"]').forEach(function (g) {
             g.addEventListener("change", function () { STATE.games = parseInt(g.value, 10); });
@@ -730,6 +759,7 @@
         call("POST", API + "/run", body).then(function (res) {
             var j = { job_id: res.job_id, started: new Date().toISOString() };
             remember(j);
+            STATE.focusJob = true;
             load();
         }).catch(function (err) {
             btn.disabled = false;
@@ -746,14 +776,17 @@
     // ---- Job polling ---------------------------------------------------------
     function wireJob(job, hasReport) {
         clearInterval(clockTimer);
-        var t0 = Date.now();
-        clockTimer = setInterval(function () { var c = $("jobClock"); if (c) c.textContent = mmss(Date.now() - t0); }, 1000);
+        var c0 = Date.parse(job && job.created_at), t0 = isFinite(c0) ? c0 : Date.now();
+        var tick = function () { var c = $("jobClock"); if (c && !(job && job.status === "failed")) c.textContent = mmss(Date.now() - t0); };
+        tick();
+        if (job && job.status === "failed") return;
+        clockTimer = setInterval(tick, 1000);
     }
     function poll(j) {
         clearTimeout(timer);
         call("GET", API + "/jobs/" + encodeURIComponent(j.job_id)).then(function (res) {
             if (res.status === "done") { forget(); load(); return; }
-            if (res.status === "failed") { forget(); load(); return; }
+            if (res.status === "failed") { forget(); load(res); return; }
             var seen = Date.parse(res.updated_at || res.created_at || j.started);
             if (isFinite(seen) && Date.now() - seen > STALE_MS) { forget(); load(); return; }
             STATE.lastJob = res;
@@ -762,7 +795,9 @@
                 $("jobLabel").textContent = jobLabel(res.status);
                 $("jobTitle").textContent = jobTitle(res);
                 $("jobCount").innerHTML = jobCount(res);
-                card.dataset.phase = res.status === "writing_review" ? "oracle" : "sim";
+                card.dataset.phase = res.status === "writing_review" ? "oracle" : res.status === "queued" ? "queued" : "sim";
+                if (res.created_at && STATE.data && STATE.data.job) STATE.data.job.created_at = res.created_at;
+                if (!card.dataset.clock && res.created_at) { card.dataset.clock = "1"; wireJob(res); }
                 card.style.setProperty("--p", res.games_total ? (res.games_completed || 0) / res.games_total : 0);
             }
             timer = setTimeout(function () { poll(j); }, POLL_MS);
@@ -772,30 +807,54 @@
     }
 
     // ---- Load ----------------------------------------------------------------
-    function load() {
+    function load(failedJob) {
         call("GET", API).then(function (res) {
             var d = { pool: { opponents: res.opponent_pool || [], daemon_error: res.opponent_pool_error || null },
                       sim: res.sim ? { meta: res.sim.meta, report: res.sim.report } : null,
                       job: res.running_job, deck_name: res.sim && res.sim.meta && res.sim.meta.deck_name };
             var pending = saved();
-            if (!d.job && pending && pending.job_id) {
+            if (!d.job && failedJob && failedJob.status === "failed") {
+                d.job = failedJob; pending = null;
+                var fp = failedJob.params || {};
+                applyParams(fp);
+            } else if (!d.job && pending && pending.job_id) {
                 d.job = { job_id: pending.job_id, status: "queued", games_completed: 0,
                           games_total: (d.sim && d.sim.report && d.sim.report.params && d.sim.report.params.games) || 20 };
             }
             if (!STATE.data) {
                 var p = d.sim && d.sim.report && d.sim.report.params;
-                if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; }
+                if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; if (p.opponent_mode === "specific" || p.opponent_mode === "rapid1v1") STATE.picks = (p.opponents || []).slice(0, 5).concat(["", "", "", "", ""]).slice(0, 5); }
             }
             d.focus = res.focus || null;
             STATE.pod = res.standard_pod || { status: "empty", decks: [], problems: [] };
             STATE.data = d;
             initFocus(d.focus);
             render(d);
+            if (d.job && d.job.status === "failed") showFailed(d.job);
+            else if (d.job && d.job.status !== "done" && d.job.status !== "failed") { var jc = $("job"); if (jc && STATE.focusJob) { STATE.focusJob = false; jc.focus(); } }
             var followId = (res.running_job && res.running_job.job_id) || (pending && pending.job_id);
             if (followId) poll({ job_id: followId });
         }).catch(function () {
             root().innerHTML = '<div class="hud-panel"><div class="hud-panel-body"><div class="hud-empty">Couldn\'t load the simulation. Try again later.</div></div></div>';
         });
+    }
+
+    // Re-seed the builder state from a run's submitted params (failed resume, Specific prefill).
+    function applyParams(p) {
+        if (!p) return;
+        if (p.opponent_mode) STATE.mode = p.opponent_mode;
+        if (p.games) STATE.games = p.games;
+        if (Array.isArray(p.opponents) && p.opponents.length) STATE.picks = p.opponents.slice(0, 5).concat(["", "", "", "", ""]).slice(0, 5);
+        if (p.random_pool) STATE.randomPool = p.random_pool;
+        if (p.opponent_count) STATE.randomCount = p.opponent_count;
+        if (typeof p.notes === "string") STATE.notes = p.notes;
+        if (Array.isArray(p.focus) && !STATE.focusTouched) { STATE.focus = p.focus.slice(); STATE.focusTouched = true; }
+    }
+    function showFailed(job) {
+        var tray = $("tray"); if (tray) tray.open = true;
+        var err = $("simError");
+        if (err) err.textContent = "The last run failed: " + String(job.error || "unknown error").slice(0, 300) + " Adjust the settings and run again.";
+        var card = $("job"); if (card) card.focus();
     }
 
     function init(deckId) {
