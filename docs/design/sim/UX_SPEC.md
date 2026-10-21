@@ -90,13 +90,13 @@ Header has **no action button** (unlike Review). Reason: Review has one action; 
 
 | Value | Name | Description | Footer flag |
 |---|---|---|---|
-| `standard` | Standard pod | Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game. | Full curve + card metrics |
+| `standard` | Standard pod | Your saved pod of 1 to 5 decks (Redis `sim:standard_pod`). Same opponents every game; no default, empty state prompts to define one. | Full curve + card metrics |
 | `random` | Random each game | Three new opponents on every game, from Forge precons and your synced decks. | Game log + outcomes only *(drop this flag once decision 1 ships)* |
 | `specific` | Specific | You pick 1 to 5 opponents from precons and synced decks. Fixed for the run. | Full curve + card metrics |
 
 Under the tiles, one detail block (others `hidden`), `aria-live="polite"` so a switch is announced:
 
-- **Standard:** read-only seat list: `SEAT 2 · RECKLESS  Cavalry Charge  MOC 2023`, Seat 3 Default, Seat 4 Cautious. Note: "Same three Forge AIs every game…".
+- **Standard:** seat list of the user-defined pod with an Edit pod form (synced decks; Forge precons opt-in, never preselected). Deleted/invalid decks are flagged and block the run. The report records the pod in `params.pod`.
 - **Random:** one paragraph, no controls: "Fresh pod every game. Three distinct decks drawn at random from **179**: 154 Forge precons plus 25 of your synced decks. {Deck} and its mirrors are left out. The log in section 04 shows which pod each game got." Numbers come from `/opponents` (`pool.total`, `precons`, `synced`). Deliberately **no pod preview**: a preview would imply the pods are fixed.
 - **Specific:** three comboboxes labelled `SEAT 2 · RECKLESS`, `SEAT 3 · DEFAULT`, `SEAT 4 · CAUTIOUS` (AI profile follows the seat). Prefilled from last run.
 

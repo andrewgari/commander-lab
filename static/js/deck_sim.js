@@ -63,7 +63,7 @@
     // ---- Builder ---------------------------------------------------------
     function modeTiles(mode) {
         var modes = [
-            ["standard", "Standard pod", "Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game."],
+            ["standard", "Standard pod", "Your saved pod of 1 to 5 decks. The same opponents every game."],
             ["random", "Random each game", "Three new opponents on every game, from Forge precons and your synced decks."],
             ["specific", "Specific", "You pick 1 to 5 opponents from precons and synced decks. Fixed for the run."],
             ["rapid1v1", "Rapid 1v1", "Test against a single opponent. 5 games. Fastest way to see how a specific matchup plays."]
@@ -74,19 +74,40 @@
                 '</span></label></div>';
         }).join("") + "</div>";
     }
-    // The daemon's standard pod is a fixed trio and the API does not expose its
-    // roster (build_opponent_pool only lists the pickable pool), so the three
-    // names/sets are taken verbatim from the UX_SPEC's own table (§4.2) -- a
-    // noted deviation: if the daemon's standard roster ever changes, this list
-    // needs a matching edit here (or SM-3 should start exposing it).
-    var STANDARD_POD = [["Cavalry Charge", "MOC 2023"], ["Explorers of the Deep", "LCC 2023"], ["Endless Punishment", "DSC 2024"]];
-    function seatsHtml() {
-        var ai = ["Reckless", "Default", "Cautious"];
-        return '<ol class="sm-seats" aria-label="Standard pod">' + [0, 1, 2].map(function (k) {
-            var s = STANDARD_POD[k];
-            return '<li class="sm-seat"><span class="sm-seat-id"><b>Seat ' + (k + 2) + '</b> · ' + ai[k] + '</span><span class="sm-seat-name">' +
-                esc(s[0]) + '</span><span class="sm-seat-set">' + esc(s[1]) + "</span></li>";
-        }).join("") + "</ol>";
+    // Standard pod: user-defined, saved server-side (PUT /api/sim/standard-pod). No default exists.
+    function podPanel(pod, pool) {
+        var decks = (pod && pod.decks) || [];
+        var h = '<div class="sm-pod" id="podPanel">';
+        if (!decks.length) {
+            h += '<p class="sm-opp-note"><b style="color:var(--text-1)">No Standard pod defined.</b> Pick 1 to 5 decks to play against; they are used every game.</p>' +
+                '<button type="button" class="hud-btn hud-btn--sm" id="podEdit">Define Standard pod</button>';
+        } else {
+            h += '<ol class="sm-seats" aria-label="Standard pod">' + decks.map(function (d, k) {
+                return '<li class="sm-seat"' + (d.problem ? ' data-invalid="true"' : "") + '><span class="sm-seat-id"><b>Seat ' + (k + 2) + '</b></span><span class="sm-seat-name">' +
+                    esc(d.name) + '</span><span class="sm-seat-set">' + (d.problem ? "&#9888; " + esc(d.problem) : (d.source === "precon" ? "Forge precon" : "synced")) + "</span></li>";
+            }).join("") + "</ol>";
+            if (pod.status === "invalid") h += '<p class="sm-error" role="alert">Fix the pod before running Standard: ' + esc(pod.problems.join("; ")) + "</p>";
+            h += '<button type="button" class="hud-btn hud-btn--sm" id="podEdit">Edit pod</button>';
+        }
+        return h + '<div id="podForm" hidden></div></div>';
+    }
+    function podFormHtml(pod, pool) {
+        var chosen = {}; ((pod && pod.decks) || []).forEach(function (d) { chosen[d.id] = true; });
+        var opts = (pool && pool.opponents) || [];
+        function group(list) {
+            return list.map(function (o) {
+                return '<label class="sm-pod-opt"><input type="checkbox" name="podDeck" value="' + esc(o.id) + '"' + (chosen[o.id] ? " checked" : "") + '> ' + esc(o.name) + "</label>";
+            }).join("") || '<span class="hud-muted">none</span>';
+        }
+        var synced = opts.filter(function (o) { return o.source !== "precon"; }), precons = opts.filter(function (o) { return o.source === "precon"; });
+        var missing = ((pod && pod.decks) || []).filter(function (d) { return d.problem && !opts.some(function (o) { return o.id === d.id; }); });
+        return '<fieldset><legend>Your synced decks</legend>' + group(synced) + "</fieldset>" +
+            (missing.length ? '<p class="hud-muted">No longer available (unchecked on save): ' + missing.map(function (d) { return esc(d.name); }).join(", ") + "</p>" : "") +
+            '<details><summary>Forge precons (optional, none selected by default)</summary>' + group(precons) + "</details>" +
+            '<p class="sm-error" id="podErr" role="alert"></p>' +
+            '<button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="podSave">Save pod</button> ' +
+            '<button type="button" class="hud-btn hud-btn--sm" id="podCancel">Cancel</button> ' +
+            '<button type="button" class="hud-btn hud-btn--sm" id="podClear">Clear pod</button>';
     }
     function comboRows(opts, taken, q) {
         var precons = opts.filter(function (o) { return o.source === "precon"; });
@@ -122,7 +143,7 @@
         for (var k = 0; k < count; k++) arr.push(k);
         return '<div class="sm-pickers">' + arr.map(function (k) {
             var val = picks[k] ? (byId[picks[k]] ? byId[picks[k]].name : picks[k]) : "";
-            var placeholder = modePrefix === "standard" ? "Default (" + STANDARD_POD[k][0] + ")" : "Search " + opts.length + " decks…";
+            var placeholder = "Search " + opts.length + " decks…";
             var idBase = modePrefix + "opp" + k;
             return '<div class="sm-combo" data-seat="' + k + '" data-mode="' + modePrefix + '"><label for="' + idBase + '"><b>Seat ' + (k + 2) + "</b> · " + ai[k] + '</label>' +
                 '<input id="' + idBase + '" role="combobox" aria-expanded="false" aria-controls="lb' + idBase + '" aria-autocomplete="list" autocomplete="off" ' +
@@ -136,19 +157,28 @@
         var opps = (pool && pool.opponents) || [];
         var preconCount = opps.filter(function (o) { return o.source === "precon"; }).length;
         var syncedCount = opps.length - preconCount;
-        return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + pickers(pool, picks, "standard", 3) +
-            '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name, or leave empty for default (Cavalry Charge, Explorers of the Deep, Endless Punishment). Best for comparing one change against the last run.</p></div>' +
-            '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '><p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> Three distinct decks drawn at random from <b style="color:var(--text-1)">' +
-            opps.length + '</b>: ' + preconCount + " Forge precons plus " + syncedCount +
-            ' of your synced decks. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p></div>' +
+        return '<div class="sm-opp" id="oppStandard"' + (mode === "standard" ? "" : " hidden") + '>' + podPanel(STATE.pod, pool) + '</div>' +
+            '<div class="sm-opp" id="oppRandom"' + (mode === "random" ? "" : " hidden") + '>' +
+            '<div class="hud-seg" role="radiogroup" aria-label="Random pool">' +
+            '<input type="radio" name="randomPool" id="rp-all" value="all"' + (STATE.randomPool !== "mine" ? " checked" : "") + '><label for="rp-all">All decks</label>' +
+            '<input type="radio" name="randomPool" id="rp-mine" value="mine"' + (STATE.randomPool === "mine" ? " checked" : "") + '><label for="rp-mine">My decks only</label></div> ' +
+            '<label for="randomCount">Opponents</label> <select id="randomCount">' + [1, 2, 3, 4, 5].map(function (n) {
+                return '<option value="' + n + '"' + ((STATE.randomCount || 3) === n ? " selected" : "") + ">" + n + "</option>";
+            }).join("") + '</select>' +
+            '<p class="sm-opp-note"><b style="color:var(--text-1)">Fresh pod every game.</b> <b>All decks</b> draws from ' + preconCount + " Forge precons plus " + syncedCount +
+            ' of your synced decks (your other decks may appear). <b>My decks only</b> draws exclusively from your ' + syncedCount +
+            ' synced decks, never precons. This deck and its mirrors are left out. The log in section 04 shows which pod each game got.</p>' +
+            '<p class="sm-error" id="randomPoolErr" role="alert"></p></div>' +
             '<div class="sm-opp" id="oppSpecific"' + (mode === "specific" ? "" : " hidden") + '>' + pickers(pool, picks, "specific", 5) +
             '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Test against 1 to 5 opponents. Seat order sets the AI: Reckless, Default, Cautious.</p></div>' +
             '<div class="sm-opp" id="oppRapid1v1"' + (mode === "rapid1v1" ? "" : " hidden") + '>' + pickers(pool, picks, "rapid", 1) +
             '<p class="sm-opp-note" style="margin-top:var(--sp-2)">Search by name. Test 1v1 matchup.</p></div>';
     }
+    function podOk() { return !!(STATE.pod && STATE.pod.status === "ok"); }
     function builderBody(btnLabel, mode, pool, picks, games, notes) {
         var opCount = 3;
         if (mode === "rapid1v1") opCount = 1;
+        if (mode === "random") opCount = STATE.randomCount || 3;
         if (mode === "specific") {
             opCount = picks.filter(function(p) { return p; }).length || 3;
         }
@@ -164,7 +194,7 @@
             '<textarea id="notes" maxlength="500" rows="3" placeholder="e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4">' + esc(notes || "") + '</textarea>' +
             '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle answers this directly in section 01.</span><span class="sm-counter" aria-live="off">' + (notes || "").length + ' / 500</span></div></div>' +
             '<p class="sm-error" id="simError" role="alert"></p>' +
-            '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn">' + esc(btnLabel) + '</button>' +
+            '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn"' + (mode === "standard" && !podOk() ? " disabled" : "") + '>' + esc(btnLabel) + '</button>' +
             '<p class="sm-runbar-hint">Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes.</p></div></form>';
     }
     function builder(d) {
@@ -230,6 +260,7 @@
         var bits = '<time class="hud-freshness" id="createdAt" datetime="' + esc(meta.created_at || "") + '" title="">' + esc(relTime(meta.created_at)) + "</time>" +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
             chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
+            (params.pod && params.pod.decks ? chip("Pod: " + params.pod.decks.map(function (d) { return d.name; }).join(", "), "neutral") : "") +
             chip((params.games || pod.games_played || "?") + " games", "neutral") +
             chip("Won " + (pod.user_wins != null ? pod.user_wins : "?") + " of " + (pod.games_played != null ? pod.games_played : (params.games || "?")), (pod.user_wins || 0) * 4 >= (pod.games_played || 1) ? "ok" : "neutral");
         var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>' +
@@ -464,6 +495,7 @@
         function updateTimes() {
             var opCount = 3;
             if (STATE.mode === "rapid1v1") opCount = 1;
+            else if (STATE.mode === "random") opCount = STATE.randomCount || 3;
             else if (STATE.mode === "specific") opCount = (STATE.picks || []).filter(function(p) { return p; }).length || 3;
             var mult = (opCount + 1) / 4;
             var g5 = $("g5"), g20 = $("g20"), g60 = $("g60");
@@ -471,6 +503,11 @@
             if (g20 && g20.nextElementSibling) g20.nextElementSibling.textContent = "20 games · ~" + Math.ceil(10 * mult) + " min";
             if (g60 && g60.nextElementSibling) g60.nextElementSibling.textContent = "60 games · ~" + Math.ceil(30 * mult) + " min";
         }
+        document.querySelectorAll('input[name="randomPool"]').forEach(function (rb) {
+            rb.addEventListener("change", function () { STATE.randomPool = rb.value; });
+        });
+        var rc = $("randomCount");
+        if (rc) rc.addEventListener("change", function () { STATE.randomCount = parseInt(rc.value, 10); updateTimes(); });
         document.querySelectorAll('input[name="mode"]').forEach(function (rb) {
             rb.addEventListener("change", function () {
                 STATE.mode = rb.value;
@@ -484,10 +521,25 @@
                     if (g20) g20.checked = true;
                 }
                 updateTimes();
+                syncRun();
                 ["Standard", "Random", "Specific", "Rapid1v1"].forEach(function (n) {
                     var el = $("opp" + n);
                     if (el) el.hidden = n.toLowerCase() !== rb.value.toLowerCase();
                 });
+            });
+        });
+        function syncRun() { var b = $("runBtn"); if (b) b.disabled = STATE.mode === "standard" && !podOk(); }
+        var pe = $("podEdit");
+        if (pe) pe.addEventListener("click", function () {
+            var f = $("podForm"); f.innerHTML = podFormHtml(STATE.pod, d.pool); f.hidden = false; pe.hidden = true;
+            $("podCancel").addEventListener("click", function () { f.hidden = true; pe.hidden = false; });
+            $("podClear").addEventListener("click", function () {
+                call("DELETE", "/api/sim/standard-pod").then(function () { load(); }).catch(function (err) { $("podErr").textContent = err.message; });
+            });
+            $("podSave").addEventListener("click", function () {
+                var ids = Array.prototype.map.call(f.querySelectorAll('input[name="podDeck"]:checked'), function (c) { return c.value; });
+                if (ids.length < 1 || ids.length > 5) { $("podErr").textContent = "Pick 1 to 5 decks."; return; }
+                call("PUT", "/api/sim/standard-pod", { decks: ids }).then(function () { load(); }).catch(function (err) { $("podErr").textContent = err.message; });
             });
         });
         var ta = $("notes");
@@ -557,6 +609,10 @@
     }
 
     function validate() {
+        if (STATE.mode === "standard" && !podOk()) {
+            $("simError").textContent = STATE.pod && STATE.pod.status === "invalid" ? "Fix the Standard pod first." : "Define a Standard pod first.";
+            return false;
+        }
         var picks = STATE.picks || ["", "", "", "", ""];
         if (STATE.mode === "rapid1v1") {
             if (!picks[0]) {
@@ -589,13 +645,11 @@
         var btn = $("runBtn");
         btn.disabled = true;
         var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "" };
+        if (STATE.mode === "random") { body.random_pool = STATE.randomPool || "all"; body.opponent_count = STATE.randomCount || 3; }
         if (STATE.mode === "specific" || STATE.mode === "standard" || STATE.mode === "rapid1v1") {
              var picks = STATE.picks || ["", "", "", "", ""];
              if (STATE.mode === "rapid1v1") body.opponents = [picks[0]];
-             else if (STATE.mode === "standard") {
-                 var filled = picks.slice(0, 3).map(function(p, i) { return p || STANDARD_POD[i][0]; });
-                 if (picks.slice(0, 3).some(function(x) { return !!x; })) body.opponents = filled;
-             }
+             else if (STATE.mode === "standard") { /* server uses the saved pod */ }
              else if (STATE.mode === "specific") body.opponents = picks.filter(function(x) { return !!x; });
         }
         call("POST", API + "/run", body).then(function (res) {
@@ -657,6 +711,7 @@
                 var p = d.sim && d.sim.report && d.sim.report.params;
                 if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; }
             }
+            STATE.pod = res.standard_pod || { status: "empty", decks: [], problems: [] };
             STATE.data = d;
             render(d);
             var followId = (res.running_job && res.running_job.job_id) || (pending && pending.job_id);
