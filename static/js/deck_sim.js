@@ -329,16 +329,20 @@
         if (job.status !== "running") return job.status === "writing_review" ? "<b>" + (job.games_total || 0) + " / " + (job.games_total || 0) + "</b> games" : "";
         return "<b>" + (job.games_completed || 0) + " / " + (job.games_total || 0) + "</b> games" + etaText(job);
     }
+    function clockText(job) {
+        var c = parseTs(job.created_at), e = job.status === "failed" ? parseTs(job.updated_at || job.finished_at) : Date.now();
+        return isFinite(c) && isFinite(e) ? mmss(Math.max(0, e - c)) : "0:00";
+    }
     function jobHtml(job, hasReport) {
         if (!job || job.status === "done") return "";
         var phase = jobPhase(job.status);
         var p = job.games_total ? (job.games_completed || 0) / job.games_total : 0;
         return '<section class="hud-job sm-job' + (job.status === "failed" ? " is-failed" : "") + '" id="job" aria-live="polite" aria-busy="' + (job.status === "failed" ? "false" : "true") + '" tabindex="-1" data-phase="' + phase + '" style="--p:' + p + '">' +
-            '<div class="hud-job-head"><span class="hud-label" id="jobLabel">' + jobLabel(job.status) + '</span><span class="hud-job-clock" id="jobClock">0:00</span></div>' +
+            '<div class="hud-job-head"><span class="hud-label" id="jobLabel">' + jobLabel(job.status) + '</span><span class="hud-job-clock" id="jobClock">' + clockText(job) + '</span></div>' +
             '<p class="hud-job-title" id="jobTitle">' + esc(jobTitle(job)) + "</p>" +
             '<div class="hud-job-track" aria-hidden="true"><i></i></div>' +
             '<p class="sm-job-count" id="jobCount">' + jobCount(job) + "</p>" +
-            '<p class="hud-job-msg">' + (hasReport ? "Your saved report stays exactly as it is until this run finishes. You can leave this page." : "The report appears here when it finishes.") + "</p>" +
+            '<p class="hud-job-msg">' + (job.status === "failed" ? (hasReport ? "Your saved report is unchanged. Your settings are restored below - adjust them and run again." : "No report was produced. Your settings are restored below - adjust them and run again.") : (hasReport ? "Your saved report stays exactly as it is until this run finishes. You can leave this page." : "The report appears here when it finishes.")) + "</p>" +
             (job.status === "failed" ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" id="jobDismiss">Dismiss</button>' : "") + "</section>";
     }
 
@@ -346,6 +350,8 @@
     function reportHead(report, meta) {
         var params = report.params || {}, pod = (report.comparison && report.comparison.pod_breakdown) || {};
         var built = builtTime(meta.created_at);
+        var fsnap = Array.isArray(params.focus_snapshot) ? params.focus_snapshot : [];
+        var focusLine = fsnap.length ? chip("Focus: " + fsnap.map(function (f) { return f.label; }).join(", "), "data") : "";
         var bits = built +
             (meta.stale ? chip("Stale", "signal", true, meta.stale_reason) : chip("Up to date", "ok", true)) +
             chip(params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod", "data") +
@@ -354,8 +360,6 @@
             chip("Won " + (pod.user_wins != null ? pod.user_wins : "?") + " of " + (pod.games_played != null ? pod.games_played : (params.games || "?")), (pod.user_wins || 0) * 4 >= (pod.games_played || 1) ? "ok" : "neutral");
         var notes = params.notes ? '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">What to watch for</span><q>' +
             esc(params.notes) + "</q></div></div>" : "";
-        var fsnap = Array.isArray(params.focus_snapshot) ? params.focus_snapshot : [];
-        var focusLine = fsnap.length ? chip("Focus: " + fsnap.map(function (f) { return f.label; }).join(", "), "data") : "";
         var stale = meta.stale ? '<div class="hud-panel hud-panel--signal" id="staleNote" role="status" style="margin-top:var(--sp-4)"><div class="hud-panel-body">' +
             "<b>This report is out of date.</b> " + esc(meta.stale_reason || "The decklist changed since this simulation was run.") +
             " The numbers describe the old list. Open <i>Run new simulation</i> above to refresh.</div></div>" : "";

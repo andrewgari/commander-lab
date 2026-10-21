@@ -131,5 +131,21 @@ class TestSpecificPrefill(unittest.TestCase):
         self.assertNotIn("gone:z", h)
 
 
+class TestSm4fCloseout(unittest.TestCase):
+    def test_failed_card_has_failure_copy_and_frozen_clock(self):
+        out = run({"storage": {"simJob:archidekt:1": json.dumps({"job_id": "j1"})}, "sim": sim(with_report=True),
+                   "job": {"job_id": "j1", "status": "failed", "error": "boom", "created_at": "2026-01-01T00:00:00",
+                           "updated_at": "2026-01-01T00:02:05", "params": {"opponent_mode": "random", "games": 5}}})
+        h = out["html"]
+        card = h[h.index('id="job"'):]
+        self.assertNotIn("until this run finishes", card.split("</section>")[0])
+        self.assertIn("settings are restored", card)
+        self.assertIn(">2:05<", card)
+
+    def test_report_head_has_no_undefined(self):
+        out = run({"sim": sim(with_report=True), "job": {}})
+        self.assertNotIn("undefined", out["html"])
+
+
 if __name__ == "__main__":
     unittest.main()
