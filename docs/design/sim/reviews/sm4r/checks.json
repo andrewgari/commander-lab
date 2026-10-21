@@ -1,32 +1,55 @@
-[
-  {
-    "width": 1440,
-    "height": 900,
-    "page": {
-      "url": "http://tower:8020/deck/Holy%20Hellfire/sim",
-      "title": "\ud83d\udc34",
-      "w": 1440,
-      "h": 900,
-      "sx": 0,
-      "sy": 0,
-      "pw": 1440,
-      "ph": 900
-    },
-    "body": "{\"detail\":\"Not Found\"}"
+{
+  "reviewed": "2026-10-20 19:50–20:15 EDT",
+  "target": "http://192.168.50.3:8020",
+  "api_version_seen": ["0.4.144", "0.4.145", "0.4.146", "0.4.147"],
+  "served_assets": {
+    "static/js/deck_sim.js": "md5 a3f1d54260e6255f17fa62bf604edaf8 (49,501 B) = blob at e14a16f (#241); unchanged for the whole review",
+    "static/css/hud.css": "md5 3a0aff66a0abdd18ee7b99bf5746d099; unchanged for the whole review"
   },
-  {
-    "width": 390,
-    "height": 844,
-    "page": {
-      "url": "http://tower:8020/deck/Holy%20Hellfire/sim",
-      "title": "\ud83d\udc34",
-      "w": 390,
-      "h": 844,
-      "sx": 0,
-      "sy": 0,
-      "pw": 390,
-      "ph": 844
-    },
-    "body": "{\"detail\":\"Not Found\"}"
-  }
-]
+  "viewports": ["1440x900 DPR1", "390x844 DPR1 mobile"],
+  "decks": {
+    "Holy Hellfire (417707)": "saved report, specific mode, 20 games, oracle_review.source=fallback (ORACLE_KEY not set)",
+    "Yip! Yip! (17823937)": "empty state (exists:false)",
+    "The Return of the King (5054882)": "no longer empty: random-mode report saved 2026-10-20T17:38Z; used as the live random-mode report"
+  },
+  "overflow_scrollWidth_eq_clientWidth": {
+    "1440": {"empty": true, "saved": true, "random": true, "running_fx": true, "stale_fx": true},
+    "390": {"empty": true, "saved": true, "random": true, "running_fx": true, "stale_fx": true}
+  },
+  "measurements": {
+    "report_head_time_element": "<time id=createdAt datetime=\"\" title=\"\"></time> (empty); first chip x=88 vs h2 x=76 at 390",
+    "win_rate_foot": "even odds 25% (summary.win_rate_ci95 = [0.1119, 0.4687] present in API)",
+    "stat_avg_game_390": "unit right edge 377px > cell right 369px",
+    "land_drop_panel_padding": ".sm-cmp computed padding 0px; row inset from panel edge 1px both sides",
+    "phone_comp_row_chip": "display:none (hud.css @max-width:640 .hud-comp-row .hud-chip)",
+    "phone_log_td_height": "every td 32px (var(--row-h)); seat td scrollHeight 35-53px -> overlap",
+    "phone_tempo_td_height": "32px fixed; metric td scrollHeight 34px",
+    "mode_tiles_1440": "tops 90,90,90,181 (3 + 1 orphan)",
+    "specific_pickers": "5 comboboxes, AI labels Reckless/Default/Cautious/Reckless/Cautious",
+    "specific_prefill_after_specific_run": "all 5 seats empty",
+    "combobox_listbox": "max-height 272px, z-index 900, group header position sticky, groups 'Forge precons · 184' / 'Your synced decks · 57'",
+    "combobox_raw_ids_in_list": ["sample_mind_seize", "sample_power_hungry", "user_24011416", "user_417707", "user_5054882"],
+    "combobox_duplicate_precon_right_label": "\"\" (expected 'in Seat 2')",
+    "combobox_aria_activedescendant": null,
+    "detail_blocks_aria_live": null,
+    "ctrl_enter_submit": "no POST attempted",
+    "notes_counter_is_near_at_455": "rgb(240,166,58)",
+    "invalid_combobox_border": "rgb(238,106,97) = --danger",
+    "tile_focus_visible_outline": "rgb(240,166,58) solid 1px",
+    "job_focus_after_submit": "BODY",
+    "job_clock_after_reload": "0:04 (job created_at 3:31 earlier in fixture)",
+    "job_queued_track_animation": "none (phase=sim)",
+    "job_failed_left_bar": "rgb(240,166,58) (expected --danger)",
+    "job_failed_real_path": "pending localStorage job + poll status=failed -> card removed, no message, tray closed",
+    "empty_state_running_run_button": "visible, enabled",
+    "reduced_motion": {"job_bar_transition": "none", "comp_fill_animation": "none", "tile_transition": "none"},
+    "normal_motion": {"comp_fill_animation": "comp-grow 0.32s", "tile_transition": "0.1s", "job_bar_transition": "transform 0.32s"},
+    "log_sort_turns_first_click": "descending, aria-sort=descending",
+    "log_filter_wins": "5 rows visible; meta text unchanged, no aria-live",
+    "phone_sort_select_change": "row order unchanged",
+    "keyboard_tab_8": "/deck/Holy%20Hellfire/review -> /sim; 7 -> /review",
+    "card_rows_fixture": "hud-cp-name tabindex=0 data-card-preview; hover shows V15 Baneslayer Angel preview"
+  },
+  "fixture_method": "Page.addScriptToEvaluateOnNewDocument fetch wrapper in the reviewer's browser only. Mutates GET .../sim JSON (stale flag, running_job, card rows) and fakes GET .../sim/jobs/{id}. Every POST .../sim/run was intercepted client-side and never reached the server. localStorage keys cleared afterwards.",
+  "production_writes": "none"
+}
