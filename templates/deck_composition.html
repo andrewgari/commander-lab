@@ -258,7 +258,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const rm = document.createElement("button");
         rm.type = "button"; rm.className = "hud-btn hud-btn--sm hud-btn--ghost"; rm.textContent = "Remove";
         rm.addEventListener("click", function () { row.remove(); });
-        [ref, target, min, max].forEach(function (inp) { row.appendChild(inp); });
+        const refWrap = document.createElement("div"); refWrap.style.flex = "1 1 14rem"; refWrap.appendChild(ref);
+        row.appendChild(refWrap);
+        RefCombobox.attach(ref, { scope: "deck", deckId: deckId });
+        [target, min, max].forEach(function (inp) { row.appendChild(inp); });
         row.appendChild(rm);
         return row;
     }
@@ -343,9 +346,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
             });
             const data = await res.json().catch(function () { return {}; });
+            const fixBox = document.getElementById("compFixes"); fixBox.innerHTML = "";
             if (!res.ok) {
                 const issues = (data.issues || []).map(function (i) { return i.message; }).join(" ");
                 setPickerMsg(issues || data.error || "Save failed.", "error");
+                if ((data.issues || []).some(function (i) { return i.code === "E3"; })) {
+                    const cat = await RefCombobox.load("deck", deckId);
+                    RefCombobox.showFixes(fixBox, Array.from(document.querySelectorAll("#compOverrides input[aria-label='Category ref']")), cat,
+                        function () { document.getElementById("compPickerForm").requestSubmit(); });
+                }
                 return;
             }
             setPickerMsg("Saved.", "ok");

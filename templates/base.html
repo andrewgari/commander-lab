@@ -10,6 +10,7 @@
     {# Shared HUD tokens + chrome. Tokens documented in docs/DESIGN_TOKENS.md. #}
     <link rel="stylesheet" href="/static/css/hud.css?v={{ version }}">
     <link rel="stylesheet" href="/static/css/card_hover_preview.css?v={{ version }}">
+    <link rel="stylesheet" href="/static/css/ref_combobox.css?v={{ version }}">
     {# Page-level styles. Templates pass a full <style> element here. #}
     {% block extra_css %}{% endblock %}
 </head>
@@ -110,6 +111,7 @@
     <script>window.HUD_CARD_REFS = {{ ((head.card_refs if head is defined and head else none) or {}) | tojson }};</script>
     {# HUD kit client helpers: sortable tables, HUD.* builders, modals. #}
     <script src="/static/js/hud.js?v={{ version }}" defer></script>
+    <script src="/static/js/ref_combobox.js?v={{ version }}" defer></script>
     {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
     <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
     <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>

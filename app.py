@@ -2804,6 +2804,24 @@ def _comp_error(exc: Exception):
     raise exc
 
 
+@app.get("/api/composition/refs")
+async def api_composition_refs(scope: str = "preset", deck_id: Optional[str] = None):
+    """Read-only catalog of refs ``check_ref`` accepts (for the Ref combobox)."""
+    if scope not in ("preset", "deck"):
+        return _bad_request(ValueError("scope must be 'preset' or 'deck'"))
+    rid = None
+    if scope == "deck":
+        if not deck_id:
+            return _bad_request(ValueError("deck_id is required for scope=deck"))
+        deck, err = await asyncio.to_thread(_deck_or_404, deck_id)
+        if err:
+            return err
+        rid = registry.registry_id_of(deck)
+    from analytics import composition_refs
+    refs = await asyncio.to_thread(composition_refs.enumerate_refs, scope, r, rid)
+    return {"success": True, "scope": scope, "refs": refs, "patterns": composition_refs.patterns()}
+
+
 @app.get("/api/composition/presets")
 async def api_list_presets(kind: Optional[str] = None):
     """User composition presets (there are no built-ins). ?kind=user is a no-op filter; ?kind=builtin
