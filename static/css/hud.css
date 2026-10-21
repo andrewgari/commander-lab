@@ -895,6 +895,31 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
 .hud-btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
 .hud-btn--danger:hover { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
 .hud-btn--sm { height: 1.5rem; padding: 0 var(--sp-2); font-size: var(--fs-micro); }
+/* Buy: "Buy on TCGplayer" cart link (hud.tcg_cart / TcgCart.button). Wears the
+   BUY chip's amber (signal on signal-dim, signal-line edge) so it reads as the
+   action for the buy list it sits beside; fills solid signal on hover/press.
+   The count sits behind a hairline, the ↗ says "leaves the app". Keyboard
+   focus keeps the resting fill + the kit's --focus-ring (a signal ring on a
+   signal fill would vanish). */
+.hud-btn--buy { background: var(--signal-dim); border-color: var(--signal-line); color: var(--signal); }
+.hud-btn--buy:hover { background: var(--signal); border-color: var(--signal); color: var(--text-on-signal); }
+.hud-btn--buy:active { background: var(--signal-strong); border-color: var(--signal-strong); color: var(--text-on-signal); }
+.hud-btn--buy .hud-btn-icon, .hud-btn--buy .hud-btn-ext { flex-shrink: 0; }
+.hud-btn--buy .hud-btn-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hud-btn--buy .hud-btn-count { padding-left: var(--sp-2); border-left: var(--hairline) solid var(--signal-line); font-variant-numeric: tabular-nums; }
+.hud-btn--buy:hover .hud-btn-count, .hud-btn--buy:active .hud-btn-count { border-left-color: var(--text-on-signal); }
+.hud-btn--buy .hud-btn-ext { display: inline-flex; }
+.hud-btn--buy.hud-btn--sm { gap: var(--sp-1); }
+.hud-btn--buy.hud-btn--sm .hud-btn-icon { width: 12px; height: 12px; }
+.hud-btn--buy.hud-btn--sm .hud-btn-ext svg { width: 8px; height: 8px; }
+.hud-btn--buy.hud-btn--sm .hud-btn-ext path { stroke-width: 2.25; } /* keep optical weight at 8px */
+/* Motion is opt-in: reduced-motion users get the instant colour swap only. */
+@media (prefers-reduced-motion: no-preference) {
+    .hud-btn--buy { transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+    .hud-btn--buy:active { transform: translateY(var(--hairline)); }
+    .hud-btn--buy .hud-btn-ext { transition: transform var(--dur-base) var(--ease); }
+    .hud-btn--buy:hover .hud-btn-ext, .hud-btn--buy:focus-visible .hud-btn-ext { transform: translate(2px, -2px); }
+}
 
 /* Menu / flyout ------------------------------------------------------------------- */
 /* Disclosure-style flyout of links: a trigger with [data-hud-menu] +

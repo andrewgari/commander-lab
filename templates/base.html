@@ -113,6 +113,8 @@
     {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
     <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
     <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>
+    {# "Buy on TCGplayer" cart button for client-rendered buy lists (window.TcgCart); Jinja twin: hud.tcg_cart. #}
+    <script src="/static/js/tcgplayer_cart.js?v={{ version }}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -36,30 +36,65 @@ def _front_face(name: str) -> str:
     return name.strip()
 
 
-def build_tcgplayer_url(cards: Iterable[Mapping]) -> str:
-    """Build a TCGplayer mass-entry cart URL from a list of {name, qty} dicts.
+def _qty(raw) -> int:
+    """Quantity as the buy lists display it: missing/None/"" means 1 (the
+    templates render `card.qty or 1`); anything unparseable means 0 (dropped).
+    Mirrored by qtyOf() in static/js/tcgplayer_cart.js."""
+    if raw is None or raw == "":
+        return 1
+    try:
+        return int(float(raw))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def cart_items(cards: Iterable[Mapping] | None) -> list[dict]:
+    """Normalized cart contents: [{name, qty}] in first-seen order.
 
     - Duplicate names (after double-faced normalization) are merged, summing
       quantities.
-    - Cards with qty <= 0 are dropped.
-    - An empty (or entirely zero-qty) input returns the bare base URL with
-      no `c` param.
-    - Card order in the output follows first-seen order of the input.
+    - Cards with a blank name or qty <= 0 are dropped.
     """
     merged: dict[str, int] = {}
-    for card in cards:
-        name = (card.get("name") or "").strip()
+    for card in cards or []:
+        if not isinstance(card, Mapping):
+            continue
+        name = str(card.get("name") or "").strip()
         if not name:
             continue
-        qty = int(card.get("qty", 1) or 0)
+        qty = _qty(card.get("qty"))
         if qty <= 0:
             continue
         front = _front_face(name)
         merged[front] = merged.get(front, 0) + qty
+    return [{"name": name, "qty": qty} for name, qty in merged.items()]
 
-    if not merged:
+
+def build_tcgplayer_url(cards: Iterable[Mapping]) -> str:
+    """Build a TCGplayer mass-entry cart URL from a list of {name, qty} dicts.
+
+    Contents follow cart_items(). An empty (or entirely zero-qty) input
+    returns the bare base URL with no `c` param.
+    """
+    items = cart_items(cards)
+    if not items:
         return BASE_URL
 
-    lines = [f"{qty} {name}" for name, qty in merged.items()]
+    lines = [f"{it['qty']} {it['name']}" for it in items]
     c_param = LINE_SEPARATOR.join(lines)
     return f"{BASE_URL}?c={quote(c_param, safe='')}&productline=Magic"
+
+
+def cart(cards: Iterable[Mapping] | None) -> dict:
+    """Everything the cart button needs: {items, count, url}.
+
+    Jinja global `tcgplayer_cart` (app.py), consumed by the hud.tcg_cart
+    macro. `count` is total copies; `url` is "" when there is nothing to buy
+    so the button can render nothing.
+    """
+    items = cart_items(cards)
+    return {
+        "items": items,
+        "count": sum(it["qty"] for it in items),
+        "url": build_tcgplayer_url(items) if items else "",
+    }
