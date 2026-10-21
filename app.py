@@ -2387,13 +2387,44 @@ async def api_get_deck_sim(deck_id: str):
     view = await asyncio.to_thread(sim_service.saved_view, r, deck)
     pool = await asyncio.to_thread(sim_service.build_opponent_pool, r, None, deck)
     running = await asyncio.to_thread(sim_service.active_job, r, deck)
-    return {"success": True, **view, "opponent_pool": pool["opponents"], "opponent_pool_error": pool["daemon_error"],
+    focus = await asyncio.to_thread(sim_service.focus_view, r, deck)
+    std_pod = await asyncio.to_thread(sim_service.resolve_pod, r, deck)
+    return {"success": True, **view, "focus": focus, "opponent_pool": pool["opponents"], "opponent_pool_error": pool["daemon_error"],
+            "standard_pod": std_pod,
             "running_job": sim_service.public_job(running) if running else None}
+
+
+@app.get("/api/sim/standard-pod")
+async def api_get_standard_pod():
+    from analytics import sim_service
+
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
+
+
+@app.put("/api/sim/standard-pod")
+async def api_put_standard_pod(request: Request):
+    """{"decks": [1-5 opponent ids]} -> saved pod. Forge precons only if the caller lists them."""
+    from analytics import sim_service
+
+    body = await _json_body(request)
+    try:
+        await asyncio.to_thread(sim_service.save_pod, r, (body or {}).get("decks") if isinstance(body, dict) else None)
+    except sim_service.SimParamError as exc:
+        return _bad_request(exc, 422)
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
+
+
+@app.delete("/api/sim/standard-pod")
+async def api_delete_standard_pod():
+    from analytics import sim_service
+
+    await asyncio.to_thread(sim_service.clear_pod, r)
+    return {"success": True, **await asyncio.to_thread(sim_service.resolve_pod, r)}
 
 
 @app.post("/api/decks/{deck_id}/sim/run")
 async def api_run_deck_sim(deck_id: str, request: Request):
-    """{"opponent_mode": "standard"|"random"|"specific", "opponents": [3 ids], "games": 20|60, "notes": str}
+    """{"opponent_mode": "standard"|"random"|"specific", "opponents": [3 ids], "games": 20|60, "notes": str, "focus": [slug, ...max 3]}
     -> 202 {job_id}. Poll GET .../sim/jobs/{job_id}. The previous saved report stays until the run succeeds."""
     from analytics import sim_client, sim_service
 
@@ -2425,6 +2456,66 @@ async def api_run_deck_sim(deck_id: str, request: Request):
         "success": True, "job_id": job["job_id"], "status": job["status"],
             "status_url": f"/api/decks/{urllib.parse.quote(job['deck_id'], safe='')}/sim/jobs/{job['job_id']}"})
 
+
+
+def _focus_err(exc: Exception):
+    return _bad_request(exc, 422)
+
+
+@app.get("/api/sim/focus-chips")
+async def api_focus_chips(all: bool = False):
+    """Persisted Focus-chip catalog (all=1 includes chips hidden for lack of telemetry)."""
+    from analytics import sim_focus
+
+    items = await asyncio.to_thread(sim_focus.list_catalog if all else sim_focus.available_catalog, r)
+    return {"success": True, "chips": items, "supported_telemetry": sorted(sim_focus.SUPPORTED_TELEMETRY)}
+
+
+@app.post("/api/sim/focus-chips")
+async def api_focus_chip_create(request: Request):
+    from analytics import sim_focus
+
+    body = await _json_body(request)
+    try:
+        return {"success": True, "chip": await asyncio.to_thread(sim_focus.create, r, body if isinstance(body, dict) else {})}
+    except sim_focus.FocusError as exc:
+        return _focus_err(exc)
+
+
+@app.put("/api/sim/focus-chips/order")
+async def api_focus_chip_reorder(request: Request):
+    from analytics import sim_focus
+
+    body = await _json_body(request)
+    try:
+        slugs = body.get("slugs") if isinstance(body, dict) else None
+        if not isinstance(slugs, list):
+            raise sim_focus.FocusError("slugs must be a list")
+        return {"success": True, "chips": await asyncio.to_thread(sim_focus.reorder, r, slugs)}
+    except sim_focus.FocusError as exc:
+        return _focus_err(exc)
+
+
+@app.put("/api/sim/focus-chips/{slug}")
+async def api_focus_chip_update(slug: str, request: Request):
+    from analytics import sim_focus
+
+    body = await _json_body(request)
+    try:
+        return {"success": True, "chip": await asyncio.to_thread(sim_focus.update, r, slug, body if isinstance(body, dict) else {})}
+    except sim_focus.FocusError as exc:
+        return _focus_err(exc)
+
+
+@app.delete("/api/sim/focus-chips/{slug}")
+async def api_focus_chip_delete(slug: str):
+    from analytics import sim_focus
+
+    try:
+        await asyncio.to_thread(sim_focus.delete, r, slug)
+    except sim_focus.FocusError as exc:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(exc)})
+    return {"success": True}
 
 
 @app.get("/api/decks/{deck_id}/sim/jobs/{job_id}")
