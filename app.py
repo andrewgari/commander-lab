@@ -2468,7 +2468,8 @@ async def api_focus_chips(all: bool = False):
     from analytics import sim_focus
 
     items = await asyncio.to_thread(sim_focus.list_catalog if all else sim_focus.available_catalog, r)
-    return {"success": True, "chips": items, "supported_telemetry": sorted(sim_focus.SUPPORTED_TELEMETRY)}
+    return {"success": True, "chips": items, "supported_telemetry": sorted(sim_focus.SUPPORTED_TELEMETRY),
+            "options": sim_focus.options()}
 
 
 @app.post("/api/sim/focus-chips")
