@@ -747,12 +747,23 @@ def delete(r, deck_id: str, doc_id: str) -> bool:
     return bool(n or m)
 
 
+def _buy_cards(doc: Mapping) -> list:
+    """[{name, qty}] from the app-verified buy_total section (the list behind the BUY count)."""
+    for s in doc.get("sections") or []:
+        if isinstance(s, Mapping) and s.get("type") == "buy_total":
+            data = s.get("data") if isinstance(s.get("data"), Mapping) else {}
+            return [{"name": c["name"], "qty": c.get("qty") or 1}
+                    for c in data.get("cards") or [] if isinstance(c, Mapping) and c.get("name")]
+    return []
+
+
 def summary(doc: Mapping) -> dict:
     v = doc.get("verification") or {}
     return {"doc_id": doc.get("doc_id"), "deck_id": doc.get("deck_id"), "theme": doc.get("theme"),
             "commander_mode": doc.get("commander_mode"), "created_at": doc.get("created_at"),
             "commander_changed": bool(v.get("commander_changed")), "commanders": v.get("commanders") or [],
             "buy_total_usd": v.get("buy_total_usd"), "counts": v.get("counts") or {},
+            "buy_cards": _buy_cards(doc),
             "corrections": len(v.get("corrections") or []),
             "section_types": [s.get("type") for s in doc.get("sections") or []]}
 
