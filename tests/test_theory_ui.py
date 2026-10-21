@@ -20,6 +20,7 @@ from unittest.mock import patch
 import httpx
 from fastapi.testclient import TestClient
 import card_refs
+import tcgplayer
 from jinja2 import Environment, FileSystemLoader
 
 import app as app_mod
@@ -42,6 +43,7 @@ def _doc(**over):
 def _env():
     env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
     env.globals["card_preview_attrs"] = card_refs.preview_attrs
+    env.globals["tcgplayer_cart"] = tcgplayer.cart
     return env
 
 
