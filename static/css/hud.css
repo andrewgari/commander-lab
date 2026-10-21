@@ -3558,6 +3558,8 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-job .hud-job-track i { transform-origin: left; width: 100%; transform: scaleX(var(--p, 0)); animation: none; transition: transform var(--dur-slow) var(--ease); }
 .sm-job[data-phase="queued"] .hud-job-track i,
 .sm-job[data-phase="oracle"] .hud-job-track i { width: 30%; transform: none; animation: job-slide 1.6s var(--ease) infinite; }
+.sm-job.is-failed .hud-job-track { display: block; }
+.sm-job[data-phase="failed"] .hud-job-track i { width: 100%; transform: none; animation: none; background: var(--danger); opacity: 1; }
 .sm-job-count { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
 .sm-job-count b { color: var(--text-1); font-weight: var(--fw-medium); }
 
@@ -3614,19 +3616,13 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 /* ---- Offline / error -------------------------------------------------- */
 .sm-banner { margin-bottom: var(--sp-4); }
 
-/* Queued: indeterminate track (F8); failed: danger bar (F4). */
-.sm-job[data-phase="queued"] .hud-job-track i { width: 30%; animation: job-slide 1.6s var(--ease) infinite; }
-.sm-job[data-phase="sim"] .hud-job-track i, .sm-job[data-phase="oracle"] .hud-job-track i { animation: none; width: calc(var(--p, 0) * 100%); }
-.sm-job.is-failed { border-left-color: var(--danger); }
-.sm-job:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
-
 /* Tempo table: phone = one card per metric. */
 .sm-tempo td { vertical-align: top; }
 @media (max-width: 640px) {
     .sm-tempo thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     .sm-tempo, .sm-tempo tbody { display: block; }
     .sm-tempo tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-1) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
-    .sm-tempo td { display: block; padding: 0; border: 0; }
+    .sm-tempo td { display: block; height: auto; padding: 0; border: 0; }
     .sm-tempo td.c-m { grid-column: 1; grid-row: 1 / span 2; }
     .sm-tempo td.c-s::before, .sm-tempo td.c-x::before { content: attr(data-l); display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
     .sm-tempo td:last-child { grid-column: 2 / -1; justify-self: end; }
@@ -3642,8 +3638,6 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-mode label { padding: var(--sp-3); }
 }
 @media (max-width: 640px) {
-    .sm-log td, .sm-tempo td { height: auto; }
-    .hud-stat-strip .hud-stat-unit { white-space: normal; }
     .sm-seat { grid-template-columns: minmax(0, 1fr) auto; }
     .sm-seat-id { grid-column: 1 / -1; }
     .sm-tray > summary { flex-wrap: wrap; row-gap: var(--sp-1); }
@@ -3663,7 +3657,7 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .sm-log, .sm-log tbody { display: block; }
     .sm-log tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke); }
     .sm-log tr:last-child { border-bottom: 0; }
-    .sm-log td { display: block; padding: 0; border: 0; }
+    .sm-log td { display: block; height: auto; padding: 0; border: 0; }
     .sm-log td.c-n { grid-column: 1; grid-row: 1; }
     .sm-log td.c-res { grid-column: 2; grid-row: 1; }
     .sm-log td.c-turns { grid-column: 3; grid-row: 1; }
@@ -3683,3 +3677,10 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-n { color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
 .sm-rawpre { max-height: 16rem; overflow: auto; margin: var(--sp-2) 0 0; font: var(--fs-micro) var(--font-mono); white-space: pre-wrap; }
 @media (max-width: 640px) { .sm-score { grid-template-columns: minmax(0, 1fr); } }
+
+/* SM-4F F6: stat tile unit + foot must fit at phone width. */
+@media (max-width: 480px) {
+    .hud-stat-value { flex-wrap: wrap; }
+    .hud-stat-unit { font-size: var(--fs-xs); }
+    .hud-stat-foot { white-space: normal; overflow-wrap: anywhere; }
+}

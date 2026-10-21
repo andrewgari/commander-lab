@@ -84,6 +84,39 @@ def _deck_counts(deck: Mapping, curve_tempo: Mapping) -> dict:
     return {"lands": lands, "library": max(int(library or 0), 1)}
 
 
+def _metrics_available(report: Mapping) -> bool:
+    """False for quiet-mode (random pods / verbose_log off): tempo metrics were never recorded."""
+    params = report.get("params") or {}
+    if params.get("verbose_log") is False:
+        return False
+    mode = params.get("opponent_mode") or report.get("opponent_mode")
+    return mode != "random"
+
+
+# metric -> True when a LOWER sim value than the math is the good direction.
+_LOWER_IS_BETTER = {"t5_mana_starvation": True, "commander_turn": True, "commander_on_curve": False, "mana_utilization": False}
+_READ_TOL = 0.08
+
+
+def _read(metric: str, sim_v, stat_v, tol: float = _READ_TOL) -> dict:
+    """Polarity-aware read: {read: worse|better|in_line, read_label}. Lower-is-better metrics invert."""
+    if sim_v is None or stat_v is None:
+        return {"read": None, "read_label": None}
+    diff = sim_v - stat_v
+    if abs(diff) <= tol:
+        return {"read": "in_line", "read_label": "In line"}
+    lower_good = _LOWER_IS_BETTER.get(metric, False)
+    below = diff < 0
+    good = below if lower_good else not below
+    if metric == "commander_turn":
+        label = "Later than math" if not below else "Earlier than math"
+    elif metric == "t5_mana_starvation":
+        label = "Worse than math" if not below else "Better than math"
+    else:
+        label = "Above math" if not below else "Below math"
+    return {"read": "better" if good else "worse", "read_label": label}
+
+
 def tempo_comparison(deck: Mapping, report: Mapping, metrics: Mapping) -> dict:
     ct = metrics.get("curve_tempo") or {}
     sim = _sim_tempo(report)
@@ -137,6 +170,12 @@ def tempo_comparison(deck: Mapping, report: Mapping, metrics: Mapping) -> dict:
                    "commander_turn_vs_cmc": _r(sim_cmdr - cmdr_cmc) if sim_cmdr is not None and cmdr_cmc else None,
                    "mana_utilization": _r(sim_util - static_util) if sim_util is not None and static_util is not None else None},
         "notes": notes,
+        "reads": {
+            "t5_mana_starvation": _read("t5_mana_starvation", sim_starve, static_starve),
+            "commander_turn": _read("commander_turn", sim_cmdr, cmdr_cmc, 1.0),
+            "mana_utilization": _read("mana_utilization", sim_util, static_util),
+        },
+        "metrics_available": _metrics_available(report),
     }
 
 
@@ -233,6 +272,18 @@ def _rate(wins: int, games: int) -> Optional[float]:
     return _r(wins / games) if games else None
 
 
+def wilson_ci95(wins: int, games: int) -> Optional[List[float]]:
+    """95% Wilson score interval for a win rate, as [lo, hi] fractions (None when no games)."""
+    if not games:
+        return None
+    z = 1.96
+    p = wins / games
+    denom = 1 + z * z / games
+    centre = (p + z * z / (2 * games)) / denom
+    half = z * ((p * (1 - p) / games + z * z / (4 * games * games)) ** 0.5) / denom
+    return [_r(max(0.0, centre - half)), _r(min(1.0, centre + half))]
+
+
 def pod_breakdown(report: Mapping) -> dict:
     log = [g for g in report.get("games_log") or [] if isinstance(g, Mapping)]
     games, by_deck, by_ai, reasons = [], {}, {}, {}
@@ -257,6 +308,7 @@ def pod_breakdown(report: Mapping) -> dict:
     return {
         "opponent_mode": (report.get("params") or {}).get("opponent_mode") or report.get("opponent_mode"),
         "games_played": len(games), "user_wins": wins, "win_rate": _rate(wins, len(games)),
+        "win_rate_ci95": wilson_ci95(wins, len(games)),
         "avg_total_turns": _r(sum(turns) / len(turns), 2) if turns else None,
         "win_reasons": {k: reasons[k] for k in sorted(reasons)},
         "by_opponent_deck": {k: by_deck[k] for k in sorted(by_deck)},
@@ -265,27 +317,13 @@ def pod_breakdown(report: Mapping) -> dict:
     }
 
 
-def metrics_available(report: Mapping, tempo: Mapping) -> bool:
-    """False when the run was quiet (random pods): parser fields come back as zeros, not data."""
-    params = report.get("params") or {}
-    if params.get("verbose_log") is False:
-        return False
-    if params.get("opponent_mode") != "random":
-        return True
-    sim = tempo.get("sim") or {}
-    real = any((p.get("sim_land_drop_rate") or 0) > 0 for p in tempo.get("land_drops") or [])
-    return real or bool(sim.get("avg_first_commander_turn")) or bool(sim.get("avg_mana_utilization_t2_t6"))
-
-
 def build_sim_comparison(deck: Mapping, sim_report: Mapping, review_metrics_or_doc: Optional[Mapping]) -> dict:
     report = sim_report.get("report") if isinstance(sim_report.get("report"), Mapping) else sim_report
     metrics = normalize_review(review_metrics_or_doc)
-    tempo = tempo_comparison(deck, report, metrics)
     return {
-        "metrics_available": metrics_available(report, tempo),
         "deck": {"name": deck.get("name"), "commanders": list(deck.get("commanders") or [])},
         "fingerprint": rm.fingerprint(deck),
-        "tempo_comparison": tempo,
+        "tempo_comparison": tempo_comparison(deck, report, metrics),
         "card_comparison": card_comparison(deck, report, metrics),
         "pod_breakdown": pod_breakdown(report),
     }
