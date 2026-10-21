@@ -38,3 +38,18 @@ class TestSurfaces(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestIdeasRow(unittest.TestCase):
+    DOC = {"doc_id": "d", "sections": [{"type": "buy_total", "data": {"cards": [
+        {"name": "Sol Ring", "qty": 1, "price": 1}, {"name": "Esper Sentinel", "qty": 2, "price": 2}]}}]}
+
+    def test_summary_exposes_buy_cards(self):
+        from analytics import theory
+        self.assertEqual(theory.summary(self.DOC)["buy_cards"],
+                         [{"name": "Sol Ring", "qty": 1}, {"name": "Esper Sentinel", "qty": 2}])
+        self.assertEqual(theory.summary({"doc_id": "x"})["buy_cards"], [])
+
+    def test_ideas_template_wires_cart(self):
+        s = (ROOT / "templates/deck_ideas.html").read_text()
+        self.assertIn('hud.tcg_cart(d.buy_cards or [], size="sm")', s)
