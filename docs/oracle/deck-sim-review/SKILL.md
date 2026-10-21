@@ -1,6 +1,6 @@
 ---
 name: deck-sim-review
-description: "Use when Commander Lab asks for a one-off simulation review of a deck. You get the simulation telemetry compared against the static Review, the user's test notes and the Deck Journal; ends with one JSON block matching sim_review.schema.json."
+description: "Use when Commander Lab asks for a one-off simulation review of a deck. You get the simulation telemetry compared against the static Review, the user's notes and focus areas and the Deck Journal; ends with one JSON block matching sim_review.schema.json."
 version: 1.0.0
 author: Oracle (Hermes Agent)
 license: MIT
@@ -18,7 +18,7 @@ follow-up questions.** Schema: `references/sim_review.schema.json` (`schema_vers
 
 ## Input
 One JSON block: `{deck_id, fingerprint, params, comparison, static_review_summary, journal}`.
-- `params`: `opponent_mode`, `games`, `opponents`, and `notes` (the user's free-text test notes; may be empty).
+- `params`: `opponent_mode`, `games`, `opponents`, `notes` (free text; may be empty), `focus` (chip slugs) and `focus_snapshot` ([{slug,label}]). Focus and notes are EMPHASIS only: still write the full review, lead with the focused areas, and use only computed numbers; if a focus area has no matching metric, say so.
 - `comparison`: tempo (land drops, T5 mana starvation, commander cast turn vs mana value, mana
   utilization), card comparison (confirmed stragglers, surprise dead draws, workhorses), pod breakdown.
 - `journal`: thesis, pillars, win cons, pet cards. May be empty.
