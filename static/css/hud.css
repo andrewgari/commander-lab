@@ -3558,6 +3558,8 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .sm-job .hud-job-track i { transform-origin: left; width: 100%; transform: scaleX(var(--p, 0)); animation: none; transition: transform var(--dur-slow) var(--ease); }
 .sm-job[data-phase="queued"] .hud-job-track i,
 .sm-job[data-phase="oracle"] .hud-job-track i { width: 30%; transform: none; animation: job-slide 1.6s var(--ease) infinite; }
+.sm-job.is-failed .hud-job-track { display: block; }
+.sm-job[data-phase="failed"] .hud-job-track i { width: 100%; transform: none; animation: none; background: var(--danger); opacity: 1; }
 .sm-job-count { color: var(--text-2); font: var(--fs-xs) var(--font-mono); }
 .sm-job-count b { color: var(--text-1); font-weight: var(--fw-medium); }
 

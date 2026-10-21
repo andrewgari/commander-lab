@@ -13,7 +13,7 @@
 
     var DECK_ID = null, API = null, STORE = null;
     var POLL_MS = 2500, STALE_MS = 15 * 60 * 1000;
-    var timer = null, clockTimer = null;
+    var timer = null, clockTimer = null, jobStart = NaN;
     var STATE = { data: null, mode: "standard", openSeat: -1 };
 
     function $(id) { return document.getElementById(id); }
@@ -39,6 +39,12 @@
     function remember(j) { try { localStorage.setItem(STORE, JSON.stringify(j)); } catch (e) { /* private mode */ } }
     function forget() { try { localStorage.removeItem(STORE); } catch (e) { /* ignore */ } }
     function saved() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
+    function parseTs(t) {
+        if (!t) return NaN;
+        var str = String(t);
+        if (!/(Z|[+-]\d\d:?\d\d)$/.test(str)) str += "Z"; // server emits naive UTC
+        return Date.parse(str);
+    }
     function mmss(ms) { var s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
 
     // ---- small render helpers ------------------------------------------------
@@ -205,7 +211,7 @@
             (sel.length ? "" : " · balanced run") + '</span><button type="button" class="hud-btn hud-btn--ghost" id="focusClear"' + (sel.length ? "" : " hidden") + ">Clear</button></div>"
                 : '<p class="hud-field-hint">No focus areas available.</p>') + "</fieldset>" +
             '<div class="hud-field"><label for="notes">What to watch for <span class="hud-muted">(optional)</span></label>' +
-            '<textarea id="notes" maxlength="500" rows="3" placeholder="' + esc(focusPlaceholder(sel, catalog)) + '">' + esc(notes || "") + "</textarea>" +
+            '<textarea id="notes" maxlength="500" rows="3"' + (STATE.locked ? " disabled" : "") + ' placeholder="' + esc(focusPlaceholder(sel, catalog)) + '">' + esc(notes || "") + "</textarea>" +
             '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle uses this as emphasis; the full review still runs.</span><span class="sm-counter" aria-live="off">' +
             (notes || "").length + " / 500</span></div></div>";
     }
@@ -260,8 +266,8 @@
             '<input type="radio" name="games" id="g60" value="60"' + (games === 60 ? " checked" : "") + '><label for="g60">60 games · ~' + Math.ceil(30 * multiplier) + ' min</label></div>' +
             '<span class="sm-count-note">More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it.</span></div></fieldset>' +
             focusSection(notes) +
-            '<p class="sm-error" id="simError" role="alert"></p>' +
-            '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn"' + (mode === "standard" && !podOk() ? " disabled" : "") + '>' + esc(btnLabel) + '</button>' +
+            '<p class="sm-error" id="simError" role="alert">' + esc(STATE.formError || "") + '</p>' +
+            '<div class="sm-runbar"><button class="hud-btn hud-btn--primary" type="submit" id="runBtn"' + ((mode === "standard" && !podOk()) || STATE.locked ? " disabled" : "") + '>' + esc(btnLabel) + '</button>' +
             '<p class="sm-runbar-hint">Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes.</p></div></form>';
     }
     function builder(d) {
@@ -278,7 +284,7 @@
         var report = d.sim.report, params = report.params || {};
         var last = (params.opponent_mode === "random" ? "Random each game" : params.opponent_mode === "specific" ? "Specific" : params.opponent_mode === "rapid1v1" ? "Rapid 1v1" : "Standard pod") +
             " · " + (params.games || "?") + " games";
-        return '<details class="hud-tray sm-tray" id="tray"><summary><span>Run new simulation</span><span class="sm-tray-last">Last run: ' + esc(last) + "</span></summary>" +
+        return '<details class="hud-tray sm-tray" id="tray"' + (STATE.openTray ? " open" : "") + '><summary><span>Run new simulation</span><span class="sm-tray-last">Last run: ' + esc(last) + "</span></summary>" +
             '<div class="sm-tray-body">' + builderBody("Run new simulation", mode, pool, picks, games, notes) + "</div></details>";
     }
 
@@ -303,16 +309,25 @@
         if (job.status === "failed") return "Couldn't finish the simulation: " + String(job.error || "unknown error").slice(0, 300);
         return "";
     }
+    function jobPhase(status) { return status === "writing_review" ? "oracle" : status === "queued" ? "queued" : status === "failed" ? "failed" : "sim"; }
+    function etaText(job) {
+        var done = job.games_completed || 0, total = job.games_total || 0, left = Math.max(0, total - done);
+        if (!left) return "";
+        var elapsed = isFinite(jobStart) ? Math.max(0, Date.now() - jobStart) : NaN;
+        if (!done || !isFinite(elapsed) || elapsed <= 0) return " · estimating time left";
+        var mins = Math.ceil((elapsed * left / done) / 60000);
+        return mins <= 1 ? " · about 1 min left" : " · about " + mins + " min left";
+    }
+    function failureText(job) { return "Couldn't finish the simulation: " + String(job.error || "unknown error").slice(0, 300); }
     function jobCount(job) {
         if (job.status !== "running") return job.status === "writing_review" ? "<b>" + (job.games_total || 0) + " / " + (job.games_total || 0) + "</b> games" : "";
-        var left = Math.max(0, (job.games_total || 0) - (job.games_completed || 0));
-        return "<b>" + (job.games_completed || 0) + " / " + (job.games_total || 0) + "</b> games" + (left ? " · about " + Math.ceil(left * 0.5) + " min left" : "");
+        return "<b>" + (job.games_completed || 0) + " / " + (job.games_total || 0) + "</b> games" + etaText(job);
     }
     function jobHtml(job, hasReport) {
         if (!job || job.status === "done") return "";
-        var phase = job.status === "writing_review" ? "oracle" : "sim";
+        var phase = jobPhase(job.status);
         var p = job.games_total ? (job.games_completed || 0) / job.games_total : 0;
-        return '<section class="hud-job sm-job" id="job" aria-live="polite" tabindex="-1" data-phase="' + phase + '" style="--p:' + p + '">' +
+        return '<section class="hud-job sm-job' + (job.status === "failed" ? " is-failed" : "") + '" id="job" aria-live="polite" aria-busy="' + (job.status === "failed" ? "false" : "true") + '" tabindex="-1" data-phase="' + phase + '" style="--p:' + p + '">' +
             '<div class="hud-job-head"><span class="hud-label" id="jobLabel">' + jobLabel(job.status) + '</span><span class="hud-job-clock" id="jobClock">0:00</span></div>' +
             '<p class="hud-job-title" id="jobTitle">' + esc(jobTitle(job)) + "</p>" +
             '<div class="hud-job-track" aria-hidden="true"><i></i></div>' +
@@ -522,20 +537,48 @@
             '<a href="#sm03">03 Cards</a><a href="#sm04">04 Game log</a></nav>' + s1(report) + s2(report) + s3(report) + s4(report) + "</article>";
     }
 
+    function firstTs() {
+        for (var i = 0; i < arguments.length; i++) { var t = parseTs(arguments[i]); if (isFinite(t)) return t; }
+        return Date.now();
+    }
+    // Restore submitted params into builder state. full=true also restores notes/focus (failed-run re-open).
+    function applyParams(p, pool, full) {
+        if (!p) return;
+        var ids = {}, have = false;
+        ((pool && pool.opponents) || []).forEach(function (o) { ids[o.id] = 1; have = true; });
+        var opp = (Array.isArray(p.opponents) ? p.opponents : []).map(function (o) {
+            return o && typeof o === "object" ? String(o.id || "") : String(o || "");
+        }).filter(function (id) { return id && (!have || ids[id]); }).slice(0, 5);
+        if (opp.length) STATE.picks = opp.concat(["", "", "", "", ""]).slice(0, 5);
+        if (!full) return;
+        if (p.opponent_mode) STATE.mode = p.opponent_mode;
+        if (p.games) STATE.games = p.games;
+        if (typeof p.notes === "string") STATE.notes = p.notes;
+        if (Array.isArray(p.focus)) { STATE.focus = p.focus.slice(); STATE.focusTouched = true; }
+        if (p.random_pool) STATE.randomPool = p.random_pool;
+        if (p.opponent_count) STATE.randomCount = p.opponent_count;
+    }
+
     // ---- Full page render ---------------------------------------------------
     function render(d) {
         var job = d.job;
+        var failed = !!(job && job.status === "failed");
+        var jobActive = !!(job && job.status !== "done" && !failed);
+        STATE.locked = jobActive;
+        STATE.openTray = failed;
+        STATE.formError = failed ? failureText(job) : "";
+        if (job) jobStart = firstTs(job.created_at, (saved() || {}).started);
         var html = '<div class="hud-doc" style="max-width:60rem" data-deck-id="' + esc(DECK_ID) + '">' +
             offlineBanner(d) + builder(d) + jobHtml(job, !!(d.sim && d.sim.report)) + "</div>" + reportHtml(d);
         var r = root();
         r.innerHTML = html;
         wireBuilder(d);
-        var jobActive = job && job.status !== "done" && job.status !== "failed";
         if (jobActive) {
             var form = $("simForm");
             if (form) form.querySelectorAll("fieldset").forEach(function (f) { f.disabled = true; });
         }
         if (job && job.status !== "done") wireJob(job, !!(d.sim && d.sim.report));
+        if (STATE.focusJob) { var jc = $("job"); if (jc && jc.focus) jc.focus(); STATE.focusJob = false; }
         H().initSortable(r);
         wireLog();
         wireCardGroups();
@@ -603,7 +646,7 @@
             });
         });
         wireFocus();
-        function syncRun() { var b = $("runBtn"); if (b) b.disabled = STATE.mode === "standard" && !podOk(); }
+        function syncRun() { var b = $("runBtn"); if (b) b.disabled = (STATE.mode === "standard" && !podOk()) || !!STATE.locked; }
         var pe = $("podEdit");
         if (pe) pe.addEventListener("click", function () {
             var f = $("podForm"); f.innerHTML = podFormHtml(STATE.pod, d.pool); f.hidden = false; pe.hidden = true;
@@ -678,7 +721,7 @@
         var form = $("simForm");
         if (form) form.addEventListener("submit", function (e) { e.preventDefault(); submit(d); });
         var dismiss = $("jobDismiss");
-        if (dismiss) dismiss.addEventListener("click", function () { $("job").hidden = true; });
+        if (dismiss) dismiss.addEventListener("click", function () { $("job").hidden = true; forget(); STATE.failedJob = null; });
         var again = $("checkAgainBtn");
         if (again) again.addEventListener("click", function () { load(); });
     }
@@ -715,10 +758,12 @@
         return true;
     }
     function submit() {
+        if (STATE.locked || STATE.submitting) return;
         $("simError").textContent = "";
         if (!validate()) return;
-        var btn = $("runBtn");
-        btn.disabled = true;
+        var btn = $("runBtn"), notesEl = $("notes");
+        STATE.submitting = true;
+        btn.disabled = true; if (notesEl) notesEl.disabled = true;
         var body = { opponent_mode: STATE.mode, games: STATE.games || 20, notes: STATE.notes || "", focus: (STATE.focus || []).slice(0, focusMax()) };
         if (STATE.mode === "random") { body.random_pool = STATE.randomPool || "all"; body.opponent_count = STATE.randomCount || 3; }
         if (STATE.mode === "specific" || STATE.mode === "standard" || STATE.mode === "rapid1v1") {
@@ -730,12 +775,15 @@
         call("POST", API + "/run", body).then(function (res) {
             var j = { job_id: res.job_id, started: new Date().toISOString() };
             remember(j);
+            STATE.submitting = false; STATE.focusJob = true;
             load();
         }).catch(function (err) {
-            btn.disabled = false;
+            STATE.submitting = false;
+            btn.disabled = false; if (notesEl) notesEl.disabled = false;
             if (err.status === 409 && err.body && err.body.job_id) {
                 var j = { job_id: err.body.job_id };
                 remember(j);
+                STATE.focusJob = true;
                 load();
                 return;
             }
@@ -746,15 +794,25 @@
     // ---- Job polling ---------------------------------------------------------
     function wireJob(job, hasReport) {
         clearInterval(clockTimer);
-        var t0 = Date.now();
-        clockTimer = setInterval(function () { var c = $("jobClock"); if (c) c.textContent = mmss(Date.now() - t0); }, 1000);
+        if (job && job.status === "failed") return;
+        function tick() { var c = $("jobClock"); if (c) c.textContent = mmss(Date.now() - jobStart); }
+        tick();
+        clockTimer = setInterval(tick, 1000);
     }
     function poll(j) {
         clearTimeout(timer);
         call("GET", API + "/jobs/" + encodeURIComponent(j.job_id)).then(function (res) {
             if (res.status === "done") { forget(); load(); return; }
-            if (res.status === "failed") { forget(); load(); return; }
-            var seen = Date.parse(res.updated_at || res.created_at || j.started);
+            if (res.status === "failed") {
+                clearInterval(clockTimer);
+                remember({ job_id: res.job_id || j.job_id, started: j.started, failed: true }); // keep so reload still shows it
+                STATE.failedJob = res;
+                var dd = STATE.data;
+                if (dd) { applyParams(res.params, dd.pool, true); dd.job = res; render(dd); }
+                return;
+            }
+            var ct = parseTs(res.created_at); if (isFinite(ct)) jobStart = ct;
+            var seen = parseTs(res.updated_at || res.created_at || j.started);
             if (isFinite(seen) && Date.now() - seen > STALE_MS) { forget(); load(); return; }
             STATE.lastJob = res;
             var card = $("job");
@@ -762,11 +820,12 @@
                 $("jobLabel").textContent = jobLabel(res.status);
                 $("jobTitle").textContent = jobTitle(res);
                 $("jobCount").innerHTML = jobCount(res);
-                card.dataset.phase = res.status === "writing_review" ? "oracle" : "sim";
+                card.dataset.phase = jobPhase(res.status);
                 card.style.setProperty("--p", res.games_total ? (res.games_completed || 0) / res.games_total : 0);
             }
             timer = setTimeout(function () { poll(j); }, POLL_MS);
-        }).catch(function () {
+        }).catch(function (err) {
+            if (err && err.status === 404) { forget(); load(); return; }
             timer = setTimeout(function () { poll(j); }, POLL_MS * 3);
         });
     }
@@ -784,7 +843,7 @@
             }
             if (!STATE.data) {
                 var p = d.sim && d.sim.report && d.sim.report.params;
-                if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; }
+                if (p) { STATE.mode = p.opponent_mode || "standard"; STATE.games = p.games || 20; applyParams(p, d.pool, false); }
             }
             d.focus = res.focus || null;
             STATE.pod = res.standard_pod || { status: "empty", decks: [], problems: [] };
