@@ -119,3 +119,27 @@ def test_deck_did_you_mean(page, base_url, seeded):
     fix = page.locator("#compFixes .refcb-fix-btn", has_text="core:ramp")
     expect(fix).to_have_count(1)
     assert o.input_value() == "ramp"
+
+
+def test_category_pill_input(page, base_url):
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(f"{base_url}/composition/presets")
+    page.evaluate("""() => { const d = document.createElement('div'); d.id = 'pillHost'; document.body.prepend(d);
+        window.pi = CategoryPillInput.mount(d, {inputName: 'ref'}); }""")
+    inp = page.locator("#pillHost .cpi-input")
+    inp.fill("ramp")
+    expect(page.locator("#pillHost [role=option]").first).to_contain_text("core:ramp")
+    inp.press("ArrowDown")
+    inp.press("Enter")
+    expect(page.locator("#pillHost .cpi-pill[data-ref='core:ramp']")).to_have_count(1)
+    inp.fill("ramp")
+    inp.press("Enter")
+    expect(page.locator("#pillHost .cpi-error")).to_contain_text("already added")
+    expect(page.locator("#pillHost .cpi-pill")).to_have_count(1)
+    inp.fill("zzzzqq")
+    inp.press("Enter")
+    expect(page.locator("#pillHost .cpi-error")).to_contain_text("No matching")
+    page.locator("#pillHost .cpi-pill-rm").dispatch_event("click")
+    expect(page.locator("#pillHost .cpi-pill")).to_have_count(0)
+    assert not errors

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
+
 ### Changed
 
 - The release notes and changelog page now list curated, user-facing changes only, instead of raw change descriptions.
