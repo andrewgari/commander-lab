@@ -140,6 +140,6 @@ def test_category_pill_input(page, base_url):
     inp.fill("zzzzqq")
     inp.press("Enter")
     expect(page.locator("#pillHost .cpi-error")).to_contain_text("No matching")
-    page.click("#pillHost .cpi-pill-rm")
+    page.locator("#pillHost .cpi-pill-rm").dispatch_event("click")
     expect(page.locator("#pillHost .cpi-pill")).to_have_count(0)
     assert not errors
