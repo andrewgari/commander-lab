@@ -17,8 +17,9 @@
     .cp-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
     .cp-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
     .cp-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
-    .cp-slot-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 4.5rem 4.5rem 4.5rem minmax(0, 1.4fr) auto; gap: var(--sp-3); align-items: end; }
-    .cp-slot-row .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+    .cp-extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+    .cp-extra input { width: 4.5rem; }
+    .cp-extra input.cp-why { width: 11rem; }
     .cp-slots { display: flex; flex-direction: column; gap: var(--sp-3); }
     .cp-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
     .cp-actions .cp-spacer { flex: 1; }
@@ -32,8 +33,6 @@
     .cp-compare-wrap { overflow-x: auto; }
     @media (max-width: 900px) {
         .cp-layout { grid-template-columns: minmax(0, 1fr); }
-        .cp-slot-row { grid-template-columns: minmax(0, 1fr) 1fr 1fr; }
-        .cp-slot-row .cp-rm { grid-column: 1 / -1; justify-self: start; }
     }
 </style>
 {% endblock %}
@@ -72,12 +71,11 @@
                     </div>
                     <div class="hud-field">
                         <span class="hud-field-label">Category targets (slots)</span>
-                        <span class="hud-field-hint">Ref (e.g. core:ramp, core:card_advantage, group:targeted_interaction, core:board_wipe). Leave min/max blank to skip a bound.</span>
+                        <span class="hud-field-hint">Type a category (e.g. ramp, card advantage, targeted interaction) and press Enter or Add. Leave min/max blank to skip a bound.</span>
                         <div class="cp-slots" id="cpSlots"></div>
                         <div><button type="button" class="hud-btn hud-btn--sm" id="cpAddSlot">Add category target</button></div>
                     </div>
                     <p class="cp-msg" id="cpMsg" role="status"></p>
-                    <div id="cpFixes" aria-live="polite"></div>
                     <div class="cp-actions">
                         <button type="submit" class="hud-btn hud-btn--primary" id="cpSave">Save</button>
                         <button type="button" class="hud-btn hud-btn--ghost" id="cpCancel">Reset</button>
@@ -146,35 +144,43 @@
         });
     }
 
-    function slotRow(slot) {
-        slot = slot || { ref: '', target: null, min: null, max: null, why: '' };
-        const ref = el('input', { value: slot.ref || '', placeholder: 'core:ramp', 'aria-label': 'Category ref' });
-        const num = (val, lab) => el('input', { type: 'number', min: '0', max: '99', value: (val === null || val === undefined) ? '' : val, 'aria-label': lab });
-        const target = num(slot.target, 'Target');
-        const min = num(slot.min, 'Min');
-        const max = num(slot.max, 'Max');
-        const why = el('input', { value: slot.why || '', placeholder: 'why (optional)', 'aria-label': 'Why', maxlength: '160' });
-        const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost cp-rm', text: 'Remove' });
-        const row = el('div', { class: 'cp-slot-row' }, [
-            el('div', { class: 'hud-field' }, [el('label', { text: 'Ref' }), ref]),
-            el('div', { class: 'hud-field' }, [el('label', { text: 'Target' }), target]),
-            el('div', { class: 'hud-field' }, [el('label', { text: 'Min' }), min]),
-            el('div', { class: 'hud-field' }, [el('label', { text: 'Max' }), max]),
-            el('div', { class: 'hud-field' }, [el('label', { text: 'Why' }), why]),
-            rm,
-        ]);
-        rm.addEventListener('click', () => row.remove());
-        RefCombobox.attach(ref, { scope: 'preset' });
-        return row;
+    let slotsInput = null;
+    const numVal = v => v === '' ? null : Number(v);
+    function renderSlotFields(entry, pill) {
+        if (entry.target === undefined) entry.target = 10;   // default for newly added categories
+        ['min', 'max', 'why'].forEach(k => { if (entry[k] === undefined) entry[k] = k === 'why' ? '' : null; });
+        const num = (key, lab) => {
+            const i = el('input', { type: 'number', min: '0', max: '99', value: entry[key] == null ? '' : entry[key], 'aria-label': lab, title: lab, placeholder: lab });
+            i.addEventListener('input', () => { entry[key] = numVal(i.value); });
+            return i;
+        };
+        const why = el('input', { class: 'cp-why', value: entry.why || '', placeholder: 'why (optional)', 'aria-label': 'Why', maxlength: '160' });
+        why.addEventListener('input', () => { entry.why = why.value; });
+        pill.appendChild(el('span', { class: 'cp-extra' }, [num('target', 'Target'), num('min', 'Min'), num('max', 'Max'), why]));
     }
-    function setSlots(slots) { const box = $('cpSlots'); box.replaceChildren(); (slots || []).forEach(s => box.appendChild(slotRow(s))); }
+    function setSlots(slots) {
+        if (slotsInput) slotsInput.destroy();
+        const box = $('cpSlots'); box.replaceChildren();
+        slotsInput = CategoryPillInput.mount(box, {
+            scope: 'preset',
+            initial: (slots || []).map(s => ({ ref: s.ref, target: s.target, min: s.min, max: s.max, why: s.why || '' })),
+            renderExtraFields: renderSlotFields,
+        });
+    }
     function readSlots() {
-        return Array.from($('cpSlots').children).map(row => {
-            const inputs = row.querySelectorAll('input');
-            const [ref, target, min, max, why] = inputs;
-            const num = v => v.value === '' ? null : Number(v.value);
-            return { ref: ref.value.trim(), target: num(target), min: num(min), max: num(max), why: why.value };
-        }).filter(s => s.ref);
+        return (slotsInput ? slotsInput.getEntries() : []).map(e => ({
+            ref: e.ref, target: e.target == null ? null : e.target, min: e.min == null ? null : e.min,
+            max: e.max == null ? null : e.max, why: e.why || '',
+        })).filter(s => s.ref);
+    }
+    async function addSlotFromInput() {
+        try {
+            const inp = $('cpSlots').querySelector('.cpi-input');
+            if (!slotsInput || !inp) return;
+            if (!inp.value.trim()) { slotsInput.focus(); return; }
+            await slotsInput.addEntry(inp.value);
+            slotsInput.focus();
+        } catch (e) { console.warn('Could not add category target', e); }
     }
 
     function setFormDisabled(disabled) {
@@ -257,7 +263,9 @@
 
     $('cpNew').addEventListener('click', fresh);
     $('cpCancel').addEventListener('click', () => state.current ? edit(state.current) : fresh());
-    $('cpAddSlot').addEventListener('click', () => $('cpSlots').appendChild(slotRow({ ref: '', target: 10 })));
+    // keep focus in the input on mousedown so blur doesn't add the pill a second time
+    $('cpAddSlot').addEventListener('mousedown', ev => ev.preventDefault());
+    $('cpAddSlot').addEventListener('click', addSlotFromInput);
 
     $('cpForm').addEventListener('submit', async ev => {
         ev.preventDefault();
@@ -273,13 +281,7 @@
         const r = state.current ? await api('PUT', '/api/composition/presets/' + encodeURIComponent(state.current), body)
                                  : await api('POST', '/api/composition/presets', body);
         $('cpSave').disabled = false;
-        $('cpFixes').replaceChildren();
         if (!r.ok) {
-            const cat = await RefCombobox.load('preset');
-            if ((r.data.issues || []).some(i => i.code === 'E3')) {
-                RefCombobox.showFixes($('cpFixes'), Array.from($('cpSlots').querySelectorAll('.cp-slot-row input[aria-label="Category ref"]')), cat,
-                    () => $('cpForm').requestSubmit());
-            }
             const issues = (r.data.issues || []).map(i => i.message).join(' ');
             msg('cpMsg', issues || r.data.error || 'Save failed.', 'error');
             return;

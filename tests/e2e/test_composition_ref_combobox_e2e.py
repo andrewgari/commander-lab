@@ -41,57 +41,70 @@ def _options(page):
     return page.locator("[role=option]").all_inner_texts()
 
 
-def _first_ref(page):
+def _slot_input(page):
     page.click("#cpNew")
-    page.click("#cpAddSlot")
-    return page.locator("#cpSlots input[aria-label='Category ref']").first
+    return page.locator("#cpSlots .cpi-input")
 
 
-def test_presets_suggestions_and_did_you_mean(page, base_url):
+def test_presets_suggestions_and_pills(page, base_url):
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(f"{base_url}/composition/presets")
-    ref = _first_ref(page)
-    ref.click()
+    inp = _slot_input(page)
+    page.click("#cpAddSlot")  # empty input: focuses, never throws
+    expect(inp).to_be_focused()
     for word, want in (("draw", ["core:card_advantage"]), ("ramp", ["core:ramp"]), ("wrath", ["core:board_wipe"]),
                        ("inter", ["group:interaction", "group:targeted_interaction"])):
-        ref.fill(word)
+        inp.fill(word)
         texts = " ".join(_options(page))
         for w in want:
             assert w in texts, (word, texts)
-    ref.fill("draw")
-    assert ref.get_attribute("role") == "combobox"
-    ref.press("ArrowDown")
-    ref.press("Enter")
-    assert ref.input_value() == "core:card_advantage"
-    ref.fill("ramp")
-    expect(page.locator("[role=option]")).to_have_count(1)
-    ref.press("Escape")
-    assert ref.input_value() == "ramp"
-    page.fill("#cpName", f"E2E {uuid.uuid4().hex[:6]}")
+    inp.fill("draw")
+    inp.press("ArrowDown")
+    inp.press("Enter")
+    expect(page.locator("#cpSlots .cpi-pill[data-ref='core:card_advantage']")).to_have_count(1)
+    inp.fill("ramp")
+    page.click("#cpAddSlot")
+    expect(page.locator("#cpSlots .cpi-pill[data-ref='core:ramp']")).to_have_count(1)
+    page.locator("#cpSlots .cpi-pill[data-ref='core:card_advantage'] .cpi-pill-rm").click()
+    expect(page.locator("#cpSlots .cpi-pill")).to_have_count(1)
+    assert not errors
+
+
+def test_presets_round_trip(page, base_url):
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(f"{base_url}/composition/presets")
+    inp = _slot_input(page)
+    name = f"E2E {uuid.uuid4().hex[:6]}"
+    page.fill("#cpName", name)
+    inp.fill("ramp")
+    page.click("#cpAddSlot")
+    pill = page.locator("#cpSlots .cpi-pill[data-ref='core:ramp']")
+    expect(pill).to_have_count(1)
+    pill.locator("input[aria-label='Target']").fill("11")
+    pill.locator("input[aria-label='Min']").fill("9")
+    pill.locator("input[aria-label='Max']").fill("13")
+    pill.locator("input[aria-label='Why']").fill("mana")
     page.click("#cpSave")
-    fix = page.locator(".refcb-fix-btn", has_text="core:ramp")
-    expect(fix).to_have_count(1)
-    assert ref.input_value() == "ramp"  # never auto-corrected
-    fix.click()
     expect(page.locator("#cpMsg")).to_have_text("Saved.")
+    page.reload()
+    page.locator(".cp-item", has_text=name).click()
+    pill = page.locator("#cpSlots .cpi-pill[data-ref='core:ramp']")
+    expect(pill).to_have_count(1)
+    expect(pill.locator("input[aria-label='Target']")).to_have_value("11")
+    expect(pill.locator("input[aria-label='Min']")).to_have_value("9")
+    expect(pill.locator("input[aria-label='Max']")).to_have_value("13")
+    expect(pill.locator("input[aria-label='Why']")).to_have_value("mana")
     page.once("dialog", lambda d: d.accept())
     page.click("#cpDelete")
-
-
-def test_presets_multi_match(page, base_url):
-    page.goto(f"{base_url}/composition/presets")
-    ref = _first_ref(page)
-    ref.fill("Interaction")
-    expect(page.locator("[role=option]")).to_have_count(2)
-    ref.press("Escape")
-    page.fill("#cpName", "tmp")
-    page.click("#cpSave")
-    expect(page.locator(".refcb-fix-btn")).to_have_count(2)
+    assert not errors
 
 
 def test_deck_scope_categories(page, base_url, seeded):
     deck, sfx = seeded
     page.goto(f"{base_url}/composition/presets")
-    r = _first_ref(page)
+    r = _slot_input(page)
     r.fill(f"d-{sfx}")
     assert not page.locator("[role=option]").count()
     r.fill(f"g-{sfx}")
