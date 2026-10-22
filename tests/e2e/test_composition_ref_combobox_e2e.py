@@ -100,25 +100,49 @@ def test_deck_scope_categories(page, base_url, seeded):
     page.goto(f"{base_url}/deck/{deck['name'].replace(' ', '%20')}/composition")
     page.check("#compModePinned")
     page.click("#compAddOverride")
-    o = page.locator("#compOverrides input[aria-label='Category ref']").first
+    o = page.locator("#compOverrides .cpi-input")
     o.fill(f"d-{sfx}")
     expect(page.locator("[role=option]")).to_have_count(1)
     assert f"cat:d-{sfx}" in " ".join(_options(page))
 
 
-def test_deck_did_you_mean(page, base_url, seeded):
+def test_deck_override_pills_roundtrip(page, base_url, seeded):
     deck, sfx = seeded
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    body = {"name": f"E2E pin {sfx}", "structure": {"deck_size": 100, "commanders": 1, "lands": 38},
+            "slots": [{"ref": "core:ramp", "target": 10, "min": None, "max": None, "why": ""},
+                      {"ref": "core:card_advantage", "target": 12, "min": None, "max": None, "why": ""}]}
+    resp = page.request.post(f"{base_url}/api/composition/presets", data=body)
+    assert resp.status == 201, resp.text()
+    pid = resp.json()["preset"]["id"]
     page.goto(f"{base_url}/deck/{deck['name'].replace(' ', '%20')}/composition")
     page.check("#compModePinned")
-    page.click("#compAddOverride")
-    o = page.locator("#compOverrides input[aria-label='Category ref']").first
-    o.fill("ramp")
+    page.select_option("#compPresetSelect", pid)
+    page.click("#compAddOverride")  # empty -> focuses input, no throw
+    inp = page.locator("#compOverrides .cpi-input")
+    expect(inp).to_be_focused()
+    inp.fill("ramp")
     expect(page.locator("[role=option]")).to_have_count(1)
-    o.press("Escape")
-    page.click("#compPickerForm button[type=submit]")
-    fix = page.locator("#compFixes .refcb-fix-btn", has_text="core:ramp")
-    expect(fix).to_have_count(1)
-    assert o.input_value() == "ramp"
+    inp.press("Escape")  # dropdown overlays the button
+    page.click("#compAddOverride")  # typed text -> pill
+    pill = page.locator("#compOverrides .cpi-pill[data-ref='core:ramp']")
+    expect(pill).to_have_count(1)
+    pill.locator("input[aria-label='Target']").fill("10")
+    pill.locator("input[aria-label='Min']").fill("8")
+    pill.locator("input[aria-label='Why']").fill("fast mana")
+    with page.expect_navigation():  # save succeeds -> page reloads
+        page.click("#compPickerForm button[type=submit]")
+    pill = page.locator("#compOverrides .cpi-pill[data-ref='core:ramp']")
+    expect(pill).to_have_count(1)
+    expect(pill.locator("input[aria-label='Target']")).to_have_value("10")
+    expect(pill.locator("input[aria-label='Min']")).to_have_value("8")
+    expect(pill.locator("input[aria-label='Max']")).to_have_value("")
+    expect(pill.locator("input[aria-label='Why']")).to_have_value("fast mana")
+    pill.locator(".cpi-pill-rm").click()
+    expect(page.locator("#compOverrides .cpi-pill")).to_have_count(0)
+    assert not errors
+    page.request.delete(f"{base_url}/api/composition/presets/{pid}")
 
 
 def test_category_pill_input(page, base_url):
