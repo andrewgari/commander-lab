@@ -1,5 +1,5 @@
 .refcb-host, .cpi-field { position: relative; }
-.cpi-dropdown { position: absolute; left: 0; right: 0; top: 100%; z-index: 50; max-height: 14rem; overflow-y: auto;
+.cpi-dropdown { position: static; margin-top: 2px; max-height: 14rem; overflow-y: auto;
   background: var(--panel, #161b22); border: 1px solid var(--border, #30363d); border-radius: 6px; }
 .cpi-option { display: flex; justify-content: space-between; gap: .75rem; padding: .35rem .6rem; cursor: pointer; font-size: .85rem; }
 .cpi-option:hover, .cpi-option.is-active { background: rgba(88, 166, 255, .18); }

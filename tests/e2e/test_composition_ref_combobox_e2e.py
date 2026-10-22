@@ -137,7 +137,6 @@ def test_deck_override_pills_roundtrip(page, base_url, seeded):
     expect(inp).to_be_focused()
     inp.fill("ramp")
     expect(page.locator("[role=option]")).to_have_count(1)
-    inp.press("Escape")  # dropdown overlays the button
     page.click("#compAddOverride")  # typed text -> pill
     pill = page.locator("#compOverrides .cpi-pill[data-ref='core:ramp']")
     expect(pill).to_have_count(1)
