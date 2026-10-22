@@ -3,14 +3,36 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Dry run: version to promote [Unreleased] into (e.g. v1.2.3). Publishes nothing.'
+        required: true
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
+  dry-run:
+    name: Changelog dry run
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show dated section built from Unreleased
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/changelog.py validate
+          python3 scripts/changelog.py promote "$VERSION" --dry-run > promoted.md
+          python3 scripts/changelog.py extract Unreleased | tee -a "$GITHUB_STEP_SUMMARY"
+          grep -n "^## \\[$VERSION\\] - " promoted.md
+
   release:
     name: Bump Version & Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -40,7 +62,6 @@ jobs:
 
           # Extract PR metadata
           PR_TITLE=$(echo "$PR_JSON" | jq -r '.[0].title // empty')
-          PR_BODY=$(echo "$PR_JSON" | jq -r '.[0].body // empty')
           PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number // empty')
           LABELS=$(echo "$PR_JSON" | jq -r '.[0].labels[]?.name // empty' 2>/dev/null | tr '\n' ',' || echo "")
 
@@ -57,9 +78,6 @@ jobs:
 
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "pr_title=${PR_TITLE:-}" >> "$GITHUB_OUTPUT"
-          echo "pr_body<<PREOF" >> "$GITHUB_OUTPUT"
-          echo "${PR_BODY:-}" >> "$GITHUB_OUTPUT"
-          echo "PREOF" >> "$GITHUB_OUTPUT"
           echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
 
       - name: Compute next version from tags
@@ -97,8 +115,7 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
           PR_TITLE: ${{ steps.bump.outputs.pr_title }}
-          PR_BODY: ${{ steps.bump.outputs.pr_body }}
-          PR_NUMBER: ${{ steps.bump.outputs.pr_number }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
 
@@ -109,18 +126,12 @@ jobs:
             RELEASE_TITLE="Release ${TAG}"
           fi
 
-          # Build release notes
+          # Release body = entries this merge added to CHANGELOG.md [Unreleased].
+          # Never derived from PR bodies, commit logs, or generated notes.
           NOTES_FILE=$(mktemp)
-          if [ -n "$PR_NUMBER" ]; then
-            echo -e "## What's Changed\n" > "$NOTES_FILE"
-            if [ -n "$PR_BODY" ]; then
-              printf '%s\n' "$PR_BODY" >> "$NOTES_FILE"
-              echo "" >> "$NOTES_FILE"
-            fi
-            echo "Merged PR: #${PR_NUMBER}" >> "$NOTES_FILE"
-          else
-            echo "Release ${TAG}" > "$NOTES_FILE"
-          fi
+          git show "${BEFORE_SHA}:CHANGELOG.md" > old_changelog.md 2>/dev/null || : > old_changelog.md
+          python3 scripts/changelog.py body --old old_changelog.md --new CHANGELOG.md > "$NOTES_FILE"
+          cat "$NOTES_FILE"
 
           # Clean up any stale release from a previous failed run
           gh release delete "$TAG" --yes 2>/dev/null || true

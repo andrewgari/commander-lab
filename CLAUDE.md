@@ -34,3 +34,11 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
   - `inventory`: JSON dict of card inventory and deck appearances.
   - `deck_status:{deck_id}`: Physical status string.
   - `card_tags:{card_name}`: Learned and manual card tags.
+
+## Changelog entries (Keep a Changelog 1.1.0)
+`CHANGELOG.md` is the single source of release notes. The release workflow publishes the entries a merge adds under `## [Unreleased]` as the GitHub Release body; it never uses commit logs, PR titles/bodies or generated notes. Releases with no new entries say "Maintenance release, no user-facing changes."
+- A PR with a user-facing change adds ONE line (or a few consolidated lines) under `[Unreleased]` in the same PR, under `### Added|Changed|Deprecated|Removed|Fixed|Security` only. Omit empty sections. If there is no user-facing change (refactor, CI, docs, tests, version bump) tick the PR template checkbox and add nothing.
+- Write for users: describe the impact ("Simulate tab: failed runs now show ..."), not the implementation. Consolidate related changes into one entry.
+- Never write merge/PR numbers/commit hashes/branch names/task ids/version-bump/CI lines.
+- List deprecations and breaking changes explicitly (prefix breaking ones with `**BREAKING:**` under Changed/Removed).
+- Dated sections are created by `python3 scripts/changelog.py promote vX.Y.Z` (`--dry-run` to preview); check with `python3 scripts/changelog.py validate`.
