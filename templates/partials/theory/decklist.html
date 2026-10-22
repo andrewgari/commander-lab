@@ -24,6 +24,7 @@
                 <span class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</span>
                 {%- if src %}{{ hud.chip(tv.SOURCE_LABELS[src], tv.SOURCE_TONES[src]) }}{% else %}<span></span>{% endif %}
                 <span class="hud-tcard-price">{{ tv.money(card.price) if card.price is not none else "—" }}</span>
+                {%- if card.source == "buy" %}{{ hud.tcg_cart([{"name": card.name, "qty": card.qty or 1}], size="sm") }}{% endif %}
                 {%- if card.over_soft_cap %}<span class="hud-tcard-note is-cap">Over the soft cap</span>{% endif %}
                 {%- if card.why %}<span class="hud-tcard-note">{{ card.why }}</span>{% endif %}
                 {%- if card.salt_flag is mapping %}

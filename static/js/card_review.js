@@ -206,12 +206,13 @@
             var primary = isC ? '<span class="hud-chip hud-chip--ok">' + (phys ? (it.ownership === "owned_free" ? "Pulled" : "On list") : "Queued") + '</span><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="undo" data-name="' + esc(it.name) + '">Undo</button>'
                 : '<button type="button" class="hud-btn" data-cr="pick" data-name="' + esc(it.name) + '">' + (chosen ? "Use this instead" : actionLabel(s.deck ? s.deck.kind : "digital", it)) + '</button>' +
                   (isS ? '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="unskip" data-name="' + esc(it.name) + '">Restore</button>' : '<button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="skip" data-name="' + esc(it.name) + '">Skip</button>');
+            var tcg = (it.ownership !== "owned_free" && window.TcgCart) ? window.TcgCart.button([{ name: it.name, qty: 1 }], { size: "sm" }) : "";
             return '<li class="hud-cr-item' + (isC ? " is-chosen" : "") + (isS ? " is-skipped" : "") + (i === (R.cursor || 0) && !chosen ? " is-current" : "") + '" style="--i:' + i + '" data-k="item-' + esc(it.name) + '" data-name="' + esc(it.name) + '" tabindex="-1">' +
                 '<span class="hud-cr-thumb"><img alt="' + esc(it.name) + '" src="' + esc(img.src) + '" data-fallback="' + esc(img.fallback) + '" loading="lazy"></span>' +
                 '<div class="hud-cr-body"><div class="hud-cr-name"><span class="hud-card-name">' + esc(it.name) + '</span><span class="hud-art-meta"><span>CMC ' + it.cmc + "</span>" + (window.HUD ? H().pips(it.colors || "", "sm") : "") + "</span></div>" +
                 '<div class="hud-cr-kind">' + kind + shift + "</div><p>" + esc(it.rationale) + "</p>" + facts +
                 (it.oracle ? '<details class="hud-cr-oracle"><summary>Oracle text</summary><div>' + esc(it.oracle) + "</div></details>" : "") + "</div>" +
-                '<div class="hud-cr-act">' + primary + "</div></li>";
+                '<div class="hud-cr-act">' + primary + tcg + "</div></li>";
         }).join("");
         var tuneUrl = s.tuneUrl || (s.deck ? '/deck/' + encodeURIComponent(s.deck.name) + '/tune' : '#');
         var queued = chosen ? (function () {
@@ -523,9 +524,13 @@
             var rawRepl = res.replacements || [];
             if (!rawRepl.length) {
                 var droppedCount = (res.replacement_meta && res.replacement_meta.dropped ? res.replacement_meta.dropped.length : 0);
+                var emptyReason = (droppedCount || 1) + " candidates were considered, but none met the criteria.";
+                if (res.edhrec && res.edhrec.status !== "ok") {
+                    emptyReason = "EDHREC is unavailable or has no data, so no suggestions could be found.";
+                }
                 s.repl = {
                     state: "empty",
-                    reason: (droppedCount || 1) + " candidates were considered, but none met the criteria.",
+                    reason: emptyReason,
                     items: []
                 };
             } else {

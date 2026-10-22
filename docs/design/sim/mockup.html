@@ -110,7 +110,7 @@
             '<fieldset><legend id="lgGames">Games</legend><div class="sm-count"><div class="hud-seg" role="radiogroup" aria-labelledby="lgGames">' +
             '<input type="radio" name="games" id="g20" value="20" checked><label for="g20">20 games · ~10 min</label><input type="radio" name="games" id="g60" value="60"><label for="g60">60 games · ~30 min</label></div>' +
             '<span class="sm-count-note">More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it.</span></div></fieldset>' +
-            '<div class="hud-field"><label for="notes">Test notes <span class="hud-muted">(optional)</span></label>' +
+            '<div class="hud-field"><label for="notes">What to watch for <span class="hud-muted">(optional)</span></label>' +
             '<textarea id="notes" maxlength="500" rows="3" placeholder="e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4"></textarea>' +
             '<div class="sm-notes-foot"><span class="hud-field-hint">Oracle answers this directly in section 01.</span><span class="sm-counter" aria-live="off">0 / 500</span></div></div>' +
             '<p class="sm-error" id="simError" role="alert"></p>' +
@@ -150,7 +150,7 @@
         var bits = '<time class="hud-freshness" datetime="2026-10-18T09:40:00Z" title="Oct 18, 5:40 AM">Built 3h ago</time>' +
             (STALE ? chip("Stale", "signal", true) : chip("Up to date", "ok", true)) +
             chip(RANDOM ? "Random each game" : "Standard pod", "data") + chip("20 games", "neutral") + chip("Won " + WINS + " of 20", WINS > 5 ? "ok" : "neutral");
-        var notes = '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">Your test notes</span><q>Watch if Kaalia gets removed before attacking, or if colors brick on T4.</q></div></div>';
+        var notes = '<div class="hud-callout sm-notes" style="grid-template-columns:minmax(0,1fr)"><div><span class="hud-label">What to watch for</span><q>Watch if Kaalia gets removed before attacking, or if colors brick on T4.</q></div></div>';
         var stale = STALE ? '<div class="hud-panel hud-panel--signal" id="staleNote" role="status" style="margin-top:var(--sp-4)"><div class="hud-panel-body"><b>This report is out of date.</b> The decklist changed after this run: 3 cards swapped (+Swords to Plowshares, +Smothering Tithe, −Strionic Resonator). The numbers describe the old list. Open <i>Run new simulation</i> above to refresh.</div></div>' : "";
         return '<header class="hud-doc-head"><div><span class="hud-label">Simulation · saved</span><h2>Holy Hellfire</h2><div class="hud-doc-facts">' + bits + "</div></div></header>" + notes + stale;
     }

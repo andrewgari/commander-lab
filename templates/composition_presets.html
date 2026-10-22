@@ -77,6 +77,7 @@
                         <div><button type="button" class="hud-btn hud-btn--sm" id="cpAddSlot">Add category target</button></div>
                     </div>
                     <p class="cp-msg" id="cpMsg" role="status"></p>
+                    <div id="cpFixes" aria-live="polite"></div>
                     <div class="cp-actions">
                         <button type="submit" class="hud-btn hud-btn--primary" id="cpSave">Save</button>
                         <button type="button" class="hud-btn hud-btn--ghost" id="cpCancel">Reset</button>
@@ -163,6 +164,7 @@
             rm,
         ]);
         rm.addEventListener('click', () => row.remove());
+        RefCombobox.attach(ref, { scope: 'preset' });
         return row;
     }
     function setSlots(slots) { const box = $('cpSlots'); box.replaceChildren(); (slots || []).forEach(s => box.appendChild(slotRow(s))); }
@@ -271,7 +273,13 @@
         const r = state.current ? await api('PUT', '/api/composition/presets/' + encodeURIComponent(state.current), body)
                                  : await api('POST', '/api/composition/presets', body);
         $('cpSave').disabled = false;
+        $('cpFixes').replaceChildren();
         if (!r.ok) {
+            const cat = await RefCombobox.load('preset');
+            if ((r.data.issues || []).some(i => i.code === 'E3')) {
+                RefCombobox.showFixes($('cpFixes'), Array.from($('cpSlots').querySelectorAll('.cp-slot-row input[aria-label="Category ref"]')), cat,
+                    () => $('cpForm').requestSubmit());
+            }
             const issues = (r.data.issues || []).map(i => i.message).join(' ');
             msg('cpMsg', issues || r.data.error || 'Save failed.', 'error');
             return;

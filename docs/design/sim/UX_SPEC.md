@@ -59,7 +59,7 @@ Header (title, chips) · tabs [… Review 7 | SIMULATE 8]
 ┌ JOB CARD (only while a run is active) ─────────────────────────────┐
 ┌ REPORT (hud-doc) ──────────────────────────────────────────────────┐
 │ head: Built · Up to date|Stale · mode · games · Won X of N         │
-│ test-notes callout · stale note                                    │
+│ notes callout · stale note                                    │
 │ stat strip (win rate · avg game · commander cast · mana used)      │
 │ index 01 02 03 04                                                  │
 │ 01 Oracle review   02 Curve & tempo   03 Cards   04 Game log       │
@@ -90,13 +90,13 @@ Header has **no action button** (unlike Review). Reason: Review has one action; 
 
 | Value | Name | Description | Footer flag |
 |---|---|---|---|
-| `standard` | Standard pod | Cavalry Charge, Explorers of the Deep, Endless Punishment. The same three every game. | Full curve + card metrics |
+| `standard` | Standard pod | Your saved pod of 1 to 5 decks (Redis `sim:standard_pod`). Same opponents every game; no default, empty state prompts to define one. | Full curve + card metrics |
 | `random` | Random each game | Three new opponents on every game, from Forge precons and your synced decks. | Game log + outcomes only *(drop this flag once decision 1 ships)* |
-| `specific` | Specific 3 | You pick all three from precons and synced decks. Fixed for the run. | Full curve + card metrics |
+| `specific` | Specific | You pick 1 to 5 opponents from precons and synced decks. Fixed for the run. | Full curve + card metrics |
 
 Under the tiles, one detail block (others `hidden`), `aria-live="polite"` so a switch is announced:
 
-- **Standard:** read-only seat list: `SEAT 2 · RECKLESS  Cavalry Charge  MOC 2023`, Seat 3 Default, Seat 4 Cautious. Note: "Same three Forge AIs every game…".
+- **Standard:** seat list of the user-defined pod with an Edit pod form (synced decks; Forge precons opt-in, never preselected). Deleted/invalid decks are flagged and block the run. The report records the pod in `params.pod`.
 - **Random:** one paragraph, no controls: "Fresh pod every game. Three distinct decks drawn at random from **179**: 154 Forge precons plus 25 of your synced decks. {Deck} and its mirrors are left out. The log in section 04 shows which pod each game got." Numbers come from `/opponents` (`pool.total`, `precons`, `synced`). Deliberately **no pod preview**: a preview would imply the pods are fixed.
 - **Specific:** three comboboxes labelled `SEAT 2 · RECKLESS`, `SEAT 3 · DEFAULT`, `SEAT 4 · CAUTIOUS` (AI profile follows the seat). Prefilled from last run.
 
@@ -110,7 +110,7 @@ Under the tiles, one detail block (others `hidden`), `aria-live="polite"` so a s
 
 **2. Games**: `hud-seg` radios: `20 games · ~10 min` (default) · `60 games · ~30 min`. Side note: "More games = tighter numbers. 20 is enough to spot a pattern, 60 to trust it." Estimate is ~30 s a game (from the daemon smoke runs); if SM-3 reports a better `sec_per_game` the labels use it.
 
-**3. Test notes** (optional): `<textarea maxlength="500" rows="3">`, placeholder *e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4*. Hint: "Oracle answers this directly in section 01." Counter `0 / 500`, turns amber at ≥450. ⌘/Ctrl+Enter submits.
+**3. Focus + What to watch for** (optional; Focus chips come from the persisted catalog, max 3; textarea below): `<textarea maxlength="500" rows="3">`, placeholder *e.g. Watch if Kaalia gets removed before attacking, or if colors brick on T4*. Hint: "Oracle answers this directly in section 01." Counter `0 / 500`, turns amber at ≥450. ⌘/Ctrl+Enter submits.
 
 **4. Run bar**: primary button (min 11rem, 36px) + hint "Runs on the Forge server, ~30 s a game. You can leave this page; the report saves itself when it finishes."
 
@@ -165,16 +165,16 @@ Your saved report from Oct 17 stays exactly as it is until this run finishes. Yo
 SIMULATION · SAVED
 Holy Hellfire
 BUILT 3H AGO  ■ UP TO DATE  [STANDARD POD] [20 GAMES] [WON 12 OF 20]
-┌ YOUR TEST NOTES ──────────────────────────────────────────────┐
+┌ WHAT TO WATCH FOR ──────────────────────────────────────────────┐
 │ Watch if Kaalia gets removed before attacking, or if colors…   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 - `Built {relative}` with the absolute time in `title` (same JS as Review).
 - Freshness chip: `Up to date` (ok, dot) or `Stale` (signal, dot, `title` = reason).
-- Mode chip (data tone): `Standard pod` · `Random each game` · `Specific 3`. Specific: the three deck names are in the chip's `title`.
+- Mode chip (data tone): `Standard pod` · `Random each game` · `Specific`. Specific: the deck names are in the chip's `title`.
 - Games chip (neutral): `20 games`. Result chip: `Won 12 of 20` (ok when wins ≥ ¼ of games, else neutral). Draws are counted in the log, not hidden.
-- Notes callout (`hud-callout`, one column): label `YOUR TEST NOTES`, the text as typed, wrapped. **Omitted entirely** if the run had no notes.
+- Notes callout (`hud-callout`, one column): label `WHAT TO WATCH FOR`, the text as typed, wrapped. **Omitted entirely** if the run had no notes.
 - **Stale** adds a `hud-panel--signal` `role="status"` note: "**This report is out of date.** The decklist changed after this run: {n cards swapped (+A, +B, −C)}. The numbers describe the old list. Open *Run new simulation* above to refresh." Report content stays full-contrast (not dimmed). Cards in 03 that left the deck get a neutral `cut since` chip.
 - Tray in the stale state: unchanged, closed. (Mockup `stale&tray=1` shows it open with notes.)
 

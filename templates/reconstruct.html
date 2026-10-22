@@ -1706,7 +1706,7 @@
 
         let attempts = 0;
         let failures = 0;
-        const maxAttempts = 60; // 60s timeout
+        const maxAttempts = 600; // 10 minutes limit
 
         pollInterval = setInterval(async () => {
             attempts++;
@@ -1745,9 +1745,7 @@
             }
 
             if (attempts >= maxAttempts) {
-                clearInterval(pollInterval);
-                errEl.style.display = 'block';
-                document.getElementById('buildingErrorMessage').textContent = 'Draft generation is taking longer than expected.';
+                document.getElementById('buildingErrorMessage').textContent = 'Draft generation is taking longer than expected. Hold tight...';
             }
         }, 1000);
     }
@@ -1847,11 +1845,12 @@
 
             const cards = draft.cards || [];
             let t1Count = 0, t2Count = 0, t3Count = 0;
+            const t3Items = [];
             cards.forEach(c => {
                 const tier = c.tier || (c.tier_label === 'previous_deck' ? 1 : (c.tier_label === 'owned' ? 2 : 3));
                 if (tier === 1) t1Count++;
                 else if (tier === 2) t2Count++;
-                else t3Count++;
+                else { t3Count++; t3Items.push({name: c.name, qty: c.qty || 1}); }
             });
 
             const cmdrs = draft.commanders && draft.commanders.length ? draft.commanders.map(esc).join(' / ') : 'Commander TBD';
@@ -1903,6 +1902,7 @@
                     <span class="badge badge-source-new">
                         <i class="fa-solid fa-cart-shopping"></i> New to Buy: ${t3Count} cards ($${draftCost.toFixed(2)})
                     </span>
+                    ${window.TcgCart ? window.TcgCart.button(t3Items, {size: "sm"}) : ''}
                 </div>
 
                 <!-- Rationale banner -->

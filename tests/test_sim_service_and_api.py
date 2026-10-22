@@ -23,6 +23,9 @@ RID = "archidekt:417707"
 
 def user_deck(i):
     d = make_deck()
+    for c in d["cards"]:  # differ from the tested deck so it is not treated as a mirror
+        if c["name"] == "Filler 0":
+            c["name"] = f"Opp {i} Filler"
     d.update(id=900 + i, registry_id=f"archidekt:{900 + i}", name=f"Opp Deck {i}", commanders=["Kaalia of the Vast"])
     return d
 
@@ -97,17 +100,19 @@ class Base(unittest.TestCase):
         self.r = FakeRedis()
         self.deck = make_deck()
         put_decks(self.r, self.deck, user_deck(1), user_deck(2), user_deck(3))
+        svc.save_pod(self.r, ["user_901"], FakeSim())  # Standard needs a user-defined pod; there is no default
         self.addCleanup(lambda: svc._INFLIGHT.clear())
 
 
 class TestValidation(unittest.TestCase):
     def test_defaults(self):
-        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": ""})
+        self.assertEqual(svc.validate_params({}), {"opponent_mode": "standard", "games": 20, "opponents": [], "notes": "",
+                                                              "focus": [], "focus_snapshot": []})
 
     def test_bad_values(self):
         for bad in ({"opponent_mode": "wild"}, {"games": 0}, {"games": 101}, {"games": "20"}, {"games": True},
-                    {"notes": "x" * 1001}, {"notes": 5}, {"opponent_mode": "specific", "opponents": ["a", "b"]},
-                    {"opponent_mode": "specific", "opponents": ["a", "b", "c", "d"]}, {"opponents": "a"}):
+                    {"notes": "x" * 1001}, {"notes": 5}, {"opponent_mode": "specific", "opponents": []},
+                    {"opponent_mode": "specific", "opponents": ["a", "b", "c", "d", "e", "f"]}, {"opponents": "a"}):
             with self.assertRaises(svc.SimParamError, msg=str(bad)):
                 svc.validate_params(bad)
 
@@ -120,12 +125,9 @@ class TestValidation(unittest.TestCase):
         self.assertEqual(len(svc.validate_params({"notes": "x" * 1000})["notes"]), 1000)
         
         # Standard overrides
+        # Standard ignores client-supplied opponents: the saved pod is authoritative
         p_std = svc.validate_params({"opponent_mode": "standard", "opponents": ["a", "b", "c"]})
-        self.assertEqual(p_std["opponents"], ["a", "b", "c"])
-        p_std_empty = svc.validate_params({"opponent_mode": "standard"})
-        self.assertEqual(p_std_empty["opponents"], [])
-        with self.assertRaises(svc.SimParamError):
-            svc.validate_params({"opponent_mode": "standard", "opponents": ["a", "b"]})
+        self.assertEqual(p_std["opponents"], [])
 
 
 class TestPool(Base):
@@ -144,16 +146,56 @@ class TestPool(Base):
 
 
 class TestRunModes(Base):
-    def test_standard_mode(self):
+    def test_standard_mode_empty_pod_blocks_run(self):
         sim = FakeSim()
-        job = run_sync(self.r, self.deck, {"notes": ""}, sim, FakeOracle(good_reply))
+        svc.clear_pod(self.r)
+        with self.assertRaises(svc.SimParamError) as cm:
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "standard"}, sim)
+        self.assertIn("No Standard pod", str(cm.exception))
+        self.assertEqual(sim.payloads, [])
+        self.assertEqual(svc._INFLIGHT, {})
+
+    def test_standard_mode_uses_exactly_saved_pod_and_records_it(self):
+        sim = FakeSim()
+        svc.save_pod(self.r, ["user_902", "precon_b"], sim)
+        job = run_sync(self.r, self.deck, {"opponent_mode": "standard", "opponents": ["user_901"]}, sim, FakeOracle(good_reply))
         self.assertEqual(job["status"], "done", job.get("error"))
         p = sim.payloads[0]
         self.assertEqual((p["opponent_mode"], p["games"], p["deck_id"]), ("standard", 20, 417707))
-        self.assertIn("[Commander]", p["dck_text"])
-        self.assertNotIn("opponent_decks", p)
-        self.assertNotIn("opponents", p)
-        self.assertEqual(job["games_completed"], 20)
+        self.assertEqual(p["opponents"], ["user_902", "precon_b"])
+        self.assertEqual(set(p["opponent_decks"]), {"user_902"})
+        self.assertEqual([d["id"] for d in job["params"]["pod"]["decks"]], ["user_902", "precon_b"])
+        doc = ss.load_latest(self.r, self.deck)
+        self.assertEqual([d["name"] for d in doc["report"]["params"]["pod"]["decks"]], ["Opp Deck 2", "Precon B"])
+
+    def test_standard_mode_flags_deleted_deck_before_run(self):
+        sim = FakeSim()
+        svc.save_pod(self.r, ["user_901", "user_902"], sim)
+        put_decks(self.r, self.deck, user_deck(1))  # deck 902 deleted
+        pod = svc.resolve_pod(self.r, self.deck, sim)
+        self.assertEqual(pod["status"], "invalid")
+        self.assertEqual([d["id"] for d in pod["decks"]], ["user_901", "user_902"])
+        with self.assertRaises(svc.SimParamError):
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "standard"}, sim)
+        self.assertEqual(sim.payloads, [])
+
+    def test_save_pod_validation(self):
+        sim = FakeSim()
+        for bad in ([], ["user_901"] * 2, ["nope"], "x", [f"user_{900 + i}" for i in range(1, 7)]):
+            with self.assertRaises(svc.SimParamError, msg=str(bad)):
+                svc.save_pod(self.r, bad, sim)
+        self.assertEqual([d["id"] for d in svc.get_pod(self.r)["decks"]], ["user_901"])  # unchanged by bad saves
+        svc.clear_pod(self.r)
+        self.assertIsNone(svc.get_pod(self.r))
+        self.assertEqual(svc.resolve_pod(self.r, self.deck, sim)["status"], "empty")
+
+    def test_no_hardcoded_default_pod_in_source(self):
+        import pathlib
+        root = pathlib.Path(__file__).resolve().parent.parent
+        for f in ("analytics/sim_service.py", "static/js/deck_sim.js", "app.py"):
+            txt = (root / f).read_text()
+            for name in ("Cavalry Charge", "Endless Punishment"):
+                self.assertNotIn(name, txt, f)
 
     def test_specific_mode_exports_user_decks(self):
         sim = FakeSim()
@@ -176,7 +218,8 @@ class TestRunModes(Base):
         
     def test_standard_mode_custom_opponents(self):
         sim = FakeSim()
-        params = {"opponent_mode": "standard", "opponents": ["user_901", "Explorers of the Deep", "user_902"]}
+        svc.save_pod(self.r, ["user_901", "Explorers of the Deep", "user_902"], sim)
+        params = {"opponent_mode": "standard"}
         job = run_sync(self.r, self.deck, params, sim, FakeOracle(good_reply))
         self.assertEqual(job["status"], "done", job.get("error"))
         p = sim.payloads[0]
@@ -199,6 +242,35 @@ class TestRunModes(Base):
         decks_seen = {o["deck"] for g in pod["games"] for o in g["opponents"]}
         self.assertEqual(len(decks_seen), 4)  # different opponents per game
         self.assertEqual(doc["report"]["params"]["opponent_mode"], "random")
+
+    def test_random_mine_never_includes_precons_and_flags_owned(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["random_pool"], "mine")
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertEqual(set(p["opponent_pool"]), {"user_901", "user_902", "user_903"})
+        self.assertEqual(set(p["owned_opponent_ids"]), set(p["opponent_pool"]))
+
+    def test_random_all_pool_keeps_precons_and_default_count(self):
+        sim = FakeSim()
+        run_sync(self.r, self.deck, {"opponent_mode": "random", "random_pool": "all"}, sim, FakeOracle(good_reply))
+        p = sim.payloads[0]
+        self.assertEqual(p["opponent_count"], 3)
+        self.assertIn("precon_a", p["opponent_pool"])
+        self.assertNotIn("precon_a", p["owned_opponent_ids"])
+
+    def test_random_mine_pool_too_small_is_rejected(self):
+        with self.assertRaises(svc.SimParamError) as cm:
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 4}, FakeSim())
+        self.assertIn("My decks only", str(cm.exception))
+        # boundary: exactly 3 available with 3 requested is fine
+        svc.begin_run(self.r, self.deck, {"opponent_mode": "random", "random_pool": "mine", "opponent_count": 3}, FakeSim())
+
+    def test_random_param_validation(self):
+        for bad in ({"random_pool": "x"}, {"opponent_count": 0}, {"opponent_count": 6}):
+            with self.assertRaises(svc.SimParamError):
+                svc.validate_params({"opponent_mode": "random", **bad})
 
     def test_notes_reach_daemon_and_oracle_and_saved_params(self):
         sim, oracle = FakeSim(), FakeOracle(good_reply)
@@ -389,7 +461,7 @@ class TestApi(Base):
         self.assertTrue(meta["stale_reason"])
 
     def test_validation_422(self):
-        for body in ({"games": 7000}, {"opponent_mode": "specific", "opponents": ["a"]}, {"notes": "x" * 1001}):
+        for body in ({"games": 7000}, {"opponent_mode": "specific", "opponents": []}, {"notes": "x" * 1001}):
             self.assertEqual(self.client.post(f"/api/decks/{RID}/sim/run", json=body).status_code, 422, body)
 
     def test_409_when_already_running(self):
@@ -434,3 +506,54 @@ class TestApi(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPoolSanitizing(unittest.TestCase):
+    """SM-4F / F5: no raw ids, no [SET] [YEAR] tags, no blank labels in the opponent pool."""
+
+    def test_strip_bracket_tags(self):
+        self.assertEqual(svc.strip_bracket_tags("Foo Bar [C21] [2021]"), "Foo Bar")
+        self.assertEqual(svc.strip_bracket_tags("  Foo  [C21]  Bar "), "Foo Bar")
+        self.assertEqual(svc.strip_bracket_tags("[C21]"), "")
+
+    def test_sample_ids_get_display_names(self):
+        rows = [{"id": "sample_mind_seize", "name": "sample_mind_seize"}, {"id": "sample_x", "name": "Real Name [C21]"}]
+        out = svc.normalize_precon_rows(rows)
+        self.assertEqual([o["name"] for o in out], ["Mind Seize", "Real Name"])
+
+    def test_user_ids_get_display_names(self):
+        out = svc.normalize_precon_rows([{"id": "user_5", "name": "user_5"}], user_names={"user_5": "My Deck [2020]"})
+        self.assertEqual(out[0]["name"], "My Deck")
+
+    def test_unresolved_id_uses_safe_fallback(self):
+        out = svc.normalize_precon_rows([{"id": "user_999", "name": "user_999"}])
+        self.assertEqual(out[0]["name"], svc.UNKNOWN_DECK_NAME)
+
+    def test_own_id_excluded(self):
+        rows = [{"id": "user_1", "name": "Mine"}, {"id": "p", "name": "P"}]
+        self.assertEqual([o["id"] for o in svc.normalize_precon_rows(rows, own_ids=["user_1"])], ["p"])
+
+    def test_tags_move_to_set_year(self):
+        out = svc.normalize_precon_rows([{"id": "a", "name": "Foo Bar [C21] [2021]"}])[0]
+        self.assertEqual((out["name"], out["set"], out["year"], out["label"]), ("Foo Bar", "C21", "2021", "C21 2021"))
+
+    def test_duplicates_get_nonblank_seat_labels(self):
+        rows = [{"id": "a", "name": "Dup"}, {"id": "b", "name": "Dup"}, {"id": "c", "name": "Solo"}]
+        out = svc.normalize_precon_rows(rows, seats={"a": 2, "b": 3})
+        self.assertEqual([o["label"] for o in out], ["in Seat 2", "in Seat 3", "precon"])
+        # without a seat assignment the label is still never blank
+        out = svc.normalize_precon_rows(rows)
+        self.assertTrue(all(o["label"].strip() for o in out))
+
+    def test_pool_never_leaks_raw_ids(self):
+        class Sim(FakeSim):
+            def list_opponents(self):
+                return {"opponents": [{"id": "sample_power_hungry", "name": "sample_power_hungry"},
+                                      {"id": "user_417707", "name": "user_417707"}, {"id": "user_901", "name": "user_901"}]}
+        b = Base(); b.setUp()
+        pool = svc.build_opponent_pool(b.r, Sim(), b.deck)["opponents"]
+        precons = [o for o in pool if o["source"] == "precon"]
+        self.assertEqual([o["name"] for o in precons], ["Power Hungry"])
+        for o in pool:
+            self.assertTrue(o["name"].strip())
+            self.assertNotRegex(o["name"], r"^(sample|user)_")

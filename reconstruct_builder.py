@@ -216,6 +216,15 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                 validation_errors = [{"code": "MALFORMED_OUTPUT", "message": str(exc), "cards": []}]
                 continue
             except Exception as exc:
+                from analytics.oracle_client import OracleUnavailable
+                if isinstance(exc, OracleUnavailable):
+                    last_error_summary = f"Oracle timeout: {exc}"
+                    if attempt > self.max_retries:
+                        raise ReconstructBuildError(
+                            f"Oracle unavailable after {self.max_retries} retries: {exc}"
+                        ) from exc
+                    validation_errors = [{"code": "ORACLE_UNAVAILABLE", "message": "Oracle timeout. Try again.", "cards": []}]
+                    continue
                 raise ReconstructBuildError(f"Agent call failed: {exc}") from exc
 
             # Adapt agent draft decks to validator draft decks
@@ -340,11 +349,21 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
             deck_name = a_deck.name or pref.get("name") or (
                 f"{v_deck.commanders[0]} Draft" if v_deck.commanders else f"Reconstructed Draft {i + 1}"
             )
+            
+            # Recompute color identity from commanders
+            ci: frozenset = frozenset()
+            for cmd in v_deck.commanders:
+                if self.catalog is not None:
+                    info = self.catalog.get(cmd)
+                    if info is not None:
+                        ci |= info.color_identity
+            deck_color = "".join(c for c in ("W", "U", "B", "R", "G") if c in ci)
 
             drafts.append({
                 "id": f"draft_{i}",
                 "name": deck_name,
                 "commanders": list(v_deck.commanders),
+                "color": deck_color,
                 "themes": list(pref.get("themes", [])),
                 "strategies": list(pref.get("strategies", [])),
                 "art_style": pref.get("art_style", ""),

@@ -13,6 +13,7 @@
     {%- endif %}
 </div>
 {%- if d.cards %}
+<div class="hud-doc-gap">{{ hud.tcg_cart(d.cards) }}</div>
 <div class="hud-panel hud-panel--flush hud-doc-gap">
     <ul class="hud-tcards hud-tcards--panel hud-panel-body">
         {%- for card in d.cards if card is mapping %}

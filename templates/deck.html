@@ -595,7 +595,7 @@
         });
         document.getElementById('deckFolder').textContent = folder;
         // Decommission is only available for physical (non-retired) decks
-        document.getElementById('decommissionBtn').hidden = (deck.status || 'physical') !== 'physical';
+        document.getElementById('decommissionBtn').hidden = !['physical', 'retired'].includes(deck.status || 'physical') || !!deck.decommissioned_at;
         document.getElementById('reconstructBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 

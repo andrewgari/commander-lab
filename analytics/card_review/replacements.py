@@ -93,6 +93,11 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
     if mode == "function_change" and need is not None and need >= cfg.ROLE_NEED_FORCE_LIKE:
         mode = "mixed"
         flags.append("mode raised to mixed: the deck is short on this role")
+    if "Land" in ev.card.type_line:
+        mode = "like_for_like"
+        targets = ["land"]
+        tset = set(targets)
+        flags.append("lands only ever get like-for-like land replacements")
 
     in_deck = {name_key(n) for n in [*deck_names, *ev.commanders, ev.card.name] if n}
     facts = fact_lookup([c.name for c in ev.candidates] + [n for n in deck_names if n]) if ev.candidates else {}

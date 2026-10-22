@@ -95,5 +95,15 @@ class TestHudStylesheet(unittest.TestCase):
         self.assertNotRegex(head, r"(?s)<style>(?:(?!</style>).)*<style>", "nested <style> in <head>")
 
 
+class SimLogMobileHeightTests(unittest.TestCase):
+    """F2: .hud-table td pins height at --row-h; card-grid cells must reset it at <=640px."""
+
+    def test_sim_card_cells_reset_height_in_640_block(self):
+        css = open("static/css/hud.css", encoding="utf-8").read()
+        for sel in (".sm-log td", ".sm-tempo td"):
+            rules = re.findall(r"^\s+" + re.escape(sel) + r" \{([^}]*)\}", css, re.M)
+            self.assertTrue(any("display: block" in r and "height: auto" in r for r in rules), sel)
+
+
 if __name__ == "__main__":
     unittest.main()
