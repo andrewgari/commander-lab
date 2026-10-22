@@ -141,7 +141,6 @@
                     <div><button type="button" class="hud-btn hud-btn--sm" id="compAddOverride">Add override</button></div>
                 </div>
                 <p class="hud-field-hint" id="compPickerMsg" role="status"></p>
-                <div id="compFixes" aria-live="polite"></div>
                 <div style="display:flex; gap: var(--sp-3);">
                     <button type="submit" class="hud-btn hud-btn--primary" id="compPickerSave">Save selection</button>
                     <button type="button" class="hud-btn hud-btn--ghost" id="compPickerReset">Reset to auto</button>
@@ -237,47 +236,44 @@ document.addEventListener("DOMContentLoaded", function () {
     // -----------------------------------------------------------------
     const pickerState = { presets: [], record: null };
 
-    function overrideRow(o) {
-        o = o || { ref: "", target: null, min: null, max: null };
-        const row = document.createElement("div");
-        row.style.display = "flex";
-        row.style.gap = "var(--sp-3)";
-        row.style.alignItems = "end";
-        const mkInput = (type, val, ph, label) => {
+    let overridePills = null;
+    function numOrNull(v) { return v === "" || v === null || v === undefined || isNaN(Number(v)) ? null : Number(v); }
+    function renderOverrideFields(en, pill) {
+        const wrap = document.createElement("span");
+        wrap.className = "comp-override-fields";
+        wrap.style.cssText = "display:inline-flex; gap: var(--sp-2); align-items:center; margin-left: var(--sp-3);";
+        [["target", "Target"], ["min", "Min"], ["max", "Max"]].forEach(function (f) {
             const i = document.createElement("input");
-            i.type = type;
-            if (type === "number") { i.min = "0"; i.max = "99"; }
-            if (val !== null && val !== undefined) i.value = val;
-            if (ph) i.placeholder = ph;
-            i.setAttribute("aria-label", label);
-            return i;
-        };
-        const ref = mkInput("text", o.ref, "core:ramp", "Category ref");
-        const target = mkInput("number", o.target, "target", "Target");
-        const min = mkInput("number", o.min, "min", "Min");
-        const max = mkInput("number", o.max, "max", "Max");
-        const rm = document.createElement("button");
-        rm.type = "button"; rm.className = "hud-btn hud-btn--sm hud-btn--ghost"; rm.textContent = "Remove";
-        rm.addEventListener("click", function () { row.remove(); });
-        const refWrap = document.createElement("div"); refWrap.style.flex = "1 1 14rem"; refWrap.appendChild(ref);
-        row.appendChild(refWrap);
-        RefCombobox.attach(ref, { scope: "deck", deckId: deckId });
-        [target, min, max].forEach(function (inp) { row.appendChild(inp); });
-        row.appendChild(rm);
-        return row;
+            i.type = "number"; i.min = "0"; i.max = "99"; i.placeholder = f[0];
+            i.setAttribute("aria-label", f[1]); i.style.width = "5rem";
+            if (en[f[0]] !== null && en[f[0]] !== undefined) i.value = en[f[0]];
+            i.addEventListener("input", function () { en[f[0]] = numOrNull(i.value); });
+            wrap.appendChild(i);
+        });
+        const why = document.createElement("input");
+        why.type = "text"; why.placeholder = "why (optional)"; why.setAttribute("aria-label", "Why");
+        why.value = en.why || "";
+        why.addEventListener("input", function () { en.why = why.value; });
+        wrap.appendChild(why);
+        pill.appendChild(wrap);
     }
     function setOverrides(overrides) {
         const box = document.getElementById("compOverrides");
+        if (overridePills) overridePills.destroy();
         box.innerHTML = "";
-        (overrides || []).forEach(function (o) { box.appendChild(overrideRow(o)); });
+        overridePills = CategoryPillInput.mount(box, {
+            scope: "deck", deckId: deckId, placeholder: "Add category override…",
+            initial: (overrides || []).filter(function (o) { return o && o.ref; }),
+            renderExtraFields: renderOverrideFields
+        });
     }
     function readOverrides() {
-        return Array.from(document.getElementById("compOverrides").children).map(function (row) {
-            const inputs = row.querySelectorAll("input");
-            const ref = inputs[0].value.trim();
-            const num = function (v) { return v.value === "" ? null : Number(v.value); };
-            return { ref: ref, target: num(inputs[1]), min: num(inputs[2]), max: num(inputs[3]) };
-        }).filter(function (o) { return o.ref; });
+        if (!overridePills) return [];
+        return overridePills.getEntries().map(function (e) {
+            const o = { ref: e.ref, target: numOrNull(e.target), min: numOrNull(e.min), max: numOrNull(e.max) };
+            if (e.why && String(e.why).trim()) o.why = String(e.why).trim();
+            return o;
+        });
     }
     function setPickerMsg(text, tone) {
         const m = document.getElementById("compPickerMsg");
@@ -327,8 +323,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("compModeAuto").addEventListener("change", applyModeVisibility);
     document.getElementById("compModePinned").addEventListener("change", applyModeVisibility);
+    // Keep the input focused on press so its blur handler doesn't add the text a second time.
+    document.getElementById("compAddOverride").addEventListener("mousedown", function (ev) { ev.preventDefault(); });
     document.getElementById("compAddOverride").addEventListener("click", function () {
-        document.getElementById("compOverrides").appendChild(overrideRow());
+        try {
+            if (!overridePills) return;
+            const inp = document.querySelector("#compOverrides .cpi-input");
+            if (!inp || !inp.value.trim()) { overridePills.focus(); return; }
+            Promise.resolve(overridePills.addEntry(inp.value)).then(function () { overridePills.focus(); })
+                .catch(function (e) { console.warn("Add override failed", e); });
+        } catch (e) { console.warn("Add override failed", e); }
     });
 
     document.getElementById("compPickerForm").addEventListener("submit", async function (ev) {
@@ -347,15 +351,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
             });
             const data = await res.json().catch(function () { return {}; });
-            const fixBox = document.getElementById("compFixes"); if (fixBox) fixBox.innerHTML = "";
             if (!res.ok) {
                 const issues = (data.issues || []).map(function (i) { return i.message; }).join(" ");
                 setPickerMsg(issues || data.error || "Save failed.", "error");
-                if (fixBox && (data.issues || []).some(function (i) { return i.code === "E3"; })) {
-                    const cat = await RefCombobox.load("deck", deckId);
-                    RefCombobox.showFixes(fixBox, Array.from(document.querySelectorAll("#compOverrides input[aria-label='Category ref']")), cat,
-                        function () { document.getElementById("compPickerForm").requestSubmit(); });
-                }
                 return;
             }
             setPickerMsg("Saved.", "ok");
