@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Composition Presets and Deck Composition: the category suggestion list no longer covers the "Add category target" / "Add override" buttons.
 - Composition Presets: "Add category target" now uses the shared category pill input (target/min/max/why stay per category) instead of the broken slot row.
 - Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
 

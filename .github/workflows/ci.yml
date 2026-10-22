@@ -148,6 +148,14 @@ jobs:
           python -m pytest -v -rs tests/e2e/test_auto_tag_e2e.py --base-url http://127.0.0.1:8000 | tee auto-tag-e2e.log
           ! grep -qi "skipped" auto-tag-e2e.log
 
+      - name: Run Composition pill-input e2e tests
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          python -m pytest -v -rs tests/e2e/test_composition_ref_combobox_e2e.py tests/e2e/test_category_pill_checklist_e2e.py --base-url http://127.0.0.1:8000 | tee composition-e2e.log
+          ! grep -qi "skipped" composition-e2e.log
+
       - name: Upload app log on failure
         if: failure()
         uses: actions/upload-artifact@v4
