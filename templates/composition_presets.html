@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Composition Presets | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Composition Presets"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="cpCount" class="hud-freshness">Loading…</span>{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cp-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: var(--sp-6); align-items: start; }
+    .cp-list { list-style: none; margin: 0; padding: 0; }
+    .cp-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: var(--stroke-faint);
+               color: var(--text-1); padding: var(--sp-4) var(--sp-5); cursor: pointer; font: inherit; }
+    .cp-item:hover { background: var(--surface-2); }
+    .cp-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+    .cp-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
+    .cp-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+    .cp-slot-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 4.5rem 4.5rem 4.5rem minmax(0, 1.4fr) auto; gap: var(--sp-3); align-items: end; }
+    .cp-slot-row .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+    .cp-slots { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .cp-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .cp-actions .cp-spacer { flex: 1; }
+    .cp-msg { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); color: var(--text-2); overflow-wrap: anywhere; }
+    .cp-msg.is-error { color: var(--danger); }
+    .cp-msg.is-ok { color: var(--ok); }
+    .cp-msg.is-warn { color: var(--signal); }
+    .cp-compare-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+    .cp-compare-table th, .cp-compare-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: var(--stroke-faint); white-space: nowrap; }
+    .cp-compare-table th { font-family: var(--font-mono); color: var(--text-3); text-transform: uppercase; font-size: var(--fs-micro); }
+    .cp-compare-wrap { overflow-x: auto; }
+    @media (max-width: 900px) {
+        .cp-layout { grid-template-columns: minmax(0, 1fr); }
+        .cp-slot-row { grid-template-columns: minmax(0, 1fr) 1fr 1fr; }
+        .cp-slot-row .cp-rm { grid-column: 1 / -1; justify-self: start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Composition Presets", eyebrow="Deck makeup registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="cpNew">New preset</button>
+{% endcall %}
+<p class="cp-msg" style="margin-bottom: var(--sp-5)">A Composition Preset is a target deck makeup (lands, ramp, card advantage, etc. — see <a href="/categories">Categories</a>). Decks resolve to one preset (pinned or auto-selected by archetype/tags/commander CMC) and can override individual numbers. Built-in presets are read-only; create your own to tune the targets.</p>
+
+<div class="cp-layout">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="cpListCount"></div></header>
+        <div class="hud-panel-body" style="padding:0">
+            <ul class="cp-list" id="cpList" aria-label="Composition presets"></ul>
+        </div>
+    </section>
+
+    <div style="display:flex; flex-direction:column; gap: var(--sp-6);">
+        <section class="hud-panel" id="cpEditor" aria-live="polite">
+            <header class="hud-panel-head"><h3 class="hud-panel-title" id="cpEditorTitle">New preset</h3><div class="hud-panel-meta" id="cpEditorMeta"></div></header>
+            <div class="hud-panel-body">
+                <form class="hud-form-stack" id="cpForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
+                    <div class="hud-field">
+                        <label for="cpName">Name</label>
+                        <input id="cpName" maxlength="40" required>
+                    </div>
+                    <div class="hud-field">
+                        <label for="cpDesc">Description</label>
+                        <span class="hud-field-hint">What this preset is for and when a deck should use it &mdash; this is what makes the registry comparable at a glance.</span>
+                        <textarea id="cpDesc" rows="3" maxlength="400"></textarea>
+                    </div>
+                    <div class="hud-field">
+                        <label for="cpLands">Target lands</label>
+                        <input id="cpLands" type="number" min="0" max="99" required>
+                    </div>
+                    <div class="hud-field">
+                        <span class="hud-field-label">Category targets (slots)</span>
+                        <span class="hud-field-hint">Ref (e.g. core:ramp, core:card_advantage, group:targeted_interaction, core:board_wipe). Leave min/max blank to skip a bound.</span>
+                        <div class="cp-slots" id="cpSlots"></div>
+                        <div><button type="button" class="hud-btn hud-btn--sm" id="cpAddSlot">Add category target</button></div>
+                    </div>
+                    <p class="cp-msg" id="cpMsg" role="status"></p>
+                    <div id="cpFixes" aria-live="polite"></div>
+                    <div class="cp-actions">
+                        <button type="submit" class="hud-btn hud-btn--primary" id="cpSave">Save</button>
+                        <button type="button" class="hud-btn hud-btn--ghost" id="cpCancel">Reset</button>
+                        <span class="cp-spacer"></span>
+                        <button type="button" class="hud-btn hud-btn--danger hud-btn--sm" id="cpDelete" hidden>Delete</button>
+                    </div>
+                </form>
+            </div>
+            <footer class="hud-panel-foot" id="cpEditorFoot"></footer>
+        </section>
+
+        <section class="hud-panel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Compare presets</h3><div class="hud-panel-meta">Lands &amp; category targets, side by side</div></header>
+            <div class="hud-panel-body cp-compare-wrap">
+                <table class="cp-compare-table" id="cpCompareTable">
+                    <thead><tr id="cpCompareHead"></tr></thead>
+                    <tbody id="cpCompareBody"></tbody>
+                </table>
+            </div>
+            <footer class="hud-panel-foot">Target shown per category; a dash means that preset doesn't set a target for it.</footer>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const state = { presets: [], current: null };
+
+    function el(tag, props, kids) {
+        const n = document.createElement(tag);
+        Object.entries(props || {}).forEach(([k, v]) => { if (k === 'text') n.textContent = v; else n.setAttribute(k, v); });
+        (kids || []).forEach(k => n.appendChild(k));
+        return n;
+    }
+    function msg(id, text, tone) { const m = $(id); m.textContent = text || ''; m.className = 'cp-msg' + (tone ? ' is-' + tone : ''); }
+    async function api(method, url, body) {
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, data };
+        } catch (e) {
+            return { ok: false, status: 0, data: { error: 'Network error. Check your connection and try again.' } };
+        }
+    }
+    const refLabel = ref => (ref || '').replace(/^(core:|group:|type:|facet:|theme:|cat:[gd]-)/, '').replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+    function isBuiltin(p) { return (p.kind || 'builtin') === 'builtin'; }
+
+    function renderList() {
+        const ul = $('cpList'); ul.replaceChildren();
+        $('cpListCount').textContent = state.presets.length + ' presets';
+        $('cpCount').textContent = state.presets.length + ' total';
+        if (!state.presets.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No presets yet.' }));
+        state.presets.forEach(p => {
+            const name = el('span', { class: 'cp-item-name' }, [el('span', { text: p.name })]);
+            name.appendChild(el('span', { class: 'hud-chip hud-chip--' + (isBuiltin(p) ? 'neutral' : 'data'), text: isBuiltin(p) ? 'built-in' : 'custom' }));
+            name.appendChild(el('span', { class: 'hud-chip hud-chip--neutral', text: (p.structure && p.structure.lands != null ? p.structure.lands : '?') + ' lands' }));
+            const b = el('button', { type: 'button', class: 'cp-item', 'data-id': p.id, 'aria-current': String(p.id === state.current) },
+                [name, el('p', { class: 'cp-item-desc', text: p.description || 'No description yet.' })]);
+            b.addEventListener('click', () => edit(p.id));
+            ul.appendChild(el('li', {}, [b]));
+        });
+    }
+
+    function slotRow(slot) {
+        slot = slot || { ref: '', target: null, min: null, max: null, why: '' };
+        const ref = el('input', { value: slot.ref || '', placeholder: 'core:ramp', 'aria-label': 'Category ref' });
+        const num = (val, lab) => el('input', { type: 'number', min: '0', max: '99', value: (val === null || val === undefined) ? '' : val, 'aria-label': lab });
+        const target = num(slot.target, 'Target');
+        const min = num(slot.min, 'Min');
+        const max = num(slot.max, 'Max');
+        const why = el('input', { value: slot.why || '', placeholder: 'why (optional)', 'aria-label': 'Why', maxlength: '160' });
+        const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost cp-rm', text: 'Remove' });
+        const row = el('div', { class: 'cp-slot-row' }, [
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Ref' }), ref]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Target' }), target]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Min' }), min]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Max' }), max]),
+            el('div', { class: 'hud-field' }, [el('label', { text: 'Why' }), why]),
+            rm,
+        ]);
+        rm.addEventListener('click', () => row.remove());
+        RefCombobox.attach(ref, { scope: 'preset' });
+        return row;
+    }
+    function setSlots(slots) { const box = $('cpSlots'); box.replaceChildren(); (slots || []).forEach(s => box.appendChild(slotRow(s))); }
+    function readSlots() {
+        return Array.from($('cpSlots').children).map(row => {
+            const inputs = row.querySelectorAll('input');
+            const [ref, target, min, max, why] = inputs;
+            const num = v => v.value === '' ? null : Number(v.value);
+            return { ref: ref.value.trim(), target: num(target), min: num(min), max: num(max), why: why.value };
+        }).filter(s => s.ref);
+    }
+
+    function setFormDisabled(disabled) {
+        $('cpForm').querySelectorAll('input, textarea, button[type=submit], #cpAddSlot').forEach(n => { n.disabled = disabled; });
+        $('cpSlots').querySelectorAll('input, button').forEach(n => { n.disabled = disabled; });
+    }
+
+    function fill(p) {
+        $('cpName').value = p.name || '';
+        $('cpDesc').value = p.description || '';
+        $('cpLands').value = (p.structure && p.structure.lands != null) ? p.structure.lands : 38;
+        setSlots(p.slots);
+    }
+
+    function edit(id) {
+        const p = state.presets.find(x => x.id === id); if (!p) return;
+        state.current = id; fill(p);
+        $('cpEditorTitle').textContent = p.name;
+        $('cpEditorMeta').textContent = isBuiltin(p) ? 'built-in · read-only' : ((p.updated_at || '').slice(0, 10) || 'custom');
+        $('cpDelete').hidden = isBuiltin(p);
+        $('cpEditorFoot').textContent = isBuiltin(p)
+            ? 'Built-in presets ship with the app and can\'t be edited or deleted. Create a copy to customize it.'
+            : '';
+        setFormDisabled(isBuiltin(p));
+        msg('cpMsg', ''); renderList();
+    }
+
+    function fresh() {
+        state.current = null; fill({ slots: [] });
+        $('cpEditorTitle').textContent = 'New preset';
+        $('cpEditorMeta').textContent = '';
+        $('cpDelete').hidden = true;
+        $('cpEditorFoot').textContent = '';
+        setFormDisabled(false);
+        msg('cpMsg', ''); renderList();
+    }
+
+    function renderCompare() {
+        const refs = [];
+        state.presets.forEach(p => (p.slots || []).forEach(s => { if (!refs.includes(s.ref)) refs.push(s.ref); }));
+        const head = $('cpCompareHead'); head.replaceChildren();
+        head.appendChild(el('th', { text: 'Preset' }));
+        head.appendChild(el('th', { text: 'Lands' }));
+        refs.forEach(r => head.appendChild(el('th', { text: refLabel(r) })));
+
+        const body = $('cpCompareBody'); body.replaceChildren();
+        if (!state.presets.length) {
+            body.appendChild(el('tr', {}, [el('td', { colspan: String(refs.length + 2), text: 'No presets yet.' })]));
+            return;
+        }
+        state.presets.forEach(p => {
+            const slotByRef = {};
+            (p.slots || []).forEach(s => { slotByRef[s.ref] = s; });
+            const tr = el('tr', {});
+            const nameTd = el('td', {}, [el('strong', { text: p.name })]);
+            if (!isBuiltin(p)) nameTd.appendChild(document.createTextNode(' *'));
+            tr.appendChild(nameTd);
+            tr.appendChild(el('td', { text: (p.structure && p.structure.lands != null) ? String(p.structure.lands) : '—' }));
+            refs.forEach(r => {
+                const s = slotByRef[r];
+                let text = '—';
+                if (s) {
+                    if (s.target !== null && s.target !== undefined) text = String(s.target);
+                    else if (s.min !== null && s.min !== undefined) text = '≥' + s.min;
+                    else if (s.max !== null && s.max !== undefined) text = '≤' + s.max;
+                }
+                tr.appendChild(el('td', { text }));
+            });
+            body.appendChild(tr);
+        });
+    }
+
+    async function load(keep) {
+        const { ok, data } = await api('GET', '/api/composition/presets');
+        if (!ok) { msg('cpMsg', data.error || 'Could not load presets.', 'error'); return; }
+        state.presets = data.presets || [];
+        renderCompare();
+        keep && state.presets.some(p => p.id === keep) ? edit(keep) : fresh();
+    }
+
+    $('cpNew').addEventListener('click', fresh);
+    $('cpCancel').addEventListener('click', () => state.current ? edit(state.current) : fresh());
+    $('cpAddSlot').addEventListener('click', () => $('cpSlots').appendChild(slotRow({ ref: '', target: 10 })));
+
+    $('cpForm').addEventListener('submit', async ev => {
+        ev.preventDefault();
+        const existing = state.current ? state.presets.find(p => p.id === state.current) : null;
+        if (existing && isBuiltin(existing)) return;
+        const body = {
+            name: $('cpName').value,
+            description: $('cpDesc').value,
+            structure: { deck_size: 100, commanders: 1, lands: Number($('cpLands').value) },
+            slots: readSlots(),
+        };
+        $('cpSave').disabled = true; msg('cpMsg', 'Saving…');
+        const r = state.current ? await api('PUT', '/api/composition/presets/' + encodeURIComponent(state.current), body)
+                                 : await api('POST', '/api/composition/presets', body);
+        $('cpSave').disabled = false;
+        $('cpFixes').replaceChildren();
+        if (!r.ok) {
+            const cat = await RefCombobox.load('preset');
+            if ((r.data.issues || []).some(i => i.code === 'E3')) {
+                RefCombobox.showFixes($('cpFixes'), Array.from($('cpSlots').querySelectorAll('.cp-slot-row input[aria-label="Category ref"]')), cat,
+                    () => $('cpForm').requestSubmit());
+            }
+            const issues = (r.data.issues || []).map(i => i.message).join(' ');
+            msg('cpMsg', issues || r.data.error || 'Save failed.', 'error');
+            return;
+        }
+        await load(r.data.preset.id); msg('cpMsg', 'Saved.', 'ok');
+    });
+
+    $('cpDelete').addEventListener('click', async () => {
+        if (!state.current || !confirm('Delete this preset? Decks pinned to it will fall back to the default.')) return;
+        const r = await api('DELETE', '/api/composition/presets/' + encodeURIComponent(state.current));
+        if (!r.ok) { msg('cpMsg', r.data.error || 'Delete failed.', 'error'); return; }
+        await load(); msg('cpMsg', 'Deleted.', 'ok');
+    });
+
+    load();
+})();
+</script>
+{% endblock %}

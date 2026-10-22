@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Staple Themes | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Staple Themes"}]) }}{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Vocab PR5 staple-theme registry. HUD tokens only. */
+    .st-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--sp-6); align-items: start; }
+    .st-list { list-style: none; margin: 0; padding: 0; }
+    .st-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: var(--stroke-faint);
+               color: var(--text-1); padding: var(--sp-4) var(--sp-5); cursor: pointer; font: inherit; }
+    .st-item:hover { background: var(--surface-2); }
+    .st-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+    .st-item-card { font-weight: var(--fw-semibold); }
+    .st-item-themes { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+    .st-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .st-actions .st-spacer { flex: 1; }
+    .st-msg { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); color: var(--text-2); overflow-wrap: anywhere; }
+    .st-msg.is-error { color: var(--danger); }
+    .st-msg.is-ok { color: var(--ok); }
+    @media (max-width: 900px) {
+        .st-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Staple Themes", eyebrow="Global registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="stNew">New entry</button>
+{% endcall %}
+<p class="st-msg" style="margin-bottom: var(--sp-5)">Staple Themes is a global, editable card-name &rarr; theme list. The offline heuristic theme/archetype aligner (analytics/engine.py) credits a deck's theme/archetype match when it contains a card listed here, e.g. "Hardened Scales" &rarr; counters. Delete an entry to stop crediting it; it stays deleted.</p>
+
+<div class="st-layout">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="stCount"></div></header>
+        <div class="hud-panel-body" style="padding:0">
+            <ul class="st-list" id="stList" aria-label="Staple theme entries"></ul>
+        </div>
+    </section>
+
+    <section class="hud-panel" id="stEditor" aria-live="polite">
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="stEditorTitle">New entry</h3></header>
+        <div class="hud-panel-body">
+            <form class="hud-form-stack" id="stForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
+                <div class="hud-field">
+                    <label for="stCard">Card name</label>
+                    <input id="stCard" maxlength="200" required>
+                </div>
+                <div class="hud-field">
+                    <label for="stThemes">Themes (comma-separated)</label>
+                    <input id="stThemes" maxlength="600" required placeholder="counters, +1/+1 counters, midrange">
+                </div>
+                <div class="st-actions">
+                    <button type="submit" class="hud-btn hud-btn--primary" id="stSave">Save</button>
+                    <button type="button" class="hud-btn" id="stDelete" hidden>Delete</button>
+                    <span class="st-spacer"></span>
+                    <p class="st-msg" id="stMsg" role="status"></p>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    "use strict";
+    var listEl = document.getElementById("stList");
+    var countEl = document.getElementById("stCount");
+    var formEl = document.getElementById("stForm");
+    var titleEl = document.getElementById("stEditorTitle");
+    var cardEl = document.getElementById("stCard");
+    var themesEl = document.getElementById("stThemes");
+    var msgEl = document.getElementById("stMsg");
+    var deleteBtn = document.getElementById("stDelete");
+    var newBtn = document.getElementById("stNew");
+    var entries = [];
+    var editingCard = null;
+
+    function setMsg(text, kind) {
+        msgEl.textContent = text || "";
+        msgEl.classList.remove("is-error", "is-ok");
+        if (kind) msgEl.classList.add(kind === "error" ? "is-error" : "is-ok");
+    }
+
+    function render() {
+        countEl.textContent = entries.length + (entries.length === 1 ? " entry" : " entries");
+        listEl.innerHTML = "";
+        entries.forEach(function (e) {
+            var li = document.createElement("li");
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "st-item";
+            btn.setAttribute("aria-current", e.card === editingCard ? "true" : "false");
+            var name = document.createElement("div");
+            name.className = "st-item-card";
+            name.textContent = e.card;
+            var themes = document.createElement("div");
+            themes.className = "st-item-themes";
+            themes.textContent = (e.themes || []).join(", ");
+            btn.appendChild(name);
+            btn.appendChild(themes);
+            btn.addEventListener("click", function () { edit(e); });
+            li.appendChild(btn);
+            listEl.appendChild(li);
+        });
+    }
+
+    function edit(e) {
+        editingCard = e ? e.card : null;
+        titleEl.textContent = e ? "Edit entry" : "New entry";
+        cardEl.value = e ? e.card : "";
+        cardEl.disabled = !!e;
+        themesEl.value = e ? (e.themes || []).join(", ") : "";
+        deleteBtn.hidden = !e;
+        setMsg("");
+        render();
+    }
+
+    async function load() {
+        setMsg("Loading…");
+        try {
+            var res = await fetch("/api/staple-themes");
+            var data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed to load");
+            entries = data.entries || [];
+            setMsg("");
+            render();
+        } catch (err) {
+            setMsg(err.message || "Failed to load", "error");
+        }
+    }
+
+    formEl.addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var card = cardEl.value.trim();
+        var themes = themesEl.value.split(",").map(function (t) { return t.trim(); }).filter(Boolean);
+        if (!card || !themes.length) {
+            setMsg("Card name and at least one theme are required.", "error");
+            return;
+        }
+        setMsg("Saving…");
+        try {
+            var url = editingCard ? "/api/staple-themes/" + encodeURIComponent(editingCard) : "/api/staple-themes";
+            var method = editingCard ? "PUT" : "POST";
+            var res = await fetch(url, {
+                method: method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ card: card, themes: themes }),
+            });
+            var data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed to save");
+            setMsg("Saved.", "ok");
+            await load();
+            edit(data.entry);
+        } catch (err) {
+            setMsg(err.message || "Failed to save", "error");
+        }
+    });
+
+    deleteBtn.addEventListener("click", async function () {
+        if (!editingCard) return;
+        if (!window.confirm("Delete staple theme entry for \"" + editingCard + "\"?")) return;
+        setMsg("Deleting…");
+        try {
+            var res = await fetch("/api/staple-themes/" + encodeURIComponent(editingCard), { method: "DELETE" });
+            var data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed to delete");
+            setMsg("Deleted.", "ok");
+            edit(null);
+            await load();
+        } catch (err) {
+            setMsg(err.message || "Failed to delete", "error");
+        }
+    });
+
+    newBtn.addEventListener("click", function () { edit(null); });
+
+    load();
+})();
+</script>
+{% endblock %}

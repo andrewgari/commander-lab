@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oracle.hermes.local/schemas/deck-sim-review/1/sim_review.schema.json",
+  "title": "Oracle one-off simulation review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fingerprint", "headline", "notes_response", "tempo_and_mana_read", "card_performance_read", "actionable_tweaks"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "fingerprint": { "type": "string", "minLength": 1, "description": "Echoed verbatim from the input." },
+    "headline": { "type": "string", "minLength": 1, "maxLength": 300, "description": "One sentence: how the deck actually played vs how it looks on paper." },
+    "notes_response": { "type": "string", "maxLength": 900, "description": "Direct answer to params.notes, citing run numbers. Empty string when notes were empty." },
+    "tempo_and_mana_read": { "type": "string", "maxLength": 900 },
+    "card_performance_read": { "type": "string", "maxLength": 900 },
+    "actionable_tweaks": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+    }
+  }
+}

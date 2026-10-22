@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oracle.hermes.local/schemas/deck-theory/1/theory.schema.json",
+  "title": "Oracle Theory (thematic overhaul doc)",
+  "description": "Oracle's reply. Commander Lab adds deck_id, theme, commander_mode, created_at and doc_id itself, and re-verifies every source/price. Unknown section types are allowed and preserved.",
+  "type": "object",
+  "required": ["schema_version", "sections"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/section" }
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["type", "title", "data"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1,
+                  "description": "v1: thesis_pillars | decklist | cuts | buy_total | commander_change. Any other string is allowed (future types)." },
+        "title": { "type": "string" },
+        "data": {}
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "thesis_pillars" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/thesis_pillars" } } } },
+        { "if": { "properties": { "type": { "const": "decklist" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/decklist" } } } },
+        { "if": { "properties": { "type": { "const": "cuts" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/cuts" } } } },
+        { "if": { "properties": { "type": { "const": "buy_total" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/buy_total" } } } },
+        { "if": { "properties": { "type": { "const": "commander_change" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/commander_change" } } } }
+      ]
+    },
+    "thesis_pillars": {
+      "type": "object",
+      "required": ["thesis", "pillars"],
+      "properties": {
+        "thesis": { "type": "string", "minLength": 1 },
+        "pillars": { "type": "array", "items": { "type": "object", "required": ["name"],
+          "properties": { "name": { "type": "string" }, "description": { "type": "string" } } } },
+        "theme_fit": { "type": "string" }
+      }
+    },
+    "card": {
+      "type": "object",
+      "required": ["name", "source"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "qty": { "type": "integer", "minimum": 1, "default": 1 },
+        "source": { "enum": ["kept", "owned", "buy"] },
+        "price": { "type": "number", "minimum": 0 },
+        "why": { "type": "string" },
+        "salt_flag": { "type": "object", "required": ["level", "reason"],
+          "properties": { "level": { "enum": ["low", "medium", "high"] }, "reason": { "type": "string" } } }
+      }
+    },
+    "decklist": {
+      "type": "object",
+      "required": ["groups"],
+      "properties": {
+        "groups": { "type": "array", "items": { "type": "object", "required": ["role", "cards"],
+          "properties": { "role": { "type": "string" }, "cards": { "type": "array", "items": { "$ref": "#/$defs/card" } } } } }
+      }
+    },
+    "cuts": {
+      "type": "object",
+      "required": ["cards"],
+      "properties": {
+        "cards": { "type": "array", "items": { "type": "object", "required": ["name"],
+          "properties": { "name": { "type": "string" }, "reason": { "type": "string" } } } }
+      }
+    },
+    "buy_total": {
+      "type": "object",
+      "required": ["total_usd"],
+      "properties": { "total_usd": { "type": "number", "minimum": 0 } }
+    },
+    "commander_change": {
+      "type": "object",
+      "required": ["new_commanders", "reason", "reuse_count"],
+      "properties": {
+        "new_commanders": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "reason": { "type": "string", "minLength": 1 },
+        "reuse_count": { "type": "integer", "minimum": 0 },
+        "pets_lost": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
