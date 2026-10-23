@@ -14,7 +14,7 @@
         align-items: start;
     }
     /* Deck utilities: panels moved out of the hero-side flex column keep its sp-4 rhythm */
-    .deck-utilities { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+    .deck-utilities { margin-top: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-commanders { display: grid; gap: var(--sp-3); }
     /* Commander roles (commander_roles.py): partners full width, a Doctor's
@@ -185,14 +185,14 @@
             </div>
         </div>
     </section>
-
-    <section class="deck-utilities" id="deckUtilities" aria-label="Deck utilities">
-        <div class="hud-section-head"><h2>Deck utilities</h2></div>
-        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
-            <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
-        {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
-    </section>
 </div>
+
+<section class="deck-utilities" id="deckUtilities" aria-label="Deck utilities">
+    <div class="hud-section-head"><h2>Deck utilities</h2></div>
+    {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
+        <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
+    {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
+</section>
 </div>
 
 <div class="ov-gallery">
