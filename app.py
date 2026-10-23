@@ -106,6 +106,9 @@ async def github_sync_middleware(request: Request, call_next):
     request.state.app_version = version
     return await call_next(request)
 
+import route_cache
+app.middleware("http")(route_cache.make_route_cache_middleware(lambda: r))
+
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
