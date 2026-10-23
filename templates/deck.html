@@ -13,6 +13,8 @@
         gap: var(--sp-6);
         align-items: start;
     }
+    /* Deck utilities: panels moved out of the hero-side flex column keep its sp-4 rhythm */
+    .deck-utilities { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-commanders { display: grid; gap: var(--sp-3); }
     /* Commander roles (commander_roles.py): partners full width, a Doctor's
