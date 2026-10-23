@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import redis
+import datastore
+from datastore import WritesDisabledError
 import os
 import json
 import time
@@ -14,11 +15,20 @@ from providers import fetch_deck, ProviderError
 
 app = FastAPI()
 
+
+@app.exception_handler(WritesDisabledError)
+async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):
+    return JSONResponse(
+        status_code=503,
+        content={"error": "writes_disabled", "message": "Write operations are disabled (read-only mode)."},
+        headers={"Retry-After": "3600"},
+    )
+
 templates = Jinja2Templates(directory="templates")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-r = redis.from_url(redis_url, decode_responses=True)
+r = datastore.from_url(redis_url)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
