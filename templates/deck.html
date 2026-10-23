@@ -99,9 +99,6 @@
 <div class="deck-hero">
     <aside class="deck-hero-side">
         <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
-        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
-            <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
-        {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
     </aside>
 
     <div class="deck-hero-main">
@@ -185,6 +182,13 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <section class="deck-utilities" id="deckUtilities" aria-label="Deck utilities">
+        <div class="hud-section-head"><h2>Deck utilities</h2></div>
+        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
+            <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
+        {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
     </section>
 </div>
 </div>

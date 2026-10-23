@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
 
 ### Changed
+- Deck Overview: the Update/Push sync controls, external links and Lifecycle status now live in a "Deck utilities" section at the end of the summary column instead of beside the commander.
 
 - Deck Composition page: category overrides now use the shared text input with removable category pills (target/min/max/why stay on each pill); saved data is unchanged.
 
