@@ -1,0 +1,17 @@
+{% import "partials/hud.html" as hud %}
+{#- thesis_pillars: {thesis, pillars[{name, description}], theme_fit?} -#}
+{%- set d = section.data %}
+<div class="hud-thesis">
+    <div class="hud-thesis-bar" aria-hidden="true"><span class="hud-swatch--signal"></span></div>
+    <div>
+        <blockquote>{{ d.thesis }}</blockquote>
+        {%- if d.theme_fit %}<p class="hud-doc-prose hud-doc-prose--after">{{ d.theme_fit }}</p>{% endif %}
+    </div>
+</div>
+{%- if d.pillars %}
+<ol class="hud-doc-pillars">
+    {%- for p in d.pillars if p is mapping %}
+    <li><span class="hud-label">Pillar {{ loop.index }}</span><b>{{ p.name }}</b>{% if p.description %}<span>{{ p.description }}</span>{% endif %}</li>
+    {%- endfor %}
+</ol>
+{%- endif %}

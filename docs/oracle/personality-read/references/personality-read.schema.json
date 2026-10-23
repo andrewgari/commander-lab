@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oracle.hermes.local/schemas/personality-read/1/personality-read.schema.json",
+  "title": "Oracle Personality Read",
+  "description": "Oracle's final deck personality call using rulebook scores, CommanderSalt, combos, engines, and journal as evidence.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "scores",
+    "leans_toward",
+    "summary",
+    "overrides",
+    "table_impact_flags"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "deck_id": { "type": "string" },
+    "scores": {
+      "type": "object",
+      "required": ["timmy", "johnny", "spike", "vorthos", "melvin"],
+      "properties": {
+        "timmy": { "$ref": "#/$defs/axis_read" },
+        "johnny": { "$ref": "#/$defs/axis_read" },
+        "spike": { "$ref": "#/$defs/axis_read" },
+        "vorthos": { "$ref": "#/$defs/axis_read" },
+        "melvin": { "$ref": "#/$defs/axis_read" }
+      },
+      "additionalProperties": false
+    },
+    "leans_toward": {
+      "type": "string",
+      "enum": ["timmy", "johnny", "spike", "vorthos", "melvin", "balanced"]
+    },
+    "runner_up": {
+      "type": ["string", "null"],
+      "enum": ["timmy", "johnny", "spike", "vorthos", "melvin", null]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/override" }
+    },
+    "table_impact_flags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/table_impact_flag" }
+    },
+    "rule0_pitch": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "axis_read": {
+      "type": "object",
+      "required": ["score", "justification"],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "justification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cards": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "override": {
+      "type": "object",
+      "required": ["axis", "rulebook_score", "oracle_score", "delta", "reason"],
+      "properties": {
+        "axis": {
+          "type": "string",
+          "enum": ["timmy", "johnny", "spike", "vorthos", "melvin"]
+        },
+        "rulebook_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "oracle_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "delta": {
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "table_impact_flag": {
+      "type": "object",
+      "required": ["card", "category", "severity", "reason"],
+      "properties": {
+        "card": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
