@@ -252,3 +252,25 @@ def get_cache(namespace: str = "default") -> RedisCache:
         if _default is None or _default.namespace != namespace:
             _default = RedisCache(namespace=namespace)
         return _default
+
+
+try:  # adapter onto the storage-neutral Cache interface
+    from analytics.repository_interfaces import Cache as _CacheABC
+except Exception:  # pragma: no cover
+    _CacheABC = None
+
+if _CacheABC is not None:
+    class RedisCacheAdapter(_CacheABC):
+        """Expose a RedisCache through the ``Cache`` ABC (get/put/delete)."""
+
+        def __init__(self, cache: "RedisCache"):
+            self._c = cache
+
+        def get(self, key):
+            return self._c.get(key)
+
+        def put(self, key, value, ttl_seconds=None):
+            self._c.set(key, value, ttl=ttl_seconds)
+
+        def delete(self, key):
+            return self._c.delete(key) > 0
