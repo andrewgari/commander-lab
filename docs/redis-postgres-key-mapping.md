@@ -85,3 +85,5 @@ JSON object `{card_name: {tag: "learned"|"manual"}}` (`lab_tags.py`). Provenance
 
 ## Verification
 Every table and column named in the schema table above was read back from `information_schema.columns` on a clean PostgreSQL 16 after `create_all` + the importer DDL (2026-10-23): 3 tables, 14 columns, indexes `composition_presets_pkey`, `composition_presets_id_key`, `deck_compositions_pkey`, `redis_import_pkey`. All columns referenced in the mappings exist with the types stated.
+
+See also `docs/redis-postgres-blockers.md` for code-referenced patterns that lack PostgreSQL targets.
