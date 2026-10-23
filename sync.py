@@ -1,6 +1,6 @@
 import os
 import requests
-import redis
+import datastore
 from dotenv import load_dotenv
 import json
 from collections import defaultdict
@@ -33,7 +33,7 @@ if not ARCHIDEKT_USERNAME:
     print("Error: ARCHIDEKT_USERNAME environment variable not set.")
     exit(1)
 
-r = redis.from_url(REDIS_URL, decode_responses=True)
+r = datastore.from_url(REDIS_URL)
 
 # Categories that are structural, not thematic (preserve, don't learn from)
 STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
