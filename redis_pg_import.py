@@ -38,7 +38,9 @@ import random
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+import transfer_metrics
 
 log = logging.getLogger("redis_pg_import")
 
@@ -132,7 +134,7 @@ def with_retry(fn, max_retries=3, base=0.5, sleep=time.sleep, on_retry=None):
     while True:
         try:
             return fn()
-        except Exception as e:  # noqa: BLE001 - classified below, otherwise re-raised
+        except Exception as e:
             if not is_transient(e) or attempt >= max_retries:
                 raise
             attempt += 1
@@ -228,7 +230,7 @@ def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
                 exp = (now.timestamp() + rec.ttl_ms / 1000) if rec.ttl_ms else None
                 cur.execute(UPSERT, (rec.key, rec.type, json.dumps(rec.value, ensure_ascii=False),
                                      rec.ttl_ms,
-                                     datetime.fromtimestamp(exp, timezone.utc) if exp else None,
+                                     datetime.fromtimestamp(exp, UTC) if exp else None,
                                      rec.checksum))
                 row = cur.fetchone()
                 if row is None:
@@ -242,33 +244,59 @@ def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
 
 
 def run_import(conn, records, batch_size=100, max_retries=3, dry_run=False,
-               skip_invalid=False, sleep=time.sleep) -> Summary:
+               skip_invalid=False, sleep=time.sleep, metrics=None) -> Summary:
+    m = metrics or transfer_metrics.get_metrics()
     s = Summary()
     good: list[Record] = []
-    for rec in records:
-        s.scanned += 1
-        try:
-            validate(rec)
-        except PermanentError as e:
-            if not skip_invalid:
+    ok = False
+    m.run_started()
+    try:
+        for rec in records:
+            s.scanned += 1
+            if not dry_run:
+                m.record_read()
+            try:
+                validate(rec)
+            except PermanentError as e:
+                if not dry_run:
+                    m.record_failure(1, "hash_mismatch" if isinstance(e, IntegrityError) else "validation")
+                if not skip_invalid:
+                    raise
+                s.rejected.append((rec.key, str(e)))
+                continue
+            good.append(rec)
+        if dry_run:
+            s.unchanged = 0
+            log.info("dry-run: %d records would be upserted", len(good))
+            return s
+        with_retry(lambda: _ensure_schema(conn), max_retries, sleep=sleep, on_retry=m.record_retry)
+
+        def on_retry():
+            s.retries += 1
+            m.record_retry()
+
+        now = datetime.now(UTC)
+        for i in range(0, len(good), batch_size):
+            chunk = good[i:i + batch_size]
+            t0 = time.monotonic()
+            try:
+                ins, upd, unch = with_retry(lambda chunk=chunk: _batch(conn, chunk, now), max_retries,
+                                            sleep=sleep, on_retry=on_retry)
+            except Exception as e:
+                m.record_failure(len(chunk), "hash_mismatch" if isinstance(e, IntegrityError)
+                                 else "validation" if isinstance(e, PermanentError) else "db_error",
+                                 batch=True)
+                m.observe_batch(time.monotonic() - t0)
                 raise
-            s.rejected.append((rec.key, str(e)))
-            continue
-        good.append(rec)
-    if dry_run:
-        s.unchanged = 0
-        log.info("dry-run: %d records would be upserted", len(good))
+            m.observe_batch(time.monotonic() - t0)
+            m.record_success(len(chunk), unch)  # only after the batch committed
+            s.inserted += ins
+            s.updated += upd
+            s.unchanged += unch
+        ok = not s.rejected
         return s
-    with_retry(lambda: _ensure_schema(conn), max_retries, sleep=sleep)
-    now = datetime.now(timezone.utc)
-    for i in range(0, len(good), batch_size):
-        chunk = good[i:i + batch_size]
-        ins, upd, unch = with_retry(lambda: _batch(conn, chunk, now), max_retries, sleep=sleep,
-                                    on_retry=lambda: setattr(s, "retries", s.retries + 1))
-        s.inserted += ins
-        s.updated += upd
-        s.unchanged += unch
-    return s
+    finally:
+        m.run_finished(ok)
 
 
 def _ensure_schema(conn):
@@ -302,11 +330,14 @@ def main(argv=None) -> int:
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-invalid", action="store_true")
     p.add_argument("--verify", action="store_true")
+    p.add_argument("--metrics-port", type=int, default=None,
+                   help="serve Prometheus /metrics on this port (or $TRANSFER_METRICS_PORT)")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if not a.database_url and not a.dry_run:
         p.error("DATABASE_URL / --database-url required")
 
+    transfer_metrics.start_exporter(a.metrics_port)
     if a.from_export:
         recs = list(records_from_export(a.from_export))
     else:
@@ -331,6 +362,7 @@ def main(argv=None) -> int:
             log.info("verify OK")
         return 1 if s.rejected else 0
     finally:
+        transfer_metrics.push_if_configured()
         if conn:
             conn.close()
 
