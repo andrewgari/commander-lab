@@ -39,6 +39,7 @@ r = datastore.from_url(REDIS_URL)
 STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
 
 def sync_inventory():
+    datastore.assert_readwrite("sync_inventory")  # fail fast, before any fetching
     print(f"Fetching user ID for username: {ARCHIDEKT_USERNAME}...")
     # 1. Get user ID
     user_url = f"https://archidekt.com/api/users/?username={ARCHIDEKT_USERNAME}"

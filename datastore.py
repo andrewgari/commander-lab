@@ -60,6 +60,16 @@ def assert_writes_enabled(operation: str) -> None:
         raise WritesDisabledError(operation)
 
 
+def is_readonly() -> bool:
+    """True when DATA_ACCESS_MODE=readonly."""
+    return not writes_enabled()
+
+
+def assert_readwrite(operation: str = "write") -> None:
+    """Raise WritesDisabledError in readonly mode (alias of assert_writes_enabled)."""
+    assert_writes_enabled(operation)
+
+
 class GuardedPipeline:
     def __init__(self, pipe):
         self._pipe = pipe

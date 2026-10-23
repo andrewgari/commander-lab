@@ -57,5 +57,17 @@ class TestDatastoreFlag(unittest.TestCase):
             m.set.assert_not_called()
 
 
+class TestCardExports(unittest.TestCase):
+    def test_is_readonly_and_assert_readwrite(self):
+        import datastore
+        with patch.dict(os.environ, {"DATA_ACCESS_MODE": "readonly"}):
+            self.assertTrue(datastore.is_readonly())
+            with self.assertRaises(datastore.WritesDisabledError):
+                datastore.assert_readwrite()
+        with patch.dict(os.environ, {"DATA_ACCESS_MODE": "readwrite"}):
+            self.assertFalse(datastore.is_readonly())
+            datastore.assert_readwrite()
+
+
 if __name__ == "__main__":
     unittest.main()
