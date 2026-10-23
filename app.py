@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
+import datastore
+from datastore import WritesDisabledError
 import os
 import asyncio
 import logging
@@ -59,6 +61,15 @@ import urllib.parse
 
 app = FastAPI()
 
+
+@app.exception_handler(WritesDisabledError)
+async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):
+    return JSONResponse(
+        status_code=503,
+        content={"error": "writes_disabled", "message": "Write operations are disabled (read-only mode)."},
+        headers={"Retry-After": "3600"},
+    )
+
 github_sync_lock = False
 
 @app.middleware("http")
@@ -95,6 +106,9 @@ async def github_sync_middleware(request: Request, call_next):
     request.state.app_version = version
     return await call_next(request)
 
+import route_cache
+app.middleware("http")(route_cache.make_route_cache_middleware(lambda: r))
+
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
@@ -122,7 +136,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-r = redis.from_url(redis_url, decode_responses=True)
+r = datastore.from_url(redis_url)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
