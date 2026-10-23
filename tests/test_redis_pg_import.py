@@ -44,6 +44,34 @@ class RetryTests(unittest.TestCase):
         self.assertEqual(s.scanned, 4)
 
 
+class HashTests(unittest.TestCase):
+    def test_deterministic_key_order_and_ttl_independent(self):
+        a = imp.Record("k", "hash", {"a": 1, "b": [1, 2]}, 1000)
+        b = imp.Record("k", "hash", {"b": [1, 2], "a": 1}, 5)
+        self.assertEqual(a.checksum, b.checksum)
+        self.assertEqual(len(a.checksum), 64)
+        self.assertNotEqual(a.checksum, imp.Record("k", "list", {"a": 1, "b": [1, 2]}).checksum)
+
+    def test_source_hash_match_and_mismatch(self):
+        good = imp.Record("k", "string", "v")
+        good.source_hash = "sha256:" + good.checksum.upper()
+        imp.validate(good)
+        bad = imp.Record("k", "string", "tampered", None, good.checksum)
+        with self.assertRaises(imp.IntegrityError):
+            imp.validate(bad)
+        with self.assertRaises(imp.IntegrityError):
+            imp.run_import(None, [bad], dry_run=True)
+
+    def test_integrity_not_retried(self):
+        calls = []
+        def fn():
+            calls.append(1)
+            raise imp.IntegrityError("x")
+        with self.assertRaises(imp.IntegrityError):
+            imp.with_retry(fn, 3, sleep=lambda s: None)
+        self.assertEqual(len(calls), 1)
+
+
 @unittest.skipUnless(DSN and psycopg, "DATABASE_URL / psycopg not available")
 class PgTests(unittest.TestCase):
     def setUp(self):
@@ -104,6 +132,24 @@ class PgTests(unittest.TestCase):
             imp._batch = real
         self.assertEqual(s.retries, 1)
         self.assertEqual(self.count(), 4)
+
+    def test_tampered_pg_value_detected_by_verify_and_rerun(self):
+        imp.run_import(self.conn, self.recs)
+        self.conn.execute("UPDATE redis_import SET value='\"evil\"'::jsonb WHERE redis_key='lab_tags'")
+        # checksum column untouched, so only recomputation from the value catches it
+        self.assertEqual(imp.verify(self.conn, self.recs), ["lab_tags"])
+        with self.assertRaises(imp.IntegrityError):
+            imp.run_import(self.conn, self.recs)
+
+    def test_post_write_corruption_rolls_back_batch(self):
+        real = imp.UPSERT
+        imp.UPSERT = real.replace("%s::jsonb", "CASE WHEN %s::text IS NOT NULL THEN '\"corrupt\"'::jsonb END")
+        try:
+            with self.assertRaises(imp.IntegrityError):
+                imp.run_import(self.conn, self.recs, sleep=lambda s: None)
+        finally:
+            imp.UPSERT = real
+        self.assertEqual(self.count(), 0)
 
     def test_invalid_skipped(self):
         bad = imp.Record("k", "weird", "v")
