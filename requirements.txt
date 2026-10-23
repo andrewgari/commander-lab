@@ -13,4 +13,5 @@ numpy
 onnxruntime
 tokenizers
 jsonschema
-psycopg[binary]
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
