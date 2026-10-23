@@ -5,3 +5,11 @@ requests
 jinja2
 python-dotenv
 httpx
+pydantic
+Markdown
+bleach
+# AN-3 local embeddings (CPU): bge-small ONNX via onnxruntime + HF tokenizers
+numpy
+onnxruntime
+tokenizers
+jsonschema
