@@ -20,6 +20,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -44,6 +55,7 @@ jobs:
       - name: Run unit tests
         env:
           REDIS_URL: redis://localhost:6379/0
+          DATABASE_URL: postgresql://postgres:pw@localhost:5432/postgres
           INTERACTIONS_DISABLED: "1"
         run: |
           python -m unittest discover -s tests

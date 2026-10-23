@@ -13,3 +13,4 @@ numpy
 onnxruntime
 tokenizers
 jsonschema
+psycopg[binary]
