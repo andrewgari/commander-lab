@@ -1,6 +1,6 @@
 import os
 import requests
-import redis
+import datastore
 from dotenv import load_dotenv
 import json
 from collections import defaultdict
@@ -9,7 +9,6 @@ import time
 import cards as card_store
 import registry
 import lab_tags as lab_tag_store
-from datastore import WritesDisabledError, assert_readwrite, guard_redis
 
 # Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
 # that the legacy card:{name} inventory keys have been purged. sync.py checks
@@ -34,13 +33,13 @@ if not ARCHIDEKT_USERNAME:
     print("Error: ARCHIDEKT_USERNAME environment variable not set.")
     exit(1)
 
-r = guard_redis(redis.from_url(REDIS_URL, decode_responses=True))
+r = datastore.from_url(REDIS_URL)
 
 # Categories that are structural, not thematic (preserve, don't learn from)
 STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
 
 def sync_inventory():
-    assert_readwrite()  # fail fast before fetching/writing anything
+    datastore.assert_readwrite("sync_inventory")  # fail fast, before any fetching
     print(f"Fetching user ID for username: {ARCHIDEKT_USERNAME}...")
     # 1. Get user ID
     user_url = f"https://archidekt.com/api/users/?username={ARCHIDEKT_USERNAME}"
@@ -362,7 +361,4 @@ def sync_inventory():
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 
 if __name__ == "__main__":
-    try:
-        sync_inventory()
-    except WritesDisabledError:
-        print("Sync skipped: DATA_ACCESS_MODE=readonly")
+    sync_inventory()

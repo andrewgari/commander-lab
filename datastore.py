@@ -1,60 +1,84 @@
-"""Read/write switch for the Redis datastore.
-
-``DATA_ACCESS_MODE=readonly`` disables every Redis write; anything else
-(default ``readwrite``) leaves behaviour unchanged. The env var is read on
-each call so it can be toggled in tests without reloading modules.
 """
-from __future__ import annotations
+Flag-controlled read/write guard for the Redis data access layer.
 
+Env flag DATA_ACCESS_MODE:
+    readwrite (default) - all operations allowed (current behaviour)
+    readonly            - reads pass through; any mutating command raises
+                          WritesDisabledError before touching Redis.
+
+The flag is read on every call, so it can be flipped without code changes
+(restart needed only if the process env itself is fixed at launch).
+Invalid values raise ValueError (fail loudly, never silently fall back).
+"""
+import logging
 import os
 
-__all__ = ["WritesDisabledError", "is_readonly", "assert_readwrite", "guard_redis"]
+import redis
 
-ERROR_CODE = "writes_disabled"
+logger = logging.getLogger("commander_lab.datastore")
 
-# Redis commands that mutate state.
+MODE_ENV = "DATA_ACCESS_MODE"
+READWRITE = "readwrite"
+READONLY = "readonly"
+_VALID = {READWRITE, READONLY}
+
 WRITE_COMMANDS = frozenset({
-    "set", "setex", "psetex", "setnx", "mset", "msetnx", "append", "getset", "getdel",
-    "setrange", "incr", "incrby", "incrbyfloat", "decr", "decrby",
-    "delete", "unlink", "expire", "pexpire", "expireat", "pexpireat", "persist",
-    "rename", "renamenx", "copy", "move", "flushdb", "flushall", "restore",
+    "set", "setex", "setnx", "psetex", "mset", "msetnx", "append", "getset", "getdel",
+    "incr", "incrby", "incrbyfloat", "decr", "decrby", "setrange", "setbit",
+    "delete", "unlink", "expire", "pexpire", "expireat", "persist", "rename", "renamenx",
     "hset", "hmset", "hsetnx", "hdel", "hincrby", "hincrbyfloat",
-    "lpush", "rpush", "lpushx", "rpushx", "lpop", "rpop", "lset", "lrem", "ltrim",
-    "linsert", "lmove", "blpop", "brpop",
     "sadd", "srem", "spop", "smove", "sinterstore", "sunionstore", "sdiffstore",
-    "zadd", "zrem", "zincrby", "zpopmin", "zpopmax", "zremrangebyrank",
-    "zremrangebyscore", "zremrangebylex", "zunionstore", "zinterstore",
-    "xadd", "xdel", "xtrim", "eval", "evalsha", "script_load",
+    "lpush", "rpush", "lpushx", "rpushx", "lpop", "rpop", "lrem", "lset", "ltrim",
+    "linsert", "rpoplpush", "lmove", "blpop", "brpop",
+    "zadd", "zrem", "zincrby", "zremrangebyscore", "zremrangebyrank", "zpopmin", "zpopmax",
+    "flushdb", "flushall", "eval", "evalsha", "restore", "copy", "move", "xadd", "xdel",
 })
 
 
 class WritesDisabledError(RuntimeError):
-    """Raised when a datastore write is attempted in readonly mode."""
+    """Raised when a write is attempted while DATA_ACCESS_MODE=readonly."""
 
-    code = ERROR_CODE
+    def __init__(self, operation: str):
+        self.operation = operation
+        super().__init__(f"Write operation '{operation}' blocked: {MODE_ENV}={READONLY}")
 
-    def __init__(self, message: str = "Datastore writes are disabled (DATA_ACCESS_MODE=readonly)"):
-        super().__init__(message)
+
+def get_mode() -> str:
+    mode = os.getenv(MODE_ENV, READWRITE).strip().lower() or READWRITE
+    if mode not in _VALID:
+        raise ValueError(f"Invalid {MODE_ENV}={mode!r}; expected one of {sorted(_VALID)}")
+    return mode
+
+
+def writes_enabled() -> bool:
+    return get_mode() == READWRITE
+
+
+def assert_writes_enabled(operation: str) -> None:
+    if not writes_enabled():
+        logger.warning("Blocked write operation %s (%s=%s)", operation, MODE_ENV, READONLY)
+        raise WritesDisabledError(operation)
 
 
 def is_readonly() -> bool:
-    return os.getenv("DATA_ACCESS_MODE", "readwrite").strip().lower() == "readonly"
+    """True when DATA_ACCESS_MODE=readonly."""
+    return not writes_enabled()
 
 
-def assert_readwrite() -> None:
-    if is_readonly():
-        raise WritesDisabledError()
+def assert_readwrite(operation: str = "write") -> None:
+    """Raise WritesDisabledError in readonly mode (alias of assert_writes_enabled)."""
+    assert_writes_enabled(operation)
 
 
-class _GuardedPipeline:
+class GuardedPipeline:
     def __init__(self, pipe):
         self._pipe = pipe
 
     def __getattr__(self, name):
         attr = getattr(self._pipe, name)
-        if name in WRITE_COMMANDS and callable(attr):
+        if name.lower() in WRITE_COMMANDS and callable(attr):
             def guarded(*a, **kw):
-                assert_readwrite()
+                assert_writes_enabled(name)
                 return attr(*a, **kw)
             return guarded
         return attr
@@ -67,26 +91,30 @@ class _GuardedPipeline:
         return self._pipe.__exit__(*exc)
 
 
-class _GuardedRedis:
-    """Proxy that raises WritesDisabledError before any write command is sent."""
+class GuardedRedis:
+    """Drop-in wrapper around a redis client that enforces DATA_ACCESS_MODE."""
 
     def __init__(self, client):
-        object.__setattr__(self, "_client", client)
+        self._client = client
+
+    def pipeline(self, *a, **kw):
+        return GuardedPipeline(self._client.pipeline(*a, **kw))
 
     def __getattr__(self, name):
         attr = getattr(self._client, name)
-        if not callable(attr):
-            return attr
-        if name in WRITE_COMMANDS:
+        if name.lower() in WRITE_COMMANDS and callable(attr):
             def guarded(*a, **kw):
-                assert_readwrite()
-                return attr(*a, **kw)
+                assert_writes_enabled(name)
+                try:
+                    return attr(*a, **kw)
+                except redis.RedisError:
+                    logger.exception("Redis write %s failed", name)
+                    raise
             return guarded
-        if name in ("pipeline", "transaction"):
-            return lambda *a, **kw: _GuardedPipeline(attr(*a, **kw))
         return attr
 
 
-def guard_redis(client):
-    """Wrap a redis client so writes raise in readonly mode (idempotent)."""
-    return client if isinstance(client, _GuardedRedis) else _GuardedRedis(client)
+def from_url(url: str) -> GuardedRedis:
+    client = redis.from_url(url, decode_responses=True)
+    logger.info("Data store initialised; %s=%s", MODE_ENV, get_mode())
+    return GuardedRedis(client)

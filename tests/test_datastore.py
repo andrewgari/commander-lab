@@ -1,84 +1,73 @@
-"""DATA_ACCESS_MODE read/write switch."""
 import os
-import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from datastore import WritesDisabledError, assert_readwrite, guard_redis, is_readonly
+import datastore
+from datastore import GuardedRedis, WritesDisabledError
 
 
-class Fake:
-    def __init__(self):
-        self.d = {}
-        self.calls = []
+class TestDatastoreFlag(unittest.TestCase):
+    def _env(self, val):
+        return patch.dict(os.environ, {datastore.MODE_ENV: val} if val is not None else {}, clear=False)
 
-    def get(self, k):
-        return self.d.get(k)
+    def test_default_allows_writes(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(datastore.MODE_ENV, None)
+            c = MagicMock(); g = GuardedRedis(c)
+            g.set("a", "1")
+            c.set.assert_called_once_with("a", "1")
 
-    def set(self, k, v):
-        self.calls.append(("set", k))
-        self.d[k] = v
+    def test_readonly_blocks_writes_allows_reads(self):
+        with self._env("readonly"):
+            c = MagicMock(); g = GuardedRedis(c)
+            g.get("a"); c.get.assert_called_once_with("a")
+            for op in ("set", "delete", "sadd", "hset"):
+                with self.assertRaises(WritesDisabledError):
+                    getattr(g, op)("k", "v")
+                getattr(c, op).assert_not_called()
 
-    def pipeline(self):
-        outer = self
+    def test_pipeline_guarded(self):
+        with self._env("readonly"):
+            c = MagicMock(); g = GuardedRedis(c)
+            p = g.pipeline()
+            p.get("a")
+            with self.assertRaises(WritesDisabledError):
+                p.set("a", "1")
 
-        class P:
-            def set(self, k, v):
-                outer.calls.append(("pset", k))
+    def test_invalid_value_fails_loudly(self):
+        with self._env("banana"):
+            with self.assertRaises(ValueError):
+                datastore.get_mode()
 
-            def get(self, k):
-                return None
+    def test_logs_blocked_write(self):
+        with self._env("readonly"), self.assertLogs("commander_lab.datastore", "WARNING"):
+            with self.assertRaises(WritesDisabledError):
+                GuardedRedis(MagicMock()).set("a", "1")
 
-            def execute(self):
-                return []
-        return P()
-
-
-def test_default_readwrite(monkeypatch):
-    monkeypatch.delenv("DATA_ACCESS_MODE", raising=False)
-    assert not is_readonly()
-    assert_readwrite()
-
-
-@pytest.mark.parametrize("v", ["readonly", " ReadOnly "])
-def test_readonly(monkeypatch, v):
-    monkeypatch.setenv("DATA_ACCESS_MODE", v)
-    assert is_readonly()
-    with pytest.raises(WritesDisabledError):
-        assert_readwrite()
-
-
-def test_guarded_client(monkeypatch):
-    f = Fake()
-    g = guard_redis(f)
-    monkeypatch.setenv("DATA_ACCESS_MODE", "readwrite")
-    g.set("a", 1)
-    assert g.get("a") == 1
-    monkeypatch.setenv("DATA_ACCESS_MODE", "readonly")
-    assert g.get("a") == 1
-    with pytest.raises(WritesDisabledError):
-        g.set("b", 2)
-    with pytest.raises(WritesDisabledError):
-        g.pipeline().set("c", 3)
-    assert f.calls == [("set", "a")]
+    def test_api_returns_503(self):
+        from fastapi.testclient import TestClient
+        import app as app_mod
+        with self._env("readonly"), patch.object(app_mod, "r", GuardedRedis(MagicMock())):
+            c = TestClient(app_mod.app, raise_server_exceptions=False)
+            m = app_mod.r._client
+            m.get.return_value = None
+            resp = c.post("/api/tags/core", json={"tag": "x", "action": "add"})
+            self.assertEqual(resp.status_code, 503)
+            self.assertEqual(resp.json()["error"], "writes_disabled")
+            m.set.assert_not_called()
 
 
-def test_api_returns_503(monkeypatch):
-    from fastapi.testclient import TestClient
-    import app as app_module
-    monkeypatch.setattr(app_module, "r", guard_redis(Fake()), raising=False)
-    from datastore import _GuardedRedis
+class TestCardExports(unittest.TestCase):
+    def test_is_readonly_and_assert_readwrite(self):
+        import datastore
+        with patch.dict(os.environ, {"DATA_ACCESS_MODE": "readonly"}):
+            self.assertTrue(datastore.is_readonly())
+            with self.assertRaises(datastore.WritesDisabledError):
+                datastore.assert_readwrite()
+        with patch.dict(os.environ, {"DATA_ACCESS_MODE": "readwrite"}):
+            self.assertFalse(datastore.is_readonly())
+            datastore.assert_readwrite()
 
-    @app_module.app.post("/__t_write")
-    async def _w():
-        app_module.r.set("x", 1)
-        return {"ok": True}
 
-    c = TestClient(app_module.app)
-    monkeypatch.setenv("DATA_ACCESS_MODE", "readonly")
-    res = c.post("/__t_write")
-    assert res.status_code == 503 and res.json()["error"] == "writes_disabled"
-    monkeypatch.setenv("DATA_ACCESS_MODE", "readwrite")
-    assert c.post("/__t_write").status_code == 200
+if __name__ == "__main__":
+    unittest.main()
