@@ -56,8 +56,14 @@ from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
 from analytics import personality_profile, personality_store
 import urllib.parse
+from datastore import WritesDisabledError, guard_redis
 
 app = FastAPI()
+
+
+@app.exception_handler(WritesDisabledError)
+async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):
+    return JSONResponse(status_code=503, content={"error": "writes_disabled", "detail": str(exc)})
 
 github_sync_lock = False
 
@@ -122,7 +128,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-r = redis.from_url(redis_url, decode_responses=True)
+r = guard_redis(redis.from_url(redis_url, decode_responses=True))
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
