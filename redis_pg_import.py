@@ -10,6 +10,12 @@ sha256 checksum of the canonical value.
   a re-run reports everything as ``unchanged``.
 * Atomic: each batch is one transaction (rollback on any error). Records are
   parsed/validated *before* any write.
+* Integrity: sha256 of canonical JSON {type, value} (TTL excluded). A source-supplied
+  hash (export ``checksum``) must match the recomputed one. After each batch's writes,
+  rows are re-read and the hash recomputed from the stored JSONB value; any mismatch
+  (incl. a tampered value behind an unchanged checksum column) raises IntegrityError,
+  rolls back the batch, is never retried, and exits 3. ``--verify`` does the same
+  against all rows (exit 2).
 * Retry: whole-batch retry with exponential backoff + jitter, only for transient
   errors (connection, serialization, deadlock, Redis connection/timeout).
   Retrying is safe because the upsert is idempotent.
@@ -24,6 +30,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -62,18 +69,28 @@ class PermanentError(Exception):
     """Validation/constraint problem; never retried."""
 
 
+class IntegrityError(PermanentError):
+    """Content hash mismatch (corruption); deterministic, never retried."""
+
+
+def content_hash(rtype: str, value) -> str:
+    """sha256 hex of canonical JSON {"t": type, "v": value}. TTL is excluded (it drifts)."""
+    blob = json.dumps({"t": rtype, "v": value}, sort_keys=True,
+                      separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 @dataclass
 class Record:
     key: str
     type: str
     value: object
     ttl_ms: int | None = None
+    source_hash: str | None = None  # hash supplied by the source/exporter, if any
 
     @property
     def checksum(self) -> str:
-        blob = json.dumps({"t": self.type, "v": self.value}, sort_keys=True,
-                          separators=(",", ":"), ensure_ascii=False)
-        return hashlib.sha256(blob.encode()).hexdigest()
+        return content_hash(self.type, self.value)
 
 
 @dataclass
@@ -136,7 +153,8 @@ def records_from_export(path: str):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     for key, e in data["keys"].items():
-        yield Record(key, e["type"], _norm(e["value"]), e.get("pttl"))
+        yield Record(key, e["type"], _norm(e["value"]), e.get("pttl"),
+                     e.get("checksum") or e.get("sha256"))
 
 
 def _dec(b):
@@ -178,6 +196,28 @@ def validate(rec: Record) -> None:
         json.dumps(rec.value)
     except (TypeError, ValueError) as e:
         raise PermanentError(f"unserialisable value for {rec.key!r}: {e}") from e
+    if rec.source_hash is not None:
+        sh = str(rec.source_hash).lower().removeprefix("sha256:")
+        if not hmac.compare_digest(sh, rec.checksum):
+            raise IntegrityError(f"source hash mismatch for {rec.key!r}: "
+                                 f"supplied {sh[:12]} != computed {rec.checksum[:12]}")
+
+
+def _verify_batch(cur, batch: list[Record]) -> None:
+    """Re-read persisted rows and recompute hashes from the stored value (not the
+    checksum column), so tampered/corrupted values are caught even when the upsert skipped."""
+    cur.execute("SELECT redis_key, redis_type, value, checksum FROM redis_import "
+                "WHERE redis_key = ANY(%s)", ([r.key for r in batch],))
+    stored = {k: (t, v, c) for k, t, v, c in cur.fetchall()}
+    for rec in batch:
+        row = stored.get(rec.key)
+        if row is None:
+            raise IntegrityError(f"{rec.key!r} missing after write")
+        t, v, c = row
+        actual = content_hash(t, v)
+        if not (hmac.compare_digest(actual, rec.checksum) and hmac.compare_digest(c, rec.checksum)):
+            raise IntegrityError(f"post-write hash mismatch for {rec.key!r}: expected "
+                                 f"{rec.checksum[:12]}, stored value {actual[:12]}, column {c[:12]}")
 
 
 def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
@@ -197,6 +237,7 @@ def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
                     ins += 1
                 else:
                     upd += 1
+            _verify_batch(cur, batch)  # raises IntegrityError -> transaction rolls back
     return ins, upd, unch
 
 
@@ -238,11 +279,12 @@ def _ensure_schema(conn):
 def verify(conn, records) -> list[str]:
     """Return mismatch descriptions comparing source records to Postgres."""
     with conn.cursor() as cur:
-        cur.execute("SELECT redis_key, checksum FROM redis_import")
-        db = dict(cur.fetchall())
+        cur.execute("SELECT redis_key, redis_type, value, checksum FROM redis_import")
+        db = {k: (t, v, c) for k, t, v, c in cur.fetchall()}
     bad = []
     for rec in records:
-        if db.get(rec.key) != rec.checksum:
+        row = db.get(rec.key)
+        if (row is None or row[2] != rec.checksum or content_hash(row[0], row[1]) != rec.checksum):
             bad.append(rec.key)
     return bad
 
@@ -273,7 +315,11 @@ def main(argv=None) -> int:
                                a.max_retries))
     conn = psycopg.connect(a.database_url, autocommit=True) if a.database_url else None
     try:
-        s = run_import(conn, recs, a.batch_size, a.max_retries, a.dry_run, a.skip_invalid)
+        try:
+            s = run_import(conn, recs, a.batch_size, a.max_retries, a.dry_run, a.skip_invalid)
+        except IntegrityError as e:
+            log.error("INTEGRITY FAILURE: %s", e)
+            return 3
         log.info(s.line())
         for k, why in s.rejected:
             log.error("rejected %s: %s", k, why)
