@@ -15,6 +15,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+import deck_slots
+from deck_slots import DeckSlot
 from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
 from decklist_parser import DeckSection, ParsedCard, ParsedDeck, parse_decklist
 from user_intent import (
@@ -139,10 +141,20 @@ class DeckIntakeSummary:
     total_cards: int
     commander_count: int
     mainboard_count: int
-    sideboard_count: int
-    unique_cards: int
-    is_valid_commander_count: bool
-    is_100_cards: bool
+    maybeboard_count: int = 0
+    considering_count: int = 0
+    planar_deck_count: int = 0
+    scheme_deck_count: int = 0
+    attraction_deck_count: int = 0
+    unique_cards: int = 0
+    is_valid_commander_count: bool = False
+    is_100_cards: bool = False
+
+    @property
+    def sideboard_count(self) -> int:
+        """DEPRECATED alias for maybeboard_count: the Sideboard concept was
+        removed; Sideboard input is remapped to Maybeboard (see deck_slots)."""
+        return self.maybeboard_count
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -168,31 +180,74 @@ class ConsolidatedDeckIntake:
     """
     Consolidated deck intake object containing normalized cards, validated user intent,
     and metadata ready for downstream analysis providers.
+
+    Cards are organized into named deck slots (see deck_slots.DeckSlot):
+    ``commanders`` + ``cards`` (mainboard) plus the ``slots`` mapping holding
+    maybeboard / considering / planar_deck / scheme_deck / attraction_deck
+    entries. The removed "Sideboard" concept is remapped to maybeboard and
+    surfaced via ``parse_flags`` (deck_slots.SIDEBOARD_MAPPED_FLAG) and a
+    warning, so the default mapping is confirmable.
     """
     name: str
     format: str
     deck_id: Optional[str]
     commanders: List[CommanderIdentifier]
     cards: List[DeckCardEntry]
-    sideboard: List[DeckCardEntry]
+    slots: Dict[str, List[DeckCardEntry]]
     parsed_deck: ParsedDeck
     user_intent: UserDeckIntent
     summary: DeckIntakeSummary
     warnings: List[str] = field(default_factory=list)
+    parse_flags: List[str] = field(default_factory=list)
     raw_decklist: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def total_cards(self, include_commanders: bool = True, include_sideboard: bool = False) -> int:
-        """Calculate total card count across specified sections."""
+    # -- Slot accessors -----------------------------------------------------
+
+    def slot_cards(self, slot: str) -> List[DeckCardEntry]:
+        """Entries in one canonical slot ([] for unknown/empty slots)."""
+        return self.slots.get(slot, [])
+
+    @property
+    def maybeboard(self) -> List[DeckCardEntry]:
+        return self.slot_cards(DeckSlot.MAYBEBOARD)
+
+    @property
+    def considering(self) -> List[DeckCardEntry]:
+        return self.slot_cards(DeckSlot.CONSIDERING)
+
+    @property
+    def planar_deck(self) -> List[DeckCardEntry]:
+        return self.slot_cards(DeckSlot.PLANAR_DECK)
+
+    @property
+    def scheme_deck(self) -> List[DeckCardEntry]:
+        return self.slot_cards(DeckSlot.SCHEME_DECK)
+
+    @property
+    def attraction_deck(self) -> List[DeckCardEntry]:
+        return self.slot_cards(DeckSlot.ATTRACTION_DECK)
+
+    @property
+    def sideboard(self) -> List[DeckCardEntry]:
+        """DEPRECATED alias for ``maybeboard``: the Sideboard concept was
+        removed; Sideboard input is remapped to Maybeboard (see deck_slots)."""
+        return self.maybeboard
+
+    # -- Counts and queries ---------------------------------------------------
+
+    def total_cards(self, include_commanders: bool = True, include_slots: bool = False) -> int:
+        """Calculate total card count across specified slots."""
         count = sum(c.quantity for c in self.cards)
         if include_commanders:
             count += len(self.commanders)
-        if include_sideboard:
-            count += sum(c.quantity for c in self.sideboard)
+        if include_slots:
+            for entries in self.slots.values():
+                count += sum(c.quantity for c in entries)
         return count
 
     def all_card_names(
-        self, include_commanders: bool = True, include_sideboard: bool = False
+        self, include_commanders: bool = True, include_slots: bool = False
     ) -> List[str]:
         """Return unique list of card names in the intake object."""
         names: List[str] = []
@@ -203,10 +258,11 @@ class ConsolidatedDeckIntake:
         for c in self.cards:
             if c.name not in names:
                 names.append(c.name)
-        if include_sideboard:
-            for c in self.sideboard:
-                if c.name not in names:
-                    names.append(c.name)
+        if include_slots:
+            for entries in self.slots.values():
+                for c in entries:
+                    if c.name not in names:
+                        names.append(c.name)
         return names
 
     def to_analytics_input(self) -> DecklistInput:
@@ -230,7 +286,11 @@ class ConsolidatedDeckIntake:
             "deck_id": self.deck_id,
             "commanders": [c.model_dump() for c in self.commanders],
             "cards": [c.model_dump() for c in self.cards],
-            "sideboard": [c.model_dump() for c in self.sideboard],
+            "slots": {
+                slot: [c.model_dump() for c in entries]
+                for slot, entries in self.slots.items()
+            },
+            "parse_flags": list(self.parse_flags),
             "user_intent": self.user_intent.to_dict(),
             "summary": self.summary.to_dict(),
             "warnings": list(self.warnings),
@@ -389,10 +449,12 @@ class DeckIntakeService:
             # Fall back to default intent
             user_deck_intent = parse_user_intent({}, strict_coherence=strict_coherence)
 
-        # 4. Construct normalized card entries
+        # 4. Construct normalized card entries, organized by named slot.
         cmd_entries: List[CommanderIdentifier] = []
         card_entries: List[DeckCardEntry] = []
-        sb_entries: List[DeckCardEntry] = []
+        slot_entries: Dict[str, List[DeckCardEntry]] = {
+            slot: [] for slot in sorted(DeckSlot.VALID - {DeckSlot.COMMANDER, DeckSlot.MAINBOARD})
+        }
 
         for card in parsed_deck.commander:
             resolved_meta = self._resolve_card_meta(card.name)
@@ -411,21 +473,39 @@ class DeckIntakeService:
                     name=card.name,
                     quantity=card.quantity,
                     category=card.get("category", "Mainboard"),
+                    slot=DeckSlot.MAINBOARD,
                     oracle_id=card.get("oracle_id") or resolved_meta.get("oracle_id"),
                     scryfall_id=card.get("scryfall_id") or resolved_meta.get("scryfall_id"),
                 )
             )
 
-        for card in parsed_deck.sideboard:
-            resolved_meta = self._resolve_card_meta(card.name)
-            sb_entries.append(
-                DeckCardEntry(
-                    name=card.name,
-                    quantity=card.quantity,
-                    category=card.get("category", "Sideboard"),
-                    oracle_id=card.get("oracle_id") or resolved_meta.get("oracle_id"),
-                    scryfall_id=card.get("scryfall_id") or resolved_meta.get("scryfall_id"),
+        for slot in slot_entries:
+            for card in parsed_deck.by_section.get(slot, []):
+                resolved_meta = self._resolve_card_meta(card.name)
+                slot_entries[slot].append(
+                    DeckCardEntry(
+                        name=card.name,
+                        quantity=card.quantity,
+                        category=card.get("category", deck_slots.SLOT_LABELS[slot]),
+                        slot=slot,
+                        oracle_id=card.get("oracle_id") or resolved_meta.get("oracle_id"),
+                        scryfall_id=card.get("scryfall_id") or resolved_meta.get("scryfall_id"),
+                    )
                 )
+
+        # 4b. Surface the sideboard->maybeboard remap as a visible, confirmable
+        # warning (the parser already logged and flagged it).
+        parse_flags = list(getattr(parsed_deck, "parse_flags", []) or [])
+        if deck_slots.SIDEBOARD_MAPPED_FLAG in parse_flags:
+            mapped = sum(
+                c.quantity
+                for c in parsed_deck.maybeboard
+                if c.get("remapped_from") == "sideboard"
+            )
+            warnings.append(
+                "A 'Sideboard' section was found and mapped to Maybeboard by default "
+                f"({mapped} card(s)). Rename the section to 'Maybeboard' in the "
+                "source list to make this explicit."
             )
 
         # 5. Determine deck name
@@ -440,7 +520,6 @@ class DeckIntakeService:
         # 6. Build summary
         total_main = sum(c.quantity for c in card_entries)
         total_cmd = len(cmd_entries)
-        total_sb = sum(c.quantity for c in sb_entries)
         total_deck = total_main + total_cmd
         unique_names = set(c.name for c in cmd_entries) | set(c.name for c in card_entries)
 
@@ -448,7 +527,11 @@ class DeckIntakeService:
             total_cards=total_deck,
             commander_count=total_cmd,
             mainboard_count=total_main,
-            sideboard_count=total_sb,
+            maybeboard_count=sum(c.quantity for c in slot_entries[DeckSlot.MAYBEBOARD]),
+            considering_count=sum(c.quantity for c in slot_entries[DeckSlot.CONSIDERING]),
+            planar_deck_count=sum(c.quantity for c in slot_entries[DeckSlot.PLANAR_DECK]),
+            scheme_deck_count=sum(c.quantity for c in slot_entries[DeckSlot.SCHEME_DECK]),
+            attraction_deck_count=sum(c.quantity for c in slot_entries[DeckSlot.ATTRACTION_DECK]),
             unique_cards=len(unique_names),
             is_valid_commander_count=(1 <= total_cmd <= 2) if format.lower() == "commander" else True,
             is_100_cards=(total_deck == 100),
@@ -460,11 +543,12 @@ class DeckIntakeService:
             deck_id=deck_id,
             commanders=cmd_entries,
             cards=card_entries,
-            sideboard=sb_entries,
+            slots=slot_entries,
             parsed_deck=parsed_deck,
             user_intent=user_deck_intent,
             summary=summary,
             warnings=warnings,
+            parse_flags=parse_flags,
             raw_decklist=raw_decklist_str,
             metadata=dict(metadata or {}),
         )
@@ -535,6 +619,19 @@ class DeckIntakeService:
         parsed: ParsedDeck
         if isinstance(decklist, ParsedDeck):
             parsed = decklist
+            # A caller-supplied ParsedDeck may still carry the removed
+            # 'sideboard' section (e.g. built by hand or an old pickle);
+            # remap it to maybeboard with the same visible flag.
+            remapped = False
+            for card in parsed:
+                if deck_slots.is_sideboard_spelling(card.get("section")):
+                    card["section"] = DeckSection.MAYBEBOARD
+                    card["remapped_from"] = "sideboard"
+                    remapped = True
+            if remapped:
+                deck_slots.flag_sideboard_remap(
+                    parsed.parse_flags, context="structured intake", count=1
+                )
         elif isinstance(decklist, str):
             if not decklist.strip():
                 return ParsedDeck(), ["Decklist text is empty."], []
@@ -552,12 +649,16 @@ class DeckIntakeService:
                     )
                 )
             for card in decklist.cards:
+                category = card.category or "Mainboard"
+                if deck_slots.is_sideboard_spelling(category):
+                    # Removed concept: a 'Sideboard' category label remaps to Maybeboard.
+                    category = "Maybeboard"
                 parsed.append(
                     ParsedCard(
                         name=card.name,
                         quantity=card.quantity,
                         section=DeckSection.MAINBOARD,
-                        category=card.category or "Mainboard",
+                        category=category,
                         oracle_id=card.oracle_id,
                         scryfall_id=card.scryfall_id,
                     )
@@ -566,6 +667,12 @@ class DeckIntakeService:
             parsed = ParsedDeck()
             for item in decklist:
                 if isinstance(item, ParsedCard):
+                    if deck_slots.is_sideboard_spelling(item.get("section")):
+                        item["section"] = DeckSection.MAYBEBOARD
+                        item["remapped_from"] = "sideboard"
+                        deck_slots.flag_sideboard_remap(
+                            parsed.parse_flags, context="structured intake", count=1
+                        )
                     parsed.append(item)
                 elif isinstance(item, dict):
                     name = item.get("name")
@@ -574,6 +681,18 @@ class DeckIntakeService:
                         continue
                     qty = item.get("quantity", 1)
                     sec = item.get("section", DeckSection.MAINBOARD)
+                    remapped_from = None
+                    if deck_slots.is_sideboard_spelling(sec):
+                        # Removed concept: 'sideboard' sections remap to maybeboard.
+                        sec = DeckSection.MAYBEBOARD
+                        remapped_from = "sideboard"
+                        deck_slots.flag_sideboard_remap(
+                            parsed.parse_flags, context="structured intake", count=1
+                        )
+                    else:
+                        normalized_sec = deck_slots.normalize_slot(sec)
+                        if normalized_sec is not None:
+                            sec = normalized_sec
                     parsed.append(
                         ParsedCard(
                             name=str(name).strip(),
@@ -584,6 +703,7 @@ class DeckIntakeService:
                             foil=bool(item.get("foil", False)),
                             oracle_id=item.get("oracle_id"),
                             scryfall_id=item.get("scryfall_id"),
+                            **({"remapped_from": remapped_from} if remapped_from else {}),
                         )
                     )
                 else:
