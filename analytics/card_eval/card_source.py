@@ -6,11 +6,14 @@ Unknown names are absent from the result; a failed request raises CardSourceErro
 from __future__ import annotations
 
 import json
+import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 import requests
+
+from deck_slots import TYPE_CLASS_TO_SLOT
 
 from analytics.edhrec_inclusion import name_key
 
@@ -18,18 +21,67 @@ CACHE_PREFIX = "card_eval:card:"
 TTL = timedelta(days=7)
 UA = {"User-Agent": "commander-lab/1.0 (card-eval)", "Accept": "application/json"}
 
+_TYPE_TOKEN_SPLIT = re.compile(r"[\s\u2014/]+")
+
 
 class CardSourceError(Exception):
     pass
 
 
+def variant_type_class(type_line: str) -> Optional[str]:
+    """Variant-deck type class (plane/phenomenon/scheme/attraction) found in a
+    type line, else None.
+
+    Scans the WHOLE type line, subtypes included: Attraction is a subtype
+    ('Artifact — Attraction'), while Plane/Phenomenon/Scheme are types.
+    """
+    words = {w.casefold() for w in _TYPE_TOKEN_SPLIT.split(type_line or "") if w}
+    for type_class in sorted(TYPE_CLASS_TO_SLOT):
+        if type_class in words:
+            return type_class
+    return None
+
+
+def mainboard_gate(rec: Mapping[str, Any]) -> Dict[str, Any]:
+    """Full mainboard slot-gate result for a card record: Commander-legal AND
+    no variant type class. `reason` is ALWAYS populated (pass or fail) so
+    every suggestion can carry it. Fails closed on unknown legality.
+
+    Tolerates records cached before the slot model (no 'type_class' key):
+    the class is re-derived from 'type_line'.
+    """
+    type_class = rec.get("type_class")
+    if type_class is None:
+        type_class = variant_type_class(rec.get("type_line") or "")
+    if type_class is not None:
+        return {"slot": "mainboard", "legal": False, "type_class": type_class,
+                "reason": f"{type_class} not legal in mainboard slot "
+                          f"(belongs in {TYPE_CLASS_TO_SLOT[type_class]})"}
+    legal = rec.get("legal")
+    if legal is False:
+        return {"slot": "mainboard", "legal": False, "type_class": None,
+                "reason": "not legal in Commander"}
+    if legal is not True:
+        return {"slot": "mainboard", "legal": False, "type_class": None,
+                "reason": "Commander legality unknown (unsynced card data); "
+                          "treating it as not legal in the mainboard"}
+    return {"slot": "mainboard", "legal": True, "type_class": None,
+            "reason": "Commander-legal with no variant type class; legal in "
+                      "the mainboard slot"}
+
+
 def _record(c: dict) -> dict:
     faces = c.get("card_faces") or []
     text = c.get("oracle_text") or "\n".join(f.get("oracle_text", "") for f in faces)
-    return {"name": c.get("name", ""), "oracle_id": c.get("oracle_id"),
-            "type_line": c.get("type_line") or "", "oracle_text": text,
-            "color_identity": "".join(c.get("color_identity") or []),
-            "legal": (c.get("legalities") or {}).get("commander") == "legal"}
+    rec = {"name": c.get("name", ""), "oracle_id": c.get("oracle_id"),
+           "type_line": c.get("type_line") or "", "oracle_text": text,
+           "color_identity": "".join(c.get("color_identity") or []),
+           # Commander legality ONLY. Never read this as mainboard legality;
+           # use 'mainboard_gate' (the full mainboard slot gate) instead.
+           "legal": (c.get("legalities") or {}).get("commander") == "legal"}
+    rec["type_class"] = variant_type_class(rec["type_line"])
+    rec["mainboard_gate"] = mainboard_gate(rec)
+    return rec
 
 
 def fetch_cards(r, names: Iterable[str], session=None, timeout: float = 20.0) -> Dict[str, dict]:
