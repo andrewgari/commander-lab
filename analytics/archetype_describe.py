@@ -137,7 +137,7 @@ def validate_reply(data, card_names: Optional[List[str]] = None) -> str:
 
 def describe_archetype(chain, payload, roles_vocab: Optional[List[dict]] = None,
                        card_names: Optional[List[str]] = None, archetypes: Optional[List[dict]] = None,
-                       on_call: Optional[Callable[[dict], None] = None) -> dict:
+                       on_call: Optional[Callable[[dict], None]] = None) -> dict:
     """{description, mode, provider, model}. Raises ArchetypeDescribeError (bad input, no model call)
     or ArchetypeDescribeUnavailable (kind: no_llm | llm_failed | bad_response)."""
     req = clean_request(payload)

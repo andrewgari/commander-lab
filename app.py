@@ -4637,6 +4637,39 @@ async def api_archetypes_render_preview(request: Request):
     return {"success": True, "html": html}
 
 
+@app.post("/api/archetypes/describe")
+async def api_archetypes_describe(request: Request):
+    """Draft (empty field) or enhance (field has text) ONE archetype description. Body:
+    {name?, description?, roles?: [tag]}. Stateless, never saves; the editor fills the textarea
+    with the reply and the user still hits Save. 422 bad input; 503 no LLM configured; 502
+    provider failed / the draft named a card or stated a hard count."""
+    from analytics import archetype_describe
+    from analytics import archetypes as archetypes_mod
+    from analytics.interactions.llm import default_chain
+
+    body = await _json_body(request)
+
+    def _run():
+        inv_raw = r.get("inventory")
+        try:
+            inv = json.loads(inv_raw) if isinstance(inv_raw, (str, bytes, bytearray)) else {}
+            card_names = list(inv.keys()) if isinstance(inv, dict) else []
+        except (TypeError, ValueError):
+            card_names = []
+        return archetype_describe.describe_archetype(
+            default_chain(), body, roles_vocab=archetypes_mod.role_vocabulary(),
+            card_names=card_names, archetypes=archetypes_mod.list_archetypes(r))
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except archetype_describe.ArchetypeDescribeError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc)})
+    except archetype_describe.ArchetypeDescribeUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
+
+
 @app.post("/api/archetypes")
 async def api_archetypes_create(request: Request):
     from analytics import archetypes as archetypes_mod
