@@ -17,7 +17,23 @@
     .ar-item:hover { background: var(--surface-2); }
     .ar-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
     .ar-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
-    .ar-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere; }
+    .ar-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere;
+                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ar-item-desc > p { margin: 0; }
+    .ar-item-desc > ul, .ar-item-desc > ol { margin: 0; padding-left: var(--sp-5); }
+    .ar-desc-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+    .ar-desc-field textarea { min-height: 6.5rem; max-height: 40vh; field-sizing: content; }
+    .ar-desc-field textarea.is-error { border-color: var(--danger); }
+    .ar-desc-preview { box-sizing: border-box; width: 100%; min-height: 6.5rem; max-height: 40vh; overflow-y: auto;
+                       padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border: var(--stroke);
+                       border-radius: var(--radius-1); color: var(--text-1); font-size: var(--fs-sm);
+                       line-height: var(--lh-base); overflow-wrap: anywhere; }
+    .ar-desc-preview p { margin: 0 0 var(--sp-3); }
+    .ar-desc-preview ul, .ar-desc-preview ol { margin: 0 0 var(--sp-3); padding-left: var(--sp-5); }
+    .ar-desc-preview code { font-family: var(--font-mono); font-size: var(--fs-xs); }
+    .ar-desc-preview :last-child { margin-bottom: 0; }
+    .ar-desc-foot { display: flex; align-items: baseline; gap: var(--sp-3); }
+    .ar-desc-foot .hud-field-hint { flex: 1; }
     .ar-roles { display: flex; flex-direction: column; gap: var(--sp-3); }
     .ar-role { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem auto; gap: var(--sp-3); align-items: end; }
     .ar-role .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
@@ -59,9 +75,29 @@
                     <label for="arName">Name</label>
                     <input id="arName" maxlength="60" required>
                 </div>
-                <div class="hud-field">
-                    <label for="arDesc">Description</label>
-                    <textarea id="arDesc" rows="4" maxlength="1200"></textarea>
+                <div class="hud-field ar-desc-field">
+                    <div class="ar-desc-head">
+                        <label for="arDesc">Description</label>
+                        <button type="button" class="hud-btn hud-btn--sm pd-gen" id="arGen" aria-busy="false"
+                                title="Draft a description from the name and roles, or enhance your text (AI)">
+                            <span class="pd-gen-g" aria-hidden="true">◇</span><span id="arGenLabel">Draft</span>
+                        </button>
+                        <div class="hud-tabs ar-desc-tabs" role="group" aria-label="Description edit mode">
+                            <button type="button" class="hud-tab active" id="arDescWriteTab" aria-current="page">Write</button>
+                            <button type="button" class="hud-tab" id="arDescPreviewTab">Preview</button>
+                        </div>
+                    </div>
+                    <textarea id="arDesc" rows="4" maxlength="4000"
+                              aria-describedby="arDescHint arDescCount"></textarea>
+                    <div class="ar-desc-preview" id="arDescPreview" role="region" tabindex="-1"
+                         aria-label="Description preview" hidden></div>
+                    <div class="ar-desc-foot">
+                        <span class="hud-field-hint" id="arDescHint">
+                            Markdown: **bold**, *italic*, `code`, lists. Aim for &le; 600 characters.
+                            The registry list shows the first paragraph only.
+                        </span>
+                        <span class="pf-count" id="arDescCount" aria-live="off">0 / 4000</span>
+                    </div>
                 </div>
                 <div class="hud-field">
                     <span class="hud-field-label">Required roles</span>
@@ -115,8 +151,11 @@
             const chip = (text, tone) => el('span', { class: 'hud-chip hud-chip--' + tone, text });
             if (a.draft) name.appendChild(chip('draft', 'neutral'));
             name.appendChild(chip((a.required_roles || []).length + ' roles', 'neutral'));
+            const desc = el('div', { class: 'ar-item-desc' });
+            // Excerpt HTML is server-rendered and sanitized (never raw a.description).
+            if (a.description_excerpt_html) desc.innerHTML = a.description_excerpt_html;
             const b = el('button', { type: 'button', class: 'ar-item', 'data-id': a.id, 'aria-current': String(a.id === state.current) },
-                [name, el('p', { class: 'ar-item-desc', text: a.description || '' })]);
+                [name, desc]);
             b.addEventListener('click', () => edit(a.id));
             ul.appendChild(el('li', {}, [b]));
         });
@@ -150,7 +189,136 @@
     function fill(a) {
         $('arName').value = a.name || ''; $('arDesc').value = a.description || '';
         setRoles(a.required_roles);
+        setDescTab('write', false); updateDescCount(); autoGrowDesc(); syncGenLabel();
     }
+
+    // -- Draft / Enhance (AI): fills #arDesc only; nothing saves until Save -----------------
+    let genCtl = null;
+
+    function syncGenLabel() {
+        if ($('arGen').getAttribute('aria-busy') === 'true') return;
+        $('arGenLabel').textContent = $('arDesc').value.trim() ? 'Enhance' : 'Draft';
+    }
+
+    $('arGen').addEventListener('click', async () => {
+        const gen = $('arGen');
+        if (gen.disabled) return;
+        if (genCtl) genCtl.abort();
+        const enhancing = !!$('arDesc').value.trim();
+        const ctl = new AbortController(); genCtl = ctl;
+        const timer = setTimeout(() => ctl.abort(), 60000);
+        gen.disabled = true; gen.setAttribute('aria-busy', 'true');
+        $('arGenLabel').textContent = enhancing ? 'Enhancing…' : 'Drafting…';
+        msg('arMsg', '');
+        const body = { name: $('arName').value.trim(), description: $('arDesc').value.trim(),
+                       roles: readRoles().map(r => r.tag) };
+        let r;
+        try {
+            const res = await fetch('/api/archetypes/describe', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
+            r = { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+        } catch (e) {
+            r = { ok: false, status: 0, data: { error: ctl.signal.aborted
+                ? 'Drafting took too long or was cancelled. Your text is untouched.'
+                : 'Network error. Your text is untouched.' } };
+        }
+        clearTimeout(timer);
+        if (genCtl === ctl) genCtl = null;
+        gen.disabled = false; gen.setAttribute('aria-busy', 'false'); syncGenLabel();
+        if (r.ok && typeof r.data.description === 'string' && r.data.description.trim()) {
+            setDescTab('write', false);
+            $('arDesc').value = r.data.description.trim();
+            $('arDesc').dispatchEvent(new Event('input'));
+            msg('arMsg', (r.data.mode === 'improve' ? 'Enhanced' : 'Drafted') +
+                ' — nothing is saved until you hit Save.', 'ok');
+        } else {
+            msg('arMsg', r.status === 503
+                ? 'AI drafting is unavailable (no model configured). Your text is untouched.'
+                : (r.data.error || 'Could not draft a description. Your text is untouched.'), 'error');
+        }
+    });
+
+    // -- Description editor: Write/Preview tabs, counter, auto-grow, markdown shortcuts --------
+    const DESC_MAX = 4000;
+    let previewTimer = null;
+
+    function setDescTab(mode, moveFocus = true) {
+        const write = mode === 'write';
+        $('arDescWriteTab').classList.toggle('active', write);
+        $('arDescPreviewTab').classList.toggle('active', !write);
+        $('arDescWriteTab').setAttribute('aria-current', write ? 'page' : 'false');
+        $('arDescPreviewTab').setAttribute('aria-current', write ? 'false' : 'page');
+        $('arDesc').hidden = !write;
+        $('arDescPreview').hidden = write;
+        if (!moveFocus) return;
+        if (write) $('arDesc').focus();
+        else { renderPreview(); $('arDescPreview').focus(); }
+    }
+
+    function updateDescCount() {
+        const len = $('arDesc').value.length;
+        const over = len > DESC_MAX;
+        const c = $('arDescCount');
+        c.textContent = len + ' / ' + DESC_MAX;
+        c.classList.toggle('is-over', over);
+        $('arDesc').classList.toggle('is-error', over);
+        $('arDesc').setAttribute('aria-invalid', String(over));
+    }
+
+    function autoGrowDesc() {
+        if (CSS.supports('field-sizing', 'content')) return;  // CSS handles growth where supported
+        const ta = $('arDesc');
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, Math.round(window.innerHeight * 0.4)) + 'px';
+    }
+
+    async function renderPreview() {
+        const pane = $('arDescPreview');
+        if (!$('arDesc').value.trim()) {
+            pane.replaceChildren(el('p', { class: 'hud-muted', text: 'Nothing to preview yet.' }));
+            return;
+        }
+        pane.setAttribute('aria-busy', 'true');
+        const r = await api('POST', '/api/archetypes/render-preview', { description: $('arDesc').value });
+        pane.removeAttribute('aria-busy');
+        if (pane.hidden) return;  // user switched back to Write mid-fetch; next Preview re-renders
+        if (r.ok) pane.innerHTML = r.data.html || '';
+        else pane.replaceChildren(el('div', { class: 'hud-empty', text: 'Preview unavailable — your text is safe and saving still works.' }));
+    }
+
+    function toggleWrap(marker) {
+        const ta = $('arDesc');
+        const s = ta.selectionStart, e = ta.selectionEnd, v = ta.value, m = marker;
+        const sel = v.slice(s, e);
+        let ns, ne;
+        if (sel.length >= 2 * m.length && sel.startsWith(m) && sel.endsWith(m)) {
+            ta.setRangeText(sel.slice(m.length, -m.length), s, e, 'end');       // "**bold**" selected -> unwrap
+            ns = s; ne = e - 2 * m.length;
+        } else if (v.slice(s - m.length, s) === m && v.slice(e, e + m.length) === m) {
+            ta.setRangeText(sel, s - m.length, e + m.length, 'end');            // "bold" inside "**|**" -> unwrap
+            ns = s - m.length; ne = e - m.length;
+        } else {
+            ta.setRangeText(m + sel + m, s, e, 'end');                          // wrap
+            ns = s + m.length; ne = e + m.length;
+        }
+        ta.setSelectionRange(ns, ne);
+        ta.dispatchEvent(new Event('input'));
+        ta.focus();
+    }
+
+    $('arDescWriteTab').addEventListener('click', () => setDescTab('write'));
+    $('arDescPreviewTab').addEventListener('click', () => setDescTab('preview'));
+    $('arDesc').addEventListener('input', () => {
+        updateDescCount(); autoGrowDesc(); syncGenLabel();
+        clearTimeout(previewTimer);
+        if (!$('arDescPreview').hidden) previewTimer = setTimeout(renderPreview, 400);
+    });
+    $('arDesc').addEventListener('keydown', ev => {
+        if (!(ev.ctrlKey || ev.metaKey)) return;
+        if (ev.key === 'Enter') { ev.preventDefault(); $('arForm').requestSubmit(); }
+        else if (ev.key === 'b' || ev.key === 'B') { ev.preventDefault(); toggleWrap('**'); }
+        else if (ev.key === 'i' || ev.key === 'I') { ev.preventDefault(); toggleWrap('*'); }
+    });
     function edit(id) {
         const a = state.archetypes.find(x => x.id === id); if (!a) return;
         state.current = id; fill(a);
@@ -176,6 +344,9 @@
 
     $('arForm').addEventListener('submit', async ev => {
         ev.preventDefault();
+        if ($('arDesc').value.length > DESC_MAX) {  // reachable via paste/shortcut paths that bypass maxlength
+            msg('arMsg', 'Description is longer than ' + DESC_MAX + ' characters.', 'error'); return;
+        }
         const body = { name: $('arName').value, description: $('arDesc').value, required_roles: readRoles() };
         $('arSave').disabled = true; msg('arMsg', 'Saving…');
         const r = state.current ? await api('PUT', '/api/archetypes/' + encodeURIComponent(state.current), body) : await api('POST', '/api/archetypes', body);

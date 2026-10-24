@@ -16,6 +16,12 @@ NORMALIZED_DECK_SHAPE = {
     "folder": str,
     "description": str,
     "cards": [{"name": str, "quantity": int}, ...],   # mainboard only, structural boards excluded
+    "slots": {slot: [{"name": str, "quantity": int}, ...], ...},
+                                    # named deck slots (see deck_slots.DeckSlot):
+                                    # maybeboard / considering / planar_deck /
+                                    # scheme_deck / attraction_deck
+    "parse_flags": [str, ...],        # e.g. deck_slots.SIDEBOARD_MAPPED_FLAG when a
+                                    # removed Sideboard board was remapped to maybeboard
     "url": str,                       # canonical provider URL
 }
 """

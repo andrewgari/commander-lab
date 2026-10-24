@@ -7,30 +7,16 @@
 {% block extra_css %}
 <style>
     /* Page-specific layout only. Every component comes from hud.css. */
-    .deck-hero {
-        display: grid;
-        grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr);
-        gap: var(--sp-6);
-        align-items: start;
-    }
-    .deck-hero-side, .deck-hero-main { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
-    .deck-commanders { display: grid; gap: var(--sp-3); }
-    /* Commander roles (commander_roles.py): partners full width, a Doctor's
-       companion a bit smaller tucked right under its Doctor, a true
-       companion small and set apart. */
-    .deck-cmdr { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-    .deck-cmdr--doctors-companion { width: 82%; margin-top: calc(var(--sp-1) - var(--sp-3)); }
-    .deck-cmdr--companion { width: 60%; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: var(--stroke); }
-    .deck-cmdr.is-cbc .hud-art { border-color: var(--signal-line); }
+    .deck-utilities { margin-top: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
     .deck-links { display: flex; flex-direction: column; gap: var(--sp-2); }
     .deck-links .hud-btn { justify-content: space-between; }
-    .deck-prose { max-width: 75ch; color: var(--text-2); line-height: var(--lh-base); }
+    .deck-prose { max-width: 100ch; color: var(--text-2); line-height: var(--lh-base); }
     .deck-prose :last-child { margin-bottom: 0; }
     .deck-prose ul { margin: 0 0 var(--sp-3); padding-left: var(--sp-5); }
     .deck-primer-edit textarea { box-sizing: border-box; width: 100%; min-height: 12rem; font-family: var(--font-mono); font-size: var(--fs-xs); }
     .deck-primer-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-2); }
 
-    .deck-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); margin: var(--sp-10) 0 var(--sp-2); }
+    .deck-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); margin: var(--sp-6) 0 var(--sp-2); }
     .deck-list-head .hud-section-head { margin: 0; flex: 1; }
     .deck-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--sp-3); }
     .deck-card-grid .hud-art-name { font-size: var(--fs-base); }
@@ -39,19 +25,26 @@
     .deck-group-count { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
     .deck-table tbody tr { cursor: pointer; }
 
-    /* Ultrawide Overview split (SPEC.md §4 "Deck Overview"): summary (hero +
-       briefing) and gallery (decklist) each get their own named zone so the
-       grid applies only above 2800px; DOM order stays summary-then-decklist
-       at every width (no duplicate decklist, no fixed cap on the gallery
-       below the breakpoint). Summary first in the row so a classifier can
-       target it without touching the gallery's own internal layout. */
+    /* Overview content order (NAV_IA_PROPOSAL §3.3, finding D4): decklist
+       first, then Briefing, then the stats-at-a-glance strip, then utilities.
+       DOM order is gallery-then-summary at every width (no duplicate
+       decklist); above 2800px the split gives the decklist the wide left
+       column and the summary the rail on the right. */
     .ov-summary, .ov-gallery { min-width: 0; }
     @media (min-width: 2800px) {
-        .ov-split { display: grid; grid-template-columns: minmax(640px, .9fr) minmax(0, 1.5fr); gap: var(--sp-8); align-items: start; }
+        .ov-split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(640px, .9fr); gap: var(--sp-8); align-items: start; }
         .ov-gallery { max-width: 1800px; }
-        .ov-summary .hud-grid--2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
         .deck-list-head { margin-top: 0; }
     }
+
+    /* Stats at a glance: compact curve/types/colours with a link-through to
+       the Stats tab; the full analytics live there. */
+    .ov-stats { margin-top: var(--sp-6); }
+    .ov-stats-cells { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) minmax(0, 2fr); gap: var(--sp-4); margin-top: var(--sp-4); }
+    .ov-stats-cell { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+    /* PS-4 character sheet: no other surface until the Stats tab grows one,
+       so it stays on the Overview below the at-a-glance strip. */
+    .ov-ps { margin-top: var(--sp-6); }
 
     .card-modal-body { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: var(--sp-6); }
     .card-modal-body .hud-art { align-self: start; }
@@ -64,15 +57,9 @@
     .card-tag-form input { flex: 1; }
 
     @media (max-width: 900px) {
-        .deck-hero { grid-template-columns: minmax(10rem, 13rem) minmax(0, 1fr); gap: var(--sp-4); }
-        .deck-hero-main .hud-grid--2 { grid-template-columns: minmax(0, 1fr); }
+        .ov-stats-cells { grid-template-columns: minmax(0, 1fr); }
         .card-modal-body { grid-template-columns: minmax(0, 1fr); }
         .card-modal-body .hud-art { max-width: 16rem; }
-    }
-    /* Phone: one column. Two columns crushed the main column to ~70px and the
-       page scrolled sideways to 531px at 390 (AN-4R). */
-    @media (max-width: 640px) {
-        .deck-hero { grid-template-columns: minmax(0, 1fr); }
     }
 </style>
 {% endblock %}
@@ -83,7 +70,7 @@
 {% block content %}
 {% call dh.header(head, tab) %}
     <a class="hud-btn" href="/deck/{{ deck_name | urlencode }}/manage">Manage</a>
-    <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
+    <button type="button" class="hud-btn" onclick="reviewDeck()">Check in</button>
     <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
     <button type="button" class="hud-btn" id="reconstructBtn" hidden onclick="openReconstructDialog()">Reconstruct</button>
 {% endcall %}
@@ -95,53 +82,23 @@
 <div id="autoTag"></div>
 
 <div class="ov-split">
-<div class="ov-summary">
-<div class="deck-hero">
-    <aside class="deck-hero-side">
-        <div class="deck-commanders" id="commanderShowcase">{{ hud.empty("Loading commander…") }}</div>
-        {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
-            <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
-        {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
-    </aside>
-
-    <div class="deck-hero-main">
-        <div class="hud-stat-strip" id="deckStats">
-            {{ hud.stat("Cards", "—", mod="hero") }}
-            {{ hud.stat("Avg CMC", "—") }}
-            {{ hud.stat("Lands", "—") }}
-            {{ hud.stat("Value", "—") }}
-        </div>
-
-        {#- Ability scores (PS-4, UX_SPEC §3.2 "B · Character sheet"). Rendered
-            from GET /api/decks/{id}/personality by static/js/personality.js. -#}
-        <section class="hud-panel hud-ps-panel" id="psPanel" aria-labelledby="psH">
-            <header class="hud-panel-head">
-                <h3 class="hud-panel-title" id="psH">Ability scores</h3>
-                <div class="hud-panel-meta" id="psMeta"></div>
-            </header>
-            <div class="hud-panel-body" id="psBody" aria-live="polite"></div>
-            <div class="hud-panel-foot" id="psFoot" hidden></div>
-        </section>
-
-        <div class="hud-grid hud-grid--2">
-            {% call hud.panel("Mana curve", meta="Non-land") %}<div id="deckCurve">{{ hud.empty("Loading…") }}</div>{% endcall %}
-            {% call hud.panel("Card types") %}<div id="deckTypes">{{ hud.empty("Loading…") }}</div>{% endcall %}
-        </div>
-
-        <div class="hud-grid hud-grid--2">
-            {% call hud.panel("Colour identity", meta="Non-land cards") %}<div id="deckColorDist">{{ hud.empty("Loading…") }}</div>{% endcall %}
-            {% call hud.panel("Profile") %}
-            <dl class="hud-kv">
-                <dt>Archetype</dt><dd id="mainArchetype">—</dd>
-                <dt>Themes</dt><dd><span class="hud-chips" id="subArchetypes">—</span></dd>
-                <dt>Folder</dt><dd id="deckFolder">—</dd>
-                <dt>Commander</dt><dd id="deckCommanderNames">—</dd>
-            </dl>
-            {% endcall %}
-        </div>
+{#- 1. Decklist first (NAV_IA_PROPOSAL §3.3): the reason the page exists.
+    Visual/List is a .hud-seg segmented control (same-state toggle), not a
+    second .hud-tabs strip (finding D3). -#}
+<div class="ov-gallery">
+<div class="deck-list-head">
+    <div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count" id="decklistCount"></span></div>
+    <div class="hud-seg" role="radiogroup" aria-label="Decklist view" id="decklistViews">
+        <input type="radio" name="decklistView" id="decklistViewVisual" value="visual" checked><label for="decklistViewVisual">Visual</label>
+        <input type="radio" name="decklistView" id="decklistViewList" value="list"><label for="decklistViewList">List</label>
     </div>
 </div>
+<div id="atFilterbar" hidden></div>
+<div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
+</div>
 
+<div class="ov-summary">
+{#- 2. Briefing. -#}
 <div class="hud-section-head"><h2>Briefing</h2></div>
 <div class="hud-grid">
     {#- Description (Guided Primer Builder, SPEC PF "Description"): always visible; ◇ Draft proposes, never overwrites. -#}
@@ -187,18 +144,48 @@
         </div>
     </section>
 </div>
-</div>
 
-<div class="ov-gallery">
-<div class="deck-list-head">
-    <div class="hud-section-head"><h2>Decklist</h2><span class="deck-group-count" id="decklistCount"></span></div>
-    <nav class="hud-tabs" aria-label="Decklist view" id="decklistViews">
-        <button type="button" class="hud-tab active" aria-current="page" data-view="visual">Visual</button>
-        <button type="button" class="hud-tab" data-view="list">List</button>
-    </nav>
-</div>
-<div id="atFilterbar" hidden></div>
-<div id="decklistContainer">{{ hud.empty("Loading decklist…") }}</div>
+{#- 3. Stats summary strip: curve + types at a glance, link-through to the
+    Stats tab where the full analytics live (NAV_IA_PROPOSAL §3.3). -#}
+<section class="hud-panel ov-stats" id="ovStats" aria-labelledby="ovStatsH">
+    <header class="hud-panel-head">
+        <h3 class="hud-panel-title" id="ovStatsH">Stats at a glance</h3>
+        <div class="hud-panel-meta"><a class="hud-btn hud-btn--sm" href="/deck/{{ deck_name | urlencode }}/stats">Full stats →</a></div>
+    </header>
+    <div class="hud-panel-body">
+        <div class="hud-stat-strip" id="deckStats">
+            {{ hud.stat("Cards", "—", mod="hero") }}
+            {{ hud.stat("Avg CMC", "—") }}
+            {{ hud.stat("Lands", "—") }}
+            {{ hud.stat("Value", "—") }}
+        </div>
+        <div class="ov-stats-cells">
+            <div class="ov-stats-cell"><span class="hud-label">Mana curve · non-land</span><div id="deckCurve">{{ hud.empty("Loading…") }}</div></div>
+            <div class="ov-stats-cell"><span class="hud-label">Card types</span><div id="deckTypes">{{ hud.empty("Loading…") }}</div></div>
+            <div class="ov-stats-cell"><span class="hud-label">Colour identity · non-land</span><div id="deckColorDist">{{ hud.empty("Loading…") }}</div></div>
+        </div>
+    </div>
+</section>
+
+{#- Ability scores (PS-4, UX_SPEC §3.2 "B · Character sheet"). Rendered
+    from GET /api/decks/{id}/personality by static/js/personality.js. Kept on
+    the Overview: this character sheet has no other surface yet. -#}
+<section class="hud-panel hud-ps-panel ov-ps" id="psPanel" aria-labelledby="psH">
+    <header class="hud-panel-head">
+        <h3 class="hud-panel-title" id="psH">Ability scores</h3>
+        <div class="hud-panel-meta" id="psMeta"></div>
+    </header>
+    <div class="hud-panel-body" id="psBody" aria-live="polite"></div>
+    <div class="hud-panel-foot" id="psFoot" hidden></div>
+</section>
+
+{#- 4. Utilities last. -#}
+<section class="deck-utilities" id="deckUtilities" aria-label="Deck utilities">
+    <div class="hud-section-head"><h2>Deck utilities</h2></div>
+    {% call hud.panel("External") %}<div class="deck-links" id="footerLinks"></div>
+        <div class="sync-controls" id="syncControls" data-registry-id="{{ head.registry_id or '' }}"></div>{% endcall %}
+    {% call hud.panel("Lifecycle") %}<div id="deckStatusField">{{ hud.empty("Loading…") }}</div>{% endcall %}
+</section>
 </div>
 </div>
 
@@ -280,10 +267,10 @@
 <div id="cardReviewModal" class="hud-modal hud-cr-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="crTitle">
         <header class="hud-panel-head">
-            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Card review</h3>
+            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Quick look</h3>
             <div class="hud-panel-meta">
                 <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="back">← Card detail</button>
-                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close review">Close ✕</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close quick look">Close ✕</button>
             </div>
         </header>
         <p class="hud-cr-sr" role="status" aria-live="polite" data-cr-live></p>
@@ -298,11 +285,6 @@
     const enabledProviders = {{ providers | tojson }};
     const DECK_API_ID = {{ (head.registry_id or deck_name) | tojson }};  // registry id: /api/decks/{id}/primer, /description
     const DECK_API = '/api/decks/' + encodeURIComponent(DECK_API_ID);
-    const STRUCTURAL = ["Commander", "Sideboard", "Maybeboard", "Considering"];
-    // Archidekt's default per-type categories ("Land", "Creature"…) say nothing
-    // about the deck's plan, so they don't count toward the archetype either.
-    const TYPE_CATEGORIES = ["Land", "Lands", "Creature", "Creatures", "Artifact", "Artifacts", "Enchantment", "Enchantments",
-        "Instant", "Instants", "Sorcery", "Sorceries", "Planeswalker", "Planeswalkers", "Battle", "Battles"];
     const GROUP_ORDER = ["Commanders", "Creatures", "Planeswalkers", "Artifacts", "Enchantments", "Instants", "Sorceries", "Lands", "Other"];
     const EXT_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
     let currentDeck = null;
@@ -566,7 +548,6 @@
                 document.getElementById('deckStatusField').innerHTML = '<span class="hud-muted">No deck metadata.</span>';
                 document.getElementById('footerLinks').innerHTML = '<span class="hud-muted">No deck metadata.</span>';
             }
-            renderCommanders();
             if (!currentDeck) renderDescription(null);
             renderStats();
             renderCards();
@@ -584,7 +565,6 @@
     }
 
     function renderHeader(deck) {
-        const folder = deck.folder || 'Loose Decks';
         document.getElementById('deckColors').innerHTML = HUD.pips(deck.color === 'C' ? '' : (deck.color || ''));
         document.getElementById('deckStatus').innerHTML = HUD.statusChip(deck.status || 'physical');
         // Status control: locked for physical decks (Archidekt folder), else Virtual/WIP/Retired.
@@ -593,50 +573,12 @@
         HUD.bindDeckStatus(statusField, deck, d => {
             document.getElementById('deckStatus').innerHTML = HUD.statusChip(d.status);
         });
-        document.getElementById('deckFolder').textContent = folder;
-        // Decommission is only available for physical (non-retired) decks
+        // Decommission is only available for physical decks (non-retired)
         document.getElementById('decommissionBtn').hidden = !['physical', 'retired'].includes(deck.status || 'physical') || !!deck.decommissioned_at;
         document.getElementById('reconstructBtn').hidden = (deck.status || 'physical') !== 'physical';
         document.getElementById('deckSyncMeta').textContent = deck.id ? 'Archidekt #' + deck.id : 'Local deck';
 
         renderDescription(deck);
-    }
-
-    function renderCommanders() {
-        const el = document.getElementById('commanderShowcase');
-        // Role per card from the shared helper (commander_roles.py via /api/decks).
-        const roles = HUD.commanderRoles(currentDeck || {});
-        const roleOf = Object.fromEntries(roles.map((r, i) => [r.name, Object.assign({ order: i }, r)]));
-        const cmdrs = inventoryCards.map((c, i) => [c, i]).filter(([c]) => c.is_commander);
-        // Commanders with no inventory row (a true companion lives outside the
-        // 100, or the deck has no inventory yet) still show, straight from
-        // their Scryfall printing. Both sources merge, then sort by role order.
-        const missing = roles.filter(r => (r.uid || r.name) && !cmdrs.some(([c]) => c.name === r.name));
-        const portraits = cmdrs.map(([c, i]) => ({ name: c.name, card: c, i }))
-            .concat(missing.map(r => ({ name: r.name, uid: r.uid })))
-            .sort((a, b) => ((roleOf[a.name] || {}).order ?? 9) - ((roleOf[b.name] || {}).order ?? 9));
-        const names = portraits.length ? portraits.map(p => p.name) : ((currentDeck && currentDeck.commanders) || []);
-        document.getElementById('deckCommanderNames').textContent = names.length ? names.join(' + ') : '—';
-        if (portraits.length) {
-            el.innerHTML = portraits.map(p => {
-                const r = roleOf[p.name] || { role: 'commander' };
-                let html;
-                if (p.card) {
-                    html = cardArt(p.card, p.i, 'large', 'card');
-                } else {
-                    // No printing UID: Scryfall's named-card image instead.
-                    const img = p.uid ? HUD.scryfall(p.uid, 'large')
-                        : { src: 'https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.name) + '&format=image&version=large', fallback: '' };
-                    html = HUD.art(p.name, img.src, { kind: 'card', fallback: img.fallback, attrs: HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid })) });
-                }
-                // Type label bottom-left (.hud-cmdr-badge) so it never overlaps the top-left Core chip.
-                if (r.can_be_commander) html = html.replace('<div class="hud-art-media">', '<div class="hud-art-media"><span class="hud-cmdr-badge">' + esc(r.type_label || 'Commander') + '</span>');
-                const tag = r.role === 'companion' ? '<span class="hud-cmdr-tag">Companion</span>' : '';
-                return `<div class="deck-cmdr deck-cmdr--${r.role.replace('_', '-')}${r.can_be_commander ? ' is-cbc' : ''}">${tag}${html}</div>`;
-            }).join('');
-        } else {
-            el.innerHTML = '<div class="hud-empty">' + (names.length ? esc(names.join(', ')) : 'No commander specified') + '</div>';
-        }
     }
 
     function renderStats() {
@@ -677,19 +619,6 @@
         });
         const segs = Object.keys(counts).filter(k => counts[k]).map(k => ({ color: k, value: counts[k] }));
         document.getElementById('deckColorDist').innerHTML = segs.length ? HUD.stack(segs) : '<div class="hud-empty">No spells</div>';
-
-        // Archetype: most common thematic categories.
-        const catCounts = {};
-        cards.forEach(c => (c.categories || []).forEach(cat => {
-            if (!STRUCTURAL.includes(cat) && !TYPE_CATEGORIES.includes(cat)) catCounts[cat] = (catCounts[cat] || 0) + 1;
-        }));
-        const sorted = Object.entries(catCounts).sort((a, b) => b[1] - a[1]);
-        document.getElementById('mainArchetype').innerHTML = sorted.length
-            ? HUD.chip(sorted[0][0], 'signal') + ' <span class="hud-num hud-muted">' + sorted[0][1] + '</span>'
-            : 'Midrange / Value';
-        document.getElementById('subArchetypes').innerHTML = sorted.length > 1
-            ? sorted.slice(1, 5).map(sc => HUD.chip(sc[0] + ' ' + sc[1], 'ghost')).join('')
-            : '<span class="hud-muted">None</span>';
     }
 
     // ---- Description: always visible; "◇ Draft" proposes a suggestion row, nothing is written until "Use" ----
@@ -981,14 +910,14 @@
 
     function setDecklistView(view) {
         decklistView = view;
-        document.querySelectorAll('#decklistViews .hud-tab').forEach(t => {
-            const on = t.dataset.view === view;
-            t.classList.toggle('active', on);
-            if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
-        });
+        document.querySelectorAll('#decklistViews input[name="decklistView"]').forEach(r => { r.checked = r.value === view; });
         if (AT) AT.update();   // the Group-by control only applies to the visual view
         renderCards();
     }
+    // Visual/List segmented control (.hud-seg radio group), not a nav tab strip.
+    document.getElementById('decklistViews').addEventListener('change', (ev) => {
+        if (ev.target.name === 'decklistView') setDecklistView(ev.target.value);
+    });
 
     // ---- Single Card Review entry points (CR-F) ----------------------------
     const isPhysicalDeck = () => !!currentDeck && currentDeck.status === 'physical';
@@ -998,7 +927,7 @@
             ? 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your want/buy list.'
             : 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your Tune change list.';
         return `<div class="hud-cr-detail-actions">
-            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Review card <span class="hud-kbd">R</span></button>
+            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Quick look <span class="hud-kbd">R</span></button>
             <p class="hud-cr-why" id="crWhy">${esc(why)}</p>
         </div>`;
     }
@@ -1112,8 +1041,6 @@
 
     // Card frames and table rows open the detail modal (click or Enter/Space).
     document.addEventListener('click', (ev) => {
-        const tab = ev.target.closest('#decklistViews .hud-tab');
-        if (tab) { setDecklistView(tab.dataset.view); return; }
         // Bracket banner + decklist pointers (BR-6).
         const show = ev.target.closest('[data-show]');
         if (show) { ev.preventDefault(); showCard(show.dataset.show); return; }

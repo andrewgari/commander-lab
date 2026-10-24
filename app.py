@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
+import datastore
+from datastore import WritesDisabledError
 import os
 import asyncio
 import logging
@@ -59,6 +61,15 @@ import urllib.parse
 
 app = FastAPI()
 
+
+@app.exception_handler(WritesDisabledError)
+async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):
+    return JSONResponse(
+        status_code=503,
+        content={"error": "writes_disabled", "message": "Write operations are disabled (read-only mode)."},
+        headers={"Retry-After": "3600"},
+    )
+
 github_sync_lock = False
 
 @app.middleware("http")
@@ -95,6 +106,9 @@ async def github_sync_middleware(request: Request, call_next):
     request.state.app_version = version
     return await call_next(request)
 
+import route_cache
+app.middleware("http")(route_cache.make_route_cache_middleware(lambda: r))
+
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
@@ -122,7 +136,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-r = redis.from_url(redis_url, decode_responses=True)
+r = datastore.from_url(redis_url)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -4604,8 +4618,57 @@ def _archetype_payload(**extra):
 async def api_archetypes_list():
     from analytics import archetypes as archetypes_mod
 
-    archetypes = await asyncio.to_thread(archetypes_mod.list_archetypes, r)
+    def _list_rendered():
+        return archetypes_mod.with_rendered_descriptions(archetypes_mod.list_archetypes(r))
+
+    archetypes = await asyncio.to_thread(_list_rendered)
     return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary())
+
+
+@app.post("/api/archetypes/render-preview")
+async def api_archetypes_render_preview(request: Request):
+    """Editor preview: render a description's markdown source exactly as it will display."""
+    from analytics import archetypes as archetypes_mod
+
+    body = await _json_body(request)
+    desc = body.get("description", "") if isinstance(body, dict) else ""
+    if not isinstance(desc, str):
+        return _bad_request(archetypes_mod.ArchetypeError("description must be text."))
+    html = await asyncio.to_thread(archetypes_mod.render_description_html, desc)
+    return {"success": True, "html": html}
+
+
+@app.post("/api/archetypes/describe")
+async def api_archetypes_describe(request: Request):
+    """Draft (empty field) or enhance (field has text) ONE archetype description. Body:
+    {name?, description?, roles?: [tag]}. Stateless, never saves; the editor fills the textarea
+    with the reply and the user still hits Save. 422 bad input; 503 no LLM configured; 502
+    provider failed / the draft named a card or stated a hard count."""
+    from analytics import archetype_describe
+    from analytics import archetypes as archetypes_mod
+    from analytics.interactions.llm import default_chain
+
+    body = await _json_body(request)
+
+    def _run():
+        inv_raw = r.get("inventory")
+        try:
+            inv = json.loads(inv_raw) if isinstance(inv_raw, (str, bytes, bytearray)) else {}
+            card_names = list(inv.keys()) if isinstance(inv, dict) else []
+        except (TypeError, ValueError):
+            card_names = []
+        return archetype_describe.describe_archetype(
+            default_chain(), body, roles_vocab=archetypes_mod.role_vocabulary(),
+            card_names=card_names, archetypes=archetypes_mod.list_archetypes(r))
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except archetype_describe.ArchetypeDescribeError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc)})
+    except archetype_describe.ArchetypeDescribeUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
 
 
 @app.post("/api/archetypes")

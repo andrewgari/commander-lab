@@ -450,7 +450,7 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
             p = cmd_prices.get(cmd)
             if not f:
                 bad = ("commander_unknown", f"New commander '{cmd}' does not resolve on Scryfall")
-            elif not f.get("legal", True):
+            elif f.get("legal") is not True:
                 bad = ("commander_illegal", f"New commander '{cmd}' is not legal in Commander")
             elif not f.get("commander_ok", True):
                 bad = ("commander_ineligible", f"'{cmd}' can't be a commander")
@@ -490,9 +490,9 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
             c.name = canon
         k = name_key(canon)
         if k in cmdr_keys:
-            if not f.get("legal", True):  # only the current commander can get here (swaps are pre-checked)
+            if f.get("legal") is not True:  # only the current commander can get here (swaps are pre-checked)
                 fix("commander_illegal", f"Commander '{canon}' is not legal in Commander.", card=canon)
-        elif not f.get("legal", True):
+        elif f.get("legal") is not True:
             fix("illegal", f"'{canon}' is not legal in Commander; dropped.", card=canon)
             continue
         elif not _ci_ok(f.get("color_identity") or "", allowed):
@@ -596,7 +596,7 @@ def verify(doc: TheoryDoc, deck: Mapping, *, owned: Mapping[str, dict], caps: Ma
         if name_key(p) in final_keys:
             continue
         f = facts.get(p)
-        if f and (not f.get("legal", True) or not _ci_ok(f.get("color_identity") or "", allowed)):
+        if f and (f.get("legal") is not True or not _ci_ok(f.get("color_identity") or "", allowed)):
             pets_lost.append(p)
             if cc_sec is None:
                 fix("pet_illegal", f"Pet card '{p}' is not legal here.", card=p)

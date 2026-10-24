@@ -7,19 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Archetype editor: a Draft/Enhance button beside the Description field drafts a 2-4 sentence description for an empty field or improves your existing text; the result fills the field but nothing saves until you hit Save. Drafts that name a specific card or state a hard count are rejected with a plain message, and the button reports "unavailable" when no AI model is configured.
+- Decks now have named card slots: alongside Commander and the main 99, a deck can carry a Maybeboard, a Considering list, a Planar deck (Planechase), a Scheme deck (Archenemy) and an Attraction deck (Unfinity), synced from Archidekt and Moxfield and understood by the decklist paste/import parser.
+- Deck validation now enforces slot legality: the Planar deck accepts only planes and phenomenons, the Scheme deck only schemes, the Attraction deck only attractions, and none of those cards are legal in the commander slot or the main 99. Violations are flagged NOT_LEGAL with a plain-language reason (e.g. "plane not legal in mainboard slot") that review suggestions can quote, cards whose type data is missing fail closed in variant decks, and Maybeboard/Considering stay unrestricted.
+
 ### Changed
+- Deck page: the card debate view opened from a card's detail modal is now called "Quick look" instead of "Card review", and the header button that starts the journal check-in is now "Check in"; on Tune, the dismiss hint now says "suggestion" — the Review tab is now the only surface that says "review".
+- Sidebar navigation: the flat 11-item list is grouped into labeled sections (Decks, Collection, Taxonomy, Tools, Reference, Configure) under a Command Center home item; "Tag Management" is now labeled "Card Tags", Staple Themes sits under Taxonomy, and Player Profile moved into the sidebar footer next to the version badge.
+- Deck Overview: the decklist now leads the page instead of sitting below the analytics panels — the order is decklist, Briefing, a compact "Stats at a glance" strip (curve, types, colours) linking through to the Stats tab, then deck utilities. The Visual/List decklist toggle is now a segmented control that no longer looks like the navigation tabs, and the large commander showcase is retired in favour of the commander art in the deck header shown on every tab.
+- Reconstruct page: controls, chips and colors now use the shared HUD component styling (the Font Awesome icon font is no longer loaded); the workflow and its labels are unchanged.
+- **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
 - Deck Tuner: cards recommended for removal now render in red, and dismissing a cut is permanent — dismissed cuts are never flagged again (with an "Undo dismiss" option per card).
 
 ### Fixed
+- Commander Salt now works for decks never viewed on commandersalt.com: when the salt cache lookup reports a deck missing, the app now asks Commander Salt to import and score the deck (the same import their own site uses), so salt scores and salt-based analytics appear instead of silently showing nothing.
+- Deck page on mobile: a long linked-deck URL (e.g. a Moxfield deck link) in the sync panel no longer forces the whole page to scroll horizontally; long URLs and sync notes now wrap inside the panel.
+- Card review and evaluation suggestions are now gated to mainboard slots: planar, scheme and attraction cards can never be suggested for the main 99 (e.g. no planar card is ever recommended for Missy's main deck), candidates must pass full mainboard legality (Commander-legal, known legality, colour identity, singleton) at proposal time, and every suggestion carries its slot-gate result with a plain-language pass reason. Card facts now expose the mainboard slot gate alongside Commander legality so the two can't be confused.
+- Deck validation and review: cards with no synced Commander legality (e.g. newly printed or planar cards) no longer silently pass as legal; they are flagged UNKNOWN_LEGALITY and must be re-synced or replaced.
+- Archetypes: a bullet or numbered list typed directly after an intro line (e.g. "Key engines:" then "- item") now renders as a real list in the description preview and registry list, instead of showing literal dashes.
 - Composition Presets and Deck Composition: the category suggestion list no longer covers the "Add category target" / "Add override" buttons.
 - Composition Presets: "Add category target" now uses the shared category pill input (target/min/max/why stay per category) instead of the broken slot row.
 - Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
 
 ### Changed
+- Archetypes: the description field is now a multi-line markdown editor (bold/italic/code/lists) with a live Preview tab and character counter, the limit is raised from 1200 to 4000 characters, and the registry list shows a rendered excerpt of the first paragraph. Existing descriptions are unchanged; single line breaks in them are now displayed as typed.
+- Deck Overview: the Update/Push sync controls, external links and Lifecycle status now live in a "Deck utilities" section at the end of the summary column instead of beside the commander.
 
 - Deck Composition page: category overrides now use the shared text input with removable category pills (target/min/max/why stay on each pill); saved data is unchanged.
 
 - The release notes and changelog page now list curated, user-facing changes only, instead of raw change descriptions.
+- Primer builder: generated primers and per-section redrafts now come back with at least 500 characters of concrete detail instead of occasionally returning very short drafts.
 
 ## [v0.4.164] - 2026-10-22
 
