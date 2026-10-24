@@ -51,7 +51,7 @@ class TestShell(unittest.TestCase):
 
     def test_active_section_follows_path_prefix(self):
         cases = {
-            "/": ["Home"],
+            "/": ["Command Center"],
             "/decks": ["Commander Decks"],
             "/deck/Some%20Deck": ["Commander Decks"],
             "/inventory": ["Inventory"],
