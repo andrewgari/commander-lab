@@ -39,10 +39,16 @@
 
 {% block content %}
 {% call dh.header(head, tab) %}
-    <span class="hud-chip hud-chip--signal" id="activeGoalBadge" style="margin-right:auto;text-transform:capitalize" hidden></span>
+    <span class="hud-seg" role="radiogroup" aria-label="Tune view" style="margin-right:auto">
+        <input type="radio" name="tuneView" id="view-recs" value="recs" checked><label for="view-recs">Tuner</label>
+        <input type="radio" name="tuneView" id="view-overlay" value="overlay"><label for="view-overlay">Decklist</label>
+    </span>
+    <span class="hud-chip hud-chip--signal" id="activeGoalBadge" style="text-transform:capitalize" hidden></span>
     <span class="hud-freshness" id="tuneGenerated" aria-live="polite" hidden></span>
     <button class="hud-btn" type="button" id="recompute" title="Runs the tuner again and saves the result. The current saved recommendation is archived, not deleted." disabled>Recompute</button>
 {% endcall %}
+
+<div id="tuneRecsView">
 <p class="tn-error" id="recomputeError" role="alert"></p>
 
 <div class="hud-filterbar">
@@ -131,9 +137,36 @@
         </section>
     </aside>
 </div>
+</div>{# /#tuneRecsView #}
+
+{#- Deck Tuner overlay (DT-1, deck-tuner-overlay-spec.md §2): deckbuilding
+    view layered over the decklist. Columns = the deck's card tags +
+    structural slots; drag chips to re-tag, [+]/[x] edit the paper draft,
+    ⚑ flags a category "not in decklist". Rendered by static/js/tune_overlay.js. -#}
+<div id="tuneOverlayView" hidden>
+    <div class="hud-panel tnov-bar">
+        <div class="hud-panel-body tnov-bar-row">
+            <span class="hud-freshness" id="tuneOvCount" aria-live="polite"></span>
+            <span class="hud-chip hud-chip--signal" id="tuneOvDrift" hidden title="The synced decklist changed since this draft started. Rebase keeps your draft cards and accepts the current synced list as the new baseline.">Deck changed since draft</span>
+            <button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" id="tuneOvRebase" hidden>Rebase</button>
+            <span class="hud-freshness" id="tuneOvState" aria-live="polite"></span>
+            <span class="tnov-bar-gap"></span>
+            <input type="text" id="tuneOvNewTag" maxlength="32" placeholder="New category…" aria-label="New category name">
+            <button class="hud-btn hud-btn--sm" type="button" id="tuneOvAddCol">Add category</button>
+            <button class="hud-btn" type="button" id="tuneOvSaveDraft" title="Paper-only save: keeps this draft for later without touching the real deck or your card instances.">Save draft</button>
+            <button class="hud-btn hud-btn--primary" type="button" id="tuneOvApply" disabled title="Not built yet (the save/apply step): will write the draft back to the deck and your card instances.">Save deck</button>
+        </div>
+    </div>
+    <p class="tn-error" id="tuneOvError" role="alert"></p>
+    <div class="tnov-columns" id="tuneOvColumns"><div class="hud-empty">Loading…</div></div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/tune_overlay.js?v={{ version }}"></script>
+<script>
+    window.TuneOverlay.init({ deckId: {{ deck_id | tojson }}, deckName: {{ deck_name | tojson }} });
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
@@ -512,6 +545,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Keys (UX_SPEC §4): j/k move · a accept · b buy instead · x dismiss · h pet.
     document.addEventListener("keydown", function (e) {
+        if (window.TuneOverlay && window.TuneOverlay.active()) return;
         if (e.metaKey || e.ctrlKey || e.altKey || A.inTextField(e.target) || !T) return;
         var r = rows(), li = r[cur];
         var map = { a: "accept", b: "buy", x: "dismiss", h: "pet" };
