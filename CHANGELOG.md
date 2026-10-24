@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
 
 ### Fixed
+- Commander Salt now works for decks never viewed on commandersalt.com: when the salt cache lookup reports a deck missing, the app now asks Commander Salt to import and score the deck (the same import their own site uses), so salt scores and salt-based analytics appear instead of silently showing nothing.
 - Deck page on mobile: a long linked-deck URL (e.g. a Moxfield deck link) in the sync panel no longer forces the whole page to scroll horizontally; long URLs and sync notes now wrap inside the panel.
 - Card review and evaluation suggestions are now gated to mainboard slots: planar, scheme and attraction cards can never be suggested for the main 99 (e.g. no planar card is ever recommended for Missy's main deck), candidates must pass full mainboard legality (Commander-legal, known legality, colour identity, singleton) at proposal time, and every suggestion carries its slot-gate result with a plain-language pass reason. Card facts now expose the mainboard slot gate alongside Commander legality so the two can't be confused.
 - Deck validation and review: cards with no synced Commander legality (e.g. newly printed or planar cards) no longer silently pass as legal; they are flagged UNKNOWN_LEGALITY and must be re-synced or replaced.
