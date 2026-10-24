@@ -569,7 +569,10 @@ class SlotGateResult:
 
 
 def _variant_type_class(info: CardInfo) -> Optional[str]:
-    lowered = {t.casefold() for t in info.types}
+    # Scan the WHOLE type line: Plane/Phenomenon/Scheme are card types, but
+    # Attraction lives in the subtype position ("Artifact — Attraction"), so a
+    # types-only check would let a real Attraction slip through the gate.
+    lowered = {t.casefold() for t in info.types + info.subtypes}
     for type_class in sorted(VARIANT_TYPE_CLASSES):
         if type_class in lowered:
             return type_class
