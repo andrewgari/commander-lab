@@ -86,7 +86,9 @@ CARDS = [
     card("The Abyssal Plane", "", ("Plane",), legality="legal"),
     card("Chaotic Aether", "", ("Phenomenon",), legality="legal"),
     card("A Planar Scheme", "", ("Scheme",), legality="legal"),
-    card("Balloon Stand", "", ("Artifact", "Attraction"), legality="legal"),
+    # Real Scryfall layout: type_line "Artifact — Attraction" (Attraction is a
+    # SUBTYPE, unlike Plane/Phenomenon/Scheme which are types).
+    card("Balloon Stand", "", ("Artifact",), (), ("Attraction",), legality="legal"),
     card("Mystery Card", "", (), legality="legal"),
 ]
 CATALOG = CardCatalog(CARDS)
@@ -397,6 +399,38 @@ class TestSlotGates(Base):
                           ("Balloon Stand", "attraction")):
             self.assertIn(f"{cls} not legal in mainboard slot",
                           e.details["slot_reasons"][name]["reason"])
+
+    def test_subtype_position_attraction_in_mainboard_not_legal(self):
+        # Regression (t_cf694113): a real Attraction is stored as
+        # types=("Artifact",), subtypes=("Attraction",) — the gate must scan
+        # the subtype position too, or it passes the mainboard slot.
+        d = mk_deck(["Mono Red Guy"], extra=[("Balloon Stand", 1)])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(e.cards, ["Balloon Stand"])
+        self.assertEqual(
+            e.details["slot_reasons"]["Balloon Stand"],
+            {"slot": "mainboard",
+             "reason": "attraction not legal in mainboard slot "
+                       "(belongs in attraction_deck)"})
+
+    def test_subtype_position_attraction_gate_function(self):
+        # slot_gate itself classifies a subtype-position Attraction.
+        g = dv.slot_gate(self.catalog.get("Balloon Stand"), "mainboard")
+        self.assertFalse(g.legal)
+        self.assertEqual(g.type_class, "attraction")
+        ok = dv.slot_gate(self.catalog.get("Balloon Stand"), "attraction_deck")
+        self.assertTrue(ok.legal)
+        self.assertEqual(ok.type_class, "attraction")
+
+    def test_ordinary_artifact_still_passes_mainboard(self):
+        # An artifact WITHOUT the Attraction subtype is unaffected.
+        g = dv.slot_gate(self.catalog.get("Sol Ring"), "mainboard")
+        self.assertTrue(g.legal)
+        self.assertIsNone(g.type_class)
+        d = mk_deck(["Mono Red Guy"], extra=[("Sol Ring", 1)])
+        self.assertTrue(self.check(d).valid)
 
     def test_plane_as_commander_not_legal(self):
         d = mk_deck(["The Abyssal Plane"])
