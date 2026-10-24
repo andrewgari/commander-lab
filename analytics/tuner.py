@@ -500,7 +500,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     mode, in_deck, buy = resolve_mode(mode, in_deck, buy)
     best_mode = mode == "best"
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
-    ignored = set(dismissed or ())
+    dismissed_set = set(dismissed or ())
     decisions = dict((state or {}).get("decisions") or {})
     # DT-7: adds the user already rejected for a slot ("recommend something else")
     # are not suggested again for that slot this review.
@@ -555,7 +555,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     # take the only removal a removal cut could use. Rows are re-sorted below.
     for w in [w for w in weak_rows if _functional(w)] + [w for w in weak_rows if not _functional(w)]:
         dec = decisions.get(w["name"]) or {}
-        if dec.get("decision") == "dismissed" or w["name"] in ignored:
+        if dec.get("decision") == "dismissed" or w["name"] in dismissed_set:
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
                           _played(w.get("played")), goal=goal)
@@ -664,7 +664,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     with_swap = {s["cut"]["name"] for s in swaps}
     weak_table = [{"name": w["name"], "edges": w.get("edges") or 0, "fit": w.get("fit"),
                    "edhrec": w.get("edhrec_inclusion"), "played": w.get("played"), "weak_score": w["weak_score"],
-                   "pet": w["name"] in pets, "dismissed": w["name"] in ignored,
+                   "pet": w["name"] in pets, "dismissed": w["name"] in dismissed_set,
                    "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
                   for w in sorted(weak.get("cards") or [], key=lambda w: (-w["weak_score"], w["name"]))]
     notice = weak.get("pet_notice")
@@ -680,7 +680,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
         "mode": mode, "in_deck": in_deck, "buy": buy, "goal": goal, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
-        "weak": weak_table, "pet_notice": notice, "dismissed": sorted(ignored),
+        "weak": weak_table, "pet_notice": notice, "dismissed": sorted(dismissed_set),
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
                    **({} if best_mode else {
@@ -973,7 +973,7 @@ def fallback_reconsider(swap: Mapping) -> str:
     add = _picked(swap) or {}
     cut = (swap.get("cut") or {}).get("name") or "this card"
     reason = swap.get("reason") or fallback_reason(swap)
-    base = f"Reconsidered, and the recommendation stands: {add.get('name', 'the suggested card')} over {cut}."
+    base = f"The recommendation stands: {add.get('name', 'the suggested card')} over {cut}."
     return base + (" " + reason if reason else "")
 
 
