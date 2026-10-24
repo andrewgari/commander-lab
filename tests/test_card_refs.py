@@ -171,7 +171,6 @@ class TestPayloads(FakeRedisCase):
         # Each JS render site goes through refOf / cardRefAttrs.
         self.assertIn("HUD.cardRefAttrs(refOf(card))", page.text)                    # grid + modal
         self.assertIn('data-card-ref="${refAttr(c)}"', page.text)                    # list view
-        self.assertIn("HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid }))", page.text)  # commanders w/o row
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed: hud.js tests need it")

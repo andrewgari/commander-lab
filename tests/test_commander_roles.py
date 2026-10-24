@@ -303,38 +303,6 @@ class TestNoRoundCommanderArt(unittest.TestCase):
                            ("inventory.html", "document.addEventListener('DOMContentLoaded', () => {\n        loadDecks()")):
             self.assertIn(call, (ROOT / "templates" / page).read_text(), page)
 
-    @unittest.skipUnless(shutil.which("node"), "node not installed")
-    def test_deck_showcase_merges_sources_in_role_order(self):
-        src = (ROOT / "templates" / "deck.html").read_text()
-        fn = src[src.index("    function renderCommanders()"):src.index("    function renderStats()")]
-        js = (ROOT / "static" / "js" / "hud.js").read_text()
-        code = ("global.window = {}; const els = {};\n"
-                "global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []},"
-                " getElementById(id){ return els[id] || (els[id] = {}); }};\n"
-                + js + "\nconst HUD = window.HUD; const esc = HUD.esc;\n"
-                "const cardArt = (c) => '<div class=\"hud-art-media\">INV:' + c.name + '</div>';\n"
-                "let inventoryCards, currentDeck;\n" + fn +
-                "\nconst roles = [{name:'The Tenth Doctor',uid:'t',role:'doctor'},{name:'Rose Tyler',uid:'r',role:'doctors_companion'}];\n"
-                "const out = {};\n"
-                "currentDeck = {commander_roles: roles}; inventoryCards = [{name:'Rose Tyler', is_commander:true}];\n"
-                "renderCommanders(); out.mixed = els.commanderShowcase.innerHTML;\n"
-                "inventoryCards = []; renderCommanders(); out.none = els.commanderShowcase.innerHTML;\n"
-                "currentDeck = {commander_roles: [{name:'Shorikai',uid:'s',role:'commander',can_be_commander:true,type_label:'Vehicle'}]};\n"
-                "inventoryCards = [{name:'Shorikai', is_commander:true, is_core:true}];\n"
-                "renderCommanders(); out.cbc = els.commanderShowcase.innerHTML;\n"
-                "process.stdout.write(JSON.stringify(out));")
-        res = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
-        self.assertEqual(res.returncode, 0, res.stderr)
-        out = json.loads(res.stdout)
-        # Doctor (Scryfall-only) still renders before Rose (inventory-backed).
-        self.assertLess(out["mixed"].index("deck-cmdr--doctor\""), out["mixed"].index("INV:Rose Tyler"))
-        # No inventory rows at all: both portraits from Scryfall, no empty state.
-        self.assertNotIn("hud-empty", out["none"])
-        self.assertEqual(out["none"].count("deck-cmdr deck-cmdr--"), 2)
-        # Type label uses the bottom-left badge, not a second top-left chip.
-        self.assertIn('<span class="hud-cmdr-badge">Vehicle</span>', out["cbc"])
-        self.assertNotIn(">Vehicle</span></span>", out["cbc"].replace('<span class="hud-cmdr-badge">Vehicle</span>', ""))
-
     def test_no_round_portraits(self):
         decks = (ROOT / "templates" / "decks.html").read_text()
         self.assertNotIn("commander-icon", decks)

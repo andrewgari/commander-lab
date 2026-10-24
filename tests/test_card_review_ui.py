@@ -51,8 +51,8 @@ class TestDeckPage(unittest.TestCase):
         self.assertIn("ev.key !== 'r' && ev.key !== 'R'", self.html)
 
     def test_existing_deck_view_is_intact(self):
-        for frag in ['id="cardModal"', "function openCardModal(index)", 'id="decklistContainer"', 'data-view="visual"',
-                     'data-view="list"', "data-card-index", "loadBracket()", "loadPersonality"]:
+        for frag in ['id="cardModal"', "function openCardModal(index)", 'id="decklistContainer"', 'value="visual"',
+                     'value="list"', "data-card-index", "loadBracket()", "loadPersonality"]:
             with self.subTest(frag=frag):
                 self.assertIn(frag, self.html)
 
