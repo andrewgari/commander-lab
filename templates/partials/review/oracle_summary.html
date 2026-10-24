@@ -1,0 +1,15 @@
+{% import "partials/hud.html" as hud %}
+{#- oracle_summary: {status: ok|offline|invalid, text, note, stripped_sentences}. Offline/invalid shows the app's note, never a blank. -#}
+{%- set d = section.data %}
+{%- set status = d.status or "ok" %}
+<div data-rv-summary data-status="{{ status }}">
+    {%- if status != "ok" %}{{ hud.chip("Explanation offline" if status == "offline" else "Explanation unavailable", rv.ORACLE_TONES.get(status, "neutral"), dot=true) }}{% endif %}
+    {%- for b in rv.md_blocks(d.text) %}
+    {%- if b.kind == "h" %}<h3 class="hud-rv-h">{{ b.text }}</h3>
+    {%- elif b.kind == "ul" %}<ul class="hud-doc-list">{% for i in b["items"] %}<li>{{ i }}</li>{% endfor %}</ul>
+    {%- else %}<p class="hud-doc-prose">{{ b.text }}</p>{% endif %}
+    {%- else %}{{ hud.empty("No summary") }}
+    {%- endfor %}
+    {%- if status != "ok" and d.note %}<p class="hud-rv-why">{{ d.note }}</p>{% endif %}
+    {%- if d.stripped_sentences %}<p class="hud-rv-why">{{ d.stripped_sentences }} sentence{{ "" if d.stripped_sentences == 1 else "s" }} removed: they quoted numbers that are not in the metrics.</p>{% endif %}
+</div>

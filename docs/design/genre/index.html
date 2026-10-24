@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck Genre · Journal · Commander Lab mockup (GN-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="genre.css">
+<style>
+    /* Copied from templates/deck_journal.html extra_css so the mock matches the page. */
+    .jr-anchor { display: flex; gap: var(--sp-4); flex-wrap: wrap; position: sticky; top: 0; z-index: 4; padding: var(--sp-2) 0; background: var(--surface-0); border-bottom: var(--stroke); }
+    .jr-anchor a { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; text-decoration: none; }
+    .jr-anchor a:hover, .jr-anchor a.is-on { color: var(--signal); }
+    .jr-error { color: var(--danger); font-size: var(--fs-xs); }
+    .jr-error:empty { display: none; }
+    .mock-payload { margin-top: var(--sp-8); }
+    .mock-payload pre { margin: 0; padding: var(--sp-3); background: var(--surface-1); border: var(--stroke); color: var(--text-3); font: var(--fs-xs)/1.4 var(--font-mono); white-space: pre-wrap; }
+</style>
+</head>
+<body class="app-shell">
+<nav class="sidebar" aria-label="Primary">
+    <a href="#" class="brand" title="Commander Lab"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg><span class="brand-label">Cmdr Lab</span></a>
+    <div class="nav-section-label">Navigate</div>
+    <div class="nav-items">
+        <a href="#" class="nav-item active" aria-current="page" title="Commander Decks"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span class="nav-label">Commander Decks</span></a>
+        <a href="#" class="nav-item" title="Genres"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg><span class="nav-label">Genres</span></a>
+    </div>
+</nav>
+<main class="main-content" id="main">
+    <div class="mock-bar" id="mockStates" aria-label="Mockup states (not product UI)"></div>
+
+    <!-- Deck header (partials/deck_head.html). NEW: #deckGenre strip in the meta row. -->
+    <header class="hud-deckhead">
+        <div class="mock-art" aria-hidden="true"></div>
+        <div>
+            <span class="hud-label">Commander deck · Edgar Markov</span>
+            <h1>Holy Hellfire</h1>
+            <div class="hud-deckhead-meta">
+                <span class="hud-pips" role="img" aria-label="W B R"><span class="hud-pip hud-pip--sm hud-pip--w"></span><span class="hud-pip hud-pip--sm hud-pip--b"></span><span class="hud-pip hud-pip--sm hud-pip--r"></span></span>
+                <span class="hud-chip hud-chip--ok"><span class="hud-chip-dot" aria-hidden="true"></span>Have</span>
+                <span class="hud-freshness">100 cards · 35 lands</span>
+                <span class="hud-genre-strip" id="deckGenre" aria-label="Deck genre" hidden></span>
+            </div>
+        </div>
+        <div class="hud-deckhead-actions"><a class="hud-btn hud-btn--primary" href="#">Review</a></div>
+    </header>
+    <nav class="hud-tabs hud-deck-tabs" aria-label="Deck sections">
+        <a class="hud-tab" href="#">Overview</a><a class="hud-tab" href="#">Stats</a><a class="hud-tab" href="#">Identity</a><a class="hud-tab active" aria-current="page" href="#">Journal</a><a class="hud-tab" href="#">Tune</a><a class="hud-tab" href="#">Ideas</a><a class="hud-tab" href="#">Review</a>
+    </nav>
+
+    <div class="hud-section-head"><span class="hud-section-id">01</span><h2>Deck journal</h2></div>
+    <nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision">Vision</a><a href="#j-genre" class="is-on">Genre</a><a href="#j-win">Win cons</a><a href="#j-power">Power &amp; bracket</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a><a href="#j-pillars">Pillars</a></nav>
+
+    <form class="hud-form" id="journalForm" novalidate onsubmit="return false">
+        <section class="hud-form-section" id="j-vision">
+            <header><h2>Vision</h2><p>One or two sentences. What does a good game with this deck look like?</p></header>
+            <div>
+                <div class="hud-field"><label for="vision">Vision</label>
+                    <textarea id="vision" maxlength="1000">Vampires bleed the table one sacrifice at a time while Edgar's tokens keep coming back.</textarea>
+                    <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
+            </div>
+        </section>
+
+        <!-- NEW: Genre section, directly under Vision. -->
+        <section class="hud-form-section" id="j-genre">
+            <header><h2>Genre</h2><p>What the deck is: how it plays, what it's about, which creature types it loves. Vision above is the sentence; these are the tags.</p></header>
+            <div>
+                <div class="hud-field" id="f-archetype"></div>
+                <div class="hud-field" id="f-theme"></div>
+                <div class="hud-field" id="f-kindred"></div>
+            </div>
+        </section>
+
+        <section class="hud-form-section mock-collapsed" id="j-win">
+            <header><h2>Win cons</h2><p>Primary is one choice. Secondary can be several.</p></header>
+            <div>(unchanged: Win cons, Power &amp; bracket, Budget, Pets &amp; novelties, Pillars)</div>
+        </section>
+    </form>
+    <div class="hud-savebar" id="savebar">
+        <span class="hud-freshness" id="saveSummary">Saved · edit anytime</span>
+        <span class="jr-error" id="saveError" role="alert"></span>
+        <button class="hud-btn hud-btn--ghost" type="button" id="discardBtn">Discard</button>
+        <button class="hud-btn hud-btn--primary" type="button" id="saveBtn">Save journal</button>
+    </div>
+
+    <details class="hud-tray mock-payload"><summary>Mock only · PUT /api/decks/{id}/journal payload for this section</summary><pre id="payload"></pre></details>
+</main>
+<script src="taxonomy.js"></script>
+<script src="creature_types.js"></script>
+<script src="genre.js"></script>
+</body>
+</html>
