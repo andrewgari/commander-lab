@@ -28,7 +28,7 @@ Out of scope: composition presets (`templates/composition_presets.html` has the 
 
 ## 2. Locked decisions
 
-1. **Format: a markdown subset, stored as source.** The stored `description` stays the raw markdown string in the same Redis field — **no schema change, no migration**. Supported syntax: paragraphs (blank line), `**bold**`, `*italic*`, `` `code` ``, `-`/`1.` lists, single newlines as `<br>` (`nl2br`). No headings, links, images, or raw HTML (stripped by the sanitizer).
+1. **Format: a markdown subset, stored as source.** The stored `description` stays the raw markdown string in the same Redis field — **no schema change, no migration**. Supported syntax: paragraphs (blank line), `**bold**`, `*italic*`, `` `code` ``, `-`/`1.` lists (a list may directly follow an intro line, GitHub-style), single newlines as `<br>` (`nl2br`). No headings, links, or images. Raw HTML: only the sanitizer's allow-listed formatting tags (`b, strong, em, i, code, …`) pass through; everything else (`script`, `img`, event handlers, unknown tags) is stripped.
 2. **Render server-side, once.** New helper in `analytics/archetypes.py` (or a tiny shared module): `render_description_html(desc)` = `markdown.markdown(desc, extensions=["nl2br"])` → `sanitize_primer_html(html, known_cards=None)`. Reusing the primer sanitizer keeps one allow-list in the app; its allowed tags (`p, ul, ol, li, b, strong, em, i, code, br, h3, h4, span`) cover the subset.
 3. **API is additive.** `GET /api/archetypes` items gain a read-only `description_html` field alongside `description`. New `POST /api/archetypes/render-preview` with body `{description}` returns `{html}` for the editor preview — same render path, so preview == final. `POST/PUT /api/archetypes` keep accepting the markdown source string unchanged.
 4. **Length: raise hard cap 1200 → 4000 chars** (markdown source). Soft guidance: aim ≤ 600 (1–3 short paragraphs). 4000 fits the "enhanced/longer" goal without inviting essays; registry list only ever shows an excerpt (§5) so long entries don't break layout.
@@ -155,7 +155,7 @@ Error copy reuses the server message verbatim in `#arMsg` (existing pattern at `
 - **One intentional rendering change**: `nl2br` preserves single newlines that the old `textContent` list rendering collapsed. Existing multi-line plain-text entries will show line breaks where they were typed. This is a display improvement, not data loss; flag it in the PR description.
 - **API**: `description` unchanged in shape; `description_html` / `description_excerpt_html` are additive. No consumer of `GET /api/archetypes` besides `archetypes.html` exists today (verified: only template referencing registry items).
 - **Old limit grandfathered**: anything ≤ 1200 passes the new 4000 cap trivially.
-- **Sanitization is total**: raw HTML in existing or new descriptions is stripped at render, never at storage — source is preserved, output is safe.
+- **Sanitization happens at render, never at storage**: source is preserved, output is safe. Non-allow-listed raw HTML (`script`, `img`, event handlers, …) in existing or new descriptions is stripped; allow-listed formatting tags pass through (see §2.1).
 
 ## 8. Implementation change points (checklist for the coder)
 
