@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var n = list.querySelectorAll(".hud-idea").length;
             $("ideasMeta").textContent = n + " doc" + (n === 1 ? "" : "s") + " · newest first";
             // Keep the Ideas tab badge in step (hidden at 0, like the server render).
-            var tab = document.querySelector('.hud-deck-tabs [data-key="6"]'), badge = tab && tab.querySelector(".hud-tab-count");
+            var tab = document.querySelector('.hud-deck-tabs [data-key="8"]'), badge = tab && tab.querySelector(".hud-tab-count");
             if (badge) { if (n) badge.textContent = n; else badge.parentNode.removeChild(badge); }
             if (!n) list.outerHTML = '<div class="hud-panel-body"><div class="hud-empty">No theories yet. Start one with New theory.</div></div>';
         }).catch(function (err) { b.disabled = false; $("listError").textContent = err.message; });

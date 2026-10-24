@@ -3,7 +3,8 @@
 Checks templates/deck.html: #footerLinks, #syncControls and #deckStatusField each
 appear exactly once, all inside #deckUtilities, none inside .deck-hero-side (which
 keeps only #commanderShowcase), and #deckUtilities is the last child of .ov-summary,
-after the Briefing (#deckDescriptionPanel) and Primer blocks.
+after the Briefing (#deckDescriptionPanel). The Primer block left the Overview for
+its own tab (NAV_IA §3.2, D5).
 """
 import unittest
 from html.parser import HTMLParser
@@ -104,13 +105,16 @@ class TestDeckUtilitiesPlacement(unittest.TestCase):
         elem_kids = [c for c in summaries[0].children]
         self.assertEqual(elem_kids[-1].id, "deckUtilities")
 
-    def test_deck_utilities_after_briefing_and_primer(self):
+    def test_deck_utilities_after_briefing(self):
         utils = self.one("deckUtilities")
         briefing = self.one("deckDescriptionPanel")
         summary = [n for n in self.tree.nodes if "ov-summary" in n.classes][0]
         self.assertIn(summary, _ancestors(utils))
         self.assertLess(briefing.pos, utils.pos)
-        self.assertLess(DECK_HTML.index("Primer</h3>"), DECK_HTML.index('id="deckUtilities"'))
+
+    def test_primer_is_gone_from_the_overview(self):
+        # NAV_IA §3.2 (D5): the Primer lives on its own tab (/deck/{n}/primer).
+        self.assertNotIn("Primer</h3>", DECK_HTML)
 
 
 if __name__ == "__main__":

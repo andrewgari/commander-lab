@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Query, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
@@ -296,8 +296,9 @@ async def _deck_tab(request: Request, deck_name: str, template: str, tab: str, e
 
 @app.get("/deck/{deck_name}/stats", response_class=HTMLResponse)
 async def deck_stats_view(request: Request, deck_name: str):
-    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON."""
-    return await _deck_tab(request, deck_name, "deck_stats.html", "stats")
+    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON.
+    NAV_IA §3.2: also carries the Composition section (folded-in composition page)."""
+    return await _deck_tab(request, deck_name, "deck_stats.html", "stats", extra=_composition_page_context)
 
 
 @app.get("/deck/{deck_name}/identity", response_class=HTMLResponse)
@@ -428,26 +429,12 @@ def _journal_page_context(deck_name: str) -> dict:
 
 @app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
 async def deck_manage_view(request: Request, deck_name: str):
-    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md) — NAV_IA §3.2 tab 2.
 
-    /deck/{deck_name} (the read-only view) keys off the deck's display
-    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
-    and sibling manage endpoints all key off registry_id. Resolve name ->
-    registry_id here so the template only ever has to call the registry_id
-    APIs, matching how the rest of the manage API surface works.
+    _deck_tab resolves the display name to the registry_id (the manage APIs
+    all key off registry_id) and supplies the shared deck header context.
     """
-    decks = registry.list_decks(r)
-    deck = next((d for d in decks if d.get("name") == deck_name), None)
-    if not deck:
-        return HTMLResponse(
-            "<html><head><title>Deck Not Found</title></head>"
-            "<body><h1>Deck Not Found</h1>"
-            "<p>No deck named &quot;{}&quot; could be found.</p>"
-            "</body></html>".format(html.escape(deck_name)),
-            status_code=404,
-        )
-    deck_id = registry.registry_id_of(deck)
-    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
+    return await _deck_tab(request, deck_name, "deck_manage.html", "manage")
 
 @app.get("/api/version")
 async def get_version(request: Request):
@@ -4342,27 +4329,38 @@ def _primer_build_context(deck_name: str) -> dict:
 
 
 def _composition_page_context(deck_name: str) -> dict:
-    """Read-only resolved composition preset for the deck composition page (no AI, no writes)."""
-    deck = _find_deck_any(deck_name)
-    if not deck:
+    """Read-only resolved composition preset for the Stats page's Composition
+    section (no AI, no writes). Never raises: a resolve failure just means the
+    section renders its defaults and the client-side fetch fills it in."""
+    try:
+        deck = _find_deck_any(deck_name)
+        if not deck:
+            return {"selection": None, "preset": None, "slots": []}
+        sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
+        preset = sel.get("preset") or {}
+        return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
+                "lands": (preset.get("structure") or {}).get("lands")}
+    except Exception:
         return {"selection": None, "preset": None, "slots": []}
-    sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
-    preset = sel.get("preset") or {}
-    return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
-            "lands": (preset.get("structure") or {}).get("lands")}
 
 
-@app.get("/deck/{deck_name}/composition", response_class=HTMLResponse)
+@app.get("/deck/{deck_name}/composition")
 async def deck_composition_view(request: Request, deck_name: str):
-    """Deck composition: the resolved preset (name, category targets), read-only."""
-    return await _deck_tab(request, deck_name, "deck_composition.html", "composition",
-                           extra=_composition_page_context)
+    """NAV_IA §3.2 (N5): Composition merged into Stats as a full-width section;
+    the old page permanently redirects to its new home."""
+    return RedirectResponse(url=f"/deck/{urllib.parse.quote(deck_name)}/stats#composition", status_code=301)
+
+
+@app.get("/deck/{deck_name}/primer", response_class=HTMLResponse)
+async def deck_primer_view(request: Request, deck_name: str):
+    """Primer (NAV_IA §3.2 tab 6, D5): the deck's story on a distinguished reading surface."""
+    return await _deck_tab(request, deck_name, "deck_primer.html", "primer")
 
 
 @app.get("/deck/{deck_name}/primer/build", response_class=HTMLResponse)
 async def deck_primer_build_view(request: Request, deck_name: str):
     """Guided Primer Builder: 5-step wizard (docs: SPEC PF). Answers autosave as a server-side draft."""
-    return await _deck_tab(request, deck_name, "deck_primer_build.html", "overview", extra=_primer_build_context)
+    return await _deck_tab(request, deck_name, "deck_primer_build.html", "primer", extra=_primer_build_context)
 
 
 @app.get("/api/decks/{deck_id}/primer/draft")

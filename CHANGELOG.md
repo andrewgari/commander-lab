@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deck page navigation is now a ten-tab workflow — Overview, Manage, Tune, Stats, Identity, Primer, Journal, Ideas, Review, Simulate — in the order you actually work a deck, with number-key shortcuts (1-9, 0) to jump between tabs and a `?` legend overlay that lists every shortcut. Manage is now a full tab instead of a header button, the Primer has its own tab with a dedicated reading page (it no longer appears inside the Overview's Briefing), and the Composition view has moved into the Stats tab as a full-width section — the old Composition address now permanently redirects to Stats.
+
 ### Added
 - Archetype editor: a Draft/Enhance button beside the Description field drafts a 2-4 sentence description for an empty field or improves your existing text; the result fills the field but nothing saves until you hit Save. Drafts that name a specific card or state a hard count are rejected with a plain message, and the button reports "unavailable" when no AI model is configured.
 - Decks now have named card slots: alongside Commander and the main 99, a deck can carry a Maybeboard, a Considering list, a Planar deck (Planechase), a Scheme deck (Archenemy) and an Attraction deck (Unfinity), synced from Archidekt and Moxfield and understood by the decklist paste/import parser.
