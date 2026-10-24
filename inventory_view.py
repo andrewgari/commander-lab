@@ -36,7 +36,8 @@ STATUS_LABELS = {
     "not_owned": "possible",
 }
 
-STRUCTURAL = {"Commander", "Sideboard", "Maybeboard", "Considering"}
+STRUCTURAL = {"Commander", "Sideboard", "Maybeboard", "Considering",
+              "Planar Deck", "Scheme Deck", "Attraction Deck"}
 
 
 def _json(raw, default):

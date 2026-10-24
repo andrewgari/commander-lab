@@ -38,7 +38,9 @@ import random
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+import transfer_metrics
 
 log = logging.getLogger("redis_pg_import")
 
@@ -61,6 +63,38 @@ ON CONFLICT (redis_key) DO UPDATE
        expires_at = EXCLUDED.expires_at, checksum = EXCLUDED.checksum, imported_at = now()
  WHERE t.checksum IS DISTINCT FROM EXCLUDED.checksum
 RETURNING (xmax = 0) AS inserted"""
+
+# --- deck_links typed import ---------------------------------------------
+DECKS_KEY = "decks"
+# Providers whose per-deck links are imported into the typed deck_links table.
+LINKABLE_PROVIDERS = ("archidekt", "moxfield")
+
+UPSERT_DECK_LINK = """
+INSERT INTO deck_links
+  (user_id, deck_id, provider, external_id, url, folder_id,
+   name_at_source, commander_at_source, match_method,
+   last_synced_at, upstream_missing_at, raw)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+ON CONFLICT (provider, external_id) DO UPDATE
+SET user_id = EXCLUDED.user_id,
+    deck_id = EXCLUDED.deck_id,
+    url = EXCLUDED.url,
+    folder_id = EXCLUDED.folder_id,
+    name_at_source = EXCLUDED.name_at_source,
+    commander_at_source = EXCLUDED.commander_at_source,
+    match_method = EXCLUDED.match_method,
+    last_synced_at = EXCLUDED.last_synced_at,
+    upstream_missing_at = EXCLUDED.upstream_missing_at,
+    raw = EXCLUDED.raw
+"""
+
+INSERT_USER = """
+INSERT INTO users (id, name, archidekt_user_id)
+VALUES (%s, %s, %s)
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+    archidekt_user_id = EXCLUDED.archidekt_user_id
+"""
 
 TRANSIENT_SQLSTATES = {"40001", "40P01", "08000", "08003", "08006", "57P01"}
 
@@ -132,7 +166,7 @@ def with_retry(fn, max_retries=3, base=0.5, sleep=time.sleep, on_retry=None):
     while True:
         try:
             return fn()
-        except Exception as e:  # noqa: BLE001 - classified below, otherwise re-raised
+        except Exception as e:
             if not is_transient(e) or attempt >= max_retries:
                 raise
             attempt += 1
@@ -144,6 +178,7 @@ def with_retry(fn, max_retries=3, base=0.5, sleep=time.sleep, on_retry=None):
 
 
 # ---------- sources ----------
+
 def _norm(v):
     """Make export values JSON-safe; base64 wrapper dicts from export are kept as-is."""
     return v
@@ -188,7 +223,108 @@ def records_from_redis(r):
         yield Record(key if isinstance(key, str) else key["__b64__"], t, v, ttl if ttl >= 0 else None)
 
 
+# ---------- deck_links import ----------
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _deck_link_row(deck: dict, provider: str, entry: dict, user_id: str, now: datetime) -> dict:
+    """Build one deck_links row from a registry deck and one of its provider links."""
+    return {
+        "user_id": user_id,
+        # registry id of the local deck; nullable for links whose local deck isn't registered yet
+        "deck_id": deck.get("registry_id"),
+        "provider": provider,
+        "external_id": entry.get("deck_id") or entry.get("identifier"),
+        "url": entry.get("identifier") or deck.get("url", ""),
+        "folder_id": deck.get("parent_folder_id"),
+        "name_at_source": deck.get("name", ""),
+        "commander_at_source": ", ".join(deck.get("commanders") or []),
+        "match_method": "registry_link",
+        "last_synced_at": now,
+        "upstream_missing_at": None,
+        "raw": entry,
+    }
+
+
+def ensure_user(conn, user_id: str, name: str = "Commander Lab", archidekt_user_id: str = "") -> None:
+    """Make sure the single lab user row exists (the cutover's anchor row)."""
+    with conn.transaction():
+        with conn.cursor() as cur:
+            cur.execute(INSERT_USER, (user_id, name, archidekt_user_id))
+
+
+def import_decks_from_records(conn, records, user_id: str | None,
+                              name: str = "Commander Lab",
+                              archidekt_user_id: str = "",
+                              now: datetime | None = None) -> int:
+    """Import the ``decks`` Redis key into ``deck_links`` (plus ``users``).
+
+    Every deck (any lifecycle status) is imported; each of its provider links
+    (archidekt / moxfield) becomes one deck_links row keyed by
+    ``(provider, external_id)``. Records other than ``decks`` become stub
+    rows (``deck_id`` NULL) so no key is lost (zero loss).
+    """
+    if now is None:
+        now = _now()
+    if not user_id:
+        return 0
+    decks = []
+    for rec in records:
+        if rec.key == DECKS_KEY:
+            try:
+                decks = json.loads(rec.value)
+            except (TypeError, ValueError):
+                decks = []
+            break
+    if not isinstance(decks, list):
+        decks = []
+    ensure_user(conn, user_id, name, archidekt_user_id)
+    rows = []
+    for deck in decks:
+        if not isinstance(deck, dict):
+            continue
+        links = deck.get("links") or {}
+        for provider, entry in links.items():
+            if provider not in LINKABLE_PROVIDERS:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            rows.append(_deck_link_row(deck, provider, entry, user_id, now))
+    # Orphan keys: every non-deck key becomes a stub link row (deck_id NULL).
+    for rec in records:
+        if rec.key == DECKS_KEY:
+            continue
+        rows.append({
+            "user_id": user_id,
+            "deck_id": None,
+            "provider": rec.key.split(":")[0] if ":" in rec.key else "orphan",
+            "external_id": rec.key,
+            "url": rec.key,
+            "folder_id": None,
+            "name_at_source": rec.key,
+            "commander_at_source": None,
+            "match_method": "orphan_stub",
+            "last_synced_at": now,
+            "upstream_missing_at": None,
+            "raw": {"key": rec.key, "type": rec.type, "value": rec.value},
+        })
+    with conn.transaction():
+        with conn.cursor() as cur:
+            for row in rows:
+                cur.execute(UPSERT_DECK_LINK, (
+                    row["user_id"], row["deck_id"], row["provider"], row["external_id"],
+                    row["url"], row["folder_id"], row["name_at_source"],
+                    row["commander_at_source"], row["match_method"],
+                    row["last_synced_at"], row["upstream_missing_at"],
+                    json.dumps(row["raw"], ensure_ascii=False),
+                ))
+    return len(rows)
+
+
 # ---------- load ----------
+
 def validate(rec: Record) -> None:
     if not rec.key or rec.type not in {"string", "hash", "list", "set", "zset", "stream"}:
         raise PermanentError(f"bad record {rec.key!r} type={rec.type!r}")
@@ -228,7 +364,7 @@ def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
                 exp = (now.timestamp() + rec.ttl_ms / 1000) if rec.ttl_ms else None
                 cur.execute(UPSERT, (rec.key, rec.type, json.dumps(rec.value, ensure_ascii=False),
                                      rec.ttl_ms,
-                                     datetime.fromtimestamp(exp, timezone.utc) if exp else None,
+                                     datetime.fromtimestamp(exp, UTC) if exp else None,
                                      rec.checksum))
                 row = cur.fetchone()
                 if row is None:
@@ -242,33 +378,59 @@ def _batch(conn, batch: list[Record], now: datetime) -> tuple[int, int, int]:
 
 
 def run_import(conn, records, batch_size=100, max_retries=3, dry_run=False,
-               skip_invalid=False, sleep=time.sleep) -> Summary:
+               skip_invalid=False, sleep=time.sleep, metrics=None) -> Summary:
+    m = metrics or transfer_metrics.get_metrics()
     s = Summary()
     good: list[Record] = []
-    for rec in records:
-        s.scanned += 1
-        try:
-            validate(rec)
-        except PermanentError as e:
-            if not skip_invalid:
+    ok = False
+    m.run_started()
+    try:
+        for rec in records:
+            s.scanned += 1
+            if not dry_run:
+                m.record_read()
+            try:
+                validate(rec)
+            except PermanentError as e:
+                if not dry_run:
+                    m.record_failure(1, "hash_mismatch" if isinstance(e, IntegrityError) else "validation")
+                if not skip_invalid:
+                    raise
+                s.rejected.append((rec.key, str(e)))
+                continue
+            good.append(rec)
+        if dry_run:
+            s.unchanged = 0
+            log.info("dry-run: %d records would be upserted", len(good))
+            return s
+        with_retry(lambda: _ensure_schema(conn), max_retries, sleep=sleep, on_retry=m.record_retry)
+
+        def on_retry():
+            s.retries += 1
+            m.record_retry()
+
+        now = datetime.now(UTC)
+        for i in range(0, len(good), batch_size):
+            chunk = good[i:i + batch_size]
+            t0 = time.monotonic()
+            try:
+                ins, upd, unch = with_retry(lambda chunk=chunk: _batch(conn, chunk, now), max_retries,
+                                            sleep=sleep, on_retry=on_retry)
+            except Exception as e:
+                m.record_failure(len(chunk), "hash_mismatch" if isinstance(e, IntegrityError)
+                                 else "validation" if isinstance(e, PermanentError) else "db_error",
+                                 batch=True)
+                m.observe_batch(time.monotonic() - t0)
                 raise
-            s.rejected.append((rec.key, str(e)))
-            continue
-        good.append(rec)
-    if dry_run:
-        s.unchanged = 0
-        log.info("dry-run: %d records would be upserted", len(good))
+            m.observe_batch(time.monotonic() - t0)
+            m.record_success(len(chunk), unch)  # only after the batch committed
+            s.inserted += ins
+            s.updated += upd
+            s.unchanged += unch
+        ok = not s.rejected
         return s
-    with_retry(lambda: _ensure_schema(conn), max_retries, sleep=sleep)
-    now = datetime.now(timezone.utc)
-    for i in range(0, len(good), batch_size):
-        chunk = good[i:i + batch_size]
-        ins, upd, unch = with_retry(lambda: _batch(conn, chunk, now), max_retries, sleep=sleep,
-                                    on_retry=lambda: setattr(s, "retries", s.retries + 1))
-        s.inserted += ins
-        s.updated += upd
-        s.unchanged += unch
-    return s
+    finally:
+        m.run_finished(ok)
 
 
 def _ensure_schema(conn):
@@ -302,11 +464,19 @@ def main(argv=None) -> int:
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-invalid", action="store_true")
     p.add_argument("--verify", action="store_true")
+    p.add_argument("--metrics-port", type=int, default=None,
+                   help="serve Prometheus /metrics on this port (or $TRANSFER_METRICS_PORT)")
+    # Cutover / deck import flags.
+    p.add_argument("--user-id", default=None, help="id of the single lab user (anchors deck_links)")
+    p.add_argument("--user-name", default="Commander Lab", help="display name for the user row")
+    p.add_argument("--user-archidekt-id", default="", dest="user_archidekt_id",
+                   help="Archidekt user id for the user row")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if not a.database_url and not a.dry_run:
         p.error("DATABASE_URL / --database-url required")
 
+    transfer_metrics.start_exporter(a.metrics_port)
     if a.from_export:
         recs = list(records_from_export(a.from_export))
     else:
@@ -323,6 +493,10 @@ def main(argv=None) -> int:
         log.info(s.line())
         for k, why in s.rejected:
             log.error("rejected %s: %s", k, why)
+        # Typed deck import (decks -> deck_links + users). No-op when --user-id is unset.
+        if a.user_id and conn is not None and not a.dry_run:
+            n = import_decks_from_records(conn, recs, a.user_id, a.user_name, a.user_archidekt_id)
+            log.info("imported %d deck links", n)
         if a.verify and not a.dry_run:
             bad = verify(conn, [r for r in recs if r.key not in {k for k, _ in s.rejected}])
             if bad:
@@ -331,6 +505,7 @@ def main(argv=None) -> int:
             log.info("verify OK")
         return 1 if s.rejected else 0
     finally:
+        transfer_metrics.push_if_configured()
         if conn:
             conn.close()
 
