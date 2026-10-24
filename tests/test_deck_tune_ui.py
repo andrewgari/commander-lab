@@ -155,6 +155,36 @@ class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
         self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
 
 
+CSS = TEMPLATE.replace("templates/deck_tune.html", "static/css/hud.css")
+
+
+class TestDismissedCutsUI(_TunePage, unittest.TestCase):
+    """DT-5: cut recommendations render red, each is dismissible per card, and
+    a dismissal is durable — dismissed cuts never re-flag."""
+
+    def test_cut_side_of_a_swap_renders_red(self):
+        with open(CSS, encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn(".hud-swap-out .hud-label { color: var(--danger);", css)
+        self.assertIn(".hud-swap-out .hud-card-name { color: var(--danger);", css)
+
+    def test_dismissed_rows_stay_marked_red_and_offer_undo(self):
+        with open(CSS, encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn(".tn-ignored .hud-card-name { color: var(--danger);", css)
+        self.assertIn('class="tn-ignored"', self.body)
+        self.assertIn('H.chip("ignored", "danger")', self.body)
+        self.assertIn("data-undismiss", self.body)
+
+    def test_dismissed_cuts_are_filtered_from_saved_snapshots(self):
+        self.assertIn("dismissed.indexOf(s.cut.name) === -1", self.body)
+        self.assertIn("w.dismissed = true; w.has_swap = false", self.body)
+
+    def test_undismiss_handler_clears_the_durable_flag(self):
+        self.assertIn("function undismissCut(name)", self.body)
+        self.assertIn('send("PUT", "/tune/decisions", { cut: name, decision: null, add: null })', self.body)
+
+
 class TestTuneStateAPI(unittest.TestCase):
     def setUp(self):
         self.fake = FakeRedis()
@@ -180,6 +210,15 @@ class TestTuneStateAPI(unittest.TestCase):
 
     def test_state_unknown_deck_404(self):
         self.assertEqual(self.client.get("/api/decks/archidekt:999/tune/state").status_code, 404)
+
+    # DT-5: dismissal is durable and exposed on the state route; undo clears it.
+    def test_state_returns_durable_dismissals(self):
+        base = "/api/decks/archidekt:417707/tune"
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": "dismissed"})
+        j = self.client.get(base + "/state").json()
+        self.assertEqual(j["dismissed"], ["Weak Plan"])
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": None})
+        self.assertEqual(self.client.get(base + "/state").json()["dismissed"], [])
 
 
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
