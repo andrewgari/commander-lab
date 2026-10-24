@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deck page navigation is now a ten-tab workflow — Overview, Manage, Tune, Stats, Identity, Primer, Journal, Ideas, Review, Simulate — in the order you actually work a deck, with number-key shortcuts (1-9, 0) to jump between tabs and a `?` legend overlay that lists every shortcut. Manage is now a full tab instead of a header button, the Primer has its own tab with a dedicated reading page (it no longer appears inside the Overview's Briefing), and the Composition view has moved into the Stats tab as a full-width section — the old Composition address now permanently redirects to Stats.
+
 ### Added
 - Deck Tuner: the change list now has two save paths. "Save for later" stores the tune-up as a draft you can reload or discard, and changes no cards or inventory. "Save to deck" performs the swap: cut cards go back to your collection as unused, added cards are marked as in this deck (cards you don't own yet are flagged still to buy), and you are then offered to update the linked Moxfield and Archidekt decks.
 - Archetype editor: a Draft/Enhance button beside the Description field drafts a 2-4 sentence description for an empty field or improves your existing text; the result fills the field but nothing saves until you hit Save. Drafts that name a specific card or state a hard count are rejected with a plain message, and the button reports "unavailable" when no AI model is configured.
