@@ -3645,14 +3645,67 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     from analytics.interactions.llm import default_chain
     out = await asyncio.to_thread(tuner_mod.generate_prose, r, deck, tune, default_chain(),
                                   tuner_mod.prose_context(r, deck))
+    # DT-7: every saved recommendation entry ends up with an id and an explanation
+    # (LLM prose when it answered, else the deterministic reason from the numbers).
+    rec = await asyncio.to_thread(tuner_mod.sync_entries, r, deck, tune)
+    entries = tuner_mod.rec_entries(rec) if rec else []
     return JSONResponse(status_code=200 if out["llm"]["status"] in ("ok", "cached") else 502,
-                        content={"success": out["llm"]["status"] in ("ok", "cached"), **out, "tune": tune})
+                        content={"success": out["llm"]["status"] in ("ok", "cached"), **out, "tune": tune,
+                                 "entries": entries})
+
+
+@app.post("/api/decks/{deck_id}/tune/reconsider")
+async def api_deck_tune_reconsider(deck_id: str, request: Request):
+    """DT-7 'Reconsider' (overlay spec §3.3): the recommendation stands its ground
+    but responds reasonably. Body: {"cut": name}. The response is stored on the
+    recommendation entry, so asking again is a cache hit. Always 200 with the
+    deterministic fallback when no LLM is configured; 404 when the deck has no
+    saved recommendation or no open entry for that cut."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    cut = (body or {}).get("cut") if isinstance(body, dict) else None
+    if not isinstance(cut, str) or not cut.strip():
+        return _bad_request(tuner_mod.TunerError("cut is required"))
+    from analytics.interactions.llm import default_chain
+    try:
+        out = await asyncio.to_thread(tuner_mod.reconsider, r, deck, cut.strip(), default_chain(),
+                                      tuner_mod.prose_context(r, deck))
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc, 404)
+    return {"success": True, **out}
+
+
+@app.post("/api/decks/{deck_id}/tune/alternative")
+async def api_deck_tune_alternative(deck_id: str, request: Request):
+    """DT-7 'recommend something else for this slot' (overlay spec §3.3). Body:
+    {"cut": name}. The current cut->add entry is marked `ignored` (kept in the
+    payload's entry_log, never suggested again this review) and replaced by the
+    next-best candidate for the same slot under a new entry id. Returns
+    {"alternative": null, "message": ...} when nothing else clears the bar (no
+    state changes in that case)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    cut = (body or {}).get("cut") if isinstance(body, dict) else None
+    if not isinstance(cut, str) or not cut.strip():
+        return _bad_request(tuner_mod.TunerError("cut is required"))
+    from analytics.interactions.llm import default_chain
+    try:
+        out = await asyncio.to_thread(tuner_mod.alternative, r, deck, cut.strip(), default_chain(),
+                                      tuner_mod.prose_context(r, deck))
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc, 404)
+    return {"success": True, **out}
 
 
 @app.put("/api/decks/{deck_id}/tune/decisions")
 async def api_deck_tune_decide(deck_id: str, request: Request):
-    """{"cut": name, "decision": "own"|"buy"|"dismissed"|null, "add": name}. Decisions
-    last until the next finished review."""
+    """{"cut": name, "decision": "own"|"buy"|"dismissed"|"ignored"|null, "add": name}.
+    "ignored" (DT-7) rejects one cut->add pair for the rest of the review; the slot
+    stays open with its next-best option. Decisions last until the next finished review."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
