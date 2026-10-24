@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Decks now have named card slots: alongside Commander and the main 99, a deck can carry a Maybeboard, a Considering list, a Planar deck (Planechase), a Scheme deck (Archenemy) and an Attraction deck (Unfinity), synced from Archidekt and Moxfield and understood by the decklist paste/import parser.
+
+### Changed
+- **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
+
 ### Fixed
 - Archetypes: a bullet or numbered list typed directly after an intro line (e.g. "Key engines:" then "- item") now renders as a real list in the description preview and registry list, instead of showing literal dashes.
 - Composition Presets and Deck Composition: the category suggestion list no longer covers the "Add category target" / "Add override" buttons.
