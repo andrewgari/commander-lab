@@ -31,7 +31,17 @@ META = [
 SPIRIT = {"confirmed": True, "thesis": "Goblins go wide.", "vision": "Chaos at the table.", "pillars": [
     {"name": "Go wide", "description": "Make more bodies than they have removal."}],
     "pets": ["Goblin Chieftain"], "novelties": "", "wincons": ["combat"], "genre": {}}
-OLD_PRIMER = "## Overview\nGoblins.\n\n## Game Plan\nGo wide.\n\n## Weaknesses\nWipes."
+OLD_PRIMER = ("## Overview\n"
+              "Goblin Party is a mono-red goblin tribal deck led by Krenko, Mob Boss. It floods the board with cheap "
+              "goblins and token makers, then turns the whole horde sideways. Goblin Chieftain pumps the team, and "
+              "Blasphemous Act resets the table when things get out of hand.\n\n"
+              "## Game Plan\n"
+              "Go wide early with one- and two-mana goblins, land Krenko, Mob Boss on turn four, and attack to double "
+              "the board. Goblin Chieftain gives haste and an anthem, so the same turn Krenko lands the deck can swing "
+              "for real damage. In the late game, keep Krenko protected and activate him again for a lethal swarm.\n\n"
+              "## Weaknesses\n"
+              "Board wipes are the big problem; Blasphemous Act is symmetrical, so hold back a haste enabler before "
+              "casting it. Repeated spot removal on Krenko, Mob Boss slows the deck to a crawl.")
 
 
 class Fake:
@@ -98,7 +108,14 @@ def test_unknown_section_still_rejected():
 
 
 def test_table_talk_rule_and_empty_table_facts():
-    ask = Fake("## Overview\nx\n\n## Table Talk\nNo stax, MLD, extra turns, or infinites detected.")
+    ask = Fake("## Overview\n"
+               "Goblin Party is a mono-red goblin tribal deck led by Krenko, Mob Boss. It goes wide with cheap "
+               "goblins, pumps the team with Goblin Chieftain, and attacks every turn to pressure the table. "
+               "Blasphemous Act is the reset button when an opponent pulls ahead. The deck mulligans "
+               "aggressively for a fast start with early token makers, then curves into the commander and "
+               "doubles the board with every attack step through the mid and late game.\n\n"
+               "## Table Talk\n"
+               "No stax, MLD, extra turns, or infinites detected.")
     out = generate_primer(DECK, META, ask, {"theme": "a", "game_plan": "b"}, table_facts={"facts": [], "combos": [],
                                                                                          "combos_checked": True})
     system, user = ask.calls[0]
@@ -146,7 +163,12 @@ def test_description_trimmed_to_280_chars_at_sentence_boundary():
 
 def test_warns_on_cards_not_in_deck():
     reply = ("## Overview\n**Goblin Chieftain** and **Black Lotus** and [[Sol Ring]].\n**Early:** go.\n"
-             '<span data-card="Krenko, Mob Boss">k</span>')
+             '<span data-card="Krenko, Mob Boss">k</span>'
+             " The deck goes wide with tokens and attacks every turn. The commander doubles the board when it "
+             "attacks, and the anthem effect makes each token hit harder. Mulligan aggressively for a fast start, "
+             "deploy early token makers, and protect the commander from spot removal so the swarm keeps growing "
+             "through the mid game. When the table stabilizes, hold back a few bodies so a single sweeper does "
+             "not end the pressure, and rebuild behind haste enablers.")
     out = generate_primer(DECK, META, Fake(reply), {"theme": "a", "game_plan": "b"})
     assert "Card mentioned in writeup not found in this deck: Black Lotus" in out["warnings"]
     assert "Card mentioned in writeup not found in this deck: Sol Ring" in out["warnings"]
@@ -156,7 +178,15 @@ def test_warns_on_cards_not_in_deck():
 # ---- wizard generation -------------------------------------------------------------------------------------
 
 def test_wizard_answers_blank_ok_and_keep_is_preserved():
-    reply = "## Overview\nGoblins!\n\n## Game plan\nGo wide.\n\n## Table talk\nNone."
+    reply = ("## Overview\n"
+             "Goblins! Goblin Party is a mono-red tribal deck that floods the board with cheap goblins and token "
+             "makers, then turns the horde sideways behind anthem effects. It wants to pressure the table from "
+             "turn one and never let up.\n\n"
+             "## Game plan\n"
+             "Go wide. Deploy one- and two-mana goblins, land the commander on curve, and attack to double the "
+             "board. Keep making tokens through the mid game and force opponents to have sweepers or fall behind.\n\n"
+             "## Table talk\n"
+             "None. No stax, MLD, extra turns, or infinites detected.")
     ask = Fake(reply)
     form, whys, facts, bracket = service.answers_to_form({"pitch": "", "cards": [
         {"name": "Goblin Chieftain", "on": True, "why": "Anthem"}], "facts": ["gc"], "bracket": 3})
@@ -172,7 +202,14 @@ def test_wizard_answers_blank_ok_and_keep_is_preserved():
 
 
 def test_wizard_ignores_sections_the_model_wrote_that_are_locked_or_off():
-    reply = "## Overview\nNew.\n\n## Key cards\nRewritten.\n\n## Mulligan & piloting\nOff."
+    reply = ("## Overview\n"
+             "New. Goblin Party is a mono-red goblin tribal deck led by Krenko, Mob Boss. It floods the board with "
+             "cheap goblins and token makers, then turns the whole horde sideways behind anthem effects. The deck "
+             "pressures the table from the first turns and rebuilds quickly after a single sweeper, asking every "
+             "opponent to have an answer or fall too far behind to catch up. Blasphemous Act is the reset button "
+             "when another deck pulls ahead, and haste enablers let the swarm matter the turn it lands.\n\n"
+             "## Key cards\nRewritten.\n\n"
+             "## Mulligan & piloting\nOff.")
     out = generate_primer(DECK, META, Fake(reply), {}, wizard=True, sections=["overview", "cards"],
                           keep={"cards": "<p>Mine</p>"})
     assert [(s["id"], s.get("kept", False)) for s in out["sections"]] == [("overview", False), ("cards", True)]
@@ -239,7 +276,14 @@ def test_identity_bracket_and_spirit_wired_through_handler(env):
 
 def test_wizard_generate_endpoint_sections_description_and_staging(env):
     fake, client = env
-    reply = "## Overview\nGoblins at **Goblin Chieftain** speed.\n\n## Game plan\nGo wide."
+    reply = ("## Overview\n"
+             "Goblins at **Goblin Chieftain** speed. Goblin Party is a mono-red tribal deck that floods the "
+             "board with cheap goblins and token makers, then turns the whole horde sideways. The anthem effect "
+             "makes every body hit harder, and the commander doubles the board each time it attacks, so the "
+             "deck can go from an empty board to lethal in a single combat step.\n\n"
+             "## Game plan\n"
+             "Go wide early, curve into the commander, and attack every turn. Keep deploying token makers "
+             "through the mid game and force opponents to have repeated sweepers or fall behind.")
     body = {"answers": {"pitch": "", "early": "Cast **Black Lotus**", "cards": []},
             "options": {"length": "brief", "voice": "playful", "sections": ["overview", "plan"], "description": True},
             "keep": {"mull": "<p onclick=x>Kept</p>"}}
