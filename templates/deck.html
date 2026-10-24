@@ -69,7 +69,7 @@
 
 {% block content %}
 {% call dh.header(head, tab) %}
-    <button type="button" class="hud-btn" onclick="reviewDeck()">Review</button>
+    <button type="button" class="hud-btn" onclick="reviewDeck()">Check in</button>
     <button type="button" class="hud-btn hud-btn--danger" id="decommissionBtn" hidden onclick="openDecommissionDialog()">Decommission</button>
     <button type="button" class="hud-btn" id="reconstructBtn" hidden onclick="openReconstructDialog()">Reconstruct</button>
 {% endcall %}
@@ -248,10 +248,10 @@
 <div id="cardReviewModal" class="hud-modal hud-cr-modal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="crTitle">
         <header class="hud-panel-head">
-            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Card review</h3>
+            <h3 class="hud-panel-title" id="crTitle" data-cr-title>Quick look</h3>
             <div class="hud-panel-meta">
                 <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-cr="back">← Card detail</button>
-                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close review">Close ✕</button>
+                <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-close aria-label="Close quick look">Close ✕</button>
             </div>
         </header>
         <p class="hud-cr-sr" role="status" aria-live="polite" data-cr-live></p>
@@ -855,7 +855,7 @@
             ? 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your want/buy list.'
             : 'Two sides argue keep versus remove. If it\u2019s a remove, you get replacements for your Tune change list.';
         return `<div class="hud-cr-detail-actions">
-            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Review card <span class="hud-kbd">R</span></button>
+            <button type="button" class="hud-btn hud-btn--primary" data-review-card="${index}"${block ? ' aria-disabled="true"' : ''} aria-describedby="crWhy">Quick look <span class="hud-kbd">R</span></button>
             <p class="hud-cr-why" id="crWhy">${esc(why)}</p>
         </div>`;
     }
