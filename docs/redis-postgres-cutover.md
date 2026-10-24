@@ -72,5 +72,5 @@ Redis stays a **read-only** fallback. **No Redis key is ever deleted.**
   `github_latest_version_stale`, `interactions:runs`) — matches
   `docs/redis-postgres-blockers.md`; no unmapped patterns.
 - Verifier **exit 0** on the prod export (report committed).
-- Verifier **exit 1** when a `deck_links.url` was deliberately tampered
+- Verifier **exit 1** when a `deck_links.url` (registry link or orphan stub), an orphan stub`'s `raw` value, or a `redis_import` value was deliberately tampered
   (negative test, synthetic database).

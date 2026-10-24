@@ -80,7 +80,7 @@ def run_checks(conn, records, user_id: str, sample_size: int, seed: int) -> list
     checks: list[Check] = []
 
     # 1. schema ------------------------------------------------------------
-    c = Check("schema: users, deck_links, redis_import exist")
+    c = Check("schema: users + deck_links + landing tables exist")
     with conn.cursor() as cur:
         cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
         tables = {r[0] for r in cur.fetchall()}
@@ -189,18 +189,38 @@ def run_checks(conn, records, user_id: str, sample_size: int, seed: int) -> list
     checks.append(c)
 
     # 7. orphan mapping ------------------------------------------------------
-    c = Check("deck_links: orphan stub for every non-decks export key")
-    orphan_keys = [r.key for r in records if r.key != imp.DECKS_KEY]
+    c = Check("deck_links: orphan stub for every non-decks export key (content byte-equal)")
+    orphans = {r.key: r for r in records if r.key != imp.DECKS_KEY}
     with conn.cursor() as cur:
-        cur.execute("SELECT external_id, deck_id, raw->>'key' FROM deck_links "
-                    "WHERE match_method='orphan_stub'")
-        stubs = {e: (d, rk) for e, d, rk in cur.fetchall()}
-    bad = [k for k in orphan_keys
-           if k not in stubs or stubs[k][0] is not None or stubs[k][1] != k]
+        cur.execute("SELECT external_id, deck_id, provider, url, name_at_source, raw "
+                    "FROM deck_links WHERE match_method='orphan_stub'")
+        stubs = {e: (d, p, u, n, raw) for e, d, p, u, n, raw in cur.fetchall()}
+    bad = []
+    for k, rec in orphans.items():
+        stub = stubs.get(k)
+        if stub is None:
+            bad.append(f"{k}: stub missing")
+            continue
+        deck_id, provider, url, name, raw = stub
+        exp_provider = k.split(":")[0] if ":" in k else "orphan"
+        if deck_id is not None:
+            bad.append(f"{k}: deck_id {deck_id!r} not NULL")
+        if provider != exp_provider:
+            bad.append(f"{k}: provider {provider!r} != {exp_provider!r}")
+        if url != k:
+            bad.append(f"{k}: url {url!r} != {k!r}")
+        if name != k:
+            bad.append(f"{k}: name_at_source {name!r} != {k!r}")
+        if not isinstance(raw, dict) or raw.get("key") != k or raw.get("type") != rec.type \
+                or raw.get("value") != rec.value:
+            bad.append(f"{k}: raw JSONB does not hold the original key/type/value")
     if bad:
-        c.fail(f"{len(bad)} keys without a proper stub: {bad}")
+        for m in bad[:20]:
+            c.fail(m)
+        if len(bad) > 20:
+            c.fail(f"... and {len(bad) - 20} more")
     else:
-        c.info(f"{len(orphan_keys)} orphan keys stubbed (deck_id NULL, raw.key round-trips)")
+        c.info(f"{len(orphans)} orphan keys stubbed; url/name/provider/raw content byte-equal")
     checks.append(c)
 
     # 8. random sample -------------------------------------------------------
@@ -226,8 +246,15 @@ def run_checks(conn, records, user_id: str, sample_size: int, seed: int) -> list
         links_before = cur.fetchone()[0]
         cur.execute("SELECT count(*) FROM redis_import")
         import_before = cur.fetchone()[0]
-    s2 = imp.run_import(conn, list(records), dry_run=False, skip_invalid=False)
-    imp.import_decks_from_records(conn, list(records), user_id)
+    try:
+        s2 = imp.run_import(conn, list(records), dry_run=False, skip_invalid=False)
+        imp.import_decks_from_records(conn, list(records), user_id)
+    except Exception as e:
+        # A tampered redis_import value raises IntegrityError here; that must
+        # surface as a failed check, not crash the verifier before the report.
+        c.fail(f"second import raised {type(e).__name__}: {e}")
+        checks.append(c)
+        return checks
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM deck_links")
         links_after = cur.fetchone()[0]
