@@ -18,9 +18,10 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+from deck_slots import DeckSlot
 from deck_validator import (
     COLORS, COMMANDER_BANNED, DECK_SIZE, BASIC_LAND_NAMES, CardCatalog, DraftCard,
-    DraftDeck, _allowed_copies, _is_int, normalize_name,
+    DraftDeck, _allowed_copies, _is_int, normalize_name, slot_gate,
 )
 
 _COLOR_TO_BASIC = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
@@ -29,7 +30,9 @@ Repair = Tuple[DraftDeck, List[str]]
 
 
 def _clone(deck: DraftDeck, cards: List[DraftCard]) -> DraftDeck:
-    return DraftDeck(commanders=list(deck.commanders), cards=cards, name=deck.name)
+    # Repair only ever rewrites the mainboard; named slots pass through.
+    return DraftDeck(commanders=list(deck.commanders), cards=cards, name=deck.name,
+                     slots={slot: list(entries) for slot, entries in deck.slots.items()})
 
 
 def _identity(deck: DraftDeck, catalog: CardCatalog) -> frozenset:
@@ -61,6 +64,8 @@ def drop_invalid_cards(deck: DraftDeck, catalog: CardCatalog) -> Repair:
             reason = "banned in Commander"
         elif info.commander_legality is None:
             reason = "legality unknown (card record needs re-sync)"
+        elif not slot_gate(info, DeckSlot.MAINBOARD).legal:
+            reason = slot_gate(info, DeckSlot.MAINBOARD).reason
         if reason:
             actions.append(f"removed {card.name} x{card.quantity}: {reason}")
         else:
