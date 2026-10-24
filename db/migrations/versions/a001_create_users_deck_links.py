@@ -6,7 +6,10 @@ during development, and to a fresh PostgreSQL deploy alike.
 """
 from __future__ import annotations
 
-from alembic import op
+# NOTE: alembic is imported lazily inside upgrade()/downgrade() so this module
+# doubles as a plain DDL source (USERS_DDL / DECK_LINKS_DDL / ...) for the
+# importer, the cutover verifier and tests in environments where alembic is
+# not installed (e.g. CI unit-test job, which installs requirements.txt only).
 
 # --- users ---------------------------------------------------------------
 USERS_DDL = """
@@ -61,6 +64,8 @@ down_revision = None
 
 
 def upgrade() -> None:
+    from alembic import op
+
     op.execute(USERS_DDL)
     op.execute(DECK_LINKS_DDL)
     op.execute(COMPOSITION_PRESETS_DDL)
@@ -68,6 +73,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    from alembic import op
+
     op.execute("DROP TABLE IF EXISTS deck_links")
     op.execute("DROP TABLE IF EXISTS users")
 
