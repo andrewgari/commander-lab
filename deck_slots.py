@@ -218,9 +218,16 @@ def normalize_slots(raw: Optional[Mapping[str, Any]]) -> Dict[str, List[Dict[str
             slot = DeckSlot.MAYBEBOARD
         for entry in entries or []:
             if isinstance(entry, Mapping) and entry.get("name"):
-                slots[slot].append(
-                    {"name": entry["name"], "quantity": int(entry.get("quantity") or 1)}
-                )
+                row: Dict[str, Any] = {
+                    "name": entry["name"],
+                    "quantity": int(entry.get("quantity") or 1),
+                }
+                # Preserve provenance markers (e.g. remapped_from=sideboard)
+                # so the confirmable sideboard->maybeboard default survives
+                # serialization round-trips.
+                if entry.get("remapped_from"):
+                    row["remapped_from"] = entry["remapped_from"]
+                slots[slot].append(row)
     return slots
 
 

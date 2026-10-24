@@ -141,7 +141,7 @@ def _fetch_one(provider: str, deck_id: str) -> dict:
 def merge_normalized_decks(fetched: dict) -> tuple:
     """Merge `fetched` (provider -> normalized deck dict, successes only)
     into one cardlist. Returns (cards, commanders, commander_uids, color,
-    conflicts) where conflicts is a list[CardConflict].
+    conflicts, slots, parse_flags) where conflicts is a list[CardConflict].
 
     Merge strategy: union of card names; quantity = max across sources.
     commander_uids: index-aligned with commanders (one printing per name,
