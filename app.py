@@ -53,6 +53,7 @@ from analytics import journal as journal_mod
 import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import tune_store
+from analytics import tune_save
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
@@ -3679,6 +3680,101 @@ async def api_deck_tune_adds(deck_id: str, request: Request):
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "state": st}
+
+
+# -- Tune dual save (DT-2): "for later" draft vs "save to deck" swap ------------------------
+
+@app.post("/api/decks/{deck_id}/tune/drafts")
+async def api_deck_tune_draft_save(deck_id: str, request: Request):
+    """SAVE FOR LATER. Body {swaps:[{cut,add,source}], cuts:[name], adds:[{name,qty,source}],
+    label}. Stores a revisitable draft; changes NO inventory instance or decklist."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    try:
+        rec = await asyncio.to_thread(tune_save.save_draft, r, tune_store.deck_key(deck), body,
+                                      (body or {}).get("label", "") if isinstance(body, dict) else "")
+    except tune_save.TuneSaveError as exc:
+        return _bad_request(exc)
+    return {"success": True, "draft": rec}
+
+
+@app.get("/api/decks/{deck_id}/tune/drafts")
+async def api_deck_tune_drafts(deck_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    drafts = await asyncio.to_thread(tune_save.list_drafts, r, tune_store.deck_key(deck))
+    return {"success": True, "drafts": drafts}
+
+
+@app.get("/api/decks/{deck_id}/tune/drafts/{draft_id}")
+async def api_deck_tune_draft(deck_id: str, draft_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = await asyncio.to_thread(tune_save.get_draft, r, tune_store.deck_key(deck), draft_id)
+    if not rec:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+    return {"success": True, "draft": rec}
+
+
+@app.delete("/api/decks/{deck_id}/tune/drafts/{draft_id}")
+async def api_deck_tune_draft_discard(deck_id: str, draft_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        rec = await asyncio.to_thread(tune_save.discard_draft, r, tune_store.deck_key(deck), draft_id)
+    except KeyError:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+    return {"success": True, "draft": rec}
+
+
+@app.post("/api/decks/{deck_id}/tune/apply")
+async def api_deck_tune_apply(deck_id: str, request: Request):
+    """SAVE TO DECK. Body {draft_id} (apply a saved draft) or an inline tune-up (same shape as
+    the drafts body). Cut cards return to the collection as unused, added cards are marked
+    in-deck (to_buy when no unused copy exists), the decklist is updated, and the response
+    carries `external` (per-provider Update/Push status) so the UI can offer to update
+    Moxfield / Archidekt. Pushing stays an explicit follow-up: POST /sync/push."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(tune_save.TuneSaveError("Body must be a JSON object."))
+    key = tune_store.deck_key(deck)
+    draft_id = body.get("draft_id")
+    try:
+        if draft_id:
+            draft = await asyncio.to_thread(tune_save.get_draft, r, key, draft_id)
+            if not draft:
+                return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+            if draft["status"] != tune_save.DRAFT:
+                return JSONResponse(status_code=409, content={"success": False, "error": f"Draft is already {draft['status']}"})
+            tune = tune_save.normalize(draft)
+        else:
+            tune = tune_save.normalize(body)
+        result = await asyncio.to_thread(tune_save.apply_to_deck, r, deck, tune)
+    except tune_save.TuneSaveError as exc:
+        return _bad_request(exc)
+    except InstanceError as exc:
+        return _bad_request(exc)
+    if draft_id:
+        await asyncio.to_thread(tune_save.mark_applied, r, key, draft_id, result)
+    # The swap is now real: the accepted decisions / extra adds were consumed.
+    await asyncio.to_thread(tuner_mod._save_state, r, deck, {"review_id": tuner_mod.load_state(r, deck).get("review_id"), "decisions": {}, "adds": []})
+    rid = registry.registry_id_of(deck)
+    interactions_service.start_rebuild(r, trigger="sync", deck_ids=[rid])
+    _wake_bracket_worker(rid)
+    try:
+        external = (await asyncio.to_thread(deck_sync.sync_status, r, rid))["providers"]
+    except DeckSyncError:
+        external = []
+    return {"success": True, "applied": result, "draft_id": draft_id, "external": external,
+            "prompt_update_external": True}
 
 
 # ---------------------------------------------------------------------------
