@@ -65,17 +65,22 @@ Sideboard
         self.assertEqual(deck.mainboard[2]["name"], "Boseiju, Who Endures")
         self.assertEqual(deck.mainboard[2]["quantity"], 1)
 
-        # Sideboard section
-        self.assertEqual(len(deck.sideboard), 2)
-        self.assertEqual(deck.sideboard[0]["name"], "Heroic Intervention")
-        self.assertEqual(deck.sideboard[0]["section"], "sideboard")
-        self.assertEqual(deck.sideboard[0]["set_code"], "M21")
-        self.assertEqual(deck.sideboard[0]["collector_number"], "164")
+        # Sideboard section: remapped to Maybeboard (removed concept), flagged
+        self.assertEqual(len(deck.maybeboard), 2)
+        self.assertEqual(deck.maybeboard[0]["name"], "Heroic Intervention")
+        self.assertEqual(deck.maybeboard[0]["section"], "maybeboard")
+        self.assertEqual(deck.maybeboard[0]["remapped_from"], "sideboard")
+        self.assertEqual(deck.maybeboard[0]["set_code"], "M21")
+        self.assertEqual(deck.maybeboard[0]["collector_number"], "164")
 
-        self.assertEqual(deck.sideboard[1]["name"], "Swords to Plowshares")
-        self.assertEqual(deck.sideboard[1]["section"], "sideboard")
-        self.assertEqual(deck.sideboard[1]["set_code"], "STA")
-        self.assertEqual(deck.sideboard[1]["collector_number"], "10")
+        self.assertEqual(deck.maybeboard[1]["name"], "Swords to Plowshares")
+        self.assertEqual(deck.maybeboard[1]["section"], "maybeboard")
+        self.assertEqual(deck.maybeboard[1]["set_code"], "STA")
+        self.assertEqual(deck.maybeboard[1]["collector_number"], "10")
+
+        self.assertIn("sideboard_mapped_to_maybeboard", deck.parse_flags)
+        # Deprecated alias still resolves to the maybeboard
+        self.assertEqual(deck.sideboard, deck.maybeboard)
 
     def test_arena_with_foil_and_collector_variations(self):
         text = """
@@ -184,10 +189,12 @@ SB: 1 Pyroblast
         self.assertEqual(len(deck.mainboard), 2)
         self.assertEqual([c["name"] for c in deck.mainboard], ["Sol Ring", "Demonic Tutor"])
 
-        self.assertEqual(len(deck.sideboard), 3)
-        self.assertEqual([c["name"] for c in deck.sideboard], ["Red Elemental Blast", "Pyroblast", "Veil of Summer"])
-        for c in deck.sideboard:
-            self.assertEqual(c["section"], "sideboard")
+        self.assertEqual(len(deck.maybeboard), 3)
+        self.assertEqual([c["name"] for c in deck.maybeboard], ["Red Elemental Blast", "Pyroblast", "Veil of Summer"])
+        for c in deck.maybeboard:
+            self.assertEqual(c["section"], "maybeboard")
+            self.assertEqual(c["remapped_from"], "sideboard")
+        self.assertIn("sideboard_mapped_to_maybeboard", deck.parse_flags)
 
     def test_mtgo_sb_prefix_in_unsectioned_list(self):
         text = """
@@ -359,7 +366,10 @@ CMDR: 1 The Ur-Dragon
         self.assertEqual(cmdr["section"], "commander")
 
 
-class TestSideboardSeparation(unittest.TestCase):
+class TestSideboardRemap(unittest.TestCase):
+    """The Sideboard concept is removed: Sideboard input remaps to the
+    Maybeboard slot and is flagged on the parse result (confirmable default)."""
+
     def test_sideboard_header_and_cards(self):
         text = """
 Deck
@@ -371,10 +381,12 @@ Sideboard
 """
         deck = parse_decklist(text)
         self.assertEqual(len(deck.mainboard), 1)
-        self.assertEqual(len(deck.sideboard), 2)
-        self.assertEqual([c["name"] for c in deck.sideboard], ["Flusterstorm", "Red Elemental Blast"])
-        for c in deck.sideboard:
-            self.assertEqual(c["section"], "sideboard")
+        self.assertEqual(len(deck.maybeboard), 2)
+        self.assertEqual([c["name"] for c in deck.maybeboard], ["Flusterstorm", "Red Elemental Blast"])
+        for c in deck.maybeboard:
+            self.assertEqual(c["section"], "maybeboard")
+            self.assertEqual(c["remapped_from"], "sideboard")
+        self.assertIn("sideboard_mapped_to_maybeboard", deck.parse_flags)
 
     def test_sideboard_tags_inline(self):
         text = """
@@ -384,8 +396,130 @@ Sideboard
 """
         deck = parse_decklist(text)
         self.assertEqual(len(deck.mainboard), 1)
-        self.assertEqual(len(deck.sideboard), 2)
-        self.assertEqual([c["name"] for c in deck.sideboard], ["Flusterstorm", "Red Elemental Blast"])
+        self.assertEqual(len(deck.maybeboard), 2)
+        self.assertEqual([c["name"] for c in deck.maybeboard], ["Flusterstorm", "Red Elemental Blast"])
+        self.assertIn("sideboard_mapped_to_maybeboard", deck.parse_flags)
+
+    def test_explicit_maybeboard_section_is_not_flagged(self):
+        text = """
+Deck
+1 Sol Ring
+
+Maybeboard
+1 Flusterstorm
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.maybeboard), 1)
+        self.assertEqual(deck.maybeboard[0]["section"], "maybeboard")
+        self.assertNotIn("remapped_from", deck.maybeboard[0])
+        self.assertEqual(deck.parse_flags, [])
+
+
+class TestVariantDeckSlots(unittest.TestCase):
+    """Planar / scheme / attraction sections map onto their named slots."""
+
+    def test_planar_deck_section(self):
+        text = """
+Commander
+1 Missy
+
+Deck
+1 Sol Ring
+
+Planar Deck
+1 The Abyssal Plane
+1 Stairs to Infinity
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.mainboard), 1)
+        self.assertEqual(len(deck.planar_deck), 2)
+        self.assertEqual(
+            [c["name"] for c in deck.planar_deck],
+            ["The Abyssal Plane", "Stairs to Infinity"],
+        )
+        for c in deck.planar_deck:
+            self.assertEqual(c["section"], "planar_deck")
+        self.assertEqual(deck.parse_flags, [])
+
+    def test_planechase_header_alias(self):
+        deck = parse_decklist("// Planechase\n1 The Abyssal Plane\n")
+        self.assertEqual(len(deck.planar_deck), 1)
+        self.assertEqual(deck.planar_deck[0]["name"], "The Abyssal Plane")
+
+    def test_scheme_deck_section(self):
+        text = """
+Scheme Deck
+1 Plots That Span Centuries
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.scheme_deck), 1)
+        self.assertEqual(deck.scheme_deck[0]["section"], "scheme_deck")
+
+    def test_archenemy_header_alias(self):
+        deck = parse_decklist("Archenemy\n1 Plots That Span Centuries\n")
+        self.assertEqual(len(deck.scheme_deck), 1)
+
+    def test_attraction_deck_section(self):
+        text = """
+Commander
+1 The Most Dangerous Gamer
+
+Deck
+1 Sol Ring
+
+Attraction Deck
+1 Balloon Stand
+1 Guess Your Fate
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.attraction_deck), 2)
+        self.assertEqual(
+            [c["name"] for c in deck.attraction_deck],
+            ["Balloon Stand", "Guess Your Fate"],
+        )
+        for c in deck.attraction_deck:
+            self.assertEqual(c["section"], "attraction_deck")
+
+    def test_attractions_header_alias(self):
+        deck = parse_decklist("Attractions\n1 Balloon Stand\n")
+        self.assertEqual(len(deck.attraction_deck), 1)
+
+    def test_considering_section(self):
+        deck = parse_decklist("Considering\n1 Rhystic Study\n")
+        self.assertEqual(len(deck.considering), 1)
+        self.assertEqual(deck.considering[0]["section"], "considering")
+
+    def test_inline_variant_prefixes(self):
+        text = """
+1 Sol Ring
+Planar Deck: 1 The Abyssal Plane
+Schemes: 1 Plots That Span Centuries
+Attractions: 1 Balloon Stand
+Maybeboard: 1 Flusterstorm
+Considering: 1 Rhystic Study
+"""
+        deck = parse_decklist(text)
+        self.assertEqual(len(deck.mainboard), 1)
+        self.assertEqual(deck.planar_deck[0]["name"], "The Abyssal Plane")
+        self.assertEqual(deck.scheme_deck[0]["name"], "Plots That Span Centuries")
+        self.assertEqual(deck.attraction_deck[0]["name"], "Balloon Stand")
+        self.assertEqual(deck.maybeboard[0]["name"], "Flusterstorm")
+        self.assertEqual(deck.considering[0]["name"], "Rhystic Study")
+        self.assertEqual(deck.parse_flags, [])
+
+    def test_slots_in_by_section_and_dict_access(self):
+        text = """
+Deck
+1 Sol Ring
+
+Planar Deck
+1 The Abyssal Plane
+"""
+        deck = parse_decklist(text)
+        self.assertIn("planar_deck", deck)
+        self.assertEqual(len(deck["planar_deck"]), 1)
+        self.assertEqual(deck.by_section["planar_deck"][0]["name"], "The Abyssal Plane")
+        self.assertEqual(deck.to_dict()["planar_deck"][0]["name"], "The Abyssal Plane")
 
 
 class TestSplitCards(unittest.TestCase):
@@ -486,13 +620,18 @@ Sideboard
         by_sec = parse_deck(text)
         self.assertIn("commander", by_sec)
         self.assertIn("mainboard", by_sec)
-        self.assertIn("sideboard", by_sec)
+        self.assertIn("maybeboard", by_sec)
+        self.assertIn("planar_deck", by_sec)
+        self.assertIn("scheme_deck", by_sec)
+        self.assertIn("attraction_deck", by_sec)
+        self.assertNotIn("sideboard", by_sec)
         self.assertEqual(len(by_sec["commander"]), 1)
         self.assertEqual(by_sec["commander"][0]["name"], "Atraxa, Praetors' Voice")
         self.assertEqual(len(by_sec["mainboard"]), 1)
         self.assertEqual(by_sec["mainboard"][0]["name"], "Sol Ring")
-        self.assertEqual(len(by_sec["sideboard"]), 1)
-        self.assertEqual(by_sec["sideboard"][0]["name"], "Swords to Plowshares")
+        # Sideboard input remapped to the maybeboard slot
+        self.assertEqual(len(by_sec["maybeboard"]), 1)
+        self.assertEqual(by_sec["maybeboard"][0]["name"], "Swords to Plowshares")
 
     def test_parsed_deck_dict_like_access(self):
         text = """

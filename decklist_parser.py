@@ -11,21 +11,41 @@ Supported formats:
   ``// Sideboard``, or ``Sideboard``, and ``SB:`` line prefixes).
 - Plain text (simple ``N CardName`` lines, bare card names, ``Commander:``
   headers/prefixes, and ``CMDR`` tags).
+- Variant deck sections: ``Planar Deck`` / ``Planechase`` / ``Planes``,
+  ``Scheme Deck`` / ``Schemes`` / ``Archenemy``, and ``Attraction Deck`` /
+  ``Attractions`` map onto the named slots (see deck_slots.DeckSlot).
 - Split cards (e.g., ``Fire // Ice``) preserving full split names.
 - Gracefully skips blank lines, comment lines, and unrecognized formatting.
+
+"Sideboard" is a removed concept (see deck_slots): a ``Sideboard`` section,
+inline ``SB:`` prefix, or ``*SB*`` tag is remapped to the Maybeboard slot by
+default, and the remap is surfaced via ``ParsedDeck.parse_flags``
+(deck_slots.SIDEBOARD_MAPPED_FLAG) plus a log line so the default is visible
+and confirmable.
 """
 from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Optional
 
+import deck_slots
+from deck_slots import DeckSlot
+
 
 class DeckSection:
-    COMMANDER = "commander"
-    MAINBOARD = "mainboard"
+    COMMANDER = DeckSlot.COMMANDER
+    MAINBOARD = DeckSlot.MAINBOARD
+    MAYBEBOARD = DeckSlot.MAYBEBOARD
+    CONSIDERING = DeckSlot.CONSIDERING
+    PLANAR_DECK = DeckSlot.PLANAR_DECK
+    SCHEME_DECK = DeckSlot.SCHEME_DECK
+    ATTRACTION_DECK = DeckSlot.ATTRACTION_DECK
+
+    # DEPRECATED: kept only so old references resolve; never assigned to a
+    # parsed card. Sideboard input is remapped to MAYBEBOARD with a parse flag.
     SIDEBOARD = "sideboard"
 
-    VALID = {COMMANDER, MAINBOARD, SIDEBOARD}
+    VALID = set(DeckSlot.VALID)
 
 
 class ParsedCard(dict):
@@ -108,21 +128,54 @@ class ParsedDeck(list):
     """Collection of ParsedCard items representing a parsed deck.
 
     Subclasses ``list`` so it can be indexed, sliced, iterated, and compared
-    like a normal list of card objects. Also provides convenient section-level
+    like a normal list of card objects. Also provides convenient slot-level
     accessors and dict mapping.
+
+    ``parse_flags`` carries machine-visible flags raised during parsing —
+    currently deck_slots.SIDEBOARD_MAPPED_FLAG when a Sideboard section was
+    remapped to Maybeboard by default.
     """
+
+    def __init__(self, iterable: Any = ()):
+        super().__init__(iterable)
+        self.parse_flags: List[str] = []
+
+    def _slot(self, slot: str) -> List["ParsedCard"]:
+        return [c for c in self if c.get("section") == slot]
 
     @property
     def commander(self) -> List[ParsedCard]:
-        return [c for c in self if c.get("section") == DeckSection.COMMANDER]
+        return self._slot(DeckSection.COMMANDER)
 
     @property
     def mainboard(self) -> List[ParsedCard]:
-        return [c for c in self if c.get("section") == DeckSection.MAINBOARD]
+        return self._slot(DeckSection.MAINBOARD)
+
+    @property
+    def maybeboard(self) -> List[ParsedCard]:
+        return self._slot(DeckSection.MAYBEBOARD)
+
+    @property
+    def considering(self) -> List[ParsedCard]:
+        return self._slot(DeckSection.CONSIDERING)
+
+    @property
+    def planar_deck(self) -> List[ParsedCard]:
+        return self._slot(DeckSection.PLANAR_DECK)
+
+    @property
+    def scheme_deck(self) -> List[ParsedCard]:
+        return self._slot(DeckSection.SCHEME_DECK)
+
+    @property
+    def attraction_deck(self) -> List[ParsedCard]:
+        return self._slot(DeckSection.ATTRACTION_DECK)
 
     @property
     def sideboard(self) -> List[ParsedCard]:
-        return [c for c in self if c.get("section") == DeckSection.SIDEBOARD]
+        """DEPRECATED alias for ``maybeboard``: the Sideboard concept was
+        removed; Sideboard input is remapped to Maybeboard at parse time."""
+        return self.maybeboard
 
     @property
     def cards(self) -> List[ParsedCard]:
@@ -130,18 +183,10 @@ class ParsedDeck(list):
 
     @property
     def by_section(self) -> Dict[str, List[ParsedCard]]:
-        return {
-            DeckSection.COMMANDER: self.commander,
-            DeckSection.MAINBOARD: self.mainboard,
-            DeckSection.SIDEBOARD: self.sideboard,
-        }
+        return {slot: self._slot(slot) for slot in sorted(DeckSection.VALID)}
 
     def to_dict(self) -> Dict[str, List[Dict[str, Any]]]:
-        return {
-            DeckSection.COMMANDER: [dict(c) for c in self.commander],
-            DeckSection.MAINBOARD: [dict(c) for c in self.mainboard],
-            DeckSection.SIDEBOARD: [dict(c) for c in self.sideboard],
-        }
+        return {slot: [dict(c) for c in cards] for slot, cards in self.by_section.items()}
 
     def get(self, section: str, default: Any = None) -> Any:
         try:
@@ -151,25 +196,16 @@ class ParsedDeck(list):
 
     def __getitem__(self, item: Any) -> Any:
         if isinstance(item, str):
-            key = item.lower()
-            if key in (DeckSection.COMMANDER, "cmdr"):
-                return self.commander
-            elif key in (DeckSection.MAINBOARD, "main", "deck", "maindeck"):
-                return self.mainboard
-            elif key in (DeckSection.SIDEBOARD, "side", "sb"):
-                return self.sideboard
+            slot = deck_slots.normalize_slot(item)
+            if slot is not None:
+                return self._slot(slot)
             raise KeyError(f"Unknown section: {item}")
         return super().__getitem__(item)
 
     def __contains__(self, item: Any) -> bool:
-        if isinstance(item, str) and item.lower() in (
-            DeckSection.COMMANDER, "cmdr",
-            DeckSection.MAINBOARD, "main", "deck", "maindeck",
-            DeckSection.SIDEBOARD, "side", "sb",
-        ):
+        if isinstance(item, str) and deck_slots.normalize_slot(item) is not None:
             return True
         return super().__contains__(item)
-
 
 # Standalone section headers
 _COMMANDER_HEADER_RE = re.compile(
@@ -184,6 +220,26 @@ _MAINBOARD_HEADER_RE = re.compile(
     r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?(?:deck|mainboard|maindeck|main\b|library))\s*(?:\])?\s*:?\s*$",
     re.IGNORECASE,
 )
+_MAYBEBOARD_HEADER_RE = re.compile(
+    r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?(?:maybeboard|maybe\b))\s*(?:\])?\s*:?\s*$",
+    re.IGNORECASE,
+)
+_CONSIDERING_HEADER_RE = re.compile(
+    r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?considering)\s*(?:\])?\s*:?\s*$",
+    re.IGNORECASE,
+)
+_PLANAR_HEADER_RE = re.compile(
+    r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?(?:planar\s+deck|planechase|planes|planar))\s*(?:\])?\s*:?\s*$",
+    re.IGNORECASE,
+)
+_SCHEME_HEADER_RE = re.compile(
+    r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?(?:scheme\s+deck|schemes|archenemy))\s*(?:\])?\s*:?\s*$",
+    re.IGNORECASE,
+)
+_ATTRACTION_HEADER_RE = re.compile(
+    r"^(?://|#)?\s*(?:\[\s*)?(?:(?:\d+\s+)?(?:attraction\s+deck|attractions))\s*(?:\])?\s*:?\s*$",
+    re.IGNORECASE,
+)
 
 # Inline line prefixes
 _INLINE_COMMANDER_PREFIX_RE = re.compile(
@@ -196,6 +252,26 @@ _INLINE_SIDEBOARD_PREFIX_RE = re.compile(
 )
 _INLINE_MAINBOARD_PREFIX_RE = re.compile(
     r"^(?:deck|mainboard|maindeck|main)\s*:\s*(.+)$|^\[(?:deck|mainboard|maindeck|main)\]\s+(.+)$",
+    re.IGNORECASE,
+)
+_INLINE_MAYBEBOARD_PREFIX_RE = re.compile(
+    r"^(?:maybeboard|maybe)\s*:\s*(.+)$|^\[(?:maybeboard|maybe)\]\s+(.+)$",
+    re.IGNORECASE,
+)
+_INLINE_CONSIDERING_PREFIX_RE = re.compile(
+    r"^considering\s*:\s*(.+)$|^\[considering\]\s+(.+)$",
+    re.IGNORECASE,
+)
+_INLINE_PLANAR_PREFIX_RE = re.compile(
+    r"^(?:planar\s+deck|planechase|planes|planar)\s*:\s*(.+)$|^\[(?:planar\s+deck|planechase|planes|planar)\]\s+(.+)$",
+    re.IGNORECASE,
+)
+_INLINE_SCHEME_PREFIX_RE = re.compile(
+    r"^(?:scheme\s+deck|schemes|archenemy)\s*:\s*(.+)$|^\[(?:scheme\s+deck|schemes|archenemy)\]\s+(.+)$",
+    re.IGNORECASE,
+)
+_INLINE_ATTRACTION_PREFIX_RE = re.compile(
+    r"^(?:attraction\s+deck|attractions)\s*:\s*(.+)$|^\[(?:attraction\s+deck|attractions)\]\s+(.+)$",
     re.IGNORECASE,
 )
 
@@ -244,12 +320,27 @@ def parse_decklist(text: str) -> ParsedDeck:
     Handles MTG Arena, MTGO, and plain-text formats.
     Returns a ``ParsedDeck`` list containing ``ParsedCard`` dicts with at minimum
     ``name``, ``quantity``, and ``section`` fields.
+
+    A ``Sideboard`` section/prefix/tag is remapped to the Maybeboard slot and
+    reported via ``parsed.parse_flags`` (deck_slots.SIDEBOARD_MAPPED_FLAG) and
+    a log line, so the default mapping is visible and confirmable.
     """
     deck = ParsedDeck()
     if not text or not isinstance(text, str):
         return deck
 
     current_section = DeckSection.MAINBOARD
+    # True while the active section is a Sideboard header being remapped to
+    # Maybeboard, so cards in it keep provenance via card["remapped_from"].
+    current_section_remapped = False
+    sideboard_remap_count = 0
+
+    def note_sideboard_remap() -> None:
+        nonlocal sideboard_remap_count
+        sideboard_remap_count += 1
+        deck_slots.flag_sideboard_remap(
+            deck.parse_flags, context="decklist parse", count=sideboard_remap_count
+        )
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -258,13 +349,30 @@ def parse_decklist(text: str) -> ParsedDeck:
 
         # Check for section headers
         if _COMMANDER_HEADER_RE.match(line):
-            current_section = DeckSection.COMMANDER
+            current_section, current_section_remapped = DeckSection.COMMANDER, False
             continue
         if _SIDEBOARD_HEADER_RE.match(line):
-            current_section = DeckSection.SIDEBOARD
+            # Removed concept: Sideboard remaps to Maybeboard by default (flagged).
+            current_section, current_section_remapped = DeckSection.MAYBEBOARD, True
+            note_sideboard_remap()
+            continue
+        if _MAYBEBOARD_HEADER_RE.match(line):
+            current_section, current_section_remapped = DeckSection.MAYBEBOARD, False
+            continue
+        if _CONSIDERING_HEADER_RE.match(line):
+            current_section, current_section_remapped = DeckSection.CONSIDERING, False
+            continue
+        if _PLANAR_HEADER_RE.match(line):
+            current_section, current_section_remapped = DeckSection.PLANAR_DECK, False
+            continue
+        if _SCHEME_HEADER_RE.match(line):
+            current_section, current_section_remapped = DeckSection.SCHEME_DECK, False
+            continue
+        if _ATTRACTION_HEADER_RE.match(line):
+            current_section, current_section_remapped = DeckSection.ATTRACTION_DECK, False
             continue
         if _MAINBOARD_HEADER_RE.match(line):
-            current_section = DeckSection.MAINBOARD
+            current_section, current_section_remapped = DeckSection.MAINBOARD, False
             continue
 
         # Skip comment lines that are not section headers (e.g. "// Lands", "# Notes")
@@ -281,20 +389,43 @@ def parse_decklist(text: str) -> ParsedDeck:
 
         # Check for inline line prefixes
         card_section = current_section
+        line_remapped = False
         cmdr_prefix = _INLINE_COMMANDER_PREFIX_RE.match(line)
         if cmdr_prefix:
             card_section = DeckSection.COMMANDER
             line = (cmdr_prefix.group(1) or cmdr_prefix.group(2)).strip()
         else:
             sb_prefix = _INLINE_SIDEBOARD_PREFIX_RE.match(line)
+            mb_prefix = _INLINE_MAYBEBOARD_PREFIX_RE.match(line)
+            considering_prefix = _INLINE_CONSIDERING_PREFIX_RE.match(line)
+            planar_prefix = _INLINE_PLANAR_PREFIX_RE.match(line)
+            scheme_prefix = _INLINE_SCHEME_PREFIX_RE.match(line)
+            attraction_prefix = _INLINE_ATTRACTION_PREFIX_RE.match(line)
+            mainboard_prefix = _INLINE_MAINBOARD_PREFIX_RE.match(line)
             if sb_prefix:
-                card_section = DeckSection.SIDEBOARD
+                # Removed concept: SB: prefix remaps to Maybeboard (flagged).
+                card_section = DeckSection.MAYBEBOARD
                 line = (sb_prefix.group(1) or sb_prefix.group(2)).strip()
-            else:
-                mb_prefix = _INLINE_MAINBOARD_PREFIX_RE.match(line)
-                if mb_prefix:
-                    card_section = DeckSection.MAINBOARD
-                    line = (mb_prefix.group(1) or mb_prefix.group(2)).strip()
+                line_remapped = True
+                note_sideboard_remap()
+            elif mb_prefix:
+                card_section = DeckSection.MAYBEBOARD
+                line = (mb_prefix.group(1) or mb_prefix.group(2)).strip()
+            elif considering_prefix:
+                card_section = DeckSection.CONSIDERING
+                line = (considering_prefix.group(1) or considering_prefix.group(2)).strip()
+            elif planar_prefix:
+                card_section = DeckSection.PLANAR_DECK
+                line = (planar_prefix.group(1) or planar_prefix.group(2)).strip()
+            elif scheme_prefix:
+                card_section = DeckSection.SCHEME_DECK
+                line = (scheme_prefix.group(1) or scheme_prefix.group(2)).strip()
+            elif attraction_prefix:
+                card_section = DeckSection.ATTRACTION_DECK
+                line = (attraction_prefix.group(1) or attraction_prefix.group(2)).strip()
+            elif mainboard_prefix:
+                card_section = DeckSection.MAINBOARD
+                line = (mainboard_prefix.group(1) or mainboard_prefix.group(2)).strip()
 
         # Extract quantity
         qty_match = _QTY_PREFIX_RE.match(line)
@@ -321,8 +452,11 @@ def parse_decklist(text: str) -> ParsedDeck:
 
         # Check for SB tags
         if _SB_TAG_RE.search(line):
-            card_section = DeckSection.SIDEBOARD
+            # Removed concept: *SB* tag remaps to Maybeboard (flagged).
+            card_section = DeckSection.MAYBEBOARD
             line = _SB_TAG_RE.sub("", line).strip()
+            line_remapped = True
+            note_sideboard_remap()
 
         # Check for Foil tags
         foil = False
@@ -384,7 +518,7 @@ def parse_decklist(text: str) -> ParsedDeck:
             continue
 
         # Skip unrecognized formatting / non-card noise (e.g. lines with no letters)
-        if not re.search(r"[A-Za-z\u00C0-\u024F]", line):
+        if not re.search(r"[A-Za-zÀ-ɏ]", line):
             continue
 
         card = ParsedCard(
@@ -395,19 +529,29 @@ def parse_decklist(text: str) -> ParsedDeck:
             collector_number=collector_number,
             foil=foil,
         )
+        if line_remapped or (
+            current_section_remapped and card_section == DeckSection.MAYBEBOARD
+        ):
+            # Provenance for the visible, confirmable sideboard->maybeboard
+            # default: intake counts these and the serialized card keeps why.
+            card["remapped_from"] = "sideboard"
         deck.append(card)
 
     return deck
 
-
 def parse_deck(text: str) -> Dict[str, List[ParsedCard]]:
-    """Convenience helper returning parsed cards grouped by deck section.
+    """Convenience helper returning parsed cards grouped by deck slot.
 
-    Returns:
+    Returns a mapping with every canonical slot (see deck_slots.DeckSlot)::
+
         {
             "commander": [...],
             "mainboard": [...],
-            "sideboard": [...],
+            "maybeboard": [...],
+            "considering": [...],
+            "planar_deck": [...],
+            "scheme_deck": [...],
+            "attraction_deck": [...],
         }
     """
     return parse_decklist(text).by_section
