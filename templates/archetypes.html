@@ -147,7 +147,7 @@
             const chip = (text, tone) => el('span', { class: 'hud-chip hud-chip--' + tone, text });
             if (a.draft) name.appendChild(chip('draft', 'neutral'));
             name.appendChild(chip((a.required_roles || []).length + ' roles', 'neutral'));
-            const desc = el('p', { class: 'ar-item-desc' });
+            const desc = el('div', { class: 'ar-item-desc' });
             // Excerpt HTML is server-rendered and sanitized (never raw a.description).
             if (a.description_excerpt_html) desc.innerHTML = a.description_excerpt_html;
             const b = el('button', { type: 'button', class: 'ar-item', 'data-id': a.id, 'aria-current': String(a.id === state.current) },
