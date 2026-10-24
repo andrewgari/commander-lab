@@ -80,3 +80,12 @@ Daily Use:
 
 Resync from Archidekt:
   python sync.py (re-learns tags, applies high-confidence)
+
+## Read/Write Switch (`DATA_ACCESS_MODE`)
+
+`datastore.py` wraps the Redis client used by `app.py` and `sync.py`.
+
+- `DATA_ACCESS_MODE=readwrite` (default): unchanged behaviour.
+- `DATA_ACCESS_MODE=readonly`: reads pass through; any mutating Redis command (including via pipelines) raises `WritesDisabledError` before reaching Redis, logs a warning, and the API returns HTTP 503 `{"error": "writes_disabled"}`.
+- Any other value raises `ValueError` (fail loudly). The flag is read on every call.
+- Scripts under `scripts/` use their own clients and are not covered.
