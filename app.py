@@ -3601,7 +3601,8 @@ async def api_deck_tune_state(deck_id: str):
         return err
     st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
     pets = await asyncio.to_thread(insights.pet_cards, r, deck)
-    return {"success": True, "state": st, "pet_cards": pets}
+    dismissed = await asyncio.to_thread(tuner_mod.dismissed_cuts, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets, "dismissed": dismissed}
 
 
 @app.post("/api/decks/{deck_id}/tune/recompute")

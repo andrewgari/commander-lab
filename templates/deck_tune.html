@@ -325,8 +325,10 @@ document.addEventListener("DOMContentLoaded", function () {
             var fit = w.fit == null ? "—" : w.fit.toFixed(2);
             var edh = w.edhrec == null ? "0%" : Math.round(w.edhrec * 100) + "%";
             var played = w.played == null ? "—" : w.played.toFixed(2);
-            var act = w.pet ? H.chip("pet", "ghost") : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>');
-            return '<tr><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + H.cardName(w.name) + "</span></td>" +
+            var act = w.pet ? H.chip("pet", "ghost")
+                : (w.dismissed ? H.chip("ignored", "danger") + '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-undismiss="' + esc(w.name) + '" title="Let the tuner flag this cut again on the next recompute">Undo dismiss</button>'
+                : (w.has_swap ? '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-find="' + esc(w.name) + '">Find swap</button>' : '<span class="hud-muted">no upgrade</span>'));
+            return '<tr' + (w.dismissed ? ' class="tn-ignored"' : "") + '><td class="is-primary"><span class="hud-card-name">' + (w.pet ? "♥ " : "") + H.cardName(w.name) + "</span></td>" +
                 '<td class="is-num tn-col-opt">' + w.edges + '</td><td class="is-num tn-col-opt" data-value="' + (w.fit == null ? -1 : w.fit) + '">' + fit +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.edhrec || 0) + '">' + edh +
                 '</td><td class="is-num tn-col-opt" data-value="' + (w.played == null ? -1 : w.played) + '">' + played + '</td><td class="is-num" data-value="' + w.weak_score + '"><span style="color:' +
@@ -460,15 +462,22 @@ document.addEventListener("DOMContentLoaded", function () {
         var t = rec.payload;
         if (!st) return t;
         var dec = (st.state && st.state.decisions) || {}, pets = st.pet_cards || [];
+        // DT-5: durably dismissed cuts never re-flag — filter them out of an old
+        // saved snapshot too, not just out of freshly computed payloads.
+        var dismissed = st.dismissed || t.dismissed || [];
         t.swaps = (t.swaps || []).filter(function (s) {
             var d = dec[s.cut.name];
-            return !(d && d.decision === "dismissed") && pets.indexOf(s.cut.name) === -1;
+            return !(d && d.decision === "dismissed") && pets.indexOf(s.cut.name) === -1 && dismissed.indexOf(s.cut.name) === -1;
         }).map(function (s) {
             var d = dec[s.cut.name];
             s.decision = d ? d.decision : null; s.decision_add = d ? d.add : null;
             return s;
         });
-        (t.weak || []).forEach(function (w) { if (pets.indexOf(w.name) !== -1) { w.pet = true; w.has_swap = false; } });
+        t.dismissed = dismissed;
+        (t.weak || []).forEach(function (w) {
+            if (pets.indexOf(w.name) !== -1) { w.pet = true; w.has_swap = false; }
+            if (dismissed.indexOf(w.name) !== -1) { w.dismissed = true; w.has_swap = false; }
+        });
         t.adds = (st.state && st.state.adds) || [];
         return t;
     }
@@ -568,6 +577,10 @@ document.addEventListener("DOMContentLoaded", function () {
         else if (what === "undo") decide(cut, null).then(function () { renderSwaps(); renderChanges(); go(i); });
         else if (what === "dismiss") decide(cut, "dismissed").then(function () {
             li.classList.add("is-dismissed");
+            // DT-5: dismissal is durable — mark the weak row ignored at once.
+            (T.weak || []).forEach(function (w) { if (w.name === cut) { w.dismissed = true; w.has_swap = false; } });
+            if ((T.dismissed || []).indexOf(cut) === -1) T.dismissed = (T.dismissed || []).concat([cut]);
+            renderWeak();
             setTimeout(function () { T.swaps = T.swaps.filter(function (x) { return x !== s; }); renderSwaps(); renderChanges(); go(i); }, 240);
         });
         else if (what === "pet") send("POST", "/tune/pet", { name: cut }).then(function () {
@@ -603,7 +616,21 @@ document.addEventListener("DOMContentLoaded", function () {
             rowFilter = box.hidden ? null : f.key; renderSwaps();
         }
     });
-    $("weakRows").addEventListener("click", function (e) { var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find")); });
+    // DT-5: undo a durable dismissal — the automation may flag the cut again
+    // on the next recompute. Goes straight to the decisions endpoint: a
+    // dismissed cut has no swap row, so decide()/swapOf() do not apply.
+    function undismissCut(name) {
+        send("PUT", "/tune/decisions", { cut: name, decision: null, add: null }).then(function () {
+            T.dismissed = (T.dismissed || []).filter(function (n) { return n !== name; });
+            (T.weak || []).forEach(function (w) { if (w.name === name) w.dismissed = false; });
+            renderWeak();
+        }).catch(function (e) { $("swapError").textContent = e.message; });
+    }
+    $("weakRows").addEventListener("click", function (e) {
+        var u = e.target.closest("[data-undismiss]");
+        if (u) { undismissCut(u.getAttribute("data-undismiss")); return; }
+        var b = e.target.closest("[data-find]"); if (b) findSwap(b.getAttribute("data-find"));
+    });
     // The filters apply to the next Recompute; they don't touch the saved result.
     function filtersChanged() { if (REC && !busy) showGenerated("filters changed: Recompute to apply"); }
     document.querySelectorAll('input[name="src"]').forEach(function (x) { x.addEventListener("change", function () { syncToggles(); filtersChanged(); }); });
