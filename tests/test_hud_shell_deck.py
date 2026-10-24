@@ -113,9 +113,10 @@ class TestDeckView(unittest.TestCase):
         cls.body = cls.html.split("<body", 1)[1]
         cls.client = client
 
-    def test_page_leads_with_stats(self):
-        # Shared deck header (UX_SPEC §3.0), then the stat strip comes before the briefing and decklist.
-        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="deckStats"', '<h2>Briefing</h2>', 'id="decklistContainer"')]
+    def test_page_leads_with_decklist(self):
+        # Shared deck header (UX_SPEC §3.0), then the decklist leads (NAV_IA §3.3),
+        # followed by the Briefing and the stats-at-a-glance strip.
+        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="decklistContainer"', '<h2>Briefing</h2>', 'id="deckStats"', 'id="deckUtilities"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertRegex(self.body, r'<div class="hud-stat-strip" id="deckStats">\s*<div class="hud-stat hud-stat--hero">')
