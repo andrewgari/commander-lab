@@ -1,8 +1,9 @@
-"""Playwright E2E for the deck Overview "Deck utilities" section (PR #288, DV-02).
+"""Playwright E2E for the deck Overview content order (PR #288 DV-02, NAV_IA §3.3).
 
+- The decklist (.ov-gallery) is the first content block at 1440px and 390px;
+  Visual/List is a .hud-seg segmented control; the stats strip links to Stats.
 - #footerLinks / #syncControls / #deckStatusField each render once, inside
-  #deckUtilities, none inside .deck-hero-side, #deckUtilities is the last child
-  of .ov-summary (live DOM).
+  #deckUtilities, and #deckUtilities is the last child of .ov-summary (live DOM).
 - No horizontal overflow at 1440px and 390px; screenshots saved to
   $DV02_SHOT_DIR (default: ./test-artifacts/dv02).
 - The Update button ([data-sync-op]) still opens the sync confirm modal for a
@@ -70,8 +71,6 @@ def test_utilities_placement_in_live_dom(page, base_url, seeded_deck):
     for ident in ("footerLinks", "syncControls", "deckStatusField"):
         assert page.locator(f"#{ident}").count() == 1, f"#{ident} must be exactly once"
         assert page.locator(f"#deckUtilities #{ident}").count() == 1, f"#{ident} not inside #deckUtilities"
-        assert page.locator(f".deck-hero-side #{ident}").count() == 0, f"#{ident} still in hero side"
-    assert page.locator(".deck-hero-side #commanderShowcase").count() == 1
     last_child_id = page.evaluate(
         "() => { const k = [...document.querySelector('.ov-summary').children]; "
         "return k[k.length - 1].id; }"
@@ -83,6 +82,20 @@ def test_utilities_placement_in_live_dom(page, base_url, seeded_deck):
         " return !!(b.compareDocumentPosition(u) & Node.DOCUMENT_POSITION_FOLLOWING); }"
     )
     assert order, "#deckUtilities must follow the Briefing/Description panel"
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+def test_decklist_is_first_content_block(page, base_url, seeded_deck, width):
+    # NAV_IA §3.3: at desktop and phone widths the decklist leads the content.
+    _open(page, base_url, seeded_deck, width)
+    first_cls = page.evaluate(
+        "() => document.querySelector('.ov-split').firstElementChild.className"
+    )
+    assert "ov-gallery" in first_cls, f"first content block at {width}px is {first_cls!r}"
+    seg = page.locator("#decklistViews.hud-seg input[type='radio']")
+    assert seg.count() == 2, "Visual/List must be a .hud-seg radio pair"
+    assert page.locator("#decklistViews.hud-tabs").count() == 0, "decklist view toggle must not be a tab strip"
+    assert page.locator("#ovStats a[href$='/stats']").count() == 1, "stats strip must link to the Stats tab"
 
 
 @pytest.mark.parametrize("width", [1440, 390])
