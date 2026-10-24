@@ -48,14 +48,25 @@ def _qty(raw) -> int:
         return 0
 
 
-def cart_items(cards: Iterable[Mapping] | None) -> list[dict]:
-    """Normalized cart contents: [{name, qty}] in first-seen order.
+def _set_code(raw) -> str:
+    """TCGplayer set code for printing-specific cart lines, e.g. "sld" -> "SLD".
 
-    - Duplicate names (after double-faced normalization) are merged, summing
-      quantities.
+    Mass Entry reads `1 Lightning Bolt [SLD]` as "that printing"; without the
+    bracketed code any printing is acceptable. Blank/unparseable -> "" (line
+    falls back to any printing).
+    """
+    return str(raw or "").strip().upper()
+
+
+def cart_items(cards: Iterable[Mapping] | None) -> list[dict]:
+    """Normalized cart contents: [{name, qty}] (+ "set" when given) in
+    first-seen order.
+
+    - Duplicate names (after double-faced normalization) with the SAME set
+      code are merged, summing quantities; different printings stay separate.
     - Cards with a blank name or qty <= 0 are dropped.
     """
-    merged: dict[str, int] = {}
+    merged: dict[tuple, dict] = {}
     for card in cards or []:
         if not isinstance(card, Mapping):
             continue
@@ -66,8 +77,12 @@ def cart_items(cards: Iterable[Mapping] | None) -> list[dict]:
         if qty <= 0:
             continue
         front = _front_face(name)
-        merged[front] = merged.get(front, 0) + qty
-    return [{"name": name, "qty": qty} for name, qty in merged.items()]
+        set_code = _set_code(card.get("set"))
+        key = (front, set_code)
+        if key not in merged:
+            merged[key] = {"name": front, "qty": 0, **({"set": set_code} if set_code else {})}
+        merged[key]["qty"] += qty
+    return list(merged.values())
 
 
 def build_tcgplayer_url(cards: Iterable[Mapping]) -> str:
@@ -80,7 +95,7 @@ def build_tcgplayer_url(cards: Iterable[Mapping]) -> str:
     if not items:
         return BASE_URL
 
-    lines = [f"{it['qty']} {it['name']}" for it in items]
+    lines = [f"{it['qty']} {it['name']}" + (f" [{it['set']}]" if it.get("set") else "") for it in items]
     c_param = LINE_SEPARATOR.join(lines)
     return f"{BASE_URL}?c={quote(c_param, safe='')}&productline=Magic"
 
