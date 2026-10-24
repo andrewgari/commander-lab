@@ -248,6 +248,19 @@ def test_hard_filters_exclude_off_identity_banned_and_in_deck_cards():
     assert all(fid in {"o1", "o2", "o3", "o4", "o5"} for fid in (s["oracle_id"] for s in res["suggestions"]))
 
 
+def test_unknown_legality_candidate_is_never_suggested():
+    # Regression: a candidate whose fact record has unknown legality (missing
+    # or None `legal`, e.g. an unsynced planar card) must fail closed.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS, "the matrix of time": {"oracle_id": "o-plane", "color_identity": "",
+                                             "legal": None}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK, lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    assert "The Matrix Of Time" not in {s["card"] for s in res["suggestions"]}
+    assert any(d["card"] == "The Matrix Of Time" and "legality unknown" in d["reason"]
+               for d in res["dropped"])
+
+
 def test_spirit_gate_drops_candidates_with_no_role_or_pillar_fit():
     cands = default_cands() + [cand("Random Rock", ["utility_land"], syn=0.0)]
     facts = {**FACTS, "random rock": {"oracle_id": "o10", "color_identity": "", "legal": True}}

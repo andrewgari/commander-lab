@@ -119,8 +119,10 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
             dropped.append({"card": c.name, "reason": "already in the deck"}); continue
         if oid and oid in seen_oids:
             dropped.append({"card": c.name, "reason": "duplicate candidate"}); continue
-        if not f.get("legal", True):
-            dropped.append({"card": c.name, "reason": "not legal in Commander"}); continue
+        if f.get("legal") is not True:
+            reason = ("not legal in Commander" if f.get("legal") is False
+                      else "Commander legality unknown (unsynced card data)")
+            dropped.append({"card": c.name, "reason": reason}); continue
         if not _ci_ok(f.get("color_identity", c.color_identity), ctx.commander_identity):
             dropped.append({"card": c.name, "reason": "outside the commander's colour identity"}); continue
         if not (set(c.roles) & tset) and pillar_fit(c) < cfg.PILLAR_GATE:
