@@ -123,9 +123,19 @@
     function decorateRow(li) {
         var cut = li.getAttribute(S.cutAttr);
         if (!cut) return;
+        var e = S.entries[cut];
+        // Idempotency guard: decorate() runs from a MutationObserver watching
+        // this same root, so rebuilding an unchanged row would mutate the DOM,
+        // retrigger the observer and loop forever. A change signature makes
+        // decorate() a no-op when nothing the block shows has changed.
+        var prev = previousFor(cut);
+        var sig = !e || e.status === "ignored" ? "off"
+            : JSON.stringify([e.reason, e.reconsideration, prev && prev.card,
+                              !!li.querySelector(".tn-why")]);
+        if (li.querySelector(".tn7-expl") && li._tn7sig === sig) return;
+        li._tn7sig = sig;
         var stale = li.querySelector(".tn7-expl");
         if (stale) stale.remove();
-        var e = S.entries[cut];
         if (!e || e.status === "ignored") return;
         var html = "";
         // The page's own .tn-why shows the same (LLM) explanation — don't double it.
@@ -135,7 +145,6 @@
         if (e.reconsideration) {
             html += '<p class="tn7-recon"><span class="tn7-tag">Reconsidered</span>' + esc(e.reconsideration) + "</p>";
         }
-        var prev = previousFor(cut);
         if (prev && prev.card) {
             html += '<p class="tn7-prev">Previously suggested for this slot: ' + esc(prev.card) + " (ignored).</p>";
         }
