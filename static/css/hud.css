@@ -3387,7 +3387,7 @@ button.hud-menu-item { width: 100%; box-sizing: border-box; background: none; bo
 .pf-sec[data-src="locked"] { border-left-color: var(--signal); background: var(--surface-1); }
 .pf-sec h3 { margin: 0; display: flex; align-items: baseline; gap: var(--sp-2); color: var(--text-1); font-size: var(--fs-md); }
 .pf-sec-a { display: flex; gap: var(--sp-1); align-items: flex-start; }
-.pf-sec-b { grid-column: 1 / -1; max-width: 75ch; color: var(--text-2); line-height: var(--lh-base); font-size: var(--fs-base); }
+.pf-sec-b { grid-column: 1 / -1; max-width: 100ch; color: var(--text-2); line-height: var(--lh-base); font-size: var(--fs-base); }
 .pf-sec-b p { margin: 0 0 var(--sp-2); }
 .pf-sec-b ul { margin: 0 0 var(--sp-2); padding-left: var(--sp-5); }
 .pf-sec-b :last-child { margin-bottom: 0; }
