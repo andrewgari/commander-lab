@@ -7,6 +7,7 @@ from collections import defaultdict
 import time
 
 import cards as card_store
+import deck_slots
 import registry
 import lab_tags as lab_tag_store
 
@@ -36,7 +37,8 @@ if not ARCHIDEKT_USERNAME:
 r = datastore.from_url(REDIS_URL)
 
 # Categories that are structural, not thematic (preserve, don't learn from)
-STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
+STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering",
+                         "Planar Deck", "Scheme Deck", "Attraction Deck"}
 
 def sync_inventory():
     datastore.assert_readwrite("sync_inventory")  # fail fast, before any fetching
@@ -142,16 +144,35 @@ def sync_inventory():
 
         # Normalized mainboard cardlist (same shape as providers.archidekt
         # fetch_deck): the folder rule's auto-bind needs it when a deck
-        # enters the physical folder during this sync.
+        # enters the physical folder during this sync. Non-mainboard cards
+        # land in named deck slots (deck_slots.DeckSlot): maybeboard /
+        # considering / planar_deck / scheme_deck / attraction_deck. The
+        # removed "Sideboard" category remaps to maybeboard (flagged).
         mainboard = {}
+        slots = deck_slots.empty_slots()
+        parse_flags = []
         for card in cards:
             cats = card.get("categories") or []
-            if "Maybeboard" in cats or "Sideboard" in cats:
+            oracle = card.get("card", {}).get("oracleCard", {})
+            nm = oracle.get("name")
+            if not nm:
                 continue
-            nm = card.get("card", {}).get("oracleCard", {}).get("name")
-            if nm:
-                mainboard[nm] = mainboard.get(nm, 0) + (card.get("quantity", 1) or 1)
+            slot, remapped = deck_slots.classify_card_slot(cats, oracle.get("types"))
+            qty = card.get("quantity", 1) or 1
+            if slot == deck_slots.DeckSlot.MAINBOARD or "Commander" in cats:
+                mainboard[nm] = mainboard.get(nm, 0) + qty
+            else:
+                entry = {"name": nm, "quantity": qty}
+                if remapped:
+                    entry["remapped_from"] = "sideboard"
+                    deck_slots.flag_sideboard_remap(
+                        parse_flags, context=f"account sync deck {deck_name}", count=1
+                    )
+                slots[slot].append(entry)
         deck_obj["cards"] = [{"name": n, "quantity": q} for n, q in mainboard.items()]
+        deck_obj["slots"] = slots
+        if parse_flags:
+            deck_obj["parse_flags"] = parse_flags
         for card in cards:
             categories = card.get("categories") or []
             if "Commander" in categories:
