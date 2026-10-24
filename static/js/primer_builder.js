@@ -343,7 +343,7 @@
         api("POST", "/primer/generate", { answers: answers(), options: opts, keep: keep }, GEN_TIMEOUT_MS).then(function (r) {
             S.gen = "idle";
             if (b) { b.disabled = false; b.removeAttribute("aria-busy"); }
-            if (r.status === 501) return status("na", "The drafting service is not available yet. Your answers are saved, and you can still write the primer by hand.", '<a class="hud-btn hud-btn--sm" href="' + esc(DECK_URL) + '#primer-edit">Write by hand</a>');
+            if (r.status === 501) return status("na", "The drafting service is not available yet. Your answers are saved, and you can still write the primer by hand.", '<a class="hud-btn hud-btn--sm" href="' + esc(DECK_URL) + '/primer#edit">Write by hand</a>');
             if (!r.ok || !r.data.success) {
                 var offline = r.data.error_kind === "oracle_offline";
                 return status("err", (r.data.error || "The draft failed.") + " Your answers are untouched.", '<button type="button" class="hud-btn hud-btn--sm" data-act="generate">Retry</button>' + (offline ? "" : ""));
