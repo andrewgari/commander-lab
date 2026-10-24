@@ -8,14 +8,29 @@ level estimates, mapping them onto the unified `analytics.models` domain
 schema.
 
 Commander Salt has no official public API and no documented authentication
-scheme -- the deck-lookup endpoint used here (`GET /decks?id=...`) is a plain
-unauthenticated GET that requires no session, cookies, or API key (confirmed
-live, 2026-09). Commander Salt lazily ingests decks the first time they are
-looked up: a deck that has never been viewed on commandersalt.com returns a
-200 response with `status.exists=False` / `status.invalid=True` and empty
-scoring, rather than an HTTP error. This adapter surfaces that state as a
-typed `CommanderSaltNotIngestedError` distinct from a real "not found" so
-callers can decide whether to retry after ingestion completes.
+scheme -- both endpoints used here are plain unauthenticated calls that
+require no session, cookies, or API key (confirmed live, 2026-10).
+
+The integration is a two-step flow, mirroring what commandersalt.com's own
+frontend does:
+
+1. `GET /decks?id=<source deck URL>` is a cache lookup. A deck Commander
+   Salt has already imported comes back with `status.exists=True` and full
+   scoring. A deck it has never imported comes back 200 with
+   `status.exists=False` / `status.invalid=True` and empty scoring -- and
+   repeated GETs NEVER flip it (the GET is read-only; verified live
+   2026-10).
+2. `POST /decks?url=<source deck URL>` (the call commandersalt.com's deck
+   details page makes on load) synchronously ingests the deck and returns
+   the full scored payload directly. It answers 404 with
+   `{"message": "ERROR: Deck URL invalid, or deck is not publicly visible"}`
+   for decks it cannot import.
+
+So `CommanderSaltClient.get_deck` tries the cheap GET first and falls back
+to the POST import on `CommanderSaltNotIngestedError`, which is what makes
+salt data available for decks that have never been viewed on
+commandersalt.com. The POST payload has no `status` object; it is accepted
+when it carries the expected `cards`/`details` deck payload.
 
 See docs/DECK_ANALYTICS.md and the `mtg-apis` skill for background on the
 Commander Salt integration and its data model quirks.
@@ -198,6 +213,7 @@ class CommanderSaltClient:
         session: Optional[requests.Session] = None,
         base_url: str = BASE_URL,
         timeout: float = 10.0,
+        import_timeout: float = 30.0,
         min_request_interval: float = 0.6,
         max_retries: int = 3,
         backoff_factor: float = 0.5,
@@ -207,6 +223,7 @@ class CommanderSaltClient:
         self._session = session or requests.Session()
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._import_timeout = import_timeout
         self._min_request_interval = max(0.0, min_request_interval)
         self._max_retries = max(1, max_retries)
         self._backoff_factor = backoff_factor
@@ -230,7 +247,22 @@ class CommanderSaltClient:
 
     def get_deck(self, source_url: str) -> Dict[str, Any]:
         """Fetch the raw deck payload for a resolved Commander Salt deck
-        identifier (see `resolve_source_url`)."""
+        identifier (see `resolve_source_url`).
+
+        Tries the cheap `GET /decks?id=...` cache lookup first; when the
+        deck has never been imported (`CommanderSaltNotIngestedError`),
+        falls back to the `POST /decks?url=...` import call -- the same one
+        commandersalt.com's own frontend makes -- which synchronously
+        ingests the deck and returns the full scored payload.
+        """
+        try:
+            return self._lookup_deck(source_url)
+        except CommanderSaltNotIngestedError:
+            return self._import_deck(source_url)
+
+    def _lookup_deck(self, source_url: str) -> Dict[str, Any]:
+        """GET cache lookup. Raises `CommanderSaltNotIngestedError` for
+        decks Commander Salt has never imported."""
         headers = {"User-Agent": self.USER_AGENT, "Accept": "application/json"}
         last_error: Optional[Exception] = None
 
@@ -299,6 +331,80 @@ class CommanderSaltClient:
 
         raise CommanderSaltRequestError(
             f"Commander Salt request failed for {source_url} after "
+            f"{self._max_retries} attempts"
+        ) from last_error
+
+    def _import_deck(self, source_url: str) -> Dict[str, Any]:
+        """POST import: synchronously ingests the deck and returns the full
+        scored payload (no `status` object -- accepted when it carries the
+        expected `cards`/`details` deck data)."""
+        headers = {"User-Agent": self.USER_AGENT, "Accept": "application/json"}
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self._max_retries + 1):
+            self._throttle()
+            try:
+                response = self._session.post(
+                    f"{self._base_url}/decks",
+                    params={"url": source_url},
+                    timeout=self._import_timeout,
+                    headers=headers,
+                )
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                last_error = exc
+            except requests.exceptions.RequestException as exc:
+                raise CommanderSaltRequestError(
+                    f"Commander Salt import failed for {source_url}: {exc}"
+                ) from exc
+            else:
+                if response.status_code == 404:
+                    raise CommanderSaltNotFoundError(
+                        f"Commander Salt could not import: {source_url} "
+                        "(deck URL invalid, or deck is not publicly visible)"
+                    )
+                if response.status_code == 429 or response.status_code >= 500:
+                    last_error = CommanderSaltRequestError(
+                        f"Commander Salt import returned HTTP {response.status_code} for {source_url}"
+                    )
+                elif response.status_code != 200:
+                    raise CommanderSaltRequestError(
+                        f"Commander Salt import returned unexpected HTTP "
+                        f"{response.status_code} for {source_url}"
+                    )
+                else:
+                    try:
+                        payload = response.json()
+                    except ValueError as exc:
+                        raise CommanderSaltResponseError(
+                            f"Commander Salt import returned invalid JSON for {source_url}"
+                        ) from exc
+                    if not isinstance(payload, dict):
+                        raise CommanderSaltResponseError(
+                            f"Commander Salt import returned unexpected response shape for {source_url}"
+                        )
+                    status = payload.get("status")
+                    if isinstance(status, dict) and (
+                        status.get("exists") is False or status.get("invalid") is True
+                    ):
+                        raise CommanderSaltNotIngestedError(
+                            f"Commander Salt could not ingest: {source_url} "
+                            "(import accepted the URL but produced no scoring; the "
+                            "source deck may be empty or unreadable)"
+                        )
+                    if not isinstance(payload.get("cards"), dict) and not isinstance(
+                        payload.get("details"), dict
+                    ):
+                        raise CommanderSaltResponseError(
+                            f"Commander Salt import response for {source_url} is "
+                            "missing the expected deck payload ('cards'/'details')"
+                        )
+                    return payload
+
+            if attempt < self._max_retries:
+                self._sleep(self._backoff_factor * (2 ** (attempt - 1)))
+
+        raise CommanderSaltRequestError(
+            f"Commander Salt import failed for {source_url} after "
             f"{self._max_retries} attempts"
         ) from last_error
 
