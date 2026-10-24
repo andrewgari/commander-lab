@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck Composition page: category overrides now use the shared text input with removable category pills (target/min/max/why stay on each pill); saved data is unchanged.
 
 - The release notes and changelog page now list curated, user-facing changes only, instead of raw change descriptions.
+- Primer builder: generated primers and per-section redrafts now come back with at least 500 characters of concrete detail instead of occasionally returning very short drafts.
 
 ## [v0.4.164] - 2026-10-22
 
