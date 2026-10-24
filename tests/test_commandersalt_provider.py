@@ -179,13 +179,50 @@ class TestCommanderSaltClient(unittest.TestCase):
         with self.assertRaises(CommanderSaltNotFoundError):
             client.get_deck("https://archidekt.com/decks/does-not-exist")
 
-    def test_not_ingested_raises_not_ingested_error(self):
+    def test_not_ingested_falls_back_to_post_import(self):
+        """GET cache-miss triggers the POST import, whose payload is returned."""
         session = MagicMock()
         session.get.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
+        imported = {k: v for k, v in _INGESTED_DECK_PAYLOAD.items() if k != "status"}
+        session.post.return_value = _make_response(200, imported)
+        client = self._make_client(session)
+
+        result = client.get_deck("https://archidekt.com/decks/99999999999")
+
+        self.assertEqual(result, imported)
+        session.get.assert_called_once()
+        session.post.assert_called_once()
+        post_kwargs = session.post.call_args.kwargs
+        self.assertEqual(post_kwargs["params"], {"url": "https://archidekt.com/decks/99999999999"})
+
+    def test_not_ingested_import_404_raises_not_found(self):
+        session = MagicMock()
+        session.get.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
+        session.post.return_value = _make_response(404)
+        client = self._make_client(session)
+
+        with self.assertRaises(CommanderSaltNotFoundError):
+            client.get_deck("https://archidekt.com/decks/99999999999")
+
+    def test_not_ingested_import_still_unscored_raises_not_ingested(self):
+        """Import accepted the URL but produced no scoring."""
+        session = MagicMock()
+        session.get.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
+        session.post.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
         client = self._make_client(session)
 
         with self.assertRaises(CommanderSaltNotIngestedError):
             client.get_deck("https://archidekt.com/decks/99999999999")
+
+    def test_not_ingested_import_5xx_exhausts_retries(self):
+        session = MagicMock()
+        session.get.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
+        session.post.return_value = _make_response(503)
+        client = self._make_client(session)
+
+        with self.assertRaises(CommanderSaltRequestError):
+            client.get_deck("https://archidekt.com/decks/99999999999")
+        self.assertEqual(session.post.call_count, 3)
 
     def test_invalid_json_raises_response_error(self):
         session = MagicMock()
@@ -389,7 +426,9 @@ class TestCommanderSaltProvider(unittest.TestCase):
         self.assertIsNone(result.popularity)
 
     def test_not_ingested_deck_raises(self):
-        provider, _ = self._make_provider(payload=_NOT_INGESTED_PAYLOAD)
+        provider, session = self._make_provider(payload=_NOT_INGESTED_PAYLOAD)
+        # Import fallback also returns an unscored payload -> still not ingested
+        session.post.return_value = _make_response(200, _NOT_INGESTED_PAYLOAD)
         with self.assertRaises(CommanderSaltNotIngestedError):
             provider.get_meta_scores(_make_deck())
 
