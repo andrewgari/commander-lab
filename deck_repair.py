@@ -59,6 +59,8 @@ def drop_invalid_cards(deck: DraftDeck, catalog: CardCatalog) -> Repair:
             reason = f"{info.commander_legality} in Commander"
         elif info.commander_legality is None and normalize_name(card.name) in banned:
             reason = "banned in Commander"
+        elif info.commander_legality is None:
+            reason = "legality unknown (card record needs re-sync)"
         if reason:
             actions.append(f"removed {card.name} x{card.quantity}: {reason}")
         else:

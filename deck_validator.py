@@ -13,6 +13,7 @@ Rules (error codes in `RuleCode`):
     COLOR_IDENTITY       every card within the combined commander identity
     SINGLETON            max 1 copy, except basics and "any number / up to N"
     BANNED / NOT_LEGAL   Commander banlist, from legality data
+    UNKNOWN_LEGALITY     card record has no synced legality; fails closed
     COMMANDER_COUNT      1 or 2 commanders
     COMMANDER_ILLEGAL    commander is not a legal commander
     PARTNER_INVALID      two commanders that are not a legal pair
@@ -32,7 +33,9 @@ Data sources (see sync.py): `card:{oracle_id}` records carry `color`
 `oracle_text`, and `commander_legality` ("legal"/"banned"/"not_legal").
 Records written before legality syncing existed have no legality; for those the
 maintained `COMMANDER_BANNED` snapshot is used as a fallback. Synced legality
-always wins over the snapshot.
+always wins over the snapshot. Unknown legality (None) FAILS CLOSED: such cards
+are flagged UNKNOWN_LEGALITY (unless the snapshot already flags them BANNED) and
+never silently pass as legal.
 
 Shared-pool semantics: `tier1_available` and `tier2_available` are card ->
 owned count maps; a card's available quantity is the SUM of both tiers (they are
@@ -65,6 +68,7 @@ class RuleCode(str, Enum):
     SINGLETON = "SINGLETON"
     BANNED = "BANNED"
     NOT_LEGAL = "NOT_LEGAL"
+    UNKNOWN_LEGALITY = "UNKNOWN_LEGALITY"
     COMMANDER_COUNT = "COMMANDER_COUNT"
     COMMANDER_ILLEGAL = "COMMANDER_ILLEGAL"
     PARTNER_INVALID = "PARTNER_INVALID"
@@ -616,8 +620,10 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
             + ", ".join(f"{n} x{dupe_detail[n]['count']} (max {dupe_detail[n]['max']})"
                         for n in dupes) + ".", idx, {"copies": dupe_detail}))
 
-    # 4. Banlist
-    banned_found, not_legal = [], []
+    # 4. Banlist / legality. Unknown legality fails closed: a card whose record
+    # carries no synced legality is flagged UNKNOWN_LEGALITY, never silently
+    # legal (the COMMANDER_BANNED snapshot still applies as the fallback).
+    banned_found, not_legal, unknown_legality = [], [], []
     for key, (display, _q) in counts.items():
         info = catalog.get(display)
         legality = info.commander_legality if info else None
@@ -625,8 +631,11 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
             banned_found.append(display)
         elif legality == "not_legal":
             not_legal.append(display)
-        elif legality is None and key in banned_keys:
-            banned_found.append(display)
+        elif legality is None:
+            if key in banned_keys:
+                banned_found.append(display)
+            elif info is not None:
+                unknown_legality.append(display)
     if banned_found:
         errs.append(ValidationError(
             RuleCode.BANNED, banned_found,
@@ -635,6 +644,12 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
         errs.append(ValidationError(
             RuleCode.NOT_LEGAL, not_legal,
             "Not legal in Commander: " + ", ".join(not_legal) + ". Remove them.", idx))
+    if unknown_legality:
+        errs.append(ValidationError(
+            RuleCode.UNKNOWN_LEGALITY, unknown_legality,
+            "Commander legality unknown (card record has no synced legality "
+            "data; re-sync to confirm): " + ", ".join(unknown_legality)
+            + ". Unknown legality is not legal; replace or re-sync these cards.", idx))
     return errs
 
 

@@ -312,8 +312,31 @@ class TestBanlist(Base):
             card("Black Lotus", "", legality=None), card("Unlisted Rock", "", legality=None)])
         d = mk_deck(["Mono Red Guy"], extra=[("Black Lotus", 1), ("Unlisted Rock", 1)])
         res = validate_deck(d, c)
-        self.assertEqual(codes(res), ["BANNED"])
+        # Snapshot fallback still catches the banned card; the other unknown-
+        # legality card fails closed (UNKNOWN_LEGALITY), never silently legal.
+        self.assertEqual(codes(res), ["BANNED", "UNKNOWN_LEGALITY"])
         self.assertEqual(res.errors[0].cards, ["Black Lotus"])
+        self.assertEqual(res.errors[1].cards, ["Unlisted Rock"])
+
+    def test_unknown_legality_fails_closed(self):
+        # Regression: a planar card whose record has no synced legality
+        # (commander_legality=None) must NOT pass mainboard validation.
+        plane = card("The Matrix of Time", "", types=("Plane",), legality=None)
+        c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [plane])
+        d = mk_deck(["Mono Red Guy"], extra=[("The Matrix of Time", 1)])
+        res = validate_deck(d, c)
+        self.assertFalse(res.valid)
+        self.assertEqual(codes(res), ["UNKNOWN_LEGALITY"])
+        self.assertEqual(res.errors[0].cards, ["The Matrix of Time"])
+        self.assertIn("re-sync", res.errors[0].message)
+
+    def test_unknown_legality_dropped_by_repair(self):
+        plane = card("The Matrix of Time", "", types=("Plane",), legality=None)
+        c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [plane])
+        d = mk_deck(["Mono Red Guy"], n_filler=98, extra=[("The Matrix of Time", 1)])
+        fixed, actions = deck_repair.drop_invalid_cards(d, c)
+        self.assertNotIn("The Matrix of Time", {x.name for x in fixed.cards})
+        self.assertTrue(any("legality unknown" in a for a in actions), actions)
 
     def test_synced_legal_overrides_snapshot(self):
         c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [
