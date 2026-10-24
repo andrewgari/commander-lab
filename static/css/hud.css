@@ -1726,7 +1726,12 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-swap.is-accepted { background: var(--ok-dim); }
 .hud-swap.is-dismissed { opacity: 0.45; }
 .hud-swap-arrow { padding-top: var(--sp-1); color: var(--text-4); font-family: var(--font-mono); text-align: center; }
-.hud-swap-out .hud-card-name { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-4); }
+/* DT-5: cut recommendations render red — the card is marked for removal. */
+.hud-swap-out .hud-label { color: var(--danger); }
+.hud-swap-out .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
+/* DT-5: a dismissed cut stays visibly marked (red strike) but inert in the weak table. */
+.tn-ignored td { opacity: 0.65; }
+.tn-ignored .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
 .hud-why { margin-top: var(--sp-2); display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.25rem; gap: var(--sp-1) var(--sp-2); align-items: center; font: var(--fs-micro) var(--font-mono); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
 .hud-why .t { height: 4px; background: var(--surface-3); }
 .hud-why .t i { display: block; height: 100%; background: var(--text-3); }

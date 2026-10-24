@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deck Tuner: cards recommended for removal now render in red, and dismissing a cut is permanent — dismissed cuts are never flagged again (with an "Undo dismiss" option per card).
+
 ### Fixed
 - Composition Presets and Deck Composition: the category suggestion list no longer covers the "Add category target" / "Add override" buttons.
 - Composition Presets: "Add category target" now uses the shared category pill input (target/min/max/why stay per category) instead of the broken slot row.
