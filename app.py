@@ -4617,8 +4617,24 @@ def _archetype_payload(**extra):
 async def api_archetypes_list():
     from analytics import archetypes as archetypes_mod
 
-    archetypes = await asyncio.to_thread(archetypes_mod.list_archetypes, r)
+    def _list_rendered():
+        return archetypes_mod.with_rendered_descriptions(archetypes_mod.list_archetypes(r))
+
+    archetypes = await asyncio.to_thread(_list_rendered)
     return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary())
+
+
+@app.post("/api/archetypes/render-preview")
+async def api_archetypes_render_preview(request: Request):
+    """Editor preview: render a description's markdown source exactly as it will display."""
+    from analytics import archetypes as archetypes_mod
+
+    body = await _json_body(request)
+    desc = body.get("description", "") if isinstance(body, dict) else ""
+    if not isinstance(desc, str):
+        return _bad_request(archetypes_mod.ArchetypeError("description must be text."))
+    html = await asyncio.to_thread(archetypes_mod.render_description_html, desc)
+    return {"success": True, "html": html}
 
 
 @app.post("/api/archetypes")

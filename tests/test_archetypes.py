@@ -185,5 +185,92 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
 
 
+class TestDescriptionRendering(unittest.TestCase):
+    def test_cap_raised_to_4000(self):
+        self.assertEqual(AR.MAX_DESCRIPTION, 4000)
+        ok = AR.clean_fields({"name": "X", "description": "x" * 4000})
+        self.assertEqual(len(ok["description"]), 4000)
+        with self.assertRaises(AR.ArchetypeError) as ctx:
+            AR.clean_fields({"name": "X", "description": "x" * 4001})
+        self.assertIn("4000", str(ctx.exception))
+
+    def test_markdown_subset_rendered(self):
+        html = AR.render_description_html("Grindy **midrange** deck.\n\n- `loops`\n- *card draw*")
+        self.assertIn("<strong>midrange</strong>", html)
+        self.assertIn("<ul>", html)
+        self.assertIn("<code>loops</code>", html)
+        self.assertIn("<em>card draw</em>", html)
+
+    def test_nl2br_preserves_single_newlines(self):
+        self.assertIn("<br>", AR.render_description_html("line one\nline two"))
+
+    def test_raw_html_and_scripts_stripped(self):
+        html = AR.render_description_html("<script>alert(1)</script>**ok**")
+        self.assertNotIn("script", html.lower())
+        self.assertNotIn("alert", html)
+        self.assertIn("<strong>ok</strong>", html)
+
+    def test_empty_renders_empty(self):
+        self.assertEqual(AR.render_description_html(""), "")
+        self.assertEqual(AR.render_description_html(None), "")
+        self.assertEqual(AR.description_excerpt_html(""), "")
+
+    def test_excerpt_is_first_block_only(self):
+        html = AR.render_description_html("First para.\n\nSecond para.")
+        self.assertEqual(AR.description_excerpt_html(html), "<p>First para.</p>")
+        listed = AR.render_description_html("- one\n- two\n\nTrailing paragraph.")
+        self.assertEqual(AR.description_excerpt_html(listed), "<ul>\n<li>one</li>\n<li>two</li>\n</ul>")
+
+    def test_legacy_plain_text_round_trips_unchanged(self):
+        """Source is stored verbatim; a pre-change plain-text entry still validates and renders."""
+        legacy = "Midrange value pile.\nWins late."
+        fields = AR.clean_fields({"name": "Legacy", "description": legacy})
+        self.assertEqual(fields["description"], legacy)
+        html = AR.render_description_html(fields["description"])
+        self.assertIn("Midrange value pile.", html)
+        self.assertIn("Wins late.", html)
+        self.assertIn("<br>", html)
+
+
+class TestDescriptionAPI(unittest.TestCase):
+    def setUp(self):
+        from unittest.mock import patch
+
+        self.fake = FakeRedis()
+        p = patch.object(app_module, "r", self.fake)
+        p.start()
+        self.addCleanup(p.stop)
+        self.client = TestClient(app_module.app)
+
+    def test_render_preview_endpoint(self):
+        res = self.client.post("/api/archetypes/render-preview",
+                               json={"description": "Grindy **deck**.\n\n- one\n<script>alert(1)</script>"})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertTrue(body["success"])
+        self.assertIn("<strong>deck</strong>", body["html"])
+        self.assertIn("<li>one</li>", body["html"])
+        self.assertNotIn("script", body["html"].lower())
+
+    def test_render_preview_rejects_non_string(self):
+        res = self.client.post("/api/archetypes/render-preview", json={"description": 5})
+        self.assertEqual(res.status_code, 400)
+
+    def test_list_includes_rendered_description_fields(self):
+        created = self.client.post("/api/archetypes", json={
+            "name": "Rendered", "description": "First **para**.\n\nSecond para.", "required_roles": [ROLE]})
+        self.assertEqual(created.status_code, 201)
+        body = self.client.get("/api/archetypes").json()
+        item = next(a for a in body["archetypes"] if a["name"] == "Rendered")
+        self.assertEqual(item["description"], "First **para**.\n\nSecond para.")  # source preserved
+        self.assertEqual(item["description_excerpt_html"], "<p>First <strong>para</strong>.</p>")
+        self.assertIn("Second para.", item["description_html"])
+
+    def test_create_rejects_over_4000_chars(self):
+        res = self.client.post("/api/archetypes", json={"name": "Too Long", "description": "x" * 4001})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("4000", res.json()["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

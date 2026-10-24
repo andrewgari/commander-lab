@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
 
 ### Changed
+- Archetypes: the description field is now a multi-line markdown editor (bold/italic/code/lists) with a live Preview tab and character counter, the limit is raised from 1200 to 4000 characters, and the registry list shows a rendered excerpt of the first paragraph. Existing descriptions are unchanged; single line breaks in them are now displayed as typed.
 - Deck Overview: the Update/Push sync controls, external links and Lifecycle status now live in a "Deck utilities" section at the end of the summary column instead of beside the commander.
 
 - Deck Composition page: category overrides now use the shared text input with removable category pills (target/min/max/why stay on each pill); saved data is unchanged.
