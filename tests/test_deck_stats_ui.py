@@ -169,15 +169,16 @@ class _DeckPage:
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual([h for h, _ in tabs], ["/deck/Holy%20Hellfire", "/deck/Holy%20Hellfire/stats",
-                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/journal",
-                                                 "/deck/Holy%20Hellfire/tune", "/deck/Holy%20Hellfire/ideas",
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual([h for h, _ in tabs], ["/deck/Holy%20Hellfire", "/deck/Holy%20Hellfire/manage",
+                                                 "/deck/Holy%20Hellfire/tune", "/deck/Holy%20Hellfire/stats",
+                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/primer",
+                                                 "/deck/Holy%20Hellfire/journal", "/deck/Holy%20Hellfire/ideas",
                                                  "/deck/Holy%20Hellfire/review", "/deck/Holy%20Hellfire/sim"])
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
         # No tuner run yet: Tune's badge is hidden, never "0" (UX_SPEC §1).
-        self.assertNotRegex(nav, r'/tune"[^>]*>Tune <span')
+        self.assertNotRegex(nav, r'/tune"[^>]*><span class="hud-kbd"[^>]*>3</span>Tune <span')
 
     def test_every_hud_class_used_is_defined(self):
         used = set(re.findall(r"(?<![-\w])(hud-[a-z0-9-]+)", self.body))

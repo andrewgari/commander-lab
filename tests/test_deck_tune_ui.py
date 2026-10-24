@@ -43,14 +43,14 @@ class _TunePage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual(tabs[4][0], "/deck/Holy%20Hellfire/tune")
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual(tabs[2][0], "/deck/Holy%20Hellfire/tune")
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
 
     def test_tune_badge_is_the_open_count(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
-        self.assertRegex(nav, r'/tune"[^>]*>Tune <span class="hud-tab-count">9</span>')
+        self.assertRegex(nav, r'/tune"[^>]*><span class="hud-kbd"[^>]*>3</span>Tune <span class="hud-tab-count">9</span>')
 
 
 class TestTunePage(_TunePage, unittest.TestCase):
