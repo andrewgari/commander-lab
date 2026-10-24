@@ -52,13 +52,13 @@ Kind → signals:
 | type    | `artifact`     | `t:artifact`, `o:artifact` |
 | color   | `w`            | `id:w`, `o:/white/` |
 | land    | `plains`       | `t:plains`, `o:landfall` note (see OQ-6) |
-| keyword | `flying`       | `keyword:flying` in oracle text, `o:"flying"` as the shared-concern sense
+| keyword | `flying`       | `keyword:flying` (IS), `o:"flying"` (TALKS — see §6.8, these are different sets)
 | concept | *(free)*       | no templates; a concept target starts as a blank query box
-| enemy   | `vampire"`     | "answers X" templates: `o:/destroy target [^.]*vampire/`
+| enemy   | `vampire`      | "answers X" starters in the FREE facet: `o:/destroy target [^.]*vampire/`
 
 A **concept** target (Historic, Lands Matter, Birds Matter, Vampires are the enemy) is
 not a single `t:` type; its tags are free-form queries that may span several types
-(see §6.9 for the Historic worked case).
+(see §6.7.11 for the Historic worked case).
 
 ### 1.2 Tag
 
@@ -211,11 +211,14 @@ Why not B: Scryfall's syntax is large (regex `o:/…/`, `otag:`, `is:`, `-`, `or
 `cmc`, `pow`, `set`, `format`, `lang`…). Re-implementing it means the preview count and
 the scored count may disagree after any Scryfall release, which breaks the one promise
 the whole feature makes — that the query box means what it says. Divergence was real in
-this design's own verification: `otag:spot-removal` resolves to **5,415 cards** on the
-API, and several `otag:` names that exist in Scryfall **Tagger** (`otag:bird-matters`,
-`otag:tutor-selective`) return **404** from `/cards/search`. Tagger's tag universe and
-the search API's `otag:` alias set are different things (see OQ-1), so the query text
-must be evaluated by the same engine the preview used.
+this design's own verification: `/cards/search`'s `otag:` universe is only *partly* the
+Tagger universe. All 85 otags the legacy vocabulary uses resolve (so migration is safe),
+but plausible Tagger names like `otag:bird-matters`, `otag:tutor-selective` and
+`otag:counter-payoff` return 404, and some distinct names collapse onto one alias set
+(`boardwipe`/`sweeper` = the same 947 cards; `otag:spot-removal` 5,415 vs
+`otag:removal` 6,465). A local re-implementation would have to reproduce that alias table
+and would drift from it. So the query text must be evaluated by the same engine the
+preview used — the Scryfall API — not by a second interpreter (see OQ-1).
 
 ### 2.2 Where the LLM tagger stops and stays
 
@@ -278,14 +281,19 @@ therefore gets a fresh hash and never reads a stale index entry.
 | thing | lifetime | why |
 |---|---|---|
 | `tag_query_index[q]` | **no TTL**, refreshed on demand | Scryfall's card pool only grows; a stale index means new cards are missing from roles until refresh |
-| refresh trigger | (a) any editor "Refresh" click; (b) `sync.py` full sync issues 1 `HEAD`-free `q=<tag query>` count-only? no — instead: **nightly cron runs each distinct tag query once**, rewriting changed entries; (c) tag query edited | one Scryfall pass per night over the *distinct* query set, not per deck |
-| `tag_match:*` | derived, rebuilt when `tag_query_index` changes or `deck_version` changes | cheap set intersection |
-| `tag_preview:*` | 1h TTL | typed-in-the-box previews are throwaway |
+| refresh trigger | (a) any editor "Refresh" click; (b) a nightly cron that re-runs **each distinct tag query once** and rewrites entries whose name set changed; (c) a tag query edit (new hash, so the old entry just goes cold) | one Scryfall pass per night over the *distinct* query set, not per deck, and not per sync |
 
-Nightly pass cost at 20 distinct tags ≈ 20–60 search runs, worst case ~400 pages
-(E: broad `otag:` tags). Assumption: the collection has ≤ 12 archetypes × ≤ 6 roles,
-so < 40 distinct queries — measured nowhere yet; card ARCH-3 must confirm with the
-real registry before enabling the cron.
+Nightly pass cost: at 20 distinct tags, ~20-60 search runs; worst case ~400 pages if
+several tags are broad. The number of distinct queries is bounded by `archetypes x roles`
+(at most 12 x 6 = 72 under the current `MAX_ROLES`, realistically far lower). **This is
+unverified against the real registry** — the local Redis has no archetypes yet, so ARCH-3
+must count the actual distinct queries before enabling the cron. Tags refreshed inside a
+20-hour window are skipped, so a manual refresh also resets the clock.
+
+Stale-index consequence, stated plainly: a card released after the last refresh is
+**missing from every role** until the next one. That is a bounded, visible error (the
+breakdown names the matched cards) and strictly cheaper than re-searching every deck on
+every page load.
 
 Set-level semantics: Scryfall search results are the *currently legal-in-some-format,
 paper-or-digital* printings of cards; banned cards still exist. A tag query that
@@ -296,9 +304,9 @@ not a legality check.
 
 - **Hard result cap** `TAG_MAX_RESULTS = 5000` (≈29 pages). Above it the tag is
   stored but marked `oversized: true` and **excluded from scoring** with a visible
-  editor warning: "this query matches 16k cards, narrow it". `otag:spot-removal` at
-  5,415 already trips it — which is the correct answer: "spot removal" as a role should
-  be a narrower query (§6.4).
+  editor warning: "this query matches 8,185 cards, narrow it". `(t:artifact or t:legendary
+  or t:saga)` at 8,185 already trips it — which is the correct answer: "spot removal" as a role should
+  be a narrower query (§6.7.6).
 - **Query errors never score 0 silently.** A 400/404 from Scryfall stores
   `last_error` on the tag and the role shows `blocked`, not `missing`. See §3.5.
 - **`not found` handling** on `/cards/search` is a 404 — that is "0 cards", the normal
@@ -341,22 +349,26 @@ consumes:<key>  → Tag id "legacy:consumes:<key>"
                   query  = "(otag:a or otag:b or …)"      # the Resource.consume_otags list
 ```
 
-Two resources have an **empty** `produce_otags` / non-otag semantics today and cannot
-be expressed as a query:
+**All 85 `otag:` names in `RESOURCES` resolve on `/cards/search`** (audited live
+2026-10-24: 85 checked, 0 returned 404). So 28 of the 30 legacy tags are verbatim
+mappings and score *identically* before and after migration. The two exceptions:
 
-- `produces:spells` (`produce_otags=()`) — "is or copies an instant/sorcery spell".
-  Mapping: `t:instant or t:sorcery` (behaviourally identical for role counting; the
-  current empty list means this role already **scores 0 for every deck** — see the
-  bug note below).
-- `produces:death` (`produce_otags=("sacrifice-outlet-creature",)`) and others with a
-  single otag map trivially.
+- `produces:spells` (`produce_otags = ()`) — "is or copies an instant/sorcery spell".
+  An empty otag list means this role **already scores 0 for every deck today**:
+  `otag_queries()` skips empty lists and `oracle_rules` never emits the `spells` key.
+  Migration maps it to `t:instant or t:sorcery` so it starts working. That is a real
+  behaviour change (a saved archetype gets *better*, never worse) and it belongs in
+  CHANGELOG under `### Fixed`, not under Changed.
+- `produces:death` uses a single otag (`sacrifice-outlet-creature`) — maps trivially.
 
-**Known pre-existing defect this migration must not preserve:** roles whose side has
-an empty `otag` list (`produces:spells`) currently count 0 for every deck because
-`otag_queries()` skips empty lists and `oracle_rules` does not produce that key. The
-migration deliberately gives `produces:spells` a real query (`t:instant or t:sorcery`)
-so it starts scoring; that is a behaviour change and belongs in the release note
-(CHANGELOG under `### Fixed`).
+Thinnest legacy tags, for the owner's awareness when choosing min_counts (these count
+few cards, so a role of min_count 3 is effectively unsatisfiable):
+`affinity-for-tokens` 1, `synergy-leaves-creature` 3, `synergy-proliferate` 7,
+`prowess-anthem` 8, `flicker-permanent` 15, `lifegain-increaser` 15,
+`token-doubler` 17, `repeatable-enchantment-tokens` 28.
+
+Note these are *card-level* counts of the tag query, not deck counts; a card in the
+breakdown proves the mapping, and §3.2's real gate is the per-archetype equality test.
 
 Migration is **read-time and idempotent** — no Redis rewrite script, no downtime:
 
@@ -442,6 +454,20 @@ archetype "silently scores 0". Fixing that is part of this change (§5.4).
 ---
 
 ## 4. Scoring
+
+### 4.0 Naming: there is no archetype `score_deck`
+
+The card this spec implements says "the concrete change to `score_deck`". Verified on
+`origin/main`: the archetype scorer is **`archetype_match`** in
+`analytics/archetypes.py`. `score_deck` (in `analytics/personality.py`) is a *different*
+function — it gathers deck-personality inputs from Redis (commander, curves, journal) and
+returns `PersonalityScores`. It knows nothing about roles and must not be touched by this
+work.
+
+So: **§4 is the change to `archetype_match`**, and nothing in this spec modifies
+`analytics/personality.py`. If ARCH-3's implementer greps for `score_deck` and starts
+editing `personality.py`, they are in the wrong file. This note exists because the
+source card conflated the two names.
 
 ### 4.1 What changes in `archetype_match`
 
@@ -633,162 +659,238 @@ name), and matching uses Scryfall search, not local text.
 
 ### 6.7 Worked examples — exact query strings
 
-All totals below are **live Scryfall counts measured 2026-10-24**, not estimates.
-`unique=cards` throughout.
+Every query and count below was **executed against the live Scryfall API on 2026-10-24**
+(`unique=cards`, totals are that day's `total_cards`). Counts move as sets release; the
+durable content is *which query form expresses which facet*.
 
-**Birds — IS X (`t:bird`)** — 463 cards.
-
-```
-t:bird
-```
-
-**Birds Matter — TALKS about X, stacking with IS** — 112 cards.
+#### 6.7.1 Birds — IS X
 
 ```
-o:bird
+t:bird                                        → 463 cards
 ```
 
-Rationale to keep visible in the tag's explanation: this is *not* `t:bird`. A bird that
-doesn't care about birds is not a Birds-Matter card; a non-bird that cares ("whenever a
-Bird you control attacks") is. Load-bearing example: `Aerie Worshippers` is in `o:bird`
-and not in `t:bird`. A Birds archetype typically requires **both** tags at different
-weights — the model allows it because tags stack.
-
-**Bird Generator — MAKES X** — 44 cards (breadth-first; the literal phrase version
-`o:"create a 1/1 white Bird creature token"` finds only 12 and misses `Attempted Murder`
-style "creates a ... Bird").
+#### 6.7.2 Birds Matter — TALKS about X, as its own stacking tag
 
 ```
-o:/creates? a [^.]*Bird creature token/
+o:bird                                        → 112 cards
 ```
 
-**Anti-Vampire — destroy one (owner example).**
+This is deliberately **not** `t:bird`. A Bird that doesn't mention Birds is not a
+Birds-Matter card; a non-Bird that does ("whenever a Bird you control attacks") is.
+`Aerie Worshippers` is in `o:bird` and not in `t:bird`. A Birds archetype requires both
+tags at different weights — allowed because tags stack, not mutually exclusive.
+
+#### 6.7.3 Bird Generator — MAKES X
 
 ```
-o:/destroy target [^.]*vampire/        → 3 cards (Cleansing Ray, Slayer of the Wicked, Victim of Night)
-o:"destroy target vampire"             → 2 cards (misses Victim of Night: "destroy target non-Vampire creature … or target Vampire and its controller" — wait, exact phrasing varies; see note)
+o:/creates? a [^.]*Bird creature token/       → 44 cards
 ```
 
-The regex form is the required one: it catches "destroy target creature **if** it's a
-Vampire"–style phrasings that the literal string misses. **Anti-Vampire — wipe:**
+Breadth-first on purpose. The literal phrase `o:"create a 1/1 white Bird creature
+token"` finds only **12** and misses cards that phrase the token differently. The regex
+is the template; the literal is the query the owner will write first and then edit once
+the preview count looks too low — which is exactly the intended editor loop.
+
+#### 6.7.4 Anti-Vampire — destroy one (owner example)
 
 ```
-o:/destroy all [^.]*vampire/           → 0 cards (no such card exists today; the tag is
-                                         still valid and shows "0 — query is simply too strict")
+o:/destroy target [^.]*vampire/               → 3 cards
 ```
 
-This is the honest answer, and it must be *shown* as empty rather than suppressed: the
-owner asked for "destroy all vampires" as a searchable role, and it is searchable — the
-card pool just has none. Compare the general wipe `o:/destroy all creatures/` — 100 cards.
-
-**Spot removal (restricted)** — narrow by what it hits and keep it under the cap.
+Literal-form comparison, kept because it motivates the regex template:
 
 ```
-o:/destroy target [^.]*(creature|permanent)|exile target [^.]*(creature|permanent)/   → combine with the two-part form below
+o:"destroy target vampire"                    → 2 cards
 ```
 
-Practical form (each a separate tag, which is the point — the owner wants the cut):
+The regex is **one** card broader (`Slayer of the Wicked`-style phrasings that put words
+between "target" and the type). The query-builder rule: seeds are regex templates, and
+the raw box shows the literal string the owner can tighten to, not the other way round.
+
+#### 6.7.5 Anti-Vampire — destroy all (owner example)
 
 ```
-spot removal, any:        o:/destroy target [^.]*(creature|permanent)/ or o:/exile target [^.]*(creature|permanent)/
-                          → 702 + ... (inspect: broad tags trip the cap; prefer the narrow ones)
+o:/destroy all [^.]*vampire/                  → 0 cards
+o:/destroy all [^.]*vampires/                 → 0 cards
 ```
 
-**Selective spot removal** (single-permanent, targeted, destroys only):
+**The honest result is zero.** No card in Scryfall's pool reads "destroy all Vampires".
+The tag is still valid, searchable, and scorable — it is simply a role the deck cannot
+fill yet. This is why §3.5 distinguishes `empty` (valid query, 0 matches) from `blocked`
+(query error): an anti-Vampire archetype that asks for the wipe shows **"0 — no card
+matches this query"** in amber, never as a silent 0. That distinction is the single most
+important consequence of the owner's anti-Vampire example, because the interesting
+answer is "that role is unwinnable", not "that role is worth 0".
+
+Working wipes for comparison:
 
 ```
-o:/destroy target [^.]*(creature|permanent)/        → 702 cards
+o:/destroy all creatures/                     → 100 cards
+o:/destroy all [^.]*creatures/                → 161 cards
 ```
 
-vs. the **literal-phrase** narrow form used to express "destroy target enchantment":
+#### 6.7.6 Spot removal — the owner's fine cuts
+
+Each cut is a **separate tag**, which is the whole point: they are different roles with
+different min_counts, not one "removal" bucket.
 
 ```
-o:"destroy target enchantment"                      → express via: o:/destroy target (enchantment|artifact)/   → 397 cards
+spot: destroys a single permanent, any type
+  o:/destroy target [^.]*(creature|permanent)/               → 702 cards
+
+spot: exiles a single permanent, any type
+  o:/exile target [^.]*(creature|permanent)/                 → 419 cards
+
+spot: destroy OR exile, single permanent                      → union tag
+  o:/destroy target [^.]*(creature|permanent)/ or o:/exile target [^.]*(creature|permanent)/
+                                                              → 1,120 cards
+
+non-selective spot (will hit any creature):
+  o:"destroy target creature"                                → 379 cards
 ```
 
-That 397 for `o:/destroy target (enchantment|artifact)/` is the concrete "selective spot
-removal" cut: it only answers enchantments and artifacts, not creatures. Contrast
-`o:"destroy target creature"`-class tags: those are the *non*-selective cut.
+#### 6.7.7 Selective spot removal
 
-Scryfall note that bit this design while probing: **an alternation inside a regex needs
-the regex form**, and `o:/destroy target (creature|permanent)` (unclosed slash) is a 404;
-`o:/destroy target [^.]*(creature|permanent)/` is the 702-card form. The editor's live
-preview catches this class of typo before save (§5.1 step 4).
-
-**Exile removal** (not destroy — different answer, different role):
+Selectivity = the query names the types it answers:
 
 ```
-o:"exile target" -o:"exile all"                    → 605 cards
-o:/exile target [^.]*(creature|permanent)/         → 406 cards
+o:/destroy target (enchantment|artifact)/      → 397 cards
 ```
 
-**Symmetric wipe** — destroys everything, no controller restriction:
+This is the "destroy target enchantment" cut the owner asked for: it answers enchantments
+and artifacts and nothing else. Contrast `o:"destroy target creature"`
+(379, non-selective). Both are valid roles; the difference is only the query text, which
+the breakdown makes visible card by card.
+
+**Syntax trap found while probing** — worth putting in the editor's inline help:
+`o:/destroy target (creature|permanent)` returns **404** (the regex needs its closing
+slash and, for alternation over variable-length phrases, a wildcard anchor).
+`o:/destroy target [^.]*(creature|permanent)/` is the 702-card form. Alternation inside
+`o:/…/` is legal; the returns-404 case is a missing terminator, and the live preview
+(§5.1 step 4) catches it before save.
+
+#### 6.7.8 Exile vs destroy, side by side
 
 ```
-o:/destroy all [^.]*/      -o:/you control/       → 241 cards (the broad form)
-o:/destroy all creatures/                         → 100 cards
+o:"exile target" -o:"exile all"                → 605 cards
+o:/exile target [^.]*(creature|permanent)/     → 419 cards
 ```
 
-and the **asymmetric** cut, for contrast (the owner explicitly wants this distinction):
+Different sets, different roles. An archetype that needs "answers creatures without
+letting them come back" scores `exile`, not `destroy` — the owner gets this distinction
+for free once each is a tag.
+
+#### 6.7.9 Symmetric vs asymmetric wipe
 
 ```
-o:"destroy all creatures you don't control"       → 2 cards visible as "destroy all creatures you don't control"
+symmetric (hits everything, no controller restriction):
+  o:/destroy all [^.]*creatures/                        → 161 cards
+  o:/destroy all [^.]*/ -o:/each player/ -o:/you control/ → 223 cards
+  (the 223 form additionally captures non-creature wipes: lands, artifacts, all permanents)
+
+asymmetric (only your opponents lose their board):
+  o:/destroy all creatures you don.t control/           → 2 cards (In Garruk's Wake, Plague Wind)
+  o:/each player sacrifices/                            → 72 cards
+  o:/exile all [^.]*creatures/                          → 33 cards
 ```
 
-Note the asymmetry is *usually* spelled "each opponent sacrifices" or "you control"
-clauses rather than "you don't control" — the pattern to reach for is:
+Load-bearing caveat, stated in the tag explanation rather than hidden: most
+"asymmetric" wipes in Magic are worded as *each opponent sacrifices* or *each player
+sacrifices*, not "destroy all creatures you don't control". The 2-card literal form
+understates the real cut by an order of magnitude. **Recommendation for the starter
+library (ARCH-4):** seed asymmetric wipe as
+`o:/destroy all creatures you don.t control/ or o:/each opponent sacrifices a creature/`
+and let the owner see the card list decide. Scryfall's oracle text uses a typographic
+apostrophe, so regexes over possessives must use `.` for it (`don.t`, not `don't`).
+
+#### 6.7.10 Selective vs non-selective tutor
+
+Non-selective tutor = you reveal what you get, so opponents see it:
 
 ```
-(o:/each player sacrifices/ or o:/destroy all creatures you don.t control/)
+o:/search your library for [^.]*reveal/        → 349 cards
 ```
 
-**Selective tutor** vs **non-selective tutor**:
+Selective tutor = named-type or name-your-card search:
 
 ```
-tutor, any:            o:/search your library for/                              → 829 cards
-non-selective tutor:   o:/search your library for [^.]*reveal/                  → 349 cards  (reveal = you must show what you got)
-selective tutor:       o:/search your library for [^.]*you may reveal/          → narrower form; the "may reveal" + named-type phrasing is the selective cut
-                       e.g. o:"search your library for a creature card"         → 47 cards
+"search your library for a card" with NO reveal:  o:/search your library for a [^.]*card/ -o:/reveal/
+                                                   → 341 cards
+named type:                                     o:"search your library for a creature card"
+                                                   → 47 cards
 ```
 
-Honest caveat, stated in the tag explanation rather than hidden: Scryfall's text alone
-cannot perfectly separate "look at your library and pick" from "search for a named type"
-for every card — the split is approximate and the owner can tighten any tag by editing
-its query, which is the design's escape hatch.
+The 349-person and 341-person sets are a **clean partition** (verified: zero overlap,
+349 + 341 = 690 of the 829 cards matching `o:/search your library for/`). That makes the
+reveal/not-reveal split the honest mechanical proxy for the selective/non-selective cut.
+Caveat for the tag explanation: "reveal" is a strong indicator, not a proof — `Demonic
+Tutor` is in the 341 side and is the archetypal selective tutor, so the split behaves
+correctly there, while a few edge cases will land on the wrong side. The builder's answer
+to an edge case is to edit that tag's query, not to add a carve-out to the model.
 
-**Historic matters (owner example, concept spanning types).**
+#### 6.7.11 Historic matters (owner example — a concept spanning types)
 
-Historic is a keyword action over artifacts, legendaries and sagas. Two tags, because
-the concept has two senses:
-
-```
-Historic, talks about it:   o:/historic/                  → 58 cards
-```
-
-```
-Historic, IS one:          (t:artifact or t:legendary or t:saga)   → 8,185 cards (trips the cap → marked oversized, and that is correct: a deck doesn't need a tag for "is historic", it needs tags for the cards that care)
-```
-
-The 58-card `o:/historic/` set is the real role: cards whose text references historic.
-Its matched cards must be reviewable in the breakdown (some are reminder-text false
-positives), and the owner can tighten to e.g. `o:/historic/ -o:"historic"`? no — see
-§7 OQ-4 for the recommended tightening tool rather than a magic rewrite.
-
-**Lands Matter** (free-form concept, per the brief): `o:/landfall|whenever a land enters/`
-— note this is a concept query with no `t:` type behind it, the same shape as
-`o:/historic/`.
-
-### 6.8 Legend / colour, for completeness
+Historic is a keyword action over artifacts, legendaries and sagas, so "any rules text
+referencing historic things" is an **oracle-text concept**, not a type:
 
 ```
-target kind=color, signal w:   IS → id:w          TALKS → o:/white/ (weak; recommend concepts instead)
-target kind=keyword, signal flying:  IS → o:"flying"  (keyword text; keyword: is not a Scryfall operator)
+o:/historic/                                   → 58 cards
 ```
 
-Note `keyword:flying` **is not** a Scryfall search operator (attempting it silently
-returns nonsense matches via free-text), so keyword targets must seed `o:"flying"` and
-the editor must not offer a `keyword:` template. Verifying that is a one-line check in
-the seed table, not runtime cleverness.
+```
+is historic (for reference only):
+  (t:artifact or t:legendary or t:saga)        → 8,185 cards
+```
+
+The 8,185 form is the reason concepts need the FREE facet rather than a `t:` template:
+"Historic matters" is 58 cards, "is historic" is 8,185, and they are not the same role.
+The 8,185 query also trips the 5,000 cap (§2.6) and is marked oversized, which is the
+correct outcome — "half the card pool is in this role" carries no archetype signal.
+A tag that cares about artifacts-as-historic specifically is written as
+`o:/historic/ -t:artifact` (49 cards) — a query the owner writes in the box once they see
+the 58-card breakdown and judge the artifact-heavy cards redundant.
+
+#### 6.7.12 Lands Matter (free-form concept, per the brief)
+
+```
+o:/landfall|whenever a land enters/            → 212 cards
+```
+
+No `t:` type behind it — the same shape as `o:/historic/`. This is the concept the
+owner named ("Lands Matter") and it demonstrates that a target can be a concept whose only
+facet tag is FREE.
+
+#### 6.7.13 Related: how these compose into one Birds archetype
+
+```
+required_roles = [
+  {tag: "bird:is",    min_count: 12, weight: 1.0},   # t:bird
+  {tag: "bird:talks", min_count: 4,  weight: 2.0},   # o:bird  (the archetype's identity)
+  {tag: "bird:makes", min_count: 1,  weight: 1.0},   # bird-token generator
+]
+```
+
+A card in both `t:bird` and `o:bird` counts toward both roles — stacking, as specified.
+Coverage = weighted mean of `min(have/min_count, 1)`, unchanged from today (§4.1).
+
+### 6.8 Keyword and colour targets, for completeness
+
+Both operators exist and the two senses of a keyword are **different sets** — verified:
+
+```
+keyword:flying                                 → 3,291 cards   (the keyword itself, rule 702.9)
+o:"flying"                                     → 4,590 cards   (every mention, incl. "creature with flying")
+```
+
+So `keyword:flying` is the correct IS seed for a keyword target, and `o:"flying"` is the
+TALKS seed — exactly the same IS/TALKS split as Birds, expressed with the operator
+Scryfall actually provides for it. (An earlier draft of this spec claimed `keyword:` was
+not an operator; it is. The editor must still verify each seed's non-zero count once at
+first use rather than trust a hardcoded assumption.)
+
+```
+target kind=color, signal w:   IS → id:w      TALKS → o:/white/       (weak; prefer concepts)
+```
 
 ---
 
@@ -797,19 +899,21 @@ the seed table, not runtime cleverness.
 Each with a recommendation; none blocks writing code, all block merge of ARCH-3's
 first PR if unresolved.
 
-**OQ-1 · `otag:` is not the Tagger universe.**
-`/cards/search` understands only a small alias set of `otag:` values
-(`spot-removal`→5,415, `removal`→6,465, `boardwipe`/`board-wipe`/`mass-removal`/`sweeper`
-→all the same 947, `tutor`→1,168, `ramp`→2,298), and many real Tagger tags
-(`bird-matters`, `tutor-selective`, `tok…`) 404. So a query written in Tagger's
-vocabulary can silently under-match.
-→ **Recommendation:** treat `otag:` as a convenience, never the default. Migrated
-`legacy:*` tags keep their `otag:` queries (so scores don't move), but new templates seed
-`t:`/`o:`/regex. Show a warning in the editor when a query contains `otag:` and the
-count is 0.
-**Question:** keep `otag:` in the legacy tags at all, or regenerate them as `t:/o:`
-queries at migration (which *would* move some saved scores slightly but makes every tag
-explainable in plain Scryfall syntax)?
+**OQ-1 · `otag:` is only *partly* the Tagger universe.**
+Audited live: all **85** otags used by `RESOURCES` resolve, so the migration is safe.
+But `/cards/search` is not the same tag universe as Scryfall Tagger itself — several
+plausible names 404 (`bird-matters`, `tutor-selective`, `counter-payoff`,
+`graveyard-matters`), and some distinct names collapse onto one alias set
+(`boardwipe`/`board-wipe`/`mass-removal`/`sweeper` all return the same 947 cards;
+`spot-removal` 5,415 vs `removal` 6,465).
+→ **Recommendation:** keep every migrated `legacy:*` tag on its verified `otag:` query
+(nothing to fix, scores don't move), and make new templates seed `t:`/`o:`/regex only.
+Add an editor rule: a query containing `otag:` is validated once at save (fetch the
+count); if it 404s, the tag is saved as `blocked` with the message "Scryfall does not
+recognise this tag name", never as 0.
+**Question:** do you want `otag:` offered at all in the facet templates? My reading is
+no — it is a Tagger concept the search API only partially honours, and silently
+partial matching is the one failure mode worst for a scoring system.
 
 **OQ-2 · LLM-authored seed queries.**
 An "describe it in words → propose a query" button is cheap and would help the
@@ -866,11 +970,36 @@ registry — the module docs currently insist they "must not be conflated".
 
 ## Appendix B — verification notes
 
-Every query and total in §6 was executed against `https://api.scryfall.com/cards/search`
-with `unique=cards` on 2026-10-24 from this machine; totals are that day's
-`total_cards`. Queries change as sets release — the spec's numbers are illustrative of
-*magnitude*, while the *shapes* (which query form expresses which facet) are the durable
-content. Redis layout keys were checked for collision against the live
-`commander-lab-redis` (`interaction_graph:collection`, `card_interactions:*`,
-`archetypes`, `lab_tags`, `comp:presets`, …): none of the proposed `role_tags*`,
-`tag_*` keys are in use.
+Every query, count and claim marked "verified" in this document was executed against
+`https://api.scryfall.com/cards/search` (`unique=cards`) from this machine on 2026-10-24;
+totals are that day's `total_cards`. Exactly what was run:
+
+- **Facet and cut queries** in §6.7 and §6.8 — all counts as printed.
+- **`otag:` audit** of `analytics/interactions/vocab.py` — 85 distinct otags extracted
+  from `RESOURCES`, each searched: 85 resolved, 0 returned 404. Thinnest tags listed in
+  §3.2.
+- **Rate limiting is real, not theoretical** — a burst of ~25 distinct searches in one
+  minute from one machine returned HTTP **429 with a 60-second block warning** from
+  Scryfall. That is the empirical justification for `tag_query_index` (§2.5): without a
+  persistent per-query cache, scoring a registry of dozens of roles across dozens of decks
+  would rate-limit the app into failure. The probe was re-run at 1.2 s spacing after the
+  back-off and every count reproduced exactly.
+- **Tutor partition** — name sets of `o:/search your library for [^.]*reveal/` (349) and
+  `o:/search your library for a [^.]*card/ -o:/reveal/` (341) fetched in full and
+  intersected: **zero overlap**.
+- **`keyword:` operator** — confirmed to exist as a real search operator
+  (`keyword:flying` 3,291 vs `o:"flying"` 4,590). An earlier draft wrongly claimed it
+  did not; the draft was corrected, and this note records why the claim is now trusted.
+- **Redis key collisions** — the live `commander-lab-redis` currently holds
+  `interaction_graph:collection`, `interactions:runs`, `lab_tags`, `lab_tags_source`,
+  `comp:presets`, and two github-version markers. None of the proposed `role_tags`,
+  `role_tags:version`, `role_targets`, `tag_match:*`, `tag_query_index`,
+  `tag_preview:*` keys are in use.
+- **Not verified, and flagged as such in the text:** the number of distinct tag queries
+  the real registry will hold (local Redis has no `archetypes` key yet); the per-archetype
+  old-vs-new score equality gate, which is ARCH-3's test to write, not this spec's claim;
+  and any total for a query the owner has not yet written.
+
+Scryfall totals change as sets release. The durable content here is which query *form*
+expresses which facet, plus the failure semantics (404 = no matches, 400 = bad syntax,
+oversized = refused): those do not move with the card pool.
