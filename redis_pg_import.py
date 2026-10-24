@@ -64,6 +64,38 @@ ON CONFLICT (redis_key) DO UPDATE
  WHERE t.checksum IS DISTINCT FROM EXCLUDED.checksum
 RETURNING (xmax = 0) AS inserted"""
 
+# --- deck_links typed import ---------------------------------------------
+DECKS_KEY = "decks"
+# Providers whose per-deck links are imported into the typed deck_links table.
+LINKABLE_PROVIDERS = ("archidekt", "moxfield")
+
+UPSERT_DECK_LINK = """
+INSERT INTO deck_links
+  (user_id, deck_id, provider, external_id, url, folder_id,
+   name_at_source, commander_at_source, match_method,
+   last_synced_at, upstream_missing_at, raw)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+ON CONFLICT (provider, external_id) DO UPDATE
+SET user_id = EXCLUDED.user_id,
+    deck_id = EXCLUDED.deck_id,
+    url = EXCLUDED.url,
+    folder_id = EXCLUDED.folder_id,
+    name_at_source = EXCLUDED.name_at_source,
+    commander_at_source = EXCLUDED.commander_at_source,
+    match_method = EXCLUDED.match_method,
+    last_synced_at = EXCLUDED.last_synced_at,
+    upstream_missing_at = EXCLUDED.upstream_missing_at,
+    raw = EXCLUDED.raw
+"""
+
+INSERT_USER = """
+INSERT INTO users (id, name, archidekt_user_id)
+VALUES (%s, %s, %s)
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+    archidekt_user_id = EXCLUDED.archidekt_user_id
+"""
+
 TRANSIENT_SQLSTATES = {"40001", "40P01", "08000", "08003", "08006", "57P01"}
 
 
@@ -146,6 +178,7 @@ def with_retry(fn, max_retries=3, base=0.5, sleep=time.sleep, on_retry=None):
 
 
 # ---------- sources ----------
+
 def _norm(v):
     """Make export values JSON-safe; base64 wrapper dicts from export are kept as-is."""
     return v
@@ -190,7 +223,108 @@ def records_from_redis(r):
         yield Record(key if isinstance(key, str) else key["__b64__"], t, v, ttl if ttl >= 0 else None)
 
 
+# ---------- deck_links import ----------
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _deck_link_row(deck: dict, provider: str, entry: dict, user_id: str, now: datetime) -> dict:
+    """Build one deck_links row from a registry deck and one of its provider links."""
+    return {
+        "user_id": user_id,
+        # registry id of the local deck; nullable for links whose local deck isn't registered yet
+        "deck_id": deck.get("registry_id"),
+        "provider": provider,
+        "external_id": entry.get("deck_id") or entry.get("identifier"),
+        "url": entry.get("identifier") or deck.get("url", ""),
+        "folder_id": deck.get("parent_folder_id"),
+        "name_at_source": deck.get("name", ""),
+        "commander_at_source": ", ".join(deck.get("commanders") or []),
+        "match_method": "registry_link",
+        "last_synced_at": now,
+        "upstream_missing_at": None,
+        "raw": entry,
+    }
+
+
+def ensure_user(conn, user_id: str, name: str = "Commander Lab", archidekt_user_id: str = "") -> None:
+    """Make sure the single lab user row exists (the cutover's anchor row)."""
+    with conn.transaction():
+        with conn.cursor() as cur:
+            cur.execute(INSERT_USER, (user_id, name, archidekt_user_id))
+
+
+def import_decks_from_records(conn, records, user_id: str | None,
+                              name: str = "Commander Lab",
+                              archidekt_user_id: str = "",
+                              now: datetime | None = None) -> int:
+    """Import the ``decks`` Redis key into ``deck_links`` (plus ``users``).
+
+    Every deck (any lifecycle status) is imported; each of its provider links
+    (archidekt / moxfield) becomes one deck_links row keyed by
+    ``(provider, external_id)``. Records other than ``decks`` become stub
+    rows (``deck_id`` NULL) so no key is lost (zero loss).
+    """
+    if now is None:
+        now = _now()
+    if not user_id:
+        return 0
+    decks = []
+    for rec in records:
+        if rec.key == DECKS_KEY:
+            try:
+                decks = json.loads(rec.value)
+            except (TypeError, ValueError):
+                decks = []
+            break
+    if not isinstance(decks, list):
+        decks = []
+    ensure_user(conn, user_id, name, archidekt_user_id)
+    rows = []
+    for deck in decks:
+        if not isinstance(deck, dict):
+            continue
+        links = deck.get("links") or {}
+        for provider, entry in links.items():
+            if provider not in LINKABLE_PROVIDERS:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            rows.append(_deck_link_row(deck, provider, entry, user_id, now))
+    # Orphan keys: every non-deck key becomes a stub link row (deck_id NULL).
+    for rec in records:
+        if rec.key == DECKS_KEY:
+            continue
+        rows.append({
+            "user_id": user_id,
+            "deck_id": None,
+            "provider": rec.key.split(":")[0] if ":" in rec.key else "orphan",
+            "external_id": rec.key,
+            "url": rec.key,
+            "folder_id": None,
+            "name_at_source": rec.key,
+            "commander_at_source": None,
+            "match_method": "orphan_stub",
+            "last_synced_at": now,
+            "upstream_missing_at": None,
+            "raw": {"key": rec.key, "type": rec.type, "value": rec.value},
+        })
+    with conn.transaction():
+        with conn.cursor() as cur:
+            for row in rows:
+                cur.execute(UPSERT_DECK_LINK, (
+                    row["user_id"], row["deck_id"], row["provider"], row["external_id"],
+                    row["url"], row["folder_id"], row["name_at_source"],
+                    row["commander_at_source"], row["match_method"],
+                    row["last_synced_at"], row["upstream_missing_at"],
+                    json.dumps(row["raw"], ensure_ascii=False),
+                ))
+    return len(rows)
+
+
 # ---------- load ----------
+
 def validate(rec: Record) -> None:
     if not rec.key or rec.type not in {"string", "hash", "list", "set", "zset", "stream"}:
         raise PermanentError(f"bad record {rec.key!r} type={rec.type!r}")
@@ -332,6 +466,11 @@ def main(argv=None) -> int:
     p.add_argument("--verify", action="store_true")
     p.add_argument("--metrics-port", type=int, default=None,
                    help="serve Prometheus /metrics on this port (or $TRANSFER_METRICS_PORT)")
+    # Cutover / deck import flags.
+    p.add_argument("--user-id", default=None, help="id of the single lab user (anchors deck_links)")
+    p.add_argument("--user-name", default="Commander Lab", help="display name for the user row")
+    p.add_argument("--user-archidekt-id", default="", dest="user_archidekt_id",
+                   help="Archidekt user id for the user row")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if not a.database_url and not a.dry_run:
@@ -354,6 +493,10 @@ def main(argv=None) -> int:
         log.info(s.line())
         for k, why in s.rejected:
             log.error("rejected %s: %s", k, why)
+        # Typed deck import (decks -> deck_links + users). No-op when --user-id is unset.
+        if a.user_id and conn is not None and not a.dry_run:
+            n = import_decks_from_records(conn, recs, a.user_id, a.user_name, a.user_archidekt_id)
+            log.info("imported %d deck links", n)
         if a.verify and not a.dry_run:
             bad = verify(conn, [r for r in recs if r.key not in {k for k, _ in s.rejected}])
             if bad:
