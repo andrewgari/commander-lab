@@ -12,7 +12,9 @@ Rules (error codes in `RuleCode`):
     DECK_SIZE            exactly 100 cards including commander(s)
     COLOR_IDENTITY       every card within the combined commander identity
     SINGLETON            max 1 copy, except basics and "any number / up to N"
-    BANNED / NOT_LEGAL   Commander banlist, from legality data
+    BANNED / NOT_LEGAL   Commander banlist, from legality data; NOT_LEGAL is
+                         also the code for slot type-gate violations (a card
+                         whose type class does not belong in its slot)
     UNKNOWN_LEGALITY     card record has no synced legality; fails closed
     COMMANDER_COUNT      1 or 2 commanders
     COMMANDER_ILLEGAL    commander is not a legal commander
@@ -21,6 +23,17 @@ Rules (error codes in `RuleCode`):
     UNKNOWN_CARD         card missing from the card catalog (likely hallucinated)
     INVALID_QUANTITY     non-positive / non-integer quantity
     DECK_COUNT           not 1 or 2 decks
+
+Slot-legality gates (deterministic, driven by catalog type data): each named
+slot (see deck_slots.DeckSlot) may only contain its own type class. Planes and
+phenomenons belong in planar_deck, schemes in scheme_deck, attractions in
+attraction_deck; none of those type classes are legal in the commander or
+mainboard slots. Maybeboard/considering have no type gate. A slot violation is
+flagged NOT_LEGAL with a human-readable REASON string (e.g. "plane not legal
+in mainboard slot"); a card with no type data in a variant slot fails closed
+("card type unknown; cannot verify ..."). `slot_gate()` returns the per-card
+pass/fail + reason (`SlotGateResult`) for the review pipeline, and
+`gate_deck_slots()` runs the gate over every occupied slot of a draft.
 
 Inputs are simple local types (`DraftDeck`, `CardInfo`, `CardCatalog`) so this
 module has no dependency on the not-yet-merged pool module. Adapters:
@@ -52,6 +65,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+
+from deck_slots import TYPE_CLASS_TO_SLOT, DeckSlot, normalize_slot
 
 DECK_SIZE = 100
 MAX_DECKS = 2
@@ -315,10 +330,16 @@ class DraftCard:
 
 @dataclass
 class DraftDeck:
-    """One draft: commander(s) plus mainboard (commanders NOT included in cards)."""
+    """One draft: commander(s) plus mainboard (commanders NOT included in
+    cards). `slots` holds the named non-main slots (deck_slots.DeckSlot):
+    planar_deck, scheme_deck, attraction_deck, maybeboard, considering.
+    Variant-slot cards are NOT part of the 100 and are exempt from deck size,
+    color identity, singleton and pool checks; they are governed by the
+    per-slot type gates (see slot_gate)."""
     commanders: List[str]
     cards: List[DraftCard]
     name: str = ""
+    slots: Dict[str, List[DraftCard]] = field(default_factory=dict)
 
     @classmethod
     def from_builder_draft(cls, draft: Mapping[str, Any]) -> "DraftDeck":
@@ -343,14 +364,47 @@ class DraftDeck:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "DraftDeck":
-        """{'commanders': [...], 'cards': [{'name','quantity'}] | {name: qty}}"""
+        """{'commanders': [...], 'cards': [{'name','quantity'}] | {name: qty},
+        'slots': {slot: [{'name','quantity'}, ...]}}
+
+        Slot keys are normalized through deck_slots (legacy/unknown keys fold
+        into maybeboard, matching intake). 'commander'/'mainboard' slot
+        entries are used only when the explicit 'commanders'/'cards' fields
+        are absent; the explicit fields always win.
+        """
         raw = data.get("cards") or []
         if isinstance(raw, Mapping):
             cards = [DraftCard(n, q) for n, q in raw.items()]
         else:
             cards = [DraftCard(c["name"], c.get("quantity", 1)) for c in raw]
-        return cls(commanders=list(data.get("commanders") or []), cards=cards,
-                   name=data.get("name", ""))
+        commanders = list(data.get("commanders") or [])
+
+        slots: Dict[str, List[DraftCard]] = {}
+        main_from_slot: List[DraftCard] = []
+        cmd_from_slot: List[str] = []
+        for key, entries in (data.get("slots") or {}).items():
+            slot = key if key in DeckSlot.VALID else normalize_slot(key)
+            if slot is None:
+                slot = DeckSlot.MAYBEBOARD
+            for e in entries or []:
+                if isinstance(e, Mapping):
+                    if not e.get("name"):
+                        continue
+                    entry = DraftCard(e["name"], e.get("quantity", 1))
+                else:
+                    entry = DraftCard(str(e), 1)
+                if slot == DeckSlot.COMMANDER:
+                    cmd_from_slot.append(entry.name)
+                elif slot == DeckSlot.MAINBOARD:
+                    main_from_slot.append(entry)
+                else:
+                    slots.setdefault(slot, []).append(entry)
+        if not commanders:
+            commanders = cmd_from_slot
+        if not cards:
+            cards = main_from_slot
+        return cls(commanders=commanders, cards=cards,
+                   name=data.get("name", ""), slots=slots)
 
 
 @dataclass
@@ -472,6 +526,120 @@ def check_partner_pair(a: CardInfo, b: CardInfo) -> Optional[str]:
 
 def is_legal_commander(card: CardInfo) -> bool:
     return card.can_be_commander
+
+
+# --------------------------------------------------------------------------
+# Slot-legality gates
+# --------------------------------------------------------------------------
+
+#: Type classes that belong to a variant slot (from deck_slots).
+VARIANT_TYPE_CLASSES = frozenset(TYPE_CLASS_TO_SLOT)
+
+#: Variant slot -> the type classes allowed in it.
+SLOT_ALLOWED_TYPE_CLASSES: Dict[str, frozenset] = {
+    DeckSlot.PLANAR_DECK: frozenset({"plane", "phenomenon"}),
+    DeckSlot.SCHEME_DECK: frozenset({"scheme"}),
+    DeckSlot.ATTRACTION_DECK: frozenset({"attraction"}),
+}
+
+#: Human-readable allowed-content labels for gate reasons.
+SLOT_ALLOWED_LABELS = {
+    DeckSlot.PLANAR_DECK: "planes and phenomenons",
+    DeckSlot.SCHEME_DECK: "schemes",
+    DeckSlot.ATTRACTION_DECK: "attractions",
+}
+
+#: Slots with no type gate (anything goes).
+UNGATED_SLOTS = frozenset({DeckSlot.MAYBEBOARD, DeckSlot.CONSIDERING})
+
+
+@dataclass(frozen=True)
+class SlotGateResult:
+    """Per-card, per-slot gate verdict. `reason` is ALWAYS populated (pass or
+    fail) so the review pipeline can attach it to suggestions."""
+    card: str
+    slot: str
+    legal: bool
+    reason: str
+    type_class: Optional[str] = None  # variant class found, else None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"card": self.card, "slot": self.slot, "legal": self.legal,
+                "reason": self.reason, "type_class": self.type_class}
+
+
+def _variant_type_class(info: CardInfo) -> Optional[str]:
+    lowered = {t.casefold() for t in info.types}
+    for type_class in sorted(VARIANT_TYPE_CLASSES):
+        if type_class in lowered:
+            return type_class
+    return None
+
+
+def slot_gate(info: Optional[CardInfo], slot: str,
+              card_name: str = "") -> SlotGateResult:
+    """Deterministic type-class gate for one card in one slot.
+
+    - commander / mainboard: variant type classes (Plane, Phenomenon, Scheme,
+      Attraction) are not legal; everything else passes (commander legality
+      itself is covered by the commander rules, not this gate).
+    - planar_deck / scheme_deck / attraction_deck: only the slot's own type
+      class passes. A catalog card with NO type data fails closed (its slot
+      membership cannot be verified).
+    - maybeboard / considering: no gate, always passes.
+    - unknown card (info None): fails outside the ungated slots (UNKNOWN_CARD
+      is also reported by the validator proper).
+    """
+    name = card_name or (info.name if info is not None else "")
+    slot = normalize_slot(slot) or str(slot or "").strip().lower()
+    if slot in UNGATED_SLOTS:
+        return SlotGateResult(name, slot, True,
+                              f"no type gate for the {slot} slot; anything goes")
+    if info is None:
+        return SlotGateResult(
+            name, slot, False,
+            f"card not in the catalog; cannot verify {slot or 'unknown'} slot "
+            "legality")
+    variant = _variant_type_class(info)
+    if slot in SLOT_ALLOWED_TYPE_CLASSES:
+        if variant is not None and variant in SLOT_ALLOWED_TYPE_CLASSES[slot]:
+            return SlotGateResult(name, slot, True,
+                                  f"{variant} is legal in the {slot} slot", variant)
+        if not info.types:
+            return SlotGateResult(
+                name, slot, False,
+                f"card type unknown; cannot verify {slot} slot legality "
+                "(re-sync the card record)")
+        found = variant or info.types[0].casefold()
+        return SlotGateResult(
+            name, slot, False,
+            f"{found} not legal in {slot} slot "
+            f"({SLOT_ALLOWED_LABELS[slot]} only)", variant)
+    if slot in (DeckSlot.COMMANDER, DeckSlot.MAINBOARD):
+        if variant is not None:
+            return SlotGateResult(
+                name, slot, False,
+                f"{variant} not legal in {slot} slot "
+                f"(belongs in {TYPE_CLASS_TO_SLOT[variant]})", variant)
+        return SlotGateResult(name, slot, True,
+                              f"no variant type class; legal in the {slot} slot")
+    return SlotGateResult(name, slot, True,
+                          f"no type gate defined for slot '{slot}'")
+
+
+def gate_deck_slots(deck: DraftDeck, catalog: CardCatalog) -> List[SlotGateResult]:
+    """Run the type gate over every occupied slot of a draft (commander,
+    mainboard, then the named slots in sorted order). Returns one
+    SlotGateResult per card entry, passes included."""
+    results: List[SlotGateResult] = []
+    for name in deck.commanders:
+        results.append(slot_gate(catalog.get(name), DeckSlot.COMMANDER, name))
+    for c in deck.cards:
+        results.append(slot_gate(catalog.get(c.name), DeckSlot.MAINBOARD, c.name))
+    for slot in sorted(deck.slots):
+        for c in deck.slots[slot]:
+            results.append(slot_gate(catalog.get(c.name), slot, c.name))
+    return results
 
 
 # --------------------------------------------------------------------------
@@ -650,6 +818,65 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
             "Commander legality unknown (card record has no synced legality "
             "data; re-sync to confirm): " + ", ".join(unknown_legality)
             + ". Unknown legality is not legal; replace or re-sync these cards.", idx))
+
+    # 6. Slot type gates. Commander/mainboard may not hold variant type
+    # classes (Plane/Phenomenon/Scheme/Attraction); each variant slot may only
+    # hold its own type class (a card with no type data fails closed there).
+    # Maybeboard/considering are ungated. Every violation is NOT_LEGAL and
+    # carries a human-readable reason for the review pipeline.
+    slot_violations: List[SlotGateResult] = []
+    for name in deck.commanders:
+        info = catalog.get(name)
+        if info is None:
+            continue  # UNKNOWN_CARD already reported
+        gate = slot_gate(info, DeckSlot.COMMANDER)
+        if not gate.legal:
+            slot_violations.append(gate)
+    for c in deck.cards:
+        if not _is_int(c.quantity) or c.quantity < 1:
+            continue
+        info = catalog.get(c.name)
+        if info is None:
+            continue  # UNKNOWN_CARD already reported
+        gate = slot_gate(info, DeckSlot.MAINBOARD)
+        if not gate.legal:
+            slot_violations.append(gate)
+
+    slot_bad_qty: List[str] = []
+    slot_unknown: List[str] = []
+    for slot in sorted(deck.slots):
+        for c in deck.slots[slot]:
+            if not _is_int(c.quantity) or c.quantity < 1:
+                slot_bad_qty.append(c.name)
+                continue
+            if slot in UNGATED_SLOTS or slot not in SLOT_ALLOWED_TYPE_CLASSES:
+                continue  # anything goes / no gate defined
+            info = catalog.get(c.name)
+            if info is None:
+                slot_unknown.append(c.name)
+                continue
+            gate = slot_gate(info, slot)
+            if not gate.legal:
+                slot_violations.append(gate)
+
+    if slot_bad_qty:
+        errs.append(ValidationError(
+            RuleCode.INVALID_QUANTITY, sorted(set(slot_bad_qty)),
+            "Quantities must be positive integers; these named-slot entries "
+            "were ignored: " + ", ".join(sorted(set(slot_bad_qty))) + ".", idx))
+    if slot_unknown:
+        errs.append(ValidationError(
+            RuleCode.UNKNOWN_CARD, slot_unknown,
+            "These slot cards are not in the card database (misspelled or "
+            "invented?): " + ", ".join(slot_unknown)
+            + ". Replace them with real card names.", idx))
+    if slot_violations:
+        errs.append(ValidationError(
+            RuleCode.NOT_LEGAL, [g.card for g in slot_violations],
+            "Cards in the wrong slot: "
+            + "; ".join(f"{g.card}: {g.reason}" for g in slot_violations) + ".",
+            idx, {"slot_reasons": {g.card: {"slot": g.slot, "reason": g.reason}
+                                   for g in slot_violations}}))
     return errs
 
 
