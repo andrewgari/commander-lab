@@ -57,6 +57,14 @@ CASES = {
          {"name": "  Arcane Signet  ", "qty": 1}, None, "Sol Ring"],
         [{"name": "Arcane Signet", "qty": 1}],
     ),
+    "with_set": (
+        [{"name": "Lightning Bolt", "qty": 1, "set": "sld"},
+         {"name": "Lightning Bolt", "qty": 2, "set": "2x2"},
+         {"name": "Lightning Bolt", "qty": 1}],
+        [{"name": "Lightning Bolt", "qty": 1, "set": "SLD"},
+         {"name": "Lightning Bolt", "qty": 2, "set": "2X2"},
+         {"name": "Lightning Bolt", "qty": 1}],
+    ),
 }
 EMPTY = {
     "empty_list": [],
@@ -101,8 +109,12 @@ def _cart_from_url(url):
     assert q["productline"] == ["Magic"]
     out = []
     for line in q["c"][0].split("||"):
-        qty, name = line.split(" ", 1)
-        out.append({"name": name, "qty": int(qty)})
+        m = re.fullmatch(r"(\d+) (.+?)(?: \[([^\]]+)\])?", line)
+        assert m, f"unparseable cart line: {line!r}"
+        it = {"name": m.group(2), "qty": int(m.group(1))}
+        if m.group(3):
+            it["set"] = m.group(3)
+        out.append(it)
     return out
 
 
