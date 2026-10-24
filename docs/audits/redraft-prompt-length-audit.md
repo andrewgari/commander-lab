@@ -125,6 +125,16 @@ Downstream tasks that need a real-world typical length should either run one liv
 with ORACLE_KEY configured and record the char count, or instrument `validate_primer` to log
 `len(text)` / `_words(text)` for a day of real traffic.
 
+Executed verification of the length behavior above (real runs against the actual validators,
+2026-10-23, analytics/deck_writeup/service.py):
+
+- `validate_primer` ACCEPTED the 65-char / 11-word fixture reply (3 sections) — proves no floor.
+- `validate_primer` REJECTED a 1400-word reply with kind="too_long" ("far too long") — the 1.5x
+  ceiling (1350 words at standard) is real.
+- `validate_primer` ACCEPTED a 1348-word reply — boundary just under 1.5x confirmed.
+- `validate_description` on a 120-word reply returned 275 chars — the 280-char `trim_to_chars`
+  cap applies to descriptions only, confirming primer/redraft sections are never truncated.
+
 ## Where the change for the 500-char minimum should go (for t_1ee8ca35)
 
 - `analytics/deck_writeup/prompts.py` PRIMER_SYSTEM: add the floor instruction near
