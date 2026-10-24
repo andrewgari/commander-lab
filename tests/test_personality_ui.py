@@ -86,7 +86,8 @@ class TestRoutes(unittest.TestCase):
     @patch("app.registry.list_decks", return_value=[DECK])
     def test_deck_page_has_ability_panel_under_stat_strip(self, _):
         body = self.client.get("/deck/The%20Laws%20of%20Time%20are%20Mine!!").text.split("<body", 1)[1]
-        order = [body.find(m) for m in ('id="deckStats"', 'id="psPanel"', 'id="deckCurve"')]
+        # NAV_IA §3.3: the ability panel sits under the stats-at-a-glance strip.
+        order = [body.find(m) for m in ('id="deckStats"', 'id="deckCurve"', 'id="psPanel"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertIn('aria-labelledby="psH"', body)
