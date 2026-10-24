@@ -209,7 +209,8 @@
         msg(li, "Thinking it over…");
         send("POST", "/tune/reconsider", { cut: cut }).then(function (j) {
             if (S.entries[cut]) S.entries[cut].reconsideration = j.response;
-            decorateRow(li);
+            li._tn7sig = null;  // force rebuild: a cache-hit answer changes no
+            decorateRow(li);    // signature, and the buttons must re-enable
         }).catch(function (e) {
             msg(li, e.message || "Reconsider failed.");
             buttons(li, false);
