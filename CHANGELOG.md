@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck Overview: the decklist now leads the page instead of sitting below the analytics panels — the order is decklist, Briefing, a compact "Stats at a glance" strip (curve, types, colours) linking through to the Stats tab, then deck utilities. The Visual/List decklist toggle is now a segmented control that no longer looks like the navigation tabs, and the large commander showcase is retired in favour of the commander art in the deck header shown on every tab.
 - Reconstruct page: controls, chips and colors now use the shared HUD component styling (the Font Awesome icon font is no longer loaded); the workflow and its labels are unchanged.
 - **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
+- Deck Tuner: cards recommended for removal now render in red, and dismissing a cut is permanent — dismissed cuts are never flagged again (with an "Undo dismiss" option per card).
 
 ### Fixed
 - Commander Salt now works for decks never viewed on commandersalt.com: when the salt cache lookup reports a deck missing, the app now asks Commander Salt to import and score the deck (the same import their own site uses), so salt scores and salt-based analytics appear instead of silently showing nothing.
