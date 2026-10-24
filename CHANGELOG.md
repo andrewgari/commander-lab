@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck validation now enforces slot legality: the Planar deck accepts only planes and phenomenons, the Scheme deck only schemes, the Attraction deck only attractions, and none of those cards are legal in the commander slot or the main 99. Violations are flagged NOT_LEGAL with a plain-language reason (e.g. "plane not legal in mainboard slot") that review suggestions can quote, cards whose type data is missing fail closed in variant decks, and Maybeboard/Considering stay unrestricted.
 
 ### Changed
+- Deck page: the card debate view opened from a card's detail modal is now called "Quick look" instead of "Card review", and the header button that starts the journal check-in is now "Check in"; on Tune, the dismiss hint now says "suggestion" — the Review tab is now the only surface that says "review".
 - Reconstruct page: controls, chips and colors now use the shared HUD component styling (the Font Awesome icon font is no longer loaded); the workflow and its labels are unchanged.
 - **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
 
