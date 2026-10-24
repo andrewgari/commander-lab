@@ -3,25 +3,7 @@
 {% block title %}Reconstruct | Commander Lab{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    :root {
-        --surface: #0f172a;
-        --surface-card: #1e293b;
-        --border-subtle: #334155;
-        --text-dim: #94a3b8;
-        --accent-blue: #3b82f6;
-        --tier-pool-bg: rgba(16, 185, 129, 0.15);
-        --tier-pool-color: #34d399;
-        --tier-pool-border: rgba(16, 185, 129, 0.3);
-        --tier-owned-bg: rgba(59, 130, 246, 0.15);
-        --tier-owned-color: #60a5fa;
-        --tier-owned-border: rgba(59, 130, 246, 0.3);
-        --tier-new-bg: rgba(244, 63, 94, 0.15);
-        --tier-new-color: #fb7185;
-        --tier-new-border: rgba(244, 63, 94, 0.3);
-    }
-
     .reconstruct-container {
         max-width: 1100px;
         margin: 0 auto;
@@ -33,27 +15,27 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 1rem 1.5rem;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        margin-bottom: 2rem;
-        gap: 0.5rem;
+        padding: var(--sp-4) var(--sp-6);
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        margin-bottom: var(--sp-8);
+        gap: var(--sp-2);
         flex-wrap: wrap;
     }
     .step-item {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        font-size: 0.85rem;
-        color: var(--text-dim);
+        gap: var(--sp-2);
+        font-size: var(--fs-sm);
+        color: var(--text-3);
     }
     .step-item.active {
-        color: #93c5fd;
-        font-weight: 600;
+        color: var(--signal);
+        font-weight: var(--fw-semibold);
     }
     .step-item.completed {
-        color: #34d399;
+        color: var(--ok);
     }
     .step-bubble {
         width: 24px;
@@ -62,122 +44,77 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.75rem;
-        background: #1e293b;
-        border: 1px solid var(--border);
+        font-size: var(--fs-micro);
+        font-family: var(--font-mono);
+        background: var(--surface-2);
+        border: var(--stroke);
     }
     .step-item.active .step-bubble {
-        background: #1d4ed8;
-        border-color: #3b82f6;
-        color: white;
+        background: var(--signal-dim);
+        border-color: var(--signal);
+        color: var(--signal);
     }
     .step-item.completed .step-bubble {
-        background: #064e3b;
-        border-color: #10b981;
-        color: #6ee7b7;
+        background: var(--ok-dim);
+        border-color: var(--ok);
+        color: var(--ok);
     }
     .step-separator {
         flex: 1;
         height: 1px;
-        background: var(--border);
+        background: var(--line);
         min-width: 20px;
     }
 
     /* Cards and Surfaces */
     .recon-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        padding: var(--sp-6);
+        margin-bottom: var(--sp-6);
     }
     .recon-card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid var(--border);
-    }
-
-    /* Buttons */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.6rem 1.1rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--text-main);
-        cursor: pointer;
-        transition: all 0.15s ease;
-        text-decoration: none;
-    }
-    .btn:hover:not(:disabled) {
-        background: #1e293b;
-        border-color: #475569;
-        color: #f8fafc;
-    }
-    .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-    .btn-primary {
-        background: #2563eb;
-        border-color: #1d4ed8;
-        color: white;
-    }
-    .btn-primary:hover:not(:disabled) {
-        background: #1d4ed8;
-        border-color: #1e40af;
-    }
-    .btn-danger {
-        color: #fca5a5;
-        border-color: #7f1d1d;
-    }
-    .btn-danger:hover:not(:disabled) {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: #dc2626;
-    }
-    .btn-sm {
-        padding: 0.35rem 0.65rem;
-        font-size: 0.75rem;
+        margin-bottom: var(--sp-4);
+        padding-bottom: var(--sp-3);
+        border-bottom: var(--stroke);
     }
 
     /* Form Fields */
     .input-group {
-        margin-bottom: 1.25rem;
+        margin-bottom: var(--sp-5);
     }
     .input-label {
         display: block;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #e2e8f0;
-        margin-bottom: 0.4rem;
+        font-size: var(--fs-sm);
+        font-weight: var(--fw-medium);
+        color: var(--text-1);
+        margin-bottom: var(--sp-2);
     }
     .input-hint {
-        font-size: 0.75rem;
-        color: var(--text-dim);
-        margin-top: 0.35rem;
+        font-size: var(--fs-xs);
+        color: var(--text-3);
+        margin-top: var(--sp-2);
     }
     .input-field {
         width: 100%;
         box-sizing: border-box;
-        background: #0a0a0a;
-        border: 1px solid var(--border);
-        color: #f8fafc;
-        padding: 0.6rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.875rem;
+        background: var(--surface-0);
+        border: var(--stroke);
+        color: var(--text-1);
+        padding: var(--sp-2) var(--sp-3);
+        border-radius: var(--radius-1);
+        font-size: var(--fs-base);
         font-family: inherit;
-        transition: border-color 0.15s;
+        transition: border-color var(--dur-fast) var(--ease);
     }
     .input-field:focus {
-        border-color: var(--accent-blue);
-        outline: none;
+        border-color: var(--signal);
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-offset);
     }
     textarea.input-field {
         min-height: 80px;
@@ -194,142 +131,108 @@
         left: 0;
         right: 0;
         z-index: 50;
-        background: #0a0a0a;
-        border: 1px solid #334155;
-        border-radius: 6px;
+        background: var(--surface-0);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
         max-height: 220px;
         overflow-y: auto;
-        margin-top: 4px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        margin-top: var(--sp-1);
     }
     .autocomplete-item {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.85rem;
+        padding: var(--sp-2) var(--sp-3);
+        font-size: var(--fs-sm);
         cursor: pointer;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid #1e293b;
+        border-bottom: 1px solid var(--line-faint);
     }
     .autocomplete-item:hover, .autocomplete-item.selected {
-        background: #1e293b;
-        color: #60a5fa;
+        background: var(--surface-2);
+        color: var(--data-strong);
     }
 
-    /* Tags & Pills */
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.25rem 0.65rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-        border-radius: 9999px;
-    }
-    .badge-source-pool {
-        background: var(--tier-pool-bg);
-        color: var(--tier-pool-color);
-        border: 1px solid var(--tier-pool-border);
-    }
-    .badge-source-owned {
-        background: var(--tier-owned-bg);
-        color: var(--tier-owned-color);
-        border: 1px solid var(--tier-owned-border);
-    }
-    .badge-source-new {
-        background: var(--tier-new-bg);
-        color: var(--tier-new-color);
-        border: 1px solid var(--tier-new-border);
-    }
+    /* Clickable theme/suggestion chips (wear hud-chip--custom) */
     .tag-chip {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        background: #1e293b;
-        color: #cbd5e1;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        margin-right: 0.35rem;
-        margin-bottom: 0.35rem;
         cursor: pointer;
-        transition: all 0.15s;
+        margin-right: var(--sp-1);
+        margin-bottom: var(--sp-1);
     }
     .tag-chip:hover {
-        background: #334155;
-        color: #f8fafc;
+        --chip-fg: var(--text-1);
+        --chip-line: var(--text-3);
     }
 
     /* Tables */
     .recon-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.85rem;
+        font-size: var(--fs-sm);
     }
     .recon-table th {
         text-align: left;
-        padding: 0.6rem 0.75rem;
-        background: #0a0a0a;
-        color: var(--text-dim);
-        font-weight: 500;
-        border-bottom: 1px solid var(--border);
+        padding: var(--sp-2) var(--sp-3);
+        background: var(--surface-0);
+        color: var(--text-3);
+        font-weight: var(--fw-medium);
+        border-bottom: var(--stroke);
     }
     .recon-table td {
-        padding: 0.5rem 0.75rem;
-        border-bottom: 1px solid #1e293b;
-        color: var(--text-main);
+        padding: var(--sp-2) var(--sp-3);
+        border-bottom: 1px solid var(--line-faint);
+        color: var(--text-2);
     }
     .recon-table tr:hover td {
-        background: #111827;
+        background: var(--surface-2);
     }
 
     /* Sticky Footer Action Bar */
     .sticky-action-bar {
         position: fixed;
         bottom: 0;
-        left: 250px;
+        left: var(--sidebar-w);
         right: 0;
-        background: rgba(10, 10, 10, 0.95);
-        backdrop-filter: blur(8px);
-        border-top: 1px solid var(--border);
-        padding: 1rem 2rem;
+        background: var(--surface-0);
+        border-top: var(--stroke);
+        padding: var(--sp-4) var(--sp-8);
         display: flex;
         justify-content: space-between;
         align-items: center;
         z-index: 40;
     }
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
         .sticky-action-bar {
-            left: 0;
-            padding: 0.75rem 1rem;
+            left: var(--sidebar-w-collapsed);
+            padding: var(--sp-3) var(--sp-4);
             flex-direction: column;
-            gap: 0.75rem;
+            gap: var(--sp-3);
         }
     }
 
     /* Alert / Error Banners */
     .alert {
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        margin-bottom: 1.25rem;
+        padding: var(--sp-3) var(--sp-4);
+        border-radius: var(--radius-1);
+        font-size: var(--fs-base);
+        margin-bottom: var(--sp-5);
         display: flex;
         align-items: flex-start;
-        gap: 0.75rem;
+        gap: var(--sp-3);
     }
     .alert-danger {
-        background: rgba(239, 68, 68, 0.15);
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        color: #fca5a5;
+        background: var(--danger-dim);
+        border: 1px solid var(--danger);
+        color: var(--danger);
     }
     .alert-warning {
-        background: rgba(245, 158, 11, 0.15);
-        border: 1px solid rgba(245, 158, 11, 0.4);
-        color: #fde68a;
+        background: var(--signal-dim);
+        border: 1px solid var(--signal-line);
+        color: var(--signal);
     }
     .alert-success {
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        color: #6ee7b7;
+        background: var(--ok-dim);
+        border: 1px solid var(--ok);
+        color: var(--ok);
     }
 
     /* Modal */
@@ -339,21 +242,20 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.75);
+        background: var(--scrim);
         display: none;
         align-items: center;
         justify-content: center;
         z-index: 100;
-        padding: 1rem;
+        padding: var(--sp-4);
     }
     .modal-content {
-        background: #0f172a;
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
         max-width: 500px;
         width: 100%;
-        padding: 1.5rem;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        padding: var(--sp-6);
     }
 
     /* Mana pips */
@@ -363,7 +265,23 @@
         vertical-align: middle;
         margin-right: 2px;
     }
-    .input-field.is-invalid { border-color: #ef4444 !important; }
+
+    /* Building-state spinner */
+    .recon-spinner {
+        display: inline-block;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 2px solid var(--line-strong);
+        border-top-color: var(--signal);
+        border-radius: 9999px;
+        animation: recon-spin 0.9s linear infinite;
+    }
+    @keyframes recon-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+        .recon-spinner { animation: none; }
+    }
+
+    .input-field.is-invalid { border-color: var(--danger) !important; }
 </style>
 {% endblock %}
 
@@ -373,26 +291,18 @@
     <!-- Global App Header -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div>
-            <h1 style="margin: 0; display: flex; align-items: center; gap: 0.75rem;">
-                <i class="fa-solid fa-wand-magic-sparkles" style="color: #60a5fa;"></i>
-                Reconstruct
-            </h1>
-            <p style="color: var(--text-dim); margin-top: 0.35rem; font-size: 0.9rem;" id="headerSubtitle">
+            <h1 style="margin: 0;">Reconstruct</h1>
+            <p style="color: var(--text-3); margin-top: 0.35rem; font-size: 0.9rem;" id="headerSubtitle">
                 Decommission physical decks and craft new decks prioritizing your retired card pool and collection.
             </p>
         </div>
         <div id="sessionStatusContainer" style="display: none;">
-            <span class="badge" id="sessionStatusBadge" style="background: #1e3a8a; color: #93c5fd; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
-                Status: Pending Preferences
-            </span>
-            <span class="badge" id="dryRunSessionBadge" style="display: none; margin-left: 0.5rem; background: #78350f; color: #fcd34d; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
-                DRY RUN — NO DECOMMISSION
-            </span>
+            <span class="hud-chip hud-chip--data" id="sessionStatusBadge">Status: Pending Preferences</span>
+            <span class="hud-chip hud-chip--signal" id="dryRunSessionBadge" style="display: none; margin-left: 0.5rem;">DRY RUN — NO DECOMMISSION</span>
         </div>
     </div>
 
     <div class="alert alert-warning" id="dryRunNoticeBanner" style="display: none; margin-bottom: 1rem;">
-        <i class="fa-solid fa-flask"></i>
         <div>
             <strong>Dry run:</strong> source decks were not decommissioned and no cards were moved. Pools and drafts are counted exactly as a real Reconstruct would; drafts cannot be accepted.
         </div>
@@ -401,7 +311,7 @@
     <!-- Stepper (Shown only when in an active session) -->
     <div class="stepper" id="reconstructStepper" style="display: none;">
         <div class="step-item completed" id="step1">
-            <div class="step-bubble"><i class="fa-solid fa-check"></i></div>
+            <div class="step-bubble">✓</div>
             <span id="step1Label">1. Decommission</span>
         </div>
         <div class="step-separator"></div>
@@ -428,7 +338,6 @@
 
     <!-- Error container -->
     <div id="globalError" class="alert alert-danger" style="display: none;" role="alert">
-        <i class="fa-solid fa-circle-exclamation" style="margin-top: 0.15rem;"></i>
         <div id="globalErrorMessage">An unexpected error occurred.</div>
     </div>
 
@@ -436,12 +345,9 @@
     <div id="screenLanding" style="display: none;">
         <div class="recon-card">
             <div class="recon-card-header">
-                <h2 style="font-size: 1.15rem; margin: 0; color: #f8fafc;">
-                    <i class="fa-solid fa-plus-circle" style="color: #60a5fa; margin-right: 0.5rem;"></i>
-                    Start a New Reconstruct
-                </h2>
+                <h2 style="font-size: var(--fs-md); margin: 0; color: var(--text-1);">Start a New Reconstruct</h2>
             </div>
-            <p style="font-size: 0.875rem; color: var(--text-dim); margin-top: 0;">
+            <p style="font-size: 0.875rem; color: var(--text-3); margin-top: 0;">
                 Select 1 or 2 physical Commander decks to decommission. Their decklists will be snapshotted and cards pooled for drafting new decks.
             </p>
 
@@ -461,33 +367,27 @@
             </div>
 
             <div class="alert alert-warning" id="landingDecomWarning" style="margin-top: 0.5rem;">
-                <i class="fa-solid fa-triangle-exclamation"></i>
                 <div>
                     <strong>Note:</strong> Starting reconstruct will immediately decommission and retire the selected deck(s), returning their cards to your unassigned inventory.
                 </div>
             </div>
 
-            <label for="landingDryRunToggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem; cursor: pointer; color: var(--text-dim); font-size: 0.9rem;">
+            <label for="landingDryRunToggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem; cursor: pointer; color: var(--text-3); font-size: 0.9rem;">
                 <input type="checkbox" id="landingDryRunToggle" onchange="onLandingDryRunChange(this.checked)" style="margin-top: 0.2rem;">
                 <span>Dry Run (No Decommission) — Count cards and preview available pools &amp; drafts without retiring decks, moving cards, or deleting anything</span>
             </label>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-                <button class="btn btn-primary" id="btnLandingStart" onclick="startReconstructFromLanding()">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Start Reconstruct
-                </button>
+                <button class="hud-btn hud-btn--primary" id="btnLandingStart" onclick="startReconstructFromLanding()">Start Reconstruct</button>
             </div>
         </div>
 
         <div class="recon-card">
             <div class="recon-card-header">
-                <h2 style="font-size: 1.15rem; margin: 0; color: #f8fafc;">
-                    <i class="fa-solid fa-clock-rotate-left" style="color: #60a5fa; margin-right: 0.5rem;"></i>
-                    Recent Reconstruct Sessions
-                </h2>
+                <h2 style="font-size: var(--fs-md); margin: 0; color: var(--text-1);">Recent Reconstruct Sessions</h2>
             </div>
             <div id="recentSessionsContainer">
-                <div style="color: var(--text-dim); font-size: 0.875rem; text-align: center; padding: 2rem;">
+                <div style="color: var(--text-3); font-size: 0.875rem; text-align: center; padding: 2rem;">
                     Loading recent sessions...
                 </div>
             </div>
@@ -499,38 +399,34 @@
         <div class="recon-card">
             <div class="recon-card-header">
                 <div>
-                    <h2 style="font-size: 1.25rem; margin: 0; color: #f8fafc;" id="poolHeaderTitle">
-                        Pooled Resources
-                    </h2>
-                    <p style="font-size: 0.85rem; color: var(--text-dim); margin: 0.35rem 0 0 0;" id="poolHeaderDecks">
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);" id="poolHeaderTitle">Pooled Resources</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="poolHeaderDecks">
                         Retired source decks: -
                     </p>
                 </div>
-                <button class="btn btn-primary" id="btnProceedToPrefs" onclick="showScreen('preferences')">
-                    Set Preferences for New Deck(s) <i class="fa-solid fa-arrow-right"></i>
-                </button>
+                <button class="hud-btn hud-btn--primary" id="btnProceedToPrefs" onclick="showScreen('preferences')">Set Preferences for New Deck(s)</button>
             </div>
 
             <!-- Stats Bar -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Total Pool Cards</div>
-                    <div style="font-size: 1.5rem; font-weight: 600; color: #f8fafc; margin-top: 0.25rem;" id="poolTotalCards">0</div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Total Pool Cards</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;" id="poolTotalCards">0</div>
                 </div>
-                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Unique Cards</div>
-                    <div style="font-size: 1.5rem; font-weight: 600; color: #f8fafc; margin-top: 0.25rem;" id="poolUniqueCards">0</div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Unique Cards</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;" id="poolUniqueCards">0</div>
                 </div>
-                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Source Decks</div>
-                    <div style="font-size: 1.5rem; font-weight: 600; color: #60a5fa; margin-top: 0.25rem;" id="poolSourceDecksCount">0</div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Source Decks</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--data-strong); margin-top: 0.25rem;" id="poolSourceDecksCount">0</div>
                 </div>
-                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; display: none;" id="poolOwnedCollectionCardsBox">
-                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Free Owned Copies (Tier 2)</div>
-                    <div style="font-size: 1.5rem; font-weight: 600; color: #34d399; margin-top: 0.25rem;" id="poolOwnedCollectionCards">0</div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4); display: none;" id="poolOwnedCollectionCardsBox">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Free Owned Copies (Tier 2)</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--ok); margin-top: 0.25rem;" id="poolOwnedCollectionCards">0</div>
                 </div>
-                <div style="background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;">
-                    <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Combined Color Identity</div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Combined Color Identity</div>
                     <div style="margin-top: 0.35rem;" id="poolCombinedColors">-</div>
                 </div>
             </div>
@@ -546,16 +442,16 @@
                     <input type="text" id="poolCardSearch" class="input-field" placeholder="Search cards in pool..." oninput="filterPoolCards()">
                 </div>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="poolFilterButtons">
-                    <button class="btn btn-sm btn-primary" onclick="setPoolFilter('all', this)">All</button>
-                    <button class="btn btn-sm" onclick="setPoolFilter('creature', this)">Creatures</button>
-                    <button class="btn btn-sm" onclick="setPoolFilter('spell', this)">Spells</button>
-                    <button class="btn btn-sm" onclick="setPoolFilter('artifact_enchantment', this)">Artifacts & Enchantments</button>
-                    <button class="btn btn-sm" onclick="setPoolFilter('land', this)">Lands</button>
+                    <button class="hud-btn hud-btn--sm hud-btn--primary" onclick="setPoolFilter('all', this)">All</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('creature', this)">Creatures</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('spell', this)">Spells</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('artifact_enchantment', this)">Artifacts & Enchantments</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('land', this)">Lands</button>
                 </div>
             </div>
 
             <!-- Pool Cards Table -->
-            <div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden; max-height: 480px; overflow-y: auto;">
+            <div style="border: 1px solid var(--line); border-radius: var(--radius-1); overflow: hidden; max-height: 480px; overflow-y: auto;">
                 <table class="recon-table" id="poolCardsTable">
                     <thead>
                         <tr>
@@ -571,9 +467,7 @@
             </div>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
-                <button class="btn btn-primary" onclick="showScreen('preferences')">
-                    Set Preferences for New Deck(s) <i class="fa-solid fa-arrow-right"></i>
-                </button>
+                <button class="hud-btn hud-btn--primary" onclick="showScreen('preferences')">Set Preferences for New Deck(s)</button>
             </div>
         </div>
     </div>
@@ -583,15 +477,13 @@
         <div class="recon-card">
             <div class="recon-card-header">
                 <div>
-                    <h2 style="font-size: 1.25rem; margin: 0; color: #f8fafc;">
-                        Target Deck Preferences
-                    </h2>
-                    <p style="font-size: 0.85rem; color: var(--text-dim); margin: 0.35rem 0 0 0;" id="prefPoolSummary">
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);">Target Deck Preferences</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="prefPoolSummary">
                         Pool: -
                     </p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: #cbd5e1; cursor: pointer; background: #0a0a0a; border: 1px solid var(--border); padding: 0.45rem 0.75rem; border-radius: 6px;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-base); color: var(--text-2); cursor: pointer; background: var(--surface-0); border: 1px solid var(--line); padding: 0.45rem 0.75rem; border-radius: var(--radius-1);">
                         <input type="checkbox" id="buildTwoDecksToggle" onchange="toggleTwoDecks(this.checked)" style="margin: 0; cursor: pointer;">
                         <span>I want to build TWO new decks from this pool</span>
                     </label>
@@ -604,13 +496,10 @@
             <form id="reconstructPrefsForm" onsubmit="event.preventDefault(); submitPreferencesAndDraft();">
 
                 <!-- DECK 1 PREFERENCES -->
-                <div id="deckPrefsSection_0" class="recon-card" style="background: #0a0a0a; border: 1px solid #334155; margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem;">
-                        <h3 style="font-size: 1.05rem; margin: 0; color: #93c5fd; font-weight: 600;">
-                            <i class="fa-solid fa-shield-halved" style="margin-right: 0.4rem;"></i>
-                            Deck 1 Preferences
-                        </h3>
-                        <span class="badge" style="background: #172554; color: #93c5fd;">Target Deck 1</span>
+                <div id="deckPrefsSection_0" class="recon-card" style="background: var(--surface-0); border: 1px solid var(--line-strong); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
+                        <h3 style="font-size: var(--fs-md); margin: 0; color: var(--data-strong); font-weight: var(--fw-semibold);">Deck 1 Preferences</h3>
+                        <span class="hud-chip hud-chip--data">Target Deck 1</span>
                     </div>
 
                     <!-- Deck Name (Optional) -->
@@ -629,25 +518,21 @@
                             <div id="cmdrDropdown_0" class="autocomplete-dropdown" style="display: none;"></div>
                         </div>
                         <div class="input-hint" id="suggestedCmdrs_0">
-                            <i class="fa-solid fa-sparkles" style="color: #60a5fa;"></i> Suggested from pool: <span id="poolCmdrSuggestions_0" style="color: #cbd5e1;">-</span>
+                            Suggested from pool: <span id="poolCmdrSuggestions_0" style="color: var(--text-2);">-</span>
                         </div>
                     </div>
 
                     <!-- Partner / Background Button & Container -->
                     <div style="margin-bottom: 1.25rem;">
-                        <button type="button" class="btn btn-sm" id="btnTogglePartner_0" onclick="togglePartnerSlot(0)">
-                            <i class="fa-solid fa-plus"></i> Add Partner / Background Commander
-                        </button>
+                        <button type="button" class="hud-btn hud-btn--sm" id="btnTogglePartner_0" onclick="togglePartnerSlot(0)">Add Partner / Background Commander</button>
                     </div>
 
-                    <div id="partnerContainer_0" class="input-group" style="display: none; background: rgba(30, 41, 59, 0.4); padding: 0.75rem; border: 1px solid #334155; border-radius: 6px;">
+                    <div id="partnerContainer_0" class="input-group" style="display: none; background: var(--surface-2); padding: 0.75rem; border: 1px solid var(--line-strong); border-radius: var(--radius-1);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                             <label class="input-label" for="pref_partner_cmdr_0" style="margin: 0;">
                                 Second Commander (Partner / Background / Friends Forever):
                             </label>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="removePartnerSlot(0)" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">
-                                Remove
-                            </button>
+                            <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(0)">Remove</button>
                         </div>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="pref_partner_cmdr_0" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(0, this.value)">
@@ -661,12 +546,12 @@
                             <label class="input-label" for="pref_themes_0">Themes (Optional):</label>
                             <input type="text" id="pref_themes_0" class="input-field" placeholder="e.g., Aristocrats, Tokens, +1/+1 Counters">
                             <div style="margin-top: 0.4rem;">
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Tokens')">+ Tokens</span>
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Aristocrats')">+ Aristocrats</span>
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Spellslinger')">+ Spellslinger</span>
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Artifacts')">+ Artifacts</span>
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Graveyard')">+ Graveyard</span>
-                                <span class="tag-chip" onclick="addThemeChip(0, 'Landfall')">+ Landfall</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Tokens')">+ Tokens</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Aristocrats')">+ Aristocrats</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Spellslinger')">+ Spellslinger</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Artifacts')">+ Artifacts</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Graveyard')">+ Graveyard</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Landfall')">+ Landfall</span>
                             </div>
                         </div>
 
@@ -687,16 +572,16 @@
                     <div class="input-group">
                         <label class="input-label">Art & Aesthetics (Optional):</label>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_fullart_0"> Prefer Full Art
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_oldborder_0"> Old Border Only
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_matchframes_0"> Match Frames
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_showcase_0"> Borderless / Showcase
                             </label>
                         </div>
@@ -710,13 +595,10 @@
                 </div>
 
                 <!-- DECK 2 PREFERENCES (Hidden unless 2 decks toggle is checked) -->
-                <div id="deckPrefsSection_1" class="recon-card" style="display: none; background: #0a0a0a; border: 1px solid #334155; margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem;">
-                        <h3 style="font-size: 1.05rem; margin: 0; color: #a78bfa; font-weight: 600;">
-                            <i class="fa-solid fa-shield-halved" style="margin-right: 0.4rem;"></i>
-                            Deck 2 Preferences
-                        </h3>
-                        <span class="badge" style="background: #2e1065; color: #d8b4fe;">Target Deck 2</span>
+                <div id="deckPrefsSection_1" class="recon-card" style="display: none; background: var(--surface-0); border: 1px solid var(--line-strong); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
+                        <h3 style="font-size: var(--fs-md); margin: 0; color: var(--signal); font-weight: var(--fw-semibold);">Deck 2 Preferences</h3>
+                        <span class="hud-chip hud-chip--signal">Target Deck 2</span>
                     </div>
 
                     <!-- Deck Name (Optional) -->
@@ -733,25 +615,21 @@
                             <div id="cmdrDropdown_1" class="autocomplete-dropdown" style="display: none;"></div>
                         </div>
                         <div class="input-hint" id="suggestedCmdrs_1">
-                            <i class="fa-solid fa-sparkles" style="color: #a78bfa;"></i> Suggested from pool: <span id="poolCmdrSuggestions_1" style="color: #cbd5e1;">-</span>
+                            Suggested from pool: <span id="poolCmdrSuggestions_1" style="color: var(--text-2);">-</span>
                         </div>
                     </div>
 
                     <!-- Partner / Background Button & Container for Deck 2 -->
                     <div style="margin-bottom: 1.25rem;">
-                        <button type="button" class="btn btn-sm" id="btnTogglePartner_1" onclick="togglePartnerSlot(1)">
-                            <i class="fa-solid fa-plus"></i> Add Partner / Background Commander
-                        </button>
+                        <button type="button" class="hud-btn hud-btn--sm" id="btnTogglePartner_1" onclick="togglePartnerSlot(1)">Add Partner / Background Commander</button>
                     </div>
 
-                    <div id="partnerContainer_1" class="input-group" style="display: none; background: rgba(30, 41, 59, 0.4); padding: 0.75rem; border: 1px solid #334155; border-radius: 6px;">
+                    <div id="partnerContainer_1" class="input-group" style="display: none; background: var(--surface-2); padding: 0.75rem; border: 1px solid var(--line-strong); border-radius: var(--radius-1);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                             <label class="input-label" for="pref_partner_cmdr_1" style="margin: 0;">
                                 Second Commander (Partner / Background / Friends Forever):
                             </label>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="removePartnerSlot(1)" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">
-                                Remove
-                            </button>
+                            <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(1)">Remove</button>
                         </div>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="pref_partner_cmdr_1" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(1, this.value)">
@@ -765,12 +643,12 @@
                             <label class="input-label" for="pref_themes_1">Themes (Optional):</label>
                             <input type="text" id="pref_themes_1" class="input-field" placeholder="e.g., Vampires, Lifegain, Madness">
                             <div style="margin-top: 0.4rem;">
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Tokens')">+ Tokens</span>
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Aristocrats')">+ Aristocrats</span>
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Spellslinger')">+ Spellslinger</span>
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Vampires')">+ Vampires</span>
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Lifegain')">+ Lifegain</span>
-                                <span class="tag-chip" onclick="addThemeChip(1, 'Aggro')">+ Aggro</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Tokens')">+ Tokens</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Aristocrats')">+ Aristocrats</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Spellslinger')">+ Spellslinger</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Vampires')">+ Vampires</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Lifegain')">+ Lifegain</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Aggro')">+ Aggro</span>
                             </div>
                         </div>
 
@@ -791,16 +669,16 @@
                     <div class="input-group">
                         <label class="input-label">Art & Aesthetics (Optional):</label>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_fullart_1"> Prefer Full Art
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_oldborder_1"> Old Border Only
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_matchframes_1"> Match Frames
                             </label>
-                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
                                 <input type="checkbox" id="pref_art_showcase_1"> Borderless / Showcase
                             </label>
                         </div>
@@ -815,16 +693,10 @@
 
                 <!-- Form Bottom Actions -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-                    <button type="button" class="btn" id="btnPrefsBack" onclick="showScreen('pool')">
-                        <i class="fa-solid fa-arrow-left"></i> Back to Pool Review
-                    </button>
+                    <button type="button" class="hud-btn" id="btnPrefsBack" onclick="showScreen('pool')">Back to Pool Review</button>
                     <div style="display: flex; gap: 0.75rem;">
-                        <button type="button" class="btn" onclick="openAbandonDialog()" style="color: #fca5a5; border-color: #7f1d1d;">
-                            Abandon
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="btnDraftWithAgent">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Draft with Agent
-                        </button>
+                        <button type="button" class="hud-btn hud-btn--danger" onclick="openAbandonDialog()">Abandon</button>
+                        <button type="submit" class="hud-btn hud-btn--primary" id="btnDraftWithAgent">Draft with Agent</button>
                     </div>
                 </div>
             </form>
@@ -834,44 +706,41 @@
     <!-- SCREEN 4: Building / Progress State -->
     <div id="screenBuilding" style="display: none;">
         <div class="recon-card" style="text-align: center; padding: 3rem 1.5rem;">
-            <div style="font-size: 2.5rem; color: #60a5fa; margin-bottom: 1.5rem;">
-                <i class="fa-solid fa-spinner fa-spin"></i>
-            </div>
-            <h2 style="font-size: 1.5rem; margin: 0 0 0.5rem 0; color: #f8fafc;" id="buildingTitle">
+            <div class="recon-spinner" style="margin: 0 auto 1.5rem auto;"></div>
+            <h2 style="font-size: 1.5rem; margin: 0 0 0.5rem 0; color: var(--text-1);" id="buildingTitle">
                 Agent is Drafting Your Deck(s)...
             </h2>
-            <p style="color: var(--text-dim); font-size: 0.95rem; max-width: 600px; margin: 0 auto 2rem auto;">
+            <p style="color: var(--text-3); font-size: 0.95rem; max-width: 600px; margin: 0 auto 2rem auto;">
                 Analyzing retired source cards, scanning undedicated collection staples, balancing the mana curve, and minimizing new purchase costs.
             </p>
 
             <!-- Animated Log Container -->
-            <div style="max-width: 640px; margin: 0 auto; background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem; text-align: left; font-family: monospace; font-size: 0.85rem;">
-                <div id="buildingLog_1" style="color: #34d399; margin-bottom: 0.4rem;">
-                    <i class="fa-solid fa-check" style="margin-right: 0.4rem;"></i> [1/5] Source deck snapshots and unassigned collection indexed.
+            <div style="max-width: 640px; margin: 0 auto; background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: 1.25rem; text-align: left; font-family: var(--font-mono); font-size: var(--fs-sm);">
+                <div id="buildingLog_1" style="color: var(--ok); margin-bottom: 0.4rem;">
+                    ✓ [1/5] Source deck snapshots and unassigned collection indexed.
                 </div>
-                <div id="buildingLog_2" style="color: #60a5fa; margin-bottom: 0.4rem;">
-                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 0.4rem;"></i> [2/5] Establishing commander color identities & strategy roles...
+                <div id="buildingLog_2" style="color: var(--signal); margin-bottom: 0.4rem;">
+                    » [2/5] Establishing commander color identities & strategy roles...
                 </div>
-                <div id="buildingLog_3" style="color: var(--text-dim); margin-bottom: 0.4rem;">
-                    <i class="fa-regular fa-circle" style="margin-right: 0.4rem;"></i> [3/5] Allocating Tier 1 (free pool) and Tier 2 (free collection) staples...
+                <div id="buildingLog_3" style="color: var(--text-3); margin-bottom: 0.4rem;">
+                    ○ [3/5] Allocating Tier 1 (free pool) and Tier 2 (free collection) staples...
                 </div>
-                <div id="buildingLog_4" style="color: var(--text-dim); margin-bottom: 0.4rem;">
-                    <i class="fa-regular fa-circle" style="margin-right: 0.4rem;"></i> [4/5] Structuring land base, mana pips, and curve floors...
+                <div id="buildingLog_4" style="color: var(--text-3); margin-bottom: 0.4rem;">
+                    ○ [4/5] Structuring land base, mana pips, and curve floors...
                 </div>
-                <div id="buildingLog_5" style="color: var(--text-dim);">
-                    <i class="fa-regular fa-circle" style="margin-right: 0.4rem;"></i> [5/5] Finalizing draft decklists and cost calculations...
+                <div id="buildingLog_5" style="color: var(--text-3);">
+                    ○ [5/5] Finalizing draft decklists and cost calculations...
                 </div>
             </div>
 
-            <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-dim);" id="buildingPollStatus">
+            <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-3);" id="buildingPollStatus">
                 Polling build progress...
             </div>
 
             <div id="buildingError" class="alert alert-danger" style="display: none; max-width: 640px; margin: 1.5rem auto 0 auto; text-align: left;">
-                <i class="fa-solid fa-circle-exclamation"></i>
                 <div>
                     <span id="buildingErrorMessage">Build failed or timed out.</span>
-                    <button class="btn btn-sm btn-primary" onclick="retryBuild()" style="margin-left: 0.5rem;">Retry Build</button>
+                    <button class="hud-btn hud-btn--sm hud-btn--primary" onclick="retryBuild()" style="margin-left: 0.5rem;">Retry Build</button>
                 </div>
             </div>
         </div>
@@ -882,23 +751,18 @@
         <div class="recon-card" style="margin-bottom: 1.5rem;">
             <div class="recon-card-header">
                 <div>
-                    <h2 style="font-size: 1.25rem; margin: 0; color: #f8fafc;">
-                        Reconstruct: Draft Results
-                    </h2>
-                    <p style="font-size: 0.85rem; color: var(--text-dim); margin: 0.35rem 0 0 0;" id="resultsHeaderSubtitle">
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);">Reconstruct: Draft Results</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="resultsHeaderSubtitle">
                         Review drafted decks, inspect card sourcing tiers, and accept to create your new physical deck(s).
                     </p>
                 </div>
                 <div id="resultsSessionBadge">
-                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
-                        Drafts Ready
-                    </span>
+                    <span class="hud-chip hud-chip--ok">Drafts Ready</span>
                 </div>
             </div>
 
             <!-- Accepted Decks Notice (shown if status is accepted) -->
             <div id="acceptedSuccessBanner" class="alert alert-success" style="display: none;">
-                <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
                 <div>
                     <strong>Draft(s) Accepted!</strong> The new deck(s) have been registered in Commander Lab, and Tier 1 & 2 cards are dedicated.
                     <div id="acceptedDecksLinks" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
@@ -914,24 +778,16 @@
         <!-- Sticky Footer Action Bar -->
         <div class="sticky-action-bar" id="draftsActionBar">
             <div style="display: flex; align-items: baseline; gap: 0.75rem;">
-                <span style="font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Total New Cost:</span>
-                <span style="font-size: 1.5rem; font-weight: 700; color: #fb7185;" id="resultsGrandTotalCost">$0.00</span>
-                <span style="font-size: 0.75rem; color: #94a3b8;">(Tier 1 & Tier 2 cards are Free)</span>
+                <span style="font-size: 0.85rem; color: var(--text-3); text-transform: uppercase; font-weight: 600;">Total New Cost:</span>
+                <span style="font-size: 1.5rem; font-weight: 700; color: var(--danger);" id="resultsGrandTotalCost">$0.00</span>
+                <span style="font-size: 0.75rem; color: var(--text-3);">(Tier 1 & Tier 2 cards are Free)</span>
             </div>
 
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn" id="btnTweakPrefs" onclick="tweakPreferences()">
-                    <i class="fa-solid fa-sliders"></i> Tweak Preferences
-                </button>
-                <button class="btn" id="btnRegenerateDraft" onclick="regenerateDrafts()">
-                    <i class="fa-solid fa-arrows-rotate"></i> Regenerate Draft
-                </button>
-                <button class="btn btn-primary" id="btnAcceptSave" onclick="acceptDrafts()">
-                    <i class="fa-solid fa-check"></i> Accept & Save Deck(s)
-                </button>
-                <button class="btn btn-danger" id="btnAbandonDraft" onclick="openAbandonDialog()">
-                    <i class="fa-solid fa-trash"></i> Abandon
-                </button>
+                <button class="hud-btn" id="btnTweakPrefs" onclick="tweakPreferences()">Tweak Preferences</button>
+                <button class="hud-btn" id="btnRegenerateDraft" onclick="regenerateDrafts()">Regenerate Draft</button>
+                <button class="hud-btn hud-btn--primary" id="btnAcceptSave" onclick="acceptDrafts()">Accept & Save Deck(s)</button>
+                <button class="hud-btn hud-btn--danger" id="btnAbandonDraft" onclick="openAbandonDialog()">Abandon</button>
             </div>
         </div>
     </div>
@@ -941,11 +797,8 @@
 <!-- Abandon Confirmation Dialog -->
 <div id="abandonModal" class="modal-overlay" onclick="closeAbandonDialog()">
     <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="abandonTitle">
-        <h2 id="abandonTitle" style="margin: 0 0 0.5rem 0; font-size: 1.15rem; color: #fca5a5;">
-            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 0.5rem;"></i>
-            Abandon Reconstruct?
-        </h2>
-        <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 1rem;">
+        <h2 id="abandonTitle" style="margin: 0 0 0.5rem 0; font-size: var(--fs-md); color: var(--danger);">Abandon Reconstruct?</h2>
+        <p style="color: var(--text-3); font-size: 0.875rem; margin-bottom: 1rem;">
             Abandons this reconstruct session. The source deck(s) remain retired and their cards remain unassigned in your inventory.
         </p>
         <div class="input-group">
@@ -953,8 +806,8 @@
             <input type="text" id="abandonReason" class="input-field" placeholder="e.g. Decided not to rebuild">
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-            <button class="btn" onclick="closeAbandonDialog()">Keep Session</button>
-            <button class="btn btn-danger" id="confirmAbandonBtn" onclick="confirmAbandon()">Abandon Reconstruct</button>
+            <button class="hud-btn" onclick="closeAbandonDialog()">Keep Session</button>
+            <button class="hud-btn hud-btn--danger" id="confirmAbandonBtn" onclick="confirmAbandon()">Abandon Reconstruct</button>
         </div>
     </div>
 </div>
@@ -963,13 +816,9 @@
 <div id="acceptModal" class="modal-overlay" onclick="closeAcceptModal()">
     <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
         <div style="text-align: center; margin-bottom: 1rem;">
-            <div style="font-size: 2.5rem; color: #34d399; margin-bottom: 0.5rem;">
-                <i class="fa-solid fa-circle-check"></i>
-            </div>
-            <h2 id="acceptTitle" style="margin: 0; font-size: 1.25rem; color: #f8fafc;">
-                Reconstructed Decks Created!
-            </h2>
-            <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem;">
+            <div style="font-size: 2.5rem; color: var(--ok); margin-bottom: 0.5rem;" aria-hidden="true">✓</div>
+            <h2 id="acceptTitle" style="margin: 0; font-size: var(--fs-lg); color: var(--text-1);">Reconstructed Decks Created!</h2>
+            <p style="color: var(--text-3); font-size: 0.875rem; margin-top: 0.25rem;">
                 Your draft has been accepted and registered as new physical deck(s). Tier 1 & 2 cards are now dedicated to the new deck(s).
             </p>
         </div>
@@ -977,7 +826,7 @@
             <!-- Links inserted here -->
         </div>
         <div style="display: flex; justify-content: flex-end;">
-            <button class="btn btn-primary" onclick="closeAcceptModal()">Close</button>
+            <button class="hud-btn hud-btn--primary" onclick="closeAcceptModal()">Close</button>
         </div>
     </div>
 </div>
@@ -985,11 +834,11 @@
 <!-- Export Draft Modal -->
 <div id="exportModal" class="modal-overlay" onclick="closeExportModal()">
     <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
-        <h2 id="exportTitle" style="margin: 0 0 0.25rem; font-size: 1.25rem; color: #f8fafc;">Export decklist</h2>
-        <p id="exportDeckName" style="margin: 0 0 1rem; color: #94a3b8; font-size: 0.875rem;"></p>
-        <p style="color: #94a3b8; font-size: 0.8rem; margin: 0 0 1rem;">Creates a <strong>new</strong> deck on each selected site. Nothing existing is changed.</p>
+        <h2 id="exportTitle" style="margin: 0 0 0.25rem; font-size: var(--fs-lg); color: var(--text-1);">Export decklist</h2>
+        <p id="exportDeckName" style="margin: 0 0 1rem; color: var(--text-3); font-size: 0.875rem;"></p>
+        <p style="color: var(--text-3); font-size: 0.8rem; margin: 0 0 1rem;">Creates a <strong>new</strong> deck on each selected site. Nothing existing is changed.</p>
         <fieldset style="border: 0; padding: 0; margin: 0 0 1rem;">
-            <legend style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem;">Destination</legend>
+            <legend style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-3); margin-bottom: 0.4rem;">Destination</legend>
             <label style="display: block; margin-bottom: 0.3rem;"><input type="checkbox" id="exportProvMoxfield" value="moxfield" checked> Moxfield</label>
             <label style="display: block;"><input type="checkbox" id="exportProvArchidekt" value="archidekt" checked> Archidekt</label>
         </fieldset>
@@ -997,8 +846,8 @@
         <label style="display: block; margin-bottom: 1rem;"><input type="checkbox" id="exportDryRun"> Dry run (validate only, create nothing)</label>
         <div id="exportStatus" role="status" aria-live="polite" style="font-size: 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-            <button type="button" class="btn" id="exportCancelBtn" onclick="closeExportModal()">Close</button>
-            <button type="button" class="btn btn-primary" id="exportConfirmBtn" onclick="submitExport()">Export</button>
+            <button type="button" class="hud-btn" id="exportCancelBtn" onclick="closeExportModal()">Close</button>
+            <button type="button" class="hud-btn hud-btn--primary" id="exportConfirmBtn" onclick="submitExport()">Export</button>
         </div>
     </div>
 </div>
@@ -1063,7 +912,7 @@
             stepEl.classList.remove('active', 'completed');
             if (i < activeNum) {
                 stepEl.classList.add('completed');
-                stepEl.querySelector('.step-bubble').innerHTML = '<i class="fa-solid fa-check"></i>';
+                stepEl.querySelector('.step-bubble').textContent = '✓';
             } else if (i === activeNum) {
                 stepEl.classList.add('active');
                 stepEl.querySelector('.step-bubble').textContent = i;
@@ -1139,7 +988,7 @@
                 const isPool = poolMatches.includes(name);
                 item.innerHTML = `
                     <span>${esc(name)}</span>
-                    ${isPool ? '<span class="badge badge-source-pool" style="font-size: 0.65rem;">From Pool</span>' : ''}
+                    ${isPool ? '<span class="hud-chip hud-chip--ok badge-source-pool">From Pool</span>' : ''}
                 `;
                 item.onclick = () => {
                     input.value = name;
@@ -1231,16 +1080,9 @@
         if (badge && container) {
             container.style.display = 'block';
             badge.textContent = `Status: ${currentSession.status.replace('_', ' ').toUpperCase()}`;
-            if (currentSession.status === 'accepted') {
-                badge.style.background = '#064e3b';
-                badge.style.color = '#6ee7b7';
-            } else if (currentSession.status === 'abandoned') {
-                badge.style.background = '#450a0a';
-                badge.style.color = '#fca5a5';
-            } else if (currentSession.status === 'drafts_ready') {
-                badge.style.background = '#1e3a8a';
-                badge.style.color = '#93c5fd';
-            }
+            const tones = { accepted: 'hud-chip--ok', abandoned: 'hud-chip--danger', drafts_ready: 'hud-chip--data' };
+            badge.classList.remove('hud-chip--ok', 'hud-chip--danger', 'hud-chip--data', 'hud-chip--signal');
+            badge.classList.add(tones[currentSession.status] || 'hud-chip--signal');
         }
 
         const dry = Boolean(currentSession.dry_run);
@@ -1328,17 +1170,17 @@
         detailContainer.innerHTML = '';
         decks.forEach((d, idx) => {
             const cardEl = document.createElement('div');
-            cardEl.style.cssText = 'background: #0a0a0a; border: 1px solid var(--border); border-radius: 6px; padding: 1rem;';
+            cardEl.style.cssText = 'background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);';
             const cmdrs = (d.commanders && d.commanders.length) ? d.commanders.join(' / ') : 'None';
             cardEl.innerHTML = `
-                <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Source Deck ${idx + 1}</div>
-                <div style="font-size: 1.1rem; font-weight: 600; color: #f8fafc; margin-top: 0.25rem;">${esc(d.name)}</div>
-                <div style="font-size: 0.85rem; color: #cbd5e1; margin-top: 0.25rem;">
+                <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Source Deck ${idx + 1}</div>
+                <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;">${esc(d.name)}</div>
+                <div style="font-size: 0.85rem; color: var(--text-2); margin-top: 0.25rem;">
                     <strong>Commander:</strong> ${cmdrs}
                 </div>
-                <div style="font-size: 0.85rem; color: #cbd5e1; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                <div style="font-size: 0.85rem; color: var(--text-2); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
                     <span>Colors:</span> ${createColorPips(d.color)}
-                    <span style="color: var(--text-dim); margin-left: 0.5rem;">${(d.cards || []).length} cards</span>
+                    <span style="color: var(--text-3); margin-left: 0.5rem;">${(d.cards || []).length} cards</span>
                 </div>
             `;
             detailContainer.appendChild(cardEl);
@@ -1357,7 +1199,7 @@
             if (target) {
                 if (suggestedCmdrs.length > 0) {
                     target.innerHTML = suggestedCmdrs.map(c =>
-                        `<span class="suggested-cmdr-chip tag-chip" onclick="setPrefCommander(${idx}, '${c.replace(/'/g, "\\'")}')">${c}</span>`
+                        `<span class="suggested-cmdr-chip hud-chip hud-chip--custom tag-chip" onclick="setPrefCommander(${idx}, '${c.replace(/'/g, "\\'")}')">${c}</span>`
                     ).join(' ');
                 } else {
                     target.textContent = 'None detected';
@@ -1393,12 +1235,10 @@
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="color: var(--text-dim); font-weight: 500;">${c.quantity || 1}x</td>
-                    <td style="font-weight: 500; color: #f8fafc;">${esc(c.name)}</td>
+                    <td style="color: var(--text-3); font-weight: 500;">${c.quantity || 1}x</td>
+                    <td style="font-weight: 500; color: var(--text-1);">${esc(c.name)}</td>
                     <td>
-                        <span class="badge badge-source-pool">
-                            <i class="fa-solid fa-box-archive"></i> ${esc(d.name)}
-                        </span>
+                        <span class="hud-chip hud-chip--ok badge-source-pool">${esc(d.name)}</span>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1407,7 +1247,7 @@
 
         if (tbody.children.length === 0) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="3" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No cards matched your filter.</td>`;
+            tr.innerHTML = `<td colspan="3" style="text-align: center; color: var(--text-3); padding: 1.5rem;">No cards matched your filter.</td>`;
             tbody.appendChild(tr);
         }
     }
@@ -1420,9 +1260,9 @@
         poolFilterState = filter;
         const container = document.getElementById('poolFilterButtons');
         if (container) {
-            container.querySelectorAll('button').forEach(b => b.classList.remove('btn-primary'));
+            container.querySelectorAll('button').forEach(b => b.classList.remove('hud-btn--primary'));
         }
-        if (btn) btn.classList.add('btn-primary');
+        if (btn) btn.classList.add('hud-btn--primary');
         renderPoolTable();
     }
 
@@ -1494,7 +1334,7 @@
         const hint = document.createElement('div');
         hint.className = 'pref-field-error';
         hint.setAttribute('role', 'alert');
-        hint.style.cssText = 'color: #fca5a5; font-size: 0.8rem; margin-top: 0.3rem;';
+        hint.style.cssText = 'color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;';
         hint.textContent = message;
         const host = input.closest('.autocomplete-wrapper') || input;
         host.insertAdjacentElement('afterend', hint);
@@ -1635,10 +1475,10 @@
         let fieldErrors = validatePreferenceFields(count);
         if (fieldErrors.length === 0) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validating Commanders...';
+            submitBtn.innerHTML = 'Validating Commanders...';
             fieldErrors = await validateCommandersRemote(count);
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Draft with Agent';
+            submitBtn.innerHTML = 'Draft with Agent';
         }
         if (fieldErrors.length > 0) {
             fieldErrors.forEach(e => showPrefFieldError(e.id, e.msg));
@@ -1654,7 +1494,7 @@
         }
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Preferences...';
+        submitBtn.innerHTML = 'Submitting Preferences...';
 
         try {
             // 1. Submit preferences
@@ -1671,7 +1511,7 @@
             currentSession = prefData.session;
 
             // 2. Trigger build (async background task)
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Triggering Agent Build...';
+            submitBtn.innerHTML = 'Triggering Agent Build...';
             const buildRes = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/build`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1693,7 +1533,7 @@
             errEl.style.display = 'block';
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Draft with Agent';
+            submitBtn.innerHTML = 'Draft with Agent';
         }
     }
 
@@ -1800,10 +1640,9 @@
         const unpriced = Array.isArray(draft.unpriced_cards) ? draft.unpriced_cards : [];
         if (draft.is_complete !== false && unpriced.length === 0) return '';
         const list = unpriced.length
-            ? `<div style="margin-top: 0.3rem; color: #fcd34d;">Unpriced: ${unpriced.map(esc).join(', ')}</div>` : '';
+            ? `<div style="margin-top: 0.3rem; color: var(--signal);">Unpriced: ${unpriced.map(esc).join(', ')}</div>` : '';
         return `
-            <div class="draft-incomplete-notice" role="status" style="background: rgba(180, 83, 9, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 0.65rem 0.85rem; font-size: 0.85rem; color: #fde68a; margin-bottom: 1rem;">
-                <i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b; margin-right: 0.4rem;"></i>
+            <div class="draft-incomplete-notice" role="status" style="background: var(--signal-dim); border: 1px solid var(--signal-line); border-radius: var(--radius-1); padding: 0.65rem 0.85rem; font-size: var(--fs-sm); color: var(--signal); margin-bottom: 1rem;">
                 <strong>Incomplete pricing:</strong> ${unpriced.length ? `${unpriced.length} card${unpriced.length === 1 ? '' : 's'} could not be priced` : 'some cards could not be priced'}, so the new-card cost shown is a lower bound.
                 ${list}
             </div>`;
@@ -1820,14 +1659,13 @@
             const failed = currentSession.status === 'drafts_ready';
             container.innerHTML = failed ? `
                 <div class="alert alert-danger" id="draftsEmptyError" role="alert">
-                    <i class="fa-solid fa-circle-exclamation"></i>
                     <div>
                         Could not generate a legal deck with these preferences. Try loosening the constraints.
-                        <button type="button" class="btn btn-sm btn-primary" style="margin-left: 0.5rem;" onclick="tweakPreferences()">Back to Preferences</button>
+                        <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" style="margin-left: 0.5rem;" onclick="tweakPreferences()">Back to Preferences</button>
                     </div>
                 </div>
             ` : `
-                <div style="text-align: center; padding: 2rem; color: var(--text-dim);">
+                <div style="text-align: center; padding: 2rem; color: var(--text-3);">
                     No drafts generated yet.
                 </div>
             `;
@@ -1854,21 +1692,21 @@
             });
 
             const cmdrs = draft.commanders && draft.commanders.length ? draft.commanders.map(esc).join(' / ') : 'Commander TBD';
-            const themes = draft.themes && draft.themes.length ? draft.themes.map(t => `<span class="badge" style="background:#1e293b; color:#93c5fd;">${esc(t)}</span>`).join(' ') : '';
-            const strategies = draft.strategies && draft.strategies.length ? draft.strategies.map(s => `<span class="badge" style="background:#1e293b; color:#cbd5e1;">${esc(s)}</span>`).join(' ') : '';
+            const themes = draft.themes && draft.themes.length ? draft.themes.map(t => `<span class="hud-chip hud-chip--data">${esc(t)}</span>`).join(' ') : '';
+            const strategies = draft.strategies && draft.strategies.length ? draft.strategies.map(s => `<span class="hud-chip hud-chip--neutral">${esc(s)}</span>`).join(' ') : '';
 
             const draftCard = document.createElement('div');
-            draftCard.style.cssText = 'background: #0a0a0a; border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem;';
+            draftCard.style.cssText = 'background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-6);';
             draftCard.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
                     <div>
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                            <h3 style="font-size: 1.3rem; margin: 0; color: #f8fafc; font-weight: 600;">
+                            <h3 style="font-size: 1.3rem; margin: 0; color: var(--text-1); font-weight: 600;">
                                 ${esc(draft.name || `Draft Deck ${idx + 1}`)}
                             </h3>
-                            <span class="badge" style="background: #172554; color: #93c5fd;">Deck ${idx + 1} of ${drafts.length}</span>
+                            <span class="hud-chip hud-chip--data">Deck ${idx + 1} of ${drafts.length}</span>
                         </div>
-                        <div style="font-size: 0.95rem; color: #e2e8f0; margin-top: 0.35rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <div style="font-size: 0.95rem; color: var(--text-1); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <span><strong>Commander:</strong> ${cmdrs}</span>
                             ${draft.color ? `<span>| Colors: ${createColorPips(draft.color)}</span>` : ''}
                         </div>
@@ -1878,30 +1716,22 @@
                     </div>
 
                     <div style="text-align: right;">
-                        <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">New Card Cost</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #fb7185; margin-top: 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; font-weight: 600;">New Card Cost</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger); margin-top: 0.2rem;">
                             $${draftCost.toFixed(2)}
                         </div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-3); margin-top: 0.25rem;">
                             ${cards.length} cards total
                         </div>
-                        <button type="button" class="btn export-draft-btn" data-draft-index="${idx}" onclick="openExportModal(${idx})" style="margin-top: 0.75rem;">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Export to Moxfield / Archidekt
-                        </button>
+                        <button type="button" class="hud-btn export-draft-btn" data-draft-index="${idx}" onclick="openExportModal(${idx})" style="margin-top: 0.75rem;">Export to Moxfield / Archidekt</button>
                     </div>
                 </div>
 
                 <!-- Tier breakdown pills -->
                 <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                    <span class="badge badge-source-pool">
-                        <i class="fa-solid fa-box-archive"></i> Retired Pool: ${t1Count} cards (Free)
-                    </span>
-                    <span class="badge badge-source-owned">
-                        <i class="fa-solid fa-circle-check"></i> Owned (Undedicated): ${t2Count} cards (Free)
-                    </span>
-                    <span class="badge badge-source-new">
-                        <i class="fa-solid fa-cart-shopping"></i> New to Buy: ${t3Count} cards ($${draftCost.toFixed(2)})
-                    </span>
+                    <span class="hud-chip hud-chip--ok badge-source-pool">Retired Pool: ${t1Count} cards (Free)</span>
+                    <span class="hud-chip hud-chip--data badge-source-owned">Owned (Undedicated): ${t2Count} cards (Free)</span>
+                    <span class="hud-chip hud-chip--signal badge-source-new">New to Buy: ${t3Count} cards ($${draftCost.toFixed(2)})</span>
                     ${window.TcgCart ? window.TcgCart.button(t3Items, {size: "sm"}) : ''}
                 </div>
 
@@ -1909,13 +1739,13 @@
                 ${draftCompletenessNotice(draft)}
 
                 ${draft.explanation ? `
-                    <div style="background: rgba(30, 41, 59, 0.4); border-left: 3px solid #3b82f6; padding: 0.65rem 0.85rem; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 1rem; border-radius: 0 4px 4px 0;">
-                        <i class="fa-solid fa-lightbulb" style="color: #60a5fa; margin-right: 0.4rem;"></i> ${esc(draft.explanation)}
+                    <div style="background: var(--surface-2); border-left: 2px solid var(--data); padding: 0.65rem 0.85rem; font-size: var(--fs-sm); color: var(--text-2); margin-bottom: 1rem; border-radius: 0 var(--radius-1) var(--radius-1) 0;">
+                        ${esc(draft.explanation)}
                     </div>
                 ` : ''}
 
                 <!-- Decklist table -->
-                <div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden; max-height: 380px; overflow-y: auto;">
+                <div style="border: 1px solid var(--line); border-radius: 6px; overflow: hidden; max-height: 380px; overflow-y: auto;">
                     <table class="recon-table">
                         <thead>
                             <tr>
@@ -1931,22 +1761,22 @@
                                 const tier = c.tier || (c.tier_label === 'previous_deck' ? 1 : (c.tier_label === 'owned' ? 2 : 3));
                                 let badgeHtml = '';
                                 if (tier === 1) {
-                                    badgeHtml = '<span class="badge badge-source-pool"><i class="fa-solid fa-box-archive"></i> Retired Pool</span>';
+                                    badgeHtml = '<span class="hud-chip hud-chip--ok badge-source-pool">Retired Pool</span>';
                                 } else if (tier === 2) {
-                                    badgeHtml = '<span class="badge badge-source-owned"><i class="fa-solid fa-circle-check"></i> Owned</span>';
+                                    badgeHtml = '<span class="hud-chip hud-chip--data badge-source-owned">Owned</span>';
                                 } else {
                                     const costStr = typeof c.cost === 'number' ? `$${c.cost.toFixed(2)}` : '$0.00';
-                                    badgeHtml = `<span class="badge badge-source-new"><i class="fa-solid fa-cart-shopping"></i> New (${costStr})</span>`;
+                                    badgeHtml = `<span class="hud-chip hud-chip--signal badge-source-new">New (${costStr})</span>`;
                                 }
                                 const costDisplay = (tier === 1 || tier === 2) ? '$0.00' : (typeof c.cost === 'number' ? `$${c.cost.toFixed(2)}` : '$0.00');
 
                                 return `
                                     <tr>
-                                        <td style="color: var(--text-dim); font-weight: 500;">${c.quantity || 1}x</td>
-                                        <td style="font-weight: 500; color: #f8fafc;">${esc(c.name)}</td>
+                                        <td style="color: var(--text-3); font-weight: 500;">${c.quantity || 1}x</td>
+                                        <td style="font-weight: 500; color: var(--text-1);">${esc(c.name)}</td>
                                         <td>${badgeHtml}</td>
-                                        <td style="text-align: right; color: ${tier === 3 ? '#fb7185' : '#34d399'}; font-weight: 600;">${costDisplay}</td>
-                                        <td style="font-size: 0.75rem; color: var(--text-dim);">${esc(c.rationale || '-')}</td>
+                                        <td style="text-align: right; color: ${tier === 3 ? 'var(--danger)' : 'var(--ok)'}; font-weight: 600;">${costDisplay}</td>
+                                        <td style="font-size: 0.75rem; color: var(--text-3);">${esc(c.rationale || '-')}</td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -1969,16 +1799,16 @@
                 const draftRef = drafts[acceptedIdx[n]] || {};
                 const label = draftRef.name || deckId;
                 const btn = document.createElement('a');
-                btn.className = 'btn btn-primary btn-sm';
+                btn.className = 'hud-btn hud-btn--primary hud-btn--sm';
                 btn.href = `/deck/${encodeURIComponent(label)}`;
-                btn.innerHTML = `<i class="fa-solid fa-arrow-up-right-from-square"></i> Open Deck: ${esc(label)}`;
+                btn.textContent = `Open Deck: ${label}`;
                 linksContainer.appendChild(btn);
             });
             // Disable accept button
             const acceptBtn = document.getElementById('btnAcceptSave');
             if (acceptBtn) {
                 acceptBtn.disabled = true;
-                acceptBtn.innerHTML = '<i class="fa-solid fa-check-double"></i> Accepted & Saved';
+                acceptBtn.innerHTML = 'Accepted & Saved';
             }
         }
     }
@@ -1992,7 +1822,7 @@
         if (!currentSessionId) return;
         const btn = document.getElementById('btnRegenerateDraft');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Regenerating...';
+        btn.innerHTML = 'Regenerating...';
 
         try {
             const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/build`, {
@@ -2012,7 +1842,7 @@
             showGlobalError(`Failed to regenerate drafts: ${e.message}`);
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Regenerate Draft';
+            btn.innerHTML = 'Regenerate Draft';
         }
     }
 
@@ -2020,7 +1850,7 @@
         if (!currentSessionId) return;
         const btn = document.getElementById('btnAcceptSave');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Accepting & Creating Deck(s)...';
+        btn.innerHTML = 'Accepting & Creating Deck(s)...';
 
         try {
             const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/accept`, {
@@ -2042,12 +1872,12 @@
             modalList.innerHTML = '';
             (data.created_decks || []).forEach(deck => {
                 const link = document.createElement('a');
-                link.className = 'btn btn-primary';
+                link.className = 'hud-btn hud-btn--primary';
                 link.style.justifyContent = 'space-between';
                 link.href = `/deck/${encodeURIComponent(deck.name)}`;
                 link.innerHTML = `
-                    <span><i class="fa-solid fa-shield-halved mr-2"></i> ${esc(deck.name)}</span>
-                    <i class="fa-solid fa-arrow-right"></i>
+                    <span>${esc(deck.name)}</span>
+                    <span aria-hidden="true">→</span>
                 `;
                 modalList.appendChild(link);
             });
@@ -2056,7 +1886,7 @@
         } catch (e) {
             showGlobalError(`Failed to accept draft: ${e.message}`);
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> Accept & Save Deck(s)';
+            btn.innerHTML = 'Accept & Save Deck(s)';
         }
     }
 
@@ -2087,13 +1917,13 @@
             const r = results[p] || {};
             const name = labels[p] || esc(p);
             if (r.status === 'created') {
-                const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:#60a5fa;">Open deck</a>` : '';
-                return `<div style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> ${name}: created.${link}</div>`;
+                const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--data-strong);">Open deck</a>` : '';
+                return `<div style="color:var(--ok);">✓ ${name}: created.${link}</div>`;
             }
-            if (r.status === 'dry_run') return `<div style="color:#93c5fd;"><i class="fa-solid fa-flask"></i> ${name}: dry run OK, nothing created.</div>`;
-            if (r.status === 'not_configured') return `<div style="color:#fcd34d;"><i class="fa-solid fa-key"></i> ${name}: not configured (missing token).</div>`;
-            const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:#60a5fa;">Partial deck</a>` : '';
-            return `<div style="color:#fb7185;" role="alert"><i class="fa-solid fa-circle-exclamation"></i> ${name}: failed${r.error ? ' — ' + esc(r.error) : ''}.${link}</div>`;
+            if (r.status === 'dry_run') return `<div style="color:var(--data-strong);">✓ ${name}: dry run OK, nothing created.</div>`;
+            if (r.status === 'not_configured') return `<div style="color:var(--signal);">⚠ ${name}: not configured (missing token).</div>`;
+            const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--data-strong);">Partial deck</a>` : '';
+            return `<div style="color:var(--danger);" role="alert">✗ ${name}: failed${r.error ? ' — ' + esc(r.error) : ''}.${link}</div>`;
         }).join('');
     }
 
@@ -2104,7 +1934,7 @@
             .filter(el => el.checked).map(el => el.value);
         const statusEl = document.getElementById('exportStatus');
         if (providers.length === 0) {
-            statusEl.innerHTML = '<div style="color:#fb7185;" role="alert">Select at least one destination.</div>';
+            statusEl.innerHTML = '<div style="color:var(--danger);" role="alert">Select at least one destination.</div>';
             return;
         }
         const btn = document.getElementById('exportConfirmBtn');
@@ -2128,11 +1958,11 @@
                 const allOk = res.status === 200;
                 btn.textContent = allOk ? 'Export again' : 'Retry';
             } else {
-                statusEl.innerHTML = `<div style="color:#fb7185;" role="alert">${esc(data.error || data.detail || `Export failed (${res.status})`)}</div>`;
+                statusEl.innerHTML = `<div style="color:var(--danger);" role="alert">${esc(data.error || data.detail || `Export failed (${res.status})`)}</div>`;
                 btn.textContent = 'Retry';
             }
         } catch (e) {
-            statusEl.innerHTML = `<div style="color:#fb7185;" role="alert">Export failed: ${esc(e.message)}</div>`;
+            statusEl.innerHTML = `<div style="color:var(--danger);" role="alert">Export failed: ${esc(e.message)}</div>`;
             btn.textContent = 'Retry';
         } finally {
             exportBusy = false;
@@ -2160,7 +1990,7 @@
         const btn = document.getElementById('confirmAbandonBtn');
         const reason = document.getElementById('abandonReason').value.trim();
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Abandoning...';
+        btn.innerHTML = 'Abandoning...';
 
         try {
             const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/abandon`, {
@@ -2194,7 +2024,7 @@
 
             if (sessions.length === 0) {
                 container.innerHTML = `
-                    <div style="text-align: center; color: var(--text-dim); padding: 2rem;">
+                    <div style="text-align: center; color: var(--text-3); padding: 2rem;">
                         No reconstruct sessions recorded yet.
                     </div>
                 `;
@@ -2215,19 +2045,17 @@
                     <tbody>
                         ${sessions.map(s => {
                             const sourceNames = (s.source_decks || []).map(d => d.name).join(' & ') || (s.source_deck_ids || []).join(', ');
-                            const dryBadge = s.dry_run === true ? ' <span class="badge badge-dry-run" style="background:#78350f; color:#fcd34d;">DRY RUN</span>' : '';
-                            const statusBadge = `<span class="badge" style="background:#1e293b; color:#93c5fd;">${s.status.replace('_', ' ')}</span>${dryBadge}`;
+                            const dryBadge = s.dry_run === true ? ' <span class="hud-chip hud-chip--signal badge-dry-run">DRY RUN</span>' : '';
+                            const statusBadge = `<span class="hud-chip hud-chip--data">${s.status.replace('_', ' ')}</span>${dryBadge}`;
                             const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '-';
                             return `
                                 <tr>
-                                    <td style="font-family: monospace; color: #93c5fd;">${s.session_id}</td>
+                                    <td style="font-family: var(--font-mono); color: var(--data-strong);">${s.session_id}</td>
                                     <td style="font-weight: 500;">${sourceNames || '-'}</td>
                                     <td>${statusBadge}</td>
-                                    <td style="color: var(--text-dim); font-size: 0.8rem;">${dateStr}</td>
+                                    <td style="color: var(--text-3); font-size: 0.8rem;">${dateStr}</td>
                                     <td style="text-align: right;">
-                                        <a href="/reconstruct/${encodeURIComponent(s.session_id)}" class="btn btn-sm btn-primary">
-                                            Open Session <i class="fa-solid fa-arrow-right"></i>
-                                        </a>
+                                        <a href="/reconstruct/${encodeURIComponent(s.session_id)}" class="hud-btn hud-btn--sm hud-btn--primary">Open Session</a>
                                     </td>
                                 </tr>
                             `;
@@ -2236,7 +2064,7 @@
                 </table>
             `;
         } catch (e) {
-            container.innerHTML = `<div style="color: #fca5a5; padding: 1rem;">Failed to load recent sessions: ${e.message}</div>`;
+            container.innerHTML = `<div style="color: var(--danger); padding: 1rem;">Failed to load recent sessions: ${e.message}</div>`;
         }
     }
 
@@ -2271,9 +2099,7 @@
     function onLandingDryRunChange(checked) {
         const btn = document.getElementById('btnLandingStart');
         if (btn.disabled) return;
-        btn.innerHTML = checked
-            ? '<i class="fa-solid fa-flask"></i> Start Dry Run'
-            : '<i class="fa-solid fa-wand-magic-sparkles"></i> Start Reconstruct';
+        btn.textContent = checked ? 'Start Dry Run' : 'Start Reconstruct';
         const warn = document.getElementById('landingDecomWarning');
         if (warn) warn.style.display = checked ? 'none' : '';
     }
@@ -2293,7 +2119,7 @@
 
         const btn = document.getElementById('btnLandingStart');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing...';
+        btn.innerHTML = 'Initializing...';
 
         try {
             const res = await fetch('/api/reconstruct/start', {
@@ -2313,7 +2139,7 @@
         } catch (e) {
             showGlobalError(`Failed to start reconstruct: ${e.message}`);
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Start Reconstruct';
+            btn.innerHTML = 'Start Reconstruct';
             onLandingDryRunChange(document.getElementById('landingDryRunToggle').checked);
         }
     }
