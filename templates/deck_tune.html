@@ -24,6 +24,11 @@
     .tn-filter-note[hidden] { display: none; }
     .hud-swap.is-dismissed { transition: opacity var(--dur-base) var(--ease); }
     .tn-moves { margin: var(--sp-2) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-3); }
+    .tn-cart { margin: 0 0 var(--sp-3); padding: 0; list-style: none; font-size: var(--fs-sm); }
+    .tn-cart li { padding: var(--sp-1) 0; }
+    .tn-cart li + li { border-top: var(--hairline) solid var(--line); }
+    .tn-cart .hud-toggle { display: flex; gap: var(--sp-2); align-items: center; width: 100%; }
+    #cartBtn .hud-btn { width: 100%; justify-content: center; }
     .tn-keys dt { white-space: nowrap; }
     .hud-opt-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     @media (max-width: 640px) {
@@ -116,6 +121,16 @@
                     <span class="hud-field-hint" id="moveHint">Physical moves appear in Manage after you change the Archidekt list.</span>
                     <ul class="tn-moves" id="moves"></ul>
                     <span class="hud-field-hint" id="copyState" aria-live="polite"></span>
+                </div>
+            </div>
+        </section>
+        <section class="hud-panel" style="margin-top:var(--sp-4)" id="cartPanel" hidden>
+            <header class="hud-panel-head"><h3 class="hud-panel-title">TCGplayer cart</h3><span class="hud-panel-meta" id="cartMeta"></span></header>
+            <div class="hud-panel-body">
+                <ul class="tn-cart" id="cartItems"></ul>
+                <div class="tn-actions">
+                    <span id="cartBtn"></span>
+                    <span class="hud-field-hint">Uncheck any cards you don’t want — the cart opens with exactly the checked cards.</span>
                 </div>
             </div>
         </section>
@@ -310,7 +325,73 @@ document.addEventListener("DOMContentLoaded", function () {
             esc(op[0] + "% → ") + '<span style="color:' + (op[1] > op[0] ? "var(--ok)" : "var(--signal)") + '">' + esc(op[1] + "%") + "</span>");
         $("moves").innerHTML = L.moves.map(function (m) { return "<li>Pull " + esc(m.name) + " from " + esc(m.from) + (m.give ? "; put " + esc(m.give) + " in it" : "") + "</li>"; }).join("");
         $("copyText").disabled = !L.items.length;
+        renderCart();
     }
+
+    // ---- TCGplayer cart (DT-4) ---------------------------------------------------
+    // Every swap accepted as "buy" is a card to purchase; the cart panel lists
+    // them with checkboxes and opens a Mass Entry cart with exactly the checked
+    // cards. A carried set code pins the printing (`1 Lightning Bolt [SLD]`).
+    var cartSkip = {};  // cart item key -> true when the user UNchecks it (default: in the cart)
+    function cartKey(it) { return it.name + "\u0001" + (it.set || ""); }  // same \u0001-join as TcgCart.items
+    function cartRaw() {
+        var out = [];
+        (T.swaps || []).forEach(function (s) {
+            if (s.decision !== "buy") return;
+            // The card accepted is the truth (mirrors changeList's decision_add rule).
+            var o = s.buy;
+            if (s.decision_add && (!o || o.name !== s.decision_add)) {
+                o = [s.buy, s.own].filter(function (x) { return x && x.name === s.decision_add; })[0] || { name: s.decision_add, price: 0 };
+            }
+            if (!o) return;
+            var it = { name: o.name, qty: 1, price: o.price || 0 };
+            if (o.set) it.set = o.set;
+            out.push(it);
+        });
+        return out;
+    }
+    function cartList() {  // merged by name+set, prices summed, first-seen order
+        var order = [], byKey = {};
+        cartRaw().forEach(function (c) {
+            var k = cartKey(c);
+            if (!byKey[k]) { byKey[k] = { name: c.name, qty: 0, price: 0 }; if (c.set) byKey[k].set = c.set; order.push(byKey[k]); }
+            byKey[k].qty += c.qty; byKey[k].price += c.price || 0;
+        });
+        return order;
+    }
+    function mountCartBtn(list) {
+        var checked = list.filter(function (it) { return !cartSkip[cartKey(it)]; });
+        TcgCart.mount($("cartBtn"), checked.map(function (it) {
+            var c = { name: it.name, qty: it.qty }; if (it.set) c.set = it.set; return c;
+        }));
+        var total = 0, sel = 0, spend = 0;
+        list.forEach(function (it) { total += it.qty; if (!cartSkip[cartKey(it)]) { sel += it.qty; spend += it.price || 0; } });
+        $("cartMeta").textContent = sel + " of " + total + (spend ? " · " + A.money(spend) : "");
+    }
+    function renderCart() {
+        var panel = $("cartPanel");
+        if (!panel || !window.TcgCart) return;
+        var list = cartList();
+        panel.hidden = !list.length;
+        if (!list.length) { $("cartItems").innerHTML = ""; $("cartBtn").innerHTML = ""; return; }
+        var live = {};
+        list.forEach(function (it) { live[cartKey(it)] = true; });
+        Object.keys(cartSkip).forEach(function (k) { if (!live[k]) delete cartSkip[k]; });
+        $("cartItems").innerHTML = list.map(function (it, i) {
+            return '<li><label class="hud-toggle"><input type="checkbox" data-cart-i="' + i + '"' + (cartSkip[cartKey(it)] ? "" : " checked") + '>' +
+                '<span class="hud-card-name">' + (it.qty > 1 ? it.qty + " " : "") + H.cardName(it.name) + (it.set ? ' <span class="hud-freshness">[' + esc(it.set) + "]</span>" : "") + "</span>" +
+                '<span class="hud-freshness" style="margin-left:auto">' + (it.price ? esc(A.money(it.price)) : "") + "</span></label></li>";
+        }).join("");
+        mountCartBtn(list);
+    }
+    $("cartItems").addEventListener("change", function (e) {
+        var box = e.target.closest("input[data-cart-i]");
+        if (!box) return;
+        var list = cartList(), it = list[Number(box.getAttribute("data-cart-i"))];
+        if (!it) return;
+        if (box.checked) delete cartSkip[cartKey(it)]; else cartSkip[cartKey(it)] = true;
+        mountCartBtn(list);
+    });
 
     function renderAll() {
         $("capsLine").innerHTML = capsLine(T);
