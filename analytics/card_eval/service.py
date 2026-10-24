@@ -17,10 +17,10 @@ from analytics.providers.edhrec import EDHRecClient, EDHRecError
 
 from . import config as cfg
 from . import edhrec_data
-from .card_source import CardSourceError, fetch_cards
+from .card_source import CardSourceError, fetch_cards, mainboard_gate
 from .hf_classifier import HFClassifier, HFError
 from .schema import (Candidate, CardInfo, DeckContext, EdhrecStats, EvaluationResult, ModelSignal, RoleScore,
-                     StrengthBreakdown)
+                     SlotGate, StrengthBreakdown)
 
 log = logging.getLogger("commander_lab.card_eval")
 
@@ -235,7 +235,13 @@ def _build_pool(r, page, info, roles, deck_names, commanders, allowed, lookup, o
     other: List[Candidate] = []
     for c in pool:
         f = facts.get(name_key(c["name"]))
-        if not f or f.get("legal") is not True:
+        if not f:
+            continue
+        # Mainboard slot gate at proposal time: Commander-legal (known
+        # legality, fail-closed) AND no variant type class. A planar/scheme/
+        # attraction card can never enter the main-deck candidate pool.
+        gate = mainboard_gate(f)
+        if not gate["legal"]:
             continue
         if allowed is not None and not _ci_ok(f.get("color_identity", ""), allowed):
             continue
@@ -247,7 +253,8 @@ def _build_pool(r, page, info, roles, deck_names, commanders, allowed, lookup, o
         score = base(c) + (w.physical_owned_bonus if is_owned else 0.0)
         cand = Candidate(name=f.get("name") or c["name"], roles=croles, same_role=bool(want & set(croles)),
                          inclusion=c["inclusion"], synergy=c["synergy"], score=round(score, 4),
-                         color_identity=f.get("color_identity", ""), owned=is_owned)
+                         color_identity=f.get("color_identity", ""), owned=is_owned,
+                         slot_gate=SlotGate(**gate))
         (same if cand.same_role else other).append(cand)
     key = lambda x: (-x.score, x.name)  # noqa: E731
     return sorted(same, key=key)[: cfg.POOL_SAME_ROLE] + sorted(other, key=key)[: cfg.POOL_OTHER_ROLE]
