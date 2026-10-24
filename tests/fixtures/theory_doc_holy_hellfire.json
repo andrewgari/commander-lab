@@ -1,0 +1,849 @@
+{
+ "schema_version": "1",
+ "doc_id": "a49befd418ad",
+ "deck_id": "archidekt:417707",
+ "theme": "dragons",
+ "commander_mode": "keep",
+ "created_at": "2026-10-12T22:10:49+00:00",
+ "sections": [
+  {
+   "type": "thesis_pillars",
+   "title": "Thesis",
+   "data": {
+    "thesis": "Kaalia drops a Dragon air force, backed by her Angels and Demons, straight into combat, and every Dragon arrival burns the table before the swing lands.",
+    "pillars": [
+     {
+      "name": "Dragon Air Force",
+      "description": "Big flying Dragons that pay off on entering or hitting, with the best Angels and Demons as a supporting wing."
+     },
+     {
+      "name": "Haste and Extra Combats",
+      "description": "Haste and extra combat phases so every Kaalia trigger and Dragon swing happens again."
+     },
+     {
+      "name": "Commander Protection",
+      "description": "Hexproof, protection and silence effects that keep Kaalia alive to attack."
+     },
+     {
+      "name": "Trigger Doubling and Cheating",
+      "description": "Copy attack and enter triggers and put fatties into play without paying for them."
+     }
+    ],
+    "theme_fit": "Kaalia already cheats Dragons, so the theme just changes which of her three types carries the payload."
+   }
+  },
+  {
+   "type": "decklist",
+   "title": "Decklist",
+   "data": {
+    "groups": [
+     {
+      "role": "Commander",
+      "cards": [
+       {
+        "name": "Kaalia of the Vast",
+        "qty": 1,
+        "source": "kept",
+        "price": 4.44
+       }
+      ]
+     },
+     {
+      "role": "Lands",
+      "cards": [
+       {
+        "name": "Battlefield Forge",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.21
+       },
+       {
+        "name": "Blood Crypt",
+        "qty": 1,
+        "source": "kept",
+        "price": 9.34
+       },
+       {
+        "name": "Caves of Koilos",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.3
+       },
+       {
+        "name": "Clifftop Retreat",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.21
+       },
+       {
+        "name": "Command Tower",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.24
+       },
+       {
+        "name": "Dragonskull Summit",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.46
+       },
+       {
+        "name": "Flagstones of Trokair",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.51
+       },
+       {
+        "name": "Godless Shrine",
+        "qty": 1,
+        "source": "kept",
+        "price": 8.41
+       },
+       {
+        "name": "Homeward Path",
+        "qty": 1,
+        "source": "kept",
+        "price": 19.54
+       },
+       {
+        "name": "Isolated Chapel",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.2
+       },
+       {
+        "name": "Mountain",
+        "qty": 5,
+        "source": "kept",
+        "price": 0.08
+       },
+       {
+        "name": "Nomad Outpost",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.33
+       },
+       {
+        "name": "Plains",
+        "qty": 5,
+        "source": "kept",
+        "price": 0.05
+       },
+       {
+        "name": "Reliquary Tower",
+        "qty": 1,
+        "source": "kept",
+        "price": 4.98
+       },
+       {
+        "name": "Rogue's Passage",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.77
+       },
+       {
+        "name": "Rugged Prairie",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.32
+       },
+       {
+        "name": "Sacred Foundry",
+        "qty": 1,
+        "source": "kept",
+        "price": 10.03
+       },
+       {
+        "name": "Smoldering Marsh",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.37
+       },
+       {
+        "name": "Swamp",
+        "qty": 6,
+        "source": "kept",
+        "price": 0.1
+       },
+       {
+        "name": "Temple of the False God",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.27
+       },
+       {
+        "name": "Temple of Triumph",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.31
+       },
+       {
+        "name": "Terramorphic Expanse",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.29
+       }
+      ]
+     },
+     {
+      "role": "Ramp",
+      "cards": [
+       {
+        "name": "Arcane Signet",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.53
+       },
+       {
+        "name": "Boros Signet",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.67
+       },
+       {
+        "name": "Chromatic Lantern",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.43
+       },
+       {
+        "name": "Orzhov Signet",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.38
+       },
+       {
+        "name": "Rakdos Signet",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.41
+       },
+       {
+        "name": "Sol Ring",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.51
+       },
+       {
+        "name": "Dragon's Hoard",
+        "qty": 1,
+        "source": "buy",
+        "price": 0.59,
+        "why": "any-colour rock that banks a card draw for every Dragon that enters"
+       }
+      ]
+     },
+     {
+      "role": "Card advantage",
+      "cards": [
+       {
+        "name": "Bloodgift Demon",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.83
+       },
+       {
+        "name": "Burning-Rune Demon",
+        "qty": 1,
+        "source": "kept",
+        "price": 6.0
+       },
+       {
+        "name": "Demonic Tutor",
+        "qty": 1,
+        "source": "kept",
+        "price": 68.89,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "tutor: Game Changer, raises bracket floor to 3; salt: unverified [mtg Game Changers list]"
+        }
+       },
+       {
+        "name": "Firemane Commando",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.98
+       },
+       {
+        "name": "Necropotence",
+        "qty": 1,
+        "source": "kept",
+        "price": 38.23,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "card advantage: Game Changer, raises bracket floor to 3; salt: unverified [mtg Game Changers list]"
+        }
+       },
+       {
+        "name": "Phyrexian Arena",
+        "qty": 1,
+        "source": "kept",
+        "price": 4.16
+       },
+       {
+        "name": "Razaketh, the Foulblooded",
+        "qty": 1,
+        "source": "kept",
+        "price": 14.46
+       },
+       {
+        "name": "Rune-Scarred Demon",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.39
+       },
+       {
+        "name": "Vilis, Broker of Blood",
+        "qty": 1,
+        "source": "kept",
+        "price": 9.76
+       }
+      ]
+     },
+     {
+      "role": "Targeted disruption",
+      "cards": [
+       {
+        "name": "Angel of Despair",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.95
+       },
+       {
+        "name": "Angel of Serenity",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.52
+       },
+       {
+        "name": "Anguished Unmaking",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.7
+       },
+       {
+        "name": "Crackling Doom",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.36
+       },
+       {
+        "name": "Mortify",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.2
+       },
+       {
+        "name": "Path to Exile",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.79
+       },
+       {
+        "name": "Terminate",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.32
+       }
+      ]
+     },
+     {
+      "role": "Mass disruption",
+      "cards": [
+       {
+        "name": "Archfiend of Depravity",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.25,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "mass removal: shrinks every opponent's board each turn; salt: unverified"
+        }
+       },
+       {
+        "name": "Austere Command",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.37,
+        "salt_flag": {
+         "level": "low",
+         "reason": "board wipe: modal, telegraphed; salt: unverified"
+        }
+       },
+       {
+        "name": "Balefire Dragon",
+        "qty": 1,
+        "source": "kept",
+        "price": 14.72,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "one-sided wipe: combat damage wipes a player's creatures; salt: unverified"
+        }
+       },
+       {
+        "name": "Merciless Eviction",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.54,
+        "salt_flag": {
+         "level": "low",
+         "reason": "board wipe: exiles one permanent type; salt: unverified"
+        }
+       },
+       {
+        "name": "Ruinous Ultimatum",
+        "qty": 1,
+        "source": "kept",
+        "price": 2.26,
+        "salt_flag": {
+         "level": "high",
+         "reason": "one-sided wipe: destroys all opponents' nonland permanents; salt: unverified"
+        }
+       },
+       {
+        "name": "Wrath of God",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.85,
+        "salt_flag": {
+         "level": "low",
+         "reason": "board wipe: symmetric reset; salt: unverified"
+        }
+       }
+      ]
+     },
+     {
+      "role": "Dragon Air Force",
+      "cards": [
+       {
+        "name": "Akroma, Angel of Wrath",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.32
+       },
+       {
+        "name": "Avacyn, Angel of Hope",
+        "qty": 1,
+        "source": "kept",
+        "price": 32.89
+       },
+       {
+        "name": "Baneslayer Angel",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.69
+       },
+       {
+        "name": "Blast-Furnace Hellkite",
+        "qty": 1,
+        "source": "kept",
+        "price": 4.36
+       },
+       {
+        "name": "Gisela, Blade of Goldnight",
+        "qty": 1,
+        "source": "kept",
+        "price": 5.73
+       },
+       {
+        "name": "Hellkite Tyrant",
+        "qty": 1,
+        "source": "kept",
+        "price": 5.7,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "theft: steals opponents' artifacts on hit; salt: unverified"
+        }
+       },
+       {
+        "name": "Liesa, Forgotten Archangel",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.58
+       },
+       {
+        "name": "Lyra Dawnbringer",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.46
+       },
+       {
+        "name": "Master of Cruelties",
+        "qty": 1,
+        "source": "kept",
+        "price": 5.34
+       },
+       {
+        "name": "Serra's Emissary",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.66
+       },
+       {
+        "name": "Steel Hellkite",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.36
+       },
+       {
+        "name": "Utvara Hellkite",
+        "qty": 1,
+        "source": "kept",
+        "price": 16.1
+       },
+       {
+        "name": "Glorybringer",
+        "qty": 1,
+        "source": "buy",
+        "price": 0.41,
+        "why": "flying, haste Dragon that kills a creature every time it attacks"
+       },
+       {
+        "name": "Lathliss, Dragon Queen",
+        "qty": 1,
+        "source": "buy",
+        "price": 0.55,
+        "why": "every nontoken Dragon Kaalia cheats in adds a 5/5 flyer"
+       },
+       {
+        "name": "Scourge of Valkas",
+        "qty": 1,
+        "source": "buy",
+        "price": 3.75,
+        "why": "each Dragon entering deals X damage, X = Dragons you control"
+       },
+       {
+        "name": "Terror of the Peaks",
+        "qty": 1,
+        "source": "buy",
+        "price": 29.98,
+        "why": "over soft cap: turns every Kaalia cheat into burn equal to the creature's power, the best payoff for this deck's plan",
+        "over_soft_cap": true
+       },
+       {
+        "name": "Thundermaw Hellkite",
+        "qty": 1,
+        "source": "buy",
+        "price": 2.57,
+        "why": "haste Dragon that taps down opposing flying blockers"
+       }
+      ]
+     },
+     {
+      "role": "Haste and Extra Combats",
+      "cards": [
+       {
+        "name": "Aurelia, the Warleader",
+        "qty": 1,
+        "source": "kept",
+        "price": 5.72,
+        "salt_flag": {
+         "level": "low",
+         "reason": "long turn: extra combat phase; salt: unverified"
+        }
+       },
+       {
+        "name": "Dragon Tempest",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.55
+       },
+       {
+        "name": "Hellkite Charger",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.72,
+        "salt_flag": {
+         "level": "low",
+         "reason": "long turn: repeatable extra combats; salt: unverified"
+        }
+       },
+       {
+        "name": "Rising of the Day",
+        "qty": 1,
+        "source": "kept",
+        "price": 0.46
+       },
+       {
+        "name": "Dragonlord Kolaghan",
+        "qty": 1,
+        "source": "buy",
+        "price": 7.53,
+        "why": "gives all your creatures haste, so hard-cast Dragons swing right away"
+       },
+       {
+        "name": "Scourge of the Throne",
+        "qty": 1,
+        "source": "buy",
+        "price": 0.7,
+        "why": "free extra combat against the life leader, which means a second Kaalia trigger",
+        "salt_flag": {
+         "level": "low",
+         "reason": "long turn: extra combat phase; salt: unverified"
+        }
+       }
+      ]
+     },
+     {
+      "role": "Commander Protection",
+      "cards": [
+       {
+        "name": "Basandra, Battle Seraph",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.74,
+        "salt_flag": {
+         "level": "low",
+         "reason": "silence: no spells during combat; salt: unverified"
+        }
+       },
+       {
+        "name": "Deflecting Swat",
+        "qty": 1,
+        "source": "kept",
+        "price": 72.77
+       },
+       {
+        "name": "Grand Abolisher",
+        "qty": 1,
+        "source": "kept",
+        "price": 18.38,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "silence: Game Changer, opponents can't interact on your turn; salt: unverified [mtg Game Changers list]"
+        }
+       },
+       {
+        "name": "Lightning Greaves",
+        "qty": 1,
+        "source": "kept",
+        "price": 4.01
+       },
+       {
+        "name": "Mother of Runes",
+        "qty": 1,
+        "source": "kept",
+        "price": 12.04
+       },
+       {
+        "name": "Swiftfoot Boots",
+        "qty": 1,
+        "source": "kept",
+        "price": 1.54
+       },
+       {
+        "name": "Teferi's Protection",
+        "qty": 1,
+        "source": "kept",
+        "price": 45.98,
+        "salt_flag": {
+         "level": "medium",
+         "reason": "fog/protection: Game Changer, raises bracket floor to 3; salt: unverified [mtg Game Changers list]"
+        }
+       }
+      ]
+     },
+     {
+      "role": "Trigger Doubling and Cheating",
+      "cards": [
+       {
+        "name": "Animate Dead",
+        "qty": 1,
+        "source": "kept",
+        "price": 7.46
+       },
+       {
+        "name": "Helm of the Host",
+        "qty": 1,
+        "source": "kept",
+        "price": 5.17
+       },
+       {
+        "name": "Isshin, Two Heavens as One",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.78
+       },
+       {
+        "name": "Quicksilver Amulet",
+        "qty": 1,
+        "source": "kept",
+        "price": 3.22
+       },
+       {
+        "name": "Strionic Resonator",
+        "qty": 1,
+        "source": "kept",
+        "price": 7.16
+       }
+      ]
+     }
+    ],
+    "counts": {
+     "kept": 92,
+     "owned": 0,
+     "buy": 8,
+     "total": 100
+    }
+   }
+  },
+  {
+   "type": "cuts",
+   "title": "Cuts",
+   "data": {
+    "cards": [
+     {
+      "name": "Angelic Arbiter",
+      "qty": 1,
+      "reason": "symmetric lock that also slows our own cast-then-attack turns; not a Dragon payoff"
+     },
+     {
+      "name": "Bloodthirster",
+      "qty": 1,
+      "reason": "extra combat is now covered by on-theme Dragons (Scourge of the Throne, Hellkite Charger)"
+     },
+     {
+      "name": "Drana and Linvala",
+      "qty": 1,
+      "reason": "low-impact flyer; slot goes to a Dragon payoff"
+     },
+     {
+      "name": "Lord of the Void",
+      "qty": 1,
+      "reason": "7-drop Demon with no evasion; weakest of the Demon payload"
+     },
+     {
+      "name": "Ob Nixilis, Unshackled",
+      "qty": 1,
+      "reason": "punishes tutors rather than adding pressure; off-theme"
+     },
+     {
+      "name": "Platinum Angel",
+      "qty": 1,
+      "reason": "defensive lock piece; doesn't push the aerial plan"
+     },
+     {
+      "name": "Reya Dawnbringer",
+      "qty": 1,
+      "reason": "9-mana Angel; Animate Dead and Razaketh already cover reanimation"
+     },
+     {
+      "name": "Sephara, Sky's Blade",
+      "qty": 1,
+      "reason": "needs a wide board of flyers to work; replaced by direct Dragon payoffs"
+     }
+    ],
+    "count": 8
+   }
+  },
+  {
+   "type": "buy_total",
+   "title": "Buy total",
+   "data": {
+    "total_usd": 46.08,
+    "count": 8,
+    "currency": "USD",
+    "source": "scryfall",
+    "cards": [
+     {
+      "name": "Terror of the Peaks",
+      "price": 29.98,
+      "qty": 1
+     },
+     {
+      "name": "Dragonlord Kolaghan",
+      "price": 7.53,
+      "qty": 1
+     },
+     {
+      "name": "Scourge of Valkas",
+      "price": 3.75,
+      "qty": 1
+     },
+     {
+      "name": "Thundermaw Hellkite",
+      "price": 2.57,
+      "qty": 1
+     },
+     {
+      "name": "Scourge of the Throne",
+      "price": 0.7,
+      "qty": 1
+     },
+     {
+      "name": "Dragon's Hoard",
+      "price": 0.59,
+      "qty": 1
+     },
+     {
+      "name": "Lathliss, Dragon Queen",
+      "price": 0.55,
+      "qty": 1
+     },
+     {
+      "name": "Glorybringer",
+      "price": 0.41,
+      "qty": 1
+     }
+    ],
+    "caps": {
+     "no_budget": false,
+     "hard_cap": 40.0,
+     "soft_cap": 15.0
+    }
+   }
+  },
+  {
+   "type": "notes",
+   "title": "Notes",
+   "data": {
+    "dragon_count": 13,
+    "math": "P(at least 1 of 13 Dragons in first 10 cards of 99) = 1 - C(86,10)/C(99,10) ~ 77%",
+    "lands": "35 lands (template 38): Kaalia skips paying for the big creatures, and there are 7 rocks",
+    "bracket": "No new Game Changers added; existing Demonic Tutor, Necropotence, Grand Abolisher, Teferi's Protection keep it at bracket 3+",
+    "free_agent_owned": "empty in request; no owned pool used",
+    "prices": "Scryfall USD, fetched today; the app re-verifies"
+   }
+  }
+ ],
+ "verification": {
+  "checked_at": "2026-10-12T22:10:49+00:00",
+  "corrections": [
+   {
+    "kind": "price",
+    "message": "'Dragon's Hoard' is $0.59 on Scryfall, not $0.57.",
+    "card": "Dragon's Hoard"
+   },
+   {
+    "kind": "price",
+    "message": "'Terror of the Peaks' is $29.98 on Scryfall, not $29.68.",
+    "card": "Terror of the Peaks"
+   },
+   {
+    "kind": "price",
+    "message": "'Thundermaw Hellkite' is $2.57 on Scryfall, not $2.62.",
+    "card": "Thundermaw Hellkite"
+   },
+   {
+    "kind": "price",
+    "message": "'Scourge of the Throne' is $0.70 on Scryfall, not $0.71.",
+    "card": "Scourge of the Throne"
+   },
+   {
+    "kind": "buy_total",
+    "message": "Buy total is $46.08 (Scryfall USD), not $45.82."
+   }
+  ],
+  "counts": {
+   "kept": 92,
+   "owned": 0,
+   "buy": 8,
+   "total": 100
+  },
+  "buy_total_usd": 46.08,
+  "commander_changed": false,
+  "commanders": [
+   "Kaalia of the Vast"
+  ]
+ }
+}

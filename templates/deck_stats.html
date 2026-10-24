@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Stats · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (UX_SPEC §3.1). Every component is hud.css section 7. */
+    .stats-strip { margin-bottom: var(--sp-6); }
+    .stats-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--sp-4); margin-top: var(--sp-4); align-items: start; }
+    .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+    .graph-list { display: none; }
+    .graph-list ol { list-style: none; margin: 0; padding: 0; }
+    .graph-list li { padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+    .graph-list .hud-rank-sub { display: block; white-space: normal; }
+    .graph-search-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .graph-search-kbd { margin-left: calc(-1 * var(--sp-8)); }
+    .graph-engines-foot { margin-top: auto; }
+    .stats-tpl-actions { grid-column: 1 / -1; display: flex; gap: var(--sp-2); align-items: center; }
+    .stats-tpl-actions .hud-field-hint { margin-right: auto; }
+    .stats-tpl-form { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: var(--stroke); }
+    .stats-isolated-more { margin-left: auto; }
+    .stats-rarest { margin-top: var(--sp-4); }
+    .stats-combo-act { display: flex; gap: var(--sp-1); align-items: center; min-width: 0; max-width: 22rem; }
+    .stats-combo-act .hud-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+    .stats-combo-more { padding: var(--sp-3) var(--sp-4); }
+    .inspector-title { margin: var(--sp-1) 0 0; color: var(--text-1); font-size: var(--fs-lg); }
+    .inspector-hint { margin: 0; font-size: var(--fs-sm); }
+    @media (max-width: 1380px) { .stats-row--3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: 1 / -1; } }
+    @media (max-width: 900px) { .stats-row, .stats-row--3 { grid-template-columns: minmax(0, 1fr); } .stats-row--3 > :last-child { grid-column: auto; } }
+    @media (max-width: 640px) { .hud-combo { grid-template-columns: minmax(0, 1fr); } .stats-combo-act { max-width: 100%; } }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Stats") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <button class="hud-btn" type="button" id="refreshBtn" title="Rebuild the interaction graph for this deck">Refresh analytics</button>
+{% endcall %}
+
+<div class="hud-stat-strip stats-strip" id="statStrip">
+    {{ hud.stat("On-plan", "—", mod="hero signal") }}{{ hud.stat("Engines", "—") }}{{ hud.stat("Edges", "—") }}
+    {{ hud.stat("EDHREC overlap", "—") }}{{ hud.stat("Combos", "—") }}{{ hud.stat("Avg CMC", "—") }}
+</div>
+
+{{ hud.section_head("Interactions", code="01") }}
+<div class="hud-graph" id="graph">
+    <aside class="hud-graph-engines" aria-label="Engines">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Engines</h3><span class="hud-panel-meta" id="enginesMeta"></span></header>
+        <ol id="engines"><li>{{ hud.empty("Loading…") }}</li></ol>
+        <div class="hud-panel-foot graph-engines-foot">Chain = resource made → spent → paid off.<br>Loop = cards that feed each other.</div>
+    </aside>
+    <div class="hud-graph-stage">
+        <div class="hud-graph-toolbar">
+            <label class="graph-search-label" for="gsearch">Find card</label>
+            <input id="gsearch" type="search" placeholder="Find card…" autocomplete="off"><span class="hud-kbd graph-search-kbd" aria-hidden="true">/</span>
+            <label class="hud-toggle hud-nowrap"><input type="checkbox" id="gmana"> Show mana</label>
+            <span class="hud-freshness" id="graphCounts"></span>
+        </div>
+        <svg class="hud-graph-svg" id="gsvg" role="group" aria-label="Interaction graph. Tab through cards; the inspector panel lists the same connections as text."></svg>
+        <div class="graph-list" data-view="list" id="glist"></div>
+        <div class="hud-graph-legend" aria-hidden="true">
+            <span><i style="background:var(--signal)"></i>Commander</span>
+            <span><i style="background:var(--data-dim);border:1.5px solid var(--data)"></i>In focused engine</span>
+            <span><i style="background:var(--surface-3);border:1.5px solid var(--line-strong)"></i>Card · size = connections</span>
+            <span>Line weight = reasons · arrow = output feeds input</span>
+        </div>
+    </div>
+    <aside class="hud-inspector" aria-label="Inspector" aria-live="polite">
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="inspTitle">Overview</h3><span class="hud-panel-meta"><span class="hud-kbd">Esc</span> clear</span></header>
+        <div class="hud-inspector-body" id="inspector"></div>
+    </aside>
+</div>
+<div class="hud-isolated" id="isolated"><span class="hud-label">Isolated · 0–1 edges</span></div>
+
+{{ hud.section_head("Shape", code="02") }}
+<div class="stats-row">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Composition vs preset</h3>
+            <div class="hud-panel-meta"><span id="tplName">Command Zone 2025</span><button class="hud-btn hud-btn--sm" type="button" id="tplEdit" aria-expanded="false" aria-controls="tplForm">Override</button></div></header>
+        <div class="hud-panel-body">
+            <ul class="hud-comp" id="comp"><li>{{ hud.empty("Loading…") }}</li></ul>
+            <form class="hud-template-edit stats-tpl-form" id="tplForm" hidden></form>
+        </div>
+        <footer class="hud-panel-foot">A card can count in two rows. Plan = everything else. Bar = this deck, tick = target.</footer>
+    </section>
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Mana curve</h3><div class="hud-panel-meta" id="curveMeta">non-land</div></header>
+        <div class="hud-panel-body" id="curve">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot">Dashed = template curve (most at 2, tapering), scaled to this deck's non-land count.</footer>
+    </section>
+</div>
+
+{{ hud.section_head("Identity", code="03") }}
+<div class="stats-row stats-row--3">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Pillar fit</h3><div class="hud-panel-meta"><a class="hud-btn hud-btn--sm" href="/deck/{{ deck_name | urlencode }}/identity">Edit pillars</a></div></header>
+        <div class="hud-panel-body" id="fit">{{ hud.empty("Loading…") }}</div>
+    </section>
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Least on-plan</h3><div class="hud-panel-meta">fit score</div></header>
+        <div class="hud-panel-body" id="lowfit">{{ hud.empty("Loading…") }}</div>
+    </section>
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">EDHREC inclusion</h3><div class="hud-panel-meta" id="edhrecMeta"></div></header>
+        <div class="hud-panel-body" id="edhrec">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot">Low % ≠ bad. Low % + few edges + off-pillar = weak performer.</footer>
+    </section>
+</div>
+<div class="stats-row" id="playedRow">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Played with · most</h3><div class="hud-panel-meta" id="playedMeta">card2vec</div></header>
+        <div class="hud-panel-body" id="playedMost">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot" id="playedFoot">How often real Commander decklists play the card alongside the rest of this deck. Learned from decklists only, never card text.</footer>
+    </section>
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Played with · least</h3><div class="hud-panel-meta">0 = random card, 1 = belongs</div></header>
+        <div class="hud-panel-body" id="playedLeast">{{ hud.empty("Loading…") }}</div>
+        <footer class="hud-panel-foot">Low ≠ bad: pet cards and new printings often sit here. It feeds the weak-performer score as a 4th part.</footer>
+    </section>
+</div>
+
+{{ hud.section_head("Combos", code="04") }}
+<section class="hud-panel hud-panel--flush">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Commander Spellbook</h3>
+        <div class="hud-panel-meta">
+            <span class="hud-seg" role="radiogroup" aria-label="Show combos">
+                <input type="radio" name="cf" id="cfAll" value="all" checked><label for="cfAll">All</label>
+                <input type="radio" name="cf" id="cfOwned" value="owned"><label for="cfOwned">Owned</label>
+            </span>
+        </div></header>
+    <div class="hud-panel-body">
+        <div class="hud-combo-group" id="combosInHead">In deck</div>
+        <ul class="hud-combos" id="combosIn"></ul>
+        <div class="hud-combo-group" id="combosNearHead">One card away</div>
+        <ul class="hud-combos" id="combosNear"><li class="hud-combo">{{ hud.empty("Loading…") }}</li></ul>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/vendor/d3-force-3.0.0.min.js?v={{ version }}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var H = window.HUD, A = window.DeckAnalytics, esc = H.esc;
+    var DECK_ID = {{ deck_id | tojson }}, DECK_NAME = {{ deck_name | tojson }};
+    var API = "/api/decks/" + encodeURIComponent(DECK_ID);
+    var $ = function (id) { return document.getElementById(id); };
+    var params = new URLSearchParams(location.search);
+    var D = {};   // payloads by key
+    var G = null, VIEW = null, ENGINES = [], activeEngine = null;
+
+    function getJSON(path) {
+        return fetch(API + path).then(function (r) { return r.json().then(function (j) { return r.ok && j.success !== false ? j : Promise.reject(j); }); });
+    }
+    function fail(el, msg) { $(el).innerHTML = '<div class="hud-empty">' + esc(msg) + "</div>"; }
+    var cardBtn = function (n) { return '<button type="button" class="hud-cardlink" data-goto="' + esc(n) + '"' + H.cardRefAttrString(H.cardRef(n, window.HUD_CARD_REFS)) + '>' + esc(n) + "</button>"; };
+
+    // ---- Stat strip -----------------------------------------------------------
+    function strip() {
+        var ident = D.identity, eng = D.engines, g = VIEW, ed = D.edhrec, cb = D.combos, inv = D.inventory;
+        var spells = (inv || []).filter(function (c) { return !A.isLand(c); });
+        var avg = spells.length ? spells.reduce(function (s, c) { return s + (c.cmc || 0); }, 0) / spells.length : null;
+        var loops = eng ? eng.engines.filter(function (e) { return e.kind === "loop"; }).length : 0;
+        var cards = g ? g.nodes.length : 0;
+        $("statStrip").innerHTML = [
+            H.stat("On-plan", ident && ident.fit && ident.fit.on_plan_pct != null ? ident.fit.on_plan_pct : "—", { unit: ident && ident.fit && ident.fit.on_plan_pct != null ? "%" : "", foot: ident && ident.pillars.length ? "pillar or glue" : "no pillars yet", mod: "hero signal" }),
+            H.stat("Engines", eng ? eng.engines.length : "—", { foot: eng ? loops + " loops · " + (eng.engines.length - loops) + " chains" : "" }),
+            H.stat("Edges", g ? g.edges.length : "—", { foot: g && cards ? (g.edges.length / cards).toFixed(1) + " per card" : "" }),
+            H.stat("EDHREC overlap", ed && ed.overlap_pct != null ? ed.overlap_pct : "—", { unit: ed && ed.overlap_pct != null ? "%" : "", foot: "lower = more yours" }),
+            H.stat("Combos", cb ? cb.counts.in_deck : "—", { foot: cb ? "+" + cb.counts.one_away + " one card away" : "" }),
+            H.stat("Avg CMC", avg != null ? avg.toFixed(2) : "—", { foot: "non-land" })
+        ].join("");
+    }
+
+    // ---- Graph ------------------------------------------------------------------
+    function buildGraph() {
+        var showMana = $("gmana").checked;
+        VIEW = A.graphData(D.interactions, { mana: showMana });
+        ENGINES = A.engineList(D.engines, D.identity);
+        $("graphCounts").innerHTML = "<b>" + VIEW.nodes.length + "</b> cards · <b>" + VIEW.edges.length + "</b> edges";
+        G = H.graph($("gsvg"), { nodes: VIEW.nodes, edges: VIEW.edges, engines: ENGINES,
+                                 commander: VIEW.commander, commanders: VIEW.commanders, onSelect: inspect });
+        // Isolated tray
+        $("isolated").innerHTML = '<span class="hud-label">Isolated · 0–1 edges</span>' +
+            (VIEW.isolated.length ? VIEW.isolated.map(cardBtn).join("") : '<span class="hud-muted">none</span>') +
+            '<a class="hud-btn hud-btn--sm hud-btn--ghost stats-isolated-more" href="/deck/' + encodeURIComponent(DECK_NAME) + '/tune#weak">See in Tune →</a>';
+        renderEngines();
+        strip();
+    }
+    function renderEngines() {
+        $("enginesMeta").textContent = ENGINES.length ? ENGINES.length + " found" : "";
+        if (!ENGINES.length) {
+            $("engines").innerHTML = '<li>' + '<div class="hud-empty">Engines appear after the next rebuild</div></li>';
+            activeEngine = null; inspect(null); phoneList(); return;
+        }
+        $("engines").innerHTML = ENGINES.map(function (g) {
+            return '<li><button class="hud-engine" type="button" aria-pressed="false" data-engine="' + esc(g.id) + '"><span>' +
+                '<span class="hud-engine-name">' + esc(g.name) + "</span>" + (g.flow ? '<span class="hud-engine-flow">' + esc(g.flow) + "</span>" : "") +
+                '<span class="hud-engine-meta"><span class="hud-engine-kind">' + esc(g.kind) + "</span>" +
+                (g.pillar ? H.chip(g.pillar, "data") : H.chip("no pillar", "ghost")) + "</span></span>" +
+                '<span class="hud-engine-n" title="cards">' + g.cards.length + "</span></button></li>";
+        }).join("");
+        var keep = activeEngine && ENGINES.some(function (g) { return g.id === activeEngine; }) ? activeEngine : ENGINES[0].id;
+        activeEngine = null;
+        setEngine(keep);   // on load the first engine is focused: the "aha" view
+    }
+    function setEngine(id) {
+        activeEngine = id || null;
+        $("engines").querySelectorAll("[data-engine]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.engine === activeEngine)); });
+        G.focusEngine(activeEngine);
+        inspect(null);
+        phoneList();
+    }
+    function engineById(id) { return ENGINES.find(function (g) { return g.id === id; }); }
+
+    // ---- Inspector -------------------------------------------------------------
+    function inspect(id, conns) {
+        var title = $("inspTitle"), body = $("inspector");
+        if (!id) {
+            var g = activeEngine && engineById(activeEngine);
+            title.textContent = g ? "Engine" : "Overview";
+            body.innerHTML = g ? engineCard(g) : overview();
+            return;
+        }
+        title.textContent = "Card";
+        var meta = VIEW.meta[id] || {}, inv = (D.inventory || []).find(function (c) { return c.name === id; });
+        var img = inv ? H.scryfall(inv.uid, "art_crop") : { src: "", fallback: "" };
+        var lbl = function (k) { return VIEW.labels[k] || k; };
+        var outs = conns.filter(function (x) { return x.out; }), ins = conns.filter(function (x) { return !x.out; });
+        var li = function (x) { return '<li><span class="dir">' + (x.out ? "→" : "←") + '</span><span><button type="button" data-goto="' + esc(x.other) + '"' + H.cardRefAttrString(H.cardRef(x.other, window.HUD_CARD_REFS)) + ' data-card-preview>' + esc(x.other) + '</button><span class="why">' + esc(x.reasons.join(" · ")) + "</span></span></li>"; };
+        var cap = function (arr) {
+            if (!arr.length) return '<li><span></span><span class="hud-muted">nothing</span></li>';
+            return arr.slice(0, 6).map(li).join("") + (arr.length > 6 ? '<li><span></span><span class="hud-muted">+' + (arr.length - 6) + " more</span></li>" : "");
+        };
+        body.innerHTML = H.art(id, img.src, { fallback: img.fallback, attrs: Object.assign({ "data-card-preview": true }, H.cardRefAttrs(H.cardRef(inv || id, window.HUD_CARD_REFS))), meta: inv && !A.isLand(inv) ? "CMC " + (inv.cmc || 0) : "", colors: inv && !A.isLand(inv) ? (inv.color || "") : null }) +
+            ((meta.produces || []).length || (meta.consumes || []).length ? '<dl class="hud-io"><dt>Makes</dt><dd>' + ((meta.produces || []).map(function (t) { return H.chip(lbl(t), "data"); }).join("") || '<span class="hud-muted">—</span>') +
+                "</dd><dt>Uses</dt><dd>" + ((meta.consumes || []).map(function (t) { return H.chip(lbl(t), "neutral"); }).join("") || '<span class="hud-muted">—</span>') + "</dd></dl>" : "") +
+            '<div><span class="hud-label">Feeds · ' + outs.length + '</span><ul class="hud-edgelist">' + cap(outs) + "</ul></div>" +
+            '<div><span class="hud-label">Fed by · ' + ins.length + '</span><ul class="hud-edgelist">' + cap(ins) + "</ul></div>" +
+            '<a class="hud-btn hud-btn--sm" href="/deck/' + encodeURIComponent(DECK_NAME) + "?card=" + encodeURIComponent(id) + '">Open card</a>';
+    }
+    function engineCard(g) {
+        var set = new Set(g.cards);
+        var internal = VIEW.edges.filter(function (e) { return set.has(e.source) && set.has(e.target); }).length;
+        var weakest = g.cards.slice().sort(function (a, b) { return VIEW.degree(a) - VIEW.degree(b); })[0];
+        return '<div><span class="hud-label">' + esc(g.kind) + " · " + g.cards.length + ' cards</span><h3 class="inspector-title">' + esc(g.name) + "</h3>" +
+            (g.flow ? '<p class="hud-engine-flow">' + esc(g.flow) + "</p>" : "") + "</div>" +
+            '<div><span class="hud-label">Pillar</span><div>' + (g.pillar ? H.chip(g.pillar, "data") : H.chip("none: candidate pillar?", "signal")) + "</div></div>" +
+            '<div><span class="hud-label">Members</span><div class="hud-members">' + g.cards.map(cardBtn).join("") + "</div></div>" +
+            '<dl class="hud-kv"><dt>Internal edges</dt><dd class="hud-num">' + internal + "</dd><dt>Weakest link</dt><dd>" + esc(weakest || "—") + "</dd></dl>";
+    }
+    function overview() {
+        var top = VIEW.nodes.slice().sort(function (a, b) { return b.degree - a.degree; }).slice(0, 8);
+        return '<p class="hud-muted inspector-hint">Pick an engine or click a card. <span class="hud-kbd">Tab</span> walks cards, <span class="hud-kbd">[</span> <span class="hud-kbd">]</span> cycle engines.</p>' +
+            '<div><span class="hud-label">Most connected</span><div class="hud-rank-compact">' +
+            H.rankList(top.map(function (n, i) { return { label: n.id, card: true, value: n.degree, hl: i === 0 }; })) + "</div></div>";
+    }
+    // Phone (≤640px): the stage swaps to a list of the focused engine's members.
+    function phoneList() {
+        var g = activeEngine && engineById(activeEngine), el = $("glist");
+        if (!g) { el.innerHTML = '<div class="hud-panel-foot">Pick an engine above. Full graph on a wider screen.</div>'; return; }
+        var hub = g.cards.slice().sort(function (a, b) { return VIEW.degree(b) - VIEW.degree(a); })[0];
+        el.innerHTML = "<ol>" + g.cards.filter(function (c) { return c !== hub; }).map(function (c) {
+            var e = VIEW.edges.find(function (x) { return (x.source === hub && x.target === c) || (x.target === hub && x.source === c); }) ||
+                    VIEW.edges.find(function (x) { return (x.source === c || x.target === c) && g.cards.indexOf(x.source === c ? x.target : x.source) !== -1; });
+            var dir = e ? (e.source === c ? "→ " + A.shortName(e.target) : "← " + A.shortName(e.source)) + " · " + e.reasons.join(" · ") : "";
+            return '<li><span class="hud-card-name">' + H.cardName(c) + '</span><span class="hud-rank-sub">' + esc(dir) + "</span></li>";
+        }).join("") + '</ol><div class="hud-panel-foot">' + esc(g.name) + " · " + g.cards.length + " cards. Full graph on a wider screen.</div>";
+    }
+    function gotoCard(name) {
+        if (!G) return;
+        G.select(name);
+        var n = G.nodeEl(name);
+        if (n && n.getBoundingClientRect().width) n.focus();
+    }
+
+    // ---- Composition --------------------------------------------------------------
+    var ROWS = ["lands", "ramp", "card_advantage", "targeted_disruption", "mass_disruption", "plan"];
+    function renderComp() {
+        var c = D.composition, rows = c.rows.map(A.compRow);
+        var max = Math.max.apply(null, rows.map(function (r) { return Math.max(r.actual, r.target); }).concat([1])) * 1.05;
+        $("tplName").textContent = c.template.overridden ? "Custom (this deck)" : (c.template.name || "Command Zone 2025");
+        $("comp").innerHTML = rows.map(function (r, i) {
+            return '<li class="hud-comp-row' + (r.under ? " is-under" : "") + '"><span class="hud-comp-name">' + esc(r.label) + "</span>" +
+                '<span class="hud-comp-track" role="img" aria-label="' + esc(r.label + ": " + r.actual + " of " + r.target) + '"><span class="hud-comp-fill" style="width:' + (r.actual / max * 100).toFixed(1) + "%;--i:" + i + '"></span>' +
+                '<span class="hud-comp-target" style="left:calc(' + (r.target / max * 100).toFixed(1) + '% - 1px)"></span></span>' +
+                '<span class="hud-comp-val">' + r.actual + "<small>/" + r.target + "</small></span>" + H.chip(r.text, r.tone) + "</li>";
+        }).join("");
+        var labels = {}; c.rows.forEach(function (r) { labels[r.key] = r.label; });
+        $("tplForm").innerHTML = ROWS.map(function (k) {
+            return '<label><span class="hud-label">' + esc(labels[k] || k) + '</span><input type="number" min="0" max="99" name="' + k + '" value="' + c.template[k] + '"></label>';
+        }).join("") + '<div class="stats-tpl-actions"><span class="hud-field-hint" id="tplTotal"></span>' +
+            '<button type="button" class="hud-btn hud-btn--ghost hud-btn--sm" id="tplReset">Reset to CZ 2025</button>' +
+            '<button type="submit" class="hud-btn hud-btn--primary hud-btn--sm">Save</button></div>';
+        tplTotal();
+    }
+    function tplTotal() {
+        var t = 0; $("tplForm").querySelectorAll("input").forEach(function (i) { t += parseInt(i.value, 10) || 0; });
+        $("tplTotal").textContent = "Saved for this deck only. Total " + t + ".";
+    }
+    $("tplEdit").addEventListener("click", function () { var f = $("tplForm"), open = f.hidden; f.hidden = !open; this.setAttribute("aria-expanded", String(open)); });
+    $("tplForm").addEventListener("input", tplTotal);
+    $("tplForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var body = {}; this.querySelectorAll("input").forEach(function (i) { body[i.name] = parseInt(i.value, 10) || 0; });
+        fetch(API + "/composition/template", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+            .then(function () { return loadComp(); });
+    });
+    $("tplForm").addEventListener("click", function (e) {
+        if (e.target.id !== "tplReset") return;
+        fetch(API + "/composition/template", { method: "DELETE" }).then(function () { return loadComp(); });
+    });
+    function loadComp() { return getJSON("/composition").then(function (j) { D.composition = j.composition; renderComp(); }, function () { fail("comp", "Composition unavailable"); }); }
+
+    // ---- Curve -------------------------------------------------------------------
+    function renderCurve() {
+        var inv = D.inventory || [], spells = inv.filter(function (c) { return !A.isLand(c); });
+        if (!spells.length) { fail("curve", "No spells"); return; }
+        var b = A.curveBuckets(inv), cmd = inv.find(function (c) { return c.is_commander && !A.isLand(c); });
+        var avg = spells.reduce(function (s, c) { return s + (c.cmc || 0); }, 0) / spells.length;
+        $("curveMeta").innerHTML = 'avg <b class="hud-num">' + avg.toFixed(2) + "</b> · non-land";
+        $("curve").innerHTML = H.barChart(b.map(function (v, i) { return { label: i === 7 ? "7+" : String(i), value: v }; }),
+            { hl: cmd ? Math.min(Math.floor(cmd.cmc || 0), 7) : null, height: 200, ref: A.curveRef(spells.length),
+              legend: ["Cards at CMC", "Template", "Commander CMC"], title: "Mana curve" });
+    }
+
+    // ---- Pillar fit / least on-plan / EDHREC -----------------------------------------
+    var METER = { pillar: "var(--signal)", glue: "var(--data-2)", generic: "var(--text-4)" };
+    function renderFit() {
+        var id = D.identity, fit = id.fit || {};
+        if (!id.pillars.length) {
+            $("fit").innerHTML = '<div class="hud-empty">No pillars yet. They are drafted on the next sync or nightly rebuild.</div>';
+            return;
+        }
+        var m = A.fitMeter(fit);
+        $("fit").innerHTML = '<div class="hud-meter" role="img" aria-label="' + esc(m.map(function (s) { return s.key + " " + s.count; }).join(", ")) + '">' +
+            m.map(function (s) { return '<span style="width:' + s.pct + "%;background:" + METER[s.key] + '"></span>'; }).join("") + "</div>" +
+            '<div class="hud-meter-legend">' + m.map(function (s) { return '<span><i style="background:' + METER[s.key] + '"></i><b>' + s.count + "</b> " + s.key + "</span>"; }).join("") + "</div>" +
+            '<div class="hud-rank-compact stats-rarest">' + H.rankList(id.pillars.map(function (p, i) {
+                return { label: p.name, value: p.count || 0, sub: (p.state === "pinned" ? "pinned" : p.state === "draft" ? "draft" : "accepted") + (i === 0 ? " · pillar 1" : ""), hl: i === 0 };
+            }), { numbered: false }) + "</div>";
+    }
+    function renderLowFit() {
+        var lands = new Set(Object.keys(D.composition ? D.composition.by_card || {} : {}).filter(function (n) { return (D.composition.by_card[n] || []).indexOf("lands") !== -1; }));
+        (D.inventory || []).forEach(function (c) { if (A.isLand(c)) lands.add(c.name); });
+        var low = A.lowFit(D.identity, D.weak, lands, 6);
+        if (!low.length) { fail("lowfit", D.identity.pillars.length ? "No scores yet" : "Needs pillars first"); return; }
+        $("lowfit").innerHTML = '<div class="hud-rank-compact">' + H.rankList(low.map(function (x) {
+            return { label: x.name, card: true, prefix: x.pet ? "♥ " : "", value: x.score, display: x.display, sub: x.sub };
+        }), { max: 1, numbered: false }) + "</div>";
+    }
+    function renderEdhrec() {
+        var e = D.edhrec;
+        if (!e || e.status !== "ok") { fail("edhrec", "EDHREC unavailable" + (e && e.error ? ": " + e.error : "")); return; }
+        $("edhrecMeta").textContent = "vs " + Number(e.decks_sampled || 0).toLocaleString("en-US") + " decks";
+        $("edhrec").innerHTML = H.barChart(e.buckets.map(function (b) { return { label: b.label, value: b.count }; }), { hl: 0, height: 120, title: "Cards by EDHREC inclusion %" }) +
+            '<div class="hud-rank-compact stats-rarest"><span class="hud-label">Your rarest picks</span>' + H.rankList((e.rarest || []).map(function (x) {
+                var pct = x.inclusion == null ? 0 : Math.round(x.inclusion * 100);
+                return { label: x.name, card: true, value: pct, display: x.inclusion == null ? "—" : pct + "%", sub: x.inclusion == null ? "not on EDHREC" : "" };
+            }), { max: 100, numbered: false }) + "</div>";
+    }
+
+    // ---- Played with (card2vec, AN-7) -------------------------------------------------
+    function renderPlayed() {
+        var p = D.played;
+        if (!p || p.status !== "ok") {
+            var why = p && p.status === "too_few" ? "Too few of this deck's cards are in the model" : "card2vec model unavailable";
+            fail("playedMost", why); fail("playedLeast", why); return;
+        }
+        var m = p.model || {};
+        $("playedMeta").innerHTML = '<b class="hud-num">' + p.known + "</b>/" + p.total + " known · " + Number(m.decks || 0).toLocaleString("en-US") + " decks";
+        var row = function (x) { return { label: x.name, card: true, value: x.score || 0, display: (x.score || 0).toFixed(2) }; };
+        $("playedMost").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.most.map(row), { max: 1, numbered: false }) + "</div>";
+        $("playedLeast").innerHTML = '<div class="hud-rank-compact">' + H.rankList(p.least.map(row), { max: 1, numbered: false }) + "</div>" +
+            ((p.unknown || []).length ? '<p class="hud-field-hint">Not in the model (' + p.unknown.length + "): " + esc(p.unknown.slice(0, 6).join(", ")) + (p.unknown.length > 6 ? "…" : "") + "</p>" : "");
+    }
+
+    // ---- Combos ------------------------------------------------------------------
+    var NEAR_SHOWN = 12;
+    function comboRow(c, near) {
+        var miss = near ? (c.missing || [])[0] : null, own = near ? A.comboOwnership(c) : null;
+        var piece = function (n, cls) { return '<span class="hud-chip hud-chip--ghost hud-card-name' + (cls ? " " + cls : "") + '">' + H.cardName(n) + "</span>"; };
+        var pieces = (c.card_names || []).filter(function (n) { return n !== miss; });
+        var price = c.prices && c.prices.tcgplayer ? " · $" + c.prices.tcgplayer : "";
+        return '<li class="hud-combo"><div class="hud-combo-pieces">' + pieces.map(function (p) { return piece(p); }).join('<span class="plus">+</span>') +
+            (miss ? '<span class="plus">+</span>' + piece(miss, "is-missing") : "") + "</div>" +
+            '<div class="stats-combo-act"' + (own ? ' title="' + esc(own.text + (own.rank === 2 ? price : "")) + '">' + H.chip(own.text + (own.rank === 2 ? price : ""), own.tone, true) +
+                (miss ? '<a class="hud-btn hud-btn--sm" href="/deck/' + encodeURIComponent(DECK_NAME) + "/tune?add=" + encodeURIComponent(miss) + '">Add</a>' : "")
+                : ">" + H.chip("in deck", "ok", true)) + "</div>" +
+            '<span class="hud-combo-result">' + esc((c.produces || []).slice(0, 3).join(" · ")) + "</span></li>";
+    }
+    function renderCombos() {
+        var cb = D.combos, ownedOnly = $("cfOwned").checked;
+        var near = A.sortCombos(cb.one_away).filter(function (c) { return !ownedOnly || A.comboOwnership(c).rank < 2; });
+        $("combosInHead").textContent = "In deck · " + cb.counts.in_deck;
+        $("combosNearHead").textContent = "One card away · " + (ownedOnly ? cb.counts.one_away_owned : cb.counts.one_away);
+        $("combosIn").innerHTML = cb.in_deck.length ? cb.in_deck.map(function (c) { return comboRow(c, false); }).join("") : '<li class="hud-combo"><span class="hud-muted">None in this deck.</span></li>';
+        $("combosNear").innerHTML = (near.slice(0, NEAR_SHOWN).map(function (c) { return comboRow(c, true); }).join("") || '<li class="hud-combo"><span class="hud-muted">None.</span></li>') +
+            (near.length > NEAR_SHOWN ? '<li class="stats-combo-more"><button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" id="combosMore">Show all ' + near.length + "</button></li>" : "");
+    }
+    document.querySelectorAll('input[name="cf"]').forEach(function (r) { r.addEventListener("change", function () { NEAR_SHOWN = 12; if (D.combos) renderCombos(); }); });
+    $("combosNear").addEventListener("click", function (e) { if (e.target.id === "combosMore") { NEAR_SHOWN = 1e9; renderCombos(); } });
+
+    // ---- Events: graph controls + keys (UX_SPEC §3.1.2-3.1.4, §4) -------------------
+    $("engines").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-engine]"); if (!b) return;
+        setEngine(b.getAttribute("aria-pressed") === "true" ? null : b.dataset.engine);
+    });
+    document.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-goto]");
+        if (b && (b.closest("#inspector") || b.closest("#isolated"))) gotoCard(b.dataset.goto);
+    });
+    $("gsearch").addEventListener("input", function () { if (G) G.search(this.value); });
+    $("gsearch").addEventListener("keydown", function (e) { if (e.key === "Enter" && G) { var id = G.search(this.value); if (id) G.select(id); } });
+    $("gmana").checked = params.get("mana") === "1";
+    $("gmana").addEventListener("change", function () {
+        var u = new URL(location.href);
+        if (this.checked) u.searchParams.set("mana", "1"); else u.searchParams.delete("mana");
+        history.replaceState(null, "", u);
+        if (D.interactions) buildGraph();
+    });
+    function clearAll() { if (!G) return; G.select(null, true); setEngine(null); }
+    document.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (A.inTextField(e.target)) {
+            if (e.key === "Escape") { if (e.target.id === "gsearch") { e.target.value = ""; clearAll(); } e.target.blur(); }
+            return;
+        }
+        if (e.key === "/") { e.preventDefault(); $("gsearch").focus(); }
+        else if (e.key === "Escape") clearAll();
+        else if ((e.key === "]" || e.key === "[") && ENGINES.length) {
+            var cur = ENGINES.findIndex(function (g) { return g.id === activeEngine; });
+            var nx = e.key === "]" ? (cur + 1) % ENGINES.length : (cur <= 0 ? ENGINES.length - 1 : cur - 1);
+            setEngine(ENGINES[nx].id);
+        }
+    });
+    $("refreshBtn").addEventListener("click", function () {
+        var b = this; b.disabled = true; b.textContent = "Rebuilding…";
+        fetch(API + "/interactions/refresh", { method: "POST" }).then(function () { b.textContent = "Rebuild started · reload in a minute"; });
+    });
+
+    // ---- Load ----------------------------------------------------------------------
+    var inv = fetch("/api/inventory?deck=" + encodeURIComponent(DECK_NAME)).then(function (r) { return r.json(); })
+        .then(function (j) { D.inventory = j.inventory || []; renderCurve(); strip(); }, function () { fail("curve", "Card list unavailable"); });
+    var graphP = Promise.all([
+        getJSON("/interactions").then(function (j) { D.interactions = j.graph; }),
+        getJSON("/engines").then(function (j) { D.engines = j.engines; }, function () { D.engines = { engines: [] }; }),
+        getJSON("/identity").then(function (j) { D.identity = j.identity; }, function () { D.identity = { pillars: [], fit: {}, deck: {} }; })
+    ]).then(function () {
+        var built = D.interactions.built_at;
+        if (built) { $("freshGraph").hidden = false; $("freshGraph").innerHTML = "Graph <b>" + esc(A.age(built)) + "</b>"; }
+        inv.then(function () { buildGraph(); });
+        renderFit();
+    }, function () {
+        $("engines").innerHTML = '<li><div class="hud-empty">Engines appear after the next rebuild</div></li>';
+        $("inspector").innerHTML = '<div class="hud-empty">No interaction graph yet. Use Refresh analytics.</div>';
+        $("glist").innerHTML = "";
+    });
+    var compP = loadComp();
+    Promise.all([graphP, compP,
+                 getJSON("/weak-performers").then(function (j) { D.weak = j.weak_performers; }, function () { D.weak = { cards: [] }; })])
+        .then(function () { return inv; }).then(function () { if (D.identity) renderLowFit(); });
+    getJSON("/edhrec").then(function (j) { D.edhrec = j.edhrec; renderEdhrec(); strip(); }, function () { fail("edhrec", "EDHREC unavailable"); });
+    getJSON("/played-with").then(function (j) { D.played = j.played_with; renderPlayed(); }, function () { D.played = null; renderPlayed(); });
+    getJSON("/combos").then(function (j) { D.combos = j.combos; renderCombos(); strip(); }, function () {
+        $("combosNear").innerHTML = '<li class="hud-combo"><span class="hud-muted">Commander Spellbook unavailable.</span></li>';
+    });
+});
+</script>
+{% endblock %}
