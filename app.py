@@ -139,13 +139,29 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 r = datastore.from_url(redis_url)
 
+
+# Feature flag (nav redesign, S1): Commander Salt entry points are hidden until
+# the integration ships. Nothing is deleted — routes, provider plumbing and
+# stored data stay intact; set COMMANDER_SALT_ENABLED=1 to make every salt
+# surface visible again.
+def commander_salt_enabled() -> bool:
+    return os.getenv("COMMANDER_SALT_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _enabled_providers() -> list:
+    """ENABLED_PROVIDERS, minus Commander Salt while its feature flag is off."""
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    if not commander_salt_enabled():
+        providers = [p for p in providers if p != "commandersalt"]
+    return providers
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request=request, name="home.html")
 
 @app.get("/decks", response_class=HTMLResponse)
 async def decks(request: Request, status: Optional[str] = None):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     # ?status=<value> shows one deck group; an unknown value falls back to all decks.
     wanted = (status or "").strip().lower()
     group = next((g for g in DECK_GROUPS if g["status"] == wanted), None)
@@ -153,6 +169,7 @@ async def decks(request: Request, status: Optional[str] = None):
         "providers": providers,
         "status_filter": group["status"] if group else None,
         "status_label": group["label"] if group else None,
+        "commander_salt_enabled": commander_salt_enabled(),
     })
 
 @app.get("/inventory", response_class=HTMLResponse)
@@ -218,7 +235,7 @@ async def styleguide(request: Request):
 
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     return templates.TemplateResponse(request=request, name="deck.html", context={
         "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview",
@@ -560,7 +577,7 @@ async def changelog(request: Request):
 
 @app.get("/reconstruct", response_class=HTMLResponse)
 async def reconstruct_landing_view(request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
@@ -569,7 +586,7 @@ async def reconstruct_landing_view(request: Request):
 
 @app.get("/reconstruct/{session_id}", response_class=HTMLResponse)
 async def reconstruct_view(session_id: str, request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
