@@ -74,14 +74,23 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('data-scope="physical"', res.text)
         self.assertNotIn("<script>\"", res.text)
 
-    def test_nav_has_player_profile_after_decks(self):
-        nav = _nav(self.client.get("/").text)
+    def test_nav_has_player_profile_as_footer_chip(self):
+        page = self.client.get("/").text
+        nav = _nav(page)
         labels = re.findall(r'<span class="nav-label">([^<]+)</span>', nav)
-        self.assertIn("Player Profile", labels)
-        self.assertEqual(labels.index("Player Profile"), labels.index("Commander Decks") + 1)
-        self.assertIn('href="/profile"', nav)
-        active = re.findall(r'class="nav-item active"[^>]*>.*?<span class="nav-label">([^<]+)</span>', _nav(self.client.get("/profile").text), re.S)
-        self.assertEqual(active, ["Player Profile"])
+        # Profile is no longer a sidebar nav item; it lives in the footer chip.
+        self.assertNotIn("Player Profile", labels)
+        footer = re.search(r'<div class="sidebar-footer">(.*?)</div>', page, re.S)
+        self.assertIsNotNone(footer)
+        chip = footer.group(1)
+        self.assertIn('href="/profile"', chip)
+        self.assertIn('<span class="profile-chip-label">Player Profile</span>', chip)
+        self.assertIn('class="profile-chip"', chip)
+        self.assertNotIn('class="profile-chip active"', chip)
+        self.assertIn('href="/profile"', nav)  # still reachable from the sidebar shell
+        profile_page = self.client.get("/profile").text
+        self.assertIn('class="profile-chip active"', profile_page)
+        self.assertIn('aria-current="page"', profile_page)
 
     @patch("app.registry.list_decks", return_value=[DECK])
     def test_deck_page_has_ability_panel_under_stat_strip(self, _):
