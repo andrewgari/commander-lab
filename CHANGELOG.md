@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** The "Sideboard" concept is removed. Deck lists or linked decks that contain a Sideboard section now have those cards placed in the Maybeboard instead, and the import flags this mapping so it can be reviewed.
 
 ### Fixed
+- Archetypes: a bullet or numbered list typed directly after an intro line (e.g. "Key engines:" then "- item") now renders as a real list in the description preview and registry list, instead of showing literal dashes.
 - Composition Presets and Deck Composition: the category suggestion list no longer covers the "Add category target" / "Add override" buttons.
 - Composition Presets: "Add category target" now uses the shared category pill input (target/min/max/why stay per category) instead of the broken slot row.
 - Added the missing category ref input script and styles, so "Add category target" and "Add override" work again; also adds a reusable category pill input.
