@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Mapping, Optional
 
 from sqlalchemy.engine import make_url
 
@@ -29,6 +29,18 @@ class DbSettings:
     def safe_url(self) -> str:
         """URL with the password masked, safe for logging."""
         return make_url(self.url).render_as_string(hide_password=True)
+
+
+def cutover_enabled(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Phase 1b cutover flag. When true, deck-link reads/writes go to PostgreSQL
+    (``deck_links``); when false the Redis registry path stays authoritative.
+
+    Redis is never written by the Postgres path and stays the read-only
+    fallback during the cutover window; no Redis key is ever deleted.
+    Enabled with env ``PG_CUTOVER=1`` (also ``true``/``yes``). Default: off.
+    """
+    source: Mapping[str, str] = os.environ if env is None else env
+    return source.get("PG_CUTOVER", "").lower() in ("1", "true", "yes")
 
 
 def get_settings(url: Optional[str] = None) -> DbSettings:

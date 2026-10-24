@@ -31,6 +31,9 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+import markdown as _markdown
+
+from analytics.deck_writeup.sanitize import sanitize_primer_html
 from analytics.interactions.vocab import RESOURCES, RESOURCE_BY_KEY
 
 ARCHETYPES_KEY = "archetypes"
@@ -39,7 +42,7 @@ SEL_KEY = "archetype_sel:{registry_id}"
 SIDES = ("produces", "consumes")
 SOURCES = ("user",)
 MAX_NAME = 60
-MAX_DESCRIPTION = 1200
+MAX_DESCRIPTION = 4000
 MAX_ROLES = 12
 MAX_MIN_COUNT = 40
 MAX_WEIGHT = 10.0
@@ -157,6 +160,76 @@ def clean_fields(body: Any, *, partial_from: Optional[dict] = None) -> dict:
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", name.lower().replace("+", "plus ")).strip("-")
     return s or "archetype"
+
+
+# -- description rendering (markdown subset -> sanitized HTML) -----------------------------------
+#
+# The stored ``description`` is the raw markdown source (no migration: legacy plain text is
+# valid markdown). Rendering happens server-side only, through the same allow-list sanitizer
+# as deck primers, with nl2br so single newlines survive. Archetypes are global, not
+# deck-bound, so card-name hover wrapping is disabled (known_cards=None).
+
+# List marker as python-markdown recognises it: up to 3 leading spaces, then -/*/+ or ``1.``
+# followed by whitespace. Used only by the preprocessor below, never for parsing output.
+_LIST_MARKER_RE = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}\.)\s")
+
+
+def _blank_lines_before_lists(text: str) -> str:
+    """GitHub-style lists: allow a list to start directly after a paragraph line.
+
+    python-markdown requires a blank line before a list block, so ``"Key engines:\n- a"``
+    would render the dashes as literal text. Users (and the UX spec mockups) expect the
+    CommonMark/GitHub behaviour where a list may interrupt a paragraph. Insert the blank
+    line python-markdown needs, but only where the marker is NOT already part of a list
+    block (a lazy continuation line like ``"  more text"`` must not split the list)."""
+    out: List[str] = []
+    in_list = False
+    prev_blank = True
+    for line in text.split("\n"):
+        if not line.strip():
+            in_list = False
+            prev_blank = True
+            out.append(line)
+            continue
+        is_marker = bool(_LIST_MARKER_RE.match(line))
+        if is_marker and not in_list and not prev_blank:
+            out.append("")
+        if is_marker:
+            in_list = True
+        prev_blank = False
+        out.append(line)
+    return "\n".join(out)
+
+
+def render_description_html(desc: Optional[str]) -> str:
+    """Sanitized HTML for a description's markdown source. Empty in -> empty out."""
+    text = (desc or "").strip()
+    if not text:
+        return ""
+    return sanitize_primer_html(
+        _markdown.markdown(_blank_lines_before_lists(text), extensions=["nl2br"]),
+        known_cards=None,
+    )
+
+
+_BLOCK_END_RE = re.compile(r"</(?:p|ul|ol|h3|h4)>")
+
+
+def description_excerpt_html(html: str) -> str:
+    """The first block-level element of rendered description HTML (registry list excerpt)."""
+    if not html:
+        return ""
+    m = _BLOCK_END_RE.search(html)
+    return html[: m.end()] if m else html
+
+
+def with_rendered_descriptions(archetypes: Iterable[dict]) -> List[dict]:
+    """Additive read-only ``description_html`` / ``description_excerpt_html`` on each item."""
+    out = []
+    for a in archetypes:
+        html = render_description_html(a.get("description", ""))
+        out.append({**a, "description_html": html, "description_excerpt_html": description_excerpt_html(html)})
+    return out
 
 
 # -- storage ----------------------------------------------------------------------------------

@@ -248,6 +248,53 @@ def test_hard_filters_exclude_off_identity_banned_and_in_deck_cards():
     assert all(fid in {"o1", "o2", "o3", "o4", "o5"} for fid in (s["oracle_id"] for s in res["suggestions"]))
 
 
+def test_unknown_legality_candidate_is_never_suggested():
+    # Regression: a candidate whose fact record has unknown legality (missing
+    # or None `legal`, e.g. an unsynced planar card) must fail closed.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS, "the matrix of time": {"oracle_id": "o-plane", "color_identity": "",
+                                             "legal": None}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK, lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    assert "The Matrix Of Time" not in {s["card"] for s in res["suggestions"]}
+    assert any(d["card"] == "The Matrix Of Time" and "legality unknown" in d["reason"]
+               for d in res["dropped"])
+
+
+def test_variant_type_candidates_never_suggested_and_dropped_with_slot_reason():
+    # Missy's planar deck: planar/scheme/attraction cards are Commander-legal
+    # on Scryfall but can never be proposed into a mainboard slot.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9),
+                               cand("Balloon Stand", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS,
+             "the matrix of time": {"oracle_id": "o-phen", "color_identity": "", "legal": True,
+                                    "type_line": "Phenomenon"},
+             "balloon stand": {"oracle_id": "o-attr", "color_identity": "R", "legal": True,
+                               "type_line": "Artifact — Attraction"}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK,
+                               lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    names = {s["card"] for s in res["suggestions"]}
+    assert "The Matrix Of Time" not in names and "Balloon Stand" not in names
+    reasons = {d["card"]: d["reason"] for d in res["dropped"]}
+    assert reasons["The Matrix Of Time"] == "phenomenon not legal in mainboard slot (belongs in planar_deck)"
+    assert reasons["Balloon Stand"] == "attraction not legal in mainboard slot (belongs in attraction_deck)"
+
+
+def test_every_suggestion_carries_a_mainboard_slot_gate_reason():
+    res = run()  # full remove-verdict review -> replacements
+    assert res["replacements"]
+    for s in res["replacements"]:
+        gate = s["slot_gate"]
+        assert gate["slot"] == "mainboard" and gate["legal"] is True
+        assert isinstance(gate["reason"], str) and gate["reason"]
+    res2 = suggest_replacements(make_ev(), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                                ctx(), DECK, lookup)
+    assert res2["suggestions"]
+    for s in res2["suggestions"]:
+        assert s["slot_gate"]["legal"] is True and s["slot_gate"]["reason"]
+
+
 def test_spirit_gate_drops_candidates_with_no_role_or_pillar_fit():
     cands = default_cands() + [cand("Random Rock", ["utility_land"], syn=0.0)]
     facts = {**FACTS, "random rock": {"oracle_id": "o10", "color_identity": "", "legal": True}}

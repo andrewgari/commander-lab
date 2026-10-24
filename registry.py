@@ -41,6 +41,7 @@ import re
 import unicodedata
 from typing import Optional
 
+import deck_slots
 import instances as instance_store
 
 VALID_STATUSES = {"physical", "digital", "retired", "testing"}
@@ -128,7 +129,11 @@ def is_locked(deck: Optional[dict]) -> bool:
 
 def _load_decks(r) -> list:
     raw = r.get(DECKS_KEY)
-    return json.loads(raw) if raw else []
+    decks = json.loads(raw) if raw else []
+    # Slot-model migration (in-memory; persisted on next save): every deck
+    # carries a normalized 'slots' mapping, and a legacy top-level
+    # 'sideboard' list folds into the maybeboard slot without data loss.
+    return [deck_slots.migrate_serialized_deck(d) for d in decks]
 
 
 def _save_decks(r, decks: list) -> None:
@@ -365,8 +370,11 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
         "source_id": normalized["source_id"],
         "registry_id": reg_id,
         "cards": normalized.get("cards", []),
+        "slots": deck_slots.normalize_slots(normalized.get("slots")),
         "url": normalized.get("url", ""),
     }
+    if normalized.get("parse_flags"):
+        deck_obj["parse_flags"] = list(normalized["parse_flags"])
     if normalized["source"] == "moxfield":
         deck_obj["moxfield_id"] = normalized["source_id"]
     # Archidekt folder data (providers/archidekt.fetch_deck) drives the
@@ -430,6 +438,8 @@ def update_deck_cards(
     commanders: Optional[list] = None,
     commander_uids: Optional[list] = None,
     color: Optional[str] = None,
+    slots: Optional[dict] = None,
+    parse_flags: Optional[list] = None,
 ) -> dict:
     """Overwrite a deck's cardlist (and optionally commanders/commander_uids/
     color) in place, without touching its source/source_id/registry_id or
@@ -461,6 +471,10 @@ def update_deck_cards(
         target["commander_uids"] = commander_uids
     if color is not None:
         target["color"] = color
+    if slots is not None:
+        target["slots"] = deck_slots.normalize_slots(slots)
+    if parse_flags is not None:
+        target["parse_flags"] = list(parse_flags)
 
     _save_decks(r, decks)
 
