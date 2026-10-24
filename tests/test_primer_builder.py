@@ -381,10 +381,14 @@ def test_deck_page_wires_description_and_primer_panels(env):
     _, client = env
     with patch.object(app_module.registry, "list_decks", return_value=[dict(DECK)]):
         html = client.get("/deck/Goblin%20Party").text
+        primer_html = client.get("/deck/Goblin%20Party/primer").text
     assert "synergistic interactions" not in html                    # the hard-coded dummy primer is gone
-    for needle in ('id="descDraftBtn"', 'id="descEditBtn"', 'id="primerBuildBtn"', "/primer/build", "/description/generate",
-                   "savePrimer", 'id="deckDescriptionPanel"'):
+    # Primer is its own tab now — the overview keeps only the description panel.
+    for needle in ('id="descDraftBtn"', 'id="descEditBtn"', "/description/generate", 'id="deckDescriptionPanel"'):
         assert needle in html
+    for needle in ('id="primerBuildBtn"', "/primer/build"):
+        assert needle in primer_html
+    assert "savePrimer" in client.get("/static/js/primer_builder.js").text
     assert 'id="deckDescriptionPanel" hidden' not in html and "<section class=\"hud-panel\" id=\"deckDescriptionPanel\" hidden" not in html
 
 

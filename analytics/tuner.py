@@ -107,6 +107,7 @@ ENTRY_STATUSES = ("open", "accepted", "dismissed", "ignored")
 MAX_SWAPS = 12
 
 STATE_PREFIX = "tuner:state:"
+DISMISSED_PREFIX = "tuner:dismissed:"
 PROSE_PREFIX = "tuner:prose:"
 COUNT_PREFIX = "tuner:count:"
 
@@ -491,13 +492,15 @@ HIDDEN_LIST_MAX = 10  # most hidden cards listed per swap; hidden_hard is still 
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
                p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "flex", in_deck: bool = True, buy: bool = True,
                goal: str = "balanced", pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
-               donors: Optional[Any] = None) -> dict:
+               donors: Optional[Any] = None, dismissed: Iterable[str] = ()) -> dict:
     """`donors` (AN-8): {deck name: donor context} (see donor_trade), usually a
     lazy DonorBook. A card sleeved in another deck is an option only when that
-    deck gets a no-worse replacement; with no donor data it is never offered."""
+    deck gets a no-worse replacement; with no donor data it is never offered.
+    `dismissed` (DT-5): durably dismissed cuts — never flagged again."""
     mode, in_deck, buy = resolve_mode(mode, in_deck, buy)
     best_mode = mode == "best"
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
+    ignored = set(dismissed or ())
     decisions = dict((state or {}).get("decisions") or {})
     # DT-7: adds the user already rejected for a slot ("recommend something else")
     # are not suggested again for that slot this review.
@@ -552,7 +555,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     # take the only removal a removal cut could use. Rows are re-sorted below.
     for w in [w for w in weak_rows if _functional(w)] + [w for w in weak_rows if not _functional(w)]:
         dec = decisions.get(w["name"]) or {}
-        if dec.get("decision") == "dismissed":
+        if dec.get("decision") == "dismissed" or w["name"] in ignored:
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
                           _played(w.get("played")), goal=goal)
@@ -661,7 +664,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     with_swap = {s["cut"]["name"] for s in swaps}
     weak_table = [{"name": w["name"], "edges": w.get("edges") or 0, "fit": w.get("fit"),
                    "edhrec": w.get("edhrec_inclusion"), "played": w.get("played"), "weak_score": w["weak_score"],
-                   "pet": w["name"] in pets, "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
+                   "pet": w["name"] in pets, "dismissed": w["name"] in ignored,
+                   "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
                   for w in sorted(weak.get("cards") or [], key=lambda w: (-w["weak_score"], w["name"]))]
     notice = weak.get("pet_notice")
     if not notice and pets:
@@ -676,7 +680,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
         "mode": mode, "in_deck": in_deck, "buy": buy, "goal": goal, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
-        "weak": weak_table, "pet_notice": notice,
+        "weak": weak_table, "pet_notice": notice, "dismissed": sorted(ignored),
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
                    **({} if best_mode else {
@@ -719,6 +723,19 @@ def _save_state(r, deck, st: dict) -> dict:
     return st
 
 
+# DT-5: dismissed cuts are durable. Per-review decisions reset when a new
+# review starts, but a dismissed cut must never be re-flagged by the
+# automation, so the set lives under its own key, independent of review_id.
+def dismissed_cuts(r, deck: Mapping) -> list:
+    return sorted(journal_mod._get_json(r, DISMISSED_PREFIX + _rid(deck)) or [])
+
+
+def _save_dismissed(r, deck, names) -> list:
+    names = sorted({n for n in names if isinstance(n, str) and n.strip()})
+    r.set(DISMISSED_PREFIX + _rid(deck), json.dumps(names))
+    return names
+
+
 def decide(r, deck: Mapping, cut: str, decision: Optional[str], add: Optional[str] = None) -> dict:
     if decision is not None and decision not in DECISIONS:
         raise TunerError(f"decision must be one of {list(DECISIONS)} or null")
@@ -727,6 +744,8 @@ def decide(r, deck: Mapping, cut: str, decision: Optional[str], add: Optional[st
     st = load_state(r, deck)
     if decision is None:
         st["decisions"].pop(cut, None)
+        # Explicit un-dismiss: the cut may be flagged again on the next run.
+        _save_dismissed(r, deck, [n for n in dismissed_cuts(r, deck) if n != cut])
     elif decision == "ignored":
         # DT-7 "recommend something else": reject ONE cut->add pair, not the slot.
         # The cut stays in the review with its next-best option; the rejected add
@@ -741,6 +760,8 @@ def decide(r, deck: Mapping, cut: str, decision: Optional[str], add: Optional[st
         if decision in ("own", "buy") and not (isinstance(add, str) and add.strip()):
             raise TunerError("accepting a swap needs the add card")
         st["decisions"][cut] = {"decision": decision, "add": add if decision != "dismissed" else None, "at": _now()}
+        if decision == "dismissed":
+            _save_dismissed(r, deck, dismissed_cuts(r, deck) + [cut])
     return _save_state(r, deck, st)
 
 
@@ -1507,6 +1528,7 @@ def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: boo
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,
                      in_deck=in_deck, buy=buy, goal=goal, pets=pets, state=state,
+                     dismissed=dismissed_cuts(r, deck),
                      donors=donors if donors is not None else DonorBook(r, deck, embedder=emb))
     attach_cached_prose(r, deck, out)
     price_ages = []

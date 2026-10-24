@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Query, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
@@ -50,6 +50,7 @@ from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+from analytics import journey as journey_mod
 import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import tune_store
@@ -139,13 +140,29 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 r = datastore.from_url(redis_url)
 
+
+# Feature flag (nav redesign, S1): Commander Salt entry points are hidden until
+# the integration ships. Nothing is deleted — routes, provider plumbing and
+# stored data stay intact; set COMMANDER_SALT_ENABLED=1 to make every salt
+# surface visible again.
+def commander_salt_enabled() -> bool:
+    return os.getenv("COMMANDER_SALT_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _enabled_providers() -> list:
+    """ENABLED_PROVIDERS, minus Commander Salt while its feature flag is off."""
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    if not commander_salt_enabled():
+        providers = [p for p in providers if p != "commandersalt"]
+    return providers
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request=request, name="home.html")
 
 @app.get("/decks", response_class=HTMLResponse)
 async def decks(request: Request, status: Optional[str] = None):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     # ?status=<value> shows one deck group; an unknown value falls back to all decks.
     wanted = (status or "").strip().lower()
     group = next((g for g in DECK_GROUPS if g["status"] == wanted), None)
@@ -153,6 +170,7 @@ async def decks(request: Request, status: Optional[str] = None):
         "providers": providers,
         "status_filter": group["status"] if group else None,
         "status_label": group["label"] if group else None,
+        "commander_salt_enabled": commander_salt_enabled(),
     })
 
 @app.get("/inventory", response_class=HTMLResponse)
@@ -218,7 +236,7 @@ async def styleguide(request: Request):
 
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     return templates.TemplateResponse(request=request, name="deck.html", context={
         "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview",
@@ -297,8 +315,9 @@ async def _deck_tab(request: Request, deck_name: str, template: str, tab: str, e
 
 @app.get("/deck/{deck_name}/stats", response_class=HTMLResponse)
 async def deck_stats_view(request: Request, deck_name: str):
-    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON."""
-    return await _deck_tab(request, deck_name, "deck_stats.html", "stats")
+    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON.
+    NAV_IA §3.2: also carries the Composition section (folded-in composition page)."""
+    return await _deck_tab(request, deck_name, "deck_stats.html", "stats", extra=_composition_page_context)
 
 
 @app.get("/deck/{deck_name}/identity", response_class=HTMLResponse)
@@ -429,26 +448,12 @@ def _journal_page_context(deck_name: str) -> dict:
 
 @app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
 async def deck_manage_view(request: Request, deck_name: str):
-    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md) — NAV_IA §3.2 tab 2.
 
-    /deck/{deck_name} (the read-only view) keys off the deck's display
-    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
-    and sibling manage endpoints all key off registry_id. Resolve name ->
-    registry_id here so the template only ever has to call the registry_id
-    APIs, matching how the rest of the manage API surface works.
+    _deck_tab resolves the display name to the registry_id (the manage APIs
+    all key off registry_id) and supplies the shared deck header context.
     """
-    decks = registry.list_decks(r)
-    deck = next((d for d in decks if d.get("name") == deck_name), None)
-    if not deck:
-        return HTMLResponse(
-            "<html><head><title>Deck Not Found</title></head>"
-            "<body><h1>Deck Not Found</h1>"
-            "<p>No deck named &quot;{}&quot; could be found.</p>"
-            "</body></html>".format(html.escape(deck_name)),
-            status_code=404,
-        )
-    deck_id = registry.registry_id_of(deck)
-    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
+    return await _deck_tab(request, deck_name, "deck_manage.html", "manage")
 
 @app.get("/api/version")
 async def get_version(request: Request):
@@ -560,7 +565,7 @@ async def changelog(request: Request):
 
 @app.get("/reconstruct", response_class=HTMLResponse)
 async def reconstruct_landing_view(request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
@@ -569,7 +574,7 @@ async def reconstruct_landing_view(request: Request):
 
 @app.get("/reconstruct/{session_id}", response_class=HTMLResponse)
 async def reconstruct_view(session_id: str, request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
@@ -3540,6 +3545,79 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 # ---------------------------------------------------------------------------
+# Deck journey timeline (DT-8) -- docs/architecture/deck-tuner-overlay-spec.md §3.4
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/journey")
+async def api_deck_journey(deck_id: str):
+    """The deck's journey timeline, newest first."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    entries = await asyncio.to_thread(journey_mod.list_entries, r, deck)
+    return {"success": True, "entries": entries, "kind_labels": journey_mod.KIND_LABELS}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries")
+async def api_add_journey_entry(deck_id: str, request: Request):
+    """Append a journey entry: {"kind"?, "title"?, "description"?, "diff"?,
+    "source_draft_id"?}. kind defaults to "manual"; the tuner apply path
+    (DT-2) posts "tune_applied" with the card diff. A blank title/description
+    is auto-drafted from the structured data."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.append_entry, r, deck,
+                                        kind=body.get("kind") or "manual", title=body.get("title"),
+                                        description=body.get("description"), diff=body.get("diff"),
+                                        source_draft_id=body.get("source_draft_id"))
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.patch("/api/decks/{deck_id}/journey/entries/{entry_id}")
+async def api_edit_journey_entry(deck_id: str, entry_id: str, request: Request):
+    """Edit an entry's title and/or description (in place, same id)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.update_entry, r, deck, entry_id,
+                                        title=body.get("title"), description=body.get("description"))
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries/{entry_id}/redraft")
+async def api_redraft_journey_entry(deck_id: str, entry_id: str):
+    """Regenerate the entry's description from its structured data. The
+    redrafted version takes the entry's slot with a new id and points
+    redrafted_from at the version it was regenerated from."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        entry = await asyncio.to_thread(journey_mod.redraft_entry, r, deck, entry_id)
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+# ---------------------------------------------------------------------------
 # Tuner (AN-6) -- see docs/TUNER.md
 # ---------------------------------------------------------------------------
 
@@ -3584,7 +3662,8 @@ async def api_deck_tune_state(deck_id: str):
         return err
     st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
     pets = await asyncio.to_thread(insights.pet_cards, r, deck)
-    return {"success": True, "state": st, "pet_cards": pets}
+    dismissed = await asyncio.to_thread(tuner_mod.dismissed_cuts, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets, "dismissed": dismissed}
 
 
 @app.post("/api/decks/{deck_id}/tune/recompute")
@@ -4491,27 +4570,38 @@ def _primer_build_context(deck_name: str) -> dict:
 
 
 def _composition_page_context(deck_name: str) -> dict:
-    """Read-only resolved composition preset for the deck composition page (no AI, no writes)."""
-    deck = _find_deck_any(deck_name)
-    if not deck:
+    """Read-only resolved composition preset for the Stats page's Composition
+    section (no AI, no writes). Never raises: a resolve failure just means the
+    section renders its defaults and the client-side fetch fills it in."""
+    try:
+        deck = _find_deck_any(deck_name)
+        if not deck:
+            return {"selection": None, "preset": None, "slots": []}
+        sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
+        preset = sel.get("preset") or {}
+        return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
+                "lands": (preset.get("structure") or {}).get("lands")}
+    except Exception:
         return {"selection": None, "preset": None, "slots": []}
-    sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
-    preset = sel.get("preset") or {}
-    return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
-            "lands": (preset.get("structure") or {}).get("lands")}
 
 
-@app.get("/deck/{deck_name}/composition", response_class=HTMLResponse)
+@app.get("/deck/{deck_name}/composition")
 async def deck_composition_view(request: Request, deck_name: str):
-    """Deck composition: the resolved preset (name, category targets), read-only."""
-    return await _deck_tab(request, deck_name, "deck_composition.html", "composition",
-                           extra=_composition_page_context)
+    """NAV_IA §3.2 (N5): Composition merged into Stats as a full-width section;
+    the old page permanently redirects to its new home."""
+    return RedirectResponse(url=f"/deck/{urllib.parse.quote(deck_name)}/stats#composition", status_code=301)
+
+
+@app.get("/deck/{deck_name}/primer", response_class=HTMLResponse)
+async def deck_primer_view(request: Request, deck_name: str):
+    """Primer (NAV_IA §3.2 tab 6, D5): the deck's story on a distinguished reading surface."""
+    return await _deck_tab(request, deck_name, "deck_primer.html", "primer")
 
 
 @app.get("/deck/{deck_name}/primer/build", response_class=HTMLResponse)
 async def deck_primer_build_view(request: Request, deck_name: str):
     """Guided Primer Builder: 5-step wizard (docs: SPEC PF). Answers autosave as a server-side draft."""
-    return await _deck_tab(request, deck_name, "deck_primer_build.html", "overview", extra=_primer_build_context)
+    return await _deck_tab(request, deck_name, "deck_primer_build.html", "primer", extra=_primer_build_context)
 
 
 @app.get("/api/decks/{deck_id}/primer/draft")
