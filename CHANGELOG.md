@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Archetype editor: a Draft/Enhance button beside the Description field drafts a 2-4 sentence description for an empty field or improves your existing text; the result fills the field but nothing saves until you hit Save. Drafts that name a specific card or state a hard count are rejected with a plain message, and the button reports "unavailable" when no AI model is configured.
 - Decks now have named card slots: alongside Commander and the main 99, a deck can carry a Maybeboard, a Considering list, a Planar deck (Planechase), a Scheme deck (Archenemy) and an Attraction deck (Unfinity), synced from Archidekt and Moxfield and understood by the decklist paste/import parser.
 - Deck validation now enforces slot legality: the Planar deck accepts only planes and phenomenons, the Scheme deck only schemes, the Attraction deck only attractions, and none of those cards are legal in the commander slot or the main 99. Violations are flagged NOT_LEGAL with a plain-language reason (e.g. "plane not legal in mainboard slot") that review suggestions can quote, cards whose type data is missing fail closed in variant decks, and Maybeboard/Considering stay unrestricted.
 
