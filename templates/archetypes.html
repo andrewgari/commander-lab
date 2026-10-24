@@ -78,6 +78,10 @@
                 <div class="hud-field ar-desc-field">
                     <div class="ar-desc-head">
                         <label for="arDesc">Description</label>
+                        <button type="button" class="hud-btn hud-btn--sm pd-gen" id="arGen" aria-busy="false"
+                                title="Draft a description from the name and roles, or enhance your text (AI)">
+                            <span class="pd-gen-g" aria-hidden="true">◇</span><span id="arGenLabel">Draft</span>
+                        </button>
                         <div class="hud-tabs ar-desc-tabs" role="group" aria-label="Description edit mode">
                             <button type="button" class="hud-tab active" id="arDescWriteTab" aria-current="page">Write</button>
                             <button type="button" class="hud-tab" id="arDescPreviewTab">Preview</button>
@@ -185,8 +189,54 @@
     function fill(a) {
         $('arName').value = a.name || ''; $('arDesc').value = a.description || '';
         setRoles(a.required_roles);
-        setDescTab('write', false); updateDescCount(); autoGrowDesc();
+        setDescTab('write', false); updateDescCount(); autoGrowDesc(); syncGenLabel();
     }
+
+    // -- Draft / Enhance (AI): fills #arDesc only; nothing saves until Save -----------------
+    let genCtl = null;
+
+    function syncGenLabel() {
+        if ($('arGen').getAttribute('aria-busy') === 'true') return;
+        $('arGenLabel').textContent = $('arDesc').value.trim() ? 'Enhance' : 'Draft';
+    }
+
+    $('arGen').addEventListener('click', async () => {
+        const gen = $('arGen');
+        if (gen.disabled) return;
+        if (genCtl) genCtl.abort();
+        const enhancing = !!$('arDesc').value.trim();
+        const ctl = new AbortController(); genCtl = ctl;
+        const timer = setTimeout(() => ctl.abort(), 60000);
+        gen.disabled = true; gen.setAttribute('aria-busy', 'true');
+        $('arGenLabel').textContent = enhancing ? 'Enhancing…' : 'Drafting…';
+        msg('arMsg', '');
+        const body = { name: $('arName').value.trim(), description: $('arDesc').value.trim(),
+                       roles: readRoles().map(r => r.tag) };
+        let r;
+        try {
+            const res = await fetch('/api/archetypes/describe', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
+            r = { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+        } catch (e) {
+            r = { ok: false, status: 0, data: { error: ctl.signal.aborted
+                ? 'Drafting took too long or was cancelled. Your text is untouched.'
+                : 'Network error. Your text is untouched.' } };
+        }
+        clearTimeout(timer);
+        if (genCtl === ctl) genCtl = null;
+        gen.disabled = false; gen.setAttribute('aria-busy', 'false'); syncGenLabel();
+        if (r.ok && typeof r.data.description === 'string' && r.data.description.trim()) {
+            setDescTab('write', false);
+            $('arDesc').value = r.data.description.trim();
+            $('arDesc').dispatchEvent(new Event('input'));
+            msg('arMsg', (r.data.mode === 'improve' ? 'Enhanced' : 'Drafted') +
+                ' — nothing is saved until you hit Save.', 'ok');
+        } else {
+            msg('arMsg', r.status === 503
+                ? 'AI drafting is unavailable (no model configured). Your text is untouched.'
+                : (r.data.error || 'Could not draft a description. Your text is untouched.'), 'error');
+        }
+    });
 
     // -- Description editor: Write/Preview tabs, counter, auto-grow, markdown shortcuts --------
     const DESC_MAX = 4000;
@@ -259,7 +309,7 @@
     $('arDescWriteTab').addEventListener('click', () => setDescTab('write'));
     $('arDescPreviewTab').addEventListener('click', () => setDescTab('preview'));
     $('arDesc').addEventListener('input', () => {
-        updateDescCount(); autoGrowDesc();
+        updateDescCount(); autoGrowDesc(); syncGenLabel();
         clearTimeout(previewTimer);
         if (!$('arDescPreview').hidden) previewTimer = setTimeout(renderPreview, 400);
     });
