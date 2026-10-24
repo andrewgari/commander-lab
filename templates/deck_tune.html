@@ -25,6 +25,14 @@
     .hud-swap.is-dismissed { transition: opacity var(--dur-base) var(--ease); }
     .tn-moves { margin: var(--sp-2) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-3); }
     .tn-keys dt { white-space: nowrap; }
+    .tn-save { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .tn-drafts { margin: var(--sp-2) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); }
+    .tn-drafts li { padding: var(--sp-2) 0; border-top: var(--hairline) solid var(--line); display: grid; gap: var(--sp-1); }
+    .tn-drafts .tn-draft-act { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .tn-ext { margin-top: var(--sp-3); padding: var(--sp-3); border: var(--hairline) solid var(--line); }
+    .tn-ext[hidden] { display: none; }
+    .tn-ext ul { margin: var(--sp-2) 0; padding: 0; list-style: none; display: grid; gap: var(--sp-2); }
+    .tn-ext li { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
     .hud-opt-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     @media (max-width: 640px) {
         .tn-weak .tn-col-opt { display: none; }
@@ -112,11 +120,30 @@
                     <div><span class="hud-label">On-plan</span><b id="onPlan">—</b><span class="hud-freshness">projected</span></div>
                 </div>
                 <div class="tn-actions">
-                    <button class="hud-btn hud-btn--primary" type="button" id="copyText">Copy as text</button>
+                    <div class="tn-save">
+                        <button class="hud-btn hud-btn--primary" type="button" id="saveDeck" title="Swaps the cards for real: cuts return to your collection as unused, adds are marked in this deck." disabled>Save to deck</button>
+                        <button class="hud-btn" type="button" id="saveLater" title="Stores this tune-up as a draft. Changes no inventory or deck cards." disabled>Save for later</button>
+                    </div>
+                    <p class="tn-error" id="saveError" role="alert"></p>
+                    <span class="hud-field-hint" id="saveState" aria-live="polite"></span>
+                    <section class="tn-ext" id="extPrompt" aria-live="polite" hidden>
+                        <span class="hud-label">Deck saved</span>
+                        <p class="hud-field-hint" id="extSummary"></p>
+                        <ul id="extList"></ul>
+                        <span class="hud-field-hint" id="extState"></span>
+                    </section>
+                    <button class="hud-btn hud-btn--ghost" type="button" id="copyText">Copy as text</button>
                     <span class="hud-field-hint" id="moveHint">Physical moves appear in Manage after you change the Archidekt list.</span>
                     <ul class="tn-moves" id="moves"></ul>
                     <span class="hud-field-hint" id="copyState" aria-live="polite"></span>
                 </div>
+            </div>
+        </section>
+        <section class="hud-panel" style="margin-top:var(--sp-4)" id="draftsPanel">
+            <header class="hud-panel-head"><h3 class="hud-panel-title">Saved for later</h3><span class="hud-panel-meta" id="draftMeta">none</span></header>
+            <div class="hud-panel-body">
+                <ul class="tn-drafts" id="draftList"></ul>
+                <p class="hud-muted" id="draftEmpty">Drafts you save for later show up here. They change nothing until you save them to the deck.</p>
             </div>
         </section>
         <section class="hud-panel" style="margin-top:var(--sp-4)">
@@ -143,7 +170,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var BASE = "/deck/" + encodeURIComponent(DECK_NAME);
     var $ = function (id) { return document.getElementById(id); };
     var params = new URLSearchParams(location.search);
-    var T = null, cur = 0, rowFilter = null, whyAsked = false;
+    var T = null, cur = 0, rowFilter = null, whyAsked = false, saving = false;
 
     function send(method, path, body) {
         return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" },
@@ -310,6 +337,7 @@ document.addEventListener("DOMContentLoaded", function () {
             esc(op[0] + "% → ") + '<span style="color:' + (op[1] > op[0] ? "var(--ok)" : "var(--signal)") + '">' + esc(op[1] + "%") + "</span>");
         $("moves").innerHTML = L.moves.map(function (m) { return "<li>Pull " + esc(m.name) + " from " + esc(m.from) + (m.give ? "; put " + esc(m.give) + " in it" : "") + "</li>"; }).join("");
         $("copyText").disabled = !L.items.length;
+        $("saveDeck").disabled = $("saveLater").disabled = !L.items.length || saving;
     }
 
     function renderAll() {
@@ -523,6 +551,116 @@ document.addEventListener("DOMContentLoaded", function () {
             e.preventDefault(); act(li, map[e.key]);
         }
     });
+
+    // ---- Dual save (DT-2) ------------------------------------------------------------
+    // "Save for later" stores a draft and changes nothing real. "Save to deck" performs the
+    // swap (cuts -> unused in the collection, adds -> in this deck), then offers to push the
+    // new list to Moxfield / Archidekt (an explicit click: nothing is pushed automatically).
+    function tuneBody() {
+        var swaps = [];
+        (T.swaps || []).forEach(function (s) {
+            if (s.decision !== "own" && s.decision !== "buy") return;
+            var o = A.tuneOption(s, s.decision), add = s.decision_add || (o && o.name);
+            if (add) swaps.push({ cut: s.cut.name, add: add, source: o ? A.tuneSource(o) : "" });
+        });
+        return { swaps: swaps, adds: (T.adds || []).map(function (a) { return { name: a.name, qty: a.qty || 1, source: a.source || "" }; }) };
+    }
+    function setSaving(on) { saving = on; renderChanges(); }
+    function saveFail(e) { setSaving(false); $("saveError").textContent = e.message; }
+    function saveLater() {
+        if (saving) return; $("saveError").textContent = ""; setSaving(true);
+        send("POST", "/tune/drafts", tuneBody()).then(function (j) {
+            setSaving(false);
+            $("saveState").textContent = "Saved for later: " + j.draft.label + ". No cards were changed.";
+            return loadDrafts();
+        }).catch(saveFail);
+    }
+    function showExternal(res) {
+        var a = res.applied, box = $("extPrompt");
+        $("extSummary").textContent = a.freed.length + " card" + (a.freed.length === 1 ? "" : "s") + " back in your collection as unused · " +
+            a.added.length + " marked in this deck" + (a.to_buy.length ? " · still to buy: " + a.to_buy.join(", ") : "") +
+            ". Update Moxfield / Archidekt to match?";
+        $("extList").innerHTML = (res.external || []).map(function (p) {
+            var act = p.can_push ? '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-push="' + esc(p.provider) + '">Update ' + esc(p.provider) + "</button>"
+                : '<span class="hud-muted">' + esc(!p.linked ? "not linked: add the link in Deck utilities" : (p.push_unavailable_reason || "push unavailable")) + "</span>";
+            return '<li><b style="text-transform:capitalize">' + esc(p.provider) + "</b>" + act + "</li>";
+        }).join("") || '<li><span class="hud-muted">No Moxfield or Archidekt link on this deck.</span></li>';
+        $("extState").textContent = "";
+        box.hidden = false;
+    }
+    function afterApply(res) {
+        // The decklist changed under the saved recommendation: recompute so the page matches it.
+        if (T) { T.adds = []; (T.swaps || []).forEach(function (s) { s.decision = null; s.decision_add = null; }); }
+        renderChanges(); showExternal(res); loadDrafts();
+        $("saveState").textContent = "Saved to deck. Recompute to refresh suggestions for the new list.";
+    }
+    function saveToDeck() {
+        if (saving) return; $("saveError").textContent = ""; setSaving(true);
+        send("POST", "/tune/apply", tuneBody()).then(function (res) { setSaving(false); afterApply(res); }).catch(saveFail);
+    }
+    $("saveLater").addEventListener("click", saveLater);
+    $("saveDeck").addEventListener("click", saveToDeck);
+    $("extList").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-push]"); if (!b) return;
+        var p = b.getAttribute("data-push"); b.disabled = true; $("extState").textContent = "Updating " + p + "…";
+        fetch(API + "/sync/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: p }) })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status)); return j; }); })
+            .then(function () { $("extState").textContent = "Updated " + p + "."; })
+            .catch(function (err) { b.disabled = false; $("extState").textContent = "Update failed: " + err.message; });
+    });
+
+    var DRAFTS = [];
+    function draftLine(d) {
+        var outs = d.swaps.map(function (s) { return s.cut; }).concat(d.cuts || []), ins = d.swaps.map(function (s) { return s.add; })
+            .concat(d.adds.map(function (a) { return (a.qty > 1 ? a.qty + " " : "") + a.name; }));
+        return "−" + outs.length + " / +" + ins.length;
+    }
+    function renderDrafts() {
+        var open = DRAFTS.filter(function (d) { return d.status === "draft"; });
+        $("draftEmpty").hidden = open.length > 0;
+        $("draftMeta").textContent = open.length ? open.length + " saved" : "none";
+        $("draftList").innerHTML = open.map(function (d) {
+            return '<li data-draft="' + esc(d.id) + '"><span><b>' + esc(d.label) + '</b> <span class="hud-freshness">' + esc(draftLine(d)) + " · " + esc(A.age(d.created_at)) + "</span></span>" +
+                '<span class="tn-draft-act"><button class="hud-btn hud-btn--sm" type="button" data-d="load">Load</button>' +
+                '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-d="apply">Save to deck</button>' +
+                '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-d="discard">Discard</button></span></li>';
+        }).join("");
+    }
+    function loadDrafts() {
+        return fetch(API + "/tune/drafts").then(function (r) { return r.json(); }).then(function (j) { DRAFTS = j.drafts || []; renderDrafts(); })
+            .catch(function () { /* drafts are optional */ });
+    }
+    // Load puts a draft back on the change list (accepted swaps + extra adds). It stays a draft.
+    function loadDraft(d) {
+        var seq = Promise.resolve(), missing = [];
+        d.swaps.forEach(function (sw) {
+            var s = swapOf(sw.cut);
+            if (!s) { missing.push(sw.cut); return; }
+            var dec = s.own && s.own.name === sw.add ? "own" : (s.buy && s.buy.name === sw.add ? "buy" : null);
+            if (!dec) { missing.push(sw.cut); return; }
+            seq = seq.then(function () { return send("PUT", "/tune/decisions", { cut: sw.cut, decision: dec, add: sw.add }); })
+                .then(function () { s.decision = dec; s.decision_add = sw.add; });
+        });
+        return seq.then(function () { return saveAdds(d.adds.map(function (a) { return { name: a.name, qty: a.qty, source: a.source || "draft" }; })); })
+            .then(function () {
+                renderSwaps(); renderChanges();
+                $("saveState").textContent = "Loaded " + d.label + (missing.length || (d.cuts || []).length
+                    ? ". Not on this recommendation any more: " + missing.concat(d.cuts || []).join(", ") + "." : ".");
+            });
+    }
+    $("draftList").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-d]"), li = b && b.closest("[data-draft]"); if (!li) return;
+        var id = li.getAttribute("data-draft"), d = DRAFTS.filter(function (x) { return x.id === id; })[0]; if (!d) return;
+        $("saveError").textContent = "";
+        var what = b.getAttribute("data-d");
+        if (what === "load") loadDraft(d).catch(saveFail);
+        else if (what === "discard") fetch(API + "/tune/drafts/" + id, { method: "DELETE" }).then(loadDrafts);
+        else if (what === "apply") {
+            if (saving) return; setSaving(true);
+            send("POST", "/tune/apply", { draft_id: id }).then(function (res) { setSaving(false); afterApply(res); }).catch(saveFail);
+        }
+    });
+    loadDrafts();
 
     loadSaved();
 });
