@@ -169,12 +169,47 @@ def slugify(name: str) -> str:
 # as deck primers, with nl2br so single newlines survive. Archetypes are global, not
 # deck-bound, so card-name hover wrapping is disabled (known_cards=None).
 
+# List marker as python-markdown recognises it: up to 3 leading spaces, then -/*/+ or ``1.``
+# followed by whitespace. Used only by the preprocessor below, never for parsing output.
+_LIST_MARKER_RE = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}\.)\s")
+
+
+def _blank_lines_before_lists(text: str) -> str:
+    """GitHub-style lists: allow a list to start directly after a paragraph line.
+
+    python-markdown requires a blank line before a list block, so ``"Key engines:\n- a"``
+    would render the dashes as literal text. Users (and the UX spec mockups) expect the
+    CommonMark/GitHub behaviour where a list may interrupt a paragraph. Insert the blank
+    line python-markdown needs, but only where the marker is NOT already part of a list
+    block (a lazy continuation line like ``"  more text"`` must not split the list)."""
+    out: List[str] = []
+    in_list = False
+    prev_blank = True
+    for line in text.split("\n"):
+        if not line.strip():
+            in_list = False
+            prev_blank = True
+            out.append(line)
+            continue
+        is_marker = bool(_LIST_MARKER_RE.match(line))
+        if is_marker and not in_list and not prev_blank:
+            out.append("")
+        if is_marker:
+            in_list = True
+        prev_blank = False
+        out.append(line)
+    return "\n".join(out)
+
+
 def render_description_html(desc: Optional[str]) -> str:
     """Sanitized HTML for a description's markdown source. Empty in -> empty out."""
     text = (desc or "").strip()
     if not text:
         return ""
-    return sanitize_primer_html(_markdown.markdown(text, extensions=["nl2br"]), known_cards=None)
+    return sanitize_primer_html(
+        _markdown.markdown(_blank_lines_before_lists(text), extensions=["nl2br"]),
+        known_cards=None,
+    )
 
 
 _BLOCK_END_RE = re.compile(r"</(?:p|ul|ol|h3|h4)>")

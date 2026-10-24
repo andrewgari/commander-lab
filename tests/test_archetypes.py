@@ -204,6 +204,23 @@ class TestDescriptionRendering(unittest.TestCase):
     def test_nl2br_preserves_single_newlines(self):
         self.assertIn("<br>", AR.render_description_html("line one\nline two"))
 
+    def test_list_directly_after_intro_line(self):
+        """GitHub-style: a list may interrupt a paragraph (no blank line required)."""
+        html = AR.render_description_html("Key engines:\n- `loops`\n- *card draw*")
+        self.assertIn("<p>Key engines:</p>", html)
+        self.assertIn("<ul>", html)
+        self.assertIn("<li><code>loops</code></li>", html)
+        self.assertNotIn("<br>\n- ", html)  # dashes must not render as literal text
+        # Ordered list works the same way.
+        ordered = AR.render_description_html("Steps:\n1. one\n2. two")
+        self.assertIn("<ol>", ordered)
+        # A plain-text line that merely starts with '-' (no space) is NOT a list.
+        not_a_list = AR.render_description_html("notes:\n-5 degrees of tilt")
+        self.assertNotIn("<ul>", not_a_list)
+        # A lazy continuation line inside a list must not split it in two.
+        one_list = AR.render_description_html("- a\n  continued\n- b")
+        self.assertEqual(one_list.count("<ul>"), 1)
+
     def test_raw_html_and_scripts_stripped(self):
         html = AR.render_description_html("<script>alert(1)</script>**ok**")
         self.assertNotIn("script", html.lower())
