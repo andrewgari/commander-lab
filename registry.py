@@ -852,3 +852,45 @@ def apply_folder_rules(r) -> dict:
         if res:
             changed[rid] = res["deck"]["status"]
     return changed
+
+
+def remove_card_from_decklist(r, registry_id: str, card_name: str, qty: int = 1) -> dict:
+    """Take `qty` copies of `card_name` off a deck's local decklist (the entry is
+    dropped when its quantity reaches 0). Counterpart of add_card_to_decklist; used
+    by the Tune "save to deck" swap. A card that isn't listed is a no-op."""
+    decks = _load_decks(r)
+    idx = _find_index(decks, registry_id)
+    if idx is None:
+        raise ValueError(f"deck not found: {registry_id}")
+    target = decks[idx]
+    kept, changed = [], False
+    for c in target.get("cards") or []:
+        if not changed and c.get("name") == card_name:
+            left = int(c.get("quantity") or 1) - max(1, int(qty))
+            changed = True
+            if left > 0:
+                kept.append(dict(c, quantity=left))
+            continue
+        kept.append(c)
+    if changed:
+        target["cards"] = kept
+        _save_decks(r, decks)
+    return target
+
+
+def bump_decklist_card(r, registry_id: str, card_name: str, qty: int = 1) -> dict:
+    """Add `qty` copies of `card_name` to a deck's local decklist: bumps an existing
+    entry's quantity or appends a new one. Used by the Tune "save to deck" swap."""
+    decks = _load_decks(r)
+    idx = _find_index(decks, registry_id)
+    if idx is None:
+        raise ValueError(f"deck not found: {registry_id}")
+    target = decks[idx]
+    cards = target.setdefault("cards", [])
+    hit = next((c for c in cards if c.get("name") == card_name), None)
+    if hit:
+        hit["quantity"] = int(hit.get("quantity") or 1) + max(1, int(qty))
+    else:
+        cards.append({"name": card_name, "quantity": max(1, int(qty))})
+    _save_decks(r, decks)
+    return target
