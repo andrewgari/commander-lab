@@ -1,100 +1,146 @@
-# GitOps Deploy: Gitea -> Portainer
+# Prod deploy: GitHub main -> Portainer Git stack (Tower)
 
-Automated deploy pipeline: push to the Gitea remote, Portainer detects the
-push via webhook, pulls the repo, rebuilds the image, and redeploys the
-`commander-lab` stack. No manual SSH/build steps required after setup.
+Verified 2026-10-12 (AN-0, kanban t_b54f852f) by deploying main 7181416.
 
-## How it works
+## What prod actually is
 
-1. `git push gitea main` pushes to the self-hosted Gitea repo
-   (`git.lan` / `192.168.50.3:3004`, owner `andrewgari`, repo `commander-lab`).
-2. Gitea fires a `push` webhook (configured on the repo, filtered to `main`)
-   at a Portainer stack-webhook URL.
-3. Portainer's Git-stack (`repositoryURL` pointing at the same Gitea repo,
-   `autoUpdate.webhook: true`) receives the call, re-clones `main`, and runs
-   `docker compose up -d --build` using `docker-compose.prod.yml`.
-4. `commander-lab-app` and `commander-lab-redis` are recreated in place.
+- Host: Tower (Unraid, 192.168.50.3). Portainer UI/API: http://192.168.50.3:9009
+- Portainer stack id 124, name `commander-lab`, type Git repository:
+  - repository: https://github.com/andrewgari/commander-lab (GitHub, NOT Gitea)
+  - ref: `refs/heads/main`, compose file: `docker-compose.prod.yml`
+  - auto-update: webhook only (no polling interval). A trigger re-pulls and rebuilds.
+- Containers: `commander-lab-app` (built from the repo Dockerfile, host port
+  8020 -> 8000) and `commander-lab-redis` (redis:alpine, volume `redis_data`).
+- Live site: http://192.168.50.3:8020 (Tower's port 8000 is a different service).
+- Portainer checks out each deployed commit to
+  `/mnt/user/appdata/portainer/compose/124/<full-sha>/` on Tower. That dir name
+  (and the container label in step 5) is the ground truth for which sha is live.
 
-This uses Portainer's native Git-stack auto-update feature — Portainer builds
-the image itself from the Dockerfile in the repo. There is no separate
-registry push step and no webhook-receiver script to maintain.
+**Nothing fires the webhook automatically.** GitHub has no repo webhook (it
+can't reach the LAN anyway) and the Gitea mirror
+(`git@git.lan:CovaDax/commander-lab`) is not wired to this stack. Merging to
+main does NOT deploy; you have to trigger the webhook yourself.
 
-## One-time setup
+## Deploy procedure
 
-Requires the array/Docker/Gitea/Portainer to all be up on Tower (`mdState`
-must be `STARTED`, `DOCKER_ENABLED=yes` in Unraid Settings > Docker).
+1. Merge to main through a PR (`env -u GITHUB_TOKEN gh pr merge <n> --merge`)
+   once the required "Test & Lint" check is green. The pre-push hook blocks
+   direct pushes to main.
+2. Wait about 60-90s for the Release workflow to push its
+   `chore: bump version to vX.Y.Z [skip ci]` commit to main, and deploy after
+   that so the image carries the bumped `version.py`. Confirm with
+   `git fetch origin && git log --oneline -1 origin/main`.
+3. If the deploy includes data migrations, back up Redis first (see below).
+4. Trigger the stack webhook. It's an unauthenticated LAN endpoint; the id is
+   stored on Tower (root-only) at `/mnt/user/appdata/commander-lab/portainer-webhook`:
 
-1. Generate a Portainer API access token:
-   Portainer UI (`http://192.168.50.3:9009`) -> user icon (top right) ->
-   My Account -> Access Tokens -> Add access token. Copy the token string
-   (shown once).
-2. A Gitea API token already exists for this repo (`andrewgari`, token name
-   `automation`, scope `all`). Generate a new one if needed:
    ```bash
-   ssh tower "docker exec -u git gitea gitea admin user generate-access-token \
-     --username andrewgari --token-name automation --scopes all"
+   make deploy-push
+   # equivalent to:
+   WH=$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook)
+   curl -fsS -X POST http://192.168.50.3:9009/api/stacks/webhooks/$WH   # HTTP 204
    ```
-3. Run the setup script from the repo root:
+
+   Portainer clones main, rebuilds the app image, and recreates both
+   containers. Redis restarts too, but its data persists in `redis_data`.
+   The whole thing takes about 30-60s.
+5. Verify the live sha:
+
    ```bash
-   PORTAINER_TOKEN=<portainer_token> GITEA_TOKEN=<gitea_token> \
-     ./scripts/setup_portainer_gitops.sh
+   ssh tower 'docker inspect commander-lab-app --format \
+     "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}} {{.Created}}"'
+   # -> /data/compose/124/<sha of origin/main> <fresh timestamp>
    ```
-   This creates the `commander-lab` stack in Portainer (Git repository type,
-   pointed at `docker-compose.prod.yml`, webhook auto-update enabled), reads
-   `ARCHIDEKT_USERNAME` / `ARCHIDEKT_SESSION` / `ARCHIDEKT_CSRF` from your
-   local `.env` (or pass them as env vars to the script) to seed the stack's
-   environment variables, and registers a Gitea webhook on `push` to `main`
-   pointing at the Portainer stack's webhook URL.
-4. Verify: `git push gitea main` (or `make deploy-push`), then watch
-   Portainer's stack "Updates" log or `ssh tower "docker ps --format
-   '{{.Names}}\t{{.Status}}' | grep commander-lab"` — the app container should
-   restart with a fresh image within ~30-60s of the push.
 
-Re-running `setup_portainer_gitops.sh` is safe to do again if credentials
-were wrong the first time, but it will error with a name conflict if the
-stack already exists — delete the existing stack in the Portainer UI first
-if you need to recreate it.
+6. Smoke test at http://192.168.50.3:8020: /instances (TOTAL ~5608),
+   /inventory (has rows), and a deck page (/deck/Holy%20Hellfire shows CARDS 100).
 
-## Day-to-day usage
+The version badge (`/api/version`, sidebar) is NOT proof of which build is
+live. It comes from a cached GitHub releases lookup (Redis keys
+`github_latest_version` / `github_latest_version_stale`) and can lag behind the
+image's `version.py`. Use the working_dir label from step 5 instead.
+
+## Redis backup (before any migration)
 
 ```bash
-git add -A && git commit -m "..."
-git push gitea main        # or: make deploy-push
+ssh tower 'set -e
+  docker exec commander-lab-redis redis-cli BGSAVE
+  sleep 5; docker exec commander-lab-redis redis-cli INFO persistence | grep rdb_last_bgsave_status  # ok
+  D=/mnt/user/appdata/commander-lab-backups; mkdir -p $D
+  docker cp commander-lab-redis:/data/dump.rdb $D/dump-$(date +%Y%m%d-%H%M%S).rdb
+  ls -la $D'
 ```
 
-That's it — Portainer rebuilds and redeploys automatically. GitHub (`origin`)
-pushes are unaffected; they only run the existing GitHub Actions CI
-(`.github/workflows/ci.yml`), which lints/tests and (on its own) builds/pushes
-to GHCR — that is a separate, independent path and does not touch Tower.
+`/mnt/user/backups` is not a directory on Tower, so don't put backups there.
+To restore: stop `commander-lab-app`, stop `commander-lab-redis`, `docker cp`
+the rdb to `commander-lab-redis:/data/dump.rdb`, then start redis and the app.
 
-## Manual fallback
+## Running migrations / one-off scripts against prod
 
-The old build-locally-on-Tower-and-push-to-the-local-registry path still
-works if the Portainer webhook path is ever broken:
+`scripts/` ships inside the image and `REDIS_URL` already points at prod Redis,
+so you can run scripts in the app container. Do a dry run, then `--apply`, then
+another dry run to confirm there's nothing left to change:
 
 ```bash
-make deploy       # runs scripts/deploy_tower.sh
+ssh tower 'docker exec commander-lab-app python scripts/dedupe_instances.py'          # dry run
+ssh tower 'docker exec commander-lab-app python scripts/dedupe_instances.py --apply'
 ```
+
+History: on 2026-10-12, right after deploying 7181416, `dedupe_instances.py`
+removed 5608 duplicates (11216 -> 5608, batch 2026-09-25) and
+`remove_orphan_decks.py` removed `test-deck`. Pre-migration backup:
+`/mnt/user/appdata/commander-lab-backups/dump-pre-AN0-20261012-013505.rdb`.
+
+## Rollback
+
+Portainer always builds the tip of main, so to roll back code, revert on main
+(PR + merge) and trigger the webhook again. To roll back data, restore an rdb
+backup as described above.
 
 ## Files
 
-- `docker-compose.prod.yml` — production compose file Portainer builds from.
-  Differs from `docker-compose.yml` (local dev) by dropping the Redis host
-  port publish, dropping `--reload`, and adding Unraid UI labels.
-- `scripts/setup_portainer_gitops.sh` — one-time Portainer stack + Gitea
-  webhook provisioning script.
-- `scripts/deploy_tower.sh` — legacy manual remote-build-and-push script,
-  kept as a fallback.
+- `docker-compose.prod.yml`: the compose file Portainer builds from. Compared
+  with `docker-compose.yml` (local dev), it drops the Redis host port publish
+  and `--reload`, and adds Unraid UI labels. It also bind-mounts
+  `/mnt/user/appdata/commander-lab/secrets` (root-only, mode 700) read-only at
+  `/run/commander-lab-secrets`. Each file in that directory holds one API key
+  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`). The
+  interaction-graph tagger reads keys from there when the variable isn't set
+  in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
+  To rotate a key, rewrite its file (`umask 077`), then restart
+  `commander-lab-app`.
+- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` defaults to
+  `http://192.168.50.2:8645` (oracle's own standalone Hermes gateway on the
+  Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
+  `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
+  `API_SERVER_KEY` from `~/.hermes/profiles/oracle/.env`; set it on the
+  Portainer stack env or as the file `secrets/ORACLE_KEY` (the client reads
+  that file when the env var is empty). The Framework's ufw must allow
+  `8645/tcp` from Tower (`192.168.50.3`). Smoke test from prod:
+  `ssh tower 'docker exec commander-lab-app python -m analytics.oracle_client'`
+  prints `oracle online`; `OracleUnavailable` means oracle is down or blocked.
+- `Makefile` `deploy-push`: triggers the stack 124 webhook.
+
+## Legacy / stale paths (do not use)
+
+- Gitea -> Portainer webhook (`scripts/setup_portainer_gitops.sh`,
+  `make gitops-setup`): this was the plan in an earlier version of this doc,
+  but stack 124 doesn't use it. The Gitea mirror's main is stale (908b4cd as of
+  2026-10-12), and pushing to Gitea deploys nothing.
+- `make deploy` / `scripts/deploy_tower.sh`: the old build-on-Tower and
+  push-to-local-registry (192.168.50.3:5000) path, which bypasses stack 124.
+- GHCR image from `.github/workflows/ci.yml` ("Build & Push Docker Image"):
+  it's built on main pushes, but prod builds from source and never pulls it.
 
 ## Troubleshooting
 
-- **Portainer stack shows "unable to pull repository"**: confirm the repo
-  is public in Gitea, or add `repositoryAuthentication: true` with a Gitea
-  token to the stack (edit in Portainer UI: Stack > Git repository info).
-- **Webhook fires but nothing redeploys**: check Portainer's stack "Updates"
-  tab for the last webhook call's timestamp/status. A 404 there usually means
-  the webhook id in the Gitea hook config is stale (stack was deleted and
-  recreated) — rerun the setup script or update the Gitea hook URL manually.
-- **Docker/Gitea/Portainer all down after an Unraid reboot**: the array must
-  be started from the Unraid web UI (`Main` tab) before anything comes back.
-  See the `unraid-portainer-deployment` skill for the full recovery runbook.
+- **Webhook returns 404**: the stack was deleted and recreated, so its webhook
+  id changed. In the Portainer UI, open Stacks > commander-lab > GitOps
+  updates, copy the new webhook URL, and update
+  `/mnt/user/appdata/commander-lab/portainer-webhook` on Tower.
+- **Webhook returns 204 but the working_dir sha doesn't change**: check the
+  stack's deployment status in the Portainer UI. A build failure leaves the
+  old containers running.
+- **Docker/Portainer all down after an Unraid reboot**: start the array from
+  the Unraid web UI (`Main` tab) first. The `unraid-portainer-deployment`
+  skill has the full recovery runbook.
