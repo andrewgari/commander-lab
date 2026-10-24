@@ -50,6 +50,7 @@ from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+from analytics import journey as journey_mod
 import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import tune_store
@@ -3536,6 +3537,79 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
     if err:
         return err
     return {"success": True, "reviews": journal_mod.list_reviews(r, deck, max(1, min(limit, 50)))}
+
+
+# ---------------------------------------------------------------------------
+# Deck journey timeline (DT-8) -- docs/architecture/deck-tuner-overlay-spec.md §3.4
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/journey")
+async def api_deck_journey(deck_id: str):
+    """The deck's journey timeline, newest first."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    entries = await asyncio.to_thread(journey_mod.list_entries, r, deck)
+    return {"success": True, "entries": entries, "kind_labels": journey_mod.KIND_LABELS}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries")
+async def api_add_journey_entry(deck_id: str, request: Request):
+    """Append a journey entry: {"kind"?, "title"?, "description"?, "diff"?,
+    "source_draft_id"?}. kind defaults to "manual"; the tuner apply path
+    (DT-2) posts "tune_applied" with the card diff. A blank title/description
+    is auto-drafted from the structured data."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.append_entry, r, deck,
+                                        kind=body.get("kind") or "manual", title=body.get("title"),
+                                        description=body.get("description"), diff=body.get("diff"),
+                                        source_draft_id=body.get("source_draft_id"))
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.patch("/api/decks/{deck_id}/journey/entries/{entry_id}")
+async def api_edit_journey_entry(deck_id: str, entry_id: str, request: Request):
+    """Edit an entry's title and/or description (in place, same id)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.update_entry, r, deck, entry_id,
+                                        title=body.get("title"), description=body.get("description"))
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries/{entry_id}/redraft")
+async def api_redraft_journey_entry(deck_id: str, entry_id: str):
+    """Regenerate the entry's description from its structured data. The
+    redrafted version takes the entry's slot with a new id and points
+    redrafted_from at the version it was regenerated from."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        entry = await asyncio.to_thread(journey_mod.redraft_entry, r, deck, entry_id)
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
 
 
 # ---------------------------------------------------------------------------
