@@ -12,6 +12,7 @@ import math
 from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from analytics.card_eval import Candidate, EvaluationResult
+from analytics.card_eval.card_source import mainboard_gate
 from analytics import card_source
 from analytics.edhrec_inclusion import name_key
 
@@ -119,8 +120,13 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
             dropped.append({"card": c.name, "reason": "already in the deck"}); continue
         if oid and oid in seen_oids:
             dropped.append({"card": c.name, "reason": "duplicate candidate"}); continue
-        if not f.get("legal", True):
-            dropped.append({"card": c.name, "reason": "not legal in Commander"}); continue
+        # Full mainboard slot gate at proposal time: known Commander legality
+        # (fail-closed) AND no variant type class. Planar/scheme/attraction
+        # cards and unknown-legality cards can never be suggested into a
+        # mainboard slot.
+        gate = mainboard_gate(f)
+        if not gate["legal"]:
+            dropped.append({"card": c.name, "reason": gate["reason"]}); continue
         if not _ci_ok(f.get("color_identity", c.color_identity), ctx.commander_identity):
             dropped.append({"card": c.name, "reason": "outside the commander's colour identity"}); continue
         if not (set(c.roles) & tset) and pillar_fit(c) < cfg.PILLAR_GATE:
@@ -204,11 +210,15 @@ def suggest_replacements(ev: EvaluationResult, brief: Optional[dict], ctx: Revie
             # Dropping them might reduce the list size, which is intended.
             
         rec = facts[name_key(c.name)]
+        # Every suggestion carries its mainboard slot-gate result, including
+        # the pass reason string — never a bare boolean.
+        gate = mainboard_gate(rec)
         out.append({"card": c.name, "oracle_id": rec.get("oracle_id"), "role": c.roles[0] if c.roles else None,
                     "like_for_like": like,
                     "rationale": _rationale(c, ev, like, targets, fl),
                     "score": rep, "score_breakdown": parts, "tier": tier_str,
                     "source_meta": meta,
+                    "slot_gate": gate,
                     "owned": c.owned, "flags": fl})
     return {"suggestions": out, "mode": mode, "target_roles": targets,
             "pool_exhausted": len(out) < cfg.MIN_SUGGESTIONS, "dropped": dropped, "flags": flags}

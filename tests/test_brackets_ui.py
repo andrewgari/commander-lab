@@ -361,8 +361,8 @@ class TestDeckPageWiring(unittest.TestCase):
     def test_loads_brackets_js(self):
         self.assertRegex(self.html, r'<script src="/static/js/brackets\.js\?v=[^"]+"')
 
-    def test_banner_sits_between_tabs_and_hero(self):
-        order = [self.body.find(m) for m in ('class="hud-tabs hud-deck-tabs"', 'id="bracketBanner"', 'class="deck-hero"')]
+    def test_banner_sits_between_tabs_and_content(self):
+        order = [self.body.find(m) for m in ('class="hud-tabs hud-deck-tabs"', 'id="bracketBanner"', 'class="ov-split"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertRegex(self.body, r'id="bracketBanner"[^>]*aria-live="polite"')

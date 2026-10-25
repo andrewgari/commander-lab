@@ -3,11 +3,20 @@
 See docs in mtg-apis skill / ../sync.py for the account-wide sync path.
 This module is used by the on-demand /api/import endpoint to pull a single
 deck (yours or someone else's public deck) without a full account resync.
+
+Cards are normalized into named deck slots (deck_slots.DeckSlot): commanders,
+mainboard ("cards"), and the slots mapping (maybeboard / considering /
+planar_deck / scheme_deck / attraction_deck). The removed "Sideboard"
+category remaps to maybeboard and is surfaced via parse_flags.
 """
 import re
 import requests
 
-STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
+import deck_slots
+from deck_slots import DeckSlot
+
+STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering",
+                         "Planar Deck", "Scheme Deck", "Attraction Deck"}
 
 _ID_RE = re.compile(r"archidekt\.com/decks/(\d+)")
 
@@ -89,6 +98,8 @@ def fetch_deck(identifier: str) -> dict:
     data = res.json()
 
     commanders, commander_uids, cards = [], [], []
+    slots = deck_slots.empty_slots()
+    parse_flags: list = []
     color_letters = set()
     for card in data.get("cards", []):
         categories = card.get("categories") or []
@@ -107,11 +118,20 @@ def fetch_deck(identifier: str) -> dict:
             uid = card.get("card", {}).get("uid")
             if uid:
                 commander_uids.append(uid)
+            # A commander is also part of the 100-card list; fall through so
+            # it lands in the mainboard cardlist as before.
 
-        if "Maybeboard" in categories or "Sideboard" in categories:
-            continue
-
-        cards.append({"name": name, "quantity": card.get("quantity", 1)})
+        slot, remapped = deck_slots.classify_card_slot(categories, oracle.get("types"))
+        entry = {"name": name, "quantity": card.get("quantity", 1)}
+        if slot == DeckSlot.MAINBOARD or "Commander" in categories:
+            cards.append(entry)
+        else:
+            if remapped:
+                entry["remapped_from"] = "sideboard"
+                deck_slots.flag_sideboard_remap(
+                    parse_flags, context=f"archidekt deck {deck_id}", count=1
+                )
+            slots[slot].append(entry)
 
     color_code = "".join(c for c in _WUBRG_ORDER if c in color_letters) or "C"
 
@@ -134,6 +154,8 @@ def fetch_deck(identifier: str) -> dict:
         "folder": folder_name or "Imported",
         "description": data.get("description", ""),
         "cards": cards,
+        "slots": slots,
+        "parse_flags": parse_flags,
         "url": f"https://archidekt.com/decks/{deck_id}",
         "parent_folder_id": parent,
         "theorycrafted": bool(data.get("theorycrafted")),
@@ -156,7 +178,11 @@ import uuid
 from .errors import PushError, PushNotConfigured
 
 PUSH_TOKEN_ENV = "ARCHIDEKT_TOKEN"
-_PUSH_SKIP_CATEGORIES = {"Maybeboard", "Sideboard"}
+# Categories whose entries a mainboard push never touches. Considering and the
+# variant-deck labels are here for the same reason as Maybeboard: those cards
+# live in their own slots (deck_slots), outside the pushed mainboard list.
+_PUSH_SKIP_CATEGORIES = {"Maybeboard", "Sideboard", "Considering",
+                         "Planar Deck", "Scheme Deck", "Attraction Deck"}
 
 
 def push_configured() -> bool:
@@ -201,7 +227,14 @@ def build_modify_ops(remote_cards: list, desired: dict, commanders, card_id_for)
         categories = entry.get("categories") or []
         if _PUSH_SKIP_CATEGORIES & set(categories):
             continue
-        name = ((entry.get("card") or {}).get("oracleCard") or {}).get("name")
+        # Also skip cards the slot classifier places outside the mainboard
+        # (e.g. a Plane living in an uncategorized row): a mainboard push
+        # must never propose removing a deck's variant/maybeboard pools.
+        oracle = ((entry.get("card") or {}).get("oracleCard") or {})
+        slot, _remapped = deck_slots.classify_card_slot(categories, oracle.get("types"))
+        if slot != DeckSlot.MAINBOARD:
+            continue
+        name = oracle.get("name")
         if name:
             remote.setdefault(name, []).append(entry)
 

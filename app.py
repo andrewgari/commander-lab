@@ -1,15 +1,19 @@
 from fastapi import FastAPI, Request, Query, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import redis
+import datastore
+from datastore import WritesDisabledError
 import os
 import asyncio
 import logging
 import github_sync
+import hashlib
 import json
 import time
 import html
+import uuid
 import markdown
 import bleach
 from typing import List, Optional
@@ -17,8 +21,11 @@ from datetime import datetime, timezone
 
 import instances as instance_store
 from instances import InstanceError
+import deck_slots
 import registry
 import reconstruct
+import brew
+import brew_builder
 import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
@@ -48,9 +55,11 @@ from analytics import categories as categories_mod
 from analytics import identity as identity_mod
 from analytics import insights
 from analytics import journal as journal_mod
+from analytics import journey as journey_mod
 import deck_genre
 from analytics import tuner as tuner_mod
 from analytics import tune_store
+from analytics import tune_save
 from analytics import bracket_worker
 from analytics import brackets as brackets_mod
 from analytics import engine as engine_mod
@@ -58,6 +67,15 @@ from analytics import personality_profile, personality_store
 import urllib.parse
 
 app = FastAPI()
+
+
+@app.exception_handler(WritesDisabledError)
+async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):
+    return JSONResponse(
+        status_code=503,
+        content={"error": "writes_disabled", "message": "Write operations are disabled (read-only mode)."},
+        headers={"Retry-After": "3600"},
+    )
 
 github_sync_lock = False
 
@@ -95,6 +113,9 @@ async def github_sync_middleware(request: Request, call_next):
     request.state.app_version = version
     return await call_next(request)
 
+import route_cache
+app.middleware("http")(route_cache.make_route_cache_middleware(lambda: r))
+
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
@@ -122,7 +143,23 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Connect to Redis
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-r = redis.from_url(redis_url, decode_responses=True)
+r = datastore.from_url(redis_url)
+
+
+# Feature flag (nav redesign, S1): Commander Salt entry points are hidden until
+# the integration ships. Nothing is deleted — routes, provider plumbing and
+# stored data stay intact; set COMMANDER_SALT_ENABLED=1 to make every salt
+# surface visible again.
+def commander_salt_enabled() -> bool:
+    return os.getenv("COMMANDER_SALT_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _enabled_providers() -> list:
+    """ENABLED_PROVIDERS, minus Commander Salt while its feature flag is off."""
+    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    if not commander_salt_enabled():
+        providers = [p for p in providers if p != "commandersalt"]
+    return providers
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -130,7 +167,7 @@ async def index(request: Request):
 
 @app.get("/decks", response_class=HTMLResponse)
 async def decks(request: Request, status: Optional[str] = None):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     # ?status=<value> shows one deck group; an unknown value falls back to all decks.
     wanted = (status or "").strip().lower()
     group = next((g for g in DECK_GROUPS if g["status"] == wanted), None)
@@ -138,6 +175,7 @@ async def decks(request: Request, status: Optional[str] = None):
         "providers": providers,
         "status_filter": group["status"] if group else None,
         "status_label": group["label"] if group else None,
+        "commander_salt_enabled": commander_salt_enabled(),
     })
 
 @app.get("/inventory", response_class=HTMLResponse)
@@ -203,7 +241,7 @@ async def styleguide(request: Request):
 
 @app.get("/deck/{deck_name}", response_class=HTMLResponse)
 async def deck_view(request: Request, deck_name: str):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     head = await asyncio.to_thread(_deck_head_context, deck_name)
     return templates.TemplateResponse(request=request, name="deck.html", context={
         "providers": providers, "deck_name": deck_name, "head": head, "tab": "overview",
@@ -282,8 +320,9 @@ async def _deck_tab(request: Request, deck_name: str, template: str, tab: str, e
 
 @app.get("/deck/{deck_name}/stats", response_class=HTMLResponse)
 async def deck_stats_view(request: Request, deck_name: str):
-    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON."""
-    return await _deck_tab(request, deck_name, "deck_stats.html", "stats")
+    """Deck Stats (UX_SPEC §3.1): interaction graph, shape, identity, combos. Renders from JSON.
+    NAV_IA §3.2: also carries the Composition section (folded-in composition page)."""
+    return await _deck_tab(request, deck_name, "deck_stats.html", "stats", extra=_composition_page_context)
 
 
 @app.get("/deck/{deck_name}/identity", response_class=HTMLResponse)
@@ -414,26 +453,12 @@ def _journal_page_context(deck_name: str) -> dict:
 
 @app.get("/deck/{deck_name}/manage", response_class=HTMLResponse)
 async def deck_manage_view(request: Request, deck_name: str):
-    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md).
+    """Deck management view (see docs/DECK_MANAGEMENT_VIEW.md) — NAV_IA §3.2 tab 2.
 
-    /deck/{deck_name} (the read-only view) keys off the deck's display
-    `name`, not its registry_id — but the /api/decks/{id}/manage aggregate
-    and sibling manage endpoints all key off registry_id. Resolve name ->
-    registry_id here so the template only ever has to call the registry_id
-    APIs, matching how the rest of the manage API surface works.
+    _deck_tab resolves the display name to the registry_id (the manage APIs
+    all key off registry_id) and supplies the shared deck header context.
     """
-    decks = registry.list_decks(r)
-    deck = next((d for d in decks if d.get("name") == deck_name), None)
-    if not deck:
-        return HTMLResponse(
-            "<html><head><title>Deck Not Found</title></head>"
-            "<body><h1>Deck Not Found</h1>"
-            "<p>No deck named &quot;{}&quot; could be found.</p>"
-            "</body></html>".format(html.escape(deck_name)),
-            status_code=404,
-        )
-    deck_id = registry.registry_id_of(deck)
-    return templates.TemplateResponse(request=request, name="deck_manage.html", context={"deck_id": deck_id, "deck_name": deck_name})
+    return await _deck_tab(request, deck_name, "deck_manage.html", "manage")
 
 @app.get("/api/version")
 async def get_version(request: Request):
@@ -545,7 +570,7 @@ async def changelog(request: Request):
 
 @app.get("/reconstruct", response_class=HTMLResponse)
 async def reconstruct_landing_view(request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
@@ -554,7 +579,7 @@ async def reconstruct_landing_view(request: Request):
 
 @app.get("/reconstruct/{session_id}", response_class=HTMLResponse)
 async def reconstruct_view(session_id: str, request: Request):
-    providers = [p.strip() for p in os.getenv("ENABLED_PROVIDERS", "archidekt,moxfield,commandersalt").split(",") if p.strip()]
+    providers = _enabled_providers()
     return templates.TemplateResponse(
         request=request,
         name="reconstruct.html",
@@ -892,6 +917,301 @@ async def accept_reconstruct_draft(session_id: str, request: Request):
         "session": result["session"],
         "created_decks": result["created_decks"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Brew flow endpoints (commander-led virtual-deck generation; donors read-only)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/brew", response_class=HTMLResponse)
+async def brew_landing_view(request: Request, resume: Optional[str] = Query(None)):
+    decks = registry._load_decks(r)
+    donors = [
+        {
+            "registry_id": registry.registry_id_of(d),
+            "name": d.get("name", ""),
+            "status": d.get("status", ""),
+            "color": d.get("color", ""),
+            "commanders": d.get("commanders") or [],
+            "card_count": sum(int(c.get("quantity", 1) or 0) for c in (d.get("cards") or [])),
+            "unique_cards": len({(c.get("name") or "").strip().lower() for c in (d.get("cards") or []) if c.get("name")}),
+        }
+        for d in decks
+        if d.get("status") != "retired" and not d.get("decommissioned_at")
+    ]
+    resume_session = brew.get_session(r, resume) if resume else None
+    return templates.TemplateResponse(
+        request=request,
+        name="brew.html",
+        context={"donor_decks": donors, "resume_session": resume_session},
+    )
+
+
+@app.get("/brew/{session_id}", response_class=HTMLResponse)
+async def brew_session_view(session_id: str, request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="brew_deck.html",
+        context={"session_id": session_id},
+    )
+
+
+@app.get("/api/brew/commanders")
+async def brew_commander_search(q: str = ""):
+    """Scryfall-backed commander search proxy (is:commander, legal:commander),
+    cached in Redis. Falls back to local card_meta legendary-creature matching
+    when Scryfall is unreachable."""
+    query = q.strip()
+    if len(query) < 2:
+        return {"results": []}
+
+    cache_key = f"brew:commander_search:{query.lower()}"
+    cached = r.get(cache_key)
+    if cached:
+        try:
+            return {"results": json.loads(cached)}
+        except Exception:
+            pass
+
+    results = []
+    try:
+        resp = httpx.get(
+            "https://api.scryfall.com/cards/search",
+            params={"q": f"{query} is:commander legal:commander", "unique": "cards", "order": "name"},
+            headers={"User-Agent": "commander-lab/brew", "Accept": "application/json"},
+            timeout=8.0,
+        )
+        if resp.status_code == 200:
+            for c in (resp.json().get("data") or [])[:10]:
+                image = ""
+                iu = c.get("image_uris") or {}
+                if iu:
+                    image = iu.get("art_crop") or iu.get("small") or ""
+                elif c.get("card_faces"):
+                    image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+                results.append({
+                    "name": c.get("name", ""),
+                    "uid": c.get("id", ""),
+                    "image": image,
+                    "colors": c.get("colors") or [],
+                    "color_identity": c.get("color_identity") or [],
+                    "type_line": c.get("type_line", ""),
+                    "keywords": c.get("keywords") or [],
+                    "mana_cost": c.get("mana_cost", ""),
+                })
+    except Exception:
+        results = []
+
+    if not results:
+        # Offline fallback: local card_meta legendary creatures.
+        ql = query.lower()
+        for key in r.keys("card_meta:*"):
+            name = key[len("card_meta:"):] if isinstance(key, str) else key.decode()[len("card_meta:"):]
+            if ql not in name.lower():
+                continue
+            raw = r.get(key)
+            try:
+                meta = json.loads(raw) if raw else {}
+            except (TypeError, ValueError):
+                meta = {}
+            if "legendary" not in str(meta.get("type", "")).lower():
+                continue
+            results.append({
+                "name": name, "uid": meta.get("uid", ""), "image": "",
+                "colors": [], "color_identity": list(meta.get("color", "") or ""),
+                "type_line": meta.get("type", ""), "keywords": [], "mana_cost": "",
+            })
+            if len(results) >= 10:
+                break
+
+    try:
+        r.set(cache_key, json.dumps(results))
+    except Exception:
+        pass
+    return {"results": results}
+
+
+@app.post("/api/brew/start")
+@app.post("/api/brew/sessions")
+async def start_brew_session(request: Request):
+    """Start a Brew session. Donor decks are named explicitly and are NEVER
+    mutated: no decommission, no instance writes, no status/tag changes.
+
+    Body: {"commander": "..." | "commanders": [...], "partner": "..." (optional),
+           "donor_deck_ids": [...], "build_mode": "owned_first"|"best_build",
+           "name", "power_level", "idea"/"deck_idea", "themes": [...], "notes"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    commanders = data.get("commanders")
+    if commanders is None:
+        commanders = data.get("commander") or ""
+    partner = (data.get("partner") or "").strip() if isinstance(data.get("partner"), str) else ""
+    if partner:
+        commanders = [commanders] if isinstance(commanders, str) else list(commanders)
+        if partner not in commanders:
+            commanders.append(partner)
+
+    try:
+        session = brew.start_brew(
+            r,
+            commanders,
+            data.get("donor_deck_ids") or [],
+            data.get("build_mode") or "",
+            name=data.get("name") or "",
+            power_level=data.get("power_level", ""),
+            deck_idea=data.get("deck_idea", data.get("idea", "")),
+            themes=data.get("themes") or [],
+            notes=data.get("notes") or "",
+        )
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return JSONResponse(
+        status_code=201,
+        content={"success": True, "session_id": session["session_id"], "status": session["status"], "session": session},
+    )
+
+
+@app.get("/api/brew/sessions")
+async def list_brew_sessions(limit: int = 50):
+    """List recent Brew sessions."""
+    sessions = brew.list_sessions(r, limit=limit)
+    return {"success": True, "sessions": sessions}
+
+
+@app.get("/api/brew/{session_id}/pools")
+async def get_brew_pools(session_id: str):
+    """Tier 1 (named donors) / Tier 2 (free inventory) pools for a brew session."""
+    try:
+        pools_data = brew.get_session_pools(r, session_id)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, **pools_data}
+
+
+@app.get("/api/brew/{session_id}/drafts")
+async def get_brew_drafts(session_id: str):
+    """Fetch the generated draft for a Brew session."""
+    session = brew.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {"success": True, "status": session["status"], "drafts": session.get("drafts", [])}
+
+
+@app.get("/api/brew/{session_id}/availability")
+async def get_brew_availability(session_id: str):
+    """Availability report: owned (donors / free inventory) vs buy list."""
+    try:
+        report = brew.get_availability(r, session_id)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+    return {"success": True, **report}
+
+
+@app.get("/api/brew/{session_id}")
+async def get_brew_session(session_id: str):
+    """Fetch a Brew session by ID."""
+    session = brew.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {"success": True, "session": session}
+
+
+@app.post("/api/brew/{session_id}/build")
+async def trigger_brew_build(
+    session_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    sync: Optional[bool] = Query(None),
+):
+    """Trigger the brew builder. sync=true (query or body) builds inline;
+    otherwise runs as a background task (202)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    is_sync = sync if sync is not None else bool(body.get("sync", False))
+
+    try:
+        session = brew.trigger_build(r, session_id, sync=is_sync)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    if not is_sync:
+        background_tasks.add_task(brew.execute_build, r, session_id)
+        return JSONResponse(
+            status_code=202,
+            content={"success": True, "status": session["status"], "session": session},
+        )
+
+    return {"success": True, "status": session["status"], "session": session}
+
+
+@app.post("/api/brew/{session_id}/accept")
+async def accept_brew_draft(session_id: str, request: Request):
+    """Accept the brew draft: create the virtual deck (status "testing") with
+    provenance. No instance writes; donor decks stay fully intact.
+
+    Body (optional): {"draft_index": 0}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    draft_index = data.get("draft_index", 0)
+    try:
+        draft_index = int(draft_index)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"success": False, "error": "draft_index must be an integer"})
+
+    try:
+        result = brew.accept_draft(r, session_id, draft_index=draft_index)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return {
+        "success": True,
+        "session": result["session"],
+        "created_decks": result["created_decks"],
+    }
+
+
+@app.post("/api/brew/{session_id}/abandon")
+async def abandon_brew_session(session_id: str, request: Request):
+    """Abandon a Brew session."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    reason = data.get("reason", "") if isinstance(data, dict) else ""
+    try:
+        session = brew.abandon_brew(r, session_id, reason=reason)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+    return {"success": True, "session": session}
 
 
 @app.post("/api/reconstruct/{session_id}/abandon")
@@ -1936,6 +2256,416 @@ async def remove_card_tag_from_deck(deck_id: str, request: Request):
         return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
     removed = tag_store.remove_card_tag_from_deck(r, registry.registry_id_of(deck), card_name, tag)
     return {"success": True, "card": card_name, "removed": removed}
+
+
+# ---------------------------------------------------------------------------
+# Deck Tuner overlay (deck-tuner-overlay-spec.md §2-3, DT-1): the tune-up
+# draft (`tuneup:draft:{registry_id}`) and the "not in decklist" tag flags
+# (`tuneup:tag_flags:{registry_id}`). Card tags themselves are NOT stored
+# here — the overlay reuses `deck_card_tags` via the endpoints above; slot
+# membership (maybeboard/considering) stays a decklist property carried on
+# the draft cards. Apply/swap (writing the draft back to the deck and
+# instances) is DT-2 and deliberately not implemented here.
+# ---------------------------------------------------------------------------
+
+TUNEUP_SCHEMA_VERSION = 1
+#: Structural columns of the overlay, in display order. Membership for the
+#: two slot columns comes from the draft/synced decklist, not from tags.
+TUNEUP_SLOT_COLUMNS = ("maybeboard", "considering")
+
+
+def _tuneup_draft_key(registry_id: str) -> str:
+    return f"tuneup:draft:{registry_id}"
+
+
+def _tuneup_flags_key(registry_id: str) -> str:
+    return f"tuneup:tag_flags:{registry_id}"
+
+
+def _tuneup_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _tuneup_load_json(key: str) -> Optional[dict]:
+    raw = r.get(key)
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _tuneup_synced_cards(deck: dict) -> list:
+    """The decklist the overlay starts from, commanders first, then the
+    main 99, then non-main slots (maybeboard/considering) annotated with
+    their slot. Same [{name, qty}] shape as the draft's `cards`."""
+    out = []
+    for name in deck.get("commanders") or []:
+        if isinstance(name, str) and name:
+            out.append({"name": name, "qty": 1, "slot": "commander", "source": "deck"})
+    for c in deck.get("cards") or []:
+        if isinstance(c, dict) and c.get("name"):
+            out.append({"name": c["name"], "qty": int(c.get("quantity") or 1), "slot": "mainboard", "source": "deck"})
+    slots = deck.get("slots") or {}
+    for slot in TUNEUP_SLOT_COLUMNS:
+        for c in slots.get(slot) or []:
+            if isinstance(c, dict) and c.get("name"):
+                out.append({"name": c["name"], "qty": int(c.get("quantity") or 1), "slot": slot, "source": "deck"})
+    return out
+
+
+def _tuneup_decklist_hash(cards: list) -> str:
+    """Order-independent hash of the decklist (spec §3.1 base_decklist_hash)."""
+    canon = sorted((str(c.get("name", "")).lower(), int(c.get("qty") or 1)) for c in cards)
+    return hashlib.sha1(json.dumps(canon).encode("utf-8")).hexdigest()
+
+
+def _tuneup_tag_label(registry_id: str, tag: str) -> str:
+    """Human column label for a card tag: core id -> core name, cat:<id> ->
+    the custom category's name, anything else shown as typed."""
+    if tag in categories_mod.CORE_BY_ID:
+        return categories_mod.CORE_BY_ID[tag]["name"]
+    if tag.startswith(categories_mod.CAT_TAG_PREFIX):
+        try:
+            cat, _key, _scope = categories_mod.find(r, tag[len(categories_mod.CAT_TAG_PREFIX):], registry_id)
+            return cat.get("name") or tag
+        except Exception:
+            return tag
+    return tag
+
+
+def _tuneup_columns(registry_id: str, deck: dict, cards: list, card_tags: dict) -> list:
+    """Overlay columns: Commander, one per non-empty non-main slot, one per
+    tag carried by a listed card, then the Uncategorized pool."""
+    cols = []
+    names = {c.get("name") for c in cards}
+    if deck.get("commanders"):
+        cols.append({"id": "slot:commander", "label": "Commander", "kind": "slot"})
+    slots = deck.get("slots") or {}
+    for slot in TUNEUP_SLOT_COLUMNS:
+        if slots.get(slot) or any(c.get("slot") == slot for c in cards):
+            cols.append({"id": f"slot:{slot}", "label": deck_slots.SLOT_LABELS.get(slot, slot.title()), "kind": "slot"})
+    tags = set()
+    for name in names:
+        for e in card_tags.get(name) or []:
+            t = e.get("tag")
+            if t:
+                tags.add(t)
+    for t in sorted(tags, key=str.lower):
+        cols.append({"id": f"tag:{t}", "label": _tuneup_tag_label(registry_id, t), "kind": "tag", "tag": t})
+    cols.append({"id": "uncategorized", "label": "Uncategorized", "kind": "pool"})
+    return cols
+
+
+def _tuneup_counts(cards: list, card_tags: dict, flags: dict, commanders: list) -> dict:
+    """Deck counts with the spec §3.2 exclusion rule: a card drops out of
+    the decklist count only when EVERY tag it carries is flagged
+    not-in-decklist (untagged cards always count; slot cards never count).
+    Commanders carry an implicit "Commander" tag."""
+    excluded = {t for t, f in (flags or {}).items() if isinstance(f, dict) and f.get("in_decklist") is False}
+    cmdr = set(commanders or [])
+    kept, dropped = 0, []
+    for c in cards:
+        if c.get("slot") in TUNEUP_SLOT_COLUMNS:
+            continue
+        tags = {e.get("tag") for e in card_tags.get(c.get("name")) or [] if e.get("tag")}
+        if c.get("name") in cmdr or c.get("slot") == "commander":
+            tags.add("Commander")
+        if tags and tags <= excluded:
+            dropped.append(c.get("name"))
+        else:
+            kept += int(c.get("qty") or 1)
+    return {"total": kept, "excluded": dropped}
+
+
+def _tuneup_state(deck: dict) -> dict:
+    """The aggregate the overlay renders from (one round trip, same pattern
+    as /api/decks/{deck_id}/manage): effective decklist (draft over synced),
+    live card tags, tag flags, columns, counts and drift status."""
+    registry_id = registry.registry_id_of(deck)
+    synced = _tuneup_synced_cards(deck)
+    synced_hash = _tuneup_decklist_hash(synced)
+    draft = _tuneup_load_json(_tuneup_draft_key(registry_id))
+    cards = synced
+    if draft and isinstance(draft.get("cards"), list):
+        cards = draft["cards"]
+    card_tags = tag_store.get_deck_card_tags(r, registry_id)
+    flags = _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}
+    commanders = [n for n in (deck.get("commanders") or []) if isinstance(n, str) and n]
+    return {
+        "deck_id": registry_id,
+        "cards": cards,
+        "card_tags": card_tags,
+        "tag_flags": flags,
+        "columns": _tuneup_columns(registry_id, deck, cards, card_tags),
+        "commanders": commanders,
+        "counts": _tuneup_counts(cards, card_tags, flags, commanders),
+        "base_decklist_hash": (draft or {}).get("base_decklist_hash") or synced_hash,
+        "drifted": bool(draft and draft.get("base_decklist_hash") != synced_hash),
+        "draft": draft and {k: draft.get(k) for k in ("id", "status", "created_at", "updated_at", "notes")},
+    }
+
+
+#: Ownership statuses that count as "owned" for the printing picker
+#: (same owned = in_mail + in_collection + in_deck rollup as
+#: instances.card_rollup; spec §3.3 inventory rule).
+TUNEUP_OWNED_STATUSES = ("in_mail", "in_collection", "in_deck")
+
+#: Scryfall prints cache, one entry per card name (prices.py pattern:
+#: JSON blob with an `at` timestamp, refreshed after PRINTINGS_MAX_AGE).
+TUNEUP_PRINTINGS_PREFIX = "card_prints:"
+TUNEUP_PRINTINGS_MAX_AGE = 24 * 3600
+TUNEUP_SCRYFALL_SEARCH = "https://api.scryfall.com/cards/search"
+TUNEUP_SCRYFALL_HEADERS = {"User-Agent": "commander-lab/1.0 (printing-picker)",
+                           "Accept": "application/json"}
+
+
+def _tuneup_owns_printing(card_name: str, printing: dict) -> bool:
+    """Exact-printing ownership check (spec §3.3): the card's instances
+    (`idx:instances_by_card:{name}`) filtered by (set, collector_number,
+    finish) — any instance in an owned status means no purchase needed."""
+    want_set = str(printing.get("set") or "").lower()
+    want_cn = str(printing.get("collector_number") or "")
+    want_finish = str(printing.get("finish") or "nonfoil")
+    for inst in instance_store.list_instances(r, card_name=card_name):
+        if inst.get("ownership_status") not in TUNEUP_OWNED_STATUSES:
+            continue
+        if (str(inst.get("set") or "").lower() == want_set
+                and str(inst.get("collector_number") or "") == want_cn
+                and str(inst.get("finish") or "nonfoil") == want_finish):
+            return True
+    return False
+
+
+def _scryfall_printings(name: str, session=None, timeout: float = 20.0) -> list:
+    """Every Scryfall printing of `name` (unique=prints, up to 2 pages).
+    Module-level so tests can stub the network out."""
+    import requests
+
+    http = session or requests.Session()
+    url, params, seen = TUNEUP_SCRYFALL_SEARCH, {
+        "q": f'!"{name.split(" // ")[0]}"', "unique": "prints", "order": "released",
+        "dir": "desc"}, set()
+    prints = []
+    for _page in range(2):
+        resp = http.get(url, headers=TUNEUP_SCRYFALL_HEADERS, params=params, timeout=timeout)
+        if resp.status_code == 404:
+            break
+        resp.raise_for_status()
+        payload = resp.json()
+        for c in payload.get("data", []):
+            key = (c.get("set"), c.get("collector_number"))
+            if key in seen:
+                continue
+            seen.add(key)
+            img = (c.get("image_uris") or {}).get("small") or ""
+            if not img and c.get("card_faces"):
+                img = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+            prices = c.get("prices") or {}
+            prints.append({
+                "set": c.get("set") or "",
+                "set_name": c.get("set_name") or "",
+                "collector_number": c.get("collector_number") or "",
+                "finishes": c.get("finishes") or ["nonfoil"],
+                "image": img,
+                "prices": {"nonfoil": prices.get("usd"), "foil": prices.get("usd_foil"),
+                           "etched": prices.get("usd_etched")},
+            })
+        if payload.get("has_more") and payload.get("next_page"):
+            url, params = payload["next_page"], None
+            time.sleep(0.1)
+        else:
+            break
+    return prints
+
+
+def _tuneup_printings(name: str) -> list:
+    """Printings for the picker: Scryfall prints (cached per name) joined
+    against the instance registry so every finish carries `owned`."""
+    cached = _tuneup_load_json(TUNEUP_PRINTINGS_PREFIX + name)
+    now = time.time()
+    if cached and now - (cached.get("at") or 0) <= TUNEUP_PRINTINGS_MAX_AGE:
+        prints = cached.get("prints") or []
+    else:
+        prints = _scryfall_printings(name)
+        r.set(TUNEUP_PRINTINGS_PREFIX + name, json.dumps({"at": now, "prints": prints}))
+    out = []
+    for p in prints:
+        finishes = []
+        for finish in p.get("finishes") or ["nonfoil"]:
+            printing = {"set": p.get("set"), "collector_number": p.get("collector_number"),
+                        "finish": finish}
+            finishes.append({"finish": finish,
+                             "owned": _tuneup_owns_printing(name, printing),
+                             "usd": (p.get("prices") or {}).get(finish)})
+        out.append({"set": p.get("set"), "set_name": p.get("set_name"),
+                    "collector_number": p.get("collector_number"),
+                    "image": p.get("image"), "finishes": finishes})
+    return out
+
+
+@app.get("/api/decks/{deck_id}/tuneup/printings")
+async def get_tuneup_printings(deck_id: str, name: str = Query(...)):
+    """Printing picker data (DT-3, spec §3.1/§3.3): every known printing of
+    `name`, each finish annotated with exact-printing ownership. Picking an
+    unowned finish is what makes the draft card `needs_purchase` on save."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    name = name.strip()
+    if not name:
+        return JSONResponse({"error": "name is required"}, status_code=400)
+    try:
+        printings = await asyncio.to_thread(_tuneup_printings, name)
+    except Exception as exc:  # noqa: BLE001 — Scryfall outages degrade the picker, not the page
+        return JSONResponse({"error": f"printing lookup failed: {exc}"}, status_code=502)
+    return {"name": name, "owned_statuses": list(TUNEUP_OWNED_STATUSES),
+            "printings": printings}
+
+
+@app.get("/api/decks/{deck_id}/tuneup/draft")
+async def get_tuneup_draft(deck_id: str):
+    """Overlay shell state (spec §3.1/§3.2). `draft` is null when no paper
+    draft exists yet — `cards` then mirror the synced decklist."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    return _tuneup_state(deck)
+
+
+@app.post("/api/decks/{deck_id}/tuneup/draft")
+async def save_tuneup_draft(deck_id: str, request: Request):
+    """Paper-only save (spec §4a): validate and write `tuneup:draft`. No
+    `instance:*` mutation, no decklist write — that is the DT-2 apply path.
+
+    Body: {"cards": [{"name", "qty", "slot"?, "source"?}], "rebase": false}
+    Card names are validated against `card_meta:*` when that store is
+    populated; `rebase: true` resets the drift baseline to the synced list.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    raw_cards = data.get("cards")
+    if not isinstance(raw_cards, list):
+        return JSONResponse({"error": "cards must be a list"}, status_code=400)
+    valid_slots = {"mainboard", "commander", "maybeboard", "considering"}
+    cards, names = [], []
+    for c in raw_cards:
+        if not isinstance(c, dict):
+            return JSONResponse({"error": "each card must be an object"}, status_code=400)
+        name = str(c.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "each card needs a name"}, status_code=400)
+        try:
+            qty = int(c.get("qty", 1))
+        except (TypeError, ValueError):
+            return JSONResponse({"error": f"invalid qty for {name}"}, status_code=400)
+        if not 1 <= qty <= 99:
+            return JSONResponse({"error": f"qty for {name} must be 1-99"}, status_code=400)
+        slot = str(c.get("slot") or "mainboard")
+        if slot not in valid_slots:
+            return JSONResponse({"error": f"invalid slot for {name}"}, status_code=400)
+        entry = {"name": name, "qty": qty, "slot": slot,
+                 "source": str(c.get("source") or "manual")}
+        # DT-3 (spec §3.1): a chosen printing rides on the draft card. A
+        # printing change is treated as a NEW card — `needs_purchase` is
+        # recomputed server-side against the instance registry, never
+        # trusted from the client.
+        printing = c.get("printing")
+        if printing is not None:
+            if not isinstance(printing, dict):
+                return JSONResponse({"error": f"invalid printing for {name}"}, status_code=400)
+            finish = str(printing.get("finish") or "nonfoil")
+            if finish not in instance_store.FINISHES:
+                return JSONResponse({"error": f"invalid finish for {name}"}, status_code=400)
+            entry["printing"] = {
+                "set": str(printing.get("set") or "").lower(),
+                "collector_number": str(printing.get("collector_number") or ""),
+                "finish": finish,
+            }
+            entry["needs_purchase"] = not _tuneup_owns_printing(name, entry["printing"])
+        cards.append(entry)
+        names.append(name)
+    meta_keys = r.keys("card_meta:*")
+    if meta_keys:
+        known = {k[len("card_meta:"):].lower() for k in meta_keys}
+        unknown = sorted({n for n in names if n.lower() not in known})
+        if unknown:
+            return JSONResponse({"error": "Unknown card: " + ", ".join(unknown)}, status_code=400)
+
+    registry_id = registry.registry_id_of(deck)
+    existing = _tuneup_load_json(_tuneup_draft_key(registry_id)) or {}
+    synced_hash = _tuneup_decklist_hash(_tuneup_synced_cards(deck))
+    now = _tuneup_now()
+    draft = {
+        "id": existing.get("id") or str(uuid.uuid4()),
+        "deck_id": registry_id,
+        "schema_version": TUNEUP_SCHEMA_VERSION,
+        "status": "active",
+        "created_at": existing.get("created_at") or now,
+        "updated_at": now,
+        "base_decklist_hash": synced_hash if data.get("rebase") else existing.get("base_decklist_hash") or synced_hash,
+        "cards": cards,
+        "tag_flags": {},
+        "recommendations": existing.get("recommendations") or [],
+        "notes": str(data.get("notes") if data.get("notes") is not None else existing.get("notes") or ""),
+    }
+    r.set(_tuneup_draft_key(registry_id), json.dumps(draft))
+    state = _tuneup_state(deck)
+    state["success"] = True
+    return state
+
+
+@app.get("/api/decks/{deck_id}/tuneup/recommendations")
+async def get_tuneup_recommendations(deck_id: str):
+    """DT-6 float-panel adds (overlay spec §2/§3.3): the picked add of each
+    open swap in the active tune recommendation, inventory-filtered and
+    purchase-flagged by `tuner.panel_adds`. `adds` is empty when no tune
+    recommendation has been computed yet."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    rec = await asyncio.to_thread(tune_store.get_active, r, tune_store.deck_key(deck))
+    payload = (rec or {}).get("payload") or {}
+    adds = await asyncio.to_thread(tuner_mod.panel_adds, r, payload)
+    return {"success": True, "deck_id": registry.registry_id_of(deck), "adds": adds}
+
+
+@app.get("/api/decks/{deck_id}/tuneup/tag-flags")
+async def get_tuneup_tag_flags(deck_id: str):
+    """The deck's "not in decklist" flags (spec §3.2)."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    registry_id = registry.registry_id_of(deck)
+    return {"deck_id": registry_id, "flags": _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}}
+
+
+@app.put("/api/decks/{deck_id}/tuneup/tag-flags")
+async def set_tuneup_tag_flag(deck_id: str, request: Request):
+    """Flag one tag/category as in (or out of) the decklist. Stable deck
+    config, stored apart from the draft so it survives draft edits.
+
+    Body: {"tag": "Ramp", "in_decklist": false}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = str(data.get("tag") or "").strip()
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    registry_id = registry.registry_id_of(deck)
+    flags = _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}
+    flags[tag] = {"in_decklist": bool(data.get("in_decklist")), "set_at": _tuneup_now()}
+    r.set(_tuneup_flags_key(registry_id), json.dumps(flags))
+    return {"success": True, "deck_id": registry_id, "flags": flags,
+            "counts": _tuneup_counts(_tuneup_state(deck)["cards"],
+                                     tag_store.get_deck_card_tags(r, registry_id),
+                                     flags, deck.get("commanders") or [])}
 
 
 # ---------------------------------------------------------------------------
@@ -3525,6 +4255,79 @@ async def api_deck_reviews(deck_id: str, limit: int = 20):
 
 
 # ---------------------------------------------------------------------------
+# Deck journey timeline (DT-8) -- docs/architecture/deck-tuner-overlay-spec.md §3.4
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/decks/{deck_id}/journey")
+async def api_deck_journey(deck_id: str):
+    """The deck's journey timeline, newest first."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    entries = await asyncio.to_thread(journey_mod.list_entries, r, deck)
+    return {"success": True, "entries": entries, "kind_labels": journey_mod.KIND_LABELS}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries")
+async def api_add_journey_entry(deck_id: str, request: Request):
+    """Append a journey entry: {"kind"?, "title"?, "description"?, "diff"?,
+    "source_draft_id"?}. kind defaults to "manual"; the tuner apply path
+    (DT-2) posts "tune_applied" with the card diff. A blank title/description
+    is auto-drafted from the structured data."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.append_entry, r, deck,
+                                        kind=body.get("kind") or "manual", title=body.get("title"),
+                                        description=body.get("description"), diff=body.get("diff"),
+                                        source_draft_id=body.get("source_draft_id"))
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.patch("/api/decks/{deck_id}/journey/entries/{entry_id}")
+async def api_edit_journey_entry(deck_id: str, entry_id: str, request: Request):
+    """Edit an entry's title and/or description (in place, same id)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _journal_error(journey_mod.JourneyError("Body must be a JSON object."))
+    try:
+        entry = await asyncio.to_thread(journey_mod.update_entry, r, deck, entry_id,
+                                        title=body.get("title"), description=body.get("description"))
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+@app.post("/api/decks/{deck_id}/journey/entries/{entry_id}/redraft")
+async def api_redraft_journey_entry(deck_id: str, entry_id: str):
+    """Regenerate the entry's description from its structured data. The
+    redrafted version takes the entry's slot with a new id and points
+    redrafted_from at the version it was regenerated from."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        entry = await asyncio.to_thread(journey_mod.redraft_entry, r, deck, entry_id)
+    except journey_mod.EntryNotFound as exc:
+        return _journal_error(exc, 404)
+    except journey_mod.JourneyError as exc:
+        return _journal_error(exc)
+    return {"success": True, "entry": entry}
+
+
+# ---------------------------------------------------------------------------
 # Tuner (AN-6) -- see docs/TUNER.md
 # ---------------------------------------------------------------------------
 
@@ -3569,7 +4372,8 @@ async def api_deck_tune_state(deck_id: str):
         return err
     st = await asyncio.to_thread(tuner_mod.load_state, r, deck)
     pets = await asyncio.to_thread(insights.pet_cards, r, deck)
-    return {"success": True, "state": st, "pet_cards": pets}
+    dismissed = await asyncio.to_thread(tuner_mod.dismissed_cuts, r, deck)
+    return {"success": True, "state": st, "pet_cards": pets, "dismissed": dismissed}
 
 
 @app.post("/api/decks/{deck_id}/tune/recompute")
@@ -3631,14 +4435,67 @@ async def api_deck_tune_why(deck_id: str, request: Request):
     from analytics.interactions.llm import default_chain
     out = await asyncio.to_thread(tuner_mod.generate_prose, r, deck, tune, default_chain(),
                                   tuner_mod.prose_context(r, deck))
+    # DT-7: every saved recommendation entry ends up with an id and an explanation
+    # (LLM prose when it answered, else the deterministic reason from the numbers).
+    rec = await asyncio.to_thread(tuner_mod.sync_entries, r, deck, tune)
+    entries = tuner_mod.rec_entries(rec) if rec else []
     return JSONResponse(status_code=200 if out["llm"]["status"] in ("ok", "cached") else 502,
-                        content={"success": out["llm"]["status"] in ("ok", "cached"), **out, "tune": tune})
+                        content={"success": out["llm"]["status"] in ("ok", "cached"), **out, "tune": tune,
+                                 "entries": entries})
+
+
+@app.post("/api/decks/{deck_id}/tune/reconsider")
+async def api_deck_tune_reconsider(deck_id: str, request: Request):
+    """DT-7 'Reconsider' (overlay spec §3.3): the recommendation stands its ground
+    but responds reasonably. Body: {"cut": name}. The response is stored on the
+    recommendation entry, so asking again is a cache hit. Always 200 with the
+    deterministic fallback when no LLM is configured; 404 when the deck has no
+    saved recommendation or no open entry for that cut."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    cut = (body or {}).get("cut") if isinstance(body, dict) else None
+    if not isinstance(cut, str) or not cut.strip():
+        return _bad_request(tuner_mod.TunerError("cut is required"))
+    from analytics.interactions.llm import default_chain
+    try:
+        out = await asyncio.to_thread(tuner_mod.reconsider, r, deck, cut.strip(), default_chain(),
+                                      tuner_mod.prose_context(r, deck))
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc, 404)
+    return {"success": True, **out}
+
+
+@app.post("/api/decks/{deck_id}/tune/alternative")
+async def api_deck_tune_alternative(deck_id: str, request: Request):
+    """DT-7 'recommend something else for this slot' (overlay spec §3.3). Body:
+    {"cut": name}. The current cut->add entry is marked `ignored` (kept in the
+    payload's entry_log, never suggested again this review) and replaced by the
+    next-best candidate for the same slot under a new entry id. Returns
+    {"alternative": null, "message": ...} when nothing else clears the bar (no
+    state changes in that case)."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    cut = (body or {}).get("cut") if isinstance(body, dict) else None
+    if not isinstance(cut, str) or not cut.strip():
+        return _bad_request(tuner_mod.TunerError("cut is required"))
+    from analytics.interactions.llm import default_chain
+    try:
+        out = await asyncio.to_thread(tuner_mod.alternative, r, deck, cut.strip(), default_chain(),
+                                      tuner_mod.prose_context(r, deck))
+    except tuner_mod.TunerError as exc:
+        return _bad_request(exc, 404)
+    return {"success": True, **out}
 
 
 @app.put("/api/decks/{deck_id}/tune/decisions")
 async def api_deck_tune_decide(deck_id: str, request: Request):
-    """{"cut": name, "decision": "own"|"buy"|"dismissed"|null, "add": name}. Decisions
-    last until the next finished review."""
+    """{"cut": name, "decision": "own"|"buy"|"dismissed"|"ignored"|null, "add": name}.
+    "ignored" (DT-7) rejects one cut->add pair for the rest of the review; the slot
+    stays open with its next-best option. Decisions last until the next finished review."""
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
@@ -3664,6 +4521,101 @@ async def api_deck_tune_adds(deck_id: str, request: Request):
     except tuner_mod.TunerError as exc:
         return _bad_request(exc)
     return {"success": True, "state": st}
+
+
+# -- Tune dual save (DT-2): "for later" draft vs "save to deck" swap ------------------------
+
+@app.post("/api/decks/{deck_id}/tune/drafts")
+async def api_deck_tune_draft_save(deck_id: str, request: Request):
+    """SAVE FOR LATER. Body {swaps:[{cut,add,source}], cuts:[name], adds:[{name,qty,source}],
+    label}. Stores a revisitable draft; changes NO inventory instance or decklist."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    try:
+        rec = await asyncio.to_thread(tune_save.save_draft, r, tune_store.deck_key(deck), body,
+                                      (body or {}).get("label", "") if isinstance(body, dict) else "")
+    except tune_save.TuneSaveError as exc:
+        return _bad_request(exc)
+    return {"success": True, "draft": rec}
+
+
+@app.get("/api/decks/{deck_id}/tune/drafts")
+async def api_deck_tune_drafts(deck_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    drafts = await asyncio.to_thread(tune_save.list_drafts, r, tune_store.deck_key(deck))
+    return {"success": True, "drafts": drafts}
+
+
+@app.get("/api/decks/{deck_id}/tune/drafts/{draft_id}")
+async def api_deck_tune_draft(deck_id: str, draft_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    rec = await asyncio.to_thread(tune_save.get_draft, r, tune_store.deck_key(deck), draft_id)
+    if not rec:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+    return {"success": True, "draft": rec}
+
+
+@app.delete("/api/decks/{deck_id}/tune/drafts/{draft_id}")
+async def api_deck_tune_draft_discard(deck_id: str, draft_id: str):
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    try:
+        rec = await asyncio.to_thread(tune_save.discard_draft, r, tune_store.deck_key(deck), draft_id)
+    except KeyError:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+    return {"success": True, "draft": rec}
+
+
+@app.post("/api/decks/{deck_id}/tune/apply")
+async def api_deck_tune_apply(deck_id: str, request: Request):
+    """SAVE TO DECK. Body {draft_id} (apply a saved draft) or an inline tune-up (same shape as
+    the drafts body). Cut cards return to the collection as unused, added cards are marked
+    in-deck (to_buy when no unused copy exists), the decklist is updated, and the response
+    carries `external` (per-provider Update/Push status) so the UI can offer to update
+    Moxfield / Archidekt. Pushing stays an explicit follow-up: POST /sync/push."""
+    deck, err = _deck_or_404(deck_id)
+    if err:
+        return err
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(tune_save.TuneSaveError("Body must be a JSON object."))
+    key = tune_store.deck_key(deck)
+    draft_id = body.get("draft_id")
+    try:
+        if draft_id:
+            draft = await asyncio.to_thread(tune_save.get_draft, r, key, draft_id)
+            if not draft:
+                return JSONResponse(status_code=404, content={"success": False, "error": "Draft not found"})
+            if draft["status"] != tune_save.DRAFT:
+                return JSONResponse(status_code=409, content={"success": False, "error": f"Draft is already {draft['status']}"})
+            tune = tune_save.normalize(draft)
+        else:
+            tune = tune_save.normalize(body)
+        result = await asyncio.to_thread(tune_save.apply_to_deck, r, deck, tune)
+    except tune_save.TuneSaveError as exc:
+        return _bad_request(exc)
+    except InstanceError as exc:
+        return _bad_request(exc)
+    if draft_id:
+        await asyncio.to_thread(tune_save.mark_applied, r, key, draft_id, result)
+    # The swap is now real: the accepted decisions / extra adds were consumed.
+    await asyncio.to_thread(tuner_mod._save_state, r, deck, {"review_id": tuner_mod.load_state(r, deck).get("review_id"), "decisions": {}, "adds": []})
+    rid = registry.registry_id_of(deck)
+    interactions_service.start_rebuild(r, trigger="sync", deck_ids=[rid])
+    _wake_bracket_worker(rid)
+    try:
+        external = (await asyncio.to_thread(deck_sync.sync_status, r, rid))["providers"]
+    except DeckSyncError:
+        external = []
+    return {"success": True, "applied": result, "draft_id": draft_id, "external": external,
+            "prompt_update_external": True}
 
 
 # ---------------------------------------------------------------------------
@@ -3723,7 +4675,7 @@ async def api_genres_list():
     from analytics import genres as genres_mod
 
     genres = await asyncio.to_thread(genres_mod.list_genres, r)
-    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary())
+    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary(r))
 
 
 @app.post("/api/genres/autofill")
@@ -4328,27 +5280,38 @@ def _primer_build_context(deck_name: str) -> dict:
 
 
 def _composition_page_context(deck_name: str) -> dict:
-    """Read-only resolved composition preset for the deck composition page (no AI, no writes)."""
-    deck = _find_deck_any(deck_name)
-    if not deck:
+    """Read-only resolved composition preset for the Stats page's Composition
+    section (no AI, no writes). Never raises: a resolve failure just means the
+    section renders its defaults and the client-side fetch fills it in."""
+    try:
+        deck = _find_deck_any(deck_name)
+        if not deck:
+            return {"selection": None, "preset": None, "slots": []}
+        sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
+        preset = sel.get("preset") or {}
+        return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
+                "lands": (preset.get("structure") or {}).get("lands")}
+    except Exception:
         return {"selection": None, "preset": None, "slots": []}
-    sel = comp_svc.resolve_for_deck(r, deck, registry.registry_id_of(deck))
-    preset = sel.get("preset") or {}
-    return {"selection": sel, "preset": preset, "slots": preset.get("slots") or [],
-            "lands": (preset.get("structure") or {}).get("lands")}
 
 
-@app.get("/deck/{deck_name}/composition", response_class=HTMLResponse)
+@app.get("/deck/{deck_name}/composition")
 async def deck_composition_view(request: Request, deck_name: str):
-    """Deck composition: the resolved preset (name, category targets), read-only."""
-    return await _deck_tab(request, deck_name, "deck_composition.html", "composition",
-                           extra=_composition_page_context)
+    """NAV_IA §3.2 (N5): Composition merged into Stats as a full-width section;
+    the old page permanently redirects to its new home."""
+    return RedirectResponse(url=f"/deck/{urllib.parse.quote(deck_name)}/stats#composition", status_code=301)
+
+
+@app.get("/deck/{deck_name}/primer", response_class=HTMLResponse)
+async def deck_primer_view(request: Request, deck_name: str):
+    """Primer (NAV_IA §3.2 tab 6, D5): the deck's story on a distinguished reading surface."""
+    return await _deck_tab(request, deck_name, "deck_primer.html", "primer")
 
 
 @app.get("/deck/{deck_name}/primer/build", response_class=HTMLResponse)
 async def deck_primer_build_view(request: Request, deck_name: str):
     """Guided Primer Builder: 5-step wizard (docs: SPEC PF). Answers autosave as a server-side draft."""
-    return await _deck_tab(request, deck_name, "deck_primer_build.html", "overview", extra=_primer_build_context)
+    return await _deck_tab(request, deck_name, "deck_primer_build.html", "primer", extra=_primer_build_context)
 
 
 @app.get("/api/decks/{deck_id}/primer/draft")
@@ -4576,17 +5539,14 @@ async def api_deck_genres(deck_id: str):
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
+    from analytics import role_tags
+
     graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
     genres = await asyncio.to_thread(genres_mod.list_genres, r)
-    qty: dict = {}
-    for c in deck.get("cards") or []:
-        if c.get("name"):
-            try:
-                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
-            except (TypeError, ValueError):
-                qty[c["name"]] = qty.get(c["name"], 0) + 1
+    deck_cards = {"cards": await asyncio.to_thread(role_tags.deck_cards_from_deck, deck)}
+    matches = await asyncio.to_thread(genres_mod.genre_match, deck_cards, genres, r)
     return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
-                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph, qty), genres))
+                          matches=matches)
 
 
 # ---------------------------------------------------------------------------
@@ -4603,8 +5563,61 @@ def _archetype_payload(**extra):
 async def api_archetypes_list():
     from analytics import archetypes as archetypes_mod
 
-    archetypes = await asyncio.to_thread(archetypes_mod.list_archetypes, r)
-    return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary())
+    def _list_rendered():
+        return archetypes_mod.with_rendered_descriptions(archetypes_mod.list_archetypes(r))
+
+    archetypes = await asyncio.to_thread(_list_rendered)
+    from analytics import role_tags
+
+    targets = await asyncio.to_thread(lambda: [role_tags.target_payload(t) for t in role_tags.load_targets(r)])
+    return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary(r),
+                              targets=targets)
+
+
+@app.post("/api/archetypes/render-preview")
+async def api_archetypes_render_preview(request: Request):
+    """Editor preview: render a description's markdown source exactly as it will display."""
+    from analytics import archetypes as archetypes_mod
+
+    body = await _json_body(request)
+    desc = body.get("description", "") if isinstance(body, dict) else ""
+    if not isinstance(desc, str):
+        return _bad_request(archetypes_mod.ArchetypeError("description must be text."))
+    html = await asyncio.to_thread(archetypes_mod.render_description_html, desc)
+    return {"success": True, "html": html}
+
+
+@app.post("/api/archetypes/describe")
+async def api_archetypes_describe(request: Request):
+    """Draft (empty field) or enhance (field has text) ONE archetype description. Body:
+    {name?, description?, roles?: [tag]}. Stateless, never saves; the editor fills the textarea
+    with the reply and the user still hits Save. 422 bad input; 503 no LLM configured; 502
+    provider failed / the draft named a card or stated a hard count."""
+    from analytics import archetype_describe
+    from analytics import archetypes as archetypes_mod
+    from analytics.interactions.llm import default_chain
+
+    body = await _json_body(request)
+
+    def _run():
+        inv_raw = r.get("inventory")
+        try:
+            inv = json.loads(inv_raw) if isinstance(inv_raw, (str, bytes, bytearray)) else {}
+            card_names = list(inv.keys()) if isinstance(inv, dict) else []
+        except (TypeError, ValueError):
+            card_names = []
+        return archetype_describe.describe_archetype(
+            default_chain(), body, roles_vocab=archetypes_mod.legacy_role_vocabulary(),
+            card_names=card_names, archetypes=archetypes_mod.list_archetypes(r))
+
+    try:
+        out = await asyncio.to_thread(_run)
+    except archetype_describe.ArchetypeDescribeError as exc:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(exc)})
+    except archetype_describe.ArchetypeDescribeUnavailable as exc:
+        status = 503 if exc.kind == "no_llm" else 502
+        return JSONResponse(status_code=status, content={"success": False, "error": str(exc), "error_kind": exc.kind})
+    return {"success": True, **out}
 
 
 @app.post("/api/archetypes")
@@ -4703,30 +5716,166 @@ async def api_staple_themes_delete(card_name: str):
     return {"success": True, "entry": entry}
 
 
-def _archetype_deck_qty(deck: dict) -> dict:
-    qty: dict = {}
-    for c in deck.get("cards") or []:
-        if c.get("name"):
-            try:
-                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
-            except (TypeError, ValueError):
-                qty[c["name"]] = qty.get(c["name"], 0) + 1
-    return qty
+# ---------------------------------------------------------------------------
+# Role tag registry (ARCH-3) -- see analytics/role_tags.py, docs/role-tags-spec.md
+# ---------------------------------------------------------------------------
+
+
+def _role_tag_payload(**extra):
+    from analytics import role_tags
+
+    return {"success": True, "version": role_tags.get_version(r), **extra}
+
+
+def _role_tag_usage(tag_id: str) -> List[str]:
+    """Names of archetypes/genres whose required_roles reference this tag (after legacy
+    alias resolution) — used by edit confirmations and delete refusal."""
+    from analytics import archetypes as archetypes_mod
+    from analytics import genres as genres_mod
+    from analytics import role_tags
+
+    index = role_tags.tag_index(r)
+    users = []
+    for kind, items in (("archetype", archetypes_mod.list_archetypes(r)),
+                        ("genre", genres_mod.list_genres(r))):
+        for item in items:
+            for role in item.get("required_roles", []):
+                try:
+                    if role_tags.resolve_role_tag(role.get("tag"), index) == tag_id:
+                        users.append(f"{kind} '{item.get('name', item['id'])}'")
+                        break
+                except role_tags.RoleTagError:
+                    continue
+    return users
+
+
+@app.get("/api/role-tags")
+async def api_role_tags_list():
+    from analytics import role_tags
+
+    def _load():
+        return role_tags.all_tags(r), [role_tags.target_payload(t) for t in role_tags.load_targets(r)]
+
+    tags, targets = await asyncio.to_thread(_load)
+    return _role_tag_payload(tags=tags, targets=targets)
+
+
+@app.post("/api/role-targets")
+async def api_role_targets_create(request: Request):
+    from analytics import role_tags
+
+    try:
+        target = await asyncio.to_thread(role_tags.create_target, r, await _json_body(request))
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content=_role_tag_payload(target=target))
+
+
+@app.post("/api/role-tags")
+async def api_role_tags_create(request: Request):
+    from analytics import role_tags
+
+    try:
+        tag = await asyncio.to_thread(role_tags.create_tag, r, await _json_body(request))
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content=_role_tag_payload(tag=tag))
+
+
+@app.put("/api/role-tags/{tag_id}")
+async def api_role_tags_update(tag_id: str, request: Request):
+    """Edit a tag. Editing the query re-scores every archetype/genre pointing at it; the
+    response names them (spec §5.3)."""
+    from analytics import role_tags
+
+    try:
+        tag = await asyncio.to_thread(role_tags.update_tag, r, tag_id, await _json_body(request))
+    except role_tags.RoleTagNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    affected = await asyncio.to_thread(_role_tag_usage, tag_id)
+    return _role_tag_payload(tag=tag, affected=affected)
+
+
+@app.delete("/api/role-tags/{tag_id}")
+async def api_role_tags_delete(tag_id: str):
+    from analytics import role_tags
+
+    in_use = await asyncio.to_thread(_role_tag_usage, tag_id)
+    try:
+        await asyncio.to_thread(role_tags.delete_tag, r, tag_id, in_use_by=in_use)
+    except role_tags.RoleTagNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return _role_tag_payload()
+
+
+@app.post("/api/role-tags/preview")
+async def api_role_tags_preview(request: Request):
+    """{query, deck_id} -> the same evaluation scoring uses: N copies · M cards of THIS deck
+    match the query, with the matched names (spec §5.1 step 4)."""
+    from analytics import role_tags
+
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    query = body.get("query")
+    if not isinstance(query, str) or not query.strip():
+        return _bad_request(ValueError("query is required."))
+    deck, err = _deck_or_404(str(body.get("deck_id") or ""))
+    if err:
+        return err
+    cards = await asyncio.to_thread(role_tags.deck_cards_from_deck, deck)
+    out = await asyncio.to_thread(role_tags.preview, r, query, cards)
+    return _role_tag_payload(deck=deck.get("name"), **out)
+
+
+@app.post("/api/role-tags/{tag_id}/refresh")
+async def api_role_tags_refresh(tag_id: str):
+    """Re-run the tag's query and rewrite its index entry (spec §2.5; fresh <20h entries skip)."""
+    from analytics import role_tags
+
+    index = await asyncio.to_thread(role_tags.tag_index, r)
+    tag = index.get(tag_id)
+    if not tag:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    entry = await asyncio.to_thread(role_tags.query_index, r, tag.get("query", ""), None, True)
+    return _role_tag_payload(tag=tag, total=entry.get("total"), error=entry.get("error"),
+                             oversized=entry.get("oversized"), built_at=entry.get("built_at"))
+
+
+@app.get("/api/archetypes/{archetype_id}/score")
+async def api_archetype_score(archetype_id: str, deck: str = Query(default="")):
+    """Per-role breakdown for one archetype against one deck (spec §4.3/§6.4)."""
+    from analytics import archetypes as archetypes_mod
+    from analytics import role_tags
+
+    try:
+        archetype = await asyncio.to_thread(archetypes_mod.get_archetype, r, archetype_id)
+    except archetypes_mod.ArchetypeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
+    deck_rec, err = _deck_or_404(deck)
+    if err:
+        return err
+    cards = await asyncio.to_thread(role_tags.deck_cards_from_deck, deck_rec)
+    matches = await asyncio.to_thread(archetypes_mod.archetype_match, {"cards": cards}, [archetype], r)
+    row = matches[0] if matches else {"coverage": 0.0, "roles_hit": [], "roles_missing": []}
+    return _archetype_payload(deck=deck_rec.get("name"), **row)
 
 
 @app.get("/api/decks/{deck_id}/archetype")
 async def api_deck_archetype(deck_id: str):
     """Resolved archetype for this deck: a manual override, else the best whole-deck derived
-    match (role coverage from the deck's interaction tags), plus the full ranking."""
+    match (role coverage from the role-tag registry), plus the full ranking."""
     from analytics import archetypes as archetypes_mod
 
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     rid = registry.registry_id_of(deck)
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    qty = _archetype_deck_qty(deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, qty)
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 
@@ -4748,8 +5897,7 @@ async def api_set_deck_archetype(deck_id: str, request: Request):
         return _bad_request(exc)
     except archetypes_mod.ArchetypeNotFound as exc:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{exc}' not found"})
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 
@@ -4762,8 +5910,7 @@ async def api_reset_deck_archetype(deck_id: str):
         return err
     rid = registry.registry_id_of(deck)
     await asyncio.to_thread(archetypes_mod.reset_selection, r, rid)
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 

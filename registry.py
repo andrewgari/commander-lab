@@ -41,6 +41,7 @@ import re
 import unicodedata
 from typing import Optional
 
+import deck_slots
 import instances as instance_store
 
 VALID_STATUSES = {"physical", "digital", "retired", "testing"}
@@ -128,7 +129,11 @@ def is_locked(deck: Optional[dict]) -> bool:
 
 def _load_decks(r) -> list:
     raw = r.get(DECKS_KEY)
-    return json.loads(raw) if raw else []
+    decks = json.loads(raw) if raw else []
+    # Slot-model migration (in-memory; persisted on next save): every deck
+    # carries a normalized 'slots' mapping, and a legacy top-level
+    # 'sideboard' list folds into the maybeboard slot without data loss.
+    return [deck_slots.migrate_serialized_deck(d) for d in decks]
 
 
 def _save_decks(r, decks: list) -> None:
@@ -365,8 +370,11 @@ def upsert_deck(r, normalized: dict, default_status: str = "testing") -> dict:
         "source_id": normalized["source_id"],
         "registry_id": reg_id,
         "cards": normalized.get("cards", []),
+        "slots": deck_slots.normalize_slots(normalized.get("slots")),
         "url": normalized.get("url", ""),
     }
+    if normalized.get("parse_flags"):
+        deck_obj["parse_flags"] = list(normalized["parse_flags"])
     if normalized["source"] == "moxfield":
         deck_obj["moxfield_id"] = normalized["source_id"]
     # Archidekt folder data (providers/archidekt.fetch_deck) drives the
@@ -430,6 +438,8 @@ def update_deck_cards(
     commanders: Optional[list] = None,
     commander_uids: Optional[list] = None,
     color: Optional[str] = None,
+    slots: Optional[dict] = None,
+    parse_flags: Optional[list] = None,
 ) -> dict:
     """Overwrite a deck's cardlist (and optionally commanders/commander_uids/
     color) in place, without touching its source/source_id/registry_id or
@@ -461,6 +471,10 @@ def update_deck_cards(
         target["commander_uids"] = commander_uids
     if color is not None:
         target["color"] = color
+    if slots is not None:
+        target["slots"] = deck_slots.normalize_slots(slots)
+    if parse_flags is not None:
+        target["parse_flags"] = list(parse_flags)
 
     _save_decks(r, decks)
 
@@ -838,3 +852,45 @@ def apply_folder_rules(r) -> dict:
         if res:
             changed[rid] = res["deck"]["status"]
     return changed
+
+
+def remove_card_from_decklist(r, registry_id: str, card_name: str, qty: int = 1) -> dict:
+    """Take `qty` copies of `card_name` off a deck's local decklist (the entry is
+    dropped when its quantity reaches 0). Counterpart of add_card_to_decklist; used
+    by the Tune "save to deck" swap. A card that isn't listed is a no-op."""
+    decks = _load_decks(r)
+    idx = _find_index(decks, registry_id)
+    if idx is None:
+        raise ValueError(f"deck not found: {registry_id}")
+    target = decks[idx]
+    kept, changed = [], False
+    for c in target.get("cards") or []:
+        if not changed and c.get("name") == card_name:
+            left = int(c.get("quantity") or 1) - max(1, int(qty))
+            changed = True
+            if left > 0:
+                kept.append(dict(c, quantity=left))
+            continue
+        kept.append(c)
+    if changed:
+        target["cards"] = kept
+        _save_decks(r, decks)
+    return target
+
+
+def bump_decklist_card(r, registry_id: str, card_name: str, qty: int = 1) -> dict:
+    """Add `qty` copies of `card_name` to a deck's local decklist: bumps an existing
+    entry's quantity or appends a new one. Used by the Tune "save to deck" swap."""
+    decks = _load_decks(r)
+    idx = _find_index(decks, registry_id)
+    if idx is None:
+        raise ValueError(f"deck not found: {registry_id}")
+    target = decks[idx]
+    cards = target.setdefault("cards", [])
+    hit = next((c for c in cards if c.get("name") == card_name), None)
+    if hit:
+        hit["quantity"] = int(hit.get("quantity") or 1) + max(1, int(qty))
+    else:
+        cards.append({"name": card_name, "quantity": max(1, int(qty))})
+    _save_decks(r, decks)
+    return target

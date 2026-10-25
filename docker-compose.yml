@@ -20,6 +20,7 @@ services:
       - "8010:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - DATA_ACCESS_MODE=${DATA_ACCESS_MODE:-readwrite}
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
       - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}

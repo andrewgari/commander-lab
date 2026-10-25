@@ -21,6 +21,31 @@
     .jr-change-actions { display: flex; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); }
     .jr-power-now { color: var(--signal); font-family: var(--font-mono); }
     .jr-kbd-on-primary { border-color: var(--text-on-signal); color: var(--text-on-signal); }
+    /* Deck journey timeline (DT-8). Layout only; components are hud.css. */
+    .jn-add { display: grid; gap: var(--sp-2); max-width: 44rem; margin-bottom: var(--sp-8); }
+    .jn-bar { display: flex; gap: var(--sp-3); align-items: center; justify-content: flex-end; }
+    .jn-error { color: var(--danger); font-size: var(--fs-xs); margin-right: auto; }
+    .jn-error:empty { display: none; }
+    .jn-timeline { list-style: none; margin: 0 0 var(--sp-12); padding: 0; }
+    .jn-entry { display: flex; gap: var(--sp-4); }
+    .jn-rail { display: flex; flex-direction: column; align-items: center; flex: none; }
+    .jn-dot { width: 0.625rem; height: 0.625rem; margin-top: var(--sp-2); background: var(--text-3); }
+    .jn-dot.jn-milestone { background: var(--signal); }
+    .jn-dot.jn-tune_applied { background: var(--ok); }
+    .jn-dot.jn-sync { background: var(--data); }
+    .jn-line { width: var(--hairline); flex: 1; background: var(--line); }
+    .jn-entry:last-child .jn-line { display: none; }
+    .jn-body { flex: 1; min-width: 0; padding-bottom: var(--sp-6); }
+    .jn-meta { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+    .jn-meta time, .jn-redrafted { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+    .jn-actions { margin-left: auto; display: flex; gap: var(--sp-2); }
+    .jn-title { margin: var(--sp-1) 0; font-size: var(--fs-md); }
+    .jn-desc { color: var(--text-2); font-size: var(--fs-sm); white-space: pre-wrap; margin: var(--sp-1) 0 0; }
+    .jn-diffs { display: flex; flex-direction: column; gap: var(--sp-1); font-family: var(--font-mono); font-size: var(--fs-xs); margin-top: var(--sp-1); }
+    .jn-added { color: var(--ok); }
+    .jn-cut { color: var(--danger); }
+    .jn-edit { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .jn-edit textarea { min-height: 5rem; resize: vertical; }
     /* Anchor-nav target (BR-7): focused programmatically, ring only for keyboard. */
     .hud-form-section > header:focus { outline: none; }
     .hud-form-section > header:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
@@ -165,6 +190,20 @@
     <button class="hud-btn hud-btn--ghost" type="button" id="discardBtn">Discard</button>
     <button class="hud-btn hud-btn--primary" type="button" id="saveBtn">Save journal</button>
 </div>
+
+{#- ===== Deck journey timeline (DT-8, overlay spec §3.4). Rendered from /journey API. ===== #}
+{{ hud.section_head("Deck journey", "02") }}
+<p class="jr-note">The deck's major changes and milestones, newest first. Note how the deck played at each point — notes are editable, and auto-written text can be redrafted.</p>
+<div class="jn-add">
+    <input id="jnTitle" maxlength="200" placeholder="Milestone title — e.g. First win with the new build" aria-label="Milestone title">
+    <textarea id="jnDesc" maxlength="2000" placeholder="How the deck played at this point (optional — a draft is written for you)" aria-label="Milestone note"></textarea>
+    <div class="jn-bar">
+        <span class="jn-error" id="jnError" role="alert"></span>
+        <button class="hud-btn hud-btn--sm" type="button" id="jnAddBtn">Add milestone</button>
+    </div>
+</div>
+<ol class="jn-timeline" id="jnTimeline" aria-label="Deck journey"></ol>
+<div id="jnEmpty" hidden>{{ hud.empty("No journey entries yet. Milestones and deck changes appear here as they're recorded.") }}</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -713,6 +752,121 @@ document.addEventListener("DOMContentLoaded", function () {
         all = res[0].archetypes || [];
         render(res[1]);
     }).catch(function () { box.innerHTML = '<div class="hud-empty">Archetype unavailable</div>'; });
+});
+</script>
+
+{#- Deck journey timeline (DT-8): list / add / edit / redraft against /api/decks/{id}/journey. -#}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var list = document.getElementById("jnTimeline");
+    if (!list) return;
+    var H = window.HUD, esc = H.esc;
+    var API = "/api/decks/" + encodeURIComponent({{ deck_id | tojson }}) + "/journey";
+    var emptyBox = document.getElementById("jnEmpty"), errBox = document.getElementById("jnError");
+    var entries = [], KIND_LABELS = {};
+
+    function send(method, path, body) {
+        return fetch(API + path, { method: method, headers: { "Content-Type": "application/json" },
+                                   body: body === undefined ? undefined : JSON.stringify(body) })
+            .then(function (r) { return r.json().then(function (j) {
+                if (!r.ok || j.success === false) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; throw e; }
+                return j; }); });
+    }
+    function fmtDate(iso) {
+        if (!iso) return "";
+        var d = new Date(iso);
+        return isNaN(d) ? String(iso).slice(0, 10) : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+    function diffHtml(diff) {
+        var a = (diff && diff.added) || [], c = (diff && diff.cut) || [];
+        if (!a.length && !c.length) return "";
+        function line(sign, names, cls) {
+            var shown = names.slice(0, 6);
+            return '<span class="' + cls + '">' + sign + " " + esc(shown.join(", ")) +
+                (names.length > 6 ? " …+" + (names.length - 6) + " more" : "") + "</span>";
+        }
+        return '<div class="jn-diffs">' + (a.length ? line("+", a, "jn-added") : "") + (c.length ? line("−", c, "jn-cut") : "") + "</div>";
+    }
+    function entryHtml(e) {
+        return '<li class="jn-entry" data-id="' + esc(e.id) + '">' +
+            '<div class="jn-rail" aria-hidden="true"><span class="jn-dot jn-' + esc(e.kind) + '"></span><span class="jn-line"></span></div>' +
+            '<div class="jn-body">' +
+            '<div class="jn-meta">' + H.chip(KIND_LABELS[e.kind] || e.kind, { milestone: "signal", tune_applied: "ok", sync: "data" }[e.kind] || "ghost") +
+            "<time datetime=\"" + esc(e.created_at || "") + '">' + esc(fmtDate(e.created_at)) + "</time>" +
+            (e.redrafted_from ? '<span class="jn-redrafted" title="This note was regenerated from an earlier version">redrafted</span>' : "") +
+            '<span class="jn-actions">' +
+            '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="edit">Edit</button>' +
+            '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="redraft">Redraft</button></span></div>' +
+            '<h3 class="jn-title">' + esc(e.title) + "</h3>" + diffHtml(e.diff) +
+            '<p class="jn-desc">' + esc(e.description || "") + "</p>" +
+            '<div class="jn-edit" hidden>' +
+            '<input class="jn-edit-title" maxlength="200" value="' + esc(e.title) + '" aria-label="Entry title">' +
+            '<textarea class="jn-edit-desc" maxlength="2000" aria-label="Entry note">' + esc(e.description || "") + "</textarea>" +
+            '<div class="jn-bar"><span class="jn-error" role="alert"></span>' +
+            '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button" data-act="save">Save</button>' +
+            '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" data-act="cancel">Cancel</button></div></div>' +
+            "</div></li>";
+    }
+    function render() {
+        list.innerHTML = entries.map(entryHtml).join("");
+        emptyBox.hidden = entries.length > 0;
+    }
+    function load() {
+        return send("GET", "").then(function (j) {
+            entries = j.entries || []; KIND_LABELS = j.kind_labels || {}; render();
+        }).catch(function (e) { errBox.textContent = "Couldn't load the journey: " + e.message; });
+    }
+    function liOf(el) { return el.closest(".jn-entry"); }
+    function entryOf(li) { return entries.filter(function (e) { return e.id === li.getAttribute("data-id"); })[0]; }
+
+    document.getElementById("jnAddBtn").addEventListener("click", function () {
+        errBox.textContent = "";
+        var title = document.getElementById("jnTitle").value.trim();
+        if (!title) { errBox.textContent = "Give the milestone a title."; return; }
+        send("POST", "/entries", { kind: "milestone", title: title,
+                                   description: document.getElementById("jnDesc").value.trim() || null })
+            .then(function (j) {
+                entries.unshift(j.entry); render();
+                document.getElementById("jnTitle").value = ""; document.getElementById("jnDesc").value = "";
+            }).catch(function (e) { errBox.textContent = e.message; });
+    });
+
+    list.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-act]");
+        if (!b) return;
+        var li = liOf(b), entry = entryOf(li), act = b.getAttribute("data-act");
+        var box = li.querySelector(".jn-edit"), err = box.querySelector(".jn-error");
+        if (act === "edit") {
+            box.hidden = !box.hidden;
+            if (!box.hidden) box.querySelector(".jn-edit-title").focus();
+        } else if (act === "cancel") {
+            box.hidden = true; err.textContent = "";
+            box.querySelector(".jn-edit-title").value = entry.title;
+            box.querySelector(".jn-edit-desc").value = entry.description || "";
+        } else if (act === "save") {
+            err.textContent = "";
+            send("PATCH", "/entries/" + encodeURIComponent(entry.id),
+                 { title: box.querySelector(".jn-edit-title").value.trim(),
+                   description: box.querySelector(".jn-edit-desc").value })
+                .then(function (j) {
+                    entries[entries.indexOf(entry)] = j.entry; render();
+                }).catch(function (x) { err.textContent = x.message; });
+        } else if (act === "redraft") {
+            if (b.getAttribute("data-armed")) {
+                b.disabled = true;
+                send("POST", "/entries/" + encodeURIComponent(entry.id) + "/redraft")
+                    .then(function (j) { entries[entries.indexOf(entry)] = j.entry; render(); })
+                    .catch(function (x) { errBox.textContent = x.message; b.disabled = false; b.removeAttribute("data-armed"); b.textContent = "Redraft"; });
+            } else {
+                // Two-step: the redraft replaces the current note, so the first click arms.
+                b.setAttribute("data-armed", "1"); b.textContent = "Replace the note?";
+                setTimeout(function () { if (b.isConnected) { b.removeAttribute("data-armed"); b.textContent = "Redraft"; } }, 3000);
+            }
+        }
+    });
+
+    load();
 });
 </script>
 {% endblock %}

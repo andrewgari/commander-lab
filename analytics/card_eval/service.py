@@ -17,10 +17,10 @@ from analytics.providers.edhrec import EDHRecClient, EDHRecError
 
 from . import config as cfg
 from . import edhrec_data
-from .card_source import CardSourceError, fetch_cards
+from .card_source import CardSourceError, fetch_cards, mainboard_gate
 from .hf_classifier import HFClassifier, HFError
 from .schema import (Candidate, CardInfo, DeckContext, EdhrecStats, EvaluationResult, ModelSignal, RoleScore,
-                     StrengthBreakdown)
+                     SlotGate, StrengthBreakdown)
 
 log = logging.getLogger("commander_lab.card_eval")
 
@@ -126,7 +126,7 @@ def evaluate_card(r, card: str, deck: DeckContext, *, edhrec_client: Optional[ED
         raise UnknownCardError(f"unknown card: {name!r}")
     info = CardInfo(name=rec["name"], oracle_id=rec.get("oracle_id"), type_line=rec.get("type_line", ""),
                     oracle_text=rec.get("oracle_text", ""), color_identity=rec.get("color_identity", ""),
-                    legal=bool(rec.get("legal", True)))
+                    legal=rec.get("legal") is True)
     allowed: Optional[Set[str]] = None
     cmd_recs = [facts.get(name_key(c)) for c in commanders]
     if all(cmd_recs):
@@ -134,7 +134,11 @@ def evaluate_card(r, card: str, deck: DeckContext, *, edhrec_client: Optional[ED
     else:
         warnings.append("commander not found in card source; colour-identity filter skipped")
     if not info.legal:
-        warnings.append("card is not legal in Commander")
+        if rec.get("legal") is False:
+            warnings.append("card is not legal in Commander")
+        else:
+            warnings.append("card's Commander legality is unknown (unsynced card data); "
+                            "treating it as not legal")
     if allowed is not None and not _ci_ok(info.color_identity, allowed):
         warnings.append("card is outside the commander's colour identity")
 
@@ -231,7 +235,13 @@ def _build_pool(r, page, info, roles, deck_names, commanders, allowed, lookup, o
     other: List[Candidate] = []
     for c in pool:
         f = facts.get(name_key(c["name"]))
-        if not f or not f.get("legal", True):
+        if not f:
+            continue
+        # Mainboard slot gate at proposal time: Commander-legal (known
+        # legality, fail-closed) AND no variant type class. A planar/scheme/
+        # attraction card can never enter the main-deck candidate pool.
+        gate = mainboard_gate(f)
+        if not gate["legal"]:
             continue
         if allowed is not None and not _ci_ok(f.get("color_identity", ""), allowed):
             continue
@@ -243,7 +253,8 @@ def _build_pool(r, page, info, roles, deck_names, commanders, allowed, lookup, o
         score = base(c) + (w.physical_owned_bonus if is_owned else 0.0)
         cand = Candidate(name=f.get("name") or c["name"], roles=croles, same_role=bool(want & set(croles)),
                          inclusion=c["inclusion"], synergy=c["synergy"], score=round(score, 4),
-                         color_identity=f.get("color_identity", ""), owned=is_owned)
+                         color_identity=f.get("color_identity", ""), owned=is_owned,
+                         slot_gate=SlotGate(**gate))
         (same if cand.same_role else other).append(cand)
     key = lambda x: (-x.score, x.name)  # noqa: E731
     return sorted(same, key=key)[: cfg.POOL_SAME_ROLE] + sorted(other, key=key)[: cfg.POOL_OTHER_ROLE]
