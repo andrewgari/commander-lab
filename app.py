@@ -959,9 +959,12 @@ async def brew_session_view(session_id: str, request: Request):
 
 @app.get("/api/brew/commanders")
 async def brew_commander_search(q: str = ""):
-    """Scryfall-backed commander search proxy (is:commander, legal:commander),
-    cached in Redis. Falls back to local card_meta legendary-creature matching
-    when Scryfall is unreachable."""
+    """Scryfall-backed, ranked commander search with a short-lived cache.
+
+    Search by rules text (including card types), then use Scryfall fuzzy-name
+    search as a typo-tolerant fallback. Paginate results, but bound work per
+    request so a broad type query cannot monopolize the app.
+    """
     query = q.strip()
     if len(query) < 2:
         return {"results": []}
@@ -970,63 +973,81 @@ async def brew_commander_search(q: str = ""):
     cached = r.get(cache_key)
     if cached:
         try:
-            return {"results": json.loads(cached)}
+            entry = json.loads(cached.decode() if isinstance(cached, bytes) else cached)
+            # New cache envelopes expire after one minute. Old bare-list entries
+            # are ignored so stale empty results cannot survive this rollout.
+            if isinstance(entry, dict) and time.time() - float(entry.get("cached_at", 0)) < 60:
+                return {"results": entry.get("results") or []}
         except Exception:
             pass
 
-    results = []
+    headers = {"User-Agent": "commander-lab/brew", "Accept": "application/json"}
+    candidates = {}
+    params = {"q": f"{query} is:commander legal:commander", "unique": "cards", "order": "name"}
+    url = "https://api.scryfall.com/cards/search"
+    fetched = 0
+    pages_fetched = 0
+    page_urls = set()
     try:
-        resp = httpx.get(
-            "https://api.scryfall.com/cards/search",
-            params={"q": f"{query} is:commander legal:commander", "unique": "cards", "order": "name"},
-            headers={"User-Agent": "commander-lab/brew", "Accept": "application/json"},
-            timeout=8.0,
-        )
-        if resp.status_code == 200:
-            for c in (resp.json().get("data") or [])[:10]:
-                image = ""
-                iu = c.get("image_uris") or {}
-                if iu:
-                    image = iu.get("art_crop") or iu.get("small") or ""
-                elif c.get("card_faces"):
-                    image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
-                results.append({
-                    "name": c.get("name", ""),
-                    "uid": c.get("id", ""),
-                    "image": image,
-                    "colors": c.get("colors") or [],
-                    "color_identity": c.get("color_identity") or [],
-                    "type_line": c.get("type_line", ""),
-                    "keywords": c.get("keywords") or [],
-                    "mana_cost": c.get("mana_cost", ""),
-                })
-    except Exception:
-        results = []
-
-    if not results:
-        # Offline fallback: local card_meta legendary creatures.
-        ql = query.lower()
-        for key in r.keys("card_meta:*"):
-            name = key[len("card_meta:"):] if isinstance(key, str) else key.decode()[len("card_meta:"):]
-            if ql not in name.lower():
-                continue
-            raw = r.get(key)
-            try:
-                meta = json.loads(raw) if raw else {}
-            except (TypeError, ValueError):
-                meta = {}
-            if "legendary" not in str(meta.get("type", "")).lower():
-                continue
-            results.append({
-                "name": name, "uid": meta.get("uid", ""), "image": "",
-                "colors": [], "color_identity": list(meta.get("color", "") or ""),
-                "type_line": meta.get("type", ""), "keywords": [], "mana_cost": "",
-            })
-            if len(results) >= 10:
+        while url and fetched < 40 and pages_fetched < 20 and url not in page_urls:
+            page_urls.add(url)
+            pages_fetched += 1
+            resp = httpx.get(url, params=params, headers=headers, timeout=8.0)
+            params = None
+            if resp.status_code != 200:
                 break
+            payload = resp.json()
+            for card in payload.get("data") or []:
+                cid = card.get("id") or card.get("name")
+                if cid:
+                    candidates[cid] = card
+                    fetched += 1
+                    if fetched >= 40:
+                        break
+            url = payload.get("next_page") if payload.get("has_more") and fetched < 40 else None
+        if url:
+            params = None  # Scryfall next_page is a complete URL
+
+        if not candidates:
+            fuzzy = httpx.get(
+                "https://api.scryfall.com/cards/named",
+                params={"fuzzy": query}, headers=headers, timeout=8.0,
+            )
+            if fuzzy.status_code == 200:
+                card = fuzzy.json()
+                if (card.get("legalities") or {}).get("commander") == "legal":
+                    candidates[card.get("id") or card.get("name")] = card
+    except Exception:
+        candidates = {}
+
+
+    def relevant(card):
+        text = f"{card.get('name', '')} {card.get('type_line', '')}".casefold()
+        ql = query.casefold()
+        if ql in text:
+            return 0
+        words = ql.split()
+        if words and all(word in text for word in words):
+            return 1
+        return 2
+
+    results = []
+    for c in sorted(candidates.values(), key=lambda card: (relevant(card), (card.get("name") or "").casefold())):
+        image = ""
+        iu = c.get("image_uris") or {}
+        if iu:
+            image = iu.get("art_crop") or iu.get("small") or ""
+        elif c.get("card_faces"):
+            image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+        results.append({
+            "name": c.get("name", ""), "uid": c.get("id", ""), "image": image,
+            "colors": c.get("colors") or [], "color_identity": c.get("color_identity") or [],
+            "type_line": c.get("type_line", ""), "keywords": c.get("keywords") or [],
+            "mana_cost": c.get("mana_cost", ""),
+        })
 
     try:
-        r.set(cache_key, json.dumps(results))
+        r.set(cache_key, json.dumps({"cached_at": time.time(), "results": results}))
     except Exception:
         pass
     return {"results": results}

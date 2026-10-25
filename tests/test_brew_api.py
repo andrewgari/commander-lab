@@ -7,7 +7,7 @@ import json
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -142,6 +142,57 @@ class TestBrewAPI(unittest.TestCase):
         res = self.client.get("/api/brew/commanders?q=a")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["results"], [])
+
+    @staticmethod
+    def _card(name, type_line="Legendary Creature — Spider Hero", legality="legal"):
+        return {
+            "id": name.lower().replace(" ", "-"), "name": name, "type_line": type_line,
+            "legalities": {"commander": legality}, "colors": [], "color_identity": [],
+            "keywords": [], "mana_cost": "", "image_uris": {},
+        }
+
+    def test_commander_search_paginates_and_prioritizes_relevant_matches(self):
+        first = [self._card(f"Spider Hero {i}") for i in range(30)]
+        second = [self._card("Amazing Spider Hero"), self._card("Alibou, Ancient Witness", "Legendary Artifact Creature")]
+        pages = [
+            {"data": first, "has_more": True, "next_page": "https://api.scryfall.com/page/2"},
+            {"data": second, "has_more": False},
+        ]
+        def mocked_page(*args, **kwargs):
+            return Mock(status_code=200, json=lambda: pages.pop(0))
+        with patch.object(self.app_module.httpx, "get", side_effect=mocked_page) as get:
+            results = self.client.get("/api/brew/commanders?q=spider").json()["results"]
+            self.assertEqual(len(results), 32)
+            self.assertEqual(get.call_count, 2)
+        self.assertEqual(results[0]["name"], "Amazing Spider Hero")
+        self.assertIn("Alibou, Ancient Witness", [row["name"] for row in results])
+
+    def test_commander_search_fuzzy_fallback_is_legal_and_general(self):
+        with patch.object(self.app_module.httpx, "get", side_effect=[
+            Mock(status_code=200, json=lambda: {"data": [], "has_more": False}),
+            Mock(status_code=200, json=lambda: self._card("Atraxa, Praetors’ Voice")),
+        ]) as get:
+            results = self.client.get("/api/brew/commanders?q=atraxa").json()["results"]
+        self.assertEqual(results[0]["name"], "Atraxa, Praetors’ Voice")
+        self.assertEqual(get.call_count, 2)
+        # A misspelled arbitrary query gets the same general Scryfall fuzzy path.
+        with patch.object(self.app_module.httpx, "get", side_effect=[
+            Mock(status_code=200, json=lambda: {"data": [], "has_more": False}),
+            Mock(status_code=200, json=lambda: self._card("The Gitrog Monster")),
+        ]):
+            results = self.client.get("/api/brew/commanders?q=gitrog").json()["results"]
+        self.assertEqual(results[0]["name"], "The Gitrog Monster")
+
+    def test_commander_search_cache_expires_and_does_not_keep_empty_results_forever(self):
+        old = json.dumps({"cached_at": 1, "results": []})
+        self.r.set("brew:commander_search:spider", old)
+        fresh = self._card("Spider Hero")
+        with patch.object(self.app_module.httpx, "get", return_value=Mock(
+            status_code=200, json=lambda: {"data": [fresh], "has_more": False}
+        )) as get:
+            results = self.client.get("/api/brew/commanders?q=spider").json()["results"]
+        self.assertEqual(results[0]["name"], "Spider Hero")
+        get.assert_called_once()
 
 
 class TestBrewPages(unittest.TestCase):
