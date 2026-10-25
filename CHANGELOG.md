@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Archetype and genre Required Roles are no longer picked from a fixed produces/consumes list: every role is now a tag you define yourself, where each tag is one Scryfall query shown and editable in the editor. The Add Role picker groups tags by facet (IS / TALKS ABOUT / MAKES / AMPLIFIES / FREE) under a target (e.g. "Birds"), offers starter queries per facet, and previews "N copies · M cards in this deck" against a real deck before you save. Archetype scoring now reports exactly which cards matched each role's query, and a role whose query matches nothing (or fails) is shown as "empty"/"blocked" instead of a silent 0. Saved archetypes and genres keep scoring as before — old produces:/consumes: roles resolve to equivalent migrated tags.
+
+### Fixed
+- Archetype role "Instants & sorceries (produces)" scored 0 for every deck; it now matches cards that are instants or sorceries.
+
+### Changed
 - Deck page navigation is now a ten-tab workflow — Overview, Manage, Tune, Stats, Identity, Primer, Journal, Ideas, Review, Simulate — in the order you actually work a deck, with number-key shortcuts (1-9, 0) to jump between tabs and a `?` legend overlay that lists every shortcut. Manage is now a full tab instead of a header button, the Primer has its own tab with a dedicated reading page (it no longer appears inside the Overview's Briefing), and the Composition view has moved into the Stats tab as a full-width section — the old Composition address now permanently redirects to Stats.
 
 ### Added

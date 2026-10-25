@@ -4378,7 +4378,7 @@ async def api_genres_list():
     from analytics import genres as genres_mod
 
     genres = await asyncio.to_thread(genres_mod.list_genres, r)
-    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary())
+    return _genre_payload(genres=genres, vocabulary=genres_mod.role_vocabulary(r))
 
 
 @app.post("/api/genres/autofill")
@@ -5242,17 +5242,14 @@ async def api_deck_genres(deck_id: str):
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
+    from analytics import role_tags
+
     graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
     genres = await asyncio.to_thread(genres_mod.list_genres, r)
-    qty: dict = {}
-    for c in deck.get("cards") or []:
-        if c.get("name"):
-            try:
-                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
-            except (TypeError, ValueError):
-                qty[c["name"]] = qty.get(c["name"], 0) + 1
+    deck_cards = {"cards": await asyncio.to_thread(role_tags.deck_cards_from_deck, deck)}
+    matches = await asyncio.to_thread(genres_mod.genre_match, deck_cards, genres, r)
     return _genre_payload(deck=deck.get("name"), untagged=(graph.get("counts") or {}).get("untagged", 0),
-                          matches=genres_mod.genre_match(genres_mod.deck_from_graph(graph, qty), genres))
+                          matches=matches)
 
 
 # ---------------------------------------------------------------------------
@@ -5273,7 +5270,11 @@ async def api_archetypes_list():
         return archetypes_mod.with_rendered_descriptions(archetypes_mod.list_archetypes(r))
 
     archetypes = await asyncio.to_thread(_list_rendered)
-    return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary())
+    from analytics import role_tags
+
+    targets = await asyncio.to_thread(lambda: [role_tags.target_payload(t) for t in role_tags.load_targets(r)])
+    return _archetype_payload(archetypes=archetypes, vocabulary=archetypes_mod.role_vocabulary(r),
+                              targets=targets)
 
 
 @app.post("/api/archetypes/render-preview")
@@ -5309,7 +5310,7 @@ async def api_archetypes_describe(request: Request):
         except (TypeError, ValueError):
             card_names = []
         return archetype_describe.describe_archetype(
-            default_chain(), body, roles_vocab=archetypes_mod.role_vocabulary(),
+            default_chain(), body, roles_vocab=archetypes_mod.legacy_role_vocabulary(),
             card_names=card_names, archetypes=archetypes_mod.list_archetypes(r))
 
     try:
@@ -5418,30 +5419,166 @@ async def api_staple_themes_delete(card_name: str):
     return {"success": True, "entry": entry}
 
 
-def _archetype_deck_qty(deck: dict) -> dict:
-    qty: dict = {}
-    for c in deck.get("cards") or []:
-        if c.get("name"):
-            try:
-                qty[c["name"]] = qty.get(c["name"], 0) + max(int(c.get("quantity") or 1), 1)
-            except (TypeError, ValueError):
-                qty[c["name"]] = qty.get(c["name"], 0) + 1
-    return qty
+# ---------------------------------------------------------------------------
+# Role tag registry (ARCH-3) -- see analytics/role_tags.py, docs/role-tags-spec.md
+# ---------------------------------------------------------------------------
+
+
+def _role_tag_payload(**extra):
+    from analytics import role_tags
+
+    return {"success": True, "version": role_tags.get_version(r), **extra}
+
+
+def _role_tag_usage(tag_id: str) -> List[str]:
+    """Names of archetypes/genres whose required_roles reference this tag (after legacy
+    alias resolution) — used by edit confirmations and delete refusal."""
+    from analytics import archetypes as archetypes_mod
+    from analytics import genres as genres_mod
+    from analytics import role_tags
+
+    index = role_tags.tag_index(r)
+    users = []
+    for kind, items in (("archetype", archetypes_mod.list_archetypes(r)),
+                        ("genre", genres_mod.list_genres(r))):
+        for item in items:
+            for role in item.get("required_roles", []):
+                try:
+                    if role_tags.resolve_role_tag(role.get("tag"), index) == tag_id:
+                        users.append(f"{kind} '{item.get('name', item['id'])}'")
+                        break
+                except role_tags.RoleTagError:
+                    continue
+    return users
+
+
+@app.get("/api/role-tags")
+async def api_role_tags_list():
+    from analytics import role_tags
+
+    def _load():
+        return role_tags.all_tags(r), [role_tags.target_payload(t) for t in role_tags.load_targets(r)]
+
+    tags, targets = await asyncio.to_thread(_load)
+    return _role_tag_payload(tags=tags, targets=targets)
+
+
+@app.post("/api/role-targets")
+async def api_role_targets_create(request: Request):
+    from analytics import role_tags
+
+    try:
+        target = await asyncio.to_thread(role_tags.create_target, r, await _json_body(request))
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content=_role_tag_payload(target=target))
+
+
+@app.post("/api/role-tags")
+async def api_role_tags_create(request: Request):
+    from analytics import role_tags
+
+    try:
+        tag = await asyncio.to_thread(role_tags.create_tag, r, await _json_body(request))
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return JSONResponse(status_code=201, content=_role_tag_payload(tag=tag))
+
+
+@app.put("/api/role-tags/{tag_id}")
+async def api_role_tags_update(tag_id: str, request: Request):
+    """Edit a tag. Editing the query re-scores every archetype/genre pointing at it; the
+    response names them (spec §5.3)."""
+    from analytics import role_tags
+
+    try:
+        tag = await asyncio.to_thread(role_tags.update_tag, r, tag_id, await _json_body(request))
+    except role_tags.RoleTagNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    affected = await asyncio.to_thread(_role_tag_usage, tag_id)
+    return _role_tag_payload(tag=tag, affected=affected)
+
+
+@app.delete("/api/role-tags/{tag_id}")
+async def api_role_tags_delete(tag_id: str):
+    from analytics import role_tags
+
+    in_use = await asyncio.to_thread(_role_tag_usage, tag_id)
+    try:
+        await asyncio.to_thread(role_tags.delete_tag, r, tag_id, in_use_by=in_use)
+    except role_tags.RoleTagNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    except role_tags.RoleTagError as exc:
+        return _bad_request(exc)
+    return _role_tag_payload()
+
+
+@app.post("/api/role-tags/preview")
+async def api_role_tags_preview(request: Request):
+    """{query, deck_id} -> the same evaluation scoring uses: N copies · M cards of THIS deck
+    match the query, with the matched names (spec §5.1 step 4)."""
+    from analytics import role_tags
+
+    body = await _json_body(request)
+    if not isinstance(body, dict):
+        return _bad_request(ValueError("JSON object body required"))
+    query = body.get("query")
+    if not isinstance(query, str) or not query.strip():
+        return _bad_request(ValueError("query is required."))
+    deck, err = _deck_or_404(str(body.get("deck_id") or ""))
+    if err:
+        return err
+    cards = await asyncio.to_thread(role_tags.deck_cards_from_deck, deck)
+    out = await asyncio.to_thread(role_tags.preview, r, query, cards)
+    return _role_tag_payload(deck=deck.get("name"), **out)
+
+
+@app.post("/api/role-tags/{tag_id}/refresh")
+async def api_role_tags_refresh(tag_id: str):
+    """Re-run the tag's query and rewrite its index entry (spec §2.5; fresh <20h entries skip)."""
+    from analytics import role_tags
+
+    index = await asyncio.to_thread(role_tags.tag_index, r)
+    tag = index.get(tag_id)
+    if not tag:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Tag '{tag_id}' not found"})
+    entry = await asyncio.to_thread(role_tags.query_index, r, tag.get("query", ""), None, True)
+    return _role_tag_payload(tag=tag, total=entry.get("total"), error=entry.get("error"),
+                             oversized=entry.get("oversized"), built_at=entry.get("built_at"))
+
+
+@app.get("/api/archetypes/{archetype_id}/score")
+async def api_archetype_score(archetype_id: str, deck: str = Query(default="")):
+    """Per-role breakdown for one archetype against one deck (spec §4.3/§6.4)."""
+    from analytics import archetypes as archetypes_mod
+    from analytics import role_tags
+
+    try:
+        archetype = await asyncio.to_thread(archetypes_mod.get_archetype, r, archetype_id)
+    except archetypes_mod.ArchetypeNotFound:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{archetype_id}' not found"})
+    deck_rec, err = _deck_or_404(deck)
+    if err:
+        return err
+    cards = await asyncio.to_thread(role_tags.deck_cards_from_deck, deck_rec)
+    matches = await asyncio.to_thread(archetypes_mod.archetype_match, {"cards": cards}, [archetype], r)
+    row = matches[0] if matches else {"coverage": 0.0, "roles_hit": [], "roles_missing": []}
+    return _archetype_payload(deck=deck_rec.get("name"), **row)
 
 
 @app.get("/api/decks/{deck_id}/archetype")
 async def api_deck_archetype(deck_id: str):
     """Resolved archetype for this deck: a manual override, else the best whole-deck derived
-    match (role coverage from the deck's interaction tags), plus the full ranking."""
+    match (role coverage from the role-tag registry), plus the full ranking."""
     from analytics import archetypes as archetypes_mod
 
     deck, err = _deck_or_404(deck_id)
     if err:
         return err
     rid = registry.registry_id_of(deck)
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    qty = _archetype_deck_qty(deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, qty)
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 
@@ -5463,8 +5600,7 @@ async def api_set_deck_archetype(deck_id: str, request: Request):
         return _bad_request(exc)
     except archetypes_mod.ArchetypeNotFound as exc:
         return JSONResponse(status_code=404, content={"success": False, "error": f"Archetype '{exc}' not found"})
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 
@@ -5477,8 +5613,7 @@ async def api_reset_deck_archetype(deck_id: str):
         return err
     rid = registry.registry_id_of(deck)
     await asyncio.to_thread(archetypes_mod.reset_selection, r, rid)
-    graph = await asyncio.to_thread(interactions_service.get_deck_graph, r, deck)
-    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, graph, _archetype_deck_qty(deck))
+    out = await asyncio.to_thread(archetypes_mod.resolve_for_deck, r, rid, deck)
     return {"success": True, "deck": deck.get("name"), **out}
 
 
