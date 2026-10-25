@@ -53,6 +53,15 @@ class StrengthBreakdown(_Model):
     role_need: Optional[float] = None
 
 
+class SlotGate(_Model):
+    """Slot-legality verdict for a suggested card. `reason` is always set
+    (pass or fail) so consumers never see a bare boolean."""
+    slot: str = "mainboard"
+    legal: bool
+    reason: str
+    type_class: Optional[str] = Field(None, description="Variant type class found (plane/scheme/...), else None")
+
+
 class Candidate(_Model):
     name: str
     roles: List[str] = Field(default_factory=list)
@@ -62,6 +71,7 @@ class Candidate(_Model):
     score: float
     color_identity: str = ""
     owned: Optional[bool] = Field(None, description="Physical decks only: card is in the collection")
+    slot_gate: Optional[SlotGate] = Field(None, description="Mainboard slot-gate verdict (always present for pool candidates)")
 
 
 class CardInfo(_Model):

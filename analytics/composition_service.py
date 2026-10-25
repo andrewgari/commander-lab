@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import Any, List, Mapping, Optional
 
 from analytics import composition_store as store
+from analytics.composition_repository import get_preset_repository
+from analytics.repository_interfaces import NotFoundError
 from analytics.composition_models import CompositionValidationError, resolve_preset
 
 
@@ -16,38 +18,35 @@ class PresetNotFound(KeyError):
 
 
 def user_presets(r) -> List[dict]:
-    return store.list_presets(r)
+    return list(get_preset_repository(r).list())
 
 
 def list_all(r, kind: Optional[str] = None) -> List[dict]:
-    items = store.list_presets(r)
     if kind in ("builtin",):
         return []
-    return items
+    return list(get_preset_repository(r).list())
 
 
 def get(r, preset_id: str) -> dict:
-    p = store.get_preset(r, preset_id)
+    p = get_preset_repository(r).get(preset_id)
     if p is None:
         raise PresetNotFound(preset_id)
     return p
 
 
 def create(r, body: Mapping) -> dict:
-    return store.create_preset(r, body)
+    return get_preset_repository(r).create(dict(body))
 
 
 def update(r, preset_id: str, body: Mapping) -> dict:
     try:
-        return store.update_preset(r, preset_id, body)
-    except ValueError as exc:
-        if isinstance(exc, CompositionValidationError):
-            raise
+        return get_preset_repository(r).update(preset_id, dict(body))
+    except NotFoundError as exc:
         raise PresetNotFound(preset_id) from exc
 
 
 def delete(r, preset_id: str) -> None:
-    if not store.delete_preset(r, preset_id):
+    if not get_preset_repository(r).delete(preset_id):
         raise PresetNotFound(preset_id)
 
 

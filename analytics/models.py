@@ -88,7 +88,12 @@ class DeckCardEntry(BaseModel):
         quantity: Number of copies in the deck (minimum 1).
         oracle_id: Scryfall Oracle ID (UUID) if known.
         scryfall_id: Scryfall printing ID (UUID) if known.
-        category: Structural board category (e.g. 'Mainboard', 'Commander', 'Sideboard').
+        category: Structural board category label (e.g. 'Mainboard', 'Commander',
+            'Maybeboard'). Deprecated Sideboard labels are remapped to Maybeboard.
+        slot: Canonical deck slot identity (see deck_slots.DeckSlot:
+            'commander', 'mainboard', 'maybeboard', 'considering',
+            'planar_deck', 'scheme_deck', 'attraction_deck'). The slot-legality
+            validator gates card type classes per slot.
     """
     model_config = ConfigDict(
         json_schema_extra={
@@ -98,6 +103,7 @@ class DeckCardEntry(BaseModel):
                 "oracle_id": "4a58b98b-e666-41f2-850f-e23a54b321a6",
                 "scryfall_id": "e674b09e-7164-4e2e-8424-6997ffb0e6ad",
                 "category": "Mainboard",
+                "slot": "mainboard",
             }
         }
     )
@@ -106,7 +112,27 @@ class DeckCardEntry(BaseModel):
     quantity: int = Field(default=1, ge=1, description="Quantity of the card in the deck")
     oracle_id: Optional[str] = Field(None, description="Scryfall Oracle UUID")
     scryfall_id: Optional[str] = Field(None, description="Scryfall card printing UUID")
-    category: Optional[str] = Field(None, description="Structural category or board")
+    category: Optional[str] = Field(None, description="Structural category label")
+    slot: Optional[str] = Field(
+        None,
+        description="Canonical deck slot (commander|mainboard|maybeboard|considering|"
+        "planar_deck|scheme_deck|attraction_deck)",
+    )
+
+    @field_validator("slot")
+    @classmethod
+    def validate_slot(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        from deck_slots import normalize_slot
+
+        slot = normalize_slot(v)
+        if slot is None:
+            raise ValueError(
+                f"Unknown deck slot: {v!r} (expected one of commander, mainboard, "
+                "maybeboard, considering, planar_deck, scheme_deck, attraction_deck)"
+            )
+        return slot
 
     @field_validator("name")
     @classmethod

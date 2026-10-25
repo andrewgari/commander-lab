@@ -9,6 +9,9 @@ Playwright + authenticated-session scrape path described in that skill.
 import re
 import requests
 
+import deck_slots
+from deck_slots import DeckSlot
+
 API_BASE = "https://api2.moxfield.com/v3/decks/all"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -21,6 +24,16 @@ _PUBLIC_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 # Boards folded into the mainboard cardlist for the physical instance registry.
 # Sideboard/maybeboard-equivalents are excluded, matching the Archidekt convention.
 MAINBOARD_BOARDS = {"mainboard", "commanders", "companions", "signatureSpells"}
+
+# Non-main boards -> canonical deck slots (deck_slots.DeckSlot). The removed
+# "sideboard" board remaps to maybeboard and is flagged on parse.
+BOARD_TO_SLOT = {
+    "maybeboard": DeckSlot.MAYBEBOARD,
+    "sideboard": DeckSlot.MAYBEBOARD,  # remapped; flagged
+    "attractions": DeckSlot.ATTRACTION_DECK,
+    "planes": DeckSlot.PLANAR_DECK,
+    "schemes": DeckSlot.SCHEME_DECK,
+}
 
 
 def parse_identifier(identifier: str) -> str:
@@ -112,6 +125,8 @@ def fetch_deck(identifier: str) -> dict:
     color_code = "".join(color_identity) or "C"
 
     commanders, commander_uids, cards = [], [], []
+    slots = deck_slots.empty_slots()
+    parse_flags: list = []
     boards = data.get("boards", {}) or {}
 
     commander_board = boards.get("commanders", {}) or {}
@@ -125,14 +140,28 @@ def fetch_deck(identifier: str) -> dict:
             commander_uids.append(scryfall_id)
 
     for board_name, board in boards.items():
-        if board_name not in MAINBOARD_BOARDS:
-            continue
-        for entry in (board.get("cards") or {}).values():
-            card = entry.get("card", {})
-            name = card.get("name")
-            if not name:
-                continue
-            cards.append({"name": name, "quantity": entry.get("quantity", 1)})
+        entries = (board.get("cards") or {}).values()
+        if board_name in MAINBOARD_BOARDS:
+            for entry in entries:
+                card = entry.get("card", {})
+                name = card.get("name")
+                if not name:
+                    continue
+                cards.append({"name": name, "quantity": entry.get("quantity", 1)})
+        elif board_name in BOARD_TO_SLOT:
+            slot = BOARD_TO_SLOT[board_name]
+            for entry in entries:
+                card = entry.get("card", {})
+                name = card.get("name")
+                if not name:
+                    continue
+                row = {"name": name, "quantity": entry.get("quantity", 1)}
+                if deck_slots.is_sideboard_spelling(board_name):
+                    row["remapped_from"] = "sideboard"
+                    deck_slots.flag_sideboard_remap(
+                        parse_flags, context=f"moxfield deck {public_id}", count=1
+                    )
+                slots[slot].append(row)
 
     return {
         "source": "moxfield",
@@ -144,6 +173,8 @@ def fetch_deck(identifier: str) -> dict:
         "folder": "Imported",
         "description": data.get("description", ""),
         "cards": cards,
+        "slots": slots,
+        "parse_flags": parse_flags,
         "url": data.get("publicUrl", f"https://moxfield.com/decks/{public_id}"),
     }
 

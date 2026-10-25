@@ -6,7 +6,7 @@ from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tcgplayer import build_tcgplayer_url, BASE_URL  # noqa: E402
+from tcgplayer import build_tcgplayer_url, cart_items, BASE_URL  # noqa: E402
 
 
 def decoded_c(url: str) -> str:
@@ -92,6 +92,50 @@ class TestBuildTcgplayerUrl(unittest.TestCase):
         cards = [{"name": "", "qty": 1}, {"name": "Sol Ring", "qty": 1}]
         url = build_tcgplayer_url(cards)
         self.assertEqual(decoded_c(url), "1 Sol Ring")
+
+
+class TestSetPinnedPrintings(unittest.TestCase):
+    """A carried set code pins the printing: `1 Lightning Bolt [SLD]`."""
+
+    def test_set_pins_the_printing(self):
+        url = build_tcgplayer_url([{"name": "Lightning Bolt", "qty": 1, "set": "sld"}])
+        self.assertEqual(decoded_c(url), "1 Lightning Bolt [SLD]")
+
+    def test_set_code_is_normalized(self):
+        url = build_tcgplayer_url([{"name": "Lightning Bolt", "qty": 1, "set": " sld "}])
+        self.assertEqual(decoded_c(url), "1 Lightning Bolt [SLD]")
+
+    def test_same_name_same_set_merges(self):
+        cards = [
+            {"name": "Lightning Bolt", "qty": 1, "set": "sld"},
+            {"name": "Lightning Bolt", "qty": 2, "set": "SLD"},
+        ]
+        url = build_tcgplayer_url(cards)
+        self.assertEqual(decoded_c(url), "3 Lightning Bolt [SLD]")
+
+    def test_same_name_different_sets_stay_separate(self):
+        cards = [
+            {"name": "Lightning Bolt", "qty": 1, "set": "sld"},
+            {"name": "Lightning Bolt", "qty": 1, "set": "2x2"},
+            {"name": "Lightning Bolt", "qty": 1},
+        ]
+        url = build_tcgplayer_url(cards)
+        self.assertEqual(
+            decoded_c(url),
+            "1 Lightning Bolt [SLD]||1 Lightning Bolt [2X2]||1 Lightning Bolt",
+        )
+
+    def test_blank_set_falls_back_to_any_printing(self):
+        for raw in ("", "   ", None):
+            with self.subTest(set=raw):
+                url = build_tcgplayer_url([{"name": "Sol Ring", "qty": 1, "set": raw}])
+                self.assertEqual(decoded_c(url), "1 Sol Ring")
+
+    def test_cart_items_carry_set_only_when_present(self):
+        items = cart_items([{"name": "Lightning Bolt", "qty": 1, "set": "sld"},
+                            {"name": "Sol Ring", "qty": 1}])
+        self.assertEqual(items[0], {"name": "Lightning Bolt", "qty": 1, "set": "SLD"})
+        self.assertEqual(items[1], {"name": "Sol Ring", "qty": 1})
 
 
 if __name__ == "__main__":

@@ -367,6 +367,10 @@ button { font-family: inherit; font-size: inherit; }
 
 .nav-items { display: flex; flex-direction: column; padding-bottom: var(--sp-4); }
 
+/* Standalone Command Center link above the labeled groups: replace the
+   breathing room the removed "Navigate" label used to provide. */
+.nav-items--home { padding-top: var(--sp-3); }
+
 .nav-item {
     position: relative;
     display: flex;
@@ -414,6 +418,26 @@ button { font-family: inherit; font-size: inherit; }
     text-transform: uppercase;
 }
 .sidebar-footer a { text-decoration: none; color: inherit; }
+
+/* Player Profile entry: a footer chip next to the version badge, not a nav
+   item (nav IA §2.2). Mirrors .version-badge styling. */
+.sidebar-footer .profile-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 1px var(--sp-2);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: 0;
+    text-transform: none;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.sidebar-footer .profile-chip:hover,
+.sidebar-footer .profile-chip.active { border-color: var(--signal); color: var(--signal-strong); }
+.profile-chip-icon { flex-shrink: 0; width: 12px; height: 12px; }
 
 .version-badge {
     display: inline-block;
@@ -498,11 +522,13 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .nav-label,
     .nav-caret,
     .nav-section-label,
-    .sidebar-footer-label { display: none; }
+    .profile-chip-label { display: none; }
     .nav-item { justify-content: center; padding: var(--sp-3) 0; }
     .nav-icon { width: 18px; height: 18px; }
-    .sidebar-footer { justify-content: center; padding: var(--sp-3) var(--sp-1); }
-    .version-badge { padding: 1px var(--sp-1); font-size: 0.625rem; }
+    /* Two footer chips don't fit the 56px rail side by side: stack them. */
+    .sidebar-footer { flex-direction: column; justify-content: center; align-items: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-1); }
+    .sidebar-footer .profile-chip { padding: 1px var(--sp-1); gap: 0; }
+    .version-badge { padding: 1px var(--sp-1); font-size: 0.5625rem; /* fits "vX.Y.ZZZ" inside the 56px rail */ }
     .nav-items + .nav-section-label { display: block; height: 0; padding: 0; overflow: hidden; }
 }
 
@@ -1726,7 +1752,12 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-swap.is-accepted { background: var(--ok-dim); }
 .hud-swap.is-dismissed { opacity: 0.45; }
 .hud-swap-arrow { padding-top: var(--sp-1); color: var(--text-4); font-family: var(--font-mono); text-align: center; }
-.hud-swap-out .hud-card-name { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-4); }
+/* DT-5: cut recommendations render red — the card is marked for removal. */
+.hud-swap-out .hud-label { color: var(--danger); }
+.hud-swap-out .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
+/* DT-5: a dismissed cut stays visibly marked (red strike) but inert in the weak table. */
+.tn-ignored td { opacity: 0.65; }
+.tn-ignored .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
 .hud-why { margin-top: var(--sp-2); display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.25rem; gap: var(--sp-1) var(--sp-2); align-items: center; font: var(--fs-micro) var(--font-mono); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
 .hud-why .t { height: 4px; background: var(--surface-3); }
 .hud-why .t i { display: block; height: 100%; background: var(--text-3); }
@@ -2785,9 +2816,9 @@ a.hud-idea-theme:hover { color: var(--signal); }
 /* Update / Push controls (docs/design/sync_controls/SPEC.md) ------------------------ */
 .sync-controls { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
 .sync-group { display: flex; flex-direction: column; gap: var(--sp-2); }
-.sync-group-name { font-weight: 600; }
+.sync-group-name { font-weight: 600; overflow-wrap: anywhere; }
 .sync-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.sync-meta, .sync-note { font-size: var(--fs-xs, 0.75rem); }
+.sync-meta, .sync-note { font-size: var(--fs-xs, 0.75rem); overflow-wrap: anywhere; }
 .sync-error { color: var(--danger); font-size: var(--fs-xs, 0.75rem); }
 .sync-btn { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .sync-btn--update { color: var(--data); border-color: var(--data-dim); background: var(--data-dim); }
@@ -2800,7 +2831,7 @@ a.hud-idea-theme:hover { color: var(--signal); }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .sync-spin { animation: none; } }
 .sync-confirm-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
-.diff-summary { border: 1px solid var(--line); padding: var(--sp-3); font-family: monospace; font-size: 0.8rem; max-height: 14rem; overflow-y: auto; }
+.diff-summary { border: 1px solid var(--line); padding: var(--sp-3); font-family: monospace; font-size: 0.8rem; max-height: 14rem; overflow-y: auto; overflow-wrap: anywhere; }
 .diff-add { color: var(--ok); }
 .diff-sub { color: var(--danger); }
 
@@ -3387,7 +3418,7 @@ button.hud-menu-item { width: 100%; box-sizing: border-box; background: none; bo
 .pf-sec[data-src="locked"] { border-left-color: var(--signal); background: var(--surface-1); }
 .pf-sec h3 { margin: 0; display: flex; align-items: baseline; gap: var(--sp-2); color: var(--text-1); font-size: var(--fs-md); }
 .pf-sec-a { display: flex; gap: var(--sp-1); align-items: flex-start; }
-.pf-sec-b { grid-column: 1 / -1; max-width: 75ch; color: var(--text-2); line-height: var(--lh-base); font-size: var(--fs-base); }
+.pf-sec-b { grid-column: 1 / -1; max-width: 100ch; color: var(--text-2); line-height: var(--lh-base); font-size: var(--fs-base); }
 .pf-sec-b p { margin: 0 0 var(--sp-2); }
 .pf-sec-b ul { margin: 0 0 var(--sp-2); padding-left: var(--sp-5); }
 .pf-sec-b :last-child { margin-bottom: 0; }
@@ -3684,3 +3715,124 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .hud-stat-unit { font-size: var(--fs-xs); }
     .hud-stat-foot { white-space: normal; overflow-wrap: anywhere; }
 }
+
+/* 10. TUNE OVERLAY (DT-1, deck-tuner-overlay-spec §2) =====================
+   Deckbuilding board layered over the decklist on /deck/{name}/tune:
+   one column per card tag + structural slots, native HTML5 drag & drop.
+   Rendered by static/js/tune_overlay.js. */
+.tnov-bar { margin-bottom: var(--sp-4); }
+.tnov-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.tnov-bar-gap { flex: 1; }
+.tnov-bar-row input[type="text"] { width: 12rem; }
+
+.tnov-columns { display: flex; gap: var(--sp-4); align-items: flex-start; overflow-x: auto; padding-bottom: var(--sp-3); }
+.tnov-col { flex: 0 0 16rem; display: flex; flex-direction: column; max-height: 75vh; }
+.tnov-col.is-drop { outline: var(--focus-ring); outline-offset: 2px; }
+.tnov-col.is-excluded .tnov-col-head .hud-panel-title { color: var(--text-3); text-decoration: line-through; }
+.tnov-col-head { gap: var(--sp-2); }
+.tnov-col-head .hud-panel-meta { margin-left: auto; }
+.tnov-flag.is-on { color: var(--signal); border-color: var(--signal-line, var(--signal)); }
+.tnov-col-body { display: flex; flex-direction: column; gap: var(--sp-1); min-height: 3.5rem; overflow-y: auto; }
+.tnov-col.is-excluded .tnov-col-body { opacity: 0.55; }
+.tnov-empty { padding: var(--sp-3); }
+
+.tnov-chip { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); cursor: grab; }
+.tnov-chip:active { cursor: grabbing; }
+.tnov-chip.is-excluded { opacity: 0.45; }
+.tnov-qty { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.tnov-remove { margin-left: auto; padding: 0 var(--sp-1); background: none; border: 0; color: var(--text-3); font-size: var(--fs-base); line-height: 1; cursor: pointer; }
+.tnov-remove:hover { color: var(--danger); }
+
+.tnov-add { position: relative; margin-top: var(--sp-2); }
+.tnov-add-input { width: 100%; font-size: var(--fs-xs); }
+.tnov-ac { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; max-height: 16rem; overflow-y: auto; background: var(--surface-1); border: var(--stroke-strong); border-radius: var(--radius-1); }
+.tnov-ac-option { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
+.tnov-ac-option:hover, .tnov-ac-option.is-active { background: var(--surface-3); }
+.tnov-ac-type { color: var(--text-3); font: var(--fs-micro) var(--font-mono); white-space: nowrap; }
+
+@media (max-width: 768px) {
+    .tnov-columns { flex-direction: column; overflow-x: visible; }
+    .tnov-col { flex: none; width: 100%; max-height: none; }
+    .tnov-bar-row input[type="text"] { flex: 1; width: auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .tnov-col { transition: outline-color var(--dur-fast) var(--ease); }
+}
+
+/* ==========================================================================
+   Brew flow additions (BREW-CODE, docs/architecture/brew-flow-ux-spec.md).
+   Additions only, token-driven: build-mode radio cards, building progress
+   line, provenance stack bar.
+   ========================================================================== */
+
+/* Large selectable radio cards (build mode). Selected: --indicator left bar
+   + --signal title; unselected --text-2. Keyboard focus keeps the HUD ring. */
+.hud-radio-card {
+    display: grid;
+    gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: var(--hairline) solid var(--line);
+    border-left: var(--indicator) solid transparent;
+    cursor: pointer;
+}
+.hud-radio-card:hover { background: var(--surface-2); }
+.hud-radio-card input { position: absolute; opacity: 0; pointer-events: none; }
+.hud-radio-card:has(input:focus-visible) { outline: var(--focus-ring); outline-offset: 2px; }
+.hud-radio-card:has(input:checked) { border-left-color: var(--signal); background: var(--surface-2); }
+.hud-radio-card-title { color: var(--text-2); font-weight: var(--fw-semibold); }
+.hud-radio-card:has(input:checked) .hud-radio-card-title { color: var(--signal); }
+.hud-radio-card-body { color: var(--text-2); font-size: var(--fs-sm); }
+.hud-radio-card-foot { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* Building progress: thin --signal bar animating across (indeterminate).
+   Reduced motion: static bar. */
+.hud-progress-line {
+    height: 2px;
+    background: var(--surface-3);
+    overflow: hidden;
+    position: relative;
+}
+.hud-progress-line > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: var(--signal);
+    animation: hud-progress-sweep 1.6s var(--ease) infinite;
+}
+@keyframes hud-progress-sweep {
+    0% { left: -40%; }
+    100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hud-progress-line > span { animation: none; width: 100%; opacity: 0.4; }
+}
+
+/* Provenance stack bar: donor = --signal, inventory = --data,
+   buy = --surface-3. Legend below in --text-3. */
+.hud-prov-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    height: 0.625rem;
+    margin-top: var(--sp-3);
+}
+.hud-prov-bar-seg { display: block; height: 100%; }
+.hud-prov-bar-seg.hud-prov-bar-donor { background: var(--signal); }
+.hud-prov-bar-seg.hud-prov-bar-inv { background: var(--data); }
+.hud-prov-bar-seg.hud-prov-bar-buy { background: var(--surface-3); }
+.hud-prov-bar-legend {
+    flex-basis: 100%;
+    margin-top: var(--sp-1);
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    display: flex;
+    gap: var(--sp-1);
+    align-items: center;
+    flex-wrap: wrap;
+}
+.hud-prov-bar-key { display: inline-block; width: 0.625rem; height: 0.625rem; margin-left: var(--sp-2); }
+.hud-prov-bar-key:first-child { margin-left: 0; }
+.hud-prov-bar-key.hud-prov-bar-donor { background: var(--signal); }
+.hud-prov-bar-key.hud-prov-bar-inv { background: var(--data); }
+.hud-prov-bar-key.hud-prov-bar-buy { background: var(--surface-3); }

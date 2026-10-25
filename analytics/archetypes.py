@@ -5,9 +5,11 @@ An archetype is
     {id, name, description, required_roles: [{tag, min_count, weight}],
      source: "user", draft: bool, updated_at}
 
-A role ``tag`` is ``"<side>:<resource>"`` in the interaction-graph vocabulary
-(analytics/interactions/vocab.py): side is ``produces`` or ``consumes``, resource
-is a vocabulary key, e.g. ``produces:sacrifice`` = "is a sacrifice outlet".
+A role ``tag`` is a role-tag registry id (analytics/role_tags.py): every tag is one
+Scryfall query, and scoring intersects the query's cached name set with the deck's
+cards. Legacy ``produces:<resource>``/``consumes:<resource>`` spellings (the old
+interaction-graph vocabulary) resolve at read/score time to ``legacy:<side>:<key>``
+tags with identical membership, so saved archetypes score unchanged (spec §3.2).
 
 Redis: ``archetypes`` (JSON list, absent until first read, which seeds it) and
 ``archetypes:version`` (integer, bumped on every create/update/delete). A deck's
@@ -31,15 +33,18 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+import markdown as _markdown
+
+from analytics import role_tags
+from analytics.deck_writeup.sanitize import sanitize_primer_html
 from analytics.interactions.vocab import RESOURCES, RESOURCE_BY_KEY
 
 ARCHETYPES_KEY = "archetypes"
 VERSION_KEY = "archetypes:version"
 SEL_KEY = "archetype_sel:{registry_id}"
-SIDES = ("produces", "consumes")
 SOURCES = ("user",)
 MAX_NAME = 60
-MAX_DESCRIPTION = 1200
+MAX_DESCRIPTION = 4000
 MAX_ROLES = 12
 MAX_MIN_COUNT = 40
 MAX_WEIGHT = 10.0
@@ -56,8 +61,20 @@ class ArchetypeNotFound(KeyError):
 
 # -- vocabulary -------------------------------------------------------------------------------
 
-def role_vocabulary() -> List[dict]:
-    """Every valid role tag, in vocabulary order, with a human label."""
+def role_vocabulary(r=None) -> List[dict]:
+    """Every valid role tag: the user-editable registry (id, label, query, facet).
+
+    With no Redis handle, returns the migrated legacy tags (same shape).
+    """
+    tags = role_tags.all_tags(r) if r is not None else role_tags.legacy_tags()
+    return [{"tag": t["id"], "label": t["label"], "query": t.get("query", ""),
+             "facet": t.get("facet"), "target_id": t.get("target_id"),
+             "meaning": t.get("explanation") or t.get("query", ""),
+             "source": t.get("source")} for t in tags]
+
+
+def legacy_role_vocabulary() -> List[dict]:
+    """The pre-ARCH-3 produces/consumes vocabulary; kept only for LLM drafting prompts."""
     out = []
     for res in RESOURCES:
         out.append({"tag": f"produces:{res.key}", "side": "produces", "key": res.key,
@@ -67,23 +84,14 @@ def role_vocabulary() -> List[dict]:
     return out
 
 
-def normalize_tag(value: Any) -> Optional[str]:
-    """'produces:sacrifice' for loose input ('Produces: Sacrifice', 'consumes/life gain'), else None."""
-    if not isinstance(value, str):
+def normalize_tag(value: Any, r=None) -> Optional[str]:
+    """Resolve loose input to a registry tag id ('produces: Sacrifice' -> 'legacy:produces:sacrifice',
+    'bird:makes' -> 'bird:makes'), else None. Thin wrapper over role_tags.resolve_role_tag."""
+    try:
+        index = role_tags.tag_index(r) if r is not None else {t["id"]: t for t in role_tags.legacy_tags()}
+        return role_tags.resolve_role_tag(value, index)
+    except role_tags.RoleTagError:
         return None
-    m = re.match(r"^\s*(produces?|consumes?)\s*[:/.\-\s]\s*(.+?)\s*$", value, re.I)
-    if not m:
-        return None
-    side = "produces" if m.group(1).lower().startswith("produce") else "consumes"
-    key = re.sub(r"[\s\-/]+", "_", m.group(2).strip().lower())
-    if key not in RESOURCE_BY_KEY:
-        for res in RESOURCES:
-            if re.sub(r"[\s\-/+]+", "_", res.label.lower()) == key:
-                key = res.key
-                break
-        else:
-            return None
-    return f"{side}:{key}"
 
 
 # -- validation -------------------------------------------------------------------------------
@@ -102,22 +110,28 @@ def _num(value: Any, name: str, lo: float, hi: float, as_int: bool):
     return v
 
 
-def clean_roles(roles: Any) -> List[dict]:
-    """Strict: unknown tags / bad numbers raise ArchetypeError. Duplicate tags are merged out."""
+def clean_roles(roles: Any, r=None) -> List[dict]:
+    """Strict: unknown tags / bad numbers raise ArchetypeError. Duplicate tags are merged out.
+
+    Tags are validated against the role-tag registry (role_tags); legacy
+    ``produces:<key>``/``consumes:<key>`` spellings resolve to their ``legacy:`` ids.
+    """
     if roles is None:
         return []
     if not isinstance(roles, list):
         raise ArchetypeError("required_roles must be a list.")
     if len(roles) > MAX_ROLES:
         raise ArchetypeError(f"An archetype can have at most {MAX_ROLES} required roles.")
+    index = role_tags.tag_index(r) if r is not None else {t["id"]: t for t in role_tags.legacy_tags()}
     out, seen = [], set()
     for i, role in enumerate(roles, 1):
         if not isinstance(role, dict):
             raise ArchetypeError(f"Role {i} must be an object.")
         raw = role.get("tag", role.get("role"))
-        tag = normalize_tag(raw)
-        if tag is None:
-            raise ArchetypeError(f"Role {i}: unknown tag {raw!r}. Use produces:<resource> or consumes:<resource>.")
+        try:
+            tag = role_tags.resolve_role_tag(raw, index)
+        except role_tags.RoleTagError as exc:
+            raise ArchetypeError(f"Role {i}: {exc}") from exc
         if tag in seen:
             raise ArchetypeError(f"Role {i}: {tag} is listed twice.")
         seen.add(tag)
@@ -129,7 +143,7 @@ def clean_roles(roles: Any) -> List[dict]:
     return out
 
 
-def clean_fields(body: Any, *, partial_from: Optional[dict] = None) -> dict:
+def clean_fields(body: Any, *, partial_from: Optional[dict] = None, r=None) -> dict:
     """Validated {name, description, required_roles, source}. With partial_from, missing keys keep their value."""
     if not isinstance(body, dict):
         raise ArchetypeError("Body must be a JSON object.")
@@ -151,12 +165,82 @@ def clean_fields(body: Any, *, partial_from: Optional[dict] = None) -> dict:
     if len(desc) > MAX_DESCRIPTION:
         raise ArchetypeError(f"Description is longer than {MAX_DESCRIPTION} characters.")
     return {"name": name, "description": desc, "source": "user",
-            "required_roles": clean_roles(pick("required_roles", []))}
+            "required_roles": clean_roles(pick("required_roles", []), r)}
 
 
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", name.lower().replace("+", "plus ")).strip("-")
     return s or "archetype"
+
+
+# -- description rendering (markdown subset -> sanitized HTML) -----------------------------------
+#
+# The stored ``description`` is the raw markdown source (no migration: legacy plain text is
+# valid markdown). Rendering happens server-side only, through the same allow-list sanitizer
+# as deck primers, with nl2br so single newlines survive. Archetypes are global, not
+# deck-bound, so card-name hover wrapping is disabled (known_cards=None).
+
+# List marker as python-markdown recognises it: up to 3 leading spaces, then -/*/+ or ``1.``
+# followed by whitespace. Used only by the preprocessor below, never for parsing output.
+_LIST_MARKER_RE = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}\.)\s")
+
+
+def _blank_lines_before_lists(text: str) -> str:
+    """GitHub-style lists: allow a list to start directly after a paragraph line.
+
+    python-markdown requires a blank line before a list block, so ``"Key engines:\n- a"``
+    would render the dashes as literal text. Users (and the UX spec mockups) expect the
+    CommonMark/GitHub behaviour where a list may interrupt a paragraph. Insert the blank
+    line python-markdown needs, but only where the marker is NOT already part of a list
+    block (a lazy continuation line like ``"  more text"`` must not split the list)."""
+    out: List[str] = []
+    in_list = False
+    prev_blank = True
+    for line in text.split("\n"):
+        if not line.strip():
+            in_list = False
+            prev_blank = True
+            out.append(line)
+            continue
+        is_marker = bool(_LIST_MARKER_RE.match(line))
+        if is_marker and not in_list and not prev_blank:
+            out.append("")
+        if is_marker:
+            in_list = True
+        prev_blank = False
+        out.append(line)
+    return "\n".join(out)
+
+
+def render_description_html(desc: Optional[str]) -> str:
+    """Sanitized HTML for a description's markdown source. Empty in -> empty out."""
+    text = (desc or "").strip()
+    if not text:
+        return ""
+    return sanitize_primer_html(
+        _markdown.markdown(_blank_lines_before_lists(text), extensions=["nl2br"]),
+        known_cards=None,
+    )
+
+
+_BLOCK_END_RE = re.compile(r"</(?:p|ul|ol|h3|h4)>")
+
+
+def description_excerpt_html(html: str) -> str:
+    """The first block-level element of rendered description HTML (registry list excerpt)."""
+    if not html:
+        return ""
+    m = _BLOCK_END_RE.search(html)
+    return html[: m.end()] if m else html
+
+
+def with_rendered_descriptions(archetypes: Iterable[dict]) -> List[dict]:
+    """Additive read-only ``description_html`` / ``description_excerpt_html`` on each item."""
+    out = []
+    for a in archetypes:
+        html = render_description_html(a.get("description", ""))
+        out.append({**a, "description_html": html, "description_excerpt_html": description_excerpt_html(html)})
+    return out
 
 
 # -- storage ----------------------------------------------------------------------------------
@@ -234,7 +318,7 @@ def _name_taken(archetypes: List[dict], name: str, skip_id: Optional[str] = None
 
 @_locked
 def create_archetype(r, body: Any) -> Tuple[dict, int]:
-    fields = clean_fields(body)
+    fields = clean_fields(body, r=r)
     archetypes = _load(r)
     if _name_taken(archetypes, fields["name"]):
         raise ArchetypeError(f"An archetype named {fields['name']!r} already exists.")
@@ -249,7 +333,7 @@ def update_archetype(r, archetype_id: str, body: Any) -> Tuple[dict, int]:
     archetypes = _load(r)
     for i, a in enumerate(archetypes):
         if a["id"] == archetype_id:
-            fields = clean_fields(body, partial_from=a)
+            fields = clean_fields(body, partial_from=a, r=r)
             if _name_taken(archetypes, fields["name"], skip_id=archetype_id):
                 raise ArchetypeError(f"An archetype named {fields['name']!r} already exists.")
             archetypes[i] = {"id": archetype_id, **fields, "draft": False, "updated_at": _now()}
@@ -266,45 +350,53 @@ def delete_archetype(r, archetype_id: str) -> int:
     return _save(r, kept)
 
 
-# -- matching (whole-deck role coverage, not a "most common tag" heuristic) --------------------
+# -- matching (whole-deck role coverage via the role-tag registry, spec §4) ---------------------
 
-def deck_from_graph(graph: dict, quantities: Optional[Dict[str, int]] = None) -> dict:
-    """Adapt a deck interaction graph (interactions_service.get_deck_graph) to archetype_match's
-    input. Graph nodes are unique by name, so pass ``quantities`` {name: copies} for real copy counts."""
-    q = quantities or {}
-    return {"cards": [{"name": n.get("name", ""), "quantity": q.get(n.get("name", ""), 1),
-                       "produces": n.get("produces", []), "consumes": n.get("consumes", [])}
-                      for n in (graph or {}).get("nodes", [])]}
+def archetype_match(deck: dict, archetypes: Iterable[dict], r=None, source=None,
+                    tag_sets: Optional[Mapping[str, dict]] = None) -> List[dict]:
+    """Rank archetypes by role coverage. Deterministic given the same tag evaluations.
 
-
-def archetype_match(deck: dict, archetypes: Iterable[dict]) -> List[dict]:
-    """Rank archetypes by role coverage. Pure and deterministic.
-
-    ``deck`` = {"cards": [{"name", "quantity" (default 1), "produces": [...], "consumes": [...]}]}.
-    A role's count is the number of copies of cards carrying its tag. Role coverage =
-    min(count / min_count, 1); archetype coverage = weighted mean of role coverage (0..1, 4 dp).
+    ``deck`` = {"cards": [{"name", "quantity" (default 1)}]}. Each role's tag is evaluated
+    against the WHOLE deck: the tag's Scryfall-query name set (cached in ``tag_query_index``)
+    intersected with the deck's card names; a role's count is the number of COPIES matched.
+    Role coverage = min(count / min_count, 1); archetype coverage = weighted mean (0..1, 4 dp).
     Ties break on name then id. An archetype with no roles scores 0.
 
-    This scores every required role against the WHOLE deck's card roles -- never just the single
-    most common card tag -- so "derived" means something.
+    Every role row carries the matched card names (``cards``) and a ``state`` of
+    ok / short / empty / blocked (spec §3.5) — a failed or oversized query is ``blocked``
+    with the error text, never a silent 0.
+
+    ``tag_sets`` (from role_tags.resolve_tag_sets) lets a pure caller pre-resolve every
+    tag once; otherwise evaluation reads the cache through ``r`` and falls back to
+    ``source`` (default: live Scryfall) on cold entries.
     """
-    counts: Dict[str, int] = {}
-    for card in (deck or {}).get("cards", []):
-        q = card.get("quantity", 1)
-        qty = q if isinstance(q, int) and not isinstance(q, bool) and q > 0 else 1
-        for side in SIDES:
-            for key in set(card.get(side) or ()):
-                counts[f"{side}:{key}"] = counts.get(f"{side}:{key}", 0) + qty
+    cards = (deck or {}).get("cards", [])
+    index = None
+    if tag_sets is None:
+        index = role_tags.tag_index(r)
     ranked = []
     for a in archetypes:
         hit, missing, got, total = [], [], 0.0, 0.0
         for role in a.get("required_roles", []):
-            need, w, tag = role["min_count"], float(role["weight"]), role["tag"]
-            have = counts.get(tag, 0)
+            need, w, raw = role["min_count"], float(role["weight"]), role["tag"]
+            if tag_sets is not None:
+                res = _evaluate_from_sets(raw, cards, tag_sets, index)
+                if index is None:
+                    index = {}
+            else:
+                res = role_tags.evaluate_role(r, raw, cards, source, index=index)
+            have = res["have"]
             total += w
-            got += w * min(have / need, 1.0)
-            (hit if have >= need else missing).append(
-                {"tag": tag, "have": have, "min_count": need, "weight": w})
+            got += w * min(have / need, 1.0) if res["state"] != "blocked" else 0.0
+            row = {"tag": res["tag"], "label": res["label"], "query": res["query"],
+                   "have": have, "cards": res["cards"], "min_count": need, "weight": w}
+            if have >= need:
+                hit.append(row)
+            else:
+                state = res["state"] if res["state"] in ("empty", "blocked") else "short"
+                if res.get("error"):
+                    row["error"] = res["error"]
+                missing.append({**row, "state": state})
         ranked.append({"archetype": {"id": a["id"], "name": a.get("name", a["id"])},
                        "coverage": round(got / total, 4) if total else 0.0,
                        "roles_hit": hit, "roles_missing": missing})
@@ -312,9 +404,32 @@ def archetype_match(deck: dict, archetypes: Iterable[dict]) -> List[dict]:
     return ranked
 
 
-def best_match(deck: dict, archetypes: Iterable[dict]) -> Optional[dict]:
+def _evaluate_from_sets(raw: Any, cards: list, tag_sets: Mapping[str, dict],
+                        index: Optional[Mapping[str, dict]]) -> dict:
+    """evaluate_role against pre-resolved name sets (review_metrics' pure path)."""
+    idx = index or {}
+    try:
+        tag_id = role_tags.resolve_role_tag(raw, {**{k: {"id": k, **(v or {})} for k, v in tag_sets.items()}, **idx})
+    except role_tags.RoleTagError as exc:
+        return {"tag": str(raw), "label": str(raw), "query": "", "have": 0, "cards": [],
+                "matched": 0, "state": "blocked", "error": str(exc), "total": 0, "built_at": None}
+    if tag_id in tag_sets:
+        info = tag_sets[tag_id]
+        entry = {"names": sorted(info["names"]) if info.get("names") is not None else None,
+                 "error": info.get("error"), "oversized": info.get("oversized"),
+                 "total": info.get("total", 0), "built_at": info.get("built_at")}
+        out = role_tags.evaluate_query(info.get("query", ""), cards, entry)
+        return {"tag": tag_id, "label": info.get("label") or tag_id,
+                "query": info.get("query", ""), **out}
+    tag = idx.get(tag_id) or {"id": tag_id, "label": tag_id, "query": ""}
+    return {"tag": tag_id, "label": tag.get("label") or tag_id, "query": tag.get("query", ""),
+            "have": 0, "cards": [], "matched": 0, "state": "blocked",
+            "error": "tag was not pre-resolved", "total": 0, "built_at": None}
+
+
+def best_match(deck: dict, archetypes: Iterable[dict], r=None, source=None) -> Optional[dict]:
     """The top archetype_match row, or None when there are no archetypes to rank."""
-    ranked = archetype_match(deck, archetypes)
+    ranked = archetype_match(deck, archetypes, r, source)
     return ranked[0] if ranked else None
 
 
@@ -360,11 +475,19 @@ def reset_selection(r, registry_id: str) -> dict:
     return set_selection(r, registry_id, {"mode": "auto"})
 
 
-def resolve_for_deck(r, registry_id: str, graph: dict, quantities: Optional[Dict[str, int]] = None) -> dict:
+def resolve_for_deck(r, registry_id: str, deck_cards, source=None) -> dict:
     """{selection, archetype, matches}: the deck's effective archetype (manual override, else the
-    best whole-deck derived match) plus the full ranking."""
+    best whole-deck derived match) plus the full ranking.
+
+    ``deck_cards`` is the deck's plain card list — [{"name", "quantity"}] or a deck record
+    (anything role_tags.deck_cards_from_deck accepts, i.e. a mapping with ``cards``).
+    """
     archetypes = list_archetypes(r)
-    matches = archetype_match(deck_from_graph(graph, quantities), archetypes)
+    if isinstance(deck_cards, Mapping):
+        deck = {"cards": role_tags.deck_cards_from_deck(deck_cards)}
+    else:
+        deck = {"cards": deck_cards or []}
+    matches = archetype_match(deck, archetypes, r, source)
     selection = get_selection(r, registry_id)
     archetype = None
     if selection["mode"] == "manual" and selection.get("archetype_id"):

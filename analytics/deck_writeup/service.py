@@ -20,6 +20,7 @@ DESCRIPTION_MAX_WORDS = 90
 DESCRIPTION_MAX_CHARS = 280
 PRIMER_MAX_WORDS = 900
 LENGTH_WORDS = {"brief": 450, "standard": PRIMER_MAX_WORDS, "deep": 1400}
+PRIMER_MIN_CHARS = 500  # floor for any single generation call (full primer or one-section redraft)
 MAX_CARDS_IN_PROMPT = 100
 MAX_ORACLE_CARDS = 14
 ORACLE_TEXT_CHARS = 500
@@ -255,7 +256,7 @@ def split_sections(md: str) -> List[Dict[str, str]]:
     return [{"title": parts[i].strip(), "markdown": parts[i + 1].strip()} for i in range(1, len(parts) - 1, 2)]
 
 
-def validate_primer(text: str, max_words: int = PRIMER_MAX_WORDS) -> str:
+def validate_primer(text: str, max_words: int = PRIMER_MAX_WORDS, min_chars: int = 0) -> str:
     t = _strip_fences(text or "")
     if not t:
         raise WriteupError("The model returned an empty primer.", "empty")
@@ -265,6 +266,9 @@ def validate_primer(text: str, max_words: int = PRIMER_MAX_WORDS) -> str:
     unknown = [h for h in heads if _norm_heading(h) not in _VALID_HEADINGS]
     if unknown:
         raise WriteupError(f"The model's primer had unexpected sections: {', '.join(unknown)}.", "format")
+    if min_chars and len(t) < min_chars:
+        raise WriteupError(f"The model's primer was too short ({len(t)} of at least {min_chars} characters).",
+                           "too_short")
     if _words(t) > max_words * 1.5:
         raise WriteupError("The model's primer was far too long.", "too_long")
     return t
@@ -362,6 +366,18 @@ def _ordered(secs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(secs, key=lambda s: rank.get(s["id"], 99))  # stable: legacy order is kept for unknown ids
 
 
+def _ask_primer(ask: Ask, system: str, user: str, max_words: int) -> str:
+    """Validated primer markdown. One retry with an expansion nudge when the first draft is under the floor."""
+    try:
+        return validate_primer(ask(system, user), max_words, PRIMER_MIN_CHARS)
+    except WriteupError as exc:
+        if exc.kind != "too_short":
+            raise
+    nudge = (user + f"\n\nYour previous draft was too short. Rewrite it with at least {PRIMER_MIN_CHARS} "
+             "characters: expand with concrete detail from the card data and the owner's notes rather than padding.")
+    return validate_primer(ask(system, nudge), max_words, PRIMER_MIN_CHARS)
+
+
 def generate_primer(deck: Mapping[str, Any], card_meta: Sequence[Mapping[str, Any]], ask: Ask,
                     form: Mapping[str, Any], *, identity: Optional[str] = None,
                     bracket: Optional[str] = None, spirit: Optional[Mapping[str, Any]] = None,
@@ -393,11 +409,11 @@ def generate_primer(deck: Mapping[str, Any], card_meta: Sequence[Mapping[str, An
     out_secs: List[Dict[str, Any]] = []
     text, warnings = "", [f"Key card not found in this deck: {k}" for k in _check_key_cards(cleaned, known)]
     if want:
-        system = prompts.PRIMER_SYSTEM.format(max_words=max_words, voice=_voice(voice),
+        system = prompts.PRIMER_SYSTEM.format(max_words=max_words, min_chars=PRIMER_MIN_CHARS, voice=_voice(voice),
                                               sections="\n".join(f"## {s}" for s in want))
         user = build_user_prompt(deck, card_meta, cleaned, identity=identity, bracket=bracket, spirit=spirit,
                                  table_facts=table_facts, combos=combos, key_whys=key_whys, fact_ids=fact_ids)
-        res = _result(validate_primer(ask(system, user), max_words), cleaned, known)
+        res = _result(_ask_primer(ask, system, user, max_words), cleaned, known)
         text, warnings = res["text"], res["warnings"]
         for s in split_sections(text):
             sid = section_id(s["title"])
