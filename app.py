@@ -1011,14 +1011,70 @@ async def brew_commander_search(q: str = ""):
             params = None  # Scryfall next_page is a complete URL
 
         if not candidates:
-            fuzzy = httpx.get(
-                "https://api.scryfall.com/cards/named",
-                params={"fuzzy": query}, headers=headers, timeout=8.0,
-            )
-            if fuzzy.status_code == 200:
-                card = fuzzy.json()
-                if (card.get("legalities") or {}).get("commander") == "legal":
-                    candidates[card.get("id") or card.get("name")] = card
+            import difflib
+
+            # Scryfall returns 404 for an unrecognized query/name. Treat that as
+            # an empty attempt, then broaden progressively without querying very
+            # short prefixes (which produce noisy, unrelated result sets).
+            fuzzy_queries = [query]
+            prefix = query
+            for _ in range(3):
+                if len(prefix) <= 4:
+                    break
+                prefix = prefix[:-1]
+                fuzzy_queries.append(prefix)
+
+            for fuzzy_query in fuzzy_queries:
+                fuzzy = httpx.get(
+                    "https://api.scryfall.com/cards/named",
+                    params={"fuzzy": fuzzy_query}, headers=headers, timeout=8.0,
+                )
+                if fuzzy.status_code == 200:
+                    card = fuzzy.json()
+                    if (card.get("legalities") or {}).get("commander") == "legal":
+                        candidates[card.get("id") or card.get("name")] = card
+                        # Preserve existing behavior for a successful fuzzy-name
+                        # match; only gather broader candidates after a miss.
+                        if fuzzy_query == query:
+                            break
+                elif fuzzy.status_code != 404:
+                    break
+
+            # When shortening yields a name, also collect a small set from the
+            # corresponding commander search and rank it against the user's
+            # original spelling, not the adjusted prefix.
+            if not candidates and len(query) >= 4:
+                for retry_query in fuzzy_queries[1:]:
+                    retry = httpx.get(
+                        "https://api.scryfall.com/cards/search",
+                        params={"q": f'name:"{retry_query}" is:commander legal:commander',
+                                "unique": "cards", "order": "name"},
+                        headers=headers, timeout=8.0,
+                    )
+                    if retry.status_code == 404:
+                        continue
+                    if retry.status_code != 200:
+                        break
+                    for card in (retry.json().get("data") or []):
+                        if (card.get("legalities") or {}).get("commander") == "legal":
+                            candidates[card.get("id") or card.get("name")] = card
+                    if candidates:
+                        break
+
+            if candidates:
+                original = query.casefold()
+                ranked = sorted(
+                    candidates.items(),
+                    key=lambda item: difflib.SequenceMatcher(
+                        None, original, (item[1].get("name") or "").casefold()
+                    ).ratio(),
+                    reverse=True,
+                )
+                best_score = difflib.SequenceMatcher(
+                    None, original, (ranked[0][1].get("name") or "").casefold()
+                ).ratio()
+                # Avoid returning unrelated results from a broad shortened query.
+                candidates = dict(ranked[:5]) if best_score >= 0.45 else {}
     except Exception:
         candidates = {}
 
