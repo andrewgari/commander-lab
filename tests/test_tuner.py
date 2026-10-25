@@ -681,6 +681,16 @@ class TestState(unittest.TestCase):
         self.assertEqual(out["counts"]["open"], len(out["fixes"]) + open_swaps + 1)
         self.assertEqual(out["counts"]["open_swaps"], open_swaps)
 
+    def test_ignored_decision_hides_the_row_for_the_review(self):
+        # Merged DT-7 semantics: "ignored" rejects ONE cut->add pair, so the
+        # row stops showing that recommendation for the rest of the review.
+        st = tuner.decide(self.r, DECK, "Weak Plan", "ignored", add="Owned Bomb")
+        self.assertNotIn("Weak Plan", st["decisions"])
+        self.assertIn("Owned Bomb", st["ignored"]["Weak Plan"])
+        cands = [cand("Owned Bomb", 4, 0.9, 0.4, owned=True, available=1)]
+        out = build(cands, state=st)
+        self.assertIsNone(swap(out, "Weak Plan"))
+
     def test_adds_are_validated(self):
         tuner.set_adds(self.r, DECK, [{"name": "Plains", "qty": 2, "source": "basic"}])
         self.assertEqual(tuner.load_state(self.r, DECK)["adds"], [{"name": "Plains", "qty": 2, "source": "basic"}])
@@ -693,6 +703,87 @@ class TestState(unittest.TestCase):
         self.assertEqual(journal.load_journal(self.r, DECK)["pet_cards"], ["Pet Card", "Weak Plan"])
         with self.assertRaises(tuner.TunerError):
             tuner.mark_pet(self.r, DECK, "Not In Deck")
+
+
+class TestInventoryFilter(unittest.TestCase):
+    """DT-6 (overlay spec §3.3): the float panel only surfaces adds that need
+    attention. Owned + free (in_collection, any printing) → suppressed;
+    missing exact printing or unowned → shown with needs_purchase."""
+
+    def setUp(self):
+        import instances as instance_store
+        from tests.test_instances import FakeRedis as InstanceRedis
+
+        self.inst = instance_store
+        self.r = InstanceRedis()
+
+    def test_owned_and_free_is_suppressed(self):
+        self.inst.create_instance(self.r, "Sol Ring", ownership_status="in_collection")
+        self.assertEqual(tuner.filter_adds_by_inventory(self.r, [{"card": "Sol Ring"}]), [])
+
+    def test_unowned_shows_with_purchase_flag(self):
+        out = tuner.filter_adds_by_inventory(self.r, [{"card": "Rhystic Study"}])
+        self.assertEqual([e["card"] for e in out], ["Rhystic Study"])
+        self.assertTrue(out[0]["needs_purchase"])
+
+    def test_owned_but_sleeved_shows_without_purchase_flag(self):
+        self.inst.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
+                                  deck_id="archidekt:1", deck_name="Other Deck")
+        out = tuner.filter_adds_by_inventory(self.r, [{"card": "Sol Ring"}])
+        self.assertEqual(len(out), 1)
+        self.assertFalse(out[0]["needs_purchase"])
+
+    def test_missing_exact_printing_shows_with_purchase_flag(self):
+        self.inst.create_instance(self.r, "Sol Ring", ownership_status="in_collection",
+                                  set="cmm", collector_number="410")
+        out = tuner.filter_adds_by_inventory(
+            self.r, [{"card": "Sol Ring", "printing": {"set": "lea", "collector_number": "269"}}])
+        self.assertEqual(len(out), 1)
+        self.assertTrue(out[0]["needs_purchase"])
+
+    def test_free_matching_printing_is_suppressed(self):
+        self.inst.create_instance(self.r, "Sol Ring", ownership_status="in_collection",
+                                  set="CMM", collector_number="410")
+        out = tuner.filter_adds_by_inventory(
+            self.r, [{"card": "Sol Ring", "printing": {"set": "cmm", "collector_number": "410"}}])
+        self.assertEqual(out, [])
+
+    def test_sleeved_matching_printing_needs_no_purchase(self):
+        self.inst.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
+                                  deck_id="archidekt:1", deck_name="Other Deck",
+                                  set="cmm", collector_number="410")
+        out = tuner.filter_adds_by_inventory(
+            self.r, [{"card": "Sol Ring", "printing": {"set": "cmm", "collector_number": "410"}}])
+        self.assertEqual(len(out), 1)
+        self.assertFalse(out[0]["needs_purchase"])
+
+    def test_panel_adds_flags_buys_and_skips_decided_rows(self):
+        tune = {"swaps": [
+            {"cut": {"name": "Weak Plan"}, "pick": "buy", "own": None,
+             "buy": {"name": "Rhystic Study", "source": "buy", "price": 12.0}, "decision": None, "why": None},
+            {"cut": {"name": "Weak Removal"}, "pick": "own",
+             "own": {"name": "Owned Removal", "source": "free", "price": 0.0}, "buy": None,
+             "decision": "own", "why": None},
+        ]}
+        out = tuner.panel_adds(self.r, tune)
+        self.assertEqual(len(out), 1)
+        entry = out[0]
+        self.assertEqual(entry["card"], "Rhystic Study")
+        self.assertEqual(entry["kind"], "add")
+        self.assertEqual(entry["cut"], "Weak Plan")
+        self.assertTrue(entry["needs_purchase"])
+        self.assertEqual(entry["status"], "open")
+        # Ids are deterministic per cut+card so re-renders are stable.
+        self.assertEqual(entry["id"], tuner.panel_adds(self.r, tune)[0]["id"])
+
+    def test_panel_adds_suppresses_owned_free_picks(self):
+        self.inst.create_instance(self.r, "Owned Bomb", ownership_status="in_collection")
+        tune = {"swaps": [
+            {"cut": {"name": "Weak Plan"}, "pick": "own",
+             "own": {"name": "Owned Bomb", "source": "free", "price": 0.0}, "buy": None,
+             "decision": None, "why": None},
+        ]}
+        self.assertEqual(tuner.panel_adds(self.r, tune), [])
 
 
 class ProseProvider(llm_mod.LLMTagProvider):
