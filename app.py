@@ -9,9 +9,11 @@ import os
 import asyncio
 import logging
 import github_sync
+import hashlib
 import json
 import time
 import html
+import uuid
 import markdown
 import bleach
 from typing import List, Optional
@@ -19,6 +21,7 @@ from datetime import datetime, timezone
 
 import instances as instance_store
 from instances import InstanceError
+import deck_slots
 import registry
 import reconstruct
 import commander_roles
@@ -1956,6 +1959,266 @@ async def remove_card_tag_from_deck(deck_id: str, request: Request):
         return JSONResponse({"error": "card_name and tag are required"}, status_code=400)
     removed = tag_store.remove_card_tag_from_deck(r, registry.registry_id_of(deck), card_name, tag)
     return {"success": True, "card": card_name, "removed": removed}
+
+
+# ---------------------------------------------------------------------------
+# Deck Tuner overlay (deck-tuner-overlay-spec.md §2-3, DT-1): the tune-up
+# draft (`tuneup:draft:{registry_id}`) and the "not in decklist" tag flags
+# (`tuneup:tag_flags:{registry_id}`). Card tags themselves are NOT stored
+# here — the overlay reuses `deck_card_tags` via the endpoints above; slot
+# membership (maybeboard/considering) stays a decklist property carried on
+# the draft cards. Apply/swap (writing the draft back to the deck and
+# instances) is DT-2 and deliberately not implemented here.
+# ---------------------------------------------------------------------------
+
+TUNEUP_SCHEMA_VERSION = 1
+#: Structural columns of the overlay, in display order. Membership for the
+#: two slot columns comes from the draft/synced decklist, not from tags.
+TUNEUP_SLOT_COLUMNS = ("maybeboard", "considering")
+
+
+def _tuneup_draft_key(registry_id: str) -> str:
+    return f"tuneup:draft:{registry_id}"
+
+
+def _tuneup_flags_key(registry_id: str) -> str:
+    return f"tuneup:tag_flags:{registry_id}"
+
+
+def _tuneup_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _tuneup_load_json(key: str) -> Optional[dict]:
+    raw = r.get(key)
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _tuneup_synced_cards(deck: dict) -> list:
+    """The decklist the overlay starts from, commanders first, then the
+    main 99, then non-main slots (maybeboard/considering) annotated with
+    their slot. Same [{name, qty}] shape as the draft's `cards`."""
+    out = []
+    for name in deck.get("commanders") or []:
+        if isinstance(name, str) and name:
+            out.append({"name": name, "qty": 1, "slot": "commander", "source": "deck"})
+    for c in deck.get("cards") or []:
+        if isinstance(c, dict) and c.get("name"):
+            out.append({"name": c["name"], "qty": int(c.get("quantity") or 1), "slot": "mainboard", "source": "deck"})
+    slots = deck.get("slots") or {}
+    for slot in TUNEUP_SLOT_COLUMNS:
+        for c in slots.get(slot) or []:
+            if isinstance(c, dict) and c.get("name"):
+                out.append({"name": c["name"], "qty": int(c.get("quantity") or 1), "slot": slot, "source": "deck"})
+    return out
+
+
+def _tuneup_decklist_hash(cards: list) -> str:
+    """Order-independent hash of the decklist (spec §3.1 base_decklist_hash)."""
+    canon = sorted((str(c.get("name", "")).lower(), int(c.get("qty") or 1)) for c in cards)
+    return hashlib.sha1(json.dumps(canon).encode("utf-8")).hexdigest()
+
+
+def _tuneup_tag_label(registry_id: str, tag: str) -> str:
+    """Human column label for a card tag: core id -> core name, cat:<id> ->
+    the custom category's name, anything else shown as typed."""
+    if tag in categories_mod.CORE_BY_ID:
+        return categories_mod.CORE_BY_ID[tag]["name"]
+    if tag.startswith(categories_mod.CAT_TAG_PREFIX):
+        try:
+            cat, _key, _scope = categories_mod.find(r, tag[len(categories_mod.CAT_TAG_PREFIX):], registry_id)
+            return cat.get("name") or tag
+        except Exception:
+            return tag
+    return tag
+
+
+def _tuneup_columns(registry_id: str, deck: dict, cards: list, card_tags: dict) -> list:
+    """Overlay columns: Commander, one per non-empty non-main slot, one per
+    tag carried by a listed card, then the Uncategorized pool."""
+    cols = []
+    names = {c.get("name") for c in cards}
+    if deck.get("commanders"):
+        cols.append({"id": "slot:commander", "label": "Commander", "kind": "slot"})
+    slots = deck.get("slots") or {}
+    for slot in TUNEUP_SLOT_COLUMNS:
+        if slots.get(slot) or any(c.get("slot") == slot for c in cards):
+            cols.append({"id": f"slot:{slot}", "label": deck_slots.SLOT_LABELS.get(slot, slot.title()), "kind": "slot"})
+    tags = set()
+    for name in names:
+        for e in card_tags.get(name) or []:
+            t = e.get("tag")
+            if t:
+                tags.add(t)
+    for t in sorted(tags, key=str.lower):
+        cols.append({"id": f"tag:{t}", "label": _tuneup_tag_label(registry_id, t), "kind": "tag", "tag": t})
+    cols.append({"id": "uncategorized", "label": "Uncategorized", "kind": "pool"})
+    return cols
+
+
+def _tuneup_counts(cards: list, card_tags: dict, flags: dict, commanders: list) -> dict:
+    """Deck counts with the spec §3.2 exclusion rule: a card drops out of
+    the decklist count only when EVERY tag it carries is flagged
+    not-in-decklist (untagged cards always count; slot cards never count).
+    Commanders carry an implicit "Commander" tag."""
+    excluded = {t for t, f in (flags or {}).items() if isinstance(f, dict) and f.get("in_decklist") is False}
+    cmdr = set(commanders or [])
+    kept, dropped = 0, []
+    for c in cards:
+        if c.get("slot") in TUNEUP_SLOT_COLUMNS:
+            continue
+        tags = {e.get("tag") for e in card_tags.get(c.get("name")) or [] if e.get("tag")}
+        if c.get("name") in cmdr or c.get("slot") == "commander":
+            tags.add("Commander")
+        if tags and tags <= excluded:
+            dropped.append(c.get("name"))
+        else:
+            kept += int(c.get("qty") or 1)
+    return {"total": kept, "excluded": dropped}
+
+
+def _tuneup_state(deck: dict) -> dict:
+    """The aggregate the overlay renders from (one round trip, same pattern
+    as /api/decks/{deck_id}/manage): effective decklist (draft over synced),
+    live card tags, tag flags, columns, counts and drift status."""
+    registry_id = registry.registry_id_of(deck)
+    synced = _tuneup_synced_cards(deck)
+    synced_hash = _tuneup_decklist_hash(synced)
+    draft = _tuneup_load_json(_tuneup_draft_key(registry_id))
+    cards = synced
+    if draft and isinstance(draft.get("cards"), list):
+        cards = draft["cards"]
+    card_tags = tag_store.get_deck_card_tags(r, registry_id)
+    flags = _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}
+    commanders = [n for n in (deck.get("commanders") or []) if isinstance(n, str) and n]
+    return {
+        "deck_id": registry_id,
+        "cards": cards,
+        "card_tags": card_tags,
+        "tag_flags": flags,
+        "columns": _tuneup_columns(registry_id, deck, cards, card_tags),
+        "commanders": commanders,
+        "counts": _tuneup_counts(cards, card_tags, flags, commanders),
+        "base_decklist_hash": (draft or {}).get("base_decklist_hash") or synced_hash,
+        "drifted": bool(draft and draft.get("base_decklist_hash") != synced_hash),
+        "draft": draft and {k: draft.get(k) for k in ("id", "status", "created_at", "updated_at", "notes")},
+    }
+
+
+@app.get("/api/decks/{deck_id}/tuneup/draft")
+async def get_tuneup_draft(deck_id: str):
+    """Overlay shell state (spec §3.1/§3.2). `draft` is null when no paper
+    draft exists yet — `cards` then mirror the synced decklist."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    return _tuneup_state(deck)
+
+
+@app.post("/api/decks/{deck_id}/tuneup/draft")
+async def save_tuneup_draft(deck_id: str, request: Request):
+    """Paper-only save (spec §4a): validate and write `tuneup:draft`. No
+    `instance:*` mutation, no decklist write — that is the DT-2 apply path.
+
+    Body: {"cards": [{"name", "qty", "slot"?, "source"?}], "rebase": false}
+    Card names are validated against `card_meta:*` when that store is
+    populated; `rebase: true` resets the drift baseline to the synced list.
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    raw_cards = data.get("cards")
+    if not isinstance(raw_cards, list):
+        return JSONResponse({"error": "cards must be a list"}, status_code=400)
+    valid_slots = {"mainboard", "commander", "maybeboard", "considering"}
+    cards, names = [], []
+    for c in raw_cards:
+        if not isinstance(c, dict):
+            return JSONResponse({"error": "each card must be an object"}, status_code=400)
+        name = str(c.get("name") or "").strip()
+        if not name:
+            return JSONResponse({"error": "each card needs a name"}, status_code=400)
+        try:
+            qty = int(c.get("qty", 1))
+        except (TypeError, ValueError):
+            return JSONResponse({"error": f"invalid qty for {name}"}, status_code=400)
+        if not 1 <= qty <= 99:
+            return JSONResponse({"error": f"qty for {name} must be 1-99"}, status_code=400)
+        slot = str(c.get("slot") or "mainboard")
+        if slot not in valid_slots:
+            return JSONResponse({"error": f"invalid slot for {name}"}, status_code=400)
+        cards.append({"name": name, "qty": qty, "slot": slot,
+                      "source": str(c.get("source") or "manual")})
+        names.append(name)
+    meta_keys = r.keys("card_meta:*")
+    if meta_keys:
+        known = {k[len("card_meta:"):].lower() for k in meta_keys}
+        unknown = sorted({n for n in names if n.lower() not in known})
+        if unknown:
+            return JSONResponse({"error": "Unknown card: " + ", ".join(unknown)}, status_code=400)
+
+    registry_id = registry.registry_id_of(deck)
+    existing = _tuneup_load_json(_tuneup_draft_key(registry_id)) or {}
+    synced_hash = _tuneup_decklist_hash(_tuneup_synced_cards(deck))
+    now = _tuneup_now()
+    draft = {
+        "id": existing.get("id") or str(uuid.uuid4()),
+        "deck_id": registry_id,
+        "schema_version": TUNEUP_SCHEMA_VERSION,
+        "status": "active",
+        "created_at": existing.get("created_at") or now,
+        "updated_at": now,
+        "base_decklist_hash": synced_hash if data.get("rebase") else existing.get("base_decklist_hash") or synced_hash,
+        "cards": cards,
+        "tag_flags": {},
+        "recommendations": existing.get("recommendations") or [],
+        "notes": str(data.get("notes") if data.get("notes") is not None else existing.get("notes") or ""),
+    }
+    r.set(_tuneup_draft_key(registry_id), json.dumps(draft))
+    state = _tuneup_state(deck)
+    state["success"] = True
+    return state
+
+
+@app.get("/api/decks/{deck_id}/tuneup/tag-flags")
+async def get_tuneup_tag_flags(deck_id: str):
+    """The deck's "not in decklist" flags (spec §3.2)."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    registry_id = registry.registry_id_of(deck)
+    return {"deck_id": registry_id, "flags": _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}}
+
+
+@app.put("/api/decks/{deck_id}/tuneup/tag-flags")
+async def set_tuneup_tag_flag(deck_id: str, request: Request):
+    """Flag one tag/category as in (or out of) the decklist. Stable deck
+    config, stored apart from the draft so it survives draft edits.
+
+    Body: {"tag": "Ramp", "in_decklist": false}
+    """
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    data = await request.json()
+    tag = str(data.get("tag") or "").strip()
+    if not tag:
+        return JSONResponse({"error": "tag is required"}, status_code=400)
+    registry_id = registry.registry_id_of(deck)
+    flags = _tuneup_load_json(_tuneup_flags_key(registry_id)) or {}
+    flags[tag] = {"in_decklist": bool(data.get("in_decklist")), "set_at": _tuneup_now()}
+    r.set(_tuneup_flags_key(registry_id), json.dumps(flags))
+    return {"success": True, "deck_id": registry_id, "flags": flags,
+            "counts": _tuneup_counts(_tuneup_state(deck)["cards"],
+                                     tag_store.get_deck_card_tags(r, registry_id),
+                                     flags, deck.get("commanders") or [])}
 
 
 # ---------------------------------------------------------------------------
