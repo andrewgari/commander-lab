@@ -6,9 +6,11 @@ repeatable (docs/REVIEW_SPEC.md §1). A genre is
     {id, name, description, required_roles: [{tag, min_count, weight}],
      source: "user" | "autofill", draft: bool, updated_at}
 
-A role ``tag`` is ``"<side>:<resource>"`` in the interaction-graph vocabulary
-(analytics/interactions/vocab.py): side is ``produces`` or ``consumes``, resource
-is a vocabulary key, e.g. ``produces:sacrifice`` = "is a sacrifice outlet".
+A role ``tag`` is a role-tag registry id (analytics/role_tags.py), shared with the
+archetype registry: every tag is one Scryfall query, scored by intersecting the
+query's cached name set with the deck's cards. Legacy ``produces:<resource>`` /
+``consumes:<resource>`` spellings resolve to ``legacy:<side>:<key>`` tags with
+identical membership (docs/role-tags-spec.md §3.2).
 
 Redis: ``genres`` (JSON list, absent until first read, which seeds it) and
 ``genres:version`` (integer, bumped on every create/update/delete).
@@ -22,13 +24,12 @@ import json
 import re
 import threading
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-from analytics.interactions.vocab import RESOURCES, RESOURCE_BY_KEY
+from analytics import role_tags
 
 GENRES_KEY = "genres"
 VERSION_KEY = "genres:version"
-SIDES = ("produces", "consumes")
 SOURCES = ("user", "autofill")
 MAX_NAME = 60
 MAX_DESCRIPTION = 1200
@@ -46,35 +47,30 @@ class GenreNotFound(KeyError):
 
 
 # -- vocabulary -------------------------------------------------------------------------------
+#
+# The role layer is no longer duplicated here (it drifted once already; spec §6.3/OQ-7):
+# genres and archetypes share the role-tag registry in analytics/role_tags.py. These
+# thin wrappers keep the module's public names working.
 
-def role_vocabulary() -> List[dict]:
-    """Every valid role tag, in vocabulary order, with a human label."""
-    out = []
-    for res in RESOURCES:
-        out.append({"tag": f"produces:{res.key}", "side": "produces", "key": res.key,
-                    "label": f"{res.label} (produces)", "meaning": res.produce})
-        out.append({"tag": f"consumes:{res.key}", "side": "consumes", "key": res.key,
-                    "label": f"{res.label} (consumes)", "meaning": res.consume})
-    return out
+def role_vocabulary(r=None) -> List[dict]:
+    """Every valid role tag from the shared registry (id, label, query, facet)."""
+    from analytics import archetypes
+    return archetypes.role_vocabulary(r)
 
 
-def normalize_tag(value: Any) -> Optional[str]:
-    """'produces:sacrifice' for loose input ('Produces: Sacrifice', 'consumes/life gain'), else None."""
-    if not isinstance(value, str):
+def legacy_role_vocabulary() -> List[dict]:
+    """The pre-ARCH-3 produces/consumes vocabulary; kept only for the autofill LLM prompt."""
+    from analytics import archetypes
+    return archetypes.legacy_role_vocabulary()
+
+
+def normalize_tag(value: Any, r=None) -> Optional[str]:
+    """Resolve loose input to a registry tag id, else None (wrapper over role_tags.resolve_role_tag)."""
+    try:
+        index = role_tags.tag_index(r) if r is not None else {t["id"]: t for t in role_tags.legacy_tags()}
+        return role_tags.resolve_role_tag(value, index)
+    except role_tags.RoleTagError:
         return None
-    m = re.match(r"^\s*(produces?|consumes?)\s*[:/.\-\s]\s*(.+?)\s*$", value, re.I)
-    if not m:
-        return None
-    side = "produces" if m.group(1).lower().startswith("produce") else "consumes"
-    key = re.sub(r"[\s\-/]+", "_", m.group(2).strip().lower())
-    if key not in RESOURCE_BY_KEY:
-        for res in RESOURCES:
-            if re.sub(r"[\s\-/+]+", "_", res.label.lower()) == key:
-                key = res.key
-                break
-        else:
-            return None
-    return f"{side}:{key}"
 
 
 # -- validation -------------------------------------------------------------------------------
@@ -93,22 +89,28 @@ def _num(value: Any, name: str, lo: float, hi: float, as_int: bool):
     return v
 
 
-def clean_roles(roles: Any) -> List[dict]:
-    """Strict: unknown tags / bad numbers raise GenreError. Duplicate tags are merged out."""
+def clean_roles(roles: Any, r=None) -> List[dict]:
+    """Strict: unknown tags / bad numbers raise GenreError. Duplicate tags are merged out.
+
+    Tags are validated against the shared role-tag registry; legacy
+    ``produces:<key>``/``consumes:<key>`` spellings resolve to their ``legacy:`` ids.
+    """
     if roles is None:
         return []
     if not isinstance(roles, list):
         raise GenreError("required_roles must be a list.")
     if len(roles) > MAX_ROLES:
         raise GenreError(f"A genre can have at most {MAX_ROLES} required roles.")
+    index = role_tags.tag_index(r) if r is not None else {t["id"]: t for t in role_tags.legacy_tags()}
     out, seen = [], set()
     for i, role in enumerate(roles, 1):
         if not isinstance(role, dict):
             raise GenreError(f"Role {i} must be an object.")
         raw = role.get("tag", role.get("role"))
-        tag = normalize_tag(raw)
-        if tag is None:
-            raise GenreError(f"Role {i}: unknown tag {raw!r}. Use produces:<resource> or consumes:<resource>.")
+        try:
+            tag = role_tags.resolve_role_tag(raw, index)
+        except role_tags.RoleTagError as exc:
+            raise GenreError(f"Role {i}: {exc}") from exc
         if tag in seen:
             raise GenreError(f"Role {i}: {tag} is listed twice.")
         seen.add(tag)
@@ -120,7 +122,7 @@ def clean_roles(roles: Any) -> List[dict]:
     return out
 
 
-def clean_fields(body: Any, *, partial_from: Optional[dict] = None) -> dict:
+def clean_fields(body: Any, *, partial_from: Optional[dict] = None, r=None) -> dict:
     """Validated {name, description, required_roles, source}. With partial_from, missing keys keep their value."""
     if not isinstance(body, dict):
         raise GenreError("Body must be a JSON object.")
@@ -145,7 +147,7 @@ def clean_fields(body: Any, *, partial_from: Optional[dict] = None) -> dict:
     if source not in SOURCES:
         raise GenreError(f"source must be one of {', '.join(SOURCES)}.")
     return {"name": name, "description": desc, "source": source,
-            "required_roles": clean_roles(pick("required_roles", []))}
+            "required_roles": clean_roles(pick("required_roles", []), r)}
 
 
 def slugify(name: str) -> str:
@@ -228,7 +230,7 @@ def _name_taken(genres: List[dict], name: str, skip_id: Optional[str] = None) ->
 
 @_locked
 def create_genre(r, body: Any) -> Tuple[dict, int]:
-    fields = clean_fields(body)
+    fields = clean_fields(body, r=r)
     genres = _load(r)
     if _name_taken(genres, fields["name"]):
         raise GenreError(f"A genre named {fields['name']!r} already exists.")
@@ -243,7 +245,7 @@ def update_genre(r, genre_id: str, body: Any) -> Tuple[dict, int]:
     genres = _load(r)
     for i, g in enumerate(genres):
         if g["id"] == genre_id:
-            fields = clean_fields(body, partial_from=g)
+            fields = clean_fields(body, partial_from=g, r=r)
             if _name_taken(genres, fields["name"], skip_id=genre_id):
                 raise GenreError(f"A genre named {fields['name']!r} already exists.")
             genres[i] = {"id": genre_id, **fields, "draft": False, "updated_at": _now()}
@@ -271,7 +273,7 @@ _FENCE = re.compile(r"```(?:json)?\s*\n(.*?)```", re.S)
 
 
 def autofill_prompt(theme: str) -> str:
-    vocab = "\n".join(f"- {v['tag']}: {v['meaning']}" for v in role_vocabulary())
+    vocab = "\n".join(f"- {v['tag']}: {v['meaning']}" for v in legacy_role_vocabulary())
     return (
         f"Theme: {theme}\n\n"
         "If this is a recognised MTG Commander deck theme/archetype, draft its genre. Describe it in 1-3 plain "
@@ -331,41 +333,22 @@ def validate_autofill(theme: str, reply: dict) -> dict:
 
 # -- matching ---------------------------------------------------------------------------------
 
-def deck_from_graph(graph: dict, quantities: Optional[Dict[str, int]] = None) -> dict:
-    """Adapt a deck interaction graph (service.get_deck_graph) to genre_match's input.
-    Graph nodes are unique by name, so pass ``quantities`` {name: copies} for real copy counts."""
-    q = quantities or {}
-    return {"cards": [{"name": n.get("name", ""), "quantity": q.get(n.get("name", ""), 1), "produces": n.get("produces", []),
-                       "consumes": n.get("consumes", [])} for n in (graph or {}).get("nodes", [])]}
+def genre_match(deck: dict, genres: Iterable[dict], r=None, source=None,
+                tag_sets: Optional[Mapping[str, dict]] = None) -> List[dict]:
+    """Rank genres by role coverage via the shared role-tag registry (spec §4).
 
-
-def genre_match(deck: dict, genres: Iterable[dict]) -> List[dict]:
-    """Rank genres by role coverage. Pure and deterministic.
-
-    ``deck`` = {"cards": [{"name", "quantity" (default 1), "produces": [...], "consumes": [...]}]}.
-    A role's count is the number of copies of cards carrying its tag. Role coverage =
-    min(count / min_count, 1); genre coverage = weighted mean of role coverage (0..1, 4 dp).
-    Ties break on name then id. A genre with no roles scores 0.
+    ``deck`` = {"cards": [{"name", "quantity" (default 1)}]}. A role's count is the number
+    of COPIES of the deck's cards matched by the tag's Scryfall query. Role coverage =
+    min(count / min_count, 1); genre coverage = weighted mean (0..1, 4 dp). Ties break on
+    name then id. A genre with no roles scores 0. Role rows carry the matched card names
+    and a state of ok / short / empty / blocked (never a silent 0).
     """
-    counts: Dict[str, int] = {}
-    for card in (deck or {}).get("cards", []):
-        q = card.get("quantity", 1)
-        qty = q if isinstance(q, int) and not isinstance(q, bool) and q > 0 else 1
-        for side in SIDES:
-            for key in set(card.get(side) or ()):
-                counts[f"{side}:{key}"] = counts.get(f"{side}:{key}", 0) + qty
-    ranked = []
-    for g in genres:
-        hit, missing, got, total = [], [], 0.0, 0.0
-        for role in g.get("required_roles", []):
-            need, w, tag = role["min_count"], float(role["weight"]), role["tag"]
-            have = counts.get(tag, 0)
-            total += w
-            got += w * min(have / need, 1.0)
-            (hit if have >= need else missing).append(
-                {"tag": tag, "have": have, "min_count": need, "weight": w})
-        ranked.append({"genre": {"id": g["id"], "name": g.get("name", g["id"])},
-                       "coverage": round(got / total, 4) if total else 0.0,
-                       "roles_hit": hit, "roles_missing": missing})
-    ranked.sort(key=lambda m: (-m["coverage"], m["genre"]["name"].lower(), m["genre"]["id"]))
-    return ranked
+    from analytics import archetypes
+
+    rows = archetypes.archetype_match(deck, genres, r, source, tag_sets)
+    out = []
+    for row in rows:
+        out.append({"genre": row["archetype"], "coverage": row["coverage"],
+                    "roles_hit": row["roles_hit"], "roles_missing": row["roles_missing"]})
+    out.sort(key=lambda m: (-m["coverage"], m["genre"]["name"].lower(), m["genre"]["id"]))
+    return out
