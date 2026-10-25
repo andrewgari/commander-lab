@@ -33,7 +33,7 @@ PRIMER_SYSTEM = (
 Write markdown with exactly these sections, in this order, each as a '## ' heading. Skip a section only when the
 inputs give nothing to say about it:
 {sections}
-Keep it under {max_words} words. Be specific and concrete; no filler.
+Keep it under {max_words} words and produce at least {min_chars} characters. Be specific and concrete; no filler. When you need more length, expand with concrete detail (named cards, sequencing, lines of play) rather than padding or repetition.
 RULES:
 """
     + _SHARED_RULES

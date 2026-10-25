@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: redis_pg_import
+    static_configs: [{targets: ["importer:9108"]}]
+  # or, for one-shot runs via Pushgateway:
+  # - job_name: pushgateway
+  #   honor_labels: true
+  #   static_configs: [{targets: ["pushgateway:9091"]}]

@@ -937,10 +937,12 @@
                     <input type="text" id="modalMoxfieldUrl" placeholder="Moxfield URL or ID" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
                     <button class="btn" onclick="saveDeckLink('moxfield')" style="padding: 0.4rem 0.7rem;">Save</button>
                 </div>
+                {% if commander_salt_enabled %}
                 <div style="display: flex; gap: 0.4rem;">
                     <input type="text" id="modalCommanderSaltUrl" placeholder="Commander Salt URL (optional)" style="flex: 1; padding: 0.4rem; font-size: 0.85rem;">
                     <button class="btn" onclick="saveDeckLink('commandersalt')" style="padding: 0.4rem 0.7rem;">Save</button>
                 </div>
+                {% endif %}
                 <div id="modalLinkStatus" style="font-size: 0.8rem; min-height: 1.1rem; margin-top: 0.4rem;"></div>
             </div>
 
@@ -1776,7 +1778,8 @@
         const links = deck.links || {};
         document.getElementById('modalArchidektUrl').value = (links.archidekt && links.archidekt.identifier) || '';
         document.getElementById('modalMoxfieldUrl').value = (links.moxfield && links.moxfield.identifier) || '';
-        document.getElementById('modalCommanderSaltUrl').value = (links.commandersalt && links.commandersalt.identifier) || '';
+        const saltUrlInput = document.getElementById('modalCommanderSaltUrl');
+        if (saltUrlInput) saltUrlInput.value = (links.commandersalt && links.commandersalt.identifier) || '';
         document.getElementById('modalLinkStatus').textContent = '';
         document.getElementById('modalSyncLink').href = `/deck/${encodeURIComponent(deck.name)}`;
         

@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import deck_links
+import deck_slots
 import registry
 from providers import fetch_deck as provider_fetch_deck
 from providers import push_configured as provider_push_configured
@@ -140,7 +141,7 @@ def _fetch_one(provider: str, deck_id: str) -> dict:
 def merge_normalized_decks(fetched: dict) -> tuple:
     """Merge `fetched` (provider -> normalized deck dict, successes only)
     into one cardlist. Returns (cards, commanders, commander_uids, color,
-    conflicts) where conflicts is a list[CardConflict].
+    conflicts, slots, parse_flags) where conflicts is a list[CardConflict].
 
     Merge strategy: union of card names; quantity = max across sources.
     commander_uids: index-aligned with commanders (one printing per name,
@@ -151,11 +152,23 @@ def merge_normalized_decks(fetched: dict) -> tuple:
     Color: union of every WUBRG letter seen across sources, "C" if none.
     """
     quantities_by_card = {}  # card_name -> {provider: qty}
+    slot_quantities = {}  # slot -> card_name -> {provider: qty}
+    parse_flags: list = []
     commanders, commander_uids = [], []
     uid_by_name, loose_uids = {}, []
     color_letters = set()
 
     for provider_name, normalized in fetched.items():
+        for flag in normalized.get("parse_flags") or []:
+            if flag not in parse_flags:
+                parse_flags.append(flag)
+        for slot, entries in (normalized.get("slots") or {}).items():
+            for card in entries or []:
+                name = card.get("name")
+                if name:
+                    slot_quantities.setdefault(slot, {}).setdefault(name, {})[provider_name] = (
+                        card.get("quantity", 1)
+                    )
         for card in normalized.get("cards", []):
             name = card.get("name")
             if not name:
@@ -212,7 +225,28 @@ def merge_normalized_decks(fetched: dict) -> tuple:
     cards.sort(key=lambda c: c["name"])
     color = "".join(c for c in "WUBRG" if c in color_letters) or "C"
 
-    return cards, commanders, commander_uids, color, conflicts
+    # Merge slots the same way: union of card names per slot, max quantity
+    # across sources. Provenance markers (remapped_from) are kept when every
+    # source listing the card carries one.
+    slots = deck_slots.empty_slots()
+    for slot, by_card in slot_quantities.items():
+        canonical = slot if slot in deck_slots.DeckSlot.VALID else deck_slots.normalize_slot(slot)
+        if canonical is None:
+            canonical = deck_slots.DeckSlot.MAYBEBOARD
+        for name, by_provider in by_card.items():
+            entry = {"name": name, "quantity": max(by_provider.values())}
+            remapped_everywhere = True
+            for provider_name in by_provider:
+                rows = (fetched[provider_name].get("slots") or {}).get(slot) or []
+                if not any(r.get("name") == name and r.get("remapped_from") == "sideboard" for r in rows):
+                    remapped_everywhere = False
+                    break
+            if remapped_everywhere:
+                entry["remapped_from"] = "sideboard"
+            slots[canonical].append(entry)
+        slots[canonical].sort(key=lambda c: c["name"])
+
+    return cards, commanders, commander_uids, color, conflicts, slots, parse_flags
 
 
 DIRECTION = {"update": "external_to_local", "push": "local_to_external"}
@@ -314,15 +348,24 @@ def update_deck(r, registry_id: str, provider: Optional[str] = None, dry_run: bo
     if not fetched:
         raise ProviderFailure(f"all linked sources failed for deck {registry_id}: " + "; ".join(report.warnings))
 
-    cards, commanders, commander_uids, color, conflicts = merge_normalized_decks(fetched)
+    cards, commanders, commander_uids, color, conflicts, slots, parse_flags = (
+        merge_normalized_decks(fetched)
+    )
     report.conflicts = conflicts
     report.merged_card_count = len(cards)
     report.changes = diff_cardlists(deck.get("cards"), cards)
+    if deck_slots.SIDEBOARD_MAPPED_FLAG in parse_flags:
+        report.warnings.append(
+            "A 'Sideboard' board was found on a linked source and mapped to the "
+            "Maybeboard slot by default; rename it to 'Maybeboard' on the source "
+            "to make this explicit."
+        )
 
     ts = _now()
     if not dry_run:
         registry.update_deck_cards(r, registry_id, cards=cards, commanders=commanders,
-                                   commander_uids=commander_uids, color=color)
+                                   commander_uids=commander_uids, color=color,
+                                   slots=slots, parse_flags=parse_flags)
         # The Archidekt pull carries the deck's folder: refresh it and apply the
         # physical-folder rule (registry.apply_folder_rule -> set_status).
         arch = fetched.get("archidekt")

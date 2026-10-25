@@ -1,24 +1,11 @@
 {% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
 
-{% block title %}Manage {{ deck_name }} | Commander Lab{% endblock %}
+{% block title %}Manage · {{ deck_name }} | Commander Lab{% endblock %}
 
 {% block extra_css %}
 <style>
-    .manage-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--border);
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .manage-header h1 { margin-bottom: 0.25rem; }
-
-    .manage-subtitle { color: var(--text-muted); font-size: 0.9rem; }
-
     .search-container { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; position: relative; }
     .search-container input { flex: 1; margin-bottom: 0; }
 
@@ -241,16 +228,16 @@
 </style>
 {% endblock %}
 
+{% block crumbs %}{{ dh.crumbs(head, "Manage") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
 {% block content %}
-<div class="manage-header">
-    <div>
-        <h1>Manage: {{ deck_name }}</h1>
-        <div class="manage-subtitle">
-            Cards grouped by effective category (Deck Category override &gt; Lab Tag &gt; Uncategorized).
-        </div>
-    </div>
-    <a class="btn" href="/deck/{{ deck_name | urlencode }}">&larr; Back to Deck</a>
-</div>
+{#- NAV_IA §3.2 (D1/D2): Manage is tab 2 with the shared deck header — no more dead end. -#}
+{% call dh.header(head, tab) %}{% endcall %}
+
+<p class="hud-field-hint" style="margin-top: 0;">
+    Add and cut cards. Grouped by effective category (Deck Category override &gt; Lab Tag &gt; Uncategorized).
+</p>
 
 <div id="resync-review-panel" style="display: none;">
     <h2 style="margin-top: 0; font-size: 1.25rem;">Resync changes pending review</h2>
