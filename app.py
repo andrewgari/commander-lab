@@ -1023,6 +1023,7 @@ async def brew_commander_search(q: str = ""):
                     break
                 prefix = prefix[:-1]
                 fuzzy_queries.append(prefix)
+            direct_fuzzy_ids = []
 
             for fuzzy_query in fuzzy_queries:
                 fuzzy = httpx.get(
@@ -1032,10 +1033,12 @@ async def brew_commander_search(q: str = ""):
                 if fuzzy.status_code == 200:
                     card = fuzzy.json()
                     if (card.get("legalities") or {}).get("commander") == "legal":
-                        candidates[card.get("id") or card.get("name")] = card
+                        cid = card.get("id") or card.get("name")
+                        candidates[cid] = card
                         # Preserve existing behavior for a successful fuzzy-name
                         # match; only gather broader candidates after a miss.
                         if fuzzy_query == query:
+                            direct_fuzzy_ids.append(cid)
                             break
                 elif fuzzy.status_code != 404:
                     break
@@ -1061,20 +1064,42 @@ async def brew_commander_search(q: str = ""):
                     if candidates:
                         break
 
+            # A successful direct fuzzy-name match preserves pre-existing
+            # behavior exactly: return it without any similarity gate, so a
+            # short query against a long card name (e.g. "atraxa" -> "Atraxa,
+            # Praetors' Voice") is never discarded.
+            direct_fuzzy_hit = any(
+                cid in candidates for cid in direct_fuzzy_ids
+            ) if direct_fuzzy_ids else False
+
             if candidates:
                 original = query.casefold()
+
+                def similarity(name):
+                    name = (name or "").casefold()
+                    ratio = difflib.SequenceMatcher(None, original, name).ratio()
+                    # Containment-aware score: compare the query against a
+                    # same-length prefix of the name so short queries are not
+                    # unfairly penalized by long card names.
+                    if len(name) > len(original):
+                        prefix_ratio = difflib.SequenceMatcher(
+                            None, original, name[: len(original)]
+                        ).ratio()
+                        ratio = max(ratio, prefix_ratio)
+                    return ratio
+
                 ranked = sorted(
                     candidates.items(),
-                    key=lambda item: difflib.SequenceMatcher(
-                        None, original, (item[1].get("name") or "").casefold()
-                    ).ratio(),
+                    key=lambda item: similarity(item[1].get("name")),
                     reverse=True,
                 )
-                best_score = difflib.SequenceMatcher(
-                    None, original, (ranked[0][1].get("name") or "").casefold()
-                ).ratio()
-                # Avoid returning unrelated results from a broad shortened query.
-                candidates = dict(ranked[:5]) if best_score >= 0.45 else {}
+                if direct_fuzzy_hit:
+                    candidates = dict(ranked[:5])
+                else:
+                    best_score = similarity(ranked[0][1].get("name"))
+                    # Avoid returning unrelated results from a broad
+                    # shortened query.
+                    candidates = dict(ranked[:5]) if best_score >= 0.45 else {}
     except Exception:
         candidates = {}
 
