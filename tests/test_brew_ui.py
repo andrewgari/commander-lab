@@ -124,6 +124,25 @@ class TestDonorAutocomplete(unittest.TestCase):
         self.assertIn("hud-chip-remove", BREW_JS)
 
 
+class TestBrewAssetCacheBusting(unittest.TestCase):
+    """brew.js must load with the shared ?v={{ version }} cache-buster.
+
+    Regression pin for t_4f7ebd86: every other static asset in base.html is
+    versioned, but brew.html loaded brew.js bare. With no Cache-Control header
+    from the static mount, browsers heuristically cache the bare URL, so a
+    deploy could ship a new brew.js while clients kept running the stale file
+    (the live commander autocomplete never appeared). Deleting the version
+    parameter turns this test red.
+    """
+
+    def test_brew_js_script_tag_is_versioned(self):
+        m = re.search(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>',
+                      BREW_HTML)
+        self.assertIsNotNone(m, "brew.js script tag not found in brew.html")
+        self.assertIn("?v={{ version }}", m.group(1),
+                      "brew.js must be loaded with ?v={{ version }} like base.html assets")
+
+
 class TestSubmitPathUnchanged(unittest.TestCase):
     def test_generate_payload_shape(self):
         for key in ("commanders:", "donor_deck_ids:", "build_mode:",
