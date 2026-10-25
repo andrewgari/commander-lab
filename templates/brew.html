@@ -6,7 +6,8 @@
 {% block extra_css %}
 <style>
     /* Brew console layout (BREW-DESIGNER §2). Components live in hud.css. */
-    .brew-grid { display: grid; grid-template-columns: minmax(0, 760px) 320px; gap: var(--sp-6); align-items: start; }
+    .brew-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: var(--sp-6); align-items: start; }
+    .brew-grid, .brew-main, .brew-rail { min-width: 0; }
     .brew-main > * + * { margin-top: var(--sp-6); }
     .brew-rail { position: sticky; top: var(--sp-4); }
     .brew-rail .hud-panel + .hud-panel { margin-top: var(--sp-4); }
@@ -24,6 +25,10 @@
     .brew-cmd-results[hidden] { display: none; }
     .brew-cmd-results li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
     .brew-cmd-results li[aria-selected="true"], .brew-cmd-results li:hover { background: var(--surface-2); }
+    .brew-cmd-results li[aria-disabled="true"] { cursor: default; color: var(--text-2); }
+    .brew-cmd-state--loading { color: var(--text-3); }
+    .brew-cmd-state--empty { color: var(--text-2); }
+    .brew-cmd-state--error { color: var(--danger); }
     .brew-cmd-results img { width: 40px; height: 30px; object-fit: cover; flex: none; }
     .brew-cmd-name { font-family: var(--font-card); }
     .brew-cmd-type { color: var(--text-3); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -71,7 +76,14 @@
         .brew-rail .hud-panel.brew-summary { display: none; }
         .brew-mobilebar { display: flex; position: sticky; bottom: 0; z-index: 20; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border-top: var(--hairline) solid var(--line); }
         .brew-mobilebar .brew-mobilebar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
-        .brew-mobilebar .hud-btn { margin-left: auto; }
+        .brew-mobilebar .hud-btn { margin-left: auto; flex: none; }
+        #brewModeGroup { grid-template-columns: minmax(0, 1fr) !important; }
+    }
+    @media (max-width: 420px) {
+        .brew-mobilebar { gap: var(--sp-2); padding-inline: var(--sp-2); }
+        .brew-mobilebar .brew-micro { font-size: 0.65rem; }
+        .brew-mobilebar .hud-btn { padding-inline: var(--sp-2); }
+        .brew-cmd-selected { flex-wrap: wrap; }
     }
 </style>
 {% endblock %}

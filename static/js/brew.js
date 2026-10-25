@@ -69,29 +69,41 @@
             cmdFrames = $("brewCmdFrames"), cmdNames = $("brewCmdNames"),
             cmdPips = $("brewCmdPips"), cmdPartner = $("brewCmdPartner"),
             cmdRemove = $("brewCmdRemove");
-        var debounce = null, activeIdx = -1, currentResults = [];
+        var debounce = null, activeIdx = -1, currentResults = [], searchSequence = 0;
 
-        function closeResults() { cmdResults.hidden = true; cmdInput.setAttribute("aria-expanded", "false"); activeIdx = -1; }
+        function closeResults() {
+            searchSequence++;
+            cmdResults.hidden = true;
+            cmdInput.setAttribute("aria-expanded", "false");
+            cmdInput.removeAttribute("aria-activedescendant");
+            activeIdx = -1;
+        }
+        function renderMessage(message, className) {
+            currentResults = [];
+            activeIdx = -1;
+            cmdResults.innerHTML = "";
+            var item = document.createElement("li");
+            item.className = className || "brew-cmd-state";
+            item.setAttribute("aria-disabled", "true");
+            item.textContent = message;
+            cmdResults.appendChild(item);
+            cmdResults.hidden = false;
+            cmdInput.setAttribute("aria-expanded", "true");
+            cmdInput.removeAttribute("aria-activedescendant");
+        }
         function showError(msg) {
-            cmdError.textContent = msg + " ";
-            var retry = document.createElement("a");
-            retry.href = "#"; retry.textContent = "Retry";
-            retry.addEventListener("click", function (ev) { ev.preventDefault(); cmdError.hidden = true; runSearch(); });
-            cmdError.appendChild(retry);
-            cmdError.hidden = false;
+            renderMessage(msg, "brew-cmd-state brew-cmd-state--error");
         }
         function renderResults(list) {
             currentResults = list;
             cmdResults.innerHTML = "";
             if (!list.length) {
-                cmdResults.innerHTML = "";
-                var empty = document.createElement("li");
-                empty.setAttribute("aria-disabled", "true");
-                empty.innerHTML = '<span class="brew-cmd-type">No commanders match — check spelling</span>';
-                cmdResults.appendChild(empty);
+                renderMessage("No commanders match — check spelling", "brew-cmd-state brew-cmd-state--empty");
+                return;
             }
             list.forEach(function (c, i) {
                 var li = document.createElement("li");
+                li.id = "brewCmdOption" + i;
                 li.setAttribute("role", "option");
                 li.setAttribute("aria-selected", i === activeIdx ? "true" : "false");
                 var img = c.image ? '<img src="' + esc(c.image) + '" alt="" loading="lazy">' : '<span style="width:40px;flex:none"></span>';
@@ -102,14 +114,24 @@
             });
             cmdResults.hidden = false;
             cmdInput.setAttribute("aria-expanded", "true");
+            if (activeIdx >= 0) {
+                cmdInput.setAttribute("aria-activedescendant", "brewCmdOption" + activeIdx);
+                var active = $("brewCmdOption" + activeIdx);
+                if (active && active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
+            } else cmdInput.removeAttribute("aria-activedescendant");
         }
         function runSearch() {
             var q = cmdInput.value.trim();
+            var sequence = ++searchSequence;
             if (q.length < 2) { closeResults(); return; }
-            cmdError.hidden = true;
+            renderMessage("Searching commanders…", "brew-cmd-state brew-cmd-state--loading");
             fetchJSON("/api/brew/commanders?q=" + encodeURIComponent(q))
-                .then(function (body) { renderResults(body.results || []); })
-                .catch(function () { closeResults(); showError("Commander search failed."); });
+                .then(function (body) {
+                    if (sequence === searchSequence && cmdInput.value.trim() === q) renderResults(body.results || []);
+                })
+                .catch(function () {
+                    if (sequence === searchSequence && cmdInput.value.trim() === q) showError("Commander search failed. Try again.");
+                });
         }
         function pickCommander(c) {
             if (state.commanders.length >= 2) return;
@@ -150,7 +172,11 @@
         }
         cmdInput.addEventListener("input", function () {
             clearTimeout(debounce);
-            debounce = setTimeout(runSearch, 250);
+            searchSequence++;
+            if (cmdInput.value.trim().length >= 2) {
+                renderMessage("Searching commanders…", "brew-cmd-state brew-cmd-state--loading");
+                debounce = setTimeout(runSearch, 250);
+            } else closeResults();
         });
         cmdInput.addEventListener("focus", function () {
             // Re-open the suggestion list when returning to a field that
@@ -158,21 +184,29 @@
             if (cmdInput.value.trim().length >= 2) runSearch();
         });
         document.addEventListener("mousedown", function (ev) {
-            if (ev.target !== cmdInput && !cmdResults.contains(ev.target)) closeResults();
+            if (!cmdInput.contains(ev.target) && !cmdResults.contains(ev.target)) closeResults();
         });
+        document.addEventListener("touchstart", function (ev) {
+            if (!cmdInput.contains(ev.target) && !cmdResults.contains(ev.target)) closeResults();
+        }, { passive: true });
         cmdInput.addEventListener("keydown", function (ev) {
-            if (cmdResults.hidden) return;
+            if (ev.key === "Escape") {
+                if (!cmdResults.hidden) {
+                    ev.preventDefault();
+                    closeResults();
+                }
+                return;
+            }
+            if (cmdResults.hidden || !currentResults.length) return;
             if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
                 ev.preventDefault();
                 var max = currentResults.length - 1;
                 activeIdx = ev.key === "ArrowDown" ? Math.min(max, activeIdx + 1) : Math.max(0, activeIdx - 1);
                 renderResults(currentResults);
             } else if (ev.key === "Enter") {
+                if (activeIdx < 0 || !currentResults[activeIdx]) return;
                 ev.preventDefault();
-                if (currentResults[activeIdx]) pickCommander(currentResults[activeIdx]);
-                else if (currentResults.length) pickCommander(currentResults[0]);
-            } else if (ev.key === "Escape") {
-                closeResults();
+                pickCommander(currentResults[activeIdx]);
             }
         });
         cmdRemove.addEventListener("click", function () {
@@ -347,12 +381,15 @@
                 art.innerHTML = '<span class="brew-art-empty">Pick a commander</span>';
             }
             var ok = state.commanders.length > 0;
+            var reason = ok ? "" : "Pick a commander to brew";
             [$("brewGenerate"), $("brewGenerateMobile")].forEach(function (b) {
                 if (!b) return;
                 b.disabled = !ok;
                 b.setAttribute("aria-disabled", String(!ok));
+                if (!ok) b.setAttribute("title", reason);
+                else b.removeAttribute("title");
             });
-            $("brewGenerateHint").textContent = ok ? "" : "Pick a commander to brew";
+            $("brewGenerateHint").textContent = reason;
             $("brewMobileName").textContent = first ? first.name : "No commander";
             $("brewMobilePool").textContent = state.donors.length + " donors";
         }
