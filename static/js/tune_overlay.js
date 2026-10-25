@@ -29,6 +29,42 @@
     var saveTimer = null;
     var dragPayload = null;
     var ac = { items: [], active: -1, input: null, timer: null, box: null };
+    // DT-3 printing picker state (spec §3.1/§3.3): one shared dropdown.
+    var pp = { box: null, card: null };
+
+    // Scoped picker styles (hud.css is DT-1's file; DT-7 set the precedent
+    // of injecting its own scoped CSS instead).
+    var PP_CSS =
+        ".tnov-col-body{position:relative}" +
+        ".tnov-print{cursor:pointer;border:var(--hairline) solid var(--line);background:transparent;" +
+        "color:var(--text-3);font-family:var(--font-mono);font-size:var(--fs-micro);" +
+        "padding:0 var(--sp-1);border-radius:var(--r-sm);margin-left:var(--sp-1)}" +
+        ".tnov-print:hover{color:var(--text-1);border-color:var(--text-3)}" +
+        ".tnov-need{margin-left:var(--sp-1);color:var(--warn,#e0a458);font-family:var(--font-mono);" +
+        "font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:.04em}" +
+        ".tnov-pp{position:absolute;z-index:60;min-width:260px;max-width:340px;max-height:320px;overflow:auto;" +
+        "background:var(--bg-2);border:var(--hairline) solid var(--line);border-radius:var(--r-md);" +
+        "box-shadow:0 8px 24px rgba(0,0,0,.45)}" +
+        ".tnov-pp-opt{display:flex;gap:var(--sp-2);align-items:center;padding:var(--sp-2);" +
+        "cursor:pointer;border-bottom:var(--hairline) solid var(--line)}" +
+        ".tnov-pp-opt:hover{background:var(--bg-3)}" +
+        ".tnov-pp-opt img{width:34px;height:auto;border-radius:2px;flex:none}" +
+        ".tnov-pp-main{flex:1;min-width:0}" +
+        ".tnov-pp-set{color:var(--text-1);font-size:var(--fs-xs);white-space:nowrap;overflow:hidden;" +
+        "text-overflow:ellipsis}" +
+        ".tnov-pp-sub{color:var(--text-3);font-family:var(--font-mono);font-size:var(--fs-micro)}" +
+        ".tnov-pp-own{flex:none;font-family:var(--font-mono);font-size:var(--fs-micro);" +
+        "text-transform:uppercase;letter-spacing:.04em}" +
+        ".tnov-pp-own.is-owned{color:var(--ok,#7fc98f)}" +
+        ".tnov-pp-own.is-buy{color:var(--warn,#e0a458)}" +
+        ".tnov-pp-status{padding:var(--sp-3);color:var(--text-3);font-size:var(--fs-xs)}";
+    function injectPpCss() {
+        if (document.getElementById("tnov-pp-css")) return;
+        var el = document.createElement("style");
+        el.id = "tnov-pp-css";
+        el.textContent = PP_CSS;
+        document.head.appendChild(el);
+    }
 
     function $(id) { return document.getElementById(id); }
     function esc(s) { return window.HUD.esc(s); }
@@ -102,6 +138,11 @@
     }
 
     // ---- rendering ----------------------------------------------------------
+    function printingLabel(p) {
+        if (!p || !p.set) return "set…";
+        return (p.set || "").toUpperCase() + " #" + (p.collector_number || "?") +
+            (p.finish && p.finish !== "nonfoil" ? " " + p.finish : "");
+    }
     function chipHtml(c, col) {
         var pinned = slotOf(c) === "commander";
         return '<div class="tnov-chip' + (excludedCard(c) ? " is-excluded" : "") + '"' +
@@ -109,6 +150,10 @@
             ' data-card="' + esc(c.name) + '" data-col="' + esc(col.id) + '">' +
             '<span class="hud-card-name">' + window.HUD.cardName(c.name) + "</span>" +
             ((c.qty || 1) > 1 ? '<span class="tnov-qty">×' + (c.qty || 1) + "</span>" : "") +
+            '<button type="button" class="tnov-print" data-print="' + esc(c.name) +
+                '" title="Change printing — a different printing counts as a new card">' +
+                esc(printingLabel(c.printing)) + "</button>" +
+            (c.needs_purchase ? '<span class="tnov-need" title="This exact printing is not in your inventory">needs purchase</span>' : "") +
             (pinned ? "" : '<button type="button" class="tnov-remove" data-remove="' + esc(c.name) +
                 '" title="Remove from the draft decklist" aria-label="Remove ' + esc(c.name) + '">×</button>') +
             "</div>";
@@ -307,6 +352,62 @@
         return false;
     }
 
+    // ---- printing picker (DT-3, spec §3.1/§3.3) -------------------------------
+    // A printing change is treated as a NEW card: the chosen exact
+    // (set, collector_number, finish) goes on the draft card and the server
+    // recomputes needs_purchase against the instance registry on save.
+    function ppClose() {
+        if (pp.box) pp.box.hidden = true;
+        pp.card = null;
+    }
+    function ppPick(set, cn, finish, owned) {
+        var c = cardByName(pp.card);
+        ppClose();
+        if (!c) return;
+        c.printing = { set: set, collector_number: cn, finish: finish };
+        c.needs_purchase = !owned;
+        render();
+        queueSave();   // POST /tuneup/draft recomputes needs_purchase server-side
+    }
+    function ppRender(name, printings) {
+        var rows = [];
+        printings.forEach(function (p) {
+            (p.finishes || []).forEach(function (f) {
+                rows.push(
+                    '<div class="tnov-pp-opt" role="option" data-pp-set="' + esc(p.set) +
+                    '" data-pp-cn="' + esc(p.collector_number) + '" data-pp-finish="' + esc(f.finish) +
+                    '" data-pp-owned="' + (f.owned ? "1" : "") + '">' +
+                    (p.image ? '<img src="' + esc(p.image) + '" alt="" loading="lazy">' : "") +
+                    '<span class="tnov-pp-main"><span class="tnov-pp-set">' + esc(p.set_name || p.set) + "</span>" +
+                    '<span class="tnov-pp-sub"> ' + esc((p.set || "").toUpperCase() + " #" + p.collector_number +
+                        " · " + f.finish + (f.usd ? " · $" + f.usd : "")) + "</span></span>" +
+                    '<span class="tnov-pp-own ' + (f.owned ? "is-owned" : "is-buy") + '">' +
+                    (f.owned ? "owned" : "buy") + "</span></div>");
+            });
+        });
+        pp.box.innerHTML = rows.join("") ||
+            '<div class="tnov-pp-status">No printings found for ' + esc(name) + ".</div>";
+        pp.box.hidden = false;
+    }
+    function ppOpen(chip, name) {
+        var host = chip.closest(".tnov-col-body") || chip.parentNode;
+        if (pp.box.parentNode !== host) host.appendChild(pp.box);
+        if (pp.card === name && !pp.box.hidden) { ppClose(); return; }
+        pp.card = name;
+        pp.box.innerHTML = '<div class="tnov-pp-status">Loading printings…</div>';
+        pp.box.hidden = false;
+        fetch(API + "/tuneup/printings?name=" + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (pp.card !== name) return;
+                if (j.error) pp.box.innerHTML = '<div class="tnov-pp-status">' + esc(j.error) + "</div>";
+                else ppRender(name, j.printings || []);
+            })
+            .catch(function () {
+                if (pp.card === name) pp.box.innerHTML = '<div class="tnov-pp-status">Printing lookup failed.</div>';
+            });
+    }
+
     // ---- drag & drop ----------------------------------------------------------
     function bindDnd(cols) {
         cols.addEventListener("dragstart", function (e) {
@@ -377,6 +478,24 @@
 
     function start() {
         if (!$("tuneOverlayView")) return;
+        injectPpCss();
+        pp.box = document.createElement("div");
+        pp.box.className = "tnov-pp";
+        pp.box.setAttribute("role", "listbox");
+        pp.box.hidden = true;
+        pp.box.addEventListener("mousedown", function (e) {
+            var opt = e.target.closest("[data-pp-set]");
+            if (!opt) return;
+            e.preventDefault();
+            ppPick(opt.getAttribute("data-pp-set"), opt.getAttribute("data-pp-cn"),
+                   opt.getAttribute("data-pp-finish"), opt.getAttribute("data-pp-owned") === "1");
+        });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") ppClose(); });
+        document.addEventListener("click", function (e) {
+            if (!pp.box || pp.box.hidden) return;
+            if (pp.box.contains(e.target) || e.target.closest("[data-print]")) return;
+            ppClose();
+        });
         ac.box = document.createElement("div");
         ac.box.className = "tnov-ac";
         ac.box.setAttribute("role", "listbox");
@@ -390,6 +509,8 @@
         cols.addEventListener("click", function (e) {
             var rm = e.target.closest("[data-remove]");
             if (rm) { removeCard(rm.getAttribute("data-remove")); return; }
+            var pr = e.target.closest("[data-print]");
+            if (pr) { ppOpen(pr.closest(".tnov-chip") || pr, pr.getAttribute("data-print")); return; }
             var fl = e.target.closest("[data-flag]");
             if (fl) toggleFlag(fl.getAttribute("data-flag"));
         });

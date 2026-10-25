@@ -259,8 +259,30 @@ def commander_on_curve(commander: Optional[str], cmc: Optional[int], lands: int,
 # Genre
 # ---------------------------------------------------------------------------------------------
 
-def genre_section(graph: Mapping, qty: Mapping[str, int], genres: Sequence[dict], version: Optional[int]) -> dict:
-    ranked = genres_mod.genre_match(genres_mod.deck_from_graph(dict(graph), dict(qty)), genres)
+def _graph_tag_sets(graph: Mapping) -> Mapping[str, dict]:
+    """Fallback tag_sets for pure callers (tests, replays) with no Redis handle: build a
+    name set per legacy tag from the interaction graph's per-card produces/consumes tags.
+    Membership is identical to the old counting scorer, so legacy genres score unchanged."""
+    names_by: Dict[str, set] = {}
+    nodes = (graph or {}).get("nodes") or []
+    cards = (graph or {}).get("cards") or {}
+    iterable = [(n.get("name"), n) for n in nodes if isinstance(n, Mapping)] or list(cards.items())
+    for name, node in iterable:
+        if not name or not isinstance(node, Mapping):
+            continue
+        for side in ("produces", "consumes"):
+            for key in node.get(side) or []:
+                names_by.setdefault(f"legacy:{side}:{key}", set()).add(name)
+    return {tid: {"names": names, "query": "", "label": tid, "error": None,
+                  "oversized": False, "total": len(names), "built_at": None}
+            for tid, names in names_by.items()}
+
+
+def genre_section(graph: Mapping, qty: Mapping[str, int], genres: Sequence[dict], version: Optional[int],
+                  tag_sets: Optional[Mapping[str, dict]] = None) -> dict:
+    deck = {"cards": [{"name": n, "quantity": q} for n, q in sorted(qty.items())]}
+    ranked = genres_mod.genre_match(deck, genres,
+                                    tag_sets=tag_sets if tag_sets is not None else _graph_tag_sets(graph))
     eligible = [m for m in ranked if m["coverage"] >= MIN_GENRE_COVERAGE]
     pick = lambda m: {"id": m["genre"]["id"], "name": m["genre"]["name"], "coverage": m["coverage"],  # noqa: E731
                       "roles_hit": m["roles_hit"], "roles_missing": m["roles_missing"]}
@@ -559,7 +581,8 @@ def compute_review(inputs: Mapping) -> dict:
         "deck": {"registry_id": deck.get("registry_id"), "name": deck.get("name"), "commanders": commanders},
         "fingerprint": fingerprint(deck),
         "genre_registry_version": inputs.get("genre_version"),
-        "genre": genre_section(graph, qty, inputs.get("genres") or [], inputs.get("genre_version")),
+        "genre": genre_section(graph, qty, inputs.get("genres") or [], inputs.get("genre_version"),
+                               inputs.get("tag_sets")),
         "composition": comp_out,
         "curve_tempo": tempo_section(list(facts.values()), commanders, texts, total),
         "focus": focus_section(lines, inputs.get("journal")),
@@ -594,6 +617,19 @@ def build_inputs(r, deck: dict, combos_client=None) -> dict:
     except Exception as exc:  # noqa: BLE001 - Spellbook is optional; the review renders without it
         combos = {"in_deck": [], "one_away": [], "error": str(exc)[:200]}
     genres_mod.ensure_seeded(r)
+    genres = genres_mod.list_genres(r)
+    # Pre-resolve every role tag's Scryfall-query name set once (cached in tag_query_index),
+    # so compute_review stays a pure function of its inputs (docs/role-tags-spec.md §2.3).
+    from . import role_tags
+    idx = role_tags.tag_index(r)
+    used = set()
+    for g in genres:
+        for role in g.get("required_roles", []):
+            try:
+                used.add(role_tags.resolve_role_tag(role["tag"], idx))
+            except role_tags.RoleTagError:
+                continue
+    tag_sets = role_tags.resolve_tag_sets(r, [idx[i] for i in sorted(used)])
     pets = insights.pet_cards(r, deck)
     try:
         rec = journal_mod.load_journal(r, deck)
@@ -601,7 +637,7 @@ def build_inputs(r, deck: dict, combos_client=None) -> dict:
     except Exception:  # noqa: BLE001
         journal = None
     return {"deck": deck, "texts": texts, "graph": graph, "engines": engines, "combos": combos,
-            "genres": genres_mod.list_genres(r), "genre_version": genres_mod.get_version(r),
+            "genres": genres, "genre_version": genres_mod.get_version(r), "tag_sets": tag_sets,
             "journal": journal, "pets": pets, "template": comp.get_template(r, deck),
             "weak": insights.deck_weak_performers(r, deck, graph)}
 
