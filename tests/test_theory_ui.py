@@ -272,9 +272,9 @@ class _IdeasPage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual(tabs[5][0], "/deck/Holy%20Hellfire/ideas")
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual(tabs[7][0], "/deck/Holy%20Hellfire/ideas")
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
 
 
@@ -285,7 +285,7 @@ class TestIdeasPage(_IdeasPage, unittest.TestCase):
 
     def test_badge_is_doc_count(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
-        self.assertRegex(nav, r'/ideas"[^>]*>Ideas <span class="hud-tab-count">2</span>')
+        self.assertRegex(nav, r'/ideas"[^>]*><span class="hud-kbd"[^>]*>8</span>Ideas <span class="hud-tab-count">2</span>')
 
     def test_list_newest_first_with_facts_and_actions(self):
         rows = re.findall(r'<li class="hud-idea" data-doc="([^"]+)">', self.body)
@@ -479,7 +479,7 @@ class TestPageEdges(unittest.TestCase):
     def test_delete_updates_tab_badge_and_409_syncs_job_fields(self):
         theory.store(self.fake, _doc(deck_id=RID))
         body = self.client.get("/deck/Holy%20Hellfire/ideas").text
-        self.assertIn('[data-key="6"]', body)
+        self.assertIn('[data-key="8"]', body)
         self.assertIn("hud-tab-count", body)
         self.assertIn("job.commander_mode", body)
 
@@ -504,7 +504,7 @@ class TestPageEdges(unittest.TestCase):
 class TestTabHotkey(unittest.TestCase):
     def test_key_6(self):
         js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
-        self.assertIn("/^[1-8]$/", js)
+        self.assertIn("/^[0-9]$/", js)
 
 
 if __name__ == "__main__":
