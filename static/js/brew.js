@@ -72,6 +72,7 @@
         var debounce = null, activeIdx = -1, currentResults = [], searchSequence = 0;
 
         function closeResults() {
+            clearTimeout(debounce);
             searchSequence++;
             cmdResults.hidden = true;
             cmdInput.setAttribute("aria-expanded", "false");
