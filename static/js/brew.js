@@ -152,6 +152,14 @@
             clearTimeout(debounce);
             debounce = setTimeout(runSearch, 250);
         });
+        cmdInput.addEventListener("focus", function () {
+            // Re-open the suggestion list when returning to a field that
+            // still has text (e.g. after picking, then editing the query).
+            if (cmdInput.value.trim().length >= 2) runSearch();
+        });
+        document.addEventListener("mousedown", function (ev) {
+            if (ev.target !== cmdInput && !cmdResults.contains(ev.target)) closeResults();
+        });
         cmdInput.addEventListener("keydown", function (ev) {
             if (cmdResults.hidden) return;
             if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
@@ -199,14 +207,31 @@
             donorEmpty.hidden = state.donors.length > 0;
             donorNote.hidden = state.donors.length <= 8;
         }
+        var visibleDonors = [], donorActiveIdx = -1;
+        function toggleDonor(id, on) {
+            if (on && state.donors.indexOf(id) === -1) state.donors.push(id);
+            if (!on) state.donors = state.donors.filter(function (x) { return x !== id; });
+            renderDonorChips();
+            renderDonorList();
+            syncRail();
+        }
         function renderDonorList() {
             if (!donorList) return;
-            var q = (donorFilter.value || "").trim().toLowerCase();
-            donorList.innerHTML = donors
-                .filter(function (d) { return !q || d.name.toLowerCase().indexOf(q) !== -1; })
-                .map(function (d) {
+            var q = (donorFilter ? donorFilter.value : "").trim().toLowerCase();
+            visibleDonors = donors.filter(function (d) { return !q || d.name.toLowerCase().indexOf(q) !== -1; });
+            if (!visibleDonors.length) {
+                donorActiveIdx = -1;
+                // Free text that matches no deck must say so, not fail silently.
+                donorList.innerHTML = '<li class="brew-donor-none" aria-disabled="true">No decks match "' +
+                    esc(q.length > 40 ? q.slice(0, 37) + "…" : q) + '" — pick a name from the list.</li>';
+                return;
+            }
+            if (donorActiveIdx >= visibleDonors.length) donorActiveIdx = visibleDonors.length - 1;
+            donorList.innerHTML = visibleDonors
+                .map(function (d, i) {
                     var checked = state.donors.indexOf(d.registry_id) !== -1;
-                    return '<li><label style="display:flex;align-items:center;gap:var(--sp-2);width:100%;cursor:pointer">' +
+                    return '<li' + (i === donorActiveIdx ? ' class="kb-focus"' : "") +
+                        '><label style="display:flex;align-items:center;gap:var(--sp-2);width:100%;cursor:pointer">' +
                         '<input type="checkbox" data-id="' + esc(d.registry_id) + '"' + (checked ? " checked" : "") + '>' +
                         '<span class="brew-donor-name">' + esc(d.name) + "</span>" +
                         (window.HUD ? HUD.statusChip(d.status) : esc(d.status)) +
@@ -225,7 +250,31 @@
             });
         }
         function renderDonors() { renderDonorChips(); renderDonorList(); }
-        if (donorFilter) donorFilter.addEventListener("input", renderDonorList);
+        if (donorFilter) {
+            donorFilter.addEventListener("input", function () {
+                donorActiveIdx = -1;
+                renderDonorList();
+            });
+            donorFilter.addEventListener("keydown", function (ev) {
+                if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+                    if (!visibleDonors.length) return;
+                    ev.preventDefault();
+                    var max = visibleDonors.length - 1;
+                    donorActiveIdx = ev.key === "ArrowDown" ? Math.min(max, donorActiveIdx + 1) : Math.max(0, donorActiveIdx - 1);
+                    renderDonorList();
+                    var focused = donorList.querySelectorAll("li")[donorActiveIdx];
+                    if (focused && focused.scrollIntoView) focused.scrollIntoView({ block: "nearest" });
+                } else if (ev.key === "Enter") {
+                    ev.preventDefault();
+                    var d = visibleDonors[donorActiveIdx] || visibleDonors[0];
+                    if (d) toggleDonor(d.registry_id, state.donors.indexOf(d.registry_id) === -1);
+                } else if (ev.key === "Escape") {
+                    donorFilter.value = "";
+                    donorActiveIdx = -1;
+                    renderDonorList();
+                }
+            });
+        }
 
         /* ---- themes ---- */
         var themeInput = $("brewThemeInput"), themePills = $("brewThemePills");
