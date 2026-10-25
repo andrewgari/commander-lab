@@ -102,6 +102,8 @@ def resolve_mode(mode: Optional[str], in_deck: bool = True, buy: bool = True) ->
     if mode == "best":
         return mode, True, True
     return mode, bool(in_deck), bool(buy)
+# "ignored" (Deck Tuner overlay spec §3.3): don't show the recommendation
+# again this review.
 DECISIONS = ("own", "buy", "dismissed", "ignored")
 ENTRY_STATUSES = ("open", "accepted", "dismissed", "ignored")
 MAX_SWAPS = 12
@@ -555,7 +557,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     # take the only removal a removal cut could use. Rows are re-sorted below.
     for w in [w for w in weak_rows if _functional(w)] + [w for w in weak_rows if not _functional(w)]:
         dec = decisions.get(w["name"]) or {}
-        if dec.get("decision") == "dismissed" or w["name"] in dismissed_set:
+        if dec.get("decision") in ("dismissed", "ignored") or w["name"] in dismissed_set:
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
                           _played(w.get("played")), goal=goal)
@@ -1548,6 +1550,80 @@ def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: boo
     except Exception:  # noqa: BLE001
         pass
     return out
+
+
+# ---------------------------------------------------------------------------
+# DT-6: overlay add recommendations — inventory filter (Deck Tuner overlay
+# spec §3.3). An add is surfaced in the float panel only when it needs user
+# attention: owned with any free (in_collection) instance of ANY printing →
+# suppressed; a needed printing with no owned instance of that exact
+# (set, collector_number) → shown with needs_purchase: true; unowned → shown
+# with needs_purchase: true. A copy sleeved in another deck is owned but not
+# free, so the card still shows — without a purchase flag (moving it is the
+# steal rule's job, not the cart's).
+# ---------------------------------------------------------------------------
+
+FREE_STATUS = "in_collection"
+OWNED_STATUSES = ("in_collection", "in_mail", "in_deck")
+
+
+def _printing_key(printing: Optional[Mapping]) -> tuple:
+    p = printing or {}
+    return (str(p.get("set") or "").strip().lower(), str(p.get("collector_number") or "").strip())
+
+
+def filter_adds_by_inventory(r, adds: Iterable[Mapping]) -> List[dict]:
+    """Apply the DT-6 inventory filter to add recommendations.
+
+    Each add is a mapping with "card" (or "name") and an optional "printing"
+    {"set", "collector_number", ...}. Returns the entries to surface, each
+    with "needs_purchase" resolved; suppressed entries are dropped. Joins
+    against instances.py (`idx:instances_by_card:{name}`) — the ownership
+    source of truth — never the aggregated inventory counters."""
+    import instances as instance_store  # root module; lazy, like the other I/O imports here
+
+    out = []
+    for a in adds or []:
+        name = (a.get("card") or a.get("name") or "").strip()
+        if not name:
+            continue
+        insts = instance_store.list_instances(r, card_name=name)
+        owned = [i for i in insts if i.get("ownership_status") in OWNED_STATUSES]
+        free = [i for i in insts if i.get("ownership_status") == FREE_STATUS]
+        want = _printing_key(a.get("printing"))
+        entry = dict(a, card=name)
+        if want != ("", ""):
+            if any(_printing_key(i) == want for i in free):
+                continue  # owned, free to use, correct printing
+            entry["needs_purchase"] = not any(_printing_key(i) == want for i in owned)
+        else:
+            if free:
+                continue  # owned and free to use (any printing)
+            entry["needs_purchase"] = not owned
+        out.append(entry)
+    return out
+
+
+def panel_adds(r, tune: Mapping, limit: int = MAX_SWAPS) -> List[dict]:
+    """§3.3 add-recommendation entries for the overlay float panel: the picked
+    add of each open swap, inventory-filtered and purchase-flagged. `status`
+    reuses the decisions vocabulary — accepted rows (own/buy) and ignored rows
+    are excluded (an accepted swap is already in the draft; an ignored one is
+    hidden for the rest of the review), as are dismissed swaps (already absent
+    from the payload). Ids are deterministic per cut+card so re-renders are
+    stable."""
+    adds = []
+    for s in tune.get("swaps") or []:
+        if s.get("decision"):
+            continue
+        opt = (s.get("buy") if s.get("pick") == "buy" else s.get("own")) or s.get("own") or s.get("buy")
+        if not opt:
+            continue
+        adds.append({"id": "add-" + hashlib.sha1(f"{s['cut']['name']}\u2192{opt['name']}".encode()).hexdigest()[:16],
+                     "kind": "add", "card": opt["name"], "printing": opt.get("printing"),
+                     "reason": s.get("why"), "status": "open", "source": opt.get("source"),
+                     "price": opt.get("price"), "cut": s["cut"]["name"]})
+    return filter_adds_by_inventory(r, adds)[:limit]
 
 
 def open_count(r, deck: Mapping) -> Optional[int]:
