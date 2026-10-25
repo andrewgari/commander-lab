@@ -2111,6 +2111,123 @@ def _tuneup_state(deck: dict) -> dict:
     }
 
 
+#: Ownership statuses that count as "owned" for the printing picker
+#: (same owned = in_mail + in_collection + in_deck rollup as
+#: instances.card_rollup; spec §3.3 inventory rule).
+TUNEUP_OWNED_STATUSES = ("in_mail", "in_collection", "in_deck")
+
+#: Scryfall prints cache, one entry per card name (prices.py pattern:
+#: JSON blob with an `at` timestamp, refreshed after PRINTINGS_MAX_AGE).
+TUNEUP_PRINTINGS_PREFIX = "card_prints:"
+TUNEUP_PRINTINGS_MAX_AGE = 24 * 3600
+TUNEUP_SCRYFALL_SEARCH = "https://api.scryfall.com/cards/search"
+TUNEUP_SCRYFALL_HEADERS = {"User-Agent": "commander-lab/1.0 (printing-picker)",
+                           "Accept": "application/json"}
+
+
+def _tuneup_owns_printing(card_name: str, printing: dict) -> bool:
+    """Exact-printing ownership check (spec §3.3): the card's instances
+    (`idx:instances_by_card:{name}`) filtered by (set, collector_number,
+    finish) — any instance in an owned status means no purchase needed."""
+    want_set = str(printing.get("set") or "").lower()
+    want_cn = str(printing.get("collector_number") or "")
+    want_finish = str(printing.get("finish") or "nonfoil")
+    for inst in instance_store.list_instances(r, card_name=card_name):
+        if inst.get("ownership_status") not in TUNEUP_OWNED_STATUSES:
+            continue
+        if (str(inst.get("set") or "").lower() == want_set
+                and str(inst.get("collector_number") or "") == want_cn
+                and str(inst.get("finish") or "nonfoil") == want_finish):
+            return True
+    return False
+
+
+def _scryfall_printings(name: str, session=None, timeout: float = 20.0) -> list:
+    """Every Scryfall printing of `name` (unique=prints, up to 2 pages).
+    Module-level so tests can stub the network out."""
+    import requests
+
+    http = session or requests.Session()
+    url, params, seen = TUNEUP_SCRYFALL_SEARCH, {
+        "q": f'!"{name.split(" // ")[0]}"', "unique": "prints", "order": "released",
+        "dir": "desc"}, set()
+    prints = []
+    for _page in range(2):
+        resp = http.get(url, headers=TUNEUP_SCRYFALL_HEADERS, params=params, timeout=timeout)
+        if resp.status_code == 404:
+            break
+        resp.raise_for_status()
+        payload = resp.json()
+        for c in payload.get("data", []):
+            key = (c.get("set"), c.get("collector_number"))
+            if key in seen:
+                continue
+            seen.add(key)
+            img = (c.get("image_uris") or {}).get("small") or ""
+            if not img and c.get("card_faces"):
+                img = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+            prices = c.get("prices") or {}
+            prints.append({
+                "set": c.get("set") or "",
+                "set_name": c.get("set_name") or "",
+                "collector_number": c.get("collector_number") or "",
+                "finishes": c.get("finishes") or ["nonfoil"],
+                "image": img,
+                "prices": {"nonfoil": prices.get("usd"), "foil": prices.get("usd_foil"),
+                           "etched": prices.get("usd_etched")},
+            })
+        if payload.get("has_more") and payload.get("next_page"):
+            url, params = payload["next_page"], None
+            time.sleep(0.1)
+        else:
+            break
+    return prints
+
+
+def _tuneup_printings(name: str) -> list:
+    """Printings for the picker: Scryfall prints (cached per name) joined
+    against the instance registry so every finish carries `owned`."""
+    cached = _tuneup_load_json(TUNEUP_PRINTINGS_PREFIX + name)
+    now = time.time()
+    if cached and now - (cached.get("at") or 0) <= TUNEUP_PRINTINGS_MAX_AGE:
+        prints = cached.get("prints") or []
+    else:
+        prints = _scryfall_printings(name)
+        r.set(TUNEUP_PRINTINGS_PREFIX + name, json.dumps({"at": now, "prints": prints}))
+    out = []
+    for p in prints:
+        finishes = []
+        for finish in p.get("finishes") or ["nonfoil"]:
+            printing = {"set": p.get("set"), "collector_number": p.get("collector_number"),
+                        "finish": finish}
+            finishes.append({"finish": finish,
+                             "owned": _tuneup_owns_printing(name, printing),
+                             "usd": (p.get("prices") or {}).get(finish)})
+        out.append({"set": p.get("set"), "set_name": p.get("set_name"),
+                    "collector_number": p.get("collector_number"),
+                    "image": p.get("image"), "finishes": finishes})
+    return out
+
+
+@app.get("/api/decks/{deck_id}/tuneup/printings")
+async def get_tuneup_printings(deck_id: str, name: str = Query(...)):
+    """Printing picker data (DT-3, spec §3.1/§3.3): every known printing of
+    `name`, each finish annotated with exact-printing ownership. Picking an
+    unowned finish is what makes the draft card `needs_purchase` on save."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    name = name.strip()
+    if not name:
+        return JSONResponse({"error": "name is required"}, status_code=400)
+    try:
+        printings = await asyncio.to_thread(_tuneup_printings, name)
+    except Exception as exc:  # noqa: BLE001 — Scryfall outages degrade the picker, not the page
+        return JSONResponse({"error": f"printing lookup failed: {exc}"}, status_code=502)
+    return {"name": name, "owned_statuses": list(TUNEUP_OWNED_STATUSES),
+            "printings": printings}
+
+
 @app.get("/api/decks/{deck_id}/tuneup/draft")
 async def get_tuneup_draft(deck_id: str):
     """Overlay shell state (spec §3.1/§3.2). `draft` is null when no paper
@@ -2154,8 +2271,26 @@ async def save_tuneup_draft(deck_id: str, request: Request):
         slot = str(c.get("slot") or "mainboard")
         if slot not in valid_slots:
             return JSONResponse({"error": f"invalid slot for {name}"}, status_code=400)
-        cards.append({"name": name, "qty": qty, "slot": slot,
-                      "source": str(c.get("source") or "manual")})
+        entry = {"name": name, "qty": qty, "slot": slot,
+                 "source": str(c.get("source") or "manual")}
+        # DT-3 (spec §3.1): a chosen printing rides on the draft card. A
+        # printing change is treated as a NEW card — `needs_purchase` is
+        # recomputed server-side against the instance registry, never
+        # trusted from the client.
+        printing = c.get("printing")
+        if printing is not None:
+            if not isinstance(printing, dict):
+                return JSONResponse({"error": f"invalid printing for {name}"}, status_code=400)
+            finish = str(printing.get("finish") or "nonfoil")
+            if finish not in instance_store.FINISHES:
+                return JSONResponse({"error": f"invalid finish for {name}"}, status_code=400)
+            entry["printing"] = {
+                "set": str(printing.get("set") or "").lower(),
+                "collector_number": str(printing.get("collector_number") or ""),
+                "finish": finish,
+            }
+            entry["needs_purchase"] = not _tuneup_owns_printing(name, entry["printing"])
+        cards.append(entry)
         names.append(name)
     meta_keys = r.keys("card_meta:*")
     if meta_keys:
