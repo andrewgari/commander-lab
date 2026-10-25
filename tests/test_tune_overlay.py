@@ -287,6 +287,67 @@ class TestUnknownDeck(TuneOverlayTestCase):
         self.assertEqual(self.client.post(self._draft_url("nope"), json={"cards": []}).status_code, 404)
         self.assertEqual(self.client.get(self._flags_url("nope")).status_code, 404)
         self.assertEqual(self.client.put(self._flags_url("nope"), json={"tag": "x", "in_decklist": True}).status_code, 404)
+        self.assertEqual(self.client.get("/api/decks/nope/tuneup/recommendations").status_code, 404)
+
+
+class TestRecommendations(TuneOverlayTestCase):
+    """DT-6 (spec §2/§3.3): GET /tuneup/recommendations feeds the overlay float
+    panel — open swap picks, inventory-filtered and purchase-flagged."""
+
+    def _recs_url(self, rid=None):
+        return f"/api/decks/{rid or self.rid}/tuneup/recommendations"
+
+    def _save_active(self, payload):
+        from analytics import tune_store
+
+        deck_id = tune_store.deck_key(self.deck)
+        rec_id = "rec-test-1"
+        self.fake_r.set(tune_store.REC_PREFIX + rec_id, json.dumps({
+            "id": rec_id, "deck_id": deck_id, "status": "active",
+            "created_at": "2026-10-24T00:00:00+00:00", "params": {}, "payload": payload}))
+        self.fake_r.set(tune_store.ACTIVE_PREFIX + deck_id, rec_id)
+
+    def _swap(self, cut, pick, own, buy, decision=None):
+        return {"cut": {"name": cut}, "pick": pick, "own": own, "buy": buy, "decision": decision, "why": None}
+
+    def test_empty_when_no_active_recommendation(self):
+        j = self.client.get(self._recs_url()).json()
+        self.assertTrue(j["success"])
+        self.assertEqual(j["adds"], [])
+
+    def test_unowned_pick_is_flagged_and_owned_free_pick_is_suppressed(self):
+        import instances as instance_store
+
+        instance_store.create_instance(self.fake_r, "Owned Bomb", ownership_status="in_collection")
+        self._save_active({"swaps": [
+            self._swap("Weak Plan", "own",
+                       {"name": "Owned Bomb", "source": "free", "price": 0.0}, None),
+            self._swap("Weak Removal", "buy", None,
+                       {"name": "Rhystic Study", "source": "buy", "price": 12.0}),
+            self._swap("Weak Draw", "buy", None,
+                       {"name": "Decided Card", "source": "buy", "price": 1.0}, decision="buy"),
+        ]})
+        j = self.client.get(self._recs_url()).json()
+        self.assertEqual([a["card"] for a in j["adds"]], ["Rhystic Study"])
+        entry = j["adds"][0]
+        self.assertTrue(entry["needs_purchase"])
+        self.assertEqual(entry["kind"], "add")
+        self.assertEqual(entry["cut"], "Weak Removal")
+        self.assertEqual(entry["status"], "open")
+        self.assertTrue(entry["id"].startswith("add-"))
+
+    def test_owned_but_sleeved_pick_shows_without_purchase_flag(self):
+        import instances as instance_store
+
+        instance_store.create_instance(self.fake_r, "Sleeved Bomb", ownership_status="in_deck",
+                                       deck_id="archidekt:1", deck_name="Other Deck")
+        self._save_active({"swaps": [
+            self._swap("Weak Plan", "own",
+                       {"name": "Sleeved Bomb", "source": "deck", "price": 0.0}, None),
+        ]})
+        adds = self.client.get(self._recs_url()).json()["adds"]
+        self.assertEqual(len(adds), 1)
+        self.assertFalse(adds[0]["needs_purchase"])
 
 
 class TestTemplateShell(unittest.TestCase):
@@ -305,6 +366,16 @@ class TestTemplateShell(unittest.TestCase):
         self.assertIn('id="tuneOvSaveDraft"', self.html)
         self.assertIn("/static/js/tune_overlay.js", self.html)
         self.assertIn("window.TuneOverlay.init", self.html)
+
+    def test_dt6_float_panel_markup_and_js(self):
+        self.assertIn('id="tuneRecPanel"', self.html)
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "static", "js", "tune_overlay.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn("/tuneup/recommendations", js)
+        self.assertIn("TuneOverlay.adds", js)
+        # Panel cards are draggable; dropping one adds it to the draft as a recommendation.
+        self.assertIn('addCard(name, to, "recommendation")', js)
 
     def test_overlay_js_uses_existing_tag_endpoints(self):
         """DT-1 must not fork the tag system: drag = POST/DELETE card-tags."""

@@ -201,6 +201,10 @@
     </div>
     <p class="tn-error" id="tuneOvError" role="alert"></p>
     <div class="tnov-columns" id="tuneOvColumns"><div class="hud-empty">Loading…</div></div>
+    {#- DT-6: add-recommendations float panel (spec §2/§3.3). Rendered and
+        styled by the DT-6 module in static/js/tune_overlay.js; entries are
+        inventory-filtered server-side and draggable into any column. -#}
+    <aside id="tuneRecPanel" class="tn6-panel" aria-label="Recommended cards to add" hidden></aside>
 </div>
 {% endblock %}
 

@@ -209,13 +209,14 @@
         });
         chain.then(queueSave).catch(fail);
     }
-    function addCard(name, colId) {
+    function addCard(name, colId, source) {
         name = String(name || "").trim();
         if (!name || !S) return;
         var col = parseCol(colId);
+        var slot = col.kind === "slot" && col.key !== "commander" ? col.key : "mainboard";
         var existing = S.cards.filter(function (c) { return c.name.toLowerCase() === name.toLowerCase(); })[0];
         if (existing) existing.qty = (existing.qty || 1) + 1;
-        else S.cards.push({ name: name, qty: 1, slot: col.kind === "slot" ? col.key : "mainboard", source: "manual" });
+        else S.cards.push({ name: name, qty: 1, slot: slot, source: source || "manual" });
         var chain = Promise.resolve();
         if (col.kind === "tag" && tagsOf(name).indexOf(col.key) === -1) {
             pushTag(name, col.key, "user");
@@ -317,9 +318,13 @@
         });
         cols.addEventListener("dragover", function (e) {
             var col = e.target.closest(".tnov-col");
-            if (!col || !dragPayload) return;
+            if (!col) return;
+            // Internal chip move, or an external card-name drag (DT-6 float panel).
+            var external = !dragPayload && e.dataTransfer.types &&
+                Array.prototype.indexOf.call(e.dataTransfer.types, "text/plain") !== -1;
+            if (!dragPayload && !external) return;
             e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
+            e.dataTransfer.dropEffect = dragPayload ? "move" : "copy";
             Array.prototype.forEach.call(cols.querySelectorAll(".tnov-col.is-drop"), function (c) {
                 if (c !== col) c.classList.remove("is-drop");
             });
@@ -331,12 +336,23 @@
         });
         cols.addEventListener("drop", function (e) {
             var col = e.target.closest(".tnov-col");
-            if (!col || !dragPayload) return;
+            if (!col) return;
+            var to = col.getAttribute("data-col");
+            if (dragPayload) {
+                e.preventDefault();
+                col.classList.remove("is-drop");
+                if (to !== dragPayload.col) moveCard(dragPayload.name, dragPayload.col, to);
+                dragPayload = null;
+                return;
+            }
+            // DT-6: a recommendation dragged in from the float panel becomes a
+            // draft card (tagged when dropped on a tag column) and leaves the panel.
+            var name = e.dataTransfer.getData("text/plain");
+            if (!name || to === "slot:commander") return;
             e.preventDefault();
             col.classList.remove("is-drop");
-            var to = col.getAttribute("data-col");
-            if (to !== dragPayload.col) moveCard(dragPayload.name, dragPayload.col, to);
-            dragPayload = null;
+            addCard(name, to, "recommendation");
+            if (window.TuneOverlay.adds) window.TuneOverlay.adds.consumed(name);
         });
         cols.addEventListener("dragend", function () {
             dragPayload = null;
@@ -356,6 +372,7 @@
             history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p.toString() : "") + location.hash);
         }
         if (overlay && !loaded) load();
+        if (overlay && window.TuneOverlay.adds) window.TuneOverlay.adds.reload();
     }
 
     function start() {
@@ -698,5 +715,136 @@
         var swaps = document.getElementById("swaps");
         if (!tag || !swaps) return;
         Ex.boot({ api: "/api/decks/" + encodeURIComponent(tag.getAttribute("data-deck-id")), root: swaps });
+    });
+})();
+
+/* ---- DT-6: add-recommendations float panel (overlay spec §2/§3.3) ---- */
+
+/* Float panel on the far right of the overlay: the picked add of each open
+ * swap, inventory-filtered server-side (GET /tuneup/recommendations —
+ * owned-and-free cards never appear; a missing exact printing or an unowned
+ * card shows with a Purchase flag). Drag a card into any overlay column to
+ * put it in the paper draft; the drop itself is handled by the DT-1 shell's
+ * external-drag path above. Self-contained under window.TuneOverlay.adds like
+ * the DT-7 module; styles injected scoped (.tn6-*) on HUD tokens.
+ */
+(function () {
+    "use strict";
+    var NS = (window.TuneOverlay = window.TuneOverlay || {});
+    if (NS.adds) return;
+
+    function esc(s) {
+        if (window.HUD && window.HUD.esc) return window.HUD.esc(s);
+        return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+    function cardName(n) {
+        return window.HUD && window.HUD.cardName ? window.HUD.cardName(n) : esc(n);
+    }
+
+    var CSS =
+        ".tn6-panel{position:fixed;right:var(--sp-4);top:120px;width:248px;max-height:70vh;" +
+        "display:flex;flex-direction:column;z-index:40;background:var(--bg-2);border:var(--stroke);" +
+        "border-radius:var(--radius);box-shadow:var(--shadow,0 8px 24px rgba(0,0,0,.35))}" +
+        ".tn6-panel[hidden]{display:none}" +
+        ".tn6-head{display:flex;align-items:baseline;gap:var(--sp-2);padding:var(--sp-3) var(--sp-3) var(--sp-2);" +
+        "border-bottom:var(--hairline) solid var(--line)}" +
+        ".tn6-title{margin:0;font-size:var(--fs-sm);color:var(--text-1)}" +
+        ".tn6-count{margin-left:auto;font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3)}" +
+        ".tn6-body{overflow-y:auto;padding:var(--sp-2);display:flex;flex-direction:column;gap:var(--sp-2)}" +
+        ".tn6-card{padding:var(--sp-2) var(--sp-3);border:var(--hairline) solid var(--line);" +
+        "border-radius:var(--radius);cursor:grab;background:var(--bg-1)}" +
+        ".tn6-card:active{cursor:grabbing}" +
+        ".tn6-row{display:flex;align-items:center;gap:var(--sp-2)}" +
+        ".tn6-buy{margin-left:auto;font-family:var(--font-mono);font-size:var(--fs-micro);" +
+        "text-transform:uppercase;letter-spacing:.04em;color:var(--signal);border:var(--hairline) solid var(--signal);" +
+        "border-radius:var(--radius);padding:0 var(--sp-1)}" +
+        ".tn6-meta{margin:var(--sp-1) 0 0;font-size:var(--fs-xs);color:var(--text-3)}" +
+        ".tn6-empty{padding:var(--sp-3);color:var(--text-3);font-size:var(--fs-xs)}";
+
+    function injectCss() {
+        if (document.getElementById("tn6-css")) return;
+        var el = document.createElement("style");
+        el.id = "tn6-css";
+        el.textContent = CSS;
+        document.head.appendChild(el);
+    }
+
+    var S = { api: null, adds: [], panel: null, loading: null, booted: false, failed: false };
+
+    function entryHtml(a) {
+        var buy = a.needs_purchase
+            ? '<span class="tn6-buy" title="Not in your collection' +
+              (a.printing && a.printing.set ? " in this printing" : "") + ' — purchase needed">Purchase</span>' : "";
+        var meta = a.cut ? '<p class="tn6-meta">Suggested for ' + esc(a.cut) + "</p>" : "";
+        return '<div class="tn6-card" draggable="true" data-card="' + esc(a.card) + '">' +
+            '<div class="tn6-row"><span class="hud-card-name">' + cardName(a.card) + "</span>" + buy + "</div>" +
+            meta + "</div>";
+    }
+    function render() {
+        if (!S.panel) return;
+        S.panel.hidden = false;
+        var body = S.adds.length
+            ? S.adds.map(entryHtml).join("")
+            : '<div class="tn6-empty">' + (S.failed
+                ? "Couldn’t load recommendations."
+                : "Nothing to add: every recommended card is already in your collection and free to use, or no tune review has run yet.") + "</div>";
+        S.panel.innerHTML = '<header class="tn6-head"><h3 class="tn6-title">Recommendations</h3>' +
+            '<span class="tn6-count">' + S.adds.length + "</span></header>" +
+            '<div class="tn6-body">' + body + "</div>";
+    }
+    function load() {
+        if (!S.api) return Promise.resolve();
+        if (S.loading) return S.loading;
+        S.loading = fetch(S.api + "/tuneup/recommendations").then(function (r) {
+            return r.json().then(function (j) {
+                if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status));
+                return j;
+            });
+        }).then(function (j) {
+            S.adds = j.adds || [];
+            S.failed = false;
+            S.loading = null;
+            render();
+        }).catch(function () {
+            S.failed = true;
+            S.loading = null;
+            render();
+        });
+        return S.loading;
+    }
+
+    var Adds = {
+        boot: function (api) {
+            if (S.booted) return;
+            S.booted = true;
+            injectCss();
+            S.api = api;
+            S.panel = document.getElementById("tuneRecPanel");
+            if (!S.panel) return;
+            // Drag out: a plain card name is all the DT-1 drop handler needs.
+            S.panel.addEventListener("dragstart", function (e) {
+                var chip = e.target.closest(".tn6-card");
+                if (!chip) return;
+                e.dataTransfer.setData("text/plain", chip.getAttribute("data-card"));
+                e.dataTransfer.effectAllowed = "copy";
+            });
+            load();
+        },
+        reload: function () { return load(); },
+        // A card dragged into the deck leaves the panel for this session.
+        consumed: function (name) {
+            S.adds = S.adds.filter(function (a) { return a.card !== name; });
+            render();
+        },
+        entries: function () { return S.adds; },
+    };
+    NS.adds = Adds;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var tag = document.querySelector("script[data-tune-overlay][data-deck-id]");
+        if (!tag || !document.getElementById("tuneRecPanel")) return;
+        Adds.boot("/api/decks/" + encodeURIComponent(tag.getAttribute("data-deck-id")));
     });
 })();

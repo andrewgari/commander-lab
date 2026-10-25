@@ -2187,6 +2187,21 @@ async def save_tuneup_draft(deck_id: str, request: Request):
     return state
 
 
+@app.get("/api/decks/{deck_id}/tuneup/recommendations")
+async def get_tuneup_recommendations(deck_id: str):
+    """DT-6 float-panel adds (overlay spec §2/§3.3): the picked add of each
+    open swap in the active tune recommendation, inventory-filtered and
+    purchase-flagged by `tuner.panel_adds`. `adds` is empty when no tune
+    recommendation has been computed yet."""
+    deck = registry.find_deck(r, deck_id)
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    rec = await asyncio.to_thread(tune_store.get_active, r, tune_store.deck_key(deck))
+    payload = (rec or {}).get("payload") or {}
+    adds = await asyncio.to_thread(tuner_mod.panel_adds, r, payload)
+    return {"success": True, "deck_id": registry.registry_id_of(deck), "adds": adds}
+
+
 @app.get("/api/decks/{deck_id}/tuneup/tag-flags")
 async def get_tuneup_tag_flags(deck_id: str):
     """The deck's "not in decklist" flags (spec §3.2)."""

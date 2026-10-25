@@ -682,9 +682,11 @@ class TestState(unittest.TestCase):
         self.assertEqual(out["counts"]["open_swaps"], open_swaps)
 
     def test_ignored_decision_hides_the_row_for_the_review(self):
-        st = tuner.decide(self.r, DECK, "Weak Plan", "ignored")
-        self.assertEqual(st["decisions"]["Weak Plan"]["decision"], "ignored")
-        self.assertIsNone(st["decisions"]["Weak Plan"]["add"])
+        # Merged DT-7 semantics: "ignored" rejects ONE cut->add pair, so the
+        # row stops showing that recommendation for the rest of the review.
+        st = tuner.decide(self.r, DECK, "Weak Plan", "ignored", add="Owned Bomb")
+        self.assertNotIn("Weak Plan", st["decisions"])
+        self.assertIn("Owned Bomb", st["ignored"]["Weak Plan"])
         cands = [cand("Owned Bomb", 4, 0.9, 0.4, owned=True, available=1)]
         out = build(cands, state=st)
         self.assertIsNone(swap(out, "Weak Plan"))
