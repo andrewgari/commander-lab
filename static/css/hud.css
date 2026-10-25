@@ -3758,3 +3758,81 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 @media (prefers-reduced-motion: no-preference) {
     .tnov-col { transition: outline-color var(--dur-fast) var(--ease); }
 }
+
+/* ==========================================================================
+   Brew flow additions (BREW-CODE, docs/architecture/brew-flow-ux-spec.md).
+   Additions only, token-driven: build-mode radio cards, building progress
+   line, provenance stack bar.
+   ========================================================================== */
+
+/* Large selectable radio cards (build mode). Selected: --indicator left bar
+   + --signal title; unselected --text-2. Keyboard focus keeps the HUD ring. */
+.hud-radio-card {
+    display: grid;
+    gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: var(--hairline) solid var(--line);
+    border-left: var(--indicator) solid transparent;
+    cursor: pointer;
+}
+.hud-radio-card:hover { background: var(--surface-2); }
+.hud-radio-card input { position: absolute; opacity: 0; pointer-events: none; }
+.hud-radio-card:has(input:focus-visible) { outline: var(--focus-ring); outline-offset: 2px; }
+.hud-radio-card:has(input:checked) { border-left-color: var(--signal); background: var(--surface-2); }
+.hud-radio-card-title { color: var(--text-2); font-weight: var(--fw-semibold); }
+.hud-radio-card:has(input:checked) .hud-radio-card-title { color: var(--signal); }
+.hud-radio-card-body { color: var(--text-2); font-size: var(--fs-sm); }
+.hud-radio-card-foot { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* Building progress: thin --signal bar animating across (indeterminate).
+   Reduced motion: static bar. */
+.hud-progress-line {
+    height: 2px;
+    background: var(--surface-3);
+    overflow: hidden;
+    position: relative;
+}
+.hud-progress-line > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: var(--signal);
+    animation: hud-progress-sweep 1.6s var(--ease) infinite;
+}
+@keyframes hud-progress-sweep {
+    0% { left: -40%; }
+    100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hud-progress-line > span { animation: none; width: 100%; opacity: 0.4; }
+}
+
+/* Provenance stack bar: donor = --signal, inventory = --data,
+   buy = --surface-3. Legend below in --text-3. */
+.hud-prov-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    height: 0.625rem;
+    margin-top: var(--sp-3);
+}
+.hud-prov-bar-seg { display: block; height: 100%; }
+.hud-prov-bar-seg.hud-prov-bar-donor { background: var(--signal); }
+.hud-prov-bar-seg.hud-prov-bar-inv { background: var(--data); }
+.hud-prov-bar-seg.hud-prov-bar-buy { background: var(--surface-3); }
+.hud-prov-bar-legend {
+    flex-basis: 100%;
+    margin-top: var(--sp-1);
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    display: flex;
+    gap: var(--sp-1);
+    align-items: center;
+    flex-wrap: wrap;
+}
+.hud-prov-bar-key { display: inline-block; width: 0.625rem; height: 0.625rem; margin-left: var(--sp-2); }
+.hud-prov-bar-key:first-child { margin-left: 0; }
+.hud-prov-bar-key.hud-prov-bar-donor { background: var(--signal); }
+.hud-prov-bar-key.hud-prov-bar-inv { background: var(--data); }
+.hud-prov-bar-key.hud-prov-bar-buy { background: var(--surface-3); }

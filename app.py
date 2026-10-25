@@ -24,6 +24,8 @@ from instances import InstanceError
 import deck_slots
 import registry
 import reconstruct
+import brew
+import brew_builder
 import commander_roles
 import inventory_view
 import card_refs as card_refs_mod
@@ -915,6 +917,301 @@ async def accept_reconstruct_draft(session_id: str, request: Request):
         "session": result["session"],
         "created_decks": result["created_decks"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Brew flow endpoints (commander-led virtual-deck generation; donors read-only)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/brew", response_class=HTMLResponse)
+async def brew_landing_view(request: Request, resume: Optional[str] = Query(None)):
+    decks = registry._load_decks(r)
+    donors = [
+        {
+            "registry_id": registry.registry_id_of(d),
+            "name": d.get("name", ""),
+            "status": d.get("status", ""),
+            "color": d.get("color", ""),
+            "commanders": d.get("commanders") or [],
+            "card_count": sum(int(c.get("quantity", 1) or 0) for c in (d.get("cards") or [])),
+            "unique_cards": len({(c.get("name") or "").strip().lower() for c in (d.get("cards") or []) if c.get("name")}),
+        }
+        for d in decks
+        if d.get("status") != "retired" and not d.get("decommissioned_at")
+    ]
+    resume_session = brew.get_session(r, resume) if resume else None
+    return templates.TemplateResponse(
+        request=request,
+        name="brew.html",
+        context={"donor_decks": donors, "resume_session": resume_session},
+    )
+
+
+@app.get("/brew/{session_id}", response_class=HTMLResponse)
+async def brew_session_view(session_id: str, request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="brew_deck.html",
+        context={"session_id": session_id},
+    )
+
+
+@app.get("/api/brew/commanders")
+async def brew_commander_search(q: str = ""):
+    """Scryfall-backed commander search proxy (is:commander, legal:commander),
+    cached in Redis. Falls back to local card_meta legendary-creature matching
+    when Scryfall is unreachable."""
+    query = q.strip()
+    if len(query) < 2:
+        return {"results": []}
+
+    cache_key = f"brew:commander_search:{query.lower()}"
+    cached = r.get(cache_key)
+    if cached:
+        try:
+            return {"results": json.loads(cached)}
+        except Exception:
+            pass
+
+    results = []
+    try:
+        resp = httpx.get(
+            "https://api.scryfall.com/cards/search",
+            params={"q": f"{query} is:commander legal:commander", "unique": "cards", "order": "name"},
+            headers={"User-Agent": "commander-lab/brew", "Accept": "application/json"},
+            timeout=8.0,
+        )
+        if resp.status_code == 200:
+            for c in (resp.json().get("data") or [])[:10]:
+                image = ""
+                iu = c.get("image_uris") or {}
+                if iu:
+                    image = iu.get("art_crop") or iu.get("small") or ""
+                elif c.get("card_faces"):
+                    image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+                results.append({
+                    "name": c.get("name", ""),
+                    "uid": c.get("id", ""),
+                    "image": image,
+                    "colors": c.get("colors") or [],
+                    "color_identity": c.get("color_identity") or [],
+                    "type_line": c.get("type_line", ""),
+                    "keywords": c.get("keywords") or [],
+                    "mana_cost": c.get("mana_cost", ""),
+                })
+    except Exception:
+        results = []
+
+    if not results:
+        # Offline fallback: local card_meta legendary creatures.
+        ql = query.lower()
+        for key in r.keys("card_meta:*"):
+            name = key[len("card_meta:"):] if isinstance(key, str) else key.decode()[len("card_meta:"):]
+            if ql not in name.lower():
+                continue
+            raw = r.get(key)
+            try:
+                meta = json.loads(raw) if raw else {}
+            except (TypeError, ValueError):
+                meta = {}
+            if "legendary" not in str(meta.get("type", "")).lower():
+                continue
+            results.append({
+                "name": name, "uid": meta.get("uid", ""), "image": "",
+                "colors": [], "color_identity": list(meta.get("color", "") or ""),
+                "type_line": meta.get("type", ""), "keywords": [], "mana_cost": "",
+            })
+            if len(results) >= 10:
+                break
+
+    try:
+        r.set(cache_key, json.dumps(results))
+    except Exception:
+        pass
+    return {"results": results}
+
+
+@app.post("/api/brew/start")
+@app.post("/api/brew/sessions")
+async def start_brew_session(request: Request):
+    """Start a Brew session. Donor decks are named explicitly and are NEVER
+    mutated: no decommission, no instance writes, no status/tag changes.
+
+    Body: {"commander": "..." | "commanders": [...], "partner": "..." (optional),
+           "donor_deck_ids": [...], "build_mode": "owned_first"|"best_build",
+           "name", "power_level", "idea"/"deck_idea", "themes": [...], "notes"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    commanders = data.get("commanders")
+    if commanders is None:
+        commanders = data.get("commander") or ""
+    partner = (data.get("partner") or "").strip() if isinstance(data.get("partner"), str) else ""
+    if partner:
+        commanders = [commanders] if isinstance(commanders, str) else list(commanders)
+        if partner not in commanders:
+            commanders.append(partner)
+
+    try:
+        session = brew.start_brew(
+            r,
+            commanders,
+            data.get("donor_deck_ids") or [],
+            data.get("build_mode") or "",
+            name=data.get("name") or "",
+            power_level=data.get("power_level", ""),
+            deck_idea=data.get("deck_idea", data.get("idea", "")),
+            themes=data.get("themes") or [],
+            notes=data.get("notes") or "",
+        )
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return JSONResponse(
+        status_code=201,
+        content={"success": True, "session_id": session["session_id"], "status": session["status"], "session": session},
+    )
+
+
+@app.get("/api/brew/sessions")
+async def list_brew_sessions(limit: int = 50):
+    """List recent Brew sessions."""
+    sessions = brew.list_sessions(r, limit=limit)
+    return {"success": True, "sessions": sessions}
+
+
+@app.get("/api/brew/{session_id}/pools")
+async def get_brew_pools(session_id: str):
+    """Tier 1 (named donors) / Tier 2 (free inventory) pools for a brew session."""
+    try:
+        pools_data = brew.get_session_pools(r, session_id)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    return {"success": True, **pools_data}
+
+
+@app.get("/api/brew/{session_id}/drafts")
+async def get_brew_drafts(session_id: str):
+    """Fetch the generated draft for a Brew session."""
+    session = brew.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {"success": True, "status": session["status"], "drafts": session.get("drafts", [])}
+
+
+@app.get("/api/brew/{session_id}/availability")
+async def get_brew_availability(session_id: str):
+    """Availability report: owned (donors / free inventory) vs buy list."""
+    try:
+        report = brew.get_availability(r, session_id)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+    return {"success": True, **report}
+
+
+@app.get("/api/brew/{session_id}")
+async def get_brew_session(session_id: str):
+    """Fetch a Brew session by ID."""
+    session = brew.get_session(r, session_id)
+    if not session:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
+    return {"success": True, "session": session}
+
+
+@app.post("/api/brew/{session_id}/build")
+async def trigger_brew_build(
+    session_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    sync: Optional[bool] = Query(None),
+):
+    """Trigger the brew builder. sync=true (query or body) builds inline;
+    otherwise runs as a background task (202)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    is_sync = sync if sync is not None else bool(body.get("sync", False))
+
+    try:
+        session = brew.trigger_build(r, session_id, sync=is_sync)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    if not is_sync:
+        background_tasks.add_task(brew.execute_build, r, session_id)
+        return JSONResponse(
+            status_code=202,
+            content={"success": True, "status": session["status"], "session": session},
+        )
+
+    return {"success": True, "status": session["status"], "session": session}
+
+
+@app.post("/api/brew/{session_id}/accept")
+async def accept_brew_draft(session_id: str, request: Request):
+    """Accept the brew draft: create the virtual deck (status "testing") with
+    provenance. No instance writes; donor decks stay fully intact.
+
+    Body (optional): {"draft_index": 0}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    draft_index = data.get("draft_index", 0)
+    try:
+        draft_index = int(draft_index)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"success": False, "error": "draft_index must be an integer"})
+
+    try:
+        result = brew.accept_draft(r, session_id, draft_index=draft_index)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+
+    return {
+        "success": True,
+        "session": result["session"],
+        "created_decks": result["created_decks"],
+    }
+
+
+@app.post("/api/brew/{session_id}/abandon")
+async def abandon_brew_session(session_id: str, request: Request):
+    """Abandon a Brew session."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    reason = data.get("reason", "") if isinstance(data, dict) else ""
+    try:
+        session = brew.abandon_brew(r, session_id, reason=reason)
+    except ValueError as e:
+        msg = str(e)
+        status_code = 404 if "not found" in msg.lower() else 400
+        return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
+    return {"success": True, "session": session}
 
 
 @app.post("/api/reconstruct/{session_id}/abandon")
