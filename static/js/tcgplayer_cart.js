@@ -68,6 +68,12 @@
         return (i === -1 ? name : name.slice(0, i)).trim();
     }
 
+    // Mirrors tcgplayer._set_code(): a present set code pins the printing
+    // (`1 Lightning Bolt [SLD]`); absent means any printing is acceptable.
+    function setCode(raw) {
+        return String(raw == null ? "" : raw).trim().toUpperCase();
+    }
+
     function items(cards) {
         var order = [], merged = {};
         (Array.isArray(cards) ? cards : []).forEach(function (card) {
@@ -76,11 +82,16 @@
             if (!name) return;
             var qty = qtyOf(card.qty);
             if (qty <= 0) return;
-            var front = frontFace(name);
-            if (!Object.prototype.hasOwnProperty.call(merged, front)) { merged[front] = 0; order.push(front); }
-            merged[front] += qty;
+            var front = frontFace(name), set = setCode(card.set);
+            var key = front + "\u0001" + set;
+            if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+                var it = { name: front, qty: 0 };
+                if (set) it.set = set;
+                merged[key] = it; order.push(it);
+            }
+            merged[key].qty += qty;
         });
-        return order.map(function (name) { return { name: name, qty: merged[name] }; });
+        return order;
     }
 
     function total(list) {
@@ -91,7 +102,7 @@
 
     function urlFor(list) {
         if (!list.length) return "";
-        var c = list.map(function (it) { return it.qty + " " + it.name; }).join(LINE_SEPARATOR);
+        var c = list.map(function (it) { return it.qty + " " + it.name + (it.set ? " [" + it.set + "]" : ""); }).join(LINE_SEPARATOR);
         return BASE_URL + "?c=" + quote(c) + "&productline=Magic";
     }
 
@@ -103,7 +114,7 @@
             // ensure_ascii: escape everything above U+007F (DEL itself stays raw).
             return '{"name": ' + JSON.stringify(it.name).replace(/[\u0080-\uffff]/g, function (c) {
                 return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4);
-            }) + ', "qty": ' + it.qty + "}";
+            }) + ', "qty": ' + it.qty + (it.set ? ', "set": ' + JSON.stringify(it.set) : "") + "}";
         }).join(", ") + "]";
     }
 

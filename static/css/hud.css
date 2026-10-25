@@ -367,6 +367,10 @@ button { font-family: inherit; font-size: inherit; }
 
 .nav-items { display: flex; flex-direction: column; padding-bottom: var(--sp-4); }
 
+/* Standalone Command Center link above the labeled groups: replace the
+   breathing room the removed "Navigate" label used to provide. */
+.nav-items--home { padding-top: var(--sp-3); }
+
 .nav-item {
     position: relative;
     display: flex;
@@ -414,6 +418,26 @@ button { font-family: inherit; font-size: inherit; }
     text-transform: uppercase;
 }
 .sidebar-footer a { text-decoration: none; color: inherit; }
+
+/* Player Profile entry: a footer chip next to the version badge, not a nav
+   item (nav IA §2.2). Mirrors .version-badge styling. */
+.sidebar-footer .profile-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 1px var(--sp-2);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    letter-spacing: 0;
+    text-transform: none;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.sidebar-footer .profile-chip:hover,
+.sidebar-footer .profile-chip.active { border-color: var(--signal); color: var(--signal-strong); }
+.profile-chip-icon { flex-shrink: 0; width: 12px; height: 12px; }
 
 .version-badge {
     display: inline-block;
@@ -498,11 +522,13 @@ a:hover .version-badge, .version-badge:hover { border-color: var(--signal); colo
     .nav-label,
     .nav-caret,
     .nav-section-label,
-    .sidebar-footer-label { display: none; }
+    .profile-chip-label { display: none; }
     .nav-item { justify-content: center; padding: var(--sp-3) 0; }
     .nav-icon { width: 18px; height: 18px; }
-    .sidebar-footer { justify-content: center; padding: var(--sp-3) var(--sp-1); }
-    .version-badge { padding: 1px var(--sp-1); font-size: 0.625rem; }
+    /* Two footer chips don't fit the 56px rail side by side: stack them. */
+    .sidebar-footer { flex-direction: column; justify-content: center; align-items: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-1); }
+    .sidebar-footer .profile-chip { padding: 1px var(--sp-1); gap: 0; }
+    .version-badge { padding: 1px var(--sp-1); font-size: 0.5625rem; /* fits "vX.Y.ZZZ" inside the 56px rail */ }
     .nav-items + .nav-section-label { display: block; height: 0; padding: 0; overflow: hidden; }
 }
 
@@ -1726,7 +1752,12 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-swap.is-accepted { background: var(--ok-dim); }
 .hud-swap.is-dismissed { opacity: 0.45; }
 .hud-swap-arrow { padding-top: var(--sp-1); color: var(--text-4); font-family: var(--font-mono); text-align: center; }
-.hud-swap-out .hud-card-name { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-4); }
+/* DT-5: cut recommendations render red — the card is marked for removal. */
+.hud-swap-out .hud-label { color: var(--danger); }
+.hud-swap-out .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
+/* DT-5: a dismissed cut stays visibly marked (red strike) but inert in the weak table. */
+.tn-ignored td { opacity: 0.65; }
+.tn-ignored .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
 .hud-why { margin-top: var(--sp-2); display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.25rem; gap: var(--sp-1) var(--sp-2); align-items: center; font: var(--fs-micro) var(--font-mono); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
 .hud-why .t { height: 4px; background: var(--surface-3); }
 .hud-why .t i { display: block; height: 100%; background: var(--text-3); }

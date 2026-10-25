@@ -51,7 +51,7 @@ class TestShell(unittest.TestCase):
 
     def test_active_section_follows_path_prefix(self):
         cases = {
-            "/": ["Home"],
+            "/": ["Command Center"],
             "/decks": ["Commander Decks"],
             "/deck/Some%20Deck": ["Commander Decks"],
             "/inventory": ["Inventory"],
@@ -113,9 +113,10 @@ class TestDeckView(unittest.TestCase):
         cls.body = cls.html.split("<body", 1)[1]
         cls.client = client
 
-    def test_page_leads_with_stats(self):
-        # Shared deck header (UX_SPEC §3.0), then the stat strip comes before the briefing and decklist.
-        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="deckStats"', '<h2>Briefing</h2>', 'id="decklistContainer"')]
+    def test_page_leads_with_decklist(self):
+        # Shared deck header (UX_SPEC §3.0), then the decklist leads (NAV_IA §3.3),
+        # followed by the Briefing and the stats-at-a-glance strip.
+        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="decklistContainer"', '<h2>Briefing</h2>', 'id="deckStats"', 'id="deckUtilities"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertRegex(self.body, r'<div class="hud-stat-strip" id="deckStats">\s*<div class="hud-stat hud-stat--hero">')
@@ -184,7 +185,8 @@ class TestDeckView(unittest.TestCase):
 
     def test_actions_and_links_preserved(self):
         self.assertIn('href="/deck/Magic%20in%20Stereo/manage"', self.body)
-        for fn in ["initSyncControls", "reviewDeck()", "togglePrimerEdit()", "savePrimer()"]:
+        # The primer (and its edit functions) moved to the Primer tab (NAV_IA §3.2, D5).
+        for fn in ["initSyncControls", "reviewDeck()"]:
             with self.subTest(fn=fn):
                 self.assertIn(fn, self.body)
         for host in ["edhrec.com/commanders", "archidekt.com/decks", "commandersalt.com/details/deck", "moxfield.com/decks"]:
