@@ -133,7 +133,9 @@
 
     function roleRow(role) {
         const sel = el('select', { 'aria-label': 'Role tag' });
-        state.vocab.forEach(v => { const o = el('option', { value: v.tag, text: v.label, title: v.meaning }); if (v.tag === role.tag) o.selected = true; sel.appendChild(o); });
+        const wanted = state.vocab.some(v => v.tag === role.tag) ? role.tag
+            : (state.vocab.some(v => v.tag === 'legacy:' + role.tag) ? 'legacy:' + role.tag : role.tag);
+        state.vocab.forEach(v => { const o = el('option', { value: v.tag, text: v.label, title: v.query || v.meaning }); if (v.tag === wanted) o.selected = true; sel.appendChild(o); });
         const num = (cls, val, min, max, step, lab) => {
             const i = el('input', { type: 'number', min, max, step: lab.toLowerCase().includes('weight') ? 'any' : step, value: val, 'aria-label': lab }); i.className = cls; return i;
         };

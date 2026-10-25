@@ -30,6 +30,7 @@ class FakeRedis:
 
 
 ROLE = {"tag": "produces:sacrifice", "min_count": 2, "weight": 1.5}
+STORED_ROLE = {"tag": "legacy:produces:sacrifice", "min_count": 2, "weight": 1.5}  # legacy alias resolves at write
 
 
 class TestStore(unittest.TestCase):
@@ -49,9 +50,9 @@ class TestStore(unittest.TestCase):
         v0 = AR.get_version(self.r)
         a, v1 = AR.create_archetype(self.r, {"name": "Sac Package", "description": "d", "required_roles": [ROLE]})
         self.assertEqual((a["id"], v1), ("sac-package", v0 + 1))
-        self.assertEqual(AR.get_archetype(self.r, "sac-package")["required_roles"], [ROLE])
+        self.assertEqual(AR.get_archetype(self.r, "sac-package")["required_roles"], [STORED_ROLE])
         a2, v2 = AR.update_archetype(self.r, "sac-package", {"description": "new"})
-        self.assertEqual((a2["description"], a2["required_roles"], v2), ("new", [ROLE], v1 + 1))
+        self.assertEqual((a2["description"], a2["required_roles"], v2), ("new", [STORED_ROLE], v1 + 1))
         self.assertFalse(a2["draft"])
         v3 = AR.delete_archetype(self.r, "sac-package")
         self.assertEqual(v3, v2 + 1)
@@ -74,7 +75,20 @@ class TestStore(unittest.TestCase):
             AR.create_archetype(self.r, {"name": "my thing"})
 
 
+def _fake_source(mapping):
+    def src(q):
+        for key, names in mapping.items():
+            if key in q:
+                return {"names": list(names), "total": len(names), "error": None, "oversized": False}
+        return {"names": [], "total": 0, "error": None, "oversized": False}
+    return src
+
+
 class TestMatch(unittest.TestCase):
+    def setUp(self):
+        self.r = FakeRedis()
+        self.src = _fake_source({"sacrifice-outlet": ["Outlet", "Fodder"], "death-trigger": ["Payoff"]})
+
     def test_whole_deck_coverage_not_single_tag(self):
         """A single copy of the most common tag should NOT be enough: coverage is scored
         against every required role across the whole deck, weighted."""
@@ -85,24 +99,24 @@ class TestMatch(unittest.TestCase):
                 {"tag": "consumes:death", "min_count": 4, "weight": 2},
             ],
         }]
-        # Only one card with the (most common) sacrifice tag, nothing for death.
-        deck_shallow = {"cards": [{"name": "Fodder", "quantity": 1, "produces": ["sacrifice"], "consumes": []}]}
-        shallow = AR.archetype_match(deck_shallow, archetypes)[0]
+        # Only one copy of a sacrifice-outlet card, nothing for death.
+        deck_shallow = {"cards": [{"name": "Fodder", "quantity": 1}]}
+        shallow = AR.archetype_match(deck_shallow, archetypes, self.r, self.src)[0]
         self.assertLess(shallow["coverage"], 0.5)
 
-        deck_deep = {"cards": [
-            {"name": "Outlet", "quantity": 3, "produces": ["sacrifice"], "consumes": []},
-            {"name": "Payoff", "quantity": 4, "produces": [], "consumes": ["death"]},
-        ]}
-        deep = AR.archetype_match(deck_deep, archetypes)[0]
+        deck_deep = {"cards": [{"name": "Outlet", "quantity": 3}, {"name": "Payoff", "quantity": 4}]}
+        deep = AR.archetype_match(deck_deep, archetypes, self.r, self.src)[0]
         self.assertEqual(deep["coverage"], 1.0)
+        # The breakdown names the matched cards.
+        hit = {row["tag"]: row for row in deep["roles_hit"]}
+        self.assertEqual([c["name"] for c in hit["legacy:produces:sacrifice"]["cards"]], ["Outlet"])
 
     def test_best_match_ties_break_on_name(self):
         archetypes = [
             {"id": "b", "name": "Beta", "required_roles": []},
             {"id": "a", "name": "Alpha", "required_roles": []},
         ]
-        ranked = AR.archetype_match({"cards": []}, archetypes)
+        ranked = AR.archetype_match({"cards": []}, archetypes, self.r, self.src)
         self.assertEqual([r["archetype"]["id"] for r in ranked], ["a", "b"])
 
 
@@ -128,14 +142,14 @@ class TestSelection(unittest.TestCase):
     def test_resolve_for_deck_prefers_manual_override(self):
         a, _ = AR.create_archetype(self.r, {"name": "Chosen"})
         AR.set_selection(self.r, "deck1", {"mode": "manual", "archetype_id": a["id"]})
-        out = AR.resolve_for_deck(self.r, "deck1", {"nodes": []}, {})
+        out = AR.resolve_for_deck(self.r, "deck1", [])
         self.assertEqual(out["archetype"]["id"], a["id"])
 
     def test_resolve_for_deck_falls_back_to_best_match(self):
         AR.create_archetype(self.r, {"name": "High Coverage", "required_roles": [ROLE]})
         AR.create_archetype(self.r, {"name": "No Roles"})
-        graph = {"nodes": [{"name": "Outlet", "produces": ["sacrifice"], "consumes": []}]}
-        out = AR.resolve_for_deck(self.r, "deck1", graph, {"Outlet": 2})
+        src = _fake_source({"sacrifice-outlet": ["Outlet"]})
+        out = AR.resolve_for_deck(self.r, "deck1", [{"name": "Outlet", "quantity": 2}], src)
         self.assertEqual(out["selection"]["mode"], "auto")
         self.assertEqual(out["archetype"]["id"], "high-coverage")
 
