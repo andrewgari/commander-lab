@@ -40,6 +40,8 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 import deck_links
 from deck_links import DeckLinkError
+from forge_recorder import store as forge_store
+from forge_recorder.store import IngestError
 import deck_export
 import deck_sync
 from deck_sync import DeckSyncError
@@ -1009,14 +1011,95 @@ async def brew_commander_search(q: str = ""):
             params = None  # Scryfall next_page is a complete URL
 
         if not candidates:
-            fuzzy = httpx.get(
-                "https://api.scryfall.com/cards/named",
-                params={"fuzzy": query}, headers=headers, timeout=8.0,
-            )
-            if fuzzy.status_code == 200:
-                card = fuzzy.json()
-                if (card.get("legalities") or {}).get("commander") == "legal":
-                    candidates[card.get("id") or card.get("name")] = card
+            import difflib
+
+            # Scryfall returns 404 for an unrecognized query/name. Treat that as
+            # an empty attempt, then broaden progressively without querying very
+            # short prefixes (which produce noisy, unrelated result sets).
+            fuzzy_queries = [query]
+            prefix = query
+            for _ in range(3):
+                if len(prefix) <= 4:
+                    break
+                prefix = prefix[:-1]
+                fuzzy_queries.append(prefix)
+            direct_fuzzy_ids = []
+
+            for fuzzy_query in fuzzy_queries:
+                fuzzy = httpx.get(
+                    "https://api.scryfall.com/cards/named",
+                    params={"fuzzy": fuzzy_query}, headers=headers, timeout=8.0,
+                )
+                if fuzzy.status_code == 200:
+                    card = fuzzy.json()
+                    if (card.get("legalities") or {}).get("commander") == "legal":
+                        cid = card.get("id") or card.get("name")
+                        candidates[cid] = card
+                        # Preserve existing behavior for a successful fuzzy-name
+                        # match; only gather broader candidates after a miss.
+                        if fuzzy_query == query:
+                            direct_fuzzy_ids.append(cid)
+                            break
+                elif fuzzy.status_code != 404:
+                    break
+
+            # When shortening yields a name, also collect a small set from the
+            # corresponding commander search and rank it against the user's
+            # original spelling, not the adjusted prefix.
+            if not candidates and len(query) >= 4:
+                for retry_query in fuzzy_queries[1:]:
+                    retry = httpx.get(
+                        "https://api.scryfall.com/cards/search",
+                        params={"q": f'name:"{retry_query}" is:commander legal:commander',
+                                "unique": "cards", "order": "name"},
+                        headers=headers, timeout=8.0,
+                    )
+                    if retry.status_code == 404:
+                        continue
+                    if retry.status_code != 200:
+                        break
+                    for card in (retry.json().get("data") or []):
+                        if (card.get("legalities") or {}).get("commander") == "legal":
+                            candidates[card.get("id") or card.get("name")] = card
+                    if candidates:
+                        break
+
+            # A successful direct fuzzy-name match preserves pre-existing
+            # behavior exactly: return it without any similarity gate, so a
+            # short query against a long card name (e.g. "atraxa" -> "Atraxa,
+            # Praetors' Voice") is never discarded.
+            direct_fuzzy_hit = any(
+                cid in candidates for cid in direct_fuzzy_ids
+            ) if direct_fuzzy_ids else False
+
+            if candidates:
+                original = query.casefold()
+
+                def similarity(name):
+                    name = (name or "").casefold()
+                    ratio = difflib.SequenceMatcher(None, original, name).ratio()
+                    # Containment-aware score: compare the query against a
+                    # same-length prefix of the name so short queries are not
+                    # unfairly penalized by long card names.
+                    if len(name) > len(original):
+                        prefix_ratio = difflib.SequenceMatcher(
+                            None, original, name[: len(original)]
+                        ).ratio()
+                        ratio = max(ratio, prefix_ratio)
+                    return ratio
+
+                ranked = sorted(
+                    candidates.items(),
+                    key=lambda item: similarity(item[1].get("name")),
+                    reverse=True,
+                )
+                if direct_fuzzy_hit:
+                    candidates = dict(ranked[:5])
+                else:
+                    best_score = similarity(ranked[0][1].get("name"))
+                    # Avoid returning unrelated results from a broad
+                    # shortened query.
+                    candidates = dict(ranked[:5]) if best_score >= 0.45 else {}
     except Exception:
         candidates = {}
 
@@ -1392,6 +1475,73 @@ async def remove_deck_link(deck_id: str, provider: str):
     except DeckLinkError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     return {"success": True, "links": deck_links.get_links(deck)}
+
+
+# --- Forge auto-recorder ---------------------------------------------------
+# Thin wrappers over forge_recorder/store.py; the watcher on the gaming
+# machine POSTs raw log lines, parsing lives server-side (one parser home).
+
+
+@app.post("/api/forge/ingest")
+async def forge_ingest(request: Request):
+    """Ingest raw Forge log lines (FORGELOG blocks). Body:
+    {"lines": [...], "user_id": optional, "played_at": optional ISO-8601}.
+    Segments into games, parses, stores new games idempotently (game_uid),
+    then rebuilds the play-style profile when anything new landed."""
+    data = await request.json()
+    lines = data.get("lines") or []
+    if not isinstance(lines, list):
+        return JSONResponse(status_code=400, content={"success": False, "error": "lines must be a list"})
+    played_at = None
+    raw_played = data.get("played_at")
+    if raw_played:
+        try:
+            played_at = datetime.fromisoformat(str(raw_played))
+        except ValueError:
+            return JSONResponse(status_code=400, content={"success": False, "error": "bad played_at"})
+    try:
+        with forge_store.session_scope() as s:
+            result = forge_store.ingest_lines(s, data.get("user_id"), lines, played_at)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, **result}
+
+
+@app.get("/api/forge/games")
+async def forge_games(user_id: Optional[str] = None, limit: int = 50):
+    """Recent recorded games, newest first (summaries only, no event lists)."""
+    try:
+        with forge_store.session_scope() as s:
+            games = forge_store.list_games(s, user_id, limit)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "games": games}
+
+
+@app.get("/api/forge/play-style")
+async def forge_play_style(user_id: Optional[str] = None):
+    """The cumulative play-style profile derived from recorded games."""
+    try:
+        with forge_store.session_scope() as s:
+            profile = forge_store.get_profile(s, user_id)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    if profile is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "no play-style profile yet"})
+    return {"success": True, **profile}
+
+
+@app.post("/api/forge/play-style/rebuild")
+async def forge_play_style_rebuild(request: Request):
+    """Force a profile rebuild from all stored games (e.g. after parser fixes)."""
+    data = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    try:
+        with forge_store.session_scope() as s:
+            uid = forge_store.resolve_user_id(s, data.get("user_id"))
+            profile = forge_store.rebuild_profile(s, uid)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "games_analyzed": profile["games_analyzed"]}
 
 
 def _sync_error(e: DeckSyncError, operation: str, provider: Optional[str]) -> JSONResponse:

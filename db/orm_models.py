@@ -75,3 +75,40 @@ class DeckLinkRow(Base):
     __table_args__ = (
         UniqueConstraint("provider", "external_id", name="uq_deck_links_provider_external_id"),
     )
+
+
+class GameRow(Base):
+    """One recorded Forge game: parsed per-player stats, summary and the
+    (noise-filtered) event list. ``game_uid`` is a content hash for idempotent
+    ingest from the log watcher."""
+    __tablename__ = "games"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(255), ForeignKey("users.id"), nullable=False)
+    game_uid: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="forge")
+    played_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    players: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    winner: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_simulation: Mapped[bool] = mapped_column(nullable=False, default=False)
+    summary: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    events: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PlayStyleProfileRow(Base):
+    """The per-user cumulative play-style profile derived from recorded games.
+    One row per user; replaced wholesale on every rebuild."""
+    __tablename__ = "play_style_profile"
+    user_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("users.id"), primary_key=True
+    )
+    games_analyzed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    profile: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
