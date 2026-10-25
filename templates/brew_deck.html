@@ -139,5 +139,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='/js/brew.js') }}"></script>
+{# ?v={{ version }} cache-busts like every other static asset (base.html); a
+   bare URL let browsers serve a stale brew.js across deploys, which is how the
+   commander autocomplete fix shipped but never reached Andrew's browser. #}
+<script src="{{ url_for('static', path='/js/brew.js') }}?v={{ version }}"></script>
 {% endblock %}

@@ -27,6 +27,7 @@ def read(rel):
 
 BASE = read("templates/base.html")
 BREW_HTML = read("templates/brew.html")
+BREW_DECK_HTML = read("templates/brew_deck.html")
 BREW_JS = read("static/js/brew.js")
 
 
@@ -141,6 +142,16 @@ class TestBrewAssetCacheBusting(unittest.TestCase):
         self.assertIsNotNone(m, "brew.js script tag not found in brew.html")
         self.assertIn("?v={{ version }}", m.group(1),
                       "brew.js must be loaded with ?v={{ version }} like base.html assets")
+
+    def test_brew_deck_js_script_tag_is_versioned(self):
+        # brew_deck.html loads the same brew.js; it got the url_for form but
+        # missed the ?v= query param, reintroducing the stale-cache risk the
+        # brew.html fix (PR #324 pattern) closed.
+        m = re.search(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>',
+                      BREW_DECK_HTML)
+        self.assertIsNotNone(m, "brew.js script tag not found in brew_deck.html")
+        self.assertIn("?v={{ version }}", m.group(1),
+                      "brew.js on the brew deck page must be loaded with ?v={{ version }} like base.html assets")
 
 
 class TestSubmitPathUnchanged(unittest.TestCase):
