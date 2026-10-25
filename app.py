@@ -40,6 +40,8 @@ import linked_accounts
 from linked_accounts import LinkedAccountError
 import deck_links
 from deck_links import DeckLinkError
+from forge_recorder import store as forge_store
+from forge_recorder.store import IngestError
 import deck_export
 import deck_sync
 from deck_sync import DeckSyncError
@@ -1371,6 +1373,73 @@ async def remove_deck_link(deck_id: str, provider: str):
     except DeckLinkError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     return {"success": True, "links": deck_links.get_links(deck)}
+
+
+# --- Forge auto-recorder ---------------------------------------------------
+# Thin wrappers over forge_recorder/store.py; the watcher on the gaming
+# machine POSTs raw log lines, parsing lives server-side (one parser home).
+
+
+@app.post("/api/forge/ingest")
+async def forge_ingest(request: Request):
+    """Ingest raw Forge log lines (FORGELOG blocks). Body:
+    {"lines": [...], "user_id": optional, "played_at": optional ISO-8601}.
+    Segments into games, parses, stores new games idempotently (game_uid),
+    then rebuilds the play-style profile when anything new landed."""
+    data = await request.json()
+    lines = data.get("lines") or []
+    if not isinstance(lines, list):
+        return JSONResponse(status_code=400, content={"success": False, "error": "lines must be a list"})
+    played_at = None
+    raw_played = data.get("played_at")
+    if raw_played:
+        try:
+            played_at = datetime.fromisoformat(str(raw_played))
+        except ValueError:
+            return JSONResponse(status_code=400, content={"success": False, "error": "bad played_at"})
+    try:
+        with forge_store.session_scope() as s:
+            result = forge_store.ingest_lines(s, data.get("user_id"), lines, played_at)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, **result}
+
+
+@app.get("/api/forge/games")
+async def forge_games(user_id: Optional[str] = None, limit: int = 50):
+    """Recent recorded games, newest first (summaries only, no event lists)."""
+    try:
+        with forge_store.session_scope() as s:
+            games = forge_store.list_games(s, user_id, limit)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "games": games}
+
+
+@app.get("/api/forge/play-style")
+async def forge_play_style(user_id: Optional[str] = None):
+    """The cumulative play-style profile derived from recorded games."""
+    try:
+        with forge_store.session_scope() as s:
+            profile = forge_store.get_profile(s, user_id)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    if profile is None:
+        return JSONResponse(status_code=404, content={"success": False, "error": "no play-style profile yet"})
+    return {"success": True, **profile}
+
+
+@app.post("/api/forge/play-style/rebuild")
+async def forge_play_style_rebuild(request: Request):
+    """Force a profile rebuild from all stored games (e.g. after parser fixes)."""
+    data = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    try:
+        with forge_store.session_scope() as s:
+            uid = forge_store.resolve_user_id(s, data.get("user_id"))
+            profile = forge_store.rebuild_profile(s, uid)
+    except IngestError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "games_analyzed": profile["games_analyzed"]}
 
 
 def _sync_error(e: DeckSyncError, operation: str, provider: Optional[str]) -> JSONResponse:
