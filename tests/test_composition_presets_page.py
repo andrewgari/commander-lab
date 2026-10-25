@@ -70,7 +70,8 @@ class TestCompositionPresetsPage(unittest.TestCase):
 
 
 class TestDeckCompositionPickerMarkup(unittest.TestCase):
-    """The deck composition page carries the per-deck preset picker form."""
+    """The deck composition section (folded into Stats, NAV_IA §3.2) carries the
+    per-deck preset picker form; the old /composition route 301s to it."""
 
     def setUp(self):
         self.r = FakeRedis()
@@ -88,8 +89,9 @@ class TestDeckCompositionPickerMarkup(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_picker_form_present(self):
-        resp = self.client.get("/deck/Test Deck/composition")
-        self.assertEqual(resp.status_code, 200)
+        with patch("app._composition_page_context", return_value={"selection": None, "preset": None, "slots": []}):
+            resp = self.client.get("/deck/Test Deck/composition")
+        self.assertEqual(resp.status_code, 200)  # 301 -> /stats#composition
         body = resp.text
         self.assertIn("compPickerForm", body)
         self.assertIn("compModeAuto", body)
