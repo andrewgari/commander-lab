@@ -51,8 +51,8 @@ class TestDeckPage(unittest.TestCase):
         self.assertIn("ev.key !== 'r' && ev.key !== 'R'", self.html)
 
     def test_existing_deck_view_is_intact(self):
-        for frag in ['id="cardModal"', "function openCardModal(index)", 'id="decklistContainer"', 'data-view="visual"',
-                     'data-view="list"', "data-card-index", "loadBracket()", "loadPersonality"]:
+        for frag in ['id="cardModal"', "function openCardModal(index)", 'id="decklistContainer"', 'value="visual"',
+                     'value="list"', "data-card-index", "loadBracket()", "loadPersonality"]:
             with self.subTest(frag=frag):
                 self.assertIn(frag, self.html)
 
@@ -165,7 +165,7 @@ const partial = (extra) => Object.assign({}, removeJob, { status: 'running', sta
     empty: html(Object.assign({}, done, { repl: CR.fromJob(emptyRes, base('digital'), NOW).repl })),
     err: Object.fromEntries(['offline', 'internal', 'gone'].map(k => [k, html(fails[k])])),
     network: html(Object.assign({}, run2, { phase: 'error', error: { code: 'network' } })),
-    blocked: html(Object.assign({}, run2, { phase: 'blocked', blocked: { h: 'Commanders aren’t reviewed', p: 'p' } })),
+    blocked: html(Object.assign({}, run2, { phase: 'blocked', blocked: { h: 'No quick look for commanders', p: 'p' } })),
     chosenD: html(Object.assign({}, done, { repl: Object.assign({}, done.repl, { chosen: done.repl.items[0].name }) })),
     chosenP: html(Object.assign({}, doneP, { repl: Object.assign({}, doneP.repl, { chosen: doneP.repl.items[0].name }) })),
     actionErr: html(Object.assign({}, done, { repl: Object.assign({}, done.repl, { actionError: 'nope' }) })),
@@ -317,8 +317,8 @@ class TestCardReviewComponent(unittest.TestCase):
 
     def test_unreviewable_cards(self):
         h = self.o["unrev"]
-        self.assertEqual(h[:2], ["Commanders aren’t reviewed"] * 2)
-        self.assertEqual(h[2:4], ["Basic lands aren’t reviewed", "Not in the 99"])
+        self.assertEqual(h[:2], ["No quick look for commanders"] * 2)
+        self.assertEqual(h[2:4], ["No quick look for basic lands", "Not in the 99"])
         self.assertIsNone(h[4])
 
     # ---- view ---------------------------------------------------------------------------------
@@ -361,8 +361,8 @@ class TestCardReviewComponent(unittest.TestCase):
 
     def test_running_view_has_stepper_clock_evidence_and_both_sides(self):
         h = self.v["run"]
-        for frag in ['class="hud-job"', 'aria-label="Review progress"', 'aria-current="step"', "hud-job-clock", "00:04", "Reviewing Blasphemous Act",
-                     'data-side="keep"', 'data-side="remove"', "Opening", "Closing this window does not cancel the review.", "hud-cr-evidence", "Waiting"]:
+        for frag in ['class="hud-job"', 'aria-label="Quick look progress"', 'aria-current="step"', "hud-job-clock", "00:04", "Quick look: Blasphemous Act",
+                     'data-side="keep"', 'data-side="remove"', "Opening", "Closing this window does not cancel the quick look.", "hud-cr-evidence", "Waiting"]:
             with self.subTest(frag=frag):
                 self.assertIn(frag, h)
         self.assertNotIn("Cancel review", h)  # the API has no cancel
@@ -380,11 +380,11 @@ class TestCardReviewComponent(unittest.TestCase):
 
     def test_error_states_are_inline_alerts_with_a_retry(self):
         e = self.v["err"]
-        self.assertIn("The review engine is offline", e["offline"])
-        self.assertIn("Nothing was reviewed and nothing was changed", e["offline"])
+        self.assertIn("Quick look is offline", e["offline"])
+        self.assertIn("Nothing was evaluated and nothing was changed", e["offline"])
         self.assertIn('role="alert"', e["offline"])
         self.assertIn('data-cr="retry"', e["offline"])
-        self.assertIn("The review failed", e["internal"])
+        self.assertIn("The quick look failed", e["internal"])
         self.assertIn("This card is no longer in the deck", e["gone"])
         self.assertIn('data-cr="close"', e["gone"])
         self.assertIn("Connection lost", self.v["network"])
@@ -392,7 +392,7 @@ class TestCardReviewComponent(unittest.TestCase):
         self.assertIn("hud-cr-subject", e["offline"])  # the card never disappears
 
     def test_blocked_state(self):
-        self.assertIn("Commanders aren’t reviewed", self.v["blocked"])
+        self.assertIn("No quick look for commanders", self.v["blocked"])
         self.assertIn("Back to the deck", self.v["blocked"])
 
     def test_action_error_is_inline_and_leaves_the_list(self):
@@ -460,7 +460,7 @@ class TestCardReviewComponent(unittest.TestCase):
     def test_start_errors_map_to_states(self):
         self.assertEqual(self.o["starts"], {
             "offline": ["error", "offline", None], "gone": ["error", "gone", None], "busy429": ["error", "busy", None],
-            "busy409": ["error", "busy", None], "blocked": ["blocked", None, "Commanders aren’t reviewed"],
+            "busy409": ["error", "busy", None], "blocked": ["blocked", None, "No quick look for commanders"],
             "bad": ["error", "failed", None], "net": ["error", "network", None]})
 
     def test_connection_drop_then_reconnect_resumes_the_same_job(self):
@@ -472,7 +472,7 @@ class TestCardReviewComponent(unittest.TestCase):
     def test_server_side_failure_keeps_the_debate_on_screen(self):
         j = self.o["jobFailed"]
         self.assertEqual((j["phase"], j["code"], j["msg"], j["args"]), ("error", "failed", "boom", 4))
-        self.assertIn("The review failed", j["html"])
+        self.assertIn("The quick look failed", j["html"])
         self.assertIn("Cuts against the pillar.", j["html"])
         self.assertIn("No ruling", j["html"])
 
