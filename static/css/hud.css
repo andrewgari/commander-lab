@@ -1752,7 +1752,12 @@ a.hud-art:hover .hud-art-name { color: var(--signal-strong); }
 .hud-swap.is-accepted { background: var(--ok-dim); }
 .hud-swap.is-dismissed { opacity: 0.45; }
 .hud-swap-arrow { padding-top: var(--sp-1); color: var(--text-4); font-family: var(--font-mono); text-align: center; }
-.hud-swap-out .hud-card-name { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-4); }
+/* DT-5: cut recommendations render red — the card is marked for removal. */
+.hud-swap-out .hud-label { color: var(--danger); }
+.hud-swap-out .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
+/* DT-5: a dismissed cut stays visibly marked (red strike) but inert in the weak table. */
+.tn-ignored td { opacity: 0.65; }
+.tn-ignored .hud-card-name { color: var(--danger); text-decoration: line-through; text-decoration-color: var(--danger); }
 .hud-why { margin-top: var(--sp-2); display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.25rem; gap: var(--sp-1) var(--sp-2); align-items: center; font: var(--fs-micro) var(--font-mono); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
 .hud-why .t { height: 4px; background: var(--surface-3); }
 .hud-why .t i { display: block; height: 100%; background: var(--text-3); }
@@ -3709,4 +3714,47 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
     .hud-stat-value { flex-wrap: wrap; }
     .hud-stat-unit { font-size: var(--fs-xs); }
     .hud-stat-foot { white-space: normal; overflow-wrap: anywhere; }
+}
+
+/* 10. TUNE OVERLAY (DT-1, deck-tuner-overlay-spec §2) =====================
+   Deckbuilding board layered over the decklist on /deck/{name}/tune:
+   one column per card tag + structural slots, native HTML5 drag & drop.
+   Rendered by static/js/tune_overlay.js. */
+.tnov-bar { margin-bottom: var(--sp-4); }
+.tnov-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.tnov-bar-gap { flex: 1; }
+.tnov-bar-row input[type="text"] { width: 12rem; }
+
+.tnov-columns { display: flex; gap: var(--sp-4); align-items: flex-start; overflow-x: auto; padding-bottom: var(--sp-3); }
+.tnov-col { flex: 0 0 16rem; display: flex; flex-direction: column; max-height: 75vh; }
+.tnov-col.is-drop { outline: var(--focus-ring); outline-offset: 2px; }
+.tnov-col.is-excluded .tnov-col-head .hud-panel-title { color: var(--text-3); text-decoration: line-through; }
+.tnov-col-head { gap: var(--sp-2); }
+.tnov-col-head .hud-panel-meta { margin-left: auto; }
+.tnov-flag.is-on { color: var(--signal); border-color: var(--signal-line, var(--signal)); }
+.tnov-col-body { display: flex; flex-direction: column; gap: var(--sp-1); min-height: 3.5rem; overflow-y: auto; }
+.tnov-col.is-excluded .tnov-col-body { opacity: 0.55; }
+.tnov-empty { padding: var(--sp-3); }
+
+.tnov-chip { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); background: var(--surface-2); border: var(--stroke); border-radius: var(--radius-1); cursor: grab; }
+.tnov-chip:active { cursor: grabbing; }
+.tnov-chip.is-excluded { opacity: 0.45; }
+.tnov-qty { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.tnov-remove { margin-left: auto; padding: 0 var(--sp-1); background: none; border: 0; color: var(--text-3); font-size: var(--fs-base); line-height: 1; cursor: pointer; }
+.tnov-remove:hover { color: var(--danger); }
+
+.tnov-add { position: relative; margin-top: var(--sp-2); }
+.tnov-add-input { width: 100%; font-size: var(--fs-xs); }
+.tnov-ac { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; max-height: 16rem; overflow-y: auto; background: var(--surface-1); border: var(--stroke-strong); border-radius: var(--radius-1); }
+.tnov-ac-option { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
+.tnov-ac-option:hover, .tnov-ac-option.is-active { background: var(--surface-3); }
+.tnov-ac-type { color: var(--text-3); font: var(--fs-micro) var(--font-mono); white-space: nowrap; }
+
+@media (max-width: 768px) {
+    .tnov-columns { flex-direction: column; overflow-x: visible; }
+    .tnov-col { flex: none; width: 100%; max-height: none; }
+    .tnov-bar-row input[type="text"] { flex: 1; width: auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .tnov-col { transition: outline-color var(--dur-fast) var(--ease); }
 }

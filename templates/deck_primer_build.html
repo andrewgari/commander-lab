@@ -13,14 +13,14 @@
         <h1><small>Primer builder</small>{{ deck_name }}</h1>
         <div class="pf-head-act">
             <span class="pf-saved" id="pfSaved" role="status">Draft not saved yet</span>
-            <a class="hud-btn hud-btn--ghost" id="pfByHand" href="/deck/{{ deck_name | urlencode }}#primer-edit">Write by hand instead</a>
-            <a class="hud-btn" id="pfClose" href="/deck/{{ deck_name | urlencode }}">Close</a>
+            <a class="hud-btn hud-btn--ghost" id="pfByHand" href="/deck/{{ deck_name | urlencode }}/primer#edit">Write by hand instead</a>
+            <a class="hud-btn" id="pfClose" href="/deck/{{ deck_name | urlencode }}/primer">Close</a>
         </div>
     </header>
 
     <div class="pf-bar" id="pfBar" aria-hidden="true"></div>
 
-    <noscript><p class="hud-empty">The primer builder needs JavaScript. You can <a href="/deck/{{ deck_name | urlencode }}#primer-edit">write the primer by hand</a> instead.</p></noscript>
+    <noscript><p class="hud-empty">The primer builder needs JavaScript. You can <a href="/deck/{{ deck_name | urlencode }}/primer#edit">write the primer by hand</a> instead.</p></noscript>
 
     <div class="pf-shell">
         <nav aria-label="Primer steps"><ol class="pf-rail" id="pfRail"></ol></nav>

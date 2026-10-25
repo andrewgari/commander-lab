@@ -185,7 +185,8 @@ class TestDeckView(unittest.TestCase):
 
     def test_actions_and_links_preserved(self):
         self.assertIn('href="/deck/Magic%20in%20Stereo/manage"', self.body)
-        for fn in ["initSyncControls", "reviewDeck()", "togglePrimerEdit()", "savePrimer()"]:
+        # The primer (and its edit functions) moved to the Primer tab (NAV_IA §3.2, D5).
+        for fn in ["initSyncControls", "reviewDeck()"]:
             with self.subTest(fn=fn):
                 self.assertIn(fn, self.body)
         for host in ["edhrec.com/commanders", "archidekt.com/decks", "commandersalt.com/details/deck", "moxfield.com/decks"]:

@@ -53,10 +53,20 @@ as well in B as the card taken, scored with B's own inputs (DonorBook).
 Otherwise the next-best option takes its place. One hop only.
 
 Redis:
-    tuner:state:{registry_id}   {review_id, decisions{cut: {decision, add}}, adds[]}
+    tuner:state:{registry_id}   {review_id, decisions{cut: {decision, add}}, adds[],
+                                 ignored{cut: [add names rejected for that slot]}}
                                 reset when a newer finished review exists
     tuner:prose:{registry_id}   {cache key: text}  LLM prose cache
     tuner:count:{registry_id}   open suggestion count (deck tab badge)
+
+Recommendation entries (DT-7, docs/architecture/deck-tuner-overlay-spec.md §3.3):
+every swap row carries entry_id, a short `reason` (LLM prose when cached, else a
+deterministic line built from the computed fields) and a status
+(open|accepted|dismissed|ignored). "Reconsider" writes a `reconsideration` back
+into the saved record (the recommendation stands its ground). "Recommend
+something else" records the current add under state.ignored[cut] (so recomputes
+skip it for the rest of the review), moves the old entry to the payload's
+entry_log as `ignored` and appends the replacement with a fresh id.
 """
 from __future__ import annotations
 
@@ -64,6 +74,7 @@ import hashlib
 import json
 import logging
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
@@ -91,12 +102,14 @@ def resolve_mode(mode: Optional[str], in_deck: bool = True, buy: bool = True) ->
     if mode == "best":
         return mode, True, True
     return mode, bool(in_deck), bool(buy)
-# "ignored" (Deck Tuner overlay spec §3.3): hide the row for the rest of this
-# review without acting on it — same skip as "dismissed" in build_tune.
+# "ignored" (Deck Tuner overlay spec §3.3): don't show the recommendation
+# again this review.
 DECISIONS = ("own", "buy", "dismissed", "ignored")
+ENTRY_STATUSES = ("open", "accepted", "dismissed", "ignored")
 MAX_SWAPS = 12
 
 STATE_PREFIX = "tuner:state:"
+DISMISSED_PREFIX = "tuner:dismissed:"
 PROSE_PREFIX = "tuner:prose:"
 COUNT_PREFIX = "tuner:count:"
 
@@ -481,14 +494,19 @@ HIDDEN_LIST_MAX = 10  # most hidden cards listed per swap; hidden_hard is still 
 def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[dict], caps: Mapping, *,
                p75: float, has_pillars: bool, has_edhrec: bool, mode: str = "flex", in_deck: bool = True, buy: bool = True,
                goal: str = "balanced", pets: Iterable[str] = (), state: Optional[Mapping] = None, max_swaps: int = MAX_SWAPS,
-               donors: Optional[Any] = None) -> dict:
+               donors: Optional[Any] = None, dismissed: Iterable[str] = ()) -> dict:
     """`donors` (AN-8): {deck name: donor context} (see donor_trade), usually a
     lazy DonorBook. A card sleeved in another deck is an option only when that
-    deck gets a no-worse replacement; with no donor data it is never offered."""
+    deck gets a no-worse replacement; with no donor data it is never offered.
+    `dismissed` (DT-5): durably dismissed cuts — never flagged again."""
     mode, in_deck, buy = resolve_mode(mode, in_deck, buy)
     best_mode = mode == "best"
     pets = set(pets or ()) | {w["name"] for w in weak.get("cards") or [] if w.get("pet")}
+    dismissed_set = set(dismissed or ())
     decisions = dict((state or {}).get("decisions") or {})
+    # DT-7: adds the user already rejected for a slot ("recommend something else")
+    # are not suggested again for that slot this review.
+    ignored = {k: set(v or []) for k, v in ((state or {}).get("ignored") or {}).items()}
     deck_cards = set(journal_mod.deck_entries(deck)) | set(deck.get("commanders") or [])
     this_deck = deck.get("name")
     # AN-7: when card2vec is on for this deck, EVERY card (cut or candidate)
@@ -539,11 +557,13 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     # take the only removal a removal cut could use. Rows are re-sorted below.
     for w in [w for w in weak_rows if _functional(w)] + [w for w in weak_rows if not _functional(w)]:
         dec = decisions.get(w["name"]) or {}
-        if dec.get("decision") in ("dismissed", "ignored"):
+        if dec.get("decision") in ("dismissed", "ignored") or w["name"] in dismissed_set:
             continue
         cut_score = score(w.get("edges") or 0, p75, w.get("fit"), w.get("edhrec_inclusion"), has_pillars, has_edhrec,
                           _played(w.get("played")), goal=goal)
+        rejected = ignored.get(w["name"]) or set()
         fits = [c for c in pool if c["name"] not in used and c["name"] not in used_y
+                and c["name"] not in rejected
                 and _role_ok(w.get("rows") or [], c)
                 and c["adj"] >= cut_score + MIN_UPGRADE]
         steal = None
@@ -632,6 +652,12 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
         }
         if buy_o and buy_o["cap"] == "soft" and own_o:
             row["soft_note"] = soft_note(buy_o, own_o, gap, caps, pick)
+        picked = (buy_o if pick == "buy" else own_o) or own_o or buy_o
+        if picked is None:  # unreachable: a row only exists once an option was picked
+            continue
+        row["entry_id"] = entry_id(w["name"], picked["name"])
+        row["status"] = "accepted" if row["decision"] in ("own", "buy") else "open"
+        row["reason"] = fallback_reason(row)
         swaps.append(row)
     # UX_SPEC: ordered by the cut's weak score (descending), then by gap.
     swaps.sort(key=lambda s: (-s["cut"]["weak_score"], -(s["gap"] or 0), s["cut"]["name"]))
@@ -640,7 +666,8 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     with_swap = {s["cut"]["name"] for s in swaps}
     weak_table = [{"name": w["name"], "edges": w.get("edges") or 0, "fit": w.get("fit"),
                    "edhrec": w.get("edhrec_inclusion"), "played": w.get("played"), "weak_score": w["weak_score"],
-                   "pet": w["name"] in pets, "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
+                   "pet": w["name"] in pets, "dismissed": w["name"] in dismissed_set,
+                   "has_swap": w["name"] in with_swap, "reasons": w.get("reasons") or []}
                   for w in sorted(weak.get("cards") or [], key=lambda w: (-w["weak_score"], w["name"]))]
     notice = weak.get("pet_notice")
     if not notice and pets:
@@ -655,7 +682,7 @@ def build_tune(deck: Mapping, weak: Mapping, composition: Mapping, cands: List[d
     open_swaps = sum(1 for s in swaps if not s["decision"])
     return {
         "mode": mode, "in_deck": in_deck, "buy": buy, "goal": goal, "caps": dict(caps), "fixes": fixes, "swaps": swaps,
-        "weak": weak_table, "pet_notice": notice,
+        "weak": weak_table, "pet_notice": notice, "dismissed": sorted(dismissed_set),
         "counts": {"fixes": len(fixes), "swaps": len(swaps), "open_swaps": open_swaps,
                    "open": len(fixes) + open_swaps + (1 if notice else 0), "candidates": len(pool),
                    **({} if best_mode else {
@@ -686,13 +713,29 @@ def load_state(r, deck: Mapping) -> dict:
     rid = _latest_review_id(r, deck)
     raw = journal_mod._get_json(r, STATE_PREFIX + _rid(deck)) or {}
     if raw.get("review_id") != rid:
-        return {"review_id": rid, "decisions": {}, "adds": []}
-    return {"review_id": rid, "decisions": dict(raw.get("decisions") or {}), "adds": list(raw.get("adds") or [])}
+        return {"review_id": rid, "decisions": {}, "adds": [], "ignored": {}}
+    return {"review_id": rid, "decisions": dict(raw.get("decisions") or {}),
+            "adds": list(raw.get("adds") or []),
+            "ignored": {k: list(v or []) for k, v in (raw.get("ignored") or {}).items()}}
 
 
 def _save_state(r, deck, st: dict) -> dict:
+    st.setdefault("ignored", {})
     r.set(STATE_PREFIX + _rid(deck), json.dumps(st))
     return st
+
+
+# DT-5: dismissed cuts are durable. Per-review decisions reset when a new
+# review starts, but a dismissed cut must never be re-flagged by the
+# automation, so the set lives under its own key, independent of review_id.
+def dismissed_cuts(r, deck: Mapping) -> list:
+    return sorted(journal_mod._get_json(r, DISMISSED_PREFIX + _rid(deck)) or [])
+
+
+def _save_dismissed(r, deck, names) -> list:
+    names = sorted({n for n in names if isinstance(n, str) and n.strip()})
+    r.set(DISMISSED_PREFIX + _rid(deck), json.dumps(names))
+    return names
 
 
 def decide(r, deck: Mapping, cut: str, decision: Optional[str], add: Optional[str] = None) -> dict:
@@ -703,11 +746,24 @@ def decide(r, deck: Mapping, cut: str, decision: Optional[str], add: Optional[st
     st = load_state(r, deck)
     if decision is None:
         st["decisions"].pop(cut, None)
+        # Explicit un-dismiss: the cut may be flagged again on the next run.
+        _save_dismissed(r, deck, [n for n in dismissed_cuts(r, deck) if n != cut])
+    elif decision == "ignored":
+        # DT-7 "recommend something else": reject ONE cut->add pair, not the slot.
+        # The cut stays in the review with its next-best option; the rejected add
+        # is filtered from this slot's candidates until the next finished review.
+        if not (isinstance(add, str) and add.strip()):
+            raise TunerError("ignoring a recommendation needs the add card")
+        rej = st["ignored"].setdefault(cut, [])
+        if add not in rej:
+            rej.append(add)
+        st["decisions"].pop(cut, None)  # rejecting the add clears any accept on the slot
     else:
         if decision in ("own", "buy") and not (isinstance(add, str) and add.strip()):
             raise TunerError("accepting a swap needs the add card")
-        st["decisions"][cut] = {"decision": decision, "add": add if decision in ("own", "buy") else None,
-                                "at": _now()}
+        st["decisions"][cut] = {"decision": decision, "add": add if decision != "dismissed" else None, "at": _now()}
+        if decision == "dismissed":
+            _save_dismissed(r, deck, dismissed_cuts(r, deck) + [cut])
     return _save_state(r, deck, st)
 
 
@@ -791,6 +847,7 @@ def attach_cached_prose(r, deck: Mapping, tune: dict) -> dict:
         got = by_slot.get(s["cut"]["name"]) or {}
         if got.get("why"):
             s["why"] = got["why"]
+            s["reason"] = got["why"]  # DT-7: the entry explanation tracks the LLM prose
         if got.get("soft") and s.get("buy"):
             s["soft_note"] = soft_note(s["buy"], s.get("own"), s.get("gap"), tune.get("caps") or {}, s["pick"],
                                        got["soft"])
@@ -859,6 +916,286 @@ def _record_run(r, deck, calls: List[dict], llm: Mapping) -> None:
         interactions_service._record_run(r, run.to_dict())
     except Exception:  # noqa: BLE001 - the run log is best effort
         log.exception("could not record tuner run")
+
+
+# ---------------------------------------------------------------------------
+# Recommendation entries: explanations, reconsider, alternatives (DT-7,
+# docs/architecture/deck-tuner-overlay-spec.md §3.3)
+# ---------------------------------------------------------------------------
+
+
+def entry_id(cut: str, add: str) -> str:
+    """Stable id for a computed cut->add recommendation (the replacement created
+    by 'recommend something else' gets a fresh uuid instead — spec §3.3)."""
+    return "e" + _prose_key(cut, add)
+
+
+def _picked(swap: Optional[Mapping]) -> Optional[Mapping]:
+    """The option the row recommends (the picked side, else whichever exists)."""
+    if not swap:
+        return None
+    return (swap.get("buy") if swap.get("pick") == "buy" else swap.get("own")) or swap.get("own") or swap.get("buy")
+
+
+def fallback_reason(swap: Mapping) -> str:
+    """The explanation every recommendation carries even with no LLM: a short
+    line built only from the swap's computed fields (never invented)."""
+    cut = swap.get("cut") or {}
+    add = _picked(swap)
+    if not add or not cut.get("name"):
+        return ""
+    bits = []
+    roles = [x for x in (cut.get("rows") or []) if x in comp.FUNCTIONAL_ROWS and x != "lands"]
+    if roles:
+        bits.append("keeps the " + roles[0].replace("_", " ") + " role")
+    a_edges = add.get("edges") or 0
+    c_edges = (cut.get("why") or {}).get("edges") or 0
+    if a_edges > c_edges:
+        bits.append(f"links into more of the deck's plan ({a_edges} plan edges vs {c_edges})")
+    elif a_edges:
+        bits.append(f"links into the deck's plan ({a_edges} plan edges)")
+    if add.get("pillar"):
+        bits.append(f"fits the {add['pillar']} pillar")
+    inc = add.get("edhrec")
+    if inc and inc >= 0.05:
+        bits.append(f"appears on {round(100 * min(1.0, inc))}% of this commander's EDHREC lists")
+    src = add.get("source")
+    if src == "free":
+        bits.append("you already own a free copy")
+    elif src == "deck" and add.get("deck"):
+        bits.append(f"you own it (sleeved in {add['deck']})")
+    if not bits:
+        return f"{add['name']} does {cut['name']}'s job better in this deck."
+    return f"{add['name']} " + ", ".join(bits) + "."
+
+
+def fallback_reconsider(swap: Mapping) -> str:
+    """Reconsideration without an LLM: stand the recommendation's ground by
+    restating its own computed case."""
+    add = _picked(swap) or {}
+    cut = (swap.get("cut") or {}).get("name") or "this card"
+    reason = swap.get("reason") or fallback_reason(swap)
+    base = f"The recommendation stands: {add.get('name', 'the suggested card')} over {cut}."
+    return base + (" " + reason if reason else "")
+
+
+def swap_to_entry(row: Mapping, status: Optional[str] = None) -> dict:
+    """A spec §3.3 recommendation entry for one swap row. Kind is 'add' (the
+    recommended card); `cut` names the slot it goes into."""
+    add = _picked(row) or {}
+    st = status or row.get("status") or "open"
+    return {"id": row.get("entry_id"), "kind": "add", "card": add.get("name"),
+            "cut": (row.get("cut") or {}).get("name"), "printing": None,
+            "reason": row.get("reason") or row.get("why"),
+            "status": st if st in ENTRY_STATUSES else "open",
+            "needs_purchase": add.get("source") == "buy",
+            "created_at": None, "resolved_at": None}
+
+
+def rec_entries(rec: Optional[Mapping]) -> List[dict]:
+    """Spec §3.3 view of a saved record: the entry_log when present (live +
+    ignored history), else derived from the live swap rows (legacy records)."""
+    payload = (rec or {}).get("payload") or {}
+    logged = payload.get("entry_log")
+    if logged:
+        return list(logged)
+    return [swap_to_entry(s) for s in payload.get("swaps") or []]
+
+
+def _live_swap(payload: Mapping, cut: str):
+    """(index, row) of the deck's OPEN swap row for `cut`, else (None, None)."""
+    for i, s in enumerate(payload.get("swaps") or []):
+        if (s.get("cut") or {}).get("name") == cut and s.get("status", "open") != "ignored":
+            return i, s
+    return None, None
+
+
+def _persist_rec(r, rec: Mapping) -> None:
+    """Write a mutated active record back (reason / reconsideration / entry_log).
+    The record's id, status and archive history are untouched."""
+    from . import tune_store
+
+    r.set(tune_store.REC_PREFIX + rec["id"], json.dumps(rec))
+
+
+def sync_entries(r, deck: Mapping, tune: Mapping):
+    """Backfill entry_id / reason / status on the ACTIVE saved record from a
+    fresh compute (called by POST /tune/why, so every saved recommendation ends
+    up with an explanation per entry — DT-7). Matches rows by (cut, add) so a
+    stale or differently-filtered compute never overwrites a live row's card."""
+    from . import tune_store
+
+    rec = tune_store.get_active(r, _rid(deck))
+    if not rec:
+        return None
+    payload = rec.get("payload") or {}
+    by_pair = {}
+    for s in tune.get("swaps") or []:
+        p = _picked(s)
+        if p:
+            by_pair[((s.get("cut") or {}).get("name"), p.get("name"))] = s
+    changed = False
+    for row in payload.get("swaps") or []:
+        p = _picked(row)
+        if not p:
+            continue
+        if not row.get("entry_id"):
+            row["entry_id"] = entry_id((row.get("cut") or {}).get("name") or "", p["name"])
+            changed = True
+        if not row.get("status"):
+            row["status"] = "accepted" if row.get("decision") in ("own", "buy") else "open"
+            changed = True
+        src = by_pair.get(((row.get("cut") or {}).get("name"), p["name"]))
+        fresh = ((src or {}).get("why") or (src or {}).get("reason") or "").strip()
+        if fresh and row.get("reason") != fresh:
+            row["reason"] = fresh
+            changed = True
+        elif not row.get("reason"):
+            row["reason"] = fallback_reason(row)
+            changed = True
+    if changed:
+        _persist_rec(r, rec)
+    return rec
+
+
+RECONSIDER_SYSTEM = (
+    "You defend one Magic: The Gathering Commander deck swap recommendation to a skeptical player. "
+    "Acknowledge their doubt in plain words, then restate concretely why the added card does the cut card's "
+    "job better in THIS deck — a real interaction with the commander or the deck's plan. Stand your ground: "
+    "do not waver and do not offer alternatives. Never state numbers, scores, percentages or prices: the app "
+    "shows those itself. No hype. Max 30 words. Answer JSON: {\"response\": ...}."
+)
+RECONSIDER_SCHEMA = {"type": "OBJECT", "properties": {"response": {"type": "STRING"}}, "required": ["response"]}
+
+
+def _reconsider_prompt(deck: Mapping, row: Mapping, context: str = "") -> str:
+    head = f"Commander: {' + '.join(deck.get('commanders') or [])}. Deck: {deck.get('name')}.\n"
+    if context:
+        head += context.strip() + "\n"
+    add = _picked(row) or {}
+    why = (row.get("reason") or "").strip()
+    return (head + f"The player doubts cutting {row['cut']['name']} for {add.get('name')}."
+            + (f" Our original reason: {why}" if why else "") + "\nDefend the swap.")
+
+
+def reconsider(r, deck: Mapping, cut: str, chain, context: str = "",
+               on_call: Optional[Callable[[dict], None]] = None) -> dict:
+    """DT-7 'Reconsider': the recommendation stands its ground but responds
+    reasonably. The answer (LLM when configured, else the deterministic case
+    built from the swap's own numbers) is stored on the entry, so a repeat
+    click is a cache hit, not another LLM call."""
+    from . import tune_store
+
+    rec = tune_store.get_active(r, _rid(deck))
+    if not rec:
+        raise TunerError("No saved tune recommendation for this deck")
+    payload = rec.get("payload") or {}
+    _, row = _live_swap(payload, cut)
+    add = _picked(row)
+    if row is None or add is None:
+        raise TunerError(f"No open recommendation for '{cut}'")
+    if row.get("reconsideration"):
+        return {"entry_id": row.get("entry_id"), "cut": cut, "add": add["name"],
+                "response": row["reconsideration"],
+                "llm": {"status": "cached", "provider": None, "model": None, "cost_usd": 0.0, "calls": 0}}
+    text = fallback_reconsider(row)
+    llm = {"status": "no_llm", "provider": None, "model": None, "cost_usd": 0.0, "calls": 0}
+    if chain is not None and chain.available():
+        calls: List[dict] = []
+
+        def _log(c):
+            calls.append(c)
+            if on_call:
+                on_call(c)
+
+        data, provider, model = chain.generate_json(RECONSIDER_SYSTEM, _reconsider_prompt(deck, row, context),
+                                                    schema=RECONSIDER_SCHEMA, purpose="tuner_reconsider",
+                                                    on_call=_log)
+        llm.update(provider=provider, model=model, calls=len(calls),
+                   cost_usd=round(sum(c.get("cost_usd") or 0.0 for c in calls), 6))
+        if isinstance(data, dict) and isinstance(data.get("response"), str) and data["response"].strip():
+            text = data["response"].strip()[:400]
+            llm["status"] = "ok"
+        else:
+            llm["status"] = "llm_failed"
+        _record_run(r, deck, calls, llm)
+    row["reconsideration"] = text
+    _persist_rec(r, rec)
+    return {"entry_id": row.get("entry_id"), "cut": cut, "add": add["name"], "response": text, "llm": llm}
+
+
+def alternative(r, deck: Mapping, cut: str, chain=None, context: str = "",
+                on_call: Optional[Callable[[dict], None]] = None) -> dict:
+    """DT-7 'recommend something else for this slot': the current cut->add entry
+    is marked ignored (it stays in entry_log and won't be suggested again this
+    review) and the next-best candidate for the same slot is appended as a new
+    entry with a fresh id. When nothing else clears the bar the state is rolled
+    back and nothing changes (alternative: null)."""
+    from . import tune_store
+
+    rec = tune_store.get_active(r, _rid(deck))
+    if not rec:
+        raise TunerError("No saved tune recommendation for this deck")
+    payload = rec.get("payload") or {}
+    _, row = _live_swap(payload, cut)
+    old_add = _picked(row)
+    if row is None or old_add is None:
+        raise TunerError(f"No open recommendation for '{cut}'")
+    params = rec.get("params") or {}
+    st = load_state(r, deck)
+    # Tentatively record the rejection so compute() skips the old add for this
+    # slot (and any accept on it is cleared); rolled back when nothing else fits.
+    trial = {"review_id": st.get("review_id"),
+             "decisions": {k: v for k, v in (st.get("decisions") or {}).items() if k != cut},
+             "adds": list(st.get("adds") or []),
+             "ignored": {k: list(v or []) for k, v in (st.get("ignored") or {}).items()}}
+    rejected = trial["ignored"].setdefault(cut, [])
+    if old_add["name"] not in rejected:
+        rejected.append(old_add["name"])
+    _save_state(r, deck, trial)
+    try:
+        fresh = compute(r, deck, params.get("mode", "flex"), params.get("in_deck", True),
+                        params.get("buy", True), goal=params.get("goal", "balanced"))
+    except Exception:
+        _save_state(r, deck, st)
+        raise
+    new_row = next((s for s in fresh.get("swaps") or [] if (s.get("cut") or {}).get("name") == cut), None)
+    new_add = _picked(new_row)
+    if new_row is None or new_add is None:
+        _save_state(r, deck, st)
+        return {"alternative": None, "ignored": None,
+                "message": f"No other card clears the bar for {cut}'s slot right now."}
+    # Explain the replacement (LLM prose when configured; the deterministic
+    # reason is already on the row from build_tune either way).
+    if chain is not None:
+        try:
+            generate_prose(r, deck, {"swaps": [new_row]}, chain, context, on_call=on_call)
+        except Exception:  # noqa: BLE001 - prose is optional; the fallback reason stands
+            log.exception("tuner: alternative prose failed")
+    now = _now()
+    new_row["entry_id"] = uuid.uuid4().hex  # spec §3.3: the replacement gets a new id
+    new_row["status"] = "open"
+    new_row["reason"] = new_row.get("why") or fallback_reason(new_row)
+    new_row["supersedes"] = row.get("entry_id")
+    old_entry = swap_to_entry(row, status="ignored")
+    old_entry["resolved_at"] = now
+    old_entry["superseded_by"] = new_row["entry_id"]
+    new_entry = swap_to_entry(new_row, status="open")
+    new_entry["created_at"] = now
+    entry_log = list(payload.get("entry_log") or [])
+    entry_log.extend([old_entry, new_entry])
+    payload["entry_log"] = entry_log
+    swaps = [new_row if s is row else s for s in (payload.get("swaps") or [])]
+    payload["swaps"] = swaps
+    counts = payload.get("counts")
+    if isinstance(counts, dict) and ("open_swaps" in counts or "open" in counts):
+        open_swaps = sum(1 for s in swaps if not s.get("decision"))
+        counts["open_swaps"] = open_swaps
+        if "open" in counts:
+            counts["open"] = counts.get("fixes", 0) + open_swaps + (1 if payload.get("pet_notice") else 0)
+    rec["payload"] = payload
+    _persist_rec(r, rec)
+    return {"alternative": new_entry, "swap": new_row, "ignored": old_entry, "message": None}
 
 
 # ---------------------------------------------------------------------------
@@ -1193,6 +1530,7 @@ def compute(r, deck: Mapping, mode: str = "flex", in_deck: bool = True, buy: boo
     out = build_tune(deck, weak, composition, cands, caps, p75=weak["weights"]["p75_degree"],
                      has_pillars=weak["inputs"]["pillars"], has_edhrec=weak["inputs"]["edhrec"], mode=mode,
                      in_deck=in_deck, buy=buy, goal=goal, pets=pets, state=state,
+                     dismissed=dismissed_cuts(r, deck),
                      donors=donors if donors is not None else DonorBook(r, deck, embedder=emb))
     attach_cached_prose(r, deck, out)
     price_ages = []

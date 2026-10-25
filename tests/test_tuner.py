@@ -630,7 +630,8 @@ class TestState(unittest.TestCase):
         tuner.decide(self.r, DECK, "Weak Plan", None)
         self.assertNotIn("Weak Plan", tuner.load_state(self.r, DECK)["decisions"])
         tuner.decide(self.r, DECK, "Weak Removal", "dismissed")
-        # A finished review starts a new tuning pass: dismissed rows may return.
+        # A finished review starts a new tuning pass: per-review decisions reset
+        # (the DT-5 durable dismissal list lives separately and survives).
         journal.save_journal(self.r, DECK, {"target_power_level": {"scale": 7}})
         journal.start_review(self.r, DECK, {"power": 6.5})
         journal.finish_review(self.r, DECK)
@@ -639,6 +640,33 @@ class TestState(unittest.TestCase):
     def test_bad_decision_is_rejected(self):
         with self.assertRaises(tuner.TunerError):
             tuner.decide(self.r, DECK, "Weak Plan", "maybe")
+
+    # DT-5: dismissed cuts are durable — they never re-flag, even across reviews.
+    def test_dismissed_cut_survives_a_new_review(self):
+        tuner.decide(self.r, DECK, "Weak Removal", "dismissed")
+        self.assertIn("Weak Removal", tuner.dismissed_cuts(self.r, DECK))
+        journal.save_journal(self.r, DECK, {"target_power_level": {"scale": 7}})
+        journal.start_review(self.r, DECK, {"power": 6.5})
+        journal.finish_review(self.r, DECK)
+        # Per-review decisions reset; the durable dismissal does not.
+        self.assertEqual(tuner.load_state(self.r, DECK)["decisions"], {})
+        self.assertIn("Weak Removal", tuner.dismissed_cuts(self.r, DECK))
+
+    def test_undismiss_lets_the_cut_flag_again(self):
+        tuner.decide(self.r, DECK, "Weak Removal", "dismissed")
+        tuner.decide(self.r, DECK, "Weak Removal", None)
+        self.assertNotIn("Weak Removal", tuner.dismissed_cuts(self.r, DECK))
+        self.assertNotIn("Weak Removal", tuner.load_state(self.r, DECK)["decisions"])
+
+    def test_dismissed_cuts_drop_swaps_and_mark_weak_rows(self):
+        cands = [cand("Owned Bomb", 4, 0.9, 0.4, owned=True, available=1)]
+        out = build(cands, dismissed=["Weak Plan"])
+        self.assertIsNone(swap(out, "Weak Plan"))
+        row = next(w for w in out["weak"] if w["name"] == "Weak Plan")
+        self.assertTrue(row["dismissed"])
+        self.assertEqual(out["dismissed"], ["Weak Plan"])
+        # Other cuts are unaffected.
+        self.assertFalse(next(w for w in out["weak"] if w["name"] == "Weak Removal")["dismissed"])
 
     def test_dismissed_rows_drop_out_accepted_rows_stay(self):
         cands = [cand("Owned Bomb", 4, 0.9, 0.4, owned=True, available=1),

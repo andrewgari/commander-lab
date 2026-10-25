@@ -29,13 +29,13 @@
     function unreviewable(card) {
         if (!card) return null;
         if (card.is_commander || (card.categories && card.categories.indexOf("Commander") >= 0)) {
-            return { h: "Commanders aren’t reviewed", p: "Commanders define the deck identity and cannot be removed." };
+            return { h: "No quick look for commanders", p: "Commanders define the deck identity and cannot be removed." };
         }
         if (card.type && /^Basic Land /.test(card.type)) {
-            return { h: "Basic lands aren’t reviewed", p: "Basic lands are adjusted in the mana base step." };
+            return { h: "No quick look for basic lands", p: "Basic lands are adjusted in the mana base step." };
         }
         if (card.categories && (card.categories.indexOf("Maybeboard") >= 0 || card.categories.indexOf("Sideboard") >= 0)) {
-            return { h: "Not in the 99", p: "Only cards in the active deck are reviewed." };
+            return { h: "Not in the 99", p: "Only cards in the active deck get a quick look." };
         }
         return null;
     }
@@ -73,24 +73,24 @@
         return '<div class="hud-cr-scope">' + (window.HUD ? H().statusChip(phys ? "physical" : "virtual") : "") +
             '<span class="hud-field-hint">' + (phys ? "Physical deck. Suggestions go to your want/buy list; nothing changes in Archidekt."
                                                       : "Digital deck. Suggestions queue onto the Tune change list; apply them in Archidekt.") + "</span>" +
-            (s.verdict && s.verdict.reviewed ? '<span class="hud-freshness">Reviewed <b>' + esc(s.verdict.reviewed) + "</b></span>" : "") + "</div>";
+            (s.verdict && s.verdict.reviewed ? '<span class="hud-freshness">Checked <b>' + esc(s.verdict.reviewed) + "</b></span>" : "") + "</div>";
     }
 
     // ---- RUNNING ---------------------------------------------------------
     function running(s) {
         var r = s.run || { step: 0, elapsed: 0 }, slow = r.elapsed >= 30, step = r.step || 0;
-        var steps = '<ol class="hud-cr-steps" aria-label="Review progress">' + STEPS.map(function (n, i) {
+        var steps = '<ol class="hud-cr-steps" aria-label="Quick look progress">' + STEPS.map(function (n, i) {
             var st = i < step ? "is-done" : i === step ? "is-active" : "";
             return '<li class="hud-cr-step ' + st + '"' + (i === step ? ' aria-current="step"' : "") + "><span>" + (i < step ? "✓ " : (i + 1) + " ") + n + "</span></li>";
         }).join("") + "</ol>";
-        var msg = slow ? "Taking longer than usual. The model is queued behind another request. You can keep waiting, or close this and come back: the review finishes in the background."
+        var msg = slow ? "Taking longer than usual. The model is queued behind another request. You can keep waiting, or close this and come back: the quick look finishes in the background."
                        : (step === 0 ? "Pulling EDHREC inclusion and similarity to the rest of the deck." :
                           step === 1 ? "Each side makes its opening case." :
                           step === 2 ? "Each side answers the other." : "The judge weighs both cases.") + " Usually 10 to 25 seconds.";
-        var job = '<div class="hud-job" role="group" aria-label="Review in progress">' +
-            '<div class="hud-job-head"><h3 class="hud-job-title">Reviewing ' + esc(s.card.name) + '</h3><span class="hud-job-clock" aria-hidden="true">' + mmss(r.elapsed) + "</span></div>" +
+        var job = '<div class="hud-job" role="group" aria-label="Quick look in progress">' +
+            '<div class="hud-job-head"><h3 class="hud-job-title">Quick look: ' + esc(s.card.name) + '</h3><span class="hud-job-clock" aria-hidden="true">' + mmss(r.elapsed) + "</span></div>" +
             steps + '<div class="hud-job-track" aria-hidden="true"><i></i></div><p class="hud-job-msg">' + msg + "</p>" +
-            '<div class="hud-job-actions"><span class="hud-field-hint">Closing this window does not cancel the review.</span></div></div>';
+            '<div class="hud-job-actions"><span class="hud-field-hint">Closing this window does not cancel the quick look.</span></div></div>';
         return scope(s) + job + evidence(s) + debate(s);
     }
 
@@ -226,19 +226,19 @@
 
     // ---- ERRORS & BLOCKED ------------------------------------------------
     var ERRORS = {
-        offline:  { h: "The review engine is offline", p: "Couldn’t reach the oracle. Nothing was reviewed and nothing was changed. The deterministic numbers below still work without it.", code: "503 oracle_unavailable", acts: [["retry", "Try again", "primary"]] },
-        timeout:  { h: "The review timed out after 90 seconds", p: "The model never returned a ruling. This usually clears on its own. The evidence it gathered is kept, so a retry is faster.", code: "504 job_timeout", acts: [["retry", "Try again", "primary"]] },
-        failed:   { h: "The review failed", p: "Both sides made their case, but the ruling came back malformed. The arguments are kept below so the work isn’t lost.", code: "502 bad_ruling", acts: [["retry", "Start over", "primary"]] },
-        gone:     { h: "This card is no longer in the deck", p: "The deck re-synced from Archidekt while this review was running and the card is gone. Nothing was changed.", code: "404 card_not_in_deck", acts: [["close", "Back to the deck", "primary"]] },
-        busy:     { h: "The review engine is busy", p: "Too many reviews are running right now. Please wait a moment and try again.", code: "429 too_many_requests", acts: [["retry", "Try again", "primary"]] },
-        network:  { h: "Connection lost", p: "Reconnecting to the review. If this doesn’t come back in a few seconds, the review keeps running on the server; reopen the card to pick it up.", code: "stream closed", acts: [["reconnect", "Reconnect now", "primary"]] }
+        offline:  { h: "Quick look is offline", p: "Couldn’t reach the oracle. Nothing was evaluated and nothing was changed. The deterministic numbers below still work without it.", code: "503 oracle_unavailable", acts: [["retry", "Try again", "primary"]] },
+        timeout:  { h: "The quick look timed out after 90 seconds", p: "The model never returned a ruling. This usually clears on its own. The evidence it gathered is kept, so a retry is faster.", code: "504 job_timeout", acts: [["retry", "Try again", "primary"]] },
+        failed:   { h: "The quick look failed", p: "Both sides made their case, but the ruling came back malformed. The arguments are kept below so the work isn’t lost.", code: "502 bad_ruling", acts: [["retry", "Start over", "primary"]] },
+        gone:     { h: "This card is no longer in the deck", p: "The deck re-synced from Archidekt while this quick look was running and the card is gone. Nothing was changed.", code: "404 card_not_in_deck", acts: [["close", "Back to the deck", "primary"]] },
+        busy:     { h: "The quick-look engine is busy", p: "Too many quick looks are running right now. Please wait a moment and try again.", code: "429 too_many_requests", acts: [["retry", "Try again", "primary"]] },
+        network:  { h: "Connection lost", p: "Reconnecting to the quick look. If this doesn’t come back in a few seconds, the quick look keeps running on the server; reopen the card to pick it up.", code: "stream closed", acts: [["reconnect", "Reconnect now", "primary"]] }
     };
 
     function errorView(s) {
         var errCode = (s.error && s.error.code) || "failed";
         var e = ERRORS[errCode] || ERRORS.failed;
         var r = s.run || { step: 0, elapsed: 0 };
-        var steps = '<ol class="hud-cr-steps" aria-label="Review progress">' + STEPS.map(function (n, i) {
+        var steps = '<ol class="hud-cr-steps" aria-label="Quick look progress">' + STEPS.map(function (n, i) {
             return '<li class="hud-cr-step ' + (i < r.step ? "is-done" : i === r.step ? "is-active" : "") + '"><span>' + (i < r.step ? "✓ " : (i + 1) + " ") + n + "</span></li>";
         }).join("") + "</ol>";
         var job = '<div class="hud-job is-failed" role="alert"><div class="hud-job-head"><h3 class="hud-job-title">' + e.h + '</h3><span class="hud-job-clock">' + mmss(r.elapsed) + "</span></div>" + (errCode === "gone" || errCode === "offline" ? "" : steps) +
@@ -252,7 +252,7 @@
     }
 
     function blocked(s) {
-        var b = s.blocked || { h: "Card cannot be reviewed", p: "" };
+        var b = s.blocked || { h: "No quick look for this card", p: "" };
         return scope(s) + '<section class="hud-cr-state hud-cr-state--info"><h3>' + esc(b.h) + "</h3><p>" + esc(b.p) + '</p><div class="hud-cr-state-actions"><button type="button" class="hud-btn" data-cr="close">Back to the deck</button></div></section>';
     }
 
@@ -266,10 +266,10 @@
     }
 
     function render(s) {
-        return '<div class="hud-cr"><aside class="hud-cr-subject" aria-label="Card under review">' + subject(s) + '</aside><div class="hud-cr-stage" id="crStage">' + stage(s) + "</div></div>";
+        return '<div class="hud-cr"><aside class="hud-cr-subject" aria-label="Card in this quick look">' + subject(s) + '</aside><div class="hud-cr-stage" id="crStage">' + stage(s) + "</div></div>";
     }
 
-    function title(s) { return s.phase === "running" ? "Reviewing…" : "Card review"; }
+    function title(s) { return s.phase === "running" ? "Quick look…" : "Quick look"; }
 
     function show(modal, s) {
         modal = typeof modal === "string" ? document.getElementById(modal) : modal;
@@ -426,7 +426,7 @@
         if (job && job.status === "failed") {
             if (job.error_kind === "not_allowed") {
                 s.phase = "blocked";
-                s.blocked = { h: "Commanders aren’t reviewed", p: job.error || "" };
+                s.blocked = { h: "No quick look for commanders", p: job.error || "" };
             } else if (job.error_kind === "OracleUnavailable") {
                 s.phase = "error";
                 s.error = { code: "offline", message: job.error };
@@ -674,7 +674,7 @@
                         setState(Object.assign({}, currentState, { phase: 'error', error: { code: 'busy', message: data.error } }));
                     }
                 } else if (r.status === 400) {
-                    setState({ phase: 'blocked', blocked: { h: "Commanders aren’t reviewed", p: data.error || "" }, deck: base.deck, card: card, tuneUrl: base.tuneUrl });
+                    setState({ phase: 'blocked', blocked: { h: "No quick look for commanders", p: data.error || "" }, deck: base.deck, card: card, tuneUrl: base.tuneUrl });
                 } else if (r.status === 503) {
                     setState(Object.assign({}, currentState, { phase: 'error', error: { code: 'offline', message: data.error } }));
                 } else if (r.status === 404) {
