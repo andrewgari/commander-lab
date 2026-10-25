@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -61,6 +62,12 @@ class TestNormalization(unittest.TestCase):
 
 
 class TestLegacyMigration(unittest.TestCase):
+    def setUp(self):
+        # Isolate from the shipped starter library (role_library.json).
+        patcher = unittest.mock.patch.object(RT, "LIBRARY_PATH", "/nonexistent/role_library.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_thirty_legacy_tags_seeded_once(self):
         r = FakeRedis()
         tags = RT.load_tags(r)
@@ -192,6 +199,9 @@ class TestDeckScope(unittest.TestCase):
 class TestCrudAndSeeding(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
+        patcher = unittest.mock.patch.object(RT, "LIBRARY_PATH", "/nonexistent/role_library.json")
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_create_update_delete_and_limits(self):
         t = RT.create_target(self.r, {"label": "Birds", "kind": "subtype", "signal": "bird"})
