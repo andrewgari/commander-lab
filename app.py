@@ -1012,45 +1012,38 @@ async def brew_commander_search(q: str = ""):
 
         if not candidates:
             import difflib
+            import re
 
             # Scryfall returns 404 for an unrecognized query/name. Treat that as
-            # an empty attempt, then broaden progressively without querying very
-            # short prefixes (which produce noisy, unrelated result sets).
-            fuzzy_queries = [query]
-            prefix = query
-            for _ in range(3):
-                if len(prefix) <= 4:
-                    break
-                prefix = prefix[:-1]
-                fuzzy_queries.append(prefix)
+            # an empty attempt, then recover candidates by progressive prefix
+            # shortening: name:"..." search is substring-based, so a
+            # right-truncated query finds the intended card whenever the typo
+            # sits at or after the truncation point. Short prefixes return
+            # broad pools, so every candidate is re-ranked by edit similarity
+            # against the user's ORIGINAL spelling below (no per-name special
+            # cases; the mechanism is fully general).
+            fuzzy = httpx.get(
+                "https://api.scryfall.com/cards/named",
+                params={"fuzzy": query}, headers=headers, timeout=8.0,
+            )
             direct_fuzzy_ids = []
+            if fuzzy.status_code == 200:
+                card = fuzzy.json()
+                if (card.get("legalities") or {}).get("commander") == "legal":
+                    cid = card.get("id") or card.get("name")
+                    candidates[cid] = card
+                    # Preserve existing behavior for a successful fuzzy-name
+                    # match; only gather broader candidates after a miss.
+                    direct_fuzzy_ids.append(cid)
 
-            for fuzzy_query in fuzzy_queries:
-                fuzzy = httpx.get(
-                    "https://api.scryfall.com/cards/named",
-                    params={"fuzzy": fuzzy_query}, headers=headers, timeout=8.0,
-                )
-                if fuzzy.status_code == 200:
-                    card = fuzzy.json()
-                    if (card.get("legalities") or {}).get("commander") == "legal":
-                        cid = card.get("id") or card.get("name")
-                        candidates[cid] = card
-                        # Preserve existing behavior for a successful fuzzy-name
-                        # match; only gather broader candidates after a miss.
-                        if fuzzy_query == query:
-                            direct_fuzzy_ids.append(cid)
-                            break
-                elif fuzzy.status_code != 404:
-                    break
-
-            # When shortening yields a name, also collect a small set from the
-            # corresponding commander search and rank it against the user's
-            # original spelling, not the adjusted prefix.
             if not candidates and len(query) >= 4:
-                for retry_query in fuzzy_queries[1:]:
+                prefix = query
+                while len(prefix) > 3:
+                    prefix = prefix[:-1]
+                    await asyncio.sleep(0.1)  # stay under Scryfall rate limits
                     retry = httpx.get(
                         "https://api.scryfall.com/cards/search",
-                        params={"q": f'name:"{retry_query}" is:commander legal:commander',
+                        params={"q": f'name:"{prefix}" is:commander legal:commander',
                                 "unique": "cards", "order": "name"},
                         headers=headers, timeout=8.0,
                     )
@@ -1076,17 +1069,19 @@ async def brew_commander_search(q: str = ""):
                 original = query.casefold()
 
                 def similarity(name):
-                    name = (name or "").casefold()
-                    ratio = difflib.SequenceMatcher(None, original, name).ratio()
-                    # Containment-aware score: compare the query against a
-                    # same-length prefix of the name so short queries are not
-                    # unfairly penalized by long card names.
-                    if len(name) > len(original):
-                        prefix_ratio = difflib.SequenceMatcher(
-                            None, original, name[: len(original)]
-                        ).ratio()
-                        ratio = max(ratio, prefix_ratio)
-                    return ratio
+                    # Best alignment of the query against the card name: score
+                    # the whole name AND each individual word, so the match is
+                    # found wherever it occurs (e.g. "gitrg" aligns with
+                    # "gitrog" inside "The Gitrog Monster") instead of only
+                    # against the name's leading characters.
+                    name_cf = (name or "").casefold()
+                    best = difflib.SequenceMatcher(None, original, name_cf).ratio()
+                    for word in re.split(r"[^a-z0-9]+", name_cf):
+                        if word:
+                            ratio = difflib.SequenceMatcher(None, original, word).ratio()
+                            if ratio > best:
+                                best = ratio
+                    return best
 
                 ranked = sorted(
                     candidates.items(),
@@ -1097,9 +1092,20 @@ async def brew_commander_search(q: str = ""):
                     candidates = dict(ranked[:5])
                 else:
                     best_score = similarity(ranked[0][1].get("name"))
-                    # Avoid returning unrelated results from a broad
-                    # shortened query.
-                    candidates = dict(ranked[:5]) if best_score >= 0.45 else {}
+                    # Anti-flooding gate, driven by the data rather than fixed
+                    # cases: an absolute floor discards pools whose best match
+                    # is only loosely similar to the query (gibberish), and a
+                    # relative band below the best score keeps only names in
+                    # the same family so broad prefix pools cannot leak
+                    # near-misses (e.g. "kenith" keeps Kenrith, drops Kenessos).
+                    if best_score >= 0.7:
+                        floor = max(0.7, best_score - 0.15)
+                        candidates = dict(
+                            item for item in ranked[:5]
+                            if similarity(item[1].get("name")) >= floor
+                        )
+                    else:
+                        candidates = {}
     except Exception:
         candidates = {}
 
