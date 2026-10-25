@@ -75,27 +75,55 @@ def segment_games(lines: Iterable[str]) -> List[List[str]]:
     blocks: List[List[str]] = []
     cur: List[str] = []
     seen_outcome = False
+    pending: Optional[List[str]] = None
+    pending_result: Optional[str] = None
+
+    def flush_pending() -> None:
+        nonlocal pending, pending_result
+        if pending is not None:
+            if pending_result is not None:
+                pending.append(pending_result)
+            blocks.append(pending)
+            pending = None
+            pending_result = None
     for raw in lines:
         line = raw.rstrip("\r\n")
         m = FORGELOG_RE.match(line)
         turn_m = RE_TURN.match(m.group(2)) if m and m.group(1) == "TURN" else None
-        if turn_m and turn_m.group(1) == "1" and cur and seen_outcome:
+        if turn_m and turn_m.group(1) == "1" and pending is not None:
+            flush_pending()
+            cur = []
+            seen_outcome = False
+        elif turn_m and turn_m.group(1) == "1" and cur and seen_outcome:
             blocks.append(cur)
             cur = []
             seen_outcome = False
-        cur.append(line)
-        if m:
-            if m.group(1) == "GAME_OUTCOME":
-                seen_outcome = True
-            elif m.group(1) == "MATCH_RESULTS":
-                blocks.append(cur)
+        if pending is not None:
+            if m and m.group(1) == "MATCH_RESULTS":
+                pending.extend(cur)
                 cur = []
-                seen_outcome = False
+                pending.append(line)
+                pending_result = None
+                continue
+            if GAME_RESULT_RE.match(line):
+                pending_result = line
+                continue
+            pending.append(line)
+            continue
+        cur.append(line)
+        if m and m.group(1) == "GAME_OUTCOME":
+            seen_outcome = True
+        if m and m.group(1) == "MATCH_RESULTS":
+            pending, cur = cur, []
+            pending_result = None
         elif GAME_RESULT_RE.match(line):
-            blocks.append(cur)
+            if cur:
+                blocks.append(cur)
             cur = []
             seen_outcome = False
-    # Trailing block without a terminator: incomplete game, dropped.
+    if pending is not None:
+        flush_pending()
+    # Drop unterminated content: it's an incomplete game.
     return _merge_stray_continuations(blocks)
 
 
@@ -224,7 +252,7 @@ def parse_game(lines: Iterable[str]) -> Optional[dict]:
         if gm:
             duration_ms = int(gm.group(2))
             if winner is None and gm.group(3):
-                winner = gm.group(3)
+                winner = gm.group(3).removesuffix(" has won!")
 
     if not players:
         return None
