@@ -3188,6 +3188,147 @@ async def api_list_analytics_providers():
     return {"success": True, "providers": providers_info}
 
 
+def _fact_pack_names(deck) -> list:
+    """Ordered unique card names from a deck mapping or intake object
+    (mirrors fact_pack's entry conventions: name strings or {'name': ...})."""
+    from collections.abc import Mapping
+
+    def val(obj, key):
+        return obj.get(key) if isinstance(obj, Mapping) else getattr(obj, key, None)
+
+    names: list = []
+    for group in (val(deck, "commanders") or [], val(deck, "cards") or []):
+        if isinstance(group, str):
+            continue
+        for entry in group:
+            name = entry if isinstance(entry, str) else val(entry, "name")
+            if isinstance(name, str) and name.strip() and name not in names:
+                names.append(name)
+    return names
+
+
+def _scryfall_collection(names: list) -> dict:
+    """Batch-fetch full Scryfall card payloads via /cards/collection (the app's
+    existing Scryfall path, same as theory/prices/tagger). {name_lower: raw card}."""
+    headers = {"User-Agent": "commander-lab/1.0 (review-fact-pack)", "Accept": "application/json"}
+    by_name: dict = {}
+    for i in range(0, len(names), 75):
+        chunk = names[i:i + 75]
+        resp = httpx.post(
+            "https://api.scryfall.com/cards/collection", headers=headers, timeout=20.0,
+            json={"identifiers": [{"name": n.split(" // ")[0]} for n in chunk]},
+        )
+        resp.raise_for_status()
+        for card in resp.json().get("data", []):
+            by_name.setdefault((card.get("name") or "").lower(), card)
+            for face in (card.get("name") or "").split(" // "):
+                by_name.setdefault(face.lower(), card)
+        if i + 75 < len(names):
+            time.sleep(0.1)
+    return by_name
+
+
+def _build_review_fact_pack(deck, deck_id: Optional[str] = None) -> dict:
+    """Assemble the PR1 fact pack for a review using the app's provider paths.
+
+    Raises only when the Scryfall collection prefetch fails outright; EDHREC /
+    Commander Salt failures surface inside the pack as explicit unavailable
+    markers (build_fact_pack isolates per-fetcher errors).
+    """
+    from collections.abc import Mapping
+
+    from src.server.domain.analytics.fact_pack import build_fact_pack
+
+    names = _fact_pack_names(deck)
+    by_name = _scryfall_collection(names) if names else {}
+
+    def scryfall(name):
+        return by_name.get(name.lower()) or by_name.get(name.split(" // ")[0].lower())
+
+    def commander_names():
+        group = deck.get("commanders") if isinstance(deck, Mapping) else getattr(deck, "commanders", None)
+        out = []
+        for entry in group or []:
+            if isinstance(entry, str):
+                n = entry
+            elif isinstance(entry, Mapping):
+                n = entry.get("name")
+            else:
+                n = getattr(entry, "name", None)
+            if isinstance(n, str) and n.strip():
+                out.append(n)
+        return out
+
+    def edhrec(_deck):
+        from src.server.domain.analytics.providers.edhrec import EDHRecClient
+
+        return EDHRecClient().get_commander_page(commander_names())
+
+    def salt(_deck):
+        from src.server.domain.analytics.providers.commandersalt import (
+            CommanderSaltClient,
+            resolve_source_url,
+        )
+
+        ref = deck_id
+        if isinstance(deck, Mapping):
+            try:
+                ref = registry.registry_id_of(dict(deck)) or ref
+            except Exception:
+                pass
+        raw = CommanderSaltClient().get_deck(resolve_source_url(ref))
+        cards = {}
+        for c in (raw.get("cards") or {}).values():
+            if isinstance(c, dict) and c.get("name"):
+                cards[c["name"]] = c.get("salt")
+        total = sum(v for v in cards.values() if isinstance(v, (int, float)) and not isinstance(v, bool))
+        return {"salt_score": total if cards else None, "cards": cards}
+
+    return build_fact_pack(deck, {"scryfall": scryfall, "edhrec": edhrec, "salt": salt})
+
+
+def _review_card_inputs(fact_pack: dict) -> tuple:
+    """Fact pack -> (card_metadata, pricing) for generate_deck_review.
+
+    Explicit unavailable markers are dropped (never passed as values) so the
+    engine falls back to its own tables for anything the providers lacked.
+    """
+    from collections.abc import Mapping
+
+    card_metadata: dict = {}
+    prices: dict = {}
+    cards = fact_pack.get("cards", []) if isinstance(fact_pack, Mapping) else []
+    for card in cards:
+        if not isinstance(card, Mapping):
+            continue
+        name = card.get("name")
+        if not name:
+            continue
+        meta: dict = {}
+        for key in ("cmc", "type_line", "colors", "color_identity"):
+            value = card.get(key)
+            if value is None or isinstance(value, Mapping):
+                continue  # absent or explicit unavailable marker
+            meta[key] = value
+        salt = card.get("salt")
+        if isinstance(salt, (int, float)) and not isinstance(salt, bool):
+            meta["salt"] = salt
+        tags = card.get("tags")
+        if isinstance(tags, list):
+            meta["tags"] = tags
+        if meta:
+            card_metadata[name] = meta
+        price = card.get("price")
+        if isinstance(price, (int, float)) and not isinstance(price, bool):
+            prices[name] = float(price)
+        elif isinstance(price, str):
+            try:
+                prices[name] = float(price)
+            except ValueError:
+                pass
+    return (card_metadata or None), ({"prices": prices} if prices else None)
+
+
 @app.post("/api/review")
 @app.post("/api/decks/review")
 async def api_deck_review(request: Request):
@@ -3224,14 +3365,38 @@ async def api_deck_review(request: Request):
         except Exception as e:
             return JSONResponse(status_code=422, content={"success": False, "error": f"Invalid user intent: {str(e)}"})
 
+    # Fact pack (PR1): real card facts + prices. Degraded path: any failure
+    # still renders the review and is reported as an explicit unavailable
+    # marker, never a 500.
+    fact_pack = None
+    fact_pack_error = None
     try:
-        review = review_deck(deck=deck_input, intent=intent_obj)
-        return {
+        fact_deck = deck_input
+        if isinstance(deck_input, str):
+            from src.server.domain.intake.deck_intake import DeckIntakeService
+
+            fact_deck = DeckIntakeService().process(decklist=deck_input)
+        fact_pack = await asyncio.to_thread(_build_review_fact_pack, fact_deck, deck_id)
+    except Exception as e:
+        fact_pack_error = str(e)
+    card_metadata, pricing = _review_card_inputs(fact_pack) if fact_pack else (None, None)
+
+    try:
+        review = review_deck(deck=deck_input, intent=intent_obj, card_metadata=card_metadata, pricing=pricing)
+        response = {
             "success": True,
             "review": review.model_dump(),
             "markdown": review.to_markdown(),
             "cli": review.to_cli(),
         }
+        if fact_pack is not None:
+            response["fact_pack"] = {**fact_pack, "status": "ok"}
+        else:
+            response["fact_pack"] = {
+                "status": "unavailable",
+                "reason": fact_pack_error or "fact pack build failed",
+            }
+        return response
     except Exception as e:
         return JSONResponse(status_code=422, content={"success": False, "error": f"Deck review failed: {str(e)}"})
 

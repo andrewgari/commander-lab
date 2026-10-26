@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Quick reviews now use real card data instead of showing cards as unknown.
+
 ### Added
 - Card dossier: opening a single card (`/card/{oracle_id}`, optional `?printing=` to switch art) shows every printing, oracle text/mana/type, your tags, which of your decks play it, ranked synergy neighbors with the reason for each link, an editable affinity/notes field, and whether you own a copy — all from Postgres, with printings lazily fetched from Scryfall and cached on first view.
 - Deck reviews (API): build a stored, versioned review for any deck — deterministic fact pack (mana math, curve/tempo, composition, bracket/salt, combos, have/buy), candidate retrieval from EDHREC + your collection, and LLM-written section explanations where every card name is validated against Scryfall before it is stored. Rebuilding an unchanged deck reproduces identical facts under a new version; if the LLM is offline the review still renders with "explanation offline" in place of prose, and document sections and dashboard panels always show the same numbers.
