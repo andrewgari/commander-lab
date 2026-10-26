@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from src.server.app.api import schemas
 from src.server.app.api.deps import db_session
 from src.server.domain.decks.deck_import import DeckImportError
-from src.server.infra.db.session import get_session_factory
 from src.server.infra.services import import_service
 
 router = APIRouter()
@@ -22,10 +21,12 @@ def import_archidekt(body: schemas.ImportRequest, session: Session = Depends(db_
     of an unchanged deck rewrites the same rows and appends no snapshot.
     """
     try:
-        # Reuse the request's session factory so the import shares this
-        # process's engine; the service opens its own unit-of-work.
+        # Bind the service's unit-of-work to the injected session's engine so
+        # dependency overrides (tests) and the 503 guard in deps both apply.
+        from sqlalchemy.orm import sessionmaker
+
         result = import_service.import_archidekt_deck(
-            body.identifier, session_factory=get_session_factory()
+            body.identifier, session_factory=sessionmaker(bind=session.get_bind())
         )
     except ValueError as e:
         if isinstance(e, DeckImportError):

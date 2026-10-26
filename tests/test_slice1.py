@@ -206,7 +206,7 @@ def test_import_end_to_end(factory, fetcher):
                                                fetcher=fetcher)
     assert out["created"] is True and out["changed"] is True
     assert out["snapshot_id"] is not None
-    assert out["card_qty"] == 18  # 1+10+4+1+1+1 (maybe excluded? see below)
+    assert out["card_qty"] == 19  # all boards incl. maybe (1+10+4+1+1+1+1)
     with session_scope(factory) as s:
         deck = repo.get_deck(s, "archidekt:5054882")
         assert deck["status"] == "have"
@@ -236,7 +236,7 @@ def test_have_buy_against_imported_deck(factory, fetcher):
     rep = hb.compute_have_buy(cards, inst, "archidekt:5054882")
     elves = next(l for l in rep["lines"] if l["oracle_id"] == "o-elves")
     assert (elves["need"], elves["have"], elves["pending"], elves["buy"]) == (4, 2, 1, 1)
-    assert rep["totals"]["need"] == 17  # commander + main only (maybe excluded)
+    assert rep["totals"]["need"] == 18  # commander 1 + main 17 (maybe excluded)
 
 
 # --- /api/v2 routers -------------------------------------------------------------
@@ -269,19 +269,19 @@ def test_api_import_decks_detail_profile(client):
     body = r.json()
     assert body["deck_id"] == "archidekt:5054882"
     assert body["snapshot_id"] is not None
-    assert body["have_buy"]["need"] == 17
+    assert body["have_buy"]["need"] == 18
 
     r = client.get("/api/v2/decks")
     assert r.status_code == 200
     decks = r.json()["decks"]
     assert len(decks) == 1 and decks[0]["name"] == "The Return of the King"
-    assert decks[0]["have_buy"]["need"] == 17
+    assert decks[0]["have_buy"]["need"] == 18
 
     r = client.get("/api/v2/decks/archidekt:5054882")
     assert r.status_code == 200, r.text
     detail = r.json()
     assert set(detail["boards"]) >= {"commander", "main", "maybe"}
-    assert detail["have_buy"]["totals"]["need"] == 17
+    assert detail["have_buy"]["totals"]["need"] == 18
     assert detail["snapshot"]["metrics"]["curve"]["spells"] > 0
     assert "The Return of the King" in detail["snapshot"]["summary_text"]
 
