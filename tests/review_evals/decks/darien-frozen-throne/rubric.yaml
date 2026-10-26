@@ -1,15 +1,7 @@
-# Golden rubric. Lines carrying a trailing DRAFT marker were machine-drafted from the fact pack (fact_pack/2); Andrew has not confirmed them.
-# Bracketed names are dotted fact-pack keys; roles.<role>.* means the entry in roles.roles with that role.
-# must_mention / must_not_recommend / owner_would_reject are intentionally empty: they come from Andrew only (see QUESTIONS.md).
-must_mention: []        # findings a great review has to surface
-must_not_recommend: []  # cards/strategies that should never be suggested
-known_strengths:
-  - "Land count 38 meets the 38 norm [mana.lands, mana.norms.lands.target]"  # DRAFT
-  - "Board wipes: 7 (norm 5-7) [roles.wipes.count]"  # DRAFT
-known_flaws:
-  - "Ramp: 3 vs 9-11 norm [roles.ramp.count, roles.ramp.target_min/target_max]"  # DRAFT
-  - "Card draw: 6 vs 11-13 norm [roles.draw.count, roles.draw.target_min/target_max]"  # DRAFT
-  - "Targeted removal: 6 vs 11-13 norm [roles.targeted_removal.count, roles.targeted_removal.target_min/target_max]"  # DRAFT
-  - "Curve: 26 of 60 nonland cards at MV4+, average MV 3.45 [curve.buckets, curve.average_mv]"  # DRAFT
-  - "22 orphans (cards in no synergy cluster): Anointer Priest, Auriok Champion, Blood of the Martyr, Coat of Arms, Daxos, Blessed by the Sun, Dictate of Heliod, +16 more; synergy density 0.2333 [synergy.orphans, synergy.density]"  # DRAFT
-owner_would_reject: []  # suggestions Andrew would dismiss, and why
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Aikido/punisher deck: turns opponents' damage against them. Hitting Andrew gives him tokens (via Darien), so opponents face a devil's choice between damaging him (feeding his board) or not attacking at all."
+must_not_recommend: []
+known_strengths: []
+known_flaws: []
+owner_would_reject: []

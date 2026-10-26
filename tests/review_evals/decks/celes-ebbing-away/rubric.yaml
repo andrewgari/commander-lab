@@ -1,19 +1,8 @@
-# Golden rubric. Lines carrying a trailing DRAFT marker were machine-drafted from the fact pack (fact_pack/2); Andrew has not confirmed them.
-# Bracketed names are dotted fact-pack keys; roles.<role>.* means the entry in roles.roles with that role.
-# must_mention / must_not_recommend / owner_would_reject are intentionally empty: they come from Andrew only (see QUESTIONS.md).
-must_mention: []        # findings a great review has to surface
-must_not_recommend: []  # cards/strategies that should never be suggested
-known_strengths:
-  - "Low curve: average MV 2.37, only 7 nonland cards at MV4+ [curve.average_mv, curve.buckets]"  # DRAFT
-  - "Ramp 17 vs 9-11 norm (above norm) [roles.ramp.count]"  # DRAFT
-  - "Targeted removal 15 vs 11-13 norm (above norm) [roles.targeted_removal.count]"  # DRAFT
-  - "31 complete Commander Spellbook combos in the list, e.g. Dualcaster Mage + Twinflame [combos.complete]"  # DRAFT
-  - "Fixing: 18 multicolor lands (53% of lands) [mana.fixing_quality]"  # DRAFT
-known_flaws:
-  - "Lands: 34 vs 38 norm [mana.lands, mana.norms.lands.target]"  # DRAFT
-  - "Colored sources below recommended (sources/recommended): W 18/36, B 20/33, R 16/30 [mana.pips_vs_sources]"  # DRAFT
-  - "Card draw: 5 vs 11-13 norm [roles.draw.count, roles.draw.target_min/target_max]"  # DRAFT
-  - "Board wipes: 1 vs 5-7 norm [roles.wipes.count, roles.wipes.target_min/target_max]"  # DRAFT
-  - "Protection: 0 cards [roles.protection.count]"  # DRAFT
-  - "13 orphans (cards in no synergy cluster): Abdel Adrian, Gorion's Ward, Altar of Dementia, Bolas's Citadel, Deflecting Swat, Dualcaster Mage, Grand Abolisher, +7 more; synergy density 0.1846 [synergy.orphans, synergy.density]"  # DRAFT
-owner_would_reject: []  # suggestions Andrew would dismiss, and why
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Fast combo deck that manipulates +1/+1 counters to go infinite quickly."
+  - "Target power: lean Bracket 4, aspiring cEDH/Bracket 5. Evaluate speed and efficiency against that bar."
+must_not_recommend: []
+known_strengths: []
+known_flaws: []
+owner_would_reject: []
