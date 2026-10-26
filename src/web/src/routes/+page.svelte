@@ -3,5 +3,6 @@
 	<ul>
 		<li><a href="/decks">Decks</a></li>
 		<li><a href="/games">Games</a></li>
+		<li><a href="/drafts">Drafts</a></li>
 	</ul>
 </nav>
