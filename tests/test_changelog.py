@@ -292,6 +292,8 @@ class TestChangelog(unittest.TestCase):
         cases = [
             ("2026-10-26T11:59:30Z", "D"),  # 30s
             ("2026-10-26T11:55:00Z", "D"),  # 5 min
+            ("2026-10-26T11:30:00Z", "D"),  # 30 min
+            ("2026-10-26T11:01:00Z", "D"),  # 59 min
             ("2026-10-26T11:00:00Z", "D"),  # 1 hour
             ("2026-10-26T09:00:00Z", "D"),  # 3 hours
             ("2026-10-25T10:00:00Z", "D"),  # yesterday
@@ -305,15 +307,17 @@ class TestChangelog(unittest.TestCase):
         out = self._run_relative_age(cases)
         self.assertEqual(out[0], "just now \u00b7 D")
         self.assertEqual(out[1], "5 min ago \u00b7 D")
-        self.assertEqual(out[2], "1 hour ago \u00b7 D")
-        self.assertEqual(out[3], "3 hours ago \u00b7 D")
-        self.assertEqual(out[4], "yesterday \u00b7 D")
-        self.assertEqual(out[5], "3 days ago \u00b7 D")
-        self.assertEqual(out[6], "last week \u00b7 D")
-        self.assertEqual(out[7], "2 weeks ago \u00b7 D")
-        self.assertEqual(out[8], "2 months ago \u00b7 D")
-        self.assertTrue(out[9].endswith("years ago \u00b7 D"))
-        self.assertEqual(out[10], "D")
+        self.assertEqual(out[2], "30 min ago \u00b7 D")
+        self.assertEqual(out[3], "59 min ago \u00b7 D")
+        self.assertEqual(out[4], "1 hour ago \u00b7 D")
+        self.assertEqual(out[5], "3 hours ago \u00b7 D")
+        self.assertEqual(out[6], "yesterday \u00b7 D")
+        self.assertEqual(out[7], "3 days ago \u00b7 D")
+        self.assertEqual(out[8], "last week \u00b7 D")
+        self.assertEqual(out[9], "2 weeks ago \u00b7 D")
+        self.assertEqual(out[10], "2 months ago \u00b7 D")
+        self.assertTrue(out[11].endswith("years ago \u00b7 D"))
+        self.assertEqual(out[12], "D")
 
     def test_relative_age_date_only_never_precise(self):
         out = self._run_relative_age(
