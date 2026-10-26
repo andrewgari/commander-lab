@@ -70,7 +70,7 @@ jobs:
           INTERACTIONS_DISABLED: "1"
           TEST_DATABASE_URL: postgresql://test:test@localhost:5432/commander_lab_test
         run: |
-          python -m pytest -q tests/test_card_eval.py tests/test_card_review.py tests/test_pg_store.py tests/test_deck_writeup.py tests/test_primer_builder.py
+          python -m pytest -q tests/test_card_eval.py tests/test_card_review.py tests/test_pg_store.py tests/test_deck_writeup.py tests/test_primer_builder.py tests/test_honcho_push.py
 
       # Real app on real Redis with a scripted LLM. The suite skips when Redis is
       # unreachable, so require 0 skipped to make sure it actually ran.
