@@ -150,7 +150,6 @@ class TestReconstructPageTemplate(unittest.TestCase):
         self.assertIn('id="deckPrefsSection_0"', html)
         self.assertIn('id="pref_name_0"', html)
         self.assertIn('id="pref_cmdr_0"', html)
-        self.assertIn('id="cmdrDropdown_0"', html)
         self.assertIn('id="suggestedCmdrs_0"', html)
         self.assertIn('id="btnTogglePartner_0"', html)
         self.assertIn('id="partnerContainer_0"', html)
@@ -167,7 +166,6 @@ class TestReconstructPageTemplate(unittest.TestCase):
         self.assertIn('id="deckPrefsSection_1"', html)
         self.assertIn('id="pref_name_1"', html)
         self.assertIn('id="pref_cmdr_1"', html)
-        self.assertIn('id="cmdrDropdown_1"', html)
         self.assertIn('id="partnerContainer_1"', html)
         self.assertIn('id="pref_partner_cmdr_1"', html)
         self.assertIn('id="pref_themes_1"', html)
@@ -208,6 +206,22 @@ class TestReconstructPageTemplate(unittest.TestCase):
         self.assertIn("badge-source-pool", html)
         self.assertIn("badge-source-owned", html)
         self.assertIn("badge-source-new", html)
+
+    def test_commander_fields_use_the_shared_autocomplete_component(self):
+        # The per-page browser-direct Scryfall implementation (searchCardNames/
+        # setupAutocomplete, which swallowed errors into "no matches") is gone;
+        # the 4 commander/partner inputs attach the shared component with the
+        # retired pool merged in as extraSource.
+        html = self.client.get("/reconstruct").text
+        self.assertNotIn("searchCardNames", html)
+        self.assertNotIn("setupAutocomplete", html)
+        self.assertNotIn("api.scryfall.com/cards/autocomplete", html)
+        self.assertNotIn('class="autocomplete-dropdown"', html)
+        self.assertIn("CardAutocomplete.attach(el", html)
+        self.assertIn("extraSource: poolCommanderSource", html)
+        for fid in ("pref_cmdr_0", "pref_partner_cmdr_0", "pref_cmdr_1", "pref_partner_cmdr_1"):
+            self.assertIn(f"'{fid}'", html)
+        self.assertIn("From Pool", html)  # pool badge preserved
 
 
     def test_form_validation_and_error_state_hooks(self):

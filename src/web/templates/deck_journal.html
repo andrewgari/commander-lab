@@ -350,7 +350,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ---- Pet picker (combobox over this deck's cards) ------------------------------
-    var petInput = $("petInput"), petList = $("petList"), active = -1;
+    // The suggestion list is the shared CardAutocomplete component in local-only
+    // mode (endpoint: null — no network; extraSource filters this deck's cards).
+    var petInput = $("petInput");
     function chipHtml(name) {
         return '<span class="hud-chip hud-chip--ghost" data-value="' + esc(name) + '" data-card-preview' + H.cardRefAttrString(H.cardRef(name, window.HUD_CARD_REFS)) + '>' + esc(name) +
             '<button class="hud-chip-remove" type="button" aria-label="Remove ' + esc(name) + '">×</button></span>';
@@ -361,45 +363,25 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     function addPet(name) {
         if (pets().indexOf(name) === -1) petInput.insertAdjacentHTML("beforebegin", chipHtml(name));
-        petInput.value = ""; closeList(); changed();
+        petInput.value = ""; changed();
     }
-    function closeList() { petList.hidden = true; petInput.setAttribute("aria-expanded", "false"); petInput.removeAttribute("aria-activedescendant"); active = -1; }
-    function openList() {
-        var q = petInput.value.trim().toLowerCase(), have = pets();
-        var hits = CARDS.filter(function (c) { return have.indexOf(c) === -1 && (!q || c.toLowerCase().indexOf(q) !== -1); }).slice(0, 8);
-        if (!hits.length) { closeList(); return; }
-        petList.innerHTML = hits.map(function (c, i) { return '<li role="option" id="petOpt' + i + '" aria-selected="false" data-value="' + esc(c) + '">' + esc(c) + "</li>"; }).join("");
-        petList.hidden = false; petInput.setAttribute("aria-expanded", "true"); active = -1;
+    if (window.CardAutocomplete) {
+        CardAutocomplete.attach(petInput, {
+            endpoint: null,
+            listEl: $("petList"),
+            minChars: 0,
+            extraSource: function (q) {
+                var ql = q.toLowerCase(), have = pets();
+                return CARDS.filter(function (c) { return have.indexOf(c) === -1 && c.toLowerCase().indexOf(ql) !== -1; });
+            },
+            onSelect: function (card) { addPet(card.name); },
+        });
     }
-    function move(d) {
-        var opts = petList.querySelectorAll('[role="option"]');
-        if (!opts.length) return;
-        active = (active + d + opts.length) % opts.length;
-        opts.forEach(function (o, i) { o.setAttribute("aria-selected", String(i === active)); });
-        petInput.setAttribute("aria-activedescendant", opts[active].id);
-        opts[active].scrollIntoView({ block: "nearest" });
-    }
-    petInput.addEventListener("input", openList);
-    petInput.addEventListener("focus", openList);
-    petInput.addEventListener("blur", function () { setTimeout(closeList, 150); });
     petInput.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowDown") { e.preventDefault(); if (petList.hidden) openList(); move(1); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
-        else if (e.key === "Enter") {
-            e.preventDefault();
-            var opts = petList.querySelectorAll('[role="option"]');
-            var pick = active >= 0 ? opts[active] : (opts.length === 1 ? opts[0] : null);
-            if (pick) addPet(pick.getAttribute("data-value"));
-        }
-        else if (e.key === "Escape") { closeList(); }
-        else if (e.key === "Backspace" && !petInput.value) {
+        if (e.key === "Backspace" && !petInput.value) {
             var chips = $("petPicker").querySelectorAll(".hud-chip[data-value]");
             if (chips.length) { chips[chips.length - 1].remove(); changed(); }
         }
-    });
-    petList.addEventListener("mousedown", function (e) {
-        var o = e.target.closest('[role="option"]');
-        if (o) { e.preventDefault(); addPet(o.getAttribute("data-value")); }
     });
     $("petPicker").addEventListener("click", function (e) {
         var x = e.target.closest(".hud-chip-remove");
