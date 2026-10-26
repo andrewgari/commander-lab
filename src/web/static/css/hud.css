@@ -3860,3 +3860,52 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .hud-copydeck-panel[hidden] { display: none; }
 .hud-copydeck-fallback-note { margin: 0 0 var(--sp-2); color: var(--danger); font-size: var(--fs-xs); }
 .hud-copydeck-fallback textarea { box-sizing: border-box; width: 100%; min-height: 10rem; font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+/* -----------------------------------------------------------------------
+   hud-autocomplete: shared card-name suggestion list (card_autocomplete.js).
+   One dropdown for every card-name input (Brew commander, Reconstruct
+   preferences, deck manage add-card, journal pets). State rows are
+   non-pickable; --error is visually distinct from --empty (the reconstruct
+   bug: a failed search looked like "no matches").
+   ----------------------------------------------------------------------- */
+.hud-autocomplete {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    max-height: 20rem;
+    overflow-y: auto;
+    margin: var(--sp-1) 0 0;
+    padding: 0;
+    list-style: none;
+    background: var(--surface-1);
+    border: var(--hairline) solid var(--line);
+}
+.hud-autocomplete[hidden] { display: none; }
+.hud-autocomplete li {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-2);
+    cursor: pointer;
+}
+.hud-autocomplete li[aria-selected="true"],
+.hud-autocomplete li:hover { background: var(--surface-2); }
+.hud-autocomplete li[aria-disabled="true"] { cursor: default; color: var(--text-2); }
+.hud-autocomplete-state--loading { color: var(--text-3); }
+.hud-autocomplete-state--empty { color: var(--text-2); }
+.hud-autocomplete-state--error { color: var(--danger); }
+.hud-autocomplete-state--degraded { color: var(--signal); }
+.hud-autocomplete img,
+.hud-autocomplete-thumb { width: 40px; height: 30px; object-fit: cover; flex: none; }
+.hud-autocomplete-text { min-width: 0; }
+.hud-autocomplete-name { font-family: var(--font-card); }
+.hud-autocomplete-type {
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.hud-autocomplete-badge { margin-left: auto; flex: none; }

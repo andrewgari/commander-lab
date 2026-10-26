@@ -20,18 +20,9 @@
     .brew-error { margin-top: var(--sp-3); }
     .brew-error[hidden] { display: none; }
 
-    /* §01 commander picker */
-    .brew-cmd-results { margin: var(--sp-1) 0 0; padding: 0; list-style: none; border: var(--hairline) solid var(--line); background: var(--surface-1); max-height: 20rem; overflow-y: auto; }
-    .brew-cmd-results[hidden] { display: none; }
-    .brew-cmd-results li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
-    .brew-cmd-results li[aria-selected="true"], .brew-cmd-results li:hover { background: var(--surface-2); }
-    .brew-cmd-results li[aria-disabled="true"] { cursor: default; color: var(--text-2); }
-    .brew-cmd-state--loading { color: var(--text-3); }
-    .brew-cmd-state--empty { color: var(--text-2); }
-    .brew-cmd-state--error { color: var(--danger); }
-    .brew-cmd-results img { width: 40px; height: 30px; object-fit: cover; flex: none; }
-    .brew-cmd-name { font-family: var(--font-card); }
-    .brew-cmd-type { color: var(--text-3); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* §01 commander picker: the suggestion dropdown is the shared
+       hud-autocomplete component (hud.css + card_autocomplete.js); only the
+       selected-commander display styles remain page-local. */
     .brew-cmd-selected { display: flex; gap: var(--sp-3); align-items: flex-start; }
     .brew-cmd-selected[hidden] { display: none; }
     .brew-cmd-frames { display: flex; gap: var(--sp-2); }

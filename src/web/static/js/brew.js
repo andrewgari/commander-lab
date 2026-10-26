@@ -63,82 +63,17 @@
             themes: [],
         };
 
-        /* ---- commander picker ---- */
-        var cmdInput = $("brewCmdSearch"), cmdResults = $("brewCmdResults"),
-            cmdError = $("brewCmdError"), cmdSelected = $("brewCmdSelected"),
+        /* ---- commander picker (shared card_autocomplete.js component) ---- */
+        var cmdInput = $("brewCmdSearch"),
+            cmdSelected = $("brewCmdSelected"),
             cmdFrames = $("brewCmdFrames"), cmdNames = $("brewCmdNames"),
             cmdPips = $("brewCmdPips"), cmdPartner = $("brewCmdPartner"),
             cmdRemove = $("brewCmdRemove");
-        var debounce = null, activeIdx = -1, currentResults = [], searchSequence = 0;
 
-        function closeResults() {
-            clearTimeout(debounce);
-            searchSequence++;
-            cmdResults.hidden = true;
-            cmdInput.setAttribute("aria-expanded", "false");
-            cmdInput.removeAttribute("aria-activedescendant");
-            activeIdx = -1;
-        }
-        function renderMessage(message, className) {
-            currentResults = [];
-            activeIdx = -1;
-            cmdResults.innerHTML = "";
-            var item = document.createElement("li");
-            item.className = className || "brew-cmd-state";
-            item.setAttribute("aria-disabled", "true");
-            item.textContent = message;
-            cmdResults.appendChild(item);
-            cmdResults.hidden = false;
-            cmdInput.setAttribute("aria-expanded", "true");
-            cmdInput.removeAttribute("aria-activedescendant");
-        }
-        function showError(msg) {
-            renderMessage(msg, "brew-cmd-state brew-cmd-state--error");
-        }
-        function renderResults(list) {
-            currentResults = list;
-            cmdResults.innerHTML = "";
-            if (!list.length) {
-                renderMessage("No commanders match — check spelling", "brew-cmd-state brew-cmd-state--empty");
-                return;
-            }
-            list.forEach(function (c, i) {
-                var li = document.createElement("li");
-                li.id = "brewCmdOption" + i;
-                li.setAttribute("role", "option");
-                li.setAttribute("aria-selected", i === activeIdx ? "true" : "false");
-                var img = c.image ? '<img src="' + esc(c.image) + '" alt="" loading="lazy">' : '<span style="width:40px;flex:none"></span>';
-                li.innerHTML = img + '<span><span class="brew-cmd-name">' + esc(c.name) + '</span><br>' +
-                    '<span class="brew-cmd-type">' + esc(c.type_line || "") + '</span></span>';
-                li.addEventListener("mousedown", function (ev) { ev.preventDefault(); pickCommander(c); });
-                cmdResults.appendChild(li);
-            });
-            cmdResults.hidden = false;
-            cmdInput.setAttribute("aria-expanded", "true");
-            if (activeIdx >= 0) {
-                cmdInput.setAttribute("aria-activedescendant", "brewCmdOption" + activeIdx);
-                var active = $("brewCmdOption" + activeIdx);
-                if (active && active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
-            } else cmdInput.removeAttribute("aria-activedescendant");
-        }
-        function runSearch() {
-            var q = cmdInput.value.trim();
-            var sequence = ++searchSequence;
-            if (q.length < 2) { closeResults(); return; }
-            renderMessage("Searching commanders…", "brew-cmd-state brew-cmd-state--loading");
-            fetchJSON("/api/brew/commanders?q=" + encodeURIComponent(q))
-                .then(function (body) {
-                    if (sequence === searchSequence && cmdInput.value.trim() === q) renderResults(body.results || []);
-                })
-                .catch(function () {
-                    if (sequence === searchSequence && cmdInput.value.trim() === q) showError("Commander search failed. Try again.");
-                });
-        }
         function pickCommander(c) {
             if (state.commanders.length >= 2) return;
             state.commanders.push(c);
             cmdInput.value = "";
-            closeResults();
             renderCommander();
             if (!document.activeElement || document.activeElement !== cmdInput) cmdInput.focus();
         }
@@ -171,45 +106,26 @@
             }
             syncRail();
         }
-        cmdInput.addEventListener("input", function () {
-            clearTimeout(debounce);
-            searchSequence++;
-            if (cmdInput.value.trim().length >= 2) {
-                renderMessage("Searching commanders…", "brew-cmd-state brew-cmd-state--loading");
-                debounce = setTimeout(runSearch, 250);
-            } else closeResults();
-        });
-        cmdInput.addEventListener("focus", function () {
-            // Re-open the suggestion list when returning to a field that
-            // still has text (e.g. after picking, then editing the query).
-            if (cmdInput.value.trim().length >= 2) runSearch();
-        });
-        document.addEventListener("mousedown", function (ev) {
-            if (!cmdInput.contains(ev.target) && !cmdResults.contains(ev.target)) closeResults();
-        });
-        document.addEventListener("touchstart", function (ev) {
-            if (!cmdInput.contains(ev.target) && !cmdResults.contains(ev.target)) closeResults();
-        }, { passive: true });
-        cmdInput.addEventListener("keydown", function (ev) {
-            if (ev.key === "Escape") {
-                if (!cmdResults.hidden) {
-                    ev.preventDefault();
-                    closeResults();
-                }
-                return;
-            }
-            if (cmdResults.hidden || !currentResults.length) return;
-            if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
-                ev.preventDefault();
-                var max = currentResults.length - 1;
-                activeIdx = ev.key === "ArrowDown" ? Math.min(max, activeIdx + 1) : Math.max(0, activeIdx - 1);
-                renderResults(currentResults);
-            } else if (ev.key === "Enter") {
-                if (activeIdx < 0 || !currentResults[activeIdx]) return;
-                ev.preventDefault();
-                pickCommander(currentResults[activeIdx]);
-            }
-        });
+
+        // base.html loads card_autocomplete.js with `defer`, and this script
+        // runs at parse time, so wait for DOMContentLoaded if the component
+        // has not been evaluated yet. commitOnEnter:"first" restores
+        // Enter-picks-top-result so Generate enables without arrow keys.
+        function attachCommanderPicker() {
+            if (!window.CardAutocomplete) return;
+            CardAutocomplete.attach(cmdInput, {
+                listEl: $("brewCmdResults"),
+                commandersOnly: true,
+                commitOnEnter: "first",
+                loadingText: "Searching commanders…",
+                emptyText: "No commanders match — check spelling",
+                errorText: "Commander search failed. Try again.",
+                onSelect: function (c) { pickCommander(c); },
+            });
+        }
+        if (window.CardAutocomplete) attachCommanderPicker();
+        else document.addEventListener("DOMContentLoaded", attachCommanderPicker);
+
         cmdRemove.addEventListener("click", function () {
             state.commanders = [];
             cmdInput.style.display = "";
