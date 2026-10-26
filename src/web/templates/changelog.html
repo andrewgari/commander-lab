@@ -209,7 +209,7 @@
                     <span class="badge-prerelease">Pre-release</span>
                     {% endif %}
                 </div>
-                <time class="release-date">{{ release.release_date or release.published_at[:10] }}</time>
+                <time class="release-date"{% if release.published_at %} datetime="{{ release.published_at }}" data-rel{% endif %} title="{{ release.release_date or (release.published_at or '')[:10] }}">{{ release.release_date or release.published_at[:10] }}</time>
             </div>
             {% if release.name and release.name != release.tag_name %}
             <h2 class="release-name">{{ release.name }}</h2>
@@ -220,4 +220,35 @@
     </div>
     {% endif %}
 </div>
+<script>
+(function(){
+  function ago(d,dateOnly){
+    var s=Math.max(0,(Date.now()-d.getTime())/1000);
+    if(dateOnly){
+      var days=Math.floor(s/86400);
+      if(days<1)return "today";
+      s=days*86400;
+    }
+    var m=Math.floor(s/60),h=Math.floor(s/3600),dy=Math.floor(s/86400);
+    if(m<1)return "just now";
+    if(m<60)return m+" min ago";
+    if(h<24)return h+(h===1?" hour":" hours")+" ago";
+    if(dy===1)return "yesterday";
+    if(dy<7)return dy+" days ago";
+    var w=Math.floor(dy/7);
+    if(dy<30)return w===1?"last week":w+" weeks ago";
+    var mo=Math.floor(dy/30);
+    if(dy<365)return mo===1?"last month":mo+" months ago";
+    var y=Math.floor(dy/365);
+    return y===1?"last year":y+" years ago";
+  }
+  document.querySelectorAll("time[data-rel]").forEach(function(t){
+    var raw=t.getAttribute("datetime")||"";
+    var dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(raw.trim());
+    var d=new Date(raw);
+    if(isNaN(d))return;
+    t.textContent=ago(d,dateOnly)+" \u00b7 "+t.title;
+  });
+})();
+</script>
 {% endblock %}
