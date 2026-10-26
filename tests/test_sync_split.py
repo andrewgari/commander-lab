@@ -406,52 +406,13 @@ class TestNoAutomaticSync(RouteCase):
 class TestProviderWriters(unittest.TestCase):
     """The real provider writers, with `requests` stubbed."""
 
-    def test_archidekt_plan_ops(self):
-        remote = [
-            {"id": 1, "quantity": 10, "categories": [], "card": {"id": 100, "oracleCard": {"name": "Island"}}},
-            {"id": 2, "quantity": 1, "categories": [], "card": {"id": 200, "oracleCard": {"name": "Rhystic Study"}}},
-            {"id": 3, "quantity": 1, "categories": ["Maybeboard"], "card": {"id": 300, "oracleCard": {"name": "Cancel"}}},
-            {"id": 4, "quantity": 1, "categories": ["Commander"], "card": {"id": 400, "oracleCard": {"name": "Atraxa, Praetors' Voice"}}},
-        ]
-        desired = {"Island": 9, "Atraxa, Praetors' Voice": 1, "Sol Ring": 1, "Mystery Card": 1}
-        ops, unresolved = archidekt.build_modify_ops(
-            remote, desired, ["Atraxa, Praetors' Voice"], lambda n: 500 if n == "Sol Ring" else None)
-        by = {(o["action"], o["cardid"]): o for o in ops}
-        self.assertEqual(by[("modify", 100)]["modifications"], {"quantity": 9})
-        self.assertEqual(by[("modify", 100)]["deckRelationId"], 1)
-        self.assertIn(("remove", 200), by)
-        self.assertIn(("add", 500), by)
-        self.assertNotIn(300, {o["cardid"] for o in ops})  # maybeboard untouched
-        self.assertNotIn(400, {o["cardid"] for o in ops})  # unchanged commander untouched
-        self.assertEqual(unresolved, ["Mystery Card"])
-
-    def test_archidekt_push_requires_token(self):
-        with patch.dict(os.environ, {"ARCHIDEKT_TOKEN": ""}), patch.object(archidekt, "requests") as req:
-            with self.assertRaises(providers.PushNotConfigured):
-                archidekt.push_deck("42", LOCAL_CARDS)
-            req.get.assert_not_called()
-
-    def test_archidekt_push_aborts_before_write_on_unresolved(self):
-        deck_resp = MagicMock(json=lambda: {"cards": []})
-        with patch.dict(os.environ, {"ARCHIDEKT_TOKEN": "t"}), patch.object(archidekt, "requests") as req, \
-             patch.object(archidekt, "lookup_card_id", return_value=None):
-            req.get.return_value = deck_resp
-            with self.assertRaises(PushError):
-                archidekt.push_deck("42", [{"name": "Nonexistent", "quantity": 1}])
-            req.patch.assert_not_called()
-
-    def test_archidekt_push_patches_with_jwt(self):
-        with patch.dict(os.environ, {"ARCHIDEKT_TOKEN": "tok"}), patch.object(archidekt, "requests") as req, \
-             patch.object(archidekt, "lookup_card_id", return_value=7):
-            req.get.return_value = MagicMock(json=lambda: {"cards": []})
-            req.patch.return_value = MagicMock(status_code=200, ok=True)
-            out = archidekt.push_deck("42", [{"name": "Sol Ring", "quantity": 1}])
-        url = req.patch.call_args[0][0]
-        kwargs = req.patch.call_args[1]
-        self.assertEqual(url, "https://archidekt.com/api/decks/42/modifyCards/")
-        self.assertEqual(kwargs["headers"]["Authorization"], "JWT tok")
-        self.assertEqual(kwargs["json"]["cards"][0]["action"], "add")
-        self.assertEqual(out["operations"], 1)
+    def test_archidekt_push_is_import_only(self):
+        # Slice 1 contract: archidekt provider is import-only; push code deleted.
+        # The providers registry degrades any push attempt to PushNotConfigured.
+        self.assertFalse(hasattr(archidekt, "push_deck"))
+        self.assertFalse(providers.push_configured("archidekt"))
+        with self.assertRaises(providers.PushNotConfigured):
+            providers.push_deck("archidekt", "42", LOCAL_CARDS)
 
     def test_moxfield_push_requires_token(self):
         with patch.dict(os.environ, {"MOXFIELD_TOKEN": ""}), patch.object(moxfield, "requests") as req:

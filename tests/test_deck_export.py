@@ -125,27 +125,11 @@ class TestProviderCreate(unittest.TestCase):
                 with self.assertRaises(PushError):
                     moxfield.create_deck("n", [])
 
-    def test_archidekt(self):
-        env = {archidekt.PUSH_TOKEN_ENV: "t"}
-        with patch.dict(os.environ, env):
-            with patch.object(archidekt.requests, "post", return_value=_resp(201, {"id": 77})), \
-                 patch.object(archidekt, "push_deck", return_value={}):
-                out = archidekt.create_deck("n", [])
-            self.assertEqual(out["url"], "https://archidekt.com/decks/77")
-            for status in (403, 500):
-                with patch.object(archidekt.requests, "post", return_value=_resp(status)):
-                    with self.assertRaises(PushError):
-                        archidekt.create_deck("n", [])
-            with patch.object(archidekt.requests, "post", return_value=_resp(201, {"id": 77})), \
-                 patch.object(archidekt, "push_deck", side_effect=PushError("x")):
-                with self.assertRaises(PushError) as cm:
-                    archidekt.create_deck("n", [])
-            self.assertIn("decks/77", str(cm.exception))
-
-    def test_archidekt_no_token(self):
-        with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(PushNotConfigured):
-                archidekt.create_deck("n", [])
+    def test_archidekt_create_is_import_only(self):
+        # Slice 1 contract: archidekt provider is import-only; deck creation deleted.
+        self.assertFalse(hasattr(archidekt, "create_deck"))
+        with self.assertRaises(PushNotConfigured):
+            providers.create_deck("archidekt", "n", [])
 
 
 if __name__ == "__main__":
