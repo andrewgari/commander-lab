@@ -37,7 +37,7 @@ import src.server.app.main as app_mod
 from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-BR_JS = ROOT / "static" / "js" / "brackets.js"
+BR_JS = ROOT / "src/web/static" / "js" / "brackets.js"
 
 
 def _api(ev, **over):

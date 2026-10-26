@@ -23,9 +23,9 @@ from fastapi.testclient import TestClient
 from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-HUD_JS = ROOT / "static" / "js" / "hud.js"
-DECK_JS = ROOT / "static" / "js" / "deck_analytics.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
+DECK_JS = ROOT / "src/web/static" / "js" / "deck_analytics.js"
 MOCK_CSS = ROOT / "docs" / "design" / "analytics" / "analytics.css"
 FIX = ROOT / "tests" / "fixtures" / "an4"
 VENDOR = "/static/vendor/d3-force-3.0.0.min.js"

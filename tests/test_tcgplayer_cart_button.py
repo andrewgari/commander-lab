@@ -30,8 +30,8 @@ from src.server.app.main import app, templates
 import src.server.infra.providers.tcgplayer as tcgplayer
 
 ROOT = Path(__file__).resolve().parent.parent
-CART_JS = ROOT / "static" / "js" / "tcgplayer_cart.js"
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
+CART_JS = ROOT / "src/web/static" / "js" / "tcgplayer_cart.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
 
 DFC = "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki"
 

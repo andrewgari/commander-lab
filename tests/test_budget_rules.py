@@ -81,7 +81,7 @@ class TestTunePricing(unittest.TestCase):
         self.assertIsNone(both["buy"])
         self.assertEqual(both["hidden_hard"], 1)
         # The page renders the count only: the template must not read the hidden card names or prices.
-        html = Path(__file__).resolve().parent.parent.joinpath("templates/deck_tune.html").read_text()
+        html = Path(__file__).resolve().parent.parent.joinpath("src/web/templates/deck_tune.html").read_text()
         fn = html.split("function hiddenNote(s)", 1)[1].split("function swapRow", 1)[0]
         self.assertIn("hidden_hard", fn)
         self.assertNotIn("hidden_hard_cards", fn)
@@ -207,7 +207,7 @@ class TestLegacyDeckReview(unittest.TestCase):
 
 class TestPriceBlindSurfaces(unittest.TestCase):
     def test_engine_budget_aligned_never_reads_deck_prices(self):
-        src = Path(__file__).resolve().parent.parent.joinpath("analytics/engine.py").read_text()
+        src = Path(__file__).resolve().parent.parent.joinpath("src/server/domain/analytics/engine.py").read_text()
         self.assertNotRegex(src, r"budget_aligned\s*=\s*[^T\n]*price")
 
 

@@ -424,7 +424,7 @@ class Compose(unittest.TestCase):
             text = f.read()
         self.assertIn("bracket-worker:", text)
         self.assertIn("container_name: commander-lab-bracket-worker", text)
-        self.assertIn("python -m analytics.bracket_worker", text)
+        self.assertIn("python -m src.server.domain.analytics.bracket_worker", text)
 
 
 if __name__ == "__main__":

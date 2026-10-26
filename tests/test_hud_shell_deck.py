@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 
 
 def _classes(html):

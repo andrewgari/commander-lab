@@ -41,7 +41,7 @@ def _section(type_):
 
 
 def render(section):
-    env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(ROOT / "src/web/templates")), autoescape=True)
     env.globals["card_preview_attrs"] = card_refs.preview_attrs
     return env.get_template(rv.section_template(section)).render(section=section, rv=rv, tv=theory_view)
 
@@ -50,7 +50,7 @@ class TestRouting(unittest.TestCase):
     def test_every_known_type_has_a_partial_file(self):
         for t in rv.RENDERERS:
             with self.subTest(t=t):
-                self.assertTrue((ROOT / "templates" / "partials" / "review" / f"{t}.html").exists())
+                self.assertTrue((ROOT / "src/web/templates" / "partials" / "review" / f"{t}.html").exists())
         self.assertEqual(set(rv.RENDERERS), set(rd.SECTION_ORDER))
 
     def test_real_doc_sections_use_their_own_partial(self):
@@ -377,7 +377,7 @@ class TestStorageDown(unittest.TestCase):
 
 class TestHotkeys(unittest.TestCase):
     def test_seven_key_switches_tab(self):
-        js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
+        js = (ROOT / "src/web/static" / "js" / "deck_analytics.js").read_text()
         self.assertIn("/^[0-9]$/", js)
 
 

@@ -39,7 +39,7 @@ from tests.test_interactions import FakeRedis
 from src.server.domain.intake.user_intent import DeckGenre, allowed_archetypes, parse_user_intent, resolve_intent_defaults, validate_intent
 
 ROOT = Path(__file__).resolve().parents[1]
-GENRE_JS = ROOT / "static" / "js" / "deck_genre.js"
+GENRE_JS = ROOT / "src/web/static" / "js" / "deck_genre.js"
 ORIGINAL_14 = {"aggro", "midrange", "control", "combo", "stax", "spellslinger", "aristocrats", "tokens", "graveyard",
                "voltron", "ramp", "tribal", "group_hug", "group_slug"}
 
@@ -404,7 +404,7 @@ class TestPagesAndApi(_Pages):
         self.assertEqual(len(body["creature_types"]), 351)
 
     def test_css_defines_the_kit_classes(self):
-        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
         for cls in ("hud-sr", "hud-tagfield", "hud-tagfield-count", "hud-tagchip", "hud-chip--custom", "hud-chip-star",
                     "hud-tagopt", "hud-picker-group", "hud-picker-note", "hud-genre-strip", "hud-chip-more-desktop",
                     "hud-chip-more-phone"):

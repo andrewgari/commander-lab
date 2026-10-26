@@ -355,7 +355,7 @@ class TestTemplateShell(unittest.TestCase):
 
     def setUp(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "templates", "deck_tune.html"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/templates", "deck_tune.html"), encoding="utf-8") as f:
             self.html = f.read()
 
     def test_overlay_markup_and_script(self):
@@ -370,7 +370,7 @@ class TestTemplateShell(unittest.TestCase):
     def test_dt6_float_panel_markup_and_js(self):
         self.assertIn('id="tuneRecPanel"', self.html)
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "static", "js", "tune_overlay.js"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/static", "js", "tune_overlay.js"), encoding="utf-8") as f:
             js = f.read()
         self.assertIn("/tuneup/recommendations", js)
         self.assertIn("TuneOverlay.adds", js)
@@ -380,7 +380,7 @@ class TestTemplateShell(unittest.TestCase):
     def test_overlay_js_uses_existing_tag_endpoints(self):
         """DT-1 must not fork the tag system: drag = POST/DELETE card-tags."""
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "static", "js", "tune_overlay.js"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/static", "js", "tune_overlay.js"), encoding="utf-8") as f:
             js = f.read()
         self.assertIn('send("POST", "/card-tags"', js)
         self.assertIn('send("DELETE", "/card-tags"', js)

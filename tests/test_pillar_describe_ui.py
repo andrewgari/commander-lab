@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-JS = ROOT / "static" / "js" / "pillar_describe.js"
+JS = ROOT / "src/web/static" / "js" / "pillar_describe.js"
 
 
 def node(expr):
@@ -27,8 +27,8 @@ def node(expr):
 class TestIdentityPageWiring(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tpl = (ROOT / "templates" / "deck_identity.html").read_text()
-        cls.css = (ROOT / "static" / "css" / "hud.css").read_text()
+        cls.tpl = (ROOT / "src/web/templates" / "deck_identity.html").read_text()
+        cls.css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
 
     def test_script_loaded_and_mounted(self):
         self.assertRegex(self.tpl, r'<script src="/static/js/pillar_describe\.js\?v=')

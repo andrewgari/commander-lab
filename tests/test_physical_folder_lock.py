@@ -420,7 +420,7 @@ class TestArchidektProvider(unittest.TestCase):
         self.assertEqual(d["folder"], "Commander Decks")
 
 
-HUD_JS = Path(ROOT) / "static" / "js" / "hud.js"
+HUD_JS = Path(ROOT) / "src/web/static" / "js" / "hud.js"
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")

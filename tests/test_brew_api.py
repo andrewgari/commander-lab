@@ -236,7 +236,7 @@ class TestBrewPages(unittest.TestCase):
         # and brew.js aggregates buys via TcgCart.mount.
         self.assertIn("tcgplayer_cart.js", html)
         js = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "static", "js", "brew.js")).read()
+                               "src/web/static", "js", "brew.js")).read()
         self.assertIn("TcgCart.mount", js)
 
     def test_decks_page_brew_button(self):

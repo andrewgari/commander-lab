@@ -22,7 +22,7 @@ import src.server.domain.decks.registry as registry
 from src.server.app.main import DECK_GROUPS, app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 
 EXPECTED = [
     ("Physical Decks", "physical"),

@@ -18,7 +18,7 @@ from src.server.domain.intake.user_intent import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SCHEMAS_DIR = BASE_DIR / "schemas"
+SCHEMAS_DIR = BASE_DIR / "src" / "server" / "domain" / "intake" / "schemas"
 EXAMPLES_DIR = SCHEMAS_DIR / "examples"
 
 

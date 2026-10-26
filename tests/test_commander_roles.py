@@ -276,7 +276,7 @@ class TestViewsUseRoles(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_js_mirror_matches_macro_classes(self):
-        js = (ROOT / "static" / "js" / "hud.js").read_text()
+        js = (ROOT / "src/web/static" / "js" / "hud.js").read_text()
         code = ("global.window = {}; global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []}};\n"
                 + js + "\nconst H = window.HUD;\n"
                 "const out = {\n"
@@ -301,16 +301,16 @@ class TestNoRoundCommanderArt(unittest.TestCase):
         # base.html loads hud.js with defer; pages calling HUD.* at startup must wait for it.
         for page, call in (("decks.html", "document.addEventListener('DOMContentLoaded', loadDecks);"),
                            ("inventory.html", "document.addEventListener('DOMContentLoaded', () => {\n        loadDecks()")):
-            self.assertIn(call, (ROOT / "templates" / page).read_text(), page)
+            self.assertIn(call, (ROOT / "src/web/templates" / page).read_text(), page)
 
     def test_no_round_portraits(self):
-        decks = (ROOT / "templates" / "decks.html").read_text()
+        decks = (ROOT / "src/web/templates" / "decks.html").read_text()
         self.assertNotIn("commander-icon", decks)
-        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
         for rule in re.findall(r"\.hud-cmdr[^{]*\{[^}]*\}", css):
             self.assertNotIn("50%", rule)
         for page in ("decks.html", "deck.html", "partials/deck_head.html"):
-            src = (ROOT / "templates" / page).read_text()
+            src = (ROOT / "src/web/templates" / page).read_text()
             for rule in re.findall(r"\.(?:deck-cmdr|deck-header|hud-cmdr)[^{]*\{[^}]*\}", src):
                 self.assertNotIn("border-radius: 50%", rule)
 

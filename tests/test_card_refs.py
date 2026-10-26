@@ -19,7 +19,7 @@ import src.server.domain.inventory.inventory_view as inventory_view
 import src.server.domain.decks.registry as registry
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 SID = "716D0B3B-BAC9-4FB8-882E-BD6171864043"
 
 REF_KEYS = {"name", "scryfallId", "oracleId", "set", "collectorNumber", "layout",

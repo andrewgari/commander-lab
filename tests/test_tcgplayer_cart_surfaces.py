@@ -26,12 +26,12 @@ class TestSurfaces(unittest.TestCase):
         self.assertNotIn("hud-btn--buy", _render_buy_total([]))
 
     def test_tune_buy_option_uses_cart(self):
-        s = (ROOT / "templates/deck_tune.html").read_text()
+        s = (ROOT / "src/web/templates/deck_tune.html").read_text()
         self.assertIn('o.source === "buy" && window.TcgCart', s)
         self.assertIn('size: "sm"', s)
 
     def test_reconstruct_new_to_buy_uses_tier3_cart(self):
-        s = (ROOT / "templates/reconstruct.html").read_text()
+        s = (ROOT / "src/web/templates/reconstruct.html").read_text()
         self.assertIn("else { t3Count++; t3Items.push({name: c.name, qty: c.qty || 1}); }", s)
         self.assertIn('window.TcgCart.button(t3Items, {size: "sm"})', s)
         self.assertLess(s.index("New to Buy: ${t3Count}"), s.index("TcgCart.button(t3Items"))
@@ -49,7 +49,7 @@ class TestSurfaces(unittest.TestCase):
         self.assertIn("1%20Sol%20Ring", out)
 
     def test_card_review_skips_owned(self):
-        s = (ROOT / "static/js/card_review.js").read_text()
+        s = (ROOT / "src/web/static/js/card_review.js").read_text()
         self.assertIn('it.ownership !== "owned_free" && window.TcgCart', s)
         self.assertIn("primary + tcg", s)
 
@@ -69,5 +69,5 @@ class TestIdeasRow(unittest.TestCase):
         self.assertEqual(theory.summary({"doc_id": "x"})["buy_cards"], [])
 
     def test_ideas_template_wires_cart(self):
-        s = (ROOT / "templates/deck_ideas.html").read_text()
+        s = (ROOT / "src/web/templates/deck_ideas.html").read_text()
         self.assertIn('hud.tcg_cart(d.buy_cards or [], size="sm")', s)

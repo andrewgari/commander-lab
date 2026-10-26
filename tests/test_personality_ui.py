@@ -27,8 +27,8 @@ from fastapi.testclient import TestClient
 from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-PS_JS = ROOT / "static" / "js" / "personality.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+PS_JS = ROOT / "src/web/static" / "js" / "personality.js"
 FIX = ROOT / "tests" / "fixtures" / "ps4"
 
 DOCTOR = json.loads((FIX / "doctor_rose.json").read_text())

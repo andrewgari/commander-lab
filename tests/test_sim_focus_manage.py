@@ -106,14 +106,14 @@ class TestManageStore(unittest.TestCase):
 
 class TestManageUi(unittest.TestCase):
     def test_tags_page_has_focus_section_with_confirm_and_selects(self):
-        html = (ROOT / "templates" / "tags.html").read_text()
+        html = (ROOT / "src/web/templates" / "tags.html").read_text()
         for needle in ("Simulate focus chips", "/api/sim/focus-chips", "/api/sim/focus-chips/order",
                        "confirm(", "createFocusChip", "deleteFocusChip", "moveFocusChip"):
             self.assertIn(needle, html)
         self.assertNotIn('type="number"', html.split("Simulate focus chips", 1)[1].split("search-container", 1)[0])
 
     def test_report_renders_from_snapshot(self):
-        js = (ROOT / "static" / "js" / "deck_sim.js").read_text()
+        js = (ROOT / "src/web/static" / "js" / "deck_sim.js").read_text()
         self.assertIn("focus_snapshot", js)
 
 

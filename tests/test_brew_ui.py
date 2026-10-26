@@ -25,10 +25,10 @@ def read(rel):
         return f.read()
 
 
-BASE = read("templates/base.html")
-BREW_HTML = read("templates/brew.html")
-BREW_DECK_HTML = read("templates/brew_deck.html")
-BREW_JS = read("static/js/brew.js")
+BASE = read("src/web/templates/base.html")
+BREW_HTML = read("src/web/templates/brew.html")
+BREW_DECK_HTML = read("src/web/templates/brew_deck.html")
+BREW_JS = read("src/web/static/js/brew.js")
 
 
 class TestBrewNavEntry(unittest.TestCase):

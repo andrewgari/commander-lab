@@ -192,7 +192,7 @@ class TestRunModes(Base):
     def test_no_hardcoded_default_pod_in_source(self):
         import pathlib
         root = pathlib.Path(__file__).resolve().parent.parent
-        for f in ("analytics/sim_service.py", "static/js/deck_sim.js", "app.py"):
+        for f in ("src/server/domain/analytics/sim_service.py", "src/web/static/js/deck_sim.js", "src/server/app/main.py"):
             txt = (root / f).read_text()
             for name in ("Cavalry Charge", "Endless Punishment"):
                 self.assertNotIn(name, txt, f)

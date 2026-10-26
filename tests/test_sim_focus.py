@@ -192,10 +192,10 @@ class TestRunPersistence(Base):
 
 
 class TestUi(unittest.TestCase):
-    JS = (ROOT / "static" / "js" / "deck_sim.js").read_text()
+    JS = (ROOT / "src/web/static" / "js" / "deck_sim.js").read_text()
 
     def test_no_test_notes_string(self):
-        for p in ("static", "templates", "docs", "analytics", "tests"):
+        for p in ("src/web/static", "src/web/templates", "docs", "src/server/domain/analytics", "tests"):
             for f in (ROOT / p).rglob("*"):
                 if f.is_file() and f.suffix in (".js", ".html", ".py", ".md", ".css") and f.name != "test_sim_focus.py":
                     self.assertNotRegex(f.read_text(errors="ignore"), r"(?i)test notes", str(f))
@@ -235,7 +235,7 @@ setTimeout(()=>{
   process.stdout.write(JSON.stringify(out));
 },50);
 """
-        res = subprocess.run([node, "-e", script, str(ROOT / "static/js/deck_sim.js")], capture_output=True, text=True, timeout=15)
+        res = subprocess.run([node, "-e", script, str(ROOT / "src/web/static/js/deck_sim.js")], capture_output=True, text=True, timeout=15)
         self.assertEqual(res.returncode, 0, res.stderr)
         out = json.loads(res.stdout)
         self.assertTrue(out["html_has_pressed"], out)

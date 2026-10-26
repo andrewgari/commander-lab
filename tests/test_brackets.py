@@ -188,7 +188,7 @@ class NameMatchingTests(unittest.TestCase):
 
 class FallbackSnapshotTests(unittest.TestCase):
     def test_snapshot_file_is_checked_in_and_well_formed(self):
-        path = ROOT / "analytics" / "data" / "game_changers.json"
+        path = ROOT / "src" / "server" / "domain" / "analytics" / "data" / "game_changers.json"
         self.assertTrue(path.exists())
         data = json.loads(path.read_text())
         self.assertEqual(data["query"], "is:gamechanger")

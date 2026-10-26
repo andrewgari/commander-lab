@@ -26,7 +26,9 @@ from tests.test_deck_stats_ui import DECK, DECK_JS, HUD_JS, _DeckPage, _classes
 from tests.test_interactions import FakeRedis
 from tests.test_tuner import COMP, WEAK, cand
 
-TEMPLATE = app_mod.os.path.join(app_mod.os.path.dirname(app_mod.__file__), "templates", "deck_tune.html")
+TEMPLATE = app_mod.os.path.join(
+    app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.__file__)))),
+    "src/web/templates", "deck_tune.html")
 
 
 class _TunePage(_DeckPage):
@@ -155,7 +157,7 @@ class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
         self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
 
 
-CSS = TEMPLATE.replace("templates/deck_tune.html", "static/css/hud.css")
+CSS = TEMPLATE.replace("src/web/templates/deck_tune.html", "src/web/static/css/hud.css")
 
 
 class TestDismissedCutsUI(_TunePage, unittest.TestCase):

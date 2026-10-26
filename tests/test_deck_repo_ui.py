@@ -67,7 +67,7 @@ class TestRenderRepoBadgeJS(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with open("templates/decks.html", "r", encoding="utf-8") as f:
+        with open("src/web/templates/decks.html", "r", encoding="utf-8") as f:
             content = f.read()
 
         # Extract escapeHtml and renderRepoBadge functions
