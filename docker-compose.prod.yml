@@ -16,7 +16,7 @@ services:
     volumes:
       # Direct SSD pool path bypasses Unraid FUSE/shfs for database I/O.
       - /mnt/config/appdata/commander-lab/pgdata:/var/lib/postgresql/data
-      - /mnt/config/appdata/commander-lab/secrets/postgres_password:/run/secrets/postgres_password:ro
+      - /mnt/config/appdata/commander-lab/db-secrets/postgres_password:/run/secrets/postgres_password:ro
     healthcheck:
       test: ["CMD", "commander-db-healthcheck"]
       interval: 10s

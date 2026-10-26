@@ -17,14 +17,16 @@ SELECT ((SELECT id FROM vector_probe ORDER BY embedding <-> '[1,2,3]' LIMIT 1) =
 \echo pgvector distance + HNSW: PASS
 \else
 \echo pgvector: FAIL
-\quit 1
+-- SQL error + ON_ERROR_STOP gives a nonzero exit on PostgreSQL 17 psql.
+SELECT 1 / 0 AS assertion_failed;
 \endif
 
 SELECT create_graph('commander_infra_smoke');
 SELECT * FROM cypher('commander_infra_smoke', $$
     CREATE (:Probe {name: 'first'})-[:LINKS]->(:Probe {name: 'second'})
 $$) AS (result agtype);
-SELECT (count(*) = 1 AND min(name::text) = '"second"') AS graph_ok
+-- AGE's explicit agtype->text cast returns the unquoted scalar string.
+SELECT (count(*) = 1 AND min(name::text) = 'second') AS graph_ok
 FROM cypher('commander_infra_smoke', $$
     MATCH (:Probe {name: 'first'})-[:LINKS]->(b:Probe) RETURN b.name
 $$) AS (name agtype) \gset
@@ -32,6 +34,7 @@ $$) AS (name agtype) \gset
 \echo AGE create + traversal: PASS
 \else
 \echo AGE: FAIL
-\quit 1
+-- SQL error + ON_ERROR_STOP gives a nonzero exit on PostgreSQL 17 psql.
+SELECT 1 / 0 AS assertion_failed;
 \endif
 ROLLBACK;

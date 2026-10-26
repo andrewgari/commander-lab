@@ -30,6 +30,7 @@ Generate a nonempty secret into the ignored root `.env` (keep it out of git):
 ```sh
 # Append once; do not overwrite other existing app settings in .env.
 (umask 077; printf 'COMMANDER_DB_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> .env)
+chmod 600 .env
 docker compose build db
 docker compose up -d --wait db
 docker compose exec -T db sh -c 'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /usr/local/share/commander-db/smoke.sql'
@@ -58,9 +59,9 @@ flow for app/worker is unchanged. Before the merged compose is deployed:
 
    ```sh
    install -d -m 0700 -o 999 -g 999 /mnt/config/appdata/commander-lab/pgdata
-   install -d -m 0700 /mnt/config/appdata/commander-lab/secrets
+   install -d -m 0700 /mnt/config/appdata/commander-lab/db-secrets
    # Only for first provisioning; never overwrite an existing password.
-   (umask 077; set -C; openssl rand -hex 32 > /mnt/config/appdata/commander-lab/secrets/postgres_password)
+   (umask 077; set -C; openssl rand -hex 32 > /mnt/config/appdata/commander-lab/db-secrets/postgres_password)
    ```
 
    `POSTGRES_PASSWORD_FILE` reads this file; the password is neither in
