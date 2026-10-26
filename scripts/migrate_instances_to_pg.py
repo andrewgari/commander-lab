@@ -140,6 +140,13 @@ def cmd_apply(args) -> int:
     inserted = skipped = 0
     with session_scope(factory) as session:
         existing_deck_ids = {d["id"] for d in repo.list_decks(session, include_archived=True)}
+        # card_instances.oracle_id FKs to cards: stub rows for oracle_ids no
+        # deck import has created yet (import refreshes them with full data).
+        known = repo.known_oracle_ids(session, [oid for _, oid in pairs])
+        for rec, oid in pairs:
+            if oid not in known:
+                repo.upsert_card(session, {"oracle_id": oid, "name": rec.get("card_name", "")})
+                known.add(oid)
         for rec, oid in pairs:
             inst = to_pg_instance(rec, oid, existing_deck_ids)
             if repo.insert_instance(session, inst):
@@ -152,7 +159,17 @@ def cmd_apply(args) -> int:
                 })
             else:
                 skipped += 1
-    print(f"inserted: {inserted}, already present (skipped): {skipped}")
+        # Rebind pass: instances migrated before their deck was imported land
+        # unbound; once the deck exists in Postgres, attach them.
+        rebound = repo.rebind_instances(session, existing_deck_ids)
+        for instance_id, deck_id in rebound:
+            repo.insert_event(session, {
+                "instance_id": instance_id,
+                "kind": "assigned",
+                "to_deck": deck_id,
+            })
+    print(f"inserted: {inserted}, already present (skipped): {skipped}, "
+          f"rebound to imported decks: {len(rebound)}")
     return 0
 
 

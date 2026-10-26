@@ -56,6 +56,15 @@ def import_archidekt_deck(
             session, normalized["id"], normalized["cards"]
         )
 
+        # Claim already-migrated collection instances the Redis registry had
+        # assigned to this deck (migration may run before the deck import).
+        for instance_id, deck_id in repo.rebind_instances(session, {normalized["id"]}):
+            repo.insert_event(session, {
+                "instance_id": instance_id,
+                "kind": "assigned",
+                "to_deck": deck_id,
+            })
+
         deck_cards = repo.get_deck_cards(session, normalized["id"])
         instances = repo.list_instances(
             session, oracle_ids={c["oracle_id"] for c in deck_cards}

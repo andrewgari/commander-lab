@@ -258,6 +258,27 @@ def insert_instance(session: Session, inst: dict) -> bool:
     return True
 
 
+def rebind_instances(session: Session, existing_deck_ids: set[str]) -> list[tuple[str, str]]:
+    """Bind unbound migrated instances whose legacy deck ref now resolves.
+
+    The Redis registry stored a numeric Archidekt deck id per instance; when a
+    migration runs before the matching deck import, instances land unbound.
+    Re-running apply after the import binds them. Returns (instance_id,
+    deck_id) pairs that changed.
+    """
+    stmt = select(CardInstanceRow).where(
+        CardInstanceRow.deck_id.is_(None),
+        CardInstanceRow.legacy_deck_ref.isnot(None),
+    )
+    rebound: list[tuple[str, str]] = []
+    for row in session.scalars(stmt).all():
+        candidate = f"archidekt:{row.legacy_deck_ref}"
+        if candidate in existing_deck_ids:
+            row.deck_id = candidate
+            rebound.append((row.id, candidate))
+    return rebound
+
+
 def list_instances(
     session: Session,
     oracle_ids: Optional[Iterable[str]] = None,

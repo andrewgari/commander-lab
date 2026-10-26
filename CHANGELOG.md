@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Decks now have a Postgres-backed home: importing an Archidekt deck stores it alongside your physical card collection, and the new deck list and deck pages show a have/buy split (copies you own, have incoming, or still need to buy) plus a plain-language profile summary of the deck's mana curve and archetype mix.
+
 ### Fixed
 - Forge Honcho sync: pushing the play-style profile without HONCHO_API_KEY set, or with sync disabled/absent in ~/.honcho/config.json, now exits cleanly with a message saying exactly what to set instead of crashing — and nothing is sent or written when configuration is missing.
 - Brew page on phones: the step bar and donor deck details no longer run off the right edge of the screen (steps wrap onto two rows, donor details wrap under the deck name), and the Generate button is now tall enough to tap comfortably.

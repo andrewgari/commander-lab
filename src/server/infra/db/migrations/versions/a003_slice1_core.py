@@ -15,7 +15,7 @@ and ARCHITECTURE.md §4.2:
   board:         commander | main | sideboard | maybe | considering
   deck source:   archidekt | brew | draft | manual
   instance:      not_owned | in_mail | in_collection | in_deck
-  event kind:    acquired | assigned | unassigned | mailed | traded | lost
+  event kind:    acquired | assigned | unassigned | mailed | traded | lost | migrated
   trigger:       import | game | rating | manual | override
 """
 from __future__ import annotations
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS instance_events (
     instance_id VARCHAR(64) NOT NULL REFERENCES card_instances(id),
     ts          TIMESTAMPTZ NOT NULL DEFAULT now(),
     kind        VARCHAR(16) NOT NULL
-                CHECK (kind IN ('acquired','assigned','unassigned','mailed','traded','lost')),
+                CHECK (kind IN ('acquired','assigned','unassigned','mailed','traded','lost','migrated')),
     from_deck   VARCHAR(255),
     to_deck     VARCHAR(255),
     draft_id    VARCHAR(255),

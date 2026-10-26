@@ -200,6 +200,32 @@ def _seed_instances(factory, deck_id):
         repo.insert_instance(s, {"id": "i3", "oracle_id": "o-elves", "status": "in_mail"})
 
 
+def test_import_claims_migrated_instances(factory, fetcher):
+    """Migration before import: instances land unbound with a legacy_deck_ref;
+    importing the matching deck claims them before have/buy + snapshot."""
+    with session_scope(factory) as s:
+        repo.upsert_card(s, {"oracle_id": "o-elves", "name": "o-elves",
+                             "type_line": "Creature", "oracle_text": "",
+                             "mana_cost": "", "colors": [], "color_identity": [],
+                             "cmc": 1, "keywords": []})
+        repo.insert_instance(s, {"id": "i-mig", "oracle_id": "o-elves",
+                                 "status": "in_deck", "deck_id": None,
+                                 "legacy_deck_ref": "5054882"})
+        repo.insert_instance(s, {"id": "i-other", "oracle_id": "o-elves",
+                                 "status": "in_deck", "deck_id": None,
+                                 "legacy_deck_ref": "999999"})
+    out = import_service.import_archidekt_deck("5054882", session_factory=factory,
+                                               fetcher=fetcher)
+    with session_scope(factory) as s:
+        mine = [i for i in repo.list_instances(s) if i["id"] == "i-mig"][0]
+        other = [i for i in repo.list_instances(s) if i["id"] == "i-other"][0]
+        assert mine["deck_id"] == "archidekt:5054882"
+        assert other["deck_id"] is None
+        events = repo.event_counts_by_instance(s, ["i-mig", "i-other"])
+        assert events["i-mig"] == 1 and "i-other" not in events
+    assert out["have_buy"]["have"] >= 1
+
+
 def test_import_end_to_end(factory, fetcher):
     _seed_instances(factory, "archidekt:5054882")
     out = import_service.import_archidekt_deck("5054882", session_factory=factory,
