@@ -80,6 +80,13 @@
     var deleteBtn = document.getElementById("stDelete");
     var newBtn = document.getElementById("stNew");
     var entries = [];
+    // Card-name field: the shared CardAutocomplete component. base.html loads it
+    // with `defer`, so it does not exist yet while this inline script runs.
+    function attachCardAutocomplete() {
+        if (window.CardAutocomplete) CardAutocomplete.attach(cardEl, {});
+    }
+    if (window.CardAutocomplete) attachCardAutocomplete();
+    else document.addEventListener("DOMContentLoaded", attachCardAutocomplete);
     var editingCard = null;
 
     function setMsg(text, kind) {
