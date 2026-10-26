@@ -28,7 +28,6 @@
     var dirty = false, saving = false;
     var saveTimer = null;
     var dragPayload = null;
-    var ac = { items: [], active: -1, input: null, timer: null, box: null };
     // DT-3 printing picker state (spec §3.1/§3.3): one shared dropdown.
     var pp = { box: null, card: null };
 
@@ -191,6 +190,7 @@
     function render() {
         if (!S) return;
         $("tuneOvColumns").innerHTML = allColumns().map(colHtml).join("");
+        acAttachAll();
         var n = counts();
         $("tuneOvCount").textContent = n.total + " in decklist" + (n.dropped ? " · " + n.dropped + " excluded" : "");
         renderState();
@@ -294,62 +294,36 @@
         render();
     }
 
-    // ---- add-card autocomplete (over /api/decks/{id}/search) -----------------
-    function acClose() {
-        if (ac.box) ac.box.hidden = true;
-        ac.items = []; ac.active = -1; ac.input = null;
+    // ---- add-card autocomplete: the shared CardAutocomplete component ----------
+    // (card_autocomplete.js, GET /api/cards/autocomplete). The columns re-render
+    // wholesale, so inputs are (re)attached after every render; handles for
+    // inputs that left the DOM are destroyed.
+    var acHandles = [];
+    function acAttachAll() {
+        acHandles = acHandles.filter(function (h) {
+            if (document.body.contains(h.input)) return true;
+            h.destroy();
+            return false;
+        });
+        if (!window.CardAutocomplete) return;
+        document.querySelectorAll("#tuneOvColumns .tnov-add-input").forEach(function (input) {
+            if (acHandles.some(function (h) { return h.input === input; })) return;
+            acHandles.push(CardAutocomplete.attach(input, {
+                onSelect: function (card) {
+                    input.value = "";
+                    addCard(card.name, input.getAttribute("data-add-col"));
+                    input.focus();
+                },
+            }));
+        });
     }
-    function acPick(item) {
-        var input = ac.input;
-        acClose();
-        if (!input) return;
+    // Enter with no suggestion highlighted and no list open still adds the typed name.
+    function acEnterFallback(e) {
+        if (e.key !== "Enter" || e.defaultPrevented) return;
+        var input = e.target;
+        if (input.value.trim()) addCard(input.value, input.getAttribute("data-add-col"));
         input.value = "";
-        addCard(item.name, input.getAttribute("data-add-col"));
-        input.focus();
-    }
-    function acRender() {
-        var box = ac.box;
-        box.innerHTML = ac.items.map(function (it, i) {
-            return '<div class="tnov-ac-option' + (i === ac.active ? " is-active" : "") + '" role="option" data-ac="' + i + '">' +
-                '<span class="hud-card-name">' + esc(it.name) + "</span>" +
-                '<span class="tnov-ac-type">' + esc(it.type || "") + "</span></div>";
-        }).join("");
-        box.hidden = !ac.items.length;
-    }
-    function acSchedule(input) {
-        ac.input = input;
-        if (ac.timer) clearTimeout(ac.timer);
-        ac.timer = setTimeout(function () {
-            var q = input.value.trim();
-            if (q.length < 2) { acClose(); return; }
-            fetch(API + "/search?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (j) {
-                if (ac.input !== input || input.value.trim() !== q) return;
-                ac.items = (j.results || []).slice(0, 8);
-                ac.active = -1;
-                var host = input.closest(".tnov-add");
-                if (ac.box.parentNode !== host) host.appendChild(ac.box);
-                acRender();
-            }).catch(acClose);
-        }, 200);
-    }
-    function acKey(e) {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            if (!ac.items.length) return false;
-            var d = e.key === "ArrowDown" ? 1 : -1;
-            ac.active = (ac.active + d + ac.items.length) % ac.items.length;
-            acRender(); e.preventDefault(); return true;
-        }
-        if (e.key === "Escape") { acClose(); return true; }
-        if (e.key === "Enter") {
-            e.preventDefault();
-            var input = e.target;
-            if (ac.active >= 0 && ac.items[ac.active]) { acPick(ac.items[ac.active]); return true; }
-            acClose();
-            if (input.value.trim()) addCard(input.value, input.getAttribute("data-add-col"));
-            input.value = "";
-            return true;
-        }
-        return false;
+        e.preventDefault();
     }
 
     // ---- printing picker (DT-3, spec §3.1/§3.3) -------------------------------
@@ -496,15 +470,6 @@
             if (pp.box.contains(e.target) || e.target.closest("[data-print]")) return;
             ppClose();
         });
-        ac.box = document.createElement("div");
-        ac.box.className = "tnov-ac";
-        ac.box.setAttribute("role", "listbox");
-        ac.box.hidden = true;
-        ac.box.addEventListener("mousedown", function (e) {
-            var opt = e.target.closest("[data-ac]");
-            if (opt) { e.preventDefault(); acPick(ac.items[Number(opt.getAttribute("data-ac"))]); }
-        });
-
         var cols = $("tuneOvColumns");
         cols.addEventListener("click", function (e) {
             var rm = e.target.closest("[data-remove]");
@@ -514,16 +479,8 @@
             var fl = e.target.closest("[data-flag]");
             if (fl) toggleFlag(fl.getAttribute("data-flag"));
         });
-        cols.addEventListener("input", function (e) {
-            if (e.target.classList.contains("tnov-add-input")) acSchedule(e.target);
-        });
         cols.addEventListener("keydown", function (e) {
-            if (e.target.classList && e.target.classList.contains("tnov-add-input")) acKey(e);
-        });
-        cols.addEventListener("focusout", function (e) {
-            if (e.target.classList && e.target.classList.contains("tnov-add-input")) {
-                setTimeout(function () { if (document.activeElement !== ac.input) acClose(); }, 120);
-            }
+            if (e.target.classList && e.target.classList.contains("tnov-add-input")) acEnterFallback(e);
         });
         bindDnd(cols);
 
