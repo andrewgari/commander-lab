@@ -168,8 +168,8 @@ def _card_row_from_scryfall(card: dict) -> dict:
 
 
 def import_deck(session, identifier: str, *,
-                fetch_raw: Callable = archidekt.fetch_deck_raw,
-                fetch_cards: Callable = fetch_scryfall_cards,
+                fetch_raw: Optional[Callable] = None,
+                fetch_cards: Optional[Callable] = None,
                 snapshot: bool = True,
                 status: str = "virtual") -> dict:
     """Import one Archidekt deck into Postgres. Returns a summary dict.
@@ -177,7 +177,11 @@ def import_deck(session, identifier: str, *,
     ``session`` is the caller's unit of work (session_scope commits). Card
     facts missing on Scryfall are imported with name/type only and reported
     under "unresolved_cards" — the deck still imports (unavailable, not 0).
+
+    Fetchers default lazily so tests can monkeypatch the module attributes.
     """
+    fetch_raw = fetch_raw or archidekt.fetch_deck_raw
+    fetch_cards = fetch_cards or fetch_scryfall_cards
     raw = fetch_raw(identifier)
     parsed = parse_deck_payload(raw)
     if not parsed["deck_cards"]:

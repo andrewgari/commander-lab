@@ -70,6 +70,19 @@ import urllib.parse
 
 app = FastAPI()
 
+# Slice-1 Postgres-backed read/import routers (docs/ARCHITECTURE.md §8).
+# Mounted under /api/v2 so they coexist with the legacy Redis-backed /api/*
+# routes during the transition. Importing them never opens a DB connection.
+from src.server.app.api import decks as api_v2_decks  # noqa: E402
+from src.server.app.api import imports as api_v2_imports  # noqa: E402
+from src.server.app.api import instances as api_v2_instances  # noqa: E402
+from src.server.app.api import profile as api_v2_profile  # noqa: E402
+
+app.include_router(api_v2_decks.router)
+app.include_router(api_v2_imports.router)
+app.include_router(api_v2_instances.router)
+app.include_router(api_v2_profile.router)
+
 
 @app.exception_handler(WritesDisabledError)
 async def _writes_disabled_handler(request: Request, exc: WritesDisabledError):

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Archidekt decks can now be imported one-way into the new Postgres store (`POST /api/v2/imports/archidekt` or `python -m src.server.workers.importer <deck-id>`), and the new SvelteKit deck list and deck page show each imported deck with its have/buy split — what you own (in the deck or free in your collection), what's on the way, and what's left to buy — plus a plain-language profile summary of the deck's curve and roles. A scripted dry-run-first migration (`scripts/migrate_instances_to_pg.py`) moves collection instances from Redis to Postgres with a reconciliation report.
+
 ### Fixed
 - Forge Honcho sync: pushing the play-style profile without HONCHO_API_KEY set, or with sync disabled/absent in ~/.honcho/config.json, now exits cleanly with a message saying exactly what to set instead of crashing — and nothing is sent or written when configuration is missing.
 - Brew page on phones: the step bar and donor deck details no longer run off the right edge of the screen (steps wrap onto two rows, donor details wrap under the deck name), and the Generate button is now tall enough to tap comfortably.
