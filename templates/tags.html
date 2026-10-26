@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Tag Management | Commander Lab{% endblock %}
+{% block title %}Card Tags | Commander Lab{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -103,6 +103,16 @@
         color: #6b7280;
         font-size: 0.7rem;
     }
+
+    .card-tag-source {
+        margin-left: 0.3rem;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        opacity: 0.75;
+    }
+    .card-tag-source.learned { color: #93c5fd; }
+    .card-tag-source.manual { color: #fcd34d; }
     
     .btn {
         padding: 0.4rem 0.75rem;
@@ -164,20 +174,57 @@
 {% endblock %}
 
 {% block content %}
-<h1>Tag Management</h1>
+<h1>Card Tags</h1>
 
 <p style="color: #9ca3af; margin-bottom: 1.5rem;">
-    Lab Tags are your source of truth. Edit them here, then sync to Archidekt when ready.<br>
+    Lab Tags are your source of truth.<br>
     <strong>Right-click</strong> a tag in the cloud below to toggle its status as a <span style="color: #fcd34d;">Core Archetype Tag</span>.
 </p>
 
-<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-    <button class="btn btn-primary" onclick="syncAllDecks()">Sync All Decks to Archidekt</button>
-    <button class="btn" onclick="syncSelectedDecks()">Sync Selected Decks</button>
-</div>
-
 <div class="tag-cloud" id="tagCloud">
     <!-- Tags will be populated here -->
+</div>
+
+<h2 style="margin-top: 2rem;">Auto Tag Vocabulary</h2>
+<p style="color: #9ca3af; margin-bottom: 1rem;">
+    The Function/Theme tag names the Auto Tag engine is allowed to assign to cards. Deleting a
+    name here removes it from the vocabulary for good (it does not touch tags already saved on
+    decks). New names you add here have no matching rule yet, so they won't be auto-assigned --
+    they're available for manual tagging only.
+</p>
+<div id="autotagVocabError" class="tag-editor-msg" style="color: #f87171; display: none;"></div>
+<div class="autotag-vocab-groups" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
+    <div style="min-width: 260px;">
+        <h3 style="font-size: 0.95rem; color: #9ca3af;">Function Tags</h3>
+        <div id="autotagFunctionList" style="display: flex; flex-direction: column; gap: 0.4rem;"></div>
+        <div class="tag-input-row" style="margin-top: 0.75rem;">
+            <input type="text" id="autotagNewFunction" placeholder="New function tag name...">
+            <button class="btn" onclick="createAutotagTag('function')">Add</button>
+        </div>
+    </div>
+    <div style="min-width: 260px;">
+        <h3 style="font-size: 0.95rem; color: #9ca3af;">Theme Tags</h3>
+        <div id="autotagThemeList" style="display: flex; flex-direction: column; gap: 0.4rem;"></div>
+        <div class="tag-input-row" style="margin-top: 0.75rem;">
+            <input type="text" id="autotagNewTheme" placeholder="New theme tag name...">
+            <button class="btn" onclick="createAutotagTag('theme')">Add</button>
+        </div>
+    </div>
+</div>
+
+<h2 style="margin-top: 2rem;">Simulate focus chips</h2>
+<p style="color: #9ca3af; margin-bottom: 1rem;">
+    The Focus chips offered on a deck's Simulate tab, in the order shown. The telemetry key and
+    suggestion rules are optional and chosen from metrics Commander Lab already computes; a chip
+    with no rule is selectable but never suggested. Deleting a chip is final (it is never
+    re-seeded); past reports keep the label they were run with.
+</p>
+<div id="focusChipError" class="tag-editor-msg" style="color: #f87171; display: none;"></div>
+<div id="focusChipList" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;"></div>
+<div class="tag-input-row" style="margin-bottom: 2rem; flex-wrap: wrap;">
+    <input type="text" id="focusNewLabel" placeholder="New chip label..." maxlength="40">
+    <input type="text" id="focusNewHint" placeholder="Hint (what it emphasises)..." maxlength="140">
+    <button class="btn" onclick="createFocusChip()">Add</button>
 </div>
 
 <div class="search-container">
@@ -206,7 +253,7 @@
     <h3 style="margin-top: 0;">Edit Lab Tags for <span id="editCardName"></span></h3>
     
     <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
-        Lab tags apply to this card across all decks. Sync to Archidekt when ready.
+        Lab tags apply to this card across all decks.
     </p>
     
     <div class="tag-input-row">
@@ -232,7 +279,6 @@
     let allTags = [];
     let allCards = {};
     let currentEditCard = null;
-    let allDecks = [];
     
     async function loadTags() {
         const res = await fetch('/api/tags');
@@ -285,12 +331,6 @@
             opt.value = tag;
             datalist.appendChild(opt);
         });
-    }
-    
-    async function loadDecks() {
-        const res = await fetch('/api/decks');
-        const data = await res.json();
-        allDecks = data.decks;
     }
     
     function filterByTag(tag) {
@@ -354,9 +394,11 @@
             // Get tag stats
             const tagRes = await fetch(`/api/card/${encodeURIComponent(card.name)}/tags`);
             const tagData = await tagRes.json();
+            tagData.lab_tags = tagData.lab_tags || [];
+            tagData.archidekt_tags = tagData.archidekt_tags || [];
             
             // Filter by tag if needed
-            if (tagFilter && !tagData.lab_tags.includes(tagFilter)) {
+            if (tagFilter && !tagData.lab_tags.some(t => t.tag === tagFilter)) {
                 continue;
             }
             
@@ -365,9 +407,9 @@
             
             let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
             
-            // Show Lab tags (our source of truth)
+            // Show Lab tags (our source of truth), each labeled learned vs manual
             const labTagsHtml = tagData.lab_tags.map(t => 
-                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t}</span>`
+                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span></span>`
             ).join('');
             
             // Show Archidekt tags for reference (grayed out)
@@ -378,7 +420,7 @@
             const allTagsHtml = labTagsHtml + (archidektTagsHtml ? '<br>' + archidektTagsHtml : '');
             
             tr.innerHTML = `
-                <td class="mtg-font">${card.name} ${coreTagBadge}</td>
+                <td class="mtg-font"><span class="hud-cp-name" tabindex="0" data-card-preview${window.HUD ? HUD.cardRefAttrString(HUD.cardRef(Object.assign({}, (card.copies || []).find(c => c.uid) || (card.copies || [])[0] || {}, { name: card.name }))) : ''}>${card.name}</span> ${coreTagBadge}</td>
                 <td><div class="card-tags">${allTagsHtml || '<span style="color: #6b7280;">No tags</span>'}</div></td>
                 <td>${card.decks.size} decks</td>
                 <td><button class="btn btn-sm" onclick="openEditor('${card.name.replace(/'/g, "\\'")}')">Edit</button></td>
@@ -405,16 +447,16 @@
         const container = document.getElementById('currentTagsList');
         container.innerHTML = '';
         
-        // Show Lab tags (editable)
+        // Show Lab tags (editable), each tagged learned vs manual
         data.lab_tags.forEach(t => {
             const badge = document.createElement('span');
             badge.className = 'tag-badge';
             badge.style.background = '#1e40af';
             badge.style.borderColor = '#3b82f6';
-            badge.innerHTML = `${t}`;
-            badge.onclick = () => removeTag(t);
+            badge.innerHTML = `${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span>`;
+            badge.onclick = () => removeTag(t.tag);
             badge.style.cursor = 'pointer';
-            badge.title = 'Click to remove';
+            badge.title = `Click to remove (${t.source})`;
             container.appendChild(badge);
         });
         
@@ -440,81 +482,6 @@
                 badge.innerHTML = `${t.tag} <span style="margin-left: 0.5rem; color: #6b7280;">${t.count}/${t.total_decks}</span>`;
                 container.appendChild(badge);
             });
-        }
-    }
-    
-    async function syncAllDecks() {
-        if (!confirm('Sync ALL decks to Archidekt? This will overwrite all Archidekt tags with Lab tags.')) {
-            return;
-        }
-        
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = 'Syncing...';
-        
-        try {
-            const res = await fetch('/api/sync-tags', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ decks: [] })
-            });
-            
-            const result = await res.json();
-            
-            if (result.error) {
-                alert(`Error: ${result.error}`);
-            } else {
-                alert(`Synced ${result.synced_decks}/${result.total_decks} decks successfully!`);
-            }
-        } catch (e) {
-            alert(`Error: ${e.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Sync All Decks to Archidekt';
-        }
-    }
-    
-    async function syncSelectedDecks() {
-        const decks = prompt('Enter deck names separated by commas:');
-        if (!decks) return;
-        
-        const deckList = decks.split(',').map(d => d.trim()).filter(d => d);
-        
-        if (!confirm(`Sync ${deckList.length} deck(s) to Archidekt?`)) {
-            return;
-        }
-        
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = 'Syncing...';
-        
-        try {
-            const res = await fetch('/api/sync-tags', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ decks: deckList })
-            });
-            
-            const result = await res.json();
-            
-            if (result.error) {
-                alert(`Error: ${result.error}`);
-            } else {
-                let message = `Synced ${result.synced_decks}/${result.total_decks} decks successfully!\n\n`;
-                result.results.forEach(r => {
-                    if (r.success) {
-                        message += `✓ ${r.deck_name}: ${r.updated_count} cards updated\n`;
-                    } else {
-                        message += `✗ ${r.deck_name}: ${r.error}\n`;
-                    }
-                });
-                alert(message);
-            }
-        } catch (e) {
-            alert(`Error: ${e.message}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Sync Selected Decks';
         }
     }
     
@@ -570,8 +537,232 @@
     }
     
     // Initialize
-    Promise.all([loadTags(), loadDecks()]).then(() => {
+    Promise.all([loadTags()]).then(() => {
         fetchCards();
     });
+
+    // -- Auto Tag Vocabulary (Vocab cleanup PR4) --------------------------
+
+    function autotagVocabError(msg) {
+        const el = document.getElementById('autotagVocabError');
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+    }
+
+    function autotagTagRow(tag) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;';
+        const label = document.createElement('span');
+        label.textContent = tag.name;
+        label.style.cssText = 'flex:1;';
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'btn';
+        renameBtn.textContent = 'Rename';
+        renameBtn.onclick = () => renameAutotagTag(tag.id, tag.name);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = () => deleteAutotagTag(tag.id, tag.name);
+        row.append(label, renameBtn, delBtn);
+        return row;
+    }
+
+    async function loadAutotagTags() {
+        autotagVocabError(null);
+        const res = await fetch('/api/autotag-tags');
+        const data = await res.json();
+        const fnList = document.getElementById('autotagFunctionList');
+        const themeList = document.getElementById('autotagThemeList');
+        fnList.innerHTML = '';
+        themeList.innerHTML = '';
+        for (const tag of (data.tags || [])) {
+            const target = tag.category === 'function' ? fnList : themeList;
+            target.appendChild(autotagTagRow(tag));
+        }
+    }
+
+    async function createAutotagTag(category) {
+        const inputId = category === 'function' ? 'autotagNewFunction' : 'autotagNewTheme';
+        const input = document.getElementById(inputId);
+        const name = input.value.trim();
+        if (!name) return;
+        const res = await fetch('/api/autotag-tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, category })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) { autotagVocabError(data.error || 'Failed to add tag'); return; }
+        input.value = '';
+        loadAutotagTags();
+    }
+
+    async function renameAutotagTag(tagId, currentName) {
+        const name = prompt('Rename tag', currentName);
+        if (!name || name === currentName) return;
+        const res = await fetch(`/api/autotag-tags/${encodeURIComponent(tagId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) { autotagVocabError(data.error || 'Failed to rename tag'); return; }
+        loadAutotagTags();
+    }
+
+    async function deleteAutotagTag(tagId, name) {
+        if (!confirm(`Delete tag "${name}"? This cannot be undone.`)) return;
+        const res = await fetch(`/api/autotag-tags/${encodeURIComponent(tagId)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || data.error) { autotagVocabError(data.error || 'Failed to delete tag'); return; }
+        loadAutotagTags();
+    }
+
+    loadAutotagTags();
+
+    // -- Simulate focus chips (Manage editor; same pattern as the vocabulary above) --
+    let focusOpts = {telemetry_keys: [], rule_kinds: [], rule_rows: [], row_nouns: {}, limits: {label: 40, hint: 140}};
+    let focusChips = [];
+
+    function focusError(msg) {
+        const el = document.getElementById('focusChipError');
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+    }
+
+    function focusRuleOptions() {
+        const out = [];
+        for (const kind of focusOpts.rule_kinds) {
+            if (kind === 'below_target' || kind === 'below_floor') {
+                for (const row of focusOpts.rule_rows) {
+                    out.push({value: kind + '|' + row, label: (kind === 'below_target' ? 'Below template target: ' : 'Below floor: ') + (focusOpts.row_nouns[row] || row)});
+                }
+            } else {
+                out.push({value: kind + '|', label: kind === 'mv_at_least' ? 'High commander mana value' : 'Commander covers several core roles'});
+            }
+        }
+        return out;
+    }
+
+    function ruleLabel(rule) {
+        const o = focusRuleOptions().find(x => x.value === rule.kind + '|' + (rule.row || ''));
+        return o ? o.label : rule.kind;
+    }
+
+    async function focusCall(url, method, body) {
+        const res = await fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok || data.success === false || data.error) { focusError(data.error || data.detail || 'Request failed'); return null; }
+        focusError(null);
+        return data;
+    }
+
+    function focusSelect(options, current, blankLabel, onChange) {
+        const sel = document.createElement('select');
+        sel.style.cssText = 'margin:0;';
+        if (blankLabel !== null) sel.appendChild(new Option(blankLabel, ''));
+        for (const o of options) sel.appendChild(new Option(o.label, o.value));
+        sel.value = current || '';
+        sel.onchange = () => onChange(sel.value);
+        return sel;
+    }
+
+    function focusChipCard(chip, idx) {
+        const card = document.createElement('div');
+        card.className = 'focus-chip-card';
+        card.dataset.slug = chip.slug;
+        card.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:0.6rem;background:var(--nav-bg);display:flex;flex-direction:column;gap:0.4rem;';
+        const top = document.createElement('div');
+        top.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;';
+        const label = document.createElement('input');
+        label.type = 'text'; label.value = chip.label; label.maxLength = focusOpts.limits.label;
+        label.style.cssText = 'flex:1;margin:0;min-width:140px;';
+        label.setAttribute('aria-label', 'Chip label');
+        const hint = document.createElement('input');
+        hint.type = 'text'; hint.value = chip.hint; hint.maxLength = focusOpts.limits.hint;
+        hint.style.cssText = 'flex:2;margin:0;min-width:200px;';
+        hint.setAttribute('aria-label', 'Chip hint');
+        const save = document.createElement('button');
+        save.className = 'btn'; save.textContent = 'Save';
+        save.onclick = async () => { if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {label: label.value, hint: hint.value})) loadFocusChips(); };
+        const up = document.createElement('button');
+        up.className = 'btn'; up.textContent = '\u2191'; up.title = 'Move up'; up.disabled = idx === 0;
+        up.onclick = () => moveFocusChip(idx, -1);
+        const down = document.createElement('button');
+        down.className = 'btn'; down.textContent = '\u2193'; down.title = 'Move down'; down.disabled = idx === focusChips.length - 1;
+        down.onclick = () => moveFocusChip(idx, 1);
+        const del = document.createElement('button');
+        del.className = 'btn'; del.textContent = 'Delete';
+        del.onclick = () => deleteFocusChip(chip);
+        top.append(label, hint, save, up, down, del);
+
+        const meta = document.createElement('div');
+        meta.style.cssText = 'display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;font-size:0.8rem;color:#9ca3af;';
+        const keySel = focusSelect(focusOpts.telemetry_keys.map(k => ({value: k, label: k})), chip.telemetry_key, 'No telemetry key', async (v) => {
+            if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {telemetry_key: v || null})) loadFocusChips();
+        });
+        meta.append('Telemetry:', keySel, 'Suggest when:');
+        const rules = chip.rules || [];
+        if (!rules.length) {
+            const none = document.createElement('span'); none.textContent = 'never suggested (no rule)'; meta.appendChild(none);
+        }
+        rules.forEach((rule, i) => {
+            const tag = document.createElement('span');
+            tag.className = 'tag-badge'; tag.textContent = ruleLabel(rule) + ' \u00d7'; tag.style.cursor = 'pointer';
+            tag.title = 'Remove rule';
+            tag.onclick = async () => { if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {rules: rules.filter((_, j) => j !== i)})) loadFocusChips(); };
+            meta.appendChild(tag);
+        });
+        const addRule = focusSelect(focusRuleOptions(), '', '+ Add rule', async (v) => {
+            if (!v) return;
+            const [kind, row] = v.split('|');
+            const nr = Object.assign({kind}, row ? {row} : {});
+            if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'PUT', {rules: rules.concat([nr])})) loadFocusChips();
+        });
+        meta.appendChild(addRule);
+        card.append(top, meta);
+        return card;
+    }
+
+    async function loadFocusChips() {
+        const data = await focusCall('/api/sim/focus-chips?all=1', 'GET');
+        if (!data) return;
+        focusChips = data.chips || [];
+        if (data.options) focusOpts = data.options;
+        const list = document.getElementById('focusChipList');
+        list.innerHTML = '';
+        if (!focusChips.length) {
+            const empty = document.createElement('div'); empty.style.color = '#9ca3af'; empty.textContent = 'No focus chips.'; list.appendChild(empty);
+        }
+        focusChips.forEach((c, i) => list.appendChild(focusChipCard(c, i)));
+    }
+
+    async function createFocusChip() {
+        const label = document.getElementById('focusNewLabel');
+        const hint = document.getElementById('focusNewHint');
+        if (!label.value.trim()) { focusError('Label is required'); return; }
+        if (await focusCall('/api/sim/focus-chips', 'POST', {label: label.value, hint: hint.value || label.value})) {
+            label.value = ''; hint.value = '';
+            loadFocusChips();
+        }
+    }
+
+    async function moveFocusChip(idx, delta) {
+        const slugs = focusChips.map(c => c.slug);
+        const j = idx + delta;
+        if (j < 0 || j >= slugs.length) return;
+        [slugs[idx], slugs[j]] = [slugs[j], slugs[idx]];
+        if (await focusCall('/api/sim/focus-chips/order', 'PUT', {slugs})) loadFocusChips();
+    }
+
+    async function deleteFocusChip(chip) {
+        if (!confirm(`Delete focus chip "${chip.label}"? This cannot be undone.`)) return;
+        if (await focusCall('/api/sim/focus-chips/' + encodeURIComponent(chip.slug), 'DELETE')) loadFocusChips();
+    }
+
+    loadFocusChips();
 </script>
 {% endblock %}

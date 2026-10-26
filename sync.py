@@ -1,12 +1,15 @@
 import os
 import requests
-import redis
+import datastore
 from dotenv import load_dotenv
 import json
 from collections import defaultdict
 import time
 
 import cards as card_store
+import deck_slots
+import registry
+import lab_tags as lab_tag_store
 
 # Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
 # that the legacy card:{name} inventory keys have been purged. sync.py checks
@@ -31,12 +34,14 @@ if not ARCHIDEKT_USERNAME:
     print("Error: ARCHIDEKT_USERNAME environment variable not set.")
     exit(1)
 
-r = redis.from_url(REDIS_URL, decode_responses=True)
+r = datastore.from_url(REDIS_URL)
 
 # Categories that are structural, not thematic (preserve, don't learn from)
-STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering"}
+STRUCTURAL_CATEGORIES = {"Commander", "Sideboard", "Maybeboard", "Considering",
+                         "Planar Deck", "Scheme Deck", "Attraction Deck"}
 
 def sync_inventory():
+    datastore.assert_readwrite("sync_inventory")  # fail fast, before any fetching
     print(f"Fetching user ID for username: {ARCHIDEKT_USERNAME}...")
     # 1. Get user ID
     user_url = f"https://archidekt.com/api/users/?username={ARCHIDEKT_USERNAME}"
@@ -78,7 +83,8 @@ def sync_inventory():
     # Track which cards appear in which decks for cardinality calculation
     card_deck_appearances = defaultdict(set)
     
-    # Known folders for user 35025
+    # Display names for the account's folders. Display only: which decks are
+    # physical comes from the folder id (registry.physical_folder_id()).
     FOLDER_MAP = {
         588380: "Commander Decks",
         656395: "Test Decks",
@@ -98,17 +104,18 @@ def sync_inventory():
         if not color_code:
             color_code = "C"
             
-        parent_id = deck.get("parentFolderId") or deck.get("parentFolder")
-        folder_name = FOLDER_MAP.get(parent_id, f"Folder {parent_id}" if parent_id else "Loose Decks")
+        parent_id = registry.folder_id_of(deck.get("parentFolderId", deck.get("parentFolder")))
+        folder_name = deck.get("parentFolderName") or FOLDER_MAP.get(
+            parent_id, f"Folder {parent_id}" if parent_id else "Loose Decks")
         
-        # Determine status (lifecycle vocabulary: physical | digital | retired | testing)
+        # Lifecycle status (physical | digital | retired | testing) follows the
+        # physical-folder rule, applied after the merge below through
+        # registry.apply_folder_rules -> set_status (auto-bind on entering the
+        # folder, pending_removal on leaving it). A deck new to the registry
+        # starts with only its saved non-physical status, if any, so entering
+        # the folder is a real transition.
         saved_status = r.get(f"deck_status:{deck_id}")
-        if saved_status:
-            status = saved_status
-        elif folder_name == "Commander Decks":
-            status = "physical"
-        else:
-            status = "testing"
+        status = saved_status if saved_status in registry.EDITABLE_STATUSES else None
         
         deck_obj = {
             "id": deck_id,
@@ -118,7 +125,9 @@ def sync_inventory():
             "commander_uids": [],
             "folder": folder_name,
             "status": status,
-            "description": ""
+            "description": "",
+            "parent_folder_id": parent_id,
+            "theorycrafted": bool(deck.get("theorycrafted")),
         }
         deck_names.append(deck_obj)
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
@@ -132,7 +141,38 @@ def sync_inventory():
         time.sleep(0.5)
         
         cards = deck_data.get("cards", [])
-        
+
+        # Normalized mainboard cardlist (same shape as providers.archidekt
+        # fetch_deck): the folder rule's auto-bind needs it when a deck
+        # enters the physical folder during this sync. Non-mainboard cards
+        # land in named deck slots (deck_slots.DeckSlot): maybeboard /
+        # considering / planar_deck / scheme_deck / attraction_deck. The
+        # removed "Sideboard" category remaps to maybeboard (flagged).
+        mainboard = {}
+        slots = deck_slots.empty_slots()
+        parse_flags = []
+        for card in cards:
+            cats = card.get("categories") or []
+            oracle = card.get("card", {}).get("oracleCard", {})
+            nm = oracle.get("name")
+            if not nm:
+                continue
+            slot, remapped = deck_slots.classify_card_slot(cats, oracle.get("types"))
+            qty = card.get("quantity", 1) or 1
+            if slot == deck_slots.DeckSlot.MAINBOARD or "Commander" in cats:
+                mainboard[nm] = mainboard.get(nm, 0) + qty
+            else:
+                entry = {"name": nm, "quantity": qty}
+                if remapped:
+                    entry["remapped_from"] = "sideboard"
+                    deck_slots.flag_sideboard_remap(
+                        parse_flags, context=f"account sync deck {deck_name}", count=1
+                    )
+                slots[slot].append(entry)
+        deck_obj["cards"] = [{"name": n, "quantity": q} for n, q in mainboard.items()]
+        deck_obj["slots"] = slots
+        if parse_flags:
+            deck_obj["parse_flags"] = parse_flags
         for card in cards:
             categories = card.get("categories") or []
             if "Commander" in categories:
@@ -250,6 +290,9 @@ def sync_inventory():
                     "keywords": oracle_card.get("keywords", []),
                     "oracle_text": oracle_text,
                     "cmc": cmc,
+                    # Consumed by deck_validator.CardInfo.from_record.
+                    "types": card_types,
+                    "commander_legality": (oracle_card.get("legalities") or {}).get("commander"),
                 })
             
             for _ in range(quantity):
@@ -291,6 +334,8 @@ def sync_inventory():
                     if confidence >= 0.5 and tag not in STRUCTURAL_CATEGORIES:
                         high_conf_tags.append(tag)
                 lab_tags[card_name] = high_conf_tags
+                for tag in high_conf_tags:
+                    lab_tag_store.set_source(r, card_name, tag, lab_tag_store.LEARNED)
             else:
                 lab_tags[card_name] = []
     
@@ -312,13 +357,27 @@ def sync_inventory():
     # migration has already run and purged them (scripts/migrate_to_instances.py
     # --delete-old sets this marker). Without this guard, every sync run would
     # silently recreate the legacy keys that the migration just deleted.
-    if not r.get(MIGRATION_LEGACY_CARD_KEYS_PURGED):
+    if should_write_legacy_card_keys(r):
         for name, data in inventory.items():
             r.set(f"card:{name}", json.dumps(data))
     else:
         print("Migration marker found -- skipping legacy card:{name} write.")
         
-    r.set("decks", json.dumps(sorted(deck_names, key=lambda d: d["name"])))
+    # Merge into the registry instead of replacing the whole key. A plain
+    # r.set("decks", deck_names) used to drop every field this pull doesn't
+    # produce (links, source/registry_id, cards, moxfield_id) and every deck
+    # it didn't fetch (Moxfield copies). See registry.merge_full_sync.
+    existing_decks = registry.list_decks(r)
+    r.set(registry.DECKS_KEY, json.dumps(registry.merge_full_sync(existing_decks, deck_names)))
+    changed = registry.apply_folder_rules(r)
+    print(f"Physical-folder rule: {len(changed)} deck status change(s).")
+    # BR-5: nudge the bracket worker (separate process) to re-check decklists
+    # now. Best effort: the worker finds changed decks by input hash anyway.
+    try:
+        from analytics import bracket_worker
+        bracket_worker.wake(r)
+    except Exception as exc:  # noqa: BLE001 - must never fail the sync
+        print(f"Bracket worker wake skipped: {exc}")
         
     print(f"Sync complete! {len(inventory)} unique cards saved to inventory.")
 
