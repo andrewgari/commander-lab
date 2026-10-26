@@ -71,7 +71,7 @@
 		<ul class="cards">
 			{#each boards[board] as card (card.oracle_id + card.board)}
 				<li>
-					{card.qty}× {card.name}
+					{card.qty}× <a href="/card/{encodeURIComponent(card.oracle_id)}">{card.name}</a>
 					{#if card.buy > 0}<span class="buy-tag">buy {card.buy}</span>{/if}
 					{#if card.pending > 0}<span class="pending-tag">in mail</span>{/if}
 				</li>
