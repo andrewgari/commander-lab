@@ -194,6 +194,93 @@ export interface ForgeLogImportResult {
 	snapshot_id: number | null;
 }
 
+export interface DraftRecord {
+	id: string;
+	kind: string;
+	status: string;
+	name: string;
+	source_decks: Array<{ id: string; name: string }>;
+	target_name: string;
+	target_commanders: unknown[];
+	result_deck_id: string | null;
+	notes: string;
+	created_at: string | null;
+	updated_at: string | null;
+	closed_at: string | null;
+}
+
+export interface DraftCardLine {
+	oracle_id: string;
+	name: string;
+	qty: number;
+	board: string;
+	category: string | null;
+	type_line: string;
+	cmc: number;
+	color_identity: string[];
+	image_uri: string;
+}
+
+export interface DraftMoveLine {
+	instance_id: string;
+	action: string;
+	from_deck: string | null;
+	oracle_id: string;
+	card_name: string;
+	status: string;
+	deck_id: string | null;
+}
+
+export interface DraftState {
+	draft: DraftRecord;
+	cards: DraftCardLine[];
+	moves: DraftMoveLine[];
+}
+
+export interface DraftSuggestions {
+	adds: Array<{
+		oracle_id: string;
+		name: string;
+		tier: string;
+		qty_available: number;
+		score: number | null;
+		score_unavailable: boolean;
+		donor: { deck_id: string; replacement_oracle_id: string; replacement_name: string } | null;
+		reasons: string[];
+	}>;
+	hidden_donor_pulls: number;
+	hidden_reason: string | null;
+	cuts: Array<{
+		oracle_id: string;
+		name: string;
+		board: string | null;
+		weak_score: number;
+		parts: Record<string, number>;
+		reasons: string[];
+	}>;
+	inputs_unavailable: Record<string, string>;
+	note: string;
+}
+
+export interface ProvenancePath {
+	instance_id: string;
+	oracle_id: string;
+	card_name: string;
+	current_status: string;
+	current_deck_id: string | null;
+	steps: Array<{
+		ts: string | null;
+		kind: string;
+		from_deck: string | null;
+		from_deck_name: string | null;
+		to_deck: string | null;
+		to_deck_name: string | null;
+		draft_id: string | null;
+		summary: string;
+	}>;
+	count: number;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
 	const res = await fetch(`${API_URL}${path}`);
 	if (!res.ok) {
@@ -215,6 +302,21 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(body)
 	});
+	if (!res.ok) {
+		let reason = res.statusText;
+		try {
+			const payload = await res.json();
+			reason = payload?.detail?.reason ?? payload?.detail ?? reason;
+		} catch {
+			/* keep statusText */
+		}
+		throw new ApiError(res.status, String(reason));
+	}
+	return (await res.json()) as T;
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+	const res = await fetch(`${API_URL}${path}`, { method: 'DELETE' });
 	if (!res.ok) {
 		let reason = res.statusText;
 		try {

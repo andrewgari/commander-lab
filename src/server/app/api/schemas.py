@@ -298,3 +298,138 @@ class ReviewResponse(BaseModel):
     doc: dict = Field(default_factory=dict)
     created_at: Optional[str] = None
     jobs: list[ReviewJobRecord] = Field(default_factory=list)
+# --- Slice 5: draft mode (staging + one-transaction commit) -------------------
+
+class DraftCreateRequest(BaseModel):
+    kind: str = Field(description="combine (>=2 source decks) | dismantle (exactly 1)")
+    source_deck_ids: list[str] = Field(min_length=1)
+    name: str = Field(min_length=1, description="Draft session name")
+    target_name: str = Field(min_length=1, description="Name of the deck being built")
+    prefill: bool = Field(
+        default=False,
+        description="Seed staging from the source decks' lists (union; commander board wins)",
+    )
+    notes: str = ""
+
+
+class DraftRecord(BaseModel):
+    id: str
+    kind: str
+    status: str
+    name: str
+    source_decks: list[dict] = Field(default_factory=list)
+    target_name: str
+    target_commanders: list = Field(default_factory=list)
+    result_deck_id: Optional[str] = None
+    notes: str = ""
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    closed_at: Optional[str] = None
+
+
+class DraftListResponse(BaseModel):
+    drafts: list[DraftRecord]
+
+
+class DraftCardLine(BaseModel):
+    oracle_id: str
+    name: str
+    qty: int
+    board: str
+    category: Optional[str] = None
+    type_line: str = ""
+    cmc: float = 0
+    color_identity: list[str] = Field(default_factory=list)
+    image_uri: str = ""
+
+
+class DraftMoveLine(BaseModel):
+    instance_id: str
+    action: str
+    from_deck: Optional[str] = None
+    oracle_id: str
+    card_name: str
+    status: str
+    deck_id: Optional[str] = None
+
+
+class DraftStateResponse(BaseModel):
+    draft: DraftRecord
+    cards: list[DraftCardLine]
+    moves: list[DraftMoveLine]
+
+
+class DraftCardUpsertRequest(BaseModel):
+    oracle_id: str = Field(min_length=1)
+    qty: int = Field(ge=1)
+    board: str = Field(description="commander | main | sideboard | maybe | considering")
+    category: Optional[str] = None
+
+
+class DraftMoveRequest(BaseModel):
+    instance_id: str = Field(min_length=1)
+    action: str = Field(description="assign (into the result deck) | unassign (back to collection)")
+
+
+class DraftCommitResponse(BaseModel):
+    draft_id: str
+    deck_id: str
+    cards_written: int
+    moves_applied: int
+    events_written: int
+
+
+class DraftAbandonResponse(BaseModel):
+    draft_id: str
+    staged_cards_deleted: int
+    staged_moves_deleted: int
+
+
+class DraftSuggestionAdd(BaseModel):
+    oracle_id: str
+    name: str
+    tier: str
+    qty_available: int
+    score: Optional[float] = None
+    score_unavailable: bool = False
+    donor: Optional[dict] = None
+    reasons: list[str] = Field(default_factory=list)
+
+
+class DraftSuggestionCut(BaseModel):
+    oracle_id: str
+    name: str
+    board: Optional[str] = None
+    weak_score: float
+    parts: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+
+
+class DraftSuggestionsResponse(BaseModel):
+    adds: list[DraftSuggestionAdd]
+    hidden_donor_pulls: int = 0
+    hidden_reason: Optional[str] = None
+    cuts: list[DraftSuggestionCut]
+    inputs_unavailable: dict = Field(default_factory=dict)
+    note: str = ""
+
+
+class ProvenanceStep(BaseModel):
+    ts: Optional[str] = None
+    kind: str
+    from_deck: Optional[str] = None
+    from_deck_name: Optional[str] = None
+    to_deck: Optional[str] = None
+    to_deck_name: Optional[str] = None
+    draft_id: Optional[str] = None
+    summary: str
+
+
+class InstanceProvenanceResponse(BaseModel):
+    instance_id: str
+    oracle_id: str
+    card_name: str
+    current_status: str
+    current_deck_id: Optional[str] = None
+    steps: list[ProvenanceStep]
+    count: int
