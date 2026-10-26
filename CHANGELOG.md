@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Forge Honcho sync: pushing the play-style profile without HONCHO_API_KEY set, or with sync disabled/absent in ~/.honcho/config.json, now exits cleanly with a message saying exactly what to set instead of crashing — and nothing is sent or written when configuration is missing.
 - Brew page on phones: the step bar and donor deck details no longer run off the right edge of the screen (steps wrap onto two rows, donor details wrap under the deck name), and the Generate button is now tall enough to tap comfortably.
 - Brew deck page: its brew.js script tag is now versioned for cache-busting, matching the same fix applied to the Brew console page.
 - Brew page: the Commander field could keep showing no suggestions after an update because the page's script was the one asset loaded without the app's cache-busting version tag, so browsers could keep running the previous version; it is now versioned like every other asset.
