@@ -375,6 +375,39 @@ class TestChangelogRelativeAgeBehavior(unittest.TestCase):
         for x in r:
             self.assertNotRegex(x["text"], r"min|hour|just now")
 
+    def test_timestamp_yesterday_threshold(self):
+        import datetime as dt
+
+        # Under 24h elapsed the template says "N hours ago"; "yesterday" needs
+        # >=24h elapsed AND a previous calendar day. Yesterday 00:01 local
+        # satisfies both at any time of day (except the first minutes after
+        # midnight, which we skip to stay deterministic).
+        midnight = dt.datetime.combine(dt.date.today(), dt.time())
+        ts = midnight - dt.timedelta(days=1) + dt.timedelta(minutes=1)
+        if dt.datetime.now() - ts < dt.timedelta(hours=24, minutes=1):
+            self.skipTest("too close to local midnight")
+        attr = ts.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": attr, "text": "D"}])
+        self.assertEqual(r[0]["text"], "yesterday \u00b7 D")
+
+    def test_one_minute_band_is_not_just_now(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        iso = lambda s: (now - dt.timedelta(seconds=s)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": iso(s), "text": "D"} for s in (90, 110)])
+        for x in r:
+            self.assertEqual(x["text"], "1 min ago \u00b7 D")
+
+    def test_relative_age_precedes_formatted_date_in_output(self):
+        import datetime as dt
+
+        attr = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        text = self.run_cases([{"attr": attr, "text": "2026-09-29"}])[0]["text"]
+        self.assertLess(text.index("5 min ago"), text.index("2026-09-29"))
+
     def test_invalid_datetime_left_untouched(self):
         r = self.run_cases([{"attr": "garbage", "text": "D"}, {"attr": "", "text": "D"}])
         self.assertEqual([x["text"] for x in r], ["D", "D"])
