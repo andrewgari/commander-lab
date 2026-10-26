@@ -35,7 +35,10 @@ def test_golden_decks_complete():
     for s in slugs:
         lines = [l for l in (DECKS / s / "decklist.txt").read_text().splitlines() if l and not l.startswith("#")]
         assert sum(int(l.split(" ", 1)[0]) for l in lines) in (99, 100)
-        assert "must_mention: []" in (DECKS / s / "rubric.yaml").read_text()
+        text = (DECKS / s / "rubric.yaml").read_text()
+        assert "# DRAFT" not in text
+        # no yaml dependency in requirements.txt: a filled list is a header line followed by "  - " items
+        assert "must_mention:\n  - " in text, f"{s}: must_mention must be filled by the owner"
         json.loads((DECKS / s / "intent.json").read_text())
 
 

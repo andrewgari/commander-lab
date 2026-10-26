@@ -1,5 +1,7 @@
-must_mention: []        # findings a great review has to surface
-must_not_recommend: []  # cards/strategies that should never be suggested
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Aikido/punisher deck: turns opponents' damage against them. Hitting Andrew gives him tokens (via Darien), so opponents face a devil's choice between damaging him (feeding his board) or not attacking at all."
+must_not_recommend: []
 known_strengths: []
 known_flaws: []
-owner_would_reject: []  # suggestions Andrew would dismiss, and why
+owner_would_reject: []
