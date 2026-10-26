@@ -1,0 +1,100 @@
+import { error, fail, redirect } from '@sveltejs/kit';
+import {
+	apiDelete,
+	apiGet,
+	apiPost,
+	ApiError,
+	type DraftState,
+	type DraftSuggestions
+} from '#lib/api.ts';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async ({ params }) => {
+	let state: DraftState;
+	try {
+		state = await apiGet<DraftState>(`/api/v2/drafts/${params.id}`);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) error(404, 'Draft not found');
+		throw e;
+	}
+	let suggestions: DraftSuggestions | null = null;
+	let suggestionsError: string | null = null;
+	try {
+		suggestions = await apiGet<DraftSuggestions>(`/api/v2/drafts/${params.id}/suggestions`);
+	} catch (e) {
+		suggestionsError = e instanceof Error ? e.message : 'suggestions unavailable';
+	}
+	return { state, suggestions, suggestionsError };
+};
+
+function actionError(e: unknown) {
+	if (e instanceof ApiError) return fail(e.status, { actionError: e.message });
+	throw e;
+}
+
+export const actions: Actions = {
+	upsert_card: async ({ request, params }) => {
+		const form = await request.formData();
+		const oracle_id = String(form.get('oracle_id') ?? '').trim();
+		const name = String(form.get('name') ?? '').trim();
+		const qty = Number(form.get('qty') ?? 1);
+		const board = String(form.get('board') ?? 'main');
+		if (!oracle_id || !name || !Number.isFinite(qty) || qty < 1) {
+			return fail(400, { actionError: 'Card needs an oracle id, a name and a qty ≥ 1.' });
+		}
+		try {
+			await apiPost(`/api/v2/drafts/${params.id}/cards`, { oracle_id, name, qty, board });
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	remove_card: async ({ request, params }) => {
+		const form = await request.formData();
+		const oracle_id = String(form.get('oracle_id') ?? '');
+		const board = String(form.get('board') ?? 'main');
+		try {
+			await apiDelete(`/api/v2/drafts/${params.id}/cards/${oracle_id}/${board}`);
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	stage_move: async ({ request, params }) => {
+		const form = await request.formData();
+		const instance_id = String(form.get('instance_id') ?? '').trim();
+		const moveAction = String(form.get('move_action') ?? 'assign');
+		if (!instance_id) return fail(400, { actionError: 'Move needs an instance id.' });
+		try {
+			await apiPost(`/api/v2/drafts/${params.id}/moves`, { instance_id, action: moveAction });
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	unstage_move: async ({ request, params }) => {
+		const form = await request.formData();
+		const instance_id = String(form.get('instance_id') ?? '');
+		try {
+			await apiDelete(`/api/v2/drafts/${params.id}/moves/${instance_id}`);
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	commit: async ({ params }) => {
+		try {
+			const result = await apiPost<{ result_deck_id: string }>(
+				`/api/v2/drafts/${params.id}/commit`,
+				{}
+			);
+			redirect(303, `/decks?built=${result.result_deck_id}`);
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	abandon: async ({ params }) => {
+		try {
+			await apiPost(`/api/v2/drafts/${params.id}/abandon`, {});
+		} catch (e) {
+			return actionError(e);
+		}
+		redirect(303, '/drafts');
+	}
+};
