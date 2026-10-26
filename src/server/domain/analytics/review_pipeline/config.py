@@ -112,9 +112,9 @@ class PipelineConfig:
     max_tokens_a: int = 6000
     max_tokens_b: int = 8000
     max_tokens_c: int = 10000
-    max_tokens_critic: int = 6000
+    max_tokens_critic: int = 16000
     max_verify_loops: int = 2          # regenerate-then-recheck rounds before a failing item is removed (CONTRACT §3)
-    critic_batch: int = 20             # items judged per critic call
+    critic_batch: int = 10             # items judged per critic call
     pool_prompt_cards: int = 150       # cap on candidate-pool cards shown to Pass C
 
     def model(self, pass_name: str, axis_id: str | None = None) -> str:
