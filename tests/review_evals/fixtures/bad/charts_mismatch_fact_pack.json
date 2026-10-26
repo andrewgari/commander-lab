@@ -26,8 +26,49 @@
     },
     "charts": {
       "curve": {
-        "buckets": []
-      }
+        "fabricated": true
+      },
+      "pips_vs_sources": [
+        {
+          "color": "B",
+          "pips": 0,
+          "recommended_sources": 0,
+          "sources": 0
+        },
+        {
+          "color": "G",
+          "pips": 0,
+          "recommended_sources": 0,
+          "sources": 0
+        }
+      ],
+      "roles": [
+        {
+          "count": 0,
+          "role": "ramp",
+          "target_max": 11,
+          "target_min": 9
+        },
+        {
+          "count": 0,
+          "role": "draw",
+          "target_max": 13,
+          "target_min": 11
+        },
+        {
+          "count": 0,
+          "role": "targeted_removal",
+          "target_max": 13,
+          "target_min": 11
+        },
+        {
+          "count": 0,
+          "role": "wipes",
+          "target_max": 7,
+          "target_min": 5
+        }
+      ],
+      "synergy_clusters": []
     },
     "cuts_to_consider": [
       {

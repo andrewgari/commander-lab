@@ -25,8 +25,91 @@
     },
     "charts": {
       "curve": {
-        "buckets": []
-      }
+        "average_mv": 2.0,
+        "buckets": [
+          {
+            "count": 0,
+            "label": "0",
+            "mv": 0
+          },
+          {
+            "count": 0,
+            "label": "1",
+            "mv": 1
+          },
+          {
+            "count": 4,
+            "label": "2",
+            "mv": 2
+          },
+          {
+            "count": 0,
+            "label": "3",
+            "mv": 3
+          },
+          {
+            "count": 0,
+            "label": "4",
+            "mv": 4
+          },
+          {
+            "count": 0,
+            "label": "5",
+            "mv": 5
+          },
+          {
+            "count": 0,
+            "label": "6",
+            "mv": 6
+          },
+          {
+            "count": 0,
+            "label": "7+",
+            "mv": 7
+          }
+        ]
+      },
+      "pips_vs_sources": [
+        {
+          "color": "B",
+          "pips": 0,
+          "recommended_sources": 0,
+          "sources": 0
+        },
+        {
+          "color": "G",
+          "pips": 0,
+          "recommended_sources": 0,
+          "sources": 0
+        }
+      ],
+      "roles": [
+        {
+          "count": 0,
+          "role": "ramp",
+          "target_max": 11,
+          "target_min": 9
+        },
+        {
+          "count": 0,
+          "role": "draw",
+          "target_max": 13,
+          "target_min": 11
+        },
+        {
+          "count": 0,
+          "role": "targeted_removal",
+          "target_max": 13,
+          "target_min": 11
+        },
+        {
+          "count": 0,
+          "role": "wipes",
+          "target_max": 7,
+          "target_min": 5
+        }
+      ],
+      "synergy_clusters": []
     },
     "cuts_to_consider": [
       {
@@ -47,7 +130,7 @@
       ],
       "deck_id": "fixture-meren",
       "deck_name": "Meren fixture",
-      "fact_pack_hash": "da202a4f2e222fe7936a350d5fdc0596b8059d235f1e381cce5e10f08229387e"
+      "fact_pack_hash": "e851af1531356e5b49c74f1f4e30aba8b88cfc4430350938ac83775252fad05c"
     },
     "problems": [
       {

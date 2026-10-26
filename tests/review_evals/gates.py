@@ -15,8 +15,6 @@ every gate returns zero violations. Gates never call an LLM or the network.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -40,10 +38,9 @@ class EvalContext:
 
 # ---------------------------------------------------------------- helpers
 
-def fact_pack_hash(fact_pack: dict[str, Any]) -> str:
-    """sha256 over canonical JSON (sorted keys, no whitespace)."""
-    blob = json.dumps(fact_pack, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(blob.encode()).hexdigest()
+def fact_pack_hash(fact_pack: Any) -> str:
+    """The fact pack's own hash (``FactPack.hash``), which is what ``meta.fact_pack_hash`` carries."""
+    return fact_pack.hash
 
 
 def fresh_fact_pack(deck: dict[str, Any], scryfall: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -205,11 +202,11 @@ def charts_mismatch_fact_pack(doc, ctx):
     if fresh is None:
         return [Violation("charts_mismatch_fact_pack", "no fresh fact pack supplied; cannot verify")]
     out = []
-    want = fact_pack_hash(fresh)
+    want = fresh.hash
     got = (doc.get("meta") or {}).get("fact_pack_hash")
     if got != want:
         out.append(Violation("charts_mismatch_fact_pack", f"meta.fact_pack_hash {str(got)[:12]}... != fresh {want[:12]}..."))
-    if "charts" in fresh and doc.get("charts") != fresh["charts"]:
+    if doc.get("charts") != fresh.get("charts"):
         out.append(Violation("charts_mismatch_fact_pack", "charts differ from fresh fact pack charts"))
     return out
 

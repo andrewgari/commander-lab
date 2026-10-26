@@ -51,11 +51,12 @@ def base_case() -> dict:
                    "owned": False, "price": 1.0}],
         "cuts_to_consider": [{"card": ref("Sakura-Tribe Elder"), "reason": "Low impact here.", "evidence": ["roles.ramp.count"]}],
         "bracket": {"estimated": 2, "target": 3, "reasons": ["No tutors"]},
-        "charts": {"curve": {"buckets": []}},
+        "charts": {},
     }
     case = {"deck": deck, "scryfall": sc, "review": doc}
     pack = fresh_fact_pack(deck, sc)
     doc["meta"]["fact_pack_hash"] = fact_pack_hash(pack)
+    doc["charts"] = json.loads(json.dumps(pack["charts"]))
     return case
 
 
@@ -81,7 +82,7 @@ def bad_cases() -> dict[str, dict]:
         "swaps_exceed_target_bracket": _mut("swaps_exceed_target_bracket", lambda c: (c["review"]["bracket"].update(estimated=3, target=3), sw(c)[0].update(bracket_effect="raises"))),
         "unresolved_finding_id": _mut("unresolved_finding_id", lambda c: sw(c)[0].update(resolves_finding_id="p-does-not-exist")),
         "empty_evidence": _mut("empty_evidence", lambda c: c["review"]["problems"][0].update(evidence={"cards": [], "fact_keys": []})),
-        "charts_mismatch_fact_pack": _mut("charts_mismatch_fact_pack", lambda c: c["review"]["meta"].update(fact_pack_hash="0" * 64)),
+        "charts_mismatch_fact_pack": _mut("charts_mismatch_fact_pack", lambda c: (c["review"]["meta"].update(fact_pack_hash="0" * 64), c["review"]["charts"].update(curve={"fabricated": True}))),
     }
 
 
