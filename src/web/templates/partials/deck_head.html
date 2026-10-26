@@ -40,6 +40,40 @@
 </span>
 {%- endmacro %}
 
+{#- Copy decklist (deck pages only — decks.html never imports this partial).
+    One click copies export_decklist_text() output via /api/deck/{name}/decklist;
+    the ⚙ panel picks the paste format (persisted in localStorage by
+    static/js/decklist_copy.js) and the sideboard/maybeboard/printing toggles.
+    Clipboard failure shows the error and a select-all textarea fallback. -#}
+{% macro copy_control(head) -%}
+<div class="hud-copydeck" id="copyDeck" data-deck-name="{{ head.name }}">
+    <button type="button" class="hud-btn" id="copyDeckBtn" title="Copy the decklist as text (Plain format; more formats under ⚙)">Copy decklist</button>
+    <button type="button" class="hud-btn hud-btn--sm" id="copyDeckOptBtn" aria-expanded="false" aria-controls="copyDeckPanel" title="Decklist copy options" aria-label="Decklist copy options">⚙</button>
+    <span class="hud-copydeck-msg" id="copyDeckMsg" role="status" aria-live="polite"></span>
+    <div class="hud-copydeck-panel" id="copyDeckPanel" hidden>
+        <label class="hud-field">
+            <span class="hud-field-label">Format</span>
+            <select id="copyDeckFormat">
+                <option value="plain" selected>Plain</option>
+                <option value="archidekt">Archidekt</option>
+                <option value="moxfield">Moxfield</option>
+                <option value="forge">Forge</option>
+                <option value="tcgplayer">TCGplayer</option>
+            </select>
+        </label>
+        <span class="hud-toggles">
+            <label class="hud-toggle"><input type="checkbox" id="copyDeckSideboard"> Sideboard</label>
+            <label class="hud-toggle"><input type="checkbox" id="copyDeckMaybeboard"> Maybeboard</label>
+            <label class="hud-toggle"><input type="checkbox" id="copyDeckPrinting"> Printing</label>
+        </span>
+        <div class="hud-copydeck-fallback" id="copyDeckFallback" hidden>
+            <p class="hud-copydeck-fallback-note" id="copyDeckFallbackNote">Clipboard copy failed — select all and copy manually:</p>
+            <textarea id="copyDeckText" readonly rows="10" aria-label="Decklist text for manual copy"></textarea>
+        </div>
+    </div>
+</div>
+{%- endmacro %}
+
 {% macro header(head, active) -%}
 {%- set base = "/deck/" ~ (head.name | urlencode) -%}
 {#- NAV_IA_PROPOSAL.md §3.2: tab order and job statements are binding (designer). -#}
@@ -75,7 +109,7 @@
             {{ genre_strip(head.genre, "/deck/" ~ (head.name | urlencode) ~ "/journal#j-genre") }}
         </div>
     </div>
-    <div class="hud-deckhead-actions">{% if caller %}{{ caller() }}{% endif %}</div>
+    <div class="hud-deckhead-actions">{% if caller %}{{ caller() }}{% endif %}{%- if head.found %}{{ copy_control(head) }}{% endif %}</div>
 </header>
 <style>
     /* NAV_IA §3.2: visible key caps on deck tabs (the .hud-kbd component, spaced
@@ -114,4 +148,5 @@
 </div>
 <script src="/static/js/deck_analytics.js?v={{ version }}"></script>
 <script src="/static/js/brackets.js?v={{ version }}"></script>
+<script src="/static/js/decklist_copy.js?v={{ version }}"></script>
 {%- endmacro %}
