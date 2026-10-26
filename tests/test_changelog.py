@@ -275,5 +275,113 @@ class TestChangelog(unittest.TestCase):
         self.assertIn("changelog-scrollable", html)
 
 
+import re as _re
+import shutil as _shutil
+import subprocess as _subprocess
+from pathlib import Path as _Path
+
+_TEMPLATE = _Path(__file__).resolve().parent.parent / "src/web/templates/changelog.html"
+
+_HARNESS = r"""
+const js = process.argv[1];
+const cases = JSON.parse(process.argv[2]);
+const out = [];
+for (const c of cases) {
+  let htmlWrites = 0;
+  const el = {
+    textContent: c.text,
+    getAttribute: (k) => (k === 'datetime' ? c.attr : null),
+    set innerHTML(v) { htmlWrites++; },
+  };
+  global.document = { querySelectorAll: (s) => (s === 'time[data-rel]' ? [el] : []) };
+  eval(js);
+  out.push({ text: el.textContent, htmlWrites });
+}
+console.log(JSON.stringify(out));
+"""
+
+
+@unittest.skipUnless(_shutil.which("node"), "node not installed")
+class TestChangelogRelativeAgeBehavior(unittest.TestCase):
+    """Executes the inline script under node with a stub DOM."""
+
+    @classmethod
+    def setUpClass(cls):
+        html = _TEMPLATE.read_text()
+        cls.js = _re.search(r"<script>(.*?)</script>", html, _re.S).group(1)
+
+    def run_cases(self, cases):
+        p = _subprocess.run(
+            ["node", "-e", _HARNESS, self.js, json.dumps(cases)],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return json.loads(p.stdout)
+
+    def test_timestamp_thresholds(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+
+        def iso(**kw):
+            return (now - dt.timedelta(**kw)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        spec = [
+            (dict(seconds=30), "just now"),
+            (dict(minutes=5), "5 min ago"),
+            (dict(minutes=30), "30 min ago"),
+            (dict(minutes=59), "59 min ago"),
+            (dict(hours=1, minutes=1), "1 hour ago"),
+            (dict(hours=3, minutes=1), "3 hours ago"),
+            (dict(hours=23), "23 hours ago"),
+        ]
+        cases = [{"attr": iso(**k), "text": "D"} for k, _ in spec]
+        for (_, want), got in zip(spec, self.run_cases(cases)):
+            self.assertEqual(got["text"], f"{want} \u00b7 D")
+
+    def test_older_timestamps(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        iso = lambda d: (now - dt.timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cases = [{"attr": iso(d), "text": "D"} for d in (3, 8, 13, 30)]
+        r = self.run_cases(cases)
+        self.assertEqual(r[0]["text"], "3 days ago \u00b7 D")
+        self.assertEqual(r[1]["text"], "last week \u00b7 D")
+        self.assertEqual(r[2]["text"], "last week \u00b7 D")
+        self.assertEqual(r[3]["text"], "D")  # too old: plain date only
+
+    def test_date_only_never_minutes_or_hours(self):
+        import datetime as dt
+
+        today = dt.date.today()
+        cases = [
+            {"attr": (today - dt.timedelta(days=d)).isoformat(), "text": "D"}
+            for d in (0, 1, 8, 40)
+        ]
+        r = self.run_cases(cases)
+        self.assertEqual(r[0]["text"], "today \u00b7 D")
+        self.assertEqual(r[1]["text"], "yesterday \u00b7 D")
+        self.assertEqual(r[2]["text"], "last week \u00b7 D")
+        self.assertEqual(r[3]["text"], "D")
+        for x in r:
+            self.assertNotRegex(x["text"], r"min|hour|just now")
+
+    def test_invalid_datetime_left_untouched(self):
+        r = self.run_cases([{"attr": "garbage", "text": "D"}, {"attr": "", "text": "D"}])
+        self.assertEqual([x["text"] for x in r], ["D", "D"])
+
+    def test_injected_text_uses_textcontent_not_innerhtml(self):
+        import datetime as dt
+
+        evil = "<img src=x onerror=alert(1)>"
+        attr = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        r = self.run_cases([{"attr": attr, "text": evil}])[0]
+        self.assertEqual(r["htmlWrites"], 0)
+        self.assertEqual(r["text"], f"5 min ago \u00b7 {evil}")
+
+
 if __name__ == "__main__":
     unittest.main()
