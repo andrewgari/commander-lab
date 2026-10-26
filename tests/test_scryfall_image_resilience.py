@@ -5,7 +5,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-SI_JS = Path(__file__).resolve().parent.parent / "static" / "js" / "scryfall_image.js"
+SI_JS = Path(__file__).resolve().parent.parent / "src/web/static" / "js" / "scryfall_image.js"
 
 HARNESS = r"""
 const path = process.argv[1];

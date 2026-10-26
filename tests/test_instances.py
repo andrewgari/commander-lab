@@ -12,8 +12,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import instances as instance_store
-from instances import InstanceError
+import src.server.domain.inventory.instances as instance_store
+from src.server.domain.inventory.instances import InstanceError
 
 
 class FakeRedis:
@@ -227,7 +227,7 @@ class TestInstanceRegistry(unittest.TestCase):
         self.assertEqual(len(sol_ring_in_deck), 2)
 
     def test_physical_deck_lock_blocks_direct_transition(self):
-        import registry
+        import src.server.domain.decks.registry as registry
 
         instance_store.create_instance(
             self.r, card_name="Sol Ring", ownership_status="in_deck", deck_id="archidekt:1", deck_name="Deck A"

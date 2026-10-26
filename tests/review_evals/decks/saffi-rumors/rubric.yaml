@@ -1,0 +1,10 @@
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Combo deck; primary win is the Karmic Guide + Reveillark loop, using Saffi's own ability to recur creatures infinitely."
+  - "Game plan is play safe / pillowfort first, then combo out."
+must_not_recommend:
+  - "Adding aggro or combat-focused cards (the deck is pillowfort + combo, not combat)."
+known_strengths: []
+known_flaws: []
+owner_would_reject:
+  - "Adding aggro or combat-focused cards (the deck is pillowfort + combo, not combat)."

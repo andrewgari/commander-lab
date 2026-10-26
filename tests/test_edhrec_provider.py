@@ -22,9 +22,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests
 
-from analytics import default_registry, get_provider
-from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
-from analytics.providers.edhrec import (
+from src.server.domain.analytics import default_registry, get_provider
+from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
+from src.server.domain.analytics.providers.edhrec import (
     EDHRecClient,
     EDHRecNotFoundError,
     EDHRecProvider,

@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   test:
@@ -17,6 +18,19 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: commander_lab_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -39,7 +53,7 @@ jobs:
 
       - name: Verify Python syntax
         run: |
-          python -m py_compile app.py sync.py scripts/*.py tests/*.py
+          python -m py_compile src/server/app/main.py src/server/workers/sync.py scripts/*.py tests/*.py
 
       - name: Run unit tests
         env:
@@ -48,14 +62,21 @@ jobs:
         run: |
           python -m unittest discover -s tests
 
+      - name: Review eval gates (offline)
+        run: |
+          pip install pyyaml
+          make eval-gates
+          python -m pytest -q tests/test_review_evals.py
+
       # These modules are written as pytest functions/fixtures/parametrize, which
       # unittest discovery does not collect, so run them with pytest explicitly.
       - name: Run pytest-style tests
         env:
           REDIS_URL: redis://localhost:6379/0
           INTERACTIONS_DISABLED: "1"
+          TEST_DATABASE_URL: postgresql://test:test@localhost:5432/commander_lab_test
         run: |
-          python -m pytest -q tests/test_card_eval.py tests/test_card_review.py
+          python -m pytest -q tests/test_card_eval.py tests/test_card_review.py tests/test_pg_store.py tests/test_deck_writeup.py tests/test_primer_builder.py tests/test_honcho_push.py tests/test_slice1.py tests/test_forge_import.py tests/test_draft_mode.py tests/test_index_rebuild.py tests/test_card_dossier.py tests/test_fact_pack.py tests/test_fact_pack_reviewer.py tests/test_candidate_pool.py tests/test_candidate_invariants.py
 
       # Real app on real Redis with a scripted LLM. The suite skips when Redis is
       # unreachable, so require 0 skipped to make sure it actually ran.
@@ -117,7 +138,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           INTERACTIONS_DISABLED: "1"
         run: |
-          nohup python -m uvicorn app:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
+          nohup python -m uvicorn src.server.app.main:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
           for i in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/ > /dev/null && exit 0
             sleep 1
@@ -131,6 +152,13 @@ jobs:
           INTERACTIONS_DISABLED: "1"
         run: |
           python -m pytest tests/e2e/test_deck_genre_e2e.py --base-url http://127.0.0.1:8000 -v
+
+      - name: Run Decklist Copy e2e tests
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          python -m pytest tests/e2e/test_decklist_copy_e2e.py --base-url http://127.0.0.1:8000 -v
 
       - name: Run Decommission e2e tests
         env:
@@ -166,6 +194,8 @@ jobs:
   docker:
     name: Build & Push Docker Image
     needs: test
+    # PRs build only when labeled `docker`; pushes to main always build+push.
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'docker')
     runs-on: ubuntu-latest
     permissions:
       contents: read

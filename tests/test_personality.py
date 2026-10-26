@@ -16,7 +16,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import personality as ps  # noqa: E402
+from src.server.domain.analytics import personality as ps  # noqa: E402
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "personality_real_decks.json")
 AXES = ("timmy", "johnny", "spike", "vorthos", "melvin")
