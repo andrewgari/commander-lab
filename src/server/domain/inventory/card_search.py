@@ -330,10 +330,39 @@ async def search_commanders(r, query, limit=None):
     return {"results": results, "source": "scryfall", "degraded": False}
 
 
+def _enrich_from_scryfall(names, headers):
+    """Fetch full Scryfall card objects for exact names in ONE request (the
+    same card objects the commander scope shapes). Returns {casefolded name
+    or front-face name: card}. Raises on any HTTP/parse error so the caller
+    can skip caching a thinly-enriched result."""
+    if not names:
+        return {}
+    clauses = ['!"%s"' % n.replace("\\", "").replace('"', "") for n in names]
+    resp = httpx.get(
+        SCRYFALL_SEARCH,
+        params={"q": " or ".join(clauses), "unique": "cards", "order": "name"},
+        headers=headers, timeout=8.0,
+    )
+    if resp.status_code != 200:
+        raise ValueError(f"scryfall enrichment status {resp.status_code}")
+    by_name = {}
+    for card in resp.json().get("data") or []:
+        if not isinstance(card, dict):
+            continue
+        full = (card.get("name") or "").casefold()
+        if full:
+            by_name.setdefault(full, card)
+            by_name.setdefault(full.split(" // ")[0], card)
+    return by_name
+
+
 async def search_cards(r, query, limit=DEFAULT_LIMIT):
     """Default (any-card) autocomplete: Scryfall GET /cards/autocomplete for
-    names, enriched from local card_meta:* where the card is known locally.
-    Degrades to a pure local substring match on Scryfall error."""
+    names, then ONE Scryfall card lookup so every row carries the full contract
+    (uid/image/type_line/colors/...) -- the same shaping the commander scope
+    uses. A name Scryfall does not return falls back to local card_meta; if the
+    lookup itself fails the rows are locally enriched and NOT cached.
+    Degrades to a pure local substring match on autocomplete error."""
     scope = "cards"
     limit = _clamp_limit(limit)
 
@@ -341,10 +370,11 @@ async def search_cards(r, query, limit=DEFAULT_LIMIT):
     if cached is not None:
         return {"results": cached[:limit], "source": "cache", "degraded": False}
 
+    headers = _headers(scope)
     try:
         resp = httpx.get(
             SCRYFALL_AUTOCOMPLETE,
-            params={"q": query}, headers=_headers(scope), timeout=8.0,
+            params={"q": query}, headers=headers, timeout=8.0,
         )
         if resp.status_code != 200:
             raise ValueError(f"scryfall autocomplete status {resp.status_code}")
@@ -356,9 +386,24 @@ async def search_cards(r, query, limit=DEFAULT_LIMIT):
             "source": "local", "degraded": True,
         }
 
-    results = [_shape_local(name, _local_meta(r, name)) for name in names]
+    enriched = True
+    try:
+        cards = _enrich_from_scryfall(names, headers)
+    except Exception:
+        cards, enriched = {}, False
 
-    _write_cache(r, scope, query, results)
+    results = []
+    for name in names:
+        card = cards.get(name.casefold())
+        if card:
+            row = _shape_card(card)
+            row["name"] = name
+            results.append(row)
+        else:
+            results.append(_shape_local(name, _local_meta(r, name)))
+
+    if enriched:
+        _write_cache(r, scope, query, results)
     return {"results": results, "source": "scryfall", "degraded": False}
 
 

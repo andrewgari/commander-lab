@@ -104,7 +104,13 @@ class TestJournalPage(_JournalPage, unittest.TestCase):
         self.assertRegex(self.body, r'<ul class="hud-picker-list" id="petList" role="listbox"')
         self.assertIn('"Plains"', self.body)  # the deck's card list is embedded for autocomplete
         self.assertIn("hud-chip-remove", self.body)
-        self.assertIn("Autocomplete from this deck's list only.", self.body)
+        self.assertIn("Suggests cards from this deck first, then any card.", self.body)
+        # Shared endpoint, not local-only: an endpoint failure must reach the
+        # component's error row instead of a misleading "No matches".
+        self.assertNotRegex(self.body, r"endpoint:\s*null")
+        attach = self.body.split("CardAutocomplete.attach(petInput", 1)[1].split("});", 1)[0]
+        self.assertNotIn("endpoint", attach)  # defaults to /api/cards/autocomplete
+        self.assertIn("extraSource", attach)
 
     def test_pillars_link(self):
         self.assertIn('href="/deck/Holy%20Hellfire/identity"', self.body)
