@@ -6,7 +6,7 @@ import json
 import unittest
 from pathlib import Path
 
-from user_intent import (
+from src.server.domain.intake.user_intent import (
     ALLOWED_DECK_INTENTS,
     ALLOWED_POWER_TIERS,
     ALLOWED_WIN_CONDITIONS,
@@ -18,7 +18,7 @@ from user_intent import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SCHEMAS_DIR = BASE_DIR / "schemas"
+SCHEMAS_DIR = BASE_DIR / "src" / "server" / "domain" / "intake" / "schemas"
 EXAMPLES_DIR = SCHEMAS_DIR / "examples"
 
 

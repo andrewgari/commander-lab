@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from app import app
-import instances as instance_store
-from instances import InstanceError
-import registry
+from src.server.app.main import app
+import src.server.domain.inventory.instances as instance_store
+from src.server.domain.inventory.instances import InstanceError
+import src.server.domain.decks.registry as registry
 
 
 class FakeRedis:
@@ -201,7 +201,7 @@ class TestResyncReviewAPI(unittest.TestCase):
         self.registry_id = "archidekt:42"
 
         # Mock global redis in app
-        self.redis_patcher_app = patch("app.r", self.r)
+        self.redis_patcher_app = patch("src.server.app.main.r", self.r)
         self.redis_patcher_app.start()
 
         # Seed a physical deck with 2 cards

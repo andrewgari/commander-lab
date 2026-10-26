@@ -19,14 +19,16 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from analytics import journal, tuner
-from app import app
+import src.server.app.main as app_mod
+from src.server.domain.analytics import journal, tuner
+from src.server.app.main import app
 from tests.test_deck_stats_ui import DECK, DECK_JS, HUD_JS, _DeckPage, _classes
 from tests.test_interactions import FakeRedis
 from tests.test_tuner import COMP, WEAK, cand
 
-TEMPLATE = app_mod.os.path.join(app_mod.os.path.dirname(app_mod.__file__), "templates", "deck_tune.html")
+TEMPLATE = app_mod.os.path.join(
+    app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.__file__)))),
+    "src/web/templates", "deck_tune.html")
 
 
 class _TunePage(_DeckPage):
@@ -43,14 +45,14 @@ class _TunePage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual(tabs[4][0], "/deck/Holy%20Hellfire/tune")
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual(tabs[2][0], "/deck/Holy%20Hellfire/tune")
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
 
     def test_tune_badge_is_the_open_count(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
-        self.assertRegex(nav, r'/tune"[^>]*>Tune <span class="hud-tab-count">9</span>')
+        self.assertRegex(nav, r'/tune"[^>]*><span class="hud-kbd"[^>]*>3</span>Tune <span class="hud-tab-count">9</span>')
 
 
 class TestTunePage(_TunePage, unittest.TestCase):
@@ -155,13 +157,43 @@ class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
         self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
 
 
+CSS = TEMPLATE.replace("src/web/templates/deck_tune.html", "src/web/static/css/hud.css")
+
+
+class TestDismissedCutsUI(_TunePage, unittest.TestCase):
+    """DT-5: cut recommendations render red, each is dismissible per card, and
+    a dismissal is durable — dismissed cuts never re-flag."""
+
+    def test_cut_side_of_a_swap_renders_red(self):
+        with open(CSS, encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn(".hud-swap-out .hud-label { color: var(--danger);", css)
+        self.assertIn(".hud-swap-out .hud-card-name { color: var(--danger);", css)
+
+    def test_dismissed_rows_stay_marked_red_and_offer_undo(self):
+        with open(CSS, encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn(".tn-ignored .hud-card-name { color: var(--danger);", css)
+        self.assertIn('class="tn-ignored"', self.body)
+        self.assertIn('H.chip("ignored", "danger")', self.body)
+        self.assertIn("data-undismiss", self.body)
+
+    def test_dismissed_cuts_are_filtered_from_saved_snapshots(self):
+        self.assertIn("dismissed.indexOf(s.cut.name) === -1", self.body)
+        self.assertIn("w.dismissed = true; w.has_swap = false", self.body)
+
+    def test_undismiss_handler_clears_the_durable_flag(self):
+        self.assertIn("function undismissCut(name)", self.body)
+        self.assertIn('send("PUT", "/tune/decisions", { cut: name, decision: null, add: null })', self.body)
+
+
 class TestTuneStateAPI(unittest.TestCase):
     def setUp(self):
         self.fake = FakeRedis()
         self.client = TestClient(app)
         self.patches = [patch.object(app_mod, "r", self.fake),
-                        patch("app.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[DECK])]
+                        patch("src.server.app.main.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
+                        patch("src.server.app.main.registry.list_decks", return_value=[DECK])]
         for p in self.patches:
             p.start()
         self.addCleanup(lambda: [p.stop() for p in self.patches])
@@ -180,6 +212,15 @@ class TestTuneStateAPI(unittest.TestCase):
 
     def test_state_unknown_deck_404(self):
         self.assertEqual(self.client.get("/api/decks/archidekt:999/tune/state").status_code, 404)
+
+    # DT-5: dismissal is durable and exposed on the state route; undo clears it.
+    def test_state_returns_durable_dismissals(self):
+        base = "/api/decks/archidekt:417707/tune"
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": "dismissed"})
+        j = self.client.get(base + "/state").json()
+        self.assertEqual(j["dismissed"], ["Weak Plan"])
+        self.client.put(base + "/decisions", json={"cut": "Weak Plan", "decision": None})
+        self.assertEqual(self.client.get(base + "/state").json()["dismissed"], [])
 
 
 class TestCheckinFinishLandsOnTune(unittest.TestCase):
@@ -211,9 +252,9 @@ class TestTuneAPI(unittest.TestCase):
         deck = dict(DECK, cards=[{"name": n, "quantity": 1} for n in ("Kaalia of the Vast", "Weak Plan", "Weak Removal",
                                                                        "Pet Card", "Okay Plan")])
         self.patches = [patch.object(app_mod, "r", self.fake),
-                        patch("app.registry.find_deck", side_effect=lambda r, d: deck if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[deck]),
-                        patch("app.tuner_mod.compute", side_effect=_fake_compute)]
+                        patch("src.server.app.main.registry.find_deck", side_effect=lambda r, d: deck if d in ("archidekt:417707", "417707") else None),
+                        patch("src.server.app.main.registry.list_decks", return_value=[deck]),
+                        patch("src.server.app.main.tuner_mod.compute", side_effect=_fake_compute)]
         for p in self.patches:
             p.start()
 
@@ -222,7 +263,7 @@ class TestTuneAPI(unittest.TestCase):
             p.stop()
 
     def test_unknown_deck_404(self):
-        with patch("app.registry.find_deck", return_value=None), patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.find_deck", return_value=None), patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/api/decks/nope/tune").status_code, 404)
 
     def test_tune_payload_and_caps(self):
@@ -251,8 +292,8 @@ class TestTuneAPI(unittest.TestCase):
         self.assertEqual(self.client.post("/api/decks/archidekt:417707/tune/pet", json={"name": "Nope"}).status_code, 400)
 
     def test_why_without_llm_is_502_but_keeps_numbers(self):
-        from analytics.interactions import llm as llm_mod
-        with patch("analytics.interactions.llm.default_chain", return_value=llm_mod.LLMChain([])):
+        from src.server.domain.analytics.interactions import llm as llm_mod
+        with patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=llm_mod.LLMChain([])):
             res = self.client.post("/api/decks/archidekt:417707/tune/why", json={})
         self.assertEqual(res.status_code, 502)
         body = res.json()
@@ -261,7 +302,7 @@ class TestTuneAPI(unittest.TestCase):
 
     def test_finish_checkin_goes_to_tune(self):
         journal.save_journal(self.fake, DECK, {"target_power_level": {"scale": 7}})
-        with patch("analytics.journal.collect_context", return_value={"power": 6.5}):
+        with patch("src.server.domain.analytics.journal.collect_context", return_value={"power": 6.5}):
             self.client.post("/api/decks/archidekt:417707/checkin")
         res = self.client.post("/api/decks/archidekt:417707/checkin/finish", json={})
         self.assertEqual(res.json()["next"], "/deck/Holy%20Hellfire/tune")

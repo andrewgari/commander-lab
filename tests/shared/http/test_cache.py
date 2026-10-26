@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from src.shared.http.cache import CachedResponse, TTLCache, make_cache_key
+from src.server.infra.http.cache import CachedResponse, TTLCache, make_cache_key
 
 
 def run(coro):

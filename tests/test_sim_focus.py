@@ -10,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import sim_focus as sf
-from analytics import sim_service as svc
+from src.server.domain.analytics import sim_focus as sf
+from src.server.domain.analytics import sim_service as svc
 from tests.test_sim_service_and_api import Base, FakeOracle, FakeSim, good_reply, run_sync
 from tests.test_sim_store_and_diff import FakeRedis
 
@@ -181,7 +181,7 @@ class TestRunPersistence(Base):
         self.assertIsNone(svc.focus_view(self.r, changed)["saved"])
 
     def test_legacy_report_defaults(self):
-        from analytics import sim_store
+        from src.server.domain.analytics import sim_store
         from tests.test_sim_store_and_diff import make_report
         rep = make_report()
         rep.pop("params", None)
@@ -192,10 +192,10 @@ class TestRunPersistence(Base):
 
 
 class TestUi(unittest.TestCase):
-    JS = (ROOT / "static" / "js" / "deck_sim.js").read_text()
+    JS = (ROOT / "src/web/static" / "js" / "deck_sim.js").read_text()
 
     def test_no_test_notes_string(self):
-        for p in ("static", "templates", "docs", "analytics", "tests"):
+        for p in ("src/web/static", "src/web/templates", "docs", "src/server/domain/analytics", "tests"):
             for f in (ROOT / p).rglob("*"):
                 if f.is_file() and f.suffix in (".js", ".html", ".py", ".md", ".css") and f.name != "test_sim_focus.py":
                     self.assertNotRegex(f.read_text(errors="ignore"), r"(?i)test notes", str(f))
@@ -235,7 +235,7 @@ setTimeout(()=>{
   process.stdout.write(JSON.stringify(out));
 },50);
 """
-        res = subprocess.run([node, "-e", script, str(ROOT / "static/js/deck_sim.js")], capture_output=True, text=True, timeout=15)
+        res = subprocess.run([node, "-e", script, str(ROOT / "src/web/static/js/deck_sim.js")], capture_output=True, text=True, timeout=15)
         self.assertEqual(res.returncode, 0, res.stderr)
         out = json.loads(res.stdout)
         self.assertTrue(out["html_has_pressed"], out)

@@ -26,11 +26,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import insights
-from analytics import journal
-from analytics import prices
+from src.server.domain.analytics import insights
+from src.server.domain.analytics import journal
+from src.server.domain.analytics import prices
 from tests.test_interactions import FakeRedis
-from user_intent import load_schema, parse_user_intent, resolve_intent_defaults, validate_intent
+from src.server.domain.intake.user_intent import load_schema, parse_user_intent, resolve_intent_defaults, validate_intent
 
 DECK = {"id": 417707, "name": "Holy Hellfire", "registry_id": "archidekt:417707", "commanders": ["Kaalia of the Vast"],
         "cards": [{"name": "Kaalia of the Vast", "quantity": 1}, {"name": "Platinum Angel", "quantity": 1},
@@ -527,7 +527,7 @@ class TestPrices(unittest.TestCase):
                                       {"name": "Blood Crypt", "prices": {"usd": "17.50"}}]})
 
         s = Session()
-        with patch("analytics.prices.time.sleep"):
+        with patch("src.server.domain.analytics.prices.time.sleep"):
             out = prices.scryfall_fetch(["Sol Ring", "Blood Crypt"], session=s)
         self.assertEqual(out, {"Sol Ring": 2.0, "Blood Crypt": 17.5})
         self.assertEqual(s.searches, ['!"Blood Crypt" (usd>0 or usdfoil>0)'])
@@ -536,15 +536,15 @@ class TestPrices(unittest.TestCase):
 class TestJournalRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
-        import app as app_mod
+        from src.server.app.main import app
+        import src.server.app.main as app_mod
         self.app_mod = app_mod
         self.client = TestClient(app)
         self.fake = FakeRedis()
         self.patches = [patch.object(app_mod, "r", self.fake),
-                        patch("app.registry.find_deck", return_value=DECK),
-                        patch("app.registry.list_decks", return_value=[DECK]),
-                        patch("app.journal_mod.collect_context", side_effect=lambda r, deck, rec=None: ctx())]
+                        patch("src.server.app.main.registry.find_deck", return_value=DECK),
+                        patch("src.server.app.main.registry.list_decks", return_value=[DECK]),
+                        patch("src.server.app.main.journal_mod.collect_context", side_effect=lambda r, deck, rec=None: ctx())]
         for p in self.patches:
             p.start()
 
@@ -553,7 +553,7 @@ class TestJournalRoutes(unittest.TestCase):
             p.stop()
 
     def test_unknown_deck_404(self):
-        with patch("app.registry.find_deck", return_value=None), patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.find_deck", return_value=None), patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/api/decks/nope/journal").status_code, 404)
             self.assertEqual(self.client.post("/api/decks/nope/checkin").status_code, 404)
 

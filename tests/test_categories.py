@@ -10,11 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_module
-import tags as tag_store
-from analytics import categories as C
-from analytics import category_describe as D
-from analytics import composition as comp
+import src.server.app.main as app_module
+import src.server.domain.tags.deck_tags as tag_store
+from src.server.domain.analytics import categories as C
+from src.server.domain.analytics import category_describe as D
+from src.server.domain.analytics import composition as comp
 
 
 class FakeRedis:
@@ -485,7 +485,7 @@ class TestRoutes(unittest.TestCase):
 
     def test_describe_route(self):
         chain = FakeChain({"description": "Cards that sacrifice creatures.", "rule": "autotag:sacrifice"})
-        with patch("analytics.interactions.llm.default_chain", return_value=chain):
+        with patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=chain):
             ok = self.c.post("/api/categories/describe", json={"name": "Sac outlets", "deck_id": RID})
             self.assertEqual(ok.status_code, 200, ok.text)
             self.assertEqual(ok.json()["rule"], "autotag:sacrifice")
@@ -493,10 +493,10 @@ class TestRoutes(unittest.TestCase):
             self.assertEqual((alias.status_code, alias.json()["error_kind"], alias.json()["core_id"]), (422, "alias", "finisher"))
             self.assertEqual(len(chain.calls), 1)                              # alias never reached the model
             self.assertEqual(self.c.post("/api/categories/describe", json={}).status_code, 422)
-        with patch("analytics.interactions.llm.default_chain", return_value=FakeChain(None, available=False)):
+        with patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=FakeChain(None, available=False)):
             res = self.c.post("/api/categories/describe", json={"name": "Zed"})
             self.assertEqual((res.status_code, res.json()["error_kind"]), (503, "no_llm"))
-        with patch("analytics.interactions.llm.default_chain", return_value=FakeChain(None)):
+        with patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=FakeChain(None)):
             self.assertEqual(self.c.post("/api/categories/describe", json={"name": "Zed"}).status_code, 502)
         self.assertNotIn("categories:global", self.r.store)   # describe never saves
 

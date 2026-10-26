@@ -20,13 +20,13 @@ import unittest
 # Ensure repo root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
-from analytics.report import (
+from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
+from src.server.domain.analytics.report import (
     DeckReportFormatter,
     DeckReview,
     generate_deck_review,
 )
-from user_intent import DeckVision, TargetPowerLevel, UserDeckIntent
+from src.server.domain.intake.user_intent import DeckVision, TargetPowerLevel, UserDeckIntent
 
 
 class TestDeckReportFormatter(unittest.TestCase):

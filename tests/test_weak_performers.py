@@ -23,9 +23,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import edhrec_inclusion
-from analytics import weak_performers as weak
-from analytics.interactions import graph as graph_mod
+from src.server.domain.analytics import edhrec_inclusion
+from src.server.domain.analytics import weak_performers as weak
+from src.server.domain.analytics.interactions import graph as graph_mod
 from tests.test_interactions import FakeRedis
 from tests.test_pillar_fit import load_hh
 
@@ -167,13 +167,13 @@ class TestDeckWeakPerformers(unittest.TestCase):
 class TestRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
+        from src.server.app.main import app
         self.client = TestClient(app)
         self.deck, _ = load_hh()
 
-    @patch("app.interactions_service")
-    @patch("app.insights")
-    @patch("app.registry")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.insights")
+    @patch("src.server.app.main.registry")
     def test_weak_route(self, mock_registry, mock_weak, mock_graph):
         mock_registry.find_deck.return_value = self.deck
         mock_graph.get_deck_graph.return_value = {"nodes": [], "edges": []}
@@ -183,8 +183,8 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(res.json()["weak_performers"]["cards"][0]["name"], "Platinum Angel")
         self.assertEqual(mock_weak.deck_weak_performers.call_args.kwargs["limit"], 5)
 
-    @patch("app.insights")
-    @patch("app.registry")
+    @patch("src.server.app.main.insights")
+    @patch("src.server.app.main.registry")
     def test_edhrec_route(self, mock_registry, mock_inc):
         mock_registry.find_deck.return_value = self.deck
         mock_inc.deck_edhrec.return_value = {"decks_sampled": 40240, "per_card": []}

@@ -30,7 +30,7 @@ logs:
 restart: down up
 
 sync:
-	docker compose exec app python sync.py
+	docker compose exec app python -m src.server.workers.sync
 
 # Deck Genre: refresh the Kindred autocomplete's creature-type list from Scryfall into Redis.
 # Optional: the app falls back to the snapshot in deck_genre.py.

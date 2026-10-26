@@ -23,7 +23,7 @@ from typing import List, Optional
 # Ensure repository root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.aggregator import (
+from src.server.domain.analytics.aggregator import (
     AggregatedAnalyticsReport,
     AnalyticsSummary,
     ConsolidatedMetrics,
@@ -32,8 +32,8 @@ from analytics.aggregator import (
     aggregate_deck_analytics,
     coerce_to_decklist_input,
 )
-from analytics.exceptions import AnalyticsProviderError
-from analytics.models import (
+from src.server.domain.analytics.exceptions import AnalyticsProviderError
+from src.server.domain.analytics.models import (
     CardCutRecommendation,
     CardRecommendation,
     CardRecommendations,
@@ -50,8 +50,8 @@ from analytics.models import (
     SaltScore,
     SynergyMetric,
 )
-from analytics.provider import BaseAnalyticsProvider
-from analytics.registry import AnalyticsProviderRegistry
+from src.server.domain.analytics.provider import BaseAnalyticsProvider
+from src.server.domain.analytics.registry import AnalyticsProviderRegistry
 
 
 # =============================================================================
@@ -511,7 +511,7 @@ class TestDeckAnalyticsAggregator(unittest.TestCase):
 
     def test_functional_convenience_api(self) -> None:
         # Patch default_aggregator's registry with our test registry
-        from analytics.aggregator import default_aggregator
+        from src.server.domain.analytics.aggregator import default_aggregator
         orig_registry = default_aggregator.registry
         try:
             default_aggregator.registry = self.registry
