@@ -124,6 +124,59 @@ class ProfileLatestResponse(BaseModel):
     snapshot: Optional[ProfileSnapshot] = None
 
 
+class ProfileHistoryResponse(BaseModel):
+    snapshots: list[ProfileSnapshot]
+
+
+class ProfileOverride(BaseModel):
+    key: str
+    value: Optional[object] = None
+    set_at: Optional[str] = None
+
+
+class ProfileOverridesResponse(BaseModel):
+    overrides: dict[str, ProfileOverride]
+    known_keys: dict[str, str] = Field(
+        default_factory=dict,
+        description="override key -> human label, for the override controls")
+
+
+class OverridePutRequest(BaseModel):
+    value: Optional[object] = Field(
+        default=None, description="typed per key; null clears the override")
+
+
+class OverridePutResponse(BaseModel):
+    override: ProfileOverride
+    snapshot_id: int
+
+
+class InventoryRow(BaseModel):
+    oracle_id: str
+    name: str
+    type_line: str = ""
+    image_uri: str = ""
+    owned: int = 0
+    in_collection: int = 0
+    in_deck: int = 0
+    in_mail: int = 0
+    not_owned: int = 0
+    decks: list[str] = Field(default_factory=list)
+
+
+class InventoryTotals(BaseModel):
+    cards: int
+    owned: int
+    in_collection: int
+    in_deck: int
+    in_mail: int
+
+
+class InventoryResponse(BaseModel):
+    inventory: list[InventoryRow]
+    totals: InventoryTotals
+
+
 # --- Slice 4: games on demand -------------------------------------------------
 
 class ForgeLogImportRequest(BaseModel):

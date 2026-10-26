@@ -19,6 +19,8 @@ from curve math — never treated as MV 0.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 UNCATEGORIZED = "Uncategorized"
 
 _COLOR_GROUP_NAMES = {
@@ -102,7 +104,26 @@ def compute_archetype_mix(deck_cards: list) -> dict:
     }
 
 
-def build_summary(deck: dict, curve: dict, mix: dict, ownership: dict) -> str:
+def build_power_sentence(power: Optional[dict]) -> str:
+    """One plain-language sentence from the power metric (or why it's missing)."""
+    if not power:
+        return ""
+    if not power.get("available"):
+        return f"Power level unavailable: {power.get('reason')}."
+    text = (
+        f"It plays around bracket {power['estimated_bracket']}"
+        f" ({power.get('bracket_name')}), estimated power level"
+        f" {power['power_level']:g}/10"
+    )
+    if power.get("game_changers"):
+        n = power["game_changers"]
+        text += f" with {n} Game Changer{'s' if n != 1 else ''}"
+    text += "."
+    return text
+
+
+def build_summary(deck: dict, curve: dict, mix: dict, ownership: dict,
+                  power: Optional[dict] = None) -> str:
     """Deterministic plain-language summary from computed metrics."""
     name = deck.get("name") or "This deck"
     colors = color_group_name(deck.get("color_identity") or [])
@@ -134,6 +155,9 @@ def build_summary(deck: dict, curve: dict, mix: dict, ownership: dict) -> str:
         else:
             own += " — the deck is fully assembled."
         parts.append(own)
+    power_sentence = build_power_sentence(power)
+    if power_sentence:
+        parts.append(power_sentence)
     if curve.get("unavailable", {}).get("count"):
         parts.append(
             f"Curve data unavailable for {curve['unavailable']['count']} card(s): "
@@ -142,7 +166,8 @@ def build_summary(deck: dict, curve: dict, mix: dict, ownership: dict) -> str:
     return " ".join(parts)
 
 
-def build_snapshot(deck: dict, deck_cards: list, have_buy: dict, collection: dict) -> dict:
+def build_snapshot(deck: dict, deck_cards: list, have_buy: dict, collection: dict,
+                   power: Optional[dict] = None) -> dict:
     """Assemble the (inputs, metrics, summary_text) triple for one snapshot."""
     curve = compute_curve(deck_cards)
     mix = compute_archetype_mix(deck_cards)
@@ -150,6 +175,7 @@ def build_snapshot(deck: dict, deck_cards: list, have_buy: dict, collection: dic
         "curve": curve,
         "archetype_mix": mix,
         "ownership": have_buy.get("totals", {}),
+        "power": power or {"available": False, "reason": "power not computed"},
     }
     inputs = {
         "deck_id": deck.get("id"),
@@ -161,5 +187,5 @@ def build_snapshot(deck: dict, deck_cards: list, have_buy: dict, collection: dic
     return {
         "inputs": inputs,
         "metrics": metrics,
-        "summary_text": build_summary(deck, curve, mix, have_buy),
+        "summary_text": build_summary(deck, curve, mix, have_buy, power),
     }

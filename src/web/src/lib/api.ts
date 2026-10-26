@@ -49,6 +49,58 @@ export interface ProfileSnapshot {
 	summary_text: string;
 }
 
+export interface ProfileLatestResponse {
+	available: boolean;
+	reason: string | null;
+	snapshot: ProfileSnapshot | null;
+}
+
+export interface ProfileHistoryResponse {
+	snapshots: ProfileSnapshot[];
+}
+
+export interface ProfileOverride {
+	key: string;
+	value: unknown;
+	set_at: string | null;
+}
+
+export interface ProfileOverridesResponse {
+	overrides: Record<string, ProfileOverride>;
+	known_keys: Record<string, string>;
+}
+
+export interface OverridePutResponse {
+	override: ProfileOverride;
+	snapshot_id: number;
+}
+
+export interface InventoryRow {
+	oracle_id: string;
+	name: string;
+	type_line: string;
+	image_uri: string;
+	owned: number;
+	in_collection: number;
+	in_deck: number;
+	in_mail: number;
+	not_owned: number;
+	decks: string[];
+}
+
+export interface InventoryTotals {
+	cards: number;
+	owned: number;
+	in_collection: number;
+	in_deck: number;
+	in_mail: number;
+}
+
+export interface InventoryResponse {
+	inventory: InventoryRow[];
+	totals: InventoryTotals;
+}
+
 export interface DeckDetail {
 	deck: {
 		id: string;
@@ -183,4 +235,23 @@ export class ApiError extends Error {
 	) {
 		super(message);
 	}
+}
+
+export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(`${API_URL}${path}`, {
+		method: 'PUT',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) {
+		let reason = res.statusText;
+		try {
+			const data = await res.json();
+			reason = data?.detail?.reason ?? data?.detail ?? reason;
+		} catch {
+			/* keep statusText */
+		}
+		throw new ApiError(res.status, String(reason));
+	}
+	return (await res.json()) as T;
 }
