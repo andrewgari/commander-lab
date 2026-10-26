@@ -29,6 +29,8 @@ BASE = read("src/web/templates/base.html")
 BREW_HTML = read("src/web/templates/brew.html")
 BREW_DECK_HTML = read("src/web/templates/brew_deck.html")
 BREW_JS = read("src/web/static/js/brew.js")
+CARD_AUTOCOMPLETE_JS = read("src/web/static/js/card_autocomplete.js")
+HUD_CSS = read("src/web/static/css/hud.css")
 
 
 class TestBrewNavEntry(unittest.TestCase):
@@ -57,6 +59,11 @@ class TestBrewNavEntry(unittest.TestCase):
 
 
 class TestCommanderAutocomplete(unittest.TestCase):
+    """The brew commander field is the shared CardAutocomplete component
+    (card_autocomplete.js); brew.js only attaches it and keeps its
+    state.commanders/pickCommander/syncRail semantics. Behavior contracts pin
+    the component file; the brew.js pins cover the wiring."""
+
     def test_hooks_present(self):
         for hook in ('id="brewCmdSearch"', 'id="brewCmdResults"',
                      'id="brewCmdError"', 'id="brewCmdSelected"'):
@@ -67,26 +74,57 @@ class TestCommanderAutocomplete(unittest.TestCase):
         self.assertIn('aria-controls="brewCmdResults"', BREW_HTML)
         self.assertIn('role="listbox"', BREW_HTML)
 
+    def test_component_is_loaded_versioned(self):
+        self.assertIn('/static/js/card_autocomplete.js?v={{ version }}', BASE)
+
+    def test_brew_attaches_shared_component(self):
+        self.assertIn("CardAutocomplete.attach(cmdInput", BREW_JS)
+        self.assertIn('listEl: $("brewCmdResults")', BREW_JS)
+        self.assertIn("commandersOnly: true", BREW_JS)
+        # Enter with no arrow-highlight commits the top suggestion, so a full
+        # typed name + Enter enables Generate (residual brew picker bug).
+        self.assertIn('commitOnEnter: "first"', BREW_JS)
+
     def test_debounced_live_search(self):
         # Suggestions must appear while typing, not on exact-match submit.
-        self.assertIn('cmdInput.addEventListener("input"', BREW_JS)
-        self.assertRegex(BREW_JS, r"debounce = setTimeout\(runSearch, \d+\)")
-        self.assertIn('fetchJSON("/api/brew/commanders?q="', BREW_JS)
+        self.assertIn('inputEl.addEventListener("input"', CARD_AUTOCOMPLETE_JS)
+        self.assertRegex(CARD_AUTOCOMPLETE_JS, r"debounce = setTimeout\(runSearch, debounceMs\)")
+        self.assertIn('"/api/cards/autocomplete"', CARD_AUTOCOMPLETE_JS)
+        self.assertIn("fetch(url)", CARD_AUTOCOMPLETE_JS)
+        # Sequence guard: stale responses never overwrite newer keystrokes.
+        self.assertIn("searchSequence", CARD_AUTOCOMPLETE_JS)
 
     def test_focus_reopens_search(self):
-        self.assertIn('cmdInput.addEventListener("focus"', BREW_JS)
+        self.assertIn('inputEl.addEventListener("focus"', CARD_AUTOCOMPLETE_JS)
 
     def test_keyboard_support(self):
-        m = re.search(r'cmdInput\.addEventListener\("keydown".*?\n\s*\}\);',
-                      BREW_JS, re.S)
+        self.assertIn('inputEl.addEventListener("keydown", onKeydown)', CARD_AUTOCOMPLETE_JS)
+        m = re.search(r'function onKeydown\(ev\) \{(.*?)\n        \}',
+                      CARD_AUTOCOMPLETE_JS, re.S)
         self.assertIsNotNone(m, "commander keydown handler missing")
-        body = m.group(0)
+        body = m.group(1)
         self.assertIn('"ArrowDown"', body)
         self.assertIn('"Enter"', body)
         self.assertIn('"Escape"', body)
 
+    def test_error_state_is_not_empty_state(self):
+        # A failed search must be distinguishable from "no matches" (the old
+        # reconstruct bug: errors were swallowed and looked like no-match).
+        self.assertIn('renderMessage(errorText, "error")', CARD_AUTOCOMPLETE_JS)
+        self.assertIn('renderMessage(emptyText, "empty")', CARD_AUTOCOMPLETE_JS)
+        self.assertIn('renderMessage(loadingText, "loading")', CARD_AUTOCOMPLETE_JS)
+        self.assertIn('kind: "degraded"', CARD_AUTOCOMPLETE_JS)
+        self.assertIn(".hud-autocomplete-state--error { color: var(--danger); }", HUD_CSS)
+        self.assertIn(".hud-autocomplete-state--empty", HUD_CSS)
+        self.assertIn(".hud-autocomplete-state--degraded", HUD_CSS)
+
+    def test_outside_dismiss_cancels_pending_debounce(self):
+        self.assertIn('document.addEventListener("mousedown", onDocDown)', CARD_AUTOCOMPLETE_JS)
+        self.assertIn('document.addEventListener("touchstart", onDocDown', CARD_AUTOCOMPLETE_JS)
+        self.assertIn("clearTimeout(debounce)", CARD_AUTOCOMPLETE_JS)
+
     def test_click_selects_and_updates_summary(self):
-        self.assertIn('li.addEventListener("mousedown"', BREW_JS)
+        self.assertIn('li.addEventListener("mousedown"', CARD_AUTOCOMPLETE_JS)
         self.assertIn("pickCommander(c)", BREW_JS)
         # Summary rail reflects the picked commander instead of the placeholder.
         self.assertIn('Pick a commander', BREW_JS)

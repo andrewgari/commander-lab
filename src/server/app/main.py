@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 import src.server.domain.inventory.instances as instance_store
 from src.server.domain.inventory.instances import InstanceError
+import src.server.domain.inventory.card_search as card_search
 import src.server.domain.decks.deck_slots as deck_slots
 import src.server.domain.decks.registry as registry
 import src.server.domain.draft.reconstruct as reconstruct
@@ -976,187 +977,35 @@ async def brew_session_view(session_id: str, request: Request):
     )
 
 
+@app.get("/api/cards/autocomplete")
+async def cards_autocomplete(q: str = "", limit: int = 8, commanders_only: bool = False):
+    """Framework-neutral shared card-name autocomplete (spec:
+    docs/architecture/shared-card-autocomplete.md). Pure JSON — no Jinja
+    coupling, so the planned SvelteKit frontend can consume it unchanged.
+
+    Response: {"results": [{"name", "uid", "image", "type_line",
+    "color_identity", "colors", "keywords", "mana_cost"}],
+    "source": "scryfall|cache|local", "degraded": bool}.
+
+    Cache policy (the brew commander incident lesson): {"cached_at", "results"}
+    envelope at cards:autocomplete:{scope}:{q}; non-empty results serve for
+    24h, empty for 60s, failure-derived results are never cached, and legacy
+    bare-list entries are ignored. On a Scryfall error the endpoint degrades
+    to a substring match over local card_meta:* (legendary-only when
+    commanders_only) and never raises.
+    """
+    return await card_search.autocomplete(r, q, limit=limit, commanders_only=commanders_only)
+
+
 @app.get("/api/brew/commanders")
 async def brew_commander_search(q: str = ""):
     """Scryfall-backed, ranked commander search with a short-lived cache.
 
-    Search by rules text (including card types), then use Scryfall fuzzy-name
-    search as a typo-tolerant fallback. Paginate results, but bound work per
-    request so a broad type query cannot monopolize the app.
+    Thin alias over the shared autocomplete (card_search.autocomplete with
+    commanders_only=True, no result-count cap): same URL, same {"results": ...}
+    payload shape as before, plus the shared contract's source/degraded fields.
     """
-    query = q.strip()
-    if len(query) < 2:
-        return {"results": []}
-
-    cache_key = f"brew:commander_search:{query.lower()}"
-    cached = r.get(cache_key)
-    if cached:
-        try:
-            entry = json.loads(cached.decode() if isinstance(cached, bytes) else cached)
-            # New cache envelopes expire after one minute. Old bare-list entries
-            # are ignored so stale empty results cannot survive this rollout.
-            if isinstance(entry, dict) and time.time() - float(entry.get("cached_at", 0)) < 60:
-                return {"results": entry.get("results") or []}
-        except Exception:
-            pass
-
-    headers = {"User-Agent": "commander-lab/brew", "Accept": "application/json"}
-    candidates = {}
-    params = {"q": f"{query} is:commander legal:commander", "unique": "cards", "order": "name"}
-    url = "https://api.scryfall.com/cards/search"
-    fetched = 0
-    pages_fetched = 0
-    page_urls = set()
-    try:
-        while url and fetched < 40 and pages_fetched < 20 and url not in page_urls:
-            page_urls.add(url)
-            pages_fetched += 1
-            resp = httpx.get(url, params=params, headers=headers, timeout=8.0)
-            params = None
-            if resp.status_code != 200:
-                break
-            payload = resp.json()
-            for card in payload.get("data") or []:
-                cid = card.get("id") or card.get("name")
-                if cid:
-                    candidates[cid] = card
-                    fetched += 1
-                    if fetched >= 40:
-                        break
-            url = payload.get("next_page") if payload.get("has_more") and fetched < 40 else None
-        if url:
-            params = None  # Scryfall next_page is a complete URL
-
-        if not candidates:
-            import difflib
-            import re
-
-            # Scryfall returns 404 for an unrecognized query/name. Treat that as
-            # an empty attempt, then recover candidates by progressive prefix
-            # shortening: name:"..." search is substring-based, so a
-            # right-truncated query finds the intended card whenever the typo
-            # sits at or after the truncation point. Short prefixes return
-            # broad pools, so every candidate is re-ranked by edit similarity
-            # against the user's ORIGINAL spelling below (no per-name special
-            # cases; the mechanism is fully general).
-            fuzzy = httpx.get(
-                "https://api.scryfall.com/cards/named",
-                params={"fuzzy": query}, headers=headers, timeout=8.0,
-            )
-            direct_fuzzy_ids = []
-            if fuzzy.status_code == 200:
-                card = fuzzy.json()
-                if (card.get("legalities") or {}).get("commander") == "legal":
-                    cid = card.get("id") or card.get("name")
-                    candidates[cid] = card
-                    # Preserve existing behavior for a successful fuzzy-name
-                    # match; only gather broader candidates after a miss.
-                    direct_fuzzy_ids.append(cid)
-
-            if not candidates and len(query) >= 4:
-                prefix = query
-                while len(prefix) > 3:
-                    prefix = prefix[:-1]
-                    await asyncio.sleep(0.1)  # stay under Scryfall rate limits
-                    retry = httpx.get(
-                        "https://api.scryfall.com/cards/search",
-                        params={"q": f'name:"{prefix}" is:commander legal:commander',
-                                "unique": "cards", "order": "name"},
-                        headers=headers, timeout=8.0,
-                    )
-                    if retry.status_code == 404:
-                        continue
-                    if retry.status_code != 200:
-                        break
-                    for card in (retry.json().get("data") or []):
-                        if (card.get("legalities") or {}).get("commander") == "legal":
-                            candidates[card.get("id") or card.get("name")] = card
-                    if candidates:
-                        break
-
-            # A successful direct fuzzy-name match preserves pre-existing
-            # behavior exactly: return it without any similarity gate, so a
-            # short query against a long card name (e.g. "atraxa" -> "Atraxa,
-            # Praetors' Voice") is never discarded.
-            direct_fuzzy_hit = any(
-                cid in candidates for cid in direct_fuzzy_ids
-            ) if direct_fuzzy_ids else False
-
-            if candidates:
-                original = query.casefold()
-
-                def similarity(name):
-                    # Best alignment of the query against the card name: score
-                    # the whole name AND each individual word, so the match is
-                    # found wherever it occurs (e.g. "gitrg" aligns with
-                    # "gitrog" inside "The Gitrog Monster") instead of only
-                    # against the name's leading characters.
-                    name_cf = (name or "").casefold()
-                    best = difflib.SequenceMatcher(None, original, name_cf).ratio()
-                    for word in re.split(r"[^a-z0-9]+", name_cf):
-                        if word:
-                            ratio = difflib.SequenceMatcher(None, original, word).ratio()
-                            if ratio > best:
-                                best = ratio
-                    return best
-
-                ranked = sorted(
-                    candidates.items(),
-                    key=lambda item: similarity(item[1].get("name")),
-                    reverse=True,
-                )
-                if direct_fuzzy_hit:
-                    candidates = dict(ranked[:5])
-                else:
-                    best_score = similarity(ranked[0][1].get("name"))
-                    # Anti-flooding gate, driven by the data rather than fixed
-                    # cases: an absolute floor discards pools whose best match
-                    # is only loosely similar to the query (gibberish), and a
-                    # relative band below the best score keeps only names in
-                    # the same family so broad prefix pools cannot leak
-                    # near-misses (e.g. "kenith" keeps Kenrith, drops Kenessos).
-                    if best_score >= 0.7:
-                        floor = max(0.7, best_score - 0.15)
-                        candidates = dict(
-                            item for item in ranked[:5]
-                            if similarity(item[1].get("name")) >= floor
-                        )
-                    else:
-                        candidates = {}
-    except Exception:
-        candidates = {}
-
-
-    def relevant(card):
-        text = f"{card.get('name', '')} {card.get('type_line', '')}".casefold()
-        ql = query.casefold()
-        if ql in text:
-            return 0
-        words = ql.split()
-        if words and all(word in text for word in words):
-            return 1
-        return 2
-
-    results = []
-    for c in sorted(candidates.values(), key=lambda card: (relevant(card), (card.get("name") or "").casefold())):
-        image = ""
-        iu = c.get("image_uris") or {}
-        if iu:
-            image = iu.get("art_crop") or iu.get("small") or ""
-        elif c.get("card_faces"):
-            image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
-        results.append({
-            "name": c.get("name", ""), "uid": c.get("id", ""), "image": image,
-            "colors": c.get("colors") or [], "color_identity": c.get("color_identity") or [],
-            "type_line": c.get("type_line", ""), "keywords": c.get("keywords") or [],
-            "mana_cost": c.get("mana_cost", ""),
-        })
-
-    try:
-        r.set(cache_key, json.dumps({"cached_at": time.time(), "results": results}))
-    except Exception:
-        pass
-    return {"results": results}
+    return await card_search.autocomplete(r, q, limit=None, commanders_only=True)
 
 
 @app.post("/api/brew/start")
@@ -2099,7 +1948,11 @@ async def resolve_deck_resync_review(deck_id: str, instance_id: str, request: Re
 
 @app.get("/api/decks/{deck_id}/search")
 async def search_deck_cards(deck_id: str, q: str = ""):
-    """Local card-name autocomplete for the add-card dropdown in the deck
+    """DEPRECATED: superseded by GET /api/cards/autocomplete (the shared
+    card-name autocomplete; the deck manage add-card field uses it). Kept
+    for backwards compatibility — do not remove without a migration note.
+
+    Local card-name autocomplete for the add-card dropdown in the deck
     management view. Case-insensitive substring search over `card_meta:*`
     records (same filtering pattern as /api/tags-adjacent card lookups).
 
