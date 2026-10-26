@@ -13,11 +13,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_links
-import deck_sync
-import registry
-from deck_sync import DeckSyncError
-from providers import PROVIDERS, ProviderError
+import src.server.domain.decks.deck_links as deck_links
+import src.server.domain.decks.deck_sync as deck_sync
+import src.server.domain.decks.registry as registry
+from src.server.domain.decks.deck_sync import DeckSyncError
+from src.server.infra.providers import PROVIDERS, ProviderError
 
 
 class FakeRedis:
@@ -114,7 +114,7 @@ MOXFIELD_DECK = {
 
 class TestMergeNormalizedDecks(unittest.TestCase):
     def test_union_of_cards_max_quantity_wins(self):
-        cards, commanders, uids, color, conflicts = deck_sync.merge_normalized_decks(
+        cards, commanders, uids, color, conflicts, _slots, _flags = deck_sync.merge_normalized_decks(
             {"archidekt": ARCHIDEKT_DECK, "moxfield": MOXFIELD_DECK}
         )
         by_name = {c["name"]: c["quantity"] for c in cards}
@@ -125,7 +125,7 @@ class TestMergeNormalizedDecks(unittest.TestCase):
         self.assertEqual(len(cards), 4)
 
     def test_conflicts_flagged_for_mismatched_qty_and_single_source_cards(self):
-        _, _, _, _, conflicts = deck_sync.merge_normalized_decks(
+        _, _, _, _, conflicts, _slots, _flags = deck_sync.merge_normalized_decks(
             {"archidekt": ARCHIDEKT_DECK, "moxfield": MOXFIELD_DECK}
         )
         names = {c.card_name for c in conflicts}
@@ -137,7 +137,7 @@ class TestMergeNormalizedDecks(unittest.TestCase):
     def test_commanders_unioned_without_duplicates(self):
         other = dict(MOXFIELD_DECK)
         other["commanders"] = ["Atraxa, Praetors' Voice"]
-        cards, commanders, uids, color, conflicts = deck_sync.merge_normalized_decks(
+        cards, commanders, uids, color, conflicts, _slots, _flags = deck_sync.merge_normalized_decks(
             {"archidekt": ARCHIDEKT_DECK, "moxfield": other}
         )
         self.assertEqual(commanders, ["Atraxa, Praetors' Voice"])
@@ -145,16 +145,16 @@ class TestMergeNormalizedDecks(unittest.TestCase):
     def test_commander_uids_stay_aligned_with_names(self):
         a = dict(ARCHIDEKT_DECK, commanders=["Doctor"], commander_uids=["a"])
         m = dict(MOXFIELD_DECK, commanders=["Doctor", "Rose"], commander_uids=["b", "r"])
-        _, commanders, uids, _, _ = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m})
+        _, commanders, uids, _, _, _slots, _flags = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m})
         self.assertEqual(commanders, ["Doctor", "Rose"])
         self.assertEqual(uids, ["a", "r"])  # one printing per name, first source wins
         # A commander with no pairable printing: no uids, views use name images.
         m2 = dict(MOXFIELD_DECK, commanders=["Doctor", "Rose"], commander_uids=["b"])
-        _, _, uids, _, _ = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m2})
+        _, _, uids, _, _, _slots, _flags = deck_sync.merge_normalized_decks({"archidekt": a, "moxfield": m2})
         self.assertEqual(uids, [])
 
     def test_single_source_has_no_conflicts(self):
-        _, _, _, _, conflicts = deck_sync.merge_normalized_decks({"archidekt": ARCHIDEKT_DECK})
+        _, _, _, _, conflicts, _slots, _flags = deck_sync.merge_normalized_decks({"archidekt": ARCHIDEKT_DECK})
         self.assertEqual(conflicts, [])
 
 

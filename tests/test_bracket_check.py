@@ -14,8 +14,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import bracket_check as bc  # noqa: E402
-from analytics import brackets as br  # noqa: E402
+from src.server.domain.analytics import bracket_check as bc  # noqa: E402
+from src.server.domain.analytics import brackets as br  # noqa: E402
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "bracket_check_decks.json")
 
@@ -233,7 +233,7 @@ class Rules(unittest.TestCase):
     def test_live_helper_uses_find_my_combos_not_ownership_scan(self):
         import asyncio
         from unittest.mock import patch
-        from analytics.interactions import combos as cm
+        from src.server.domain.analytics.interactions import combos as cm
         deck, combos = load("spicy_only")
 
         class R:

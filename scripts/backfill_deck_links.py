@@ -27,7 +27,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -56,7 +56,7 @@ def backfill_moxfield(r, username: str, apply: bool, provider=None) -> dict:
     """Step 2. Returns {"matched": [(mox name, registry name)],
     "already": [...], "unmatched": [{...}], "failures": [{...}]}."""
     if provider is None:
-        from providers import moxfield as provider
+        from src.server.infra.providers import moxfield as provider
     report = {"matched": [], "already": [], "unmatched": [], "failures": []}
     for pid in provider.list_decks(username):
         try:

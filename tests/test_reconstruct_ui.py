@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from app import app
-import reconstruct
-import registry
-import instances as instance_store
+from src.server.app.main import app
+import src.server.domain.draft.reconstruct as reconstruct
+import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.instances as instance_store
 
 
 class TestDeckPageReconstructEntry(unittest.TestCase):
@@ -311,8 +311,8 @@ class TestReconstructUserFlowEndToEnd(unittest.TestCase):
         self.client = TestClient(app)
         # Use an in-memory or mocked Redis store for predictable unit testing
         self.fake_redis = FakeRedisStore()
-        self.patcher_app_r = patch("app.r", self.fake_redis)
-        self.patcher_recon_r = patch("reconstruct.r", self.fake_redis)
+        self.patcher_app_r = patch("src.server.app.main.r", self.fake_redis)
+        self.patcher_recon_r = patch("src.server.domain.draft.reconstruct.r", self.fake_redis)
         self.patcher_app_r.start()
         # Deterministic builder: the real one calls an LLM agent.
         self._prev_builder = reconstruct.get_builder()
