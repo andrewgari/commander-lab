@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry
+import src.server.domain.decks.registry as registry
 
 
 class FakeRedis:
