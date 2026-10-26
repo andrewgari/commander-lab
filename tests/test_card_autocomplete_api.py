@@ -65,8 +65,7 @@ class TestCardAutocompleteAPI(unittest.TestCase):
                         "colors", "keywords", "mana_cost"):
                 self.assertIn(key, row)
         # The default path asks Scryfall's autocomplete endpoint for names.
-        url = get.call_args[0][0]
-        self.assertIn("api.scryfall.com/cards/autocomplete", url)
+        self.assertIn("api.scryfall.com/cards/autocomplete", get.call_args_list[0][0][0])
 
     def test_local_meta_enriches_scryfall_names(self):
         self.r.set("card_meta:Atraxa, Praetors' Voice", json.dumps(
@@ -78,6 +77,54 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         self.assertEqual(row["type_line"], "Legendary Creature — Phyrexian Angel")
         self.assertEqual(row["keywords"], ["Flying"])
         self.assertEqual(row["color_identity"], ["W", "U", "B", "G"])
+
+    def test_default_scope_enriches_cards_missing_from_local_meta(self):
+        """QA regression: names Scryfall returns that are NOT in local
+        card_meta must still carry the full contract (uid/image/type_line/...),
+        shaped like the commander scope."""
+        full = {
+            "id": "atraxa-uid", "name": "Atraxa, Praetors' Voice",
+            "type_line": "Legendary Creature \u2014 Phyrexian Angel Horror",
+            "colors": ["W", "U", "B", "G"], "color_identity": ["W", "U", "B", "G"],
+            "keywords": ["Flying", "Vigilance", "Deathtouch", "Lifelink"],
+            "mana_cost": "{G}{W}{U}{B}",
+            "image_uris": {"art_crop": "https://img/atraxa.jpg"},
+        }
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/autocomplete"):
+                return Mock(status_code=200, json=lambda: {"data": ["Atraxa, Praetors' Voice"]})
+            self.assertTrue(url.endswith("/cards/search"))
+            return Mock(status_code=200, json=lambda: {"data": [full]})
+
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get) as get:
+            payload = self.client.get("/api/cards/autocomplete?q=atraxa").json()
+        row = payload["results"][0]
+        self.assertEqual(row["name"], "Atraxa, Praetors' Voice")
+        self.assertEqual(row["uid"], "atraxa-uid")
+        self.assertEqual(row["image"], "https://img/atraxa.jpg")
+        self.assertEqual(row["type_line"], full["type_line"])
+        self.assertEqual(row["colors"], ["W", "U", "B", "G"])
+        self.assertEqual(row["color_identity"], ["W", "U", "B", "G"])
+        self.assertEqual(row["keywords"], full["keywords"])
+        self.assertEqual(row["mana_cost"], "{G}{W}{U}{B}")
+        self.assertEqual(get.call_count, 2)  # one names call + ONE batched lookup
+        # The enriched result is cached.
+        cached = json.loads(self.r.get("cards:autocomplete:cards:atraxa"))
+        self.assertEqual(cached["results"][0]["uid"], "atraxa-uid")
+
+    def test_enrichment_failure_falls_back_to_local_and_is_not_cached(self):
+        self.r.set("card_meta:Sol Ring", json.dumps({"type": "Artifact"}))
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/autocomplete"):
+                return Mock(status_code=200, json=lambda: {"data": ["Sol Ring"]})
+            raise RuntimeError("scryfall search down")
+
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            payload = self.client.get("/api/cards/autocomplete?q=sol").json()
+        self.assertEqual(payload["results"][0]["type_line"], "Artifact")
+        self.assertIsNone(self.r.get("cards:autocomplete:cards:sol"))
 
     def test_limit_is_applied_and_bounded(self):
         body = {"data": [f"Card {i}" for i in range(20)]}
@@ -121,7 +168,7 @@ class TestCardAutocompleteAPI(unittest.TestCase):
                           return_value=self._scryfall_names(["Atraxa, Praetors' Voice"])) as get:
             res = self.client.get("/api/cards/autocomplete?q=atraxa")
         self.assertEqual([r["name"] for r in res.json()["results"]], ["Atraxa, Praetors' Voice"])
-        self.assertEqual(get.call_count, 1)
+        self.assertEqual(get.call_count, 2)  # names + one batched enrichment lookup
         # 3. The success IS cached: a repeat query does not re-hit Scryfall.
         with patch.object(self.app_module.httpx, "get",
                           return_value=self._scryfall_names(["Should Not Appear"])) as get2:
@@ -135,7 +182,7 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         with patch.object(self.app_module.httpx, "get",
                           return_value=self._scryfall_names(["Fresh Name"])) as get:
             res = self.client.get("/api/cards/autocomplete?q=foo")
-        self.assertEqual(get.call_count, 1)
+        self.assertEqual(get.call_count, 2)  # names + enrichment lookup
         self.assertEqual([r["name"] for r in res.json()["results"]], ["Fresh Name"])
 
     def test_nonempty_envelope_serves_for_24h_empty_only_60s(self):
@@ -153,7 +200,7 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         with patch.object(self.app_module.httpx, "get",
                           return_value=self._scryfall_names(["Refetched"])) as get:
             res = self.client.get("/api/cards/autocomplete?q=old")
-        self.assertEqual(get.call_count, 1)
+        self.assertEqual(get.call_count, 2)
         self.assertEqual([r["name"] for r in res.json()["results"]], ["Refetched"])
         # 2-minute-old EMPTY envelope: expired (60s TTL), refetch.
         self.r.set("cards:autocomplete:cards:emptyold",
@@ -161,7 +208,7 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         with patch.object(self.app_module.httpx, "get",
                           return_value=self._scryfall_names(["Recovered"])) as get:
             res = self.client.get("/api/cards/autocomplete?q=emptyold")
-        self.assertEqual(get.call_count, 1)
+        self.assertEqual(get.call_count, 2)
         self.assertEqual([r["name"] for r in res.json()["results"]], ["Recovered"])
         # Fresh empty envelope: still served (60s TTL).
         self.r.set("cards:autocomplete:cards:emptyfresh",

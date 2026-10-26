@@ -169,10 +169,10 @@
         <div class="hud-field"><label for="petInput">Pet cards</label>
             <div class="hud-picker" id="petPicker">
                 {%- for p in j.pet_cards %}{{ hud.picker_chip(p, head.card_refs or {}) }}{% endfor -%}
-                <input id="petInput" placeholder="Add a card in this deck…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="petList" autocomplete="off">
-                <ul class="hud-picker-list" id="petList" role="listbox" aria-label="Cards in this deck" hidden></ul>
+                <input id="petInput" placeholder="Add a card…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="petList" autocomplete="off">
+                <ul class="hud-picker-list" id="petList" role="listbox" aria-label="Card suggestions" hidden></ul>
             </div>
-            <span class="hud-field-hint">Autocomplete from this deck's list only.</span></div>
+            <span class="hud-field-hint">Suggests cards from this deck first, then any card.</span></div>
         <div class="hud-field"><label for="novelties">Novelties</label><textarea id="novelties" maxlength="1000">{{ j.novelties }}</textarea></div>
         <div class="hud-field"><label for="notes">Notes</label><textarea id="notes" maxlength="2000" placeholder="Anything else. Freeform, never parsed.">{{ j.freeform_notes }}</textarea></div>
     {% endcall %}
@@ -350,8 +350,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // ---- Pet picker (combobox over this deck's cards) ------------------------------
-    // The suggestion list is the shared CardAutocomplete component in local-only
-    // mode (endpoint: null — no network; extraSource filters this deck's cards).
+    // The suggestion list is the shared CardAutocomplete component backed by
+    // GET /api/cards/autocomplete (default scope); extraSource merges this
+    // deck's own cards first. A failing endpoint shows the component's error
+    // row (never a misleading "No matches").
     var petInput = $("petInput");
     function chipHtml(name) {
         return '<span class="hud-chip hud-chip--ghost" data-value="' + esc(name) + '" data-card-preview' + H.cardRefAttrString(H.cardRef(name, window.HUD_CARD_REFS)) + '>' + esc(name) +
@@ -367,7 +369,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (window.CardAutocomplete) {
         CardAutocomplete.attach(petInput, {
-            endpoint: null,
             listEl: $("petList"),
             minChars: 0,
             extraSource: function (q) {
