@@ -311,6 +311,72 @@ class InstanceEventRow(Base):
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
+# ---------------------------------------------------------------------------
+# Slice 5 draft-mode staging tables (ARCHITECTURE.md §7.8, §8 Slice 5; DDL in
+# migrations/a005_draft_mode). Staging-only: canonical tables are untouched
+# until Commit; Abandon deletes every staging row (zero residue).
+# ---------------------------------------------------------------------------
+
+class DraftRow(Base):
+    """One draft session (combine decks / dismantle one to build another).
+
+    ``source_decks`` is a jsonb snapshot of the source deck ids/names at
+    creation; ``result_deck_id`` is set only by Commit. Committed drafts keep
+    their rows as the audit record ``instance_events.draft_id`` points to.
+    """
+    __tablename__ = "drafts"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # combine | dismantle
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_decks: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    target_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_commanders: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    result_deck_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str] = mapped_column(String, nullable=False, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    closed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class DraftCardRow(Base):
+    """A staged decklist row for the deck being built (mirrors deck_cards)."""
+    __tablename__ = "draft_cards"
+    draft_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("drafts.id"), primary_key=True
+    )
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    board: Mapped[str] = mapped_column(String(16), primary_key=True)
+    category: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class DraftInstanceMoveRow(Base):
+    """A staged physical-copy move. ``from_deck`` snapshots the instance's
+    deck binding at staging time; the assign target is always the draft's
+    result deck (known only at commit)."""
+    __tablename__ = "draft_instance_moves"
+    draft_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("drafts.id"), primary_key=True
+    )
+    instance_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("card_instances.id"), primary_key=True
+    )
+    from_deck: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)  # assign | unassign
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
 class ProfileSnapshotRow(Base):
     """Append-only profile history; current profile = latest snapshot."""
     __tablename__ = "profile_snapshots"

@@ -13,11 +13,15 @@ from typing import Any, Iterable, Optional
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from src.server.domain.draft import draft_mode
 from src.server.infra.db.orm_models import (
     CardInstanceRow,
     CardRow,
     DeckCardRow,
     DeckRow,
+    DraftCardRow,
+    DraftInstanceMoveRow,
+    DraftRow,
     GameImportRow,
     GameRow,
     GameTelemetryRow,
@@ -518,3 +522,282 @@ def get_game_telemetry(session: Session, game_id: int) -> list[dict]:
         {"metric": r.metric, "oracle_id": r.oracle_id, "value": r.value}
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# drafts / draft_cards / draft_instance_moves (Slice 5, ARCHITECTURE.md §7.8)
+#
+# Staging-only: NOTHING below touches decks/deck_cards/card_instances except
+# commit_draft, which applies the domain commit plan in ONE transaction (the
+# caller's session: flush here, commit/rollback at the session boundary).
+# abandon_draft deletes every staging row — zero residue.
+# ---------------------------------------------------------------------------
+
+def _draft_dict(row: DraftRow) -> dict:
+    return {
+        "id": row.id,
+        "kind": row.kind,
+        "status": row.status,
+        "name": row.name,
+        "source_decks": row.source_decks,
+        "target_name": row.target_name,
+        "target_commanders": row.target_commanders,
+        "result_deck_id": row.result_deck_id,
+        "notes": row.notes,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        "closed_at": row.closed_at.isoformat() if row.closed_at else None,
+    }
+
+
+def create_draft(session: Session, draft: dict) -> dict:
+    row = DraftRow(
+        id=draft["id"],
+        kind=draft["kind"],
+        status=draft_mode.STATUS_OPEN,
+        name=draft["name"],
+        source_decks=draft.get("source_decks") or [],
+        target_name=draft["target_name"],
+        target_commanders=draft.get("target_commanders") or [],
+        notes=draft.get("notes", ""),
+    )
+    session.add(row)
+    session.flush()
+    return _draft_dict(row)
+
+
+def get_draft(session: Session, draft_id: str) -> Optional[dict]:
+    row = session.get(DraftRow, draft_id)
+    return _draft_dict(row) if row else None
+
+
+def list_drafts(session: Session, status: Optional[str] = None,
+                limit: int = 50) -> list[dict]:
+    stmt = select(DraftRow).order_by(DraftRow.created_at.desc()).limit(
+        max(1, min(int(limit), 200))
+    )
+    if status:
+        stmt = stmt.where(DraftRow.status == status)
+    return [_draft_dict(r) for r in session.scalars(stmt).all()]
+
+
+def _require_open_draft(session: Session, draft_id: str) -> DraftRow:
+    row = session.get(DraftRow, draft_id)
+    if row is None:
+        raise draft_mode.DraftError(f"draft not found: {draft_id}")
+    if row.status != draft_mode.STATUS_OPEN:
+        raise draft_mode.DraftError(f"draft is {row.status}, not open")
+    return row
+
+
+def upsert_draft_card(session: Session, draft_id: str, card: dict) -> None:
+    _require_open_draft(session, draft_id)
+    draft_mode.validate_staged_card(card["oracle_id"], card["qty"], card["board"])
+    row = session.get(DraftCardRow, (draft_id, card["oracle_id"], card["board"]))
+    if row is None:
+        session.add(DraftCardRow(
+            draft_id=draft_id, oracle_id=card["oracle_id"],
+            qty=int(card["qty"]), board=card["board"],
+            category=card.get("category"),
+        ))
+    else:
+        row.qty = int(card["qty"])
+        row.category = card.get("category")
+
+
+def remove_draft_card(session: Session, draft_id: str, oracle_id: str,
+                      board: str) -> bool:
+    _require_open_draft(session, draft_id)
+    row = session.get(DraftCardRow, (draft_id, oracle_id, board))
+    if row is None:
+        return False
+    session.delete(row)
+    return True
+
+
+def list_draft_cards(session: Session, draft_id: str) -> list[dict]:
+    stmt = (
+        select(DraftCardRow, CardRow)
+        .join(CardRow, CardRow.oracle_id == DraftCardRow.oracle_id)
+        .where(DraftCardRow.draft_id == draft_id)
+        .order_by(DraftCardRow.board, CardRow.name)
+    )
+    return [
+        {
+            "oracle_id": dc.oracle_id, "qty": dc.qty, "board": dc.board,
+            "category": dc.category, "name": c.name, "type_line": c.type_line,
+            "cmc": c.cmc, "color_identity": c.color_identity,
+            "image_uri": c.image_uri,
+        }
+        for dc, c in session.execute(stmt).all()
+    ]
+
+
+def stage_move(session: Session, draft_id: str, instance_id: str,
+               action: str) -> None:
+    _require_open_draft(session, draft_id)
+    inst = session.get(CardInstanceRow, instance_id)
+    draft_mode.validate_move(action, _instance_dict(inst) if inst else None)
+    assert inst is not None  # validate_move raises on None
+    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id))
+    if row is None:
+        session.add(DraftInstanceMoveRow(
+            draft_id=draft_id, instance_id=instance_id,
+            from_deck=inst.deck_id, action=action,
+        ))
+    else:
+        row.action = action
+        row.from_deck = inst.deck_id
+
+
+def unstage_move(session: Session, draft_id: str, instance_id: str) -> bool:
+    _require_open_draft(session, draft_id)
+    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id))
+    if row is None:
+        return False
+    session.delete(row)
+    return True
+
+
+def list_draft_moves(session: Session, draft_id: str) -> list[dict]:
+    stmt = (
+        select(DraftInstanceMoveRow, CardInstanceRow, CardRow)
+        .join(CardInstanceRow,
+              CardInstanceRow.id == DraftInstanceMoveRow.instance_id)
+        .join(CardRow, CardRow.oracle_id == CardInstanceRow.oracle_id)
+        .where(DraftInstanceMoveRow.draft_id == draft_id)
+        .order_by(CardRow.name)
+    )
+    return [
+        {
+            "instance_id": m.instance_id, "action": m.action,
+            "from_deck": m.from_deck, "oracle_id": i.oracle_id,
+            "card_name": c.name, "status": i.status, "deck_id": i.deck_id,
+        }
+        for m, i, c in session.execute(stmt).all()
+    ]
+
+
+def get_draft_state(session: Session, draft_id: str) -> Optional[dict]:
+    """The full staging view: draft row + staged cards + staged moves."""
+    draft = get_draft(session, draft_id)
+    if draft is None:
+        return None
+    return {
+        **draft,
+        "cards": list_draft_cards(session, draft_id),
+        "moves": list_draft_moves(session, draft_id),
+    }
+
+
+def commit_draft(session: Session, draft_id: str) -> dict:
+    """Apply the draft to the canonical tables in ONE transaction: the new
+    deck row + its deck_cards + instance moves + instance_events provenance
+    (kind=assigned|unassigned, from_deck/to_deck, draft_id), per §4.2.
+
+    Everything is flushed inside the caller's session — a DraftError (or any
+    DB error) before the session boundary leaves zero canonical changes.
+    """
+    row = _require_open_draft(session, draft_id)
+    draft = _draft_dict(row)
+    cards = list_draft_cards(session, draft_id)
+    moves = list_draft_moves(session, draft_id)
+    move_ids = [m["instance_id"] for m in moves]
+    instances_by_id = {}
+    if move_ids:
+        for inst in session.scalars(
+            select(CardInstanceRow).where(CardInstanceRow.id.in_(move_ids))
+        ).all():
+            instances_by_id[inst.id] = _instance_dict(inst)
+    plan = draft_mode.plan_commit(draft, cards, moves, instances_by_id)
+
+    upsert_deck(session, plan["deck"])
+    replace_deck_cards(session, plan["deck"]["id"], plan["deck_cards"])
+    for instance_id, status, deck_id in plan["updates"]:
+        inst = session.get(CardInstanceRow, instance_id)
+        if inst is None:  # vanished mid-transaction: fail the whole commit
+            raise draft_mode.DraftError(f"instance not found: {instance_id}")
+        inst.status = status
+        inst.deck_id = deck_id
+        inst.updated_at = _utcnow()
+    for event in plan["events"]:
+        insert_event(session, event)
+
+    row.status = draft_mode.STATUS_COMMITTED
+    row.result_deck_id = plan["deck"]["id"]
+    row.closed_at = _utcnow()
+    session.flush()
+    return {
+        "draft_id": draft_id,
+        "deck_id": plan["deck"]["id"],
+        "cards_written": len(plan["deck_cards"]),
+        "moves_applied": len(plan["updates"]),
+        "events_written": len(plan["events"]),
+    }
+
+
+def abandon_draft(session: Session, draft_id: str) -> dict:
+    """Abandon = delete every staging row for the draft. Zero residue:
+    drafts/draft_cards/draft_instance_moves all end empty for this id, and
+    canonical tables were never touched."""
+    row = session.get(DraftRow, draft_id)
+    if row is None:
+        raise draft_mode.DraftError(f"draft not found: {draft_id}")
+    if row.status != draft_mode.STATUS_OPEN:
+        raise draft_mode.DraftError(f"draft is {row.status}, not open")
+    cards = getattr(session.execute(
+        delete(DraftCardRow).where(DraftCardRow.draft_id == draft_id)
+    ), "rowcount", 0) or 0
+    moves = getattr(session.execute(
+        delete(DraftInstanceMoveRow).where(
+            DraftInstanceMoveRow.draft_id == draft_id)
+    ), "rowcount", 0) or 0
+    session.delete(row)
+    session.flush()
+    return {"draft_id": draft_id, "staged_cards_deleted": int(cards or 0),
+            "staged_moves_deleted": int(moves or 0)}
+
+
+def list_instance_events(session: Session, instance_id: str) -> list[dict]:
+    """One copy's full provenance stream, oldest first (§4.2)."""
+    rows = session.scalars(
+        select(InstanceEventRow)
+        .where(InstanceEventRow.instance_id == instance_id)
+        .order_by(InstanceEventRow.id)
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "ts": r.ts.isoformat() if r.ts else None,
+            "kind": r.kind,
+            "from_deck": r.from_deck,
+            "to_deck": r.to_deck,
+            "draft_id": r.draft_id,
+        }
+        for r in rows
+    ]
+
+
+def instance_provenance(session: Session, instance_id: str) -> Optional[dict]:
+    """The queryable provenance path for one physical copy ("this copy moved
+    A→B"), with deck display names resolved. None when the instance doesn't
+    exist."""
+    inst = session.get(CardInstanceRow, instance_id)
+    if inst is None:
+        return None
+    events = list_instance_events(session, instance_id)
+    deck_ids = {e["from_deck"] for e in events} | {e["to_deck"] for e in events}
+    deck_ids.discard(None)
+    names = {}
+    if deck_ids:
+        for d in session.scalars(
+            select(DeckRow).where(DeckRow.id.in_(list(deck_ids)))
+        ).all():
+            names[d.id] = d.name
+    path = draft_mode.provenance_path(instance_id, events, names)
+    card = session.get(CardRow, inst.oracle_id)
+    path["card_name"] = card.name if card else inst.oracle_id
+    path["oracle_id"] = inst.oracle_id
+    path["current_status"] = inst.status
+    path["current_deck_id"] = inst.deck_id
+    return path
