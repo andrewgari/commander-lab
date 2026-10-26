@@ -15,9 +15,8 @@ Creates the canonical stored-review model:
 - `review_jobs` — pipeline audit trail: one row per stage
   (fact_pack / candidates / writer / verifier / store) with its outcome.
 
-This migration is also the merge point for the two a004 branches
-(`a004_games_on_demand`, `a004_slice2_profile_overrides`), restoring a
-single alembic head.
+Sequenced after a006_merge_heads (the merge point for a005_draft_mode and
+a004_slice2_profile_overrides), keeping a single alembic head.
 
 Idempotent (CREATE TABLE IF NOT EXISTS), same convention as a001-a004.
 Enum vocabularies are CHECK constraints (portable across PostgreSQL and the
@@ -65,9 +64,8 @@ REVIEW_JOBS_INDEXES = (
     "CREATE INDEX IF NOT EXISTS idx_review_jobs_review ON review_jobs (review_id)",
 )
 
-revision = "a005_create_reviews"
-# Merge point: both a004 branches must be applied before this revision.
-down_revision = ("a004_games_on_demand", "a004_slice2_profile_overrides")
+revision = "a007_create_reviews"
+down_revision = "a006_merge_heads"
 
 
 def upgrade() -> None:
