@@ -1,0 +1,288 @@
+{
+  "deck": {
+    "budget_hard_cap": 50.0,
+    "cards": [
+      "Meren of Clan Nel Toth",
+      "Sol Ring",
+      "Command Tower",
+      "Eternal Witness",
+      "Sakura-Tribe Elder"
+    ],
+    "commanders": [
+      "Meren of Clan Nel Toth"
+    ],
+    "pet_cards": [
+      "Eternal Witness"
+    ]
+  },
+  "expect_gate": "singleton_violations",
+  "review": {
+    "bracket": {
+      "estimated": 2,
+      "reasons": [
+        "No tutors"
+      ],
+      "target": 3
+    },
+    "charts": {
+      "curve": {
+        "buckets": []
+      }
+    },
+    "cuts_to_consider": [
+      {
+        "card": {
+          "name": "Sakura-Tribe Elder"
+        },
+        "evidence": [
+          "roles.ramp.count"
+        ],
+        "reason": "Low impact here."
+      }
+    ],
+    "meta": {
+      "commanders": [
+        {
+          "name": "Meren of Clan Nel Toth"
+        }
+      ],
+      "deck_id": "fixture-meren",
+      "deck_name": "Meren fixture",
+      "fact_pack_hash": "da202a4f2e222fe7936a350d5fdc0596b8059d235f1e381cce5e10f08229387e"
+    },
+    "problems": [
+      {
+        "axis": "Consistency",
+        "claim": "No sacrifice outlet to turn Meren's experience into value.",
+        "confidence": 0.7,
+        "evidence": {
+          "cards": [
+            {
+              "name": "Sakura-Tribe Elder"
+            }
+          ],
+          "fact_keys": [
+            "roles.sac_outlet.count"
+          ]
+        },
+        "id": "p-engine",
+        "severity": "med"
+      }
+    ],
+    "schema_version": "review_document.v1",
+    "strengths": [
+      {
+        "axis": "Synergy",
+        "claim": "Meren recurs Viscera Seer-style sac fodder every end step.",
+        "confidence": 0.9,
+        "evidence": {
+          "cards": [
+            {
+              "name": "Meren of Clan Nel Toth"
+            }
+          ],
+          "fact_keys": []
+        },
+        "id": "s-recursion",
+        "severity": "high"
+      }
+    ],
+    "swaps": [
+      {
+        "add": {
+          "name": "Viscera Seer"
+        },
+        "alternative": null,
+        "bracket_effect": "none",
+        "budget_effect": "~$1",
+        "cut": {
+          "name": "Sakura-Tribe Elder"
+        },
+        "id": "sw-1",
+        "owned": false,
+        "price": 1.0,
+        "resolves_finding_id": "p-engine",
+        "tradeoff": "Loses ramp, gains an outlet."
+      },
+      {
+        "add": {
+          "name": "Viscera Seer"
+        },
+        "alternative": null,
+        "bracket_effect": "none",
+        "budget_effect": "~$1",
+        "cut": {
+          "name": "Command Tower"
+        },
+        "id": "sw-2",
+        "owned": false,
+        "price": 1.0,
+        "resolves_finding_id": "p-engine",
+        "tradeoff": "Loses a land, gains draw."
+      }
+    ]
+  },
+  "scryfall": {
+    "Command Tower": {
+      "cmc": 2,
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Command Tower",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Demonic Tutor": {
+      "cmc": 2,
+      "color_identity": [
+        "B"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Demonic Tutor",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Eternal Witness": {
+      "cmc": 2,
+      "color_identity": [
+        "G"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Eternal Witness",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Lightning Bolt": {
+      "cmc": 2,
+      "color_identity": [
+        "R"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Lightning Bolt",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Mana Crypt": {
+      "cmc": 2,
+      "color_identity": [],
+      "colors": [],
+      "legalities": {
+        "commander": "banned"
+      },
+      "name": "Mana Crypt",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Meren of Clan Nel Toth": {
+      "cmc": 2,
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Meren of Clan Nel Toth",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Reanimate": {
+      "cmc": 2,
+      "color_identity": [
+        "B"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Reanimate",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Sakura-Tribe Elder": {
+      "cmc": 2,
+      "color_identity": [
+        "G"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Sakura-Tribe Elder",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Skullclamp": {
+      "cmc": 2,
+      "color_identity": [],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Skullclamp",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Sol Ring": {
+      "cmc": 2,
+      "color_identity": [],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Sol Ring",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    },
+    "Viscera Seer": {
+      "cmc": 2,
+      "color_identity": [
+        "B"
+      ],
+      "colors": [],
+      "legalities": {
+        "commander": "legal"
+      },
+      "name": "Viscera Seer",
+      "prices": {
+        "usd": "1.00"
+      },
+      "type_line": "Artifact"
+    }
+  }
+}

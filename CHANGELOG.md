@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Deck reviewer eval harness: deterministic review gates with good/bad fixtures (`make eval-gates`), an LLM judge, calibration tooling, golden decks, and `scripts/eval_compare.py`.
+
 ### Fixed
 - Quick reviews now use real card data instead of showing cards as unknown.
 
