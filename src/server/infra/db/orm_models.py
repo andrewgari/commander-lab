@@ -579,3 +579,49 @@ class PlayerProfileProposalRow(Base):
     resolved_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+# ---------------------------------------------------------------------------
+# Deck reviewer card 08 (migrations/a010_review_runs; DECISIONS.md D2): run traces.
+# ---------------------------------------------------------------------------
+
+class ReviewRunRow(Base):
+    __tablename__ = "review_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    document_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    deck_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    started_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    finished_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    models: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    prompt_versions: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    inputs: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    drops: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    finding_steps: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    cost_usd: Mapped[Optional[float]] = mapped_column(nullable=True)
+    cost_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+class ReviewRunStepRow(Base):
+    __tablename__ = "review_run_steps"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(Integer, ForeignKey("review_runs.id", ondelete="CASCADE"), nullable=False)
+    idx: Mapped[int] = mapped_column(Integer, nullable=False)
+    pass_: Mapped[str] = mapped_column("pass", String(16), nullable=False)
+    axis: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    request: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    response: Mapped[Any] = mapped_column(JsonType, nullable=True)
+    tokens_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    cached_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[Optional[float]] = mapped_column(nullable=True)
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    __table_args__ = (UniqueConstraint("run_id", "idx"),)
