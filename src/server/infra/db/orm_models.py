@@ -6,7 +6,7 @@ from __future__ import annotations
 import datetime
 from typing import Any, Optional
 
-from sqlalchemy import JSON, DateTime, Integer, String, ForeignKey, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Integer, SmallInteger, String, ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -221,6 +221,14 @@ class PrintingRow(Base):
     collector_number: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     rarity: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     prices: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    # Card-dossier columns (migration a008): art/set metadata for the
+    # printings panel. Older rows imported before a008 carry '' / NULL /
+    # FALSE until the printings backfill refreshes them.
+    set_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    image_uri_normal: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    image_uri_art_crop: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    released_at: Mapped[Optional[datetime.date]] = mapped_column(Date, nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
@@ -459,5 +467,57 @@ class ReviewJobRow(Base):
     error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ts: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Card dossier (docs/architecture/card-dossier-spec.md; DDL in
+# migrations/a008_card_dossier).
+# ---------------------------------------------------------------------------
+
+class CardTagRow(Base):
+    """Lab tag with provenance (learned | manual), mirrored from the Redis
+    ``lab_tags`` / ``lab_tags_source`` keys by the dossier backfill."""
+    __tablename__ = "card_tags"
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(String(255), primary_key=True)
+    source: Mapped[str] = mapped_column(String(16), primary_key=True, default="learned")
+    confidence: Mapped[Optional[float]] = mapped_column(nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class CardInteractionEdgeRow(Base):
+    """Persisted synergy edge (derived, disposable). The in-memory builder in
+    domain/analytics/interactions/graph.py stays the algorithm; this table is
+    the dossier's read store, replaced wholesale per ``vocab_version`` by the
+    interaction rebuild's edge sink."""
+    __tablename__ = "card_interaction_edges"
+    src_oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    dst_oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    vocab_version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reasons: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    reason_labels: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    reason_text: Mapped[str] = mapped_column(String, nullable=False, default="")
+    weight: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class CardNoteRow(Base):
+    """Andrew's per-card affinity (1–5, nullable) and free-text notes."""
+    __tablename__ = "card_notes"
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    affinity: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    notes: Mapped[str] = mapped_column(String, nullable=False, default="")
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

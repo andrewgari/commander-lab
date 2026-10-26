@@ -16,7 +16,10 @@ from sqlalchemy.orm import Session
 from src.server.domain.draft import draft_mode
 from src.server.infra.db.orm_models import (
     CardInstanceRow,
+    CardInteractionEdgeRow,
+    CardNoteRow,
     CardRow,
+    CardTagRow,
     DeckCardRow,
     DeckRow,
     DraftCardRow,
@@ -75,6 +78,12 @@ def upsert_printing(session: Session, printing: dict) -> None:
         "rarity": printing.get("rarity", ""),
         "prices": printing.get("prices") or {},
     }
+    # Dossier columns (a008): only touched when the caller supplies them, so
+    # the Slice-1 importer (which predates them) never blanks backfilled art.
+    for optional in ("set_name", "image_uri_normal", "image_uri_art_crop",
+                     "released_at", "is_default"):
+        if optional in printing:
+            fields[optional] = printing[optional]
     if existing is None:
         session.add(PrintingRow(scryfall_id=printing["scryfall_id"], **fields))
     else:
@@ -1026,3 +1035,217 @@ def instance_provenance(session: Session, instance_id: str) -> Optional[dict]:
     path["current_status"] = inst.status
     path["current_deck_id"] = inst.deck_id
     return path
+
+
+# ---------------------------------------------------------------------------
+# Card dossier (docs/architecture/card-dossier-spec.md; tables from a008).
+# ---------------------------------------------------------------------------
+
+def get_card(session: Session, oracle_id: str) -> Optional[dict]:
+    """The full oracle-level card record for the dossier identity panel."""
+    row = session.get(CardRow, oracle_id)
+    if row is None:
+        return None
+    return {
+        **_card_dict(row),
+        "oracle_text": row.oracle_text,
+        "legalities": row.legalities,
+        "refreshed_at": row.refreshed_at.isoformat() if row.refreshed_at else None,
+    }
+
+
+def _printing_dict(row: PrintingRow) -> dict:
+    return {
+        "scryfall_id": row.scryfall_id,
+        "oracle_id": row.oracle_id,
+        "set_code": row.set_code,
+        "set_name": row.set_name,
+        "collector_number": row.collector_number,
+        "rarity": row.rarity,
+        "released_at": row.released_at.isoformat() if row.released_at else None,
+        "is_default": bool(row.is_default),
+        "image_uri_normal": row.image_uri_normal,
+        "image_uri_art_crop": row.image_uri_art_crop,
+        "prices": row.prices,
+    }
+
+
+def list_printings(session: Session, oracle_id: str) -> list[dict]:
+    """All printings of a card, newest first (NULL release dates last)."""
+    rows = session.scalars(
+        select(PrintingRow)
+        .where(PrintingRow.oracle_id == oracle_id)
+        .order_by(PrintingRow.released_at.desc().nulls_last(), PrintingRow.set_code)
+    ).all()
+    return [_printing_dict(row) for row in rows]
+
+
+def clear_default_printing(session: Session, oracle_id: str) -> None:
+    """Unset is_default on every printing of a card (before marking a new one)."""
+    for row in session.scalars(
+        select(PrintingRow).where(
+            PrintingRow.oracle_id == oracle_id, PrintingRow.is_default.is_(True)
+        )
+    ).all():
+        row.is_default = False
+
+
+def list_decks_for_card(session: Session, oracle_id: str) -> list[dict]:
+    """Decks playing this card (all statuses, virtual included — deck_cards is
+    written for every synced decklist). Deck NAMES, never raw ids only."""
+    stmt = (
+        select(DeckCardRow, DeckRow)
+        .join(DeckRow, DeckRow.id == DeckCardRow.deck_id)
+        .where(DeckCardRow.oracle_id == oracle_id, DeckRow.archived_at.is_(None))
+        .order_by(DeckRow.name, DeckCardRow.board)
+    )
+    return [
+        {
+            "deck_id": deck.id,
+            "name": deck.name,
+            "status": deck.status,
+            "board": dc.board,
+            "category": dc.category,
+            "qty": dc.qty,
+        }
+        for dc, deck in session.execute(stmt).all()
+    ]
+
+
+def get_card_tags(session: Session, oracle_id: str) -> list[dict]:
+    rows = session.scalars(
+        select(CardTagRow)
+        .where(CardTagRow.oracle_id == oracle_id)
+        .order_by(CardTagRow.tag, CardTagRow.source)
+    ).all()
+    return [{"tag": r.tag, "source": r.source, "confidence": r.confidence} for r in rows]
+
+
+def replace_card_tags(session: Session, tags: Iterable[dict]) -> int:
+    """Mirror lab tags into card_tags: rows for oracle_ids present in *tags*
+    are replaced wholesale; cards absent from the input keep their rows.
+
+    Each item: {oracle_id, tag, source, confidence?}. Returns rows written.
+    """
+    tags = list(tags)
+    oracle_ids = {t["oracle_id"] for t in tags}
+    if oracle_ids:
+        session.execute(
+            delete(CardTagRow).where(CardTagRow.oracle_id.in_(list(oracle_ids)))
+        )
+    for t in tags:
+        session.add(CardTagRow(
+            oracle_id=t["oracle_id"],
+            tag=t["tag"],
+            source=t.get("source", "learned"),
+            confidence=t.get("confidence"),
+        ))
+    return len(tags)
+
+
+def replace_interaction_edges(session: Session, edges: Iterable[dict]) -> int:
+    """Replace ALL persisted synergy edges (every vocab_version) with *edges*.
+
+    The table is a derived read store rebuilt wholesale by the interaction
+    rebuild's edge sink — never hand-edited (ARCHITECTURE.md §7.1).
+    Each item: {src_oracle_id, dst_oracle_id, vocab_version, reasons,
+    reason_labels, reason_text, weight}. Returns rows written.
+    """
+    session.execute(delete(CardInteractionEdgeRow))
+    rows = [
+        CardInteractionEdgeRow(
+            src_oracle_id=e["src_oracle_id"],
+            dst_oracle_id=e["dst_oracle_id"],
+            vocab_version=int(e["vocab_version"]),
+            reasons=e.get("reasons") or [],
+            reason_labels=e.get("reason_labels") or [],
+            reason_text=e.get("reason_text", ""),
+            weight=int(e.get("weight") or 0),
+        )
+        for e in edges
+    ]
+    session.add_all(rows)
+    return len(rows)
+
+
+def list_synergy_neighbors(
+    session: Session, oracle_id: str, vocab_version: int, limit: int = 20
+) -> list[dict]:
+    """Ranked synergy neighbors for one card, both directions merged,
+    strongest first (spec §3: ORDER BY weight DESC LIMIT 20)."""
+    stmt = (
+        select(CardInteractionEdgeRow)
+        .where(
+            CardInteractionEdgeRow.vocab_version == vocab_version,
+            (CardInteractionEdgeRow.src_oracle_id == oracle_id)
+            | (CardInteractionEdgeRow.dst_oracle_id == oracle_id),
+        )
+        .order_by(CardInteractionEdgeRow.weight.desc(),
+                  CardInteractionEdgeRow.src_oracle_id,
+                  CardInteractionEdgeRow.dst_oracle_id)
+        .limit(max(1, min(int(limit), 100)))
+    )
+    edges = session.scalars(stmt).all()
+    names = get_cards(session, {
+        e.dst_oracle_id if e.src_oracle_id == oracle_id else e.src_oracle_id
+        for e in edges
+    })
+    out = []
+    for e in edges:
+        if e.src_oracle_id == oracle_id:
+            neighbor_id, direction = e.dst_oracle_id, "out"
+        else:
+            neighbor_id, direction = e.src_oracle_id, "in"
+        out.append({
+            "oracle_id": neighbor_id,
+            "name": names.get(neighbor_id, {}).get("name", neighbor_id),
+            "direction": direction,
+            "weight": e.weight,
+            "reasons": e.reasons,
+            "reason_labels": e.reason_labels,
+            "reason_text": e.reason_text,
+        })
+    return out
+
+
+def get_card_notes(session: Session, oracle_id: str) -> Optional[dict]:
+    row = session.get(CardNoteRow, oracle_id)
+    if row is None:
+        return None
+    return {
+        "oracle_id": row.oracle_id,
+        "affinity": row.affinity,
+        "notes": row.notes,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def upsert_card_notes(
+    session: Session, oracle_id: str, affinity: Optional[int], notes: str
+) -> dict:
+    row = session.get(CardNoteRow, oracle_id)
+    if row is None:
+        row = CardNoteRow(oracle_id=oracle_id)
+        session.add(row)
+    row.affinity = affinity
+    row.notes = notes or ""
+    row.updated_at = _utcnow()
+    session.flush()
+    result = get_card_notes(session, oracle_id)
+    assert result is not None  # just upserted above
+    return result
+
+
+def card_collection_summary(session: Session, oracle_id: str) -> dict:
+    """Owned-copy aggregate for the collection panel (spec §3: statuses
+    in_collection | in_deck | in_mail count as owned)."""
+    rows = session.scalars(
+        select(CardInstanceRow).where(CardInstanceRow.oracle_id == oracle_id)
+    ).all()
+    owned = [r for r in rows if r.status in ("in_collection", "in_deck", "in_mail")]
+    return {
+        "owned": bool(owned),
+        "copies": len(owned),
+        "statuses": sorted({r.status for r in owned}),
+        "finishes": sorted({r.finish for r in owned}),
+    }

@@ -358,6 +358,83 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
 	return (await res.json()) as T;
 }
 
+export interface DossierCard {
+	oracle_id: string;
+	name: string;
+	mana_cost: string;
+	type_line: string;
+	oracle_text: string;
+	colors: string[];
+	color_identity: string[];
+	cmc: number;
+	keywords: string[];
+	image_uri: string;
+}
+
+export interface DossierPrinting {
+	scryfall_id: string;
+	oracle_id: string;
+	set_code: string;
+	set_name: string;
+	collector_number: string;
+	rarity: string;
+	released_at: string | null;
+	is_default: boolean;
+	image_uri_normal: string;
+	image_uri_art_crop: string;
+	prices: Record<string, unknown>;
+}
+
+export interface DossierTag {
+	tag: string;
+	source: string;
+	confidence: number | null;
+}
+
+export interface DossierDeckLine {
+	deck_id: string;
+	name: string;
+	status: string;
+	board: string;
+	category: string | null;
+	qty: number;
+}
+
+export interface DossierSynergyNeighbor {
+	oracle_id: string;
+	name: string;
+	direction: string;
+	weight: number;
+	reasons: string[];
+	reason_labels: string[];
+	reason_text: string;
+}
+
+export interface DossierAffinity {
+	oracle_id: string;
+	affinity: number | null;
+	notes: string;
+	updated_at: string | null;
+}
+
+export interface DossierCollection {
+	owned: boolean;
+	copies: number;
+	statuses: string[];
+	finishes: string[];
+}
+
+export interface CardDossier {
+	card: DossierCard;
+	printing: DossierPrinting | null;
+	printings: DossierPrinting[];
+	tags: DossierTag[];
+	decks: DossierDeckLine[];
+	synergy: DossierSynergyNeighbor[];
+	affinity: DossierAffinity | null;
+	collection: DossierCollection;
+}
+
 export interface ReviewJobRecord {
 	id: number;
 	review_id: number;

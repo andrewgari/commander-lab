@@ -49,6 +49,7 @@ from src.server.app.version import __version__, VERSION
 import httpx
 from src.server.infra.services.repo_status import enrich_decks_with_repo_status
 from src.server.domain.analytics.interactions import service as interactions_service
+from src.server.infra.services.interaction_edges import make_pg_edge_sink
 from src.server.domain.analytics.interactions import combos
 from src.server.domain.analytics import composition as composition_mod
 from src.server.domain.analytics import composition_service as comp_svc
@@ -69,6 +70,11 @@ from src.server.domain.analytics import personality_profile, personality_store
 import urllib.parse
 
 app = FastAPI()
+
+# Card dossier (spec §2): persist interaction-rebuild edges into Postgres so
+# the dossier synergy panel reads PG instead of the Redis graph cache.
+# Best-effort — a database failure never fails the rebuild.
+interactions_service.register_edge_sink(make_pg_edge_sink())
 
 
 @app.exception_handler(WritesDisabledError)
