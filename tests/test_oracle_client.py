@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.oracle_client import (  # noqa: E402
+from src.server.domain.analytics.oracle_client import (  # noqa: E402
     DEFAULT_TIMEOUT_S,
     OracleAuthError,
     OracleClient,

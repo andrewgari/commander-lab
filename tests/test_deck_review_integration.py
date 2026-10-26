@@ -20,13 +20,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from analytics import generate_deck_review as analytics_review
-import analytics
-from app import app
-import cli
-import deck_review
-from deck_review import DeckReview, review_deck
-from user_intent import parse_user_intent
+from src.server.domain.analytics import generate_deck_review as analytics_review
+import src.server.domain.analytics as analytics
+from src.server.app.main import app
+import src.server.workers.cli as cli
+import src.server.domain.decks.deck_review as deck_review
+from src.server.domain.decks.deck_review import DeckReview, review_deck
+from src.server.domain.intake.user_intent import parse_user_intent
 
 SAMPLE_ATRAXA_DECKLIST = """Commander
 1 Atraxa, Praetors' Voice

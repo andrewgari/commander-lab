@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from forge_sim import forge_game_telemetry as fgt
-from analytics import sim_service as svc, sim_store as ss
+from src.server.domain.forge import forge_game_telemetry as fgt
+from src.server.domain.analytics import sim_service as svc, sim_store as ss
 from tests.test_sim_service_and_api import FakeSim, Base, user_deck, put_decks, run_sync, FakeOracle  # noqa: F401
 from tests.test_sim_store_and_diff import make_report
 

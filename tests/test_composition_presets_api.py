@@ -34,15 +34,15 @@ sys.path.insert(0, __file__.rsplit("tests", 1)[0].rstrip("/"))
 
 from fastapi.testclient import TestClient
 
-from analytics import composition_service as svc
-from analytics import composition_store as store
-from analytics.composition_models import (
+from src.server.domain.analytics import composition_service as svc
+from src.server.domain.analytics import composition_store as store
+from src.server.domain.analytics.composition_models import (
     DECK_SIZE, MAX_USER_PRESETS,
     MODE_AUTO, MODE_PINNED, SPEC_VERSION,
     CompositionValidationError,
     band_of, default_deck_composition, errors_of, resolve_preset, validate_preset,
 )
-from app import app
+from src.server.app.main import app
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -206,7 +206,7 @@ def seed_fixtures(r):
 
 def fixture_preset_dicts():
     """Normalized fixture dicts for pure resolve_preset(...) calls (no redis)."""
-    from analytics.composition_models import normalize_preset
+    from src.server.domain.analytics.composition_models import normalize_preset
     out = []
     for body in FIXTURE_BODIES:
         norm = normalize_preset(body)
@@ -555,7 +555,7 @@ class TestAutoSelectionEdges(unittest.TestCase):
         legacy = {"archetype_preferences": {"primary_archetype": "midrange"}}
         self.assertIsNone(legacy["archetype_preferences"]["primary_archetype"]
                           if False else None)  # clarity guard, real path below
-        from deck_genre import migrate_phantom_midrange
+        from src.server.domain.decks.deck_genre import migrate_phantom_midrange
         cleared = migrate_phantom_midrange(legacy)
         self.assertIsNone(cleared["archetype_preferences"]["primary_archetype"])
 
@@ -674,7 +674,7 @@ class TestValidationEdges(unittest.TestCase):
 
     def test_two_commanders_shrink_spell_budget(self):
         st = {"deck_size": DECK_SIZE, "commanders": 2, "lands": 36}
-        from analytics.composition_models import spells_for
+        from src.server.domain.analytics.composition_models import spells_for
         self.assertEqual(spells_for(st), 62)
         p = self._p(structure=st, slots=[slot("core:ramp", min=63)])
         self.assertTrue([i for i in validate_preset(p) if i["code"] == "E6"])
@@ -691,7 +691,7 @@ class ApiBase(unittest.TestCase):
         self.deck = make_deck()
         put_decks(self.r, self.deck)
         seed_fixtures(self.r)
-        self.p = patch("app.r", self.r)
+        self.p = patch("src.server.app.main.r", self.r)
         self.p.start()
         self.addCleanup(self.p.stop)
         self.client = TestClient(app)
@@ -944,7 +944,7 @@ class TestSelectionApi(ApiBase):
     def test_auto_mode_leftovers_rejected_at_model_layer(self):
         # The strict rule lives in validate_deck_composition; show it fires when
         # the record bypasses the service's normalization (defense-in-depth check).
-        from analytics.composition_models import validate_deck_composition
+        from src.server.domain.analytics.composition_models import validate_deck_composition
         presets_by_id = {p["id"]: p for p in fixture_preset_dicts()}
         issues = validate_deck_composition(
             {"mode": MODE_AUTO, "preset_id": "tcz_2025", "lands": None, "overrides": []},

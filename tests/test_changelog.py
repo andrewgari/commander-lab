@@ -5,8 +5,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import httpx
 from fastapi.testclient import TestClient
 
-import github_sync
-from app import app, extract_short_description, render_release_body
+import src.server.infra.providers.github_sync as github_sync
+from src.server.app.main import app, extract_short_description, render_release_body
 
 
 class TestChangelog(unittest.TestCase):
@@ -105,7 +105,7 @@ class TestChangelog(unittest.TestCase):
             github_sync.STALE_CHANGELOG_KEY, changelog_writes[0].args[2]
         )
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
     def test_changelog_renders_html_with_releases(self, mock_client_cls, mock_redis):
         mock_redis.get.side_effect = lambda key: {
@@ -131,7 +131,7 @@ class TestChangelog(unittest.TestCase):
         self.assertIn("v1.1.0-beta.1", html)
         self.assertIn("Pre-release", html)
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
     def test_changelog_serves_from_redis_cache_without_api_call(self, mock_client_cls, mock_redis):
         # Redis cache hit for both the version and the changelog
@@ -150,7 +150,7 @@ class TestChangelog(unittest.TestCase):
         self.assertIn("v1.2.0", html)
         self.assertIn("2026-09-29", html)
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
     def test_changelog_api_unreachable_and_cache_empty_shows_unavailable_message(
         self, mock_client_cls, mock_redis
@@ -172,7 +172,7 @@ class TestChangelog(unittest.TestCase):
         self.assertIn("unavailable", html.lower())
         self.assertNotIn("Traceback", html)
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
     def test_changelog_api_unreachable_serves_stale_cache(
         self, mock_client_cls, mock_redis
@@ -212,7 +212,7 @@ class TestChangelog(unittest.TestCase):
         self.assertIn('href="/changelog"', html)
         self.assertIn('id="app-version"', html)
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
     def test_changelog_scrollable_container_present(self, mock_client_cls, mock_redis):
         mock_redis.get.return_value = json.dumps(self.sample_releases)

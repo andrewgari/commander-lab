@@ -15,11 +15,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import journal  # noqa: E402
-from analytics import personality as ps  # noqa: E402
-from analytics import personality_store as store  # noqa: E402
-from analytics.interactions import combos as combos_mod  # noqa: E402
-from analytics.interactions import service  # noqa: E402
+from src.server.domain.analytics import journal  # noqa: E402
+from src.server.domain.analytics import personality as ps  # noqa: E402
+from src.server.domain.analytics import personality_store as store  # noqa: E402
+from src.server.domain.analytics.interactions import combos as combos_mod  # noqa: E402
+from src.server.domain.analytics.interactions import service  # noqa: E402
 from tests.test_bracket_worker import FakeRedis, deck, put_decks  # noqa: E402
 from tests.test_personality_profile import scores as make_scores  # noqa: E402
 
@@ -188,7 +188,7 @@ class WorkerHook(unittest.TestCase):
     """The bracket worker process also runs the personality pass each tick."""
 
     def test_worker_tick_runs_personality(self):
-        from analytics import bracket_worker as bw
+        from src.server.domain.analytics import bracket_worker as bw
 
         r = FakeRedis()
         put_decks(r, [phys("archidekt:1", "One")])
@@ -202,7 +202,7 @@ class WorkerHook(unittest.TestCase):
         self.assertEqual(store.load_record(r, "archidekt:1")["status"], "ok")
 
     def test_personality_failure_does_not_break_bracket_tick(self):
-        from analytics import bracket_worker as bw
+        from src.server.domain.analytics import bracket_worker as bw
 
         r = FakeRedis()
         put_decks(r, [phys("archidekt:1", "One")])
@@ -221,7 +221,7 @@ class ControlDeckEndToEnd(unittest.TestCase):
     def test_control_deck(self):
         from fastapi.testclient import TestClient
 
-        import app as app_mod
+        import src.server.app.main as app_mod
         from tests.test_personality import load_real, score_real
 
         real = load_real("5620189")
@@ -248,8 +248,8 @@ class Routes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
 
-        import app as app_mod
-        from app import app
+        import src.server.app.main as app_mod
+        from src.server.app.main import app
 
         self.client = TestClient(app)
         self.fake = FakeRedis()
@@ -334,18 +334,18 @@ class Routes(unittest.TestCase):
         self.assertEqual(self.client.get("/api/profile/personality?scope=nope").status_code, 400)
 
     def test_profile_redis_down_is_503(self):
-        with patch("app.personality_store.load_all", side_effect=ConnectionError("down")):
+        with patch("src.server.app.main.personality_store.load_all", side_effect=ConnectionError("down")):
             res = self.client.get("/api/profile/personality")
         self.assertEqual(res.status_code, 503)
         self.assertEqual(res.json()["status"], "unavailable")
 
     def test_deck_redis_down_is_503(self):
-        with patch("app.personality_store.load_record", side_effect=ConnectionError("down")):
+        with patch("src.server.app.main.personality_store.load_record", side_effect=ConnectionError("down")):
             res = self.client.get("/api/decks/archidekt:5620189/personality")
         self.assertEqual(res.status_code, 503)
 
     def test_journal_save_wakes_worker(self):
-        from analytics import bracket_worker as bw
+        from src.server.domain.analytics import bracket_worker as bw
         res = self.client.put("/api/decks/archidekt:5620189/journal", json={"novelties": "weird"})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertIn("archidekt:5620189", self.fake.lists.get(bw.WAKE_KEY, []))

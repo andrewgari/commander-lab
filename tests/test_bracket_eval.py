@@ -17,9 +17,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import bracket_eval as be  # noqa: E402
-from analytics import brackets as br  # noqa: E402
-from analytics import engine  # noqa: E402
+from src.server.domain.analytics import bracket_eval as be  # noqa: E402
+from src.server.domain.analytics import brackets as br  # noqa: E402
+from src.server.domain.analytics import engine  # noqa: E402
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "bracket_check_decks.json")
 GC = br.load_fallback().cards
@@ -321,7 +321,7 @@ class FallbacksAndDeterminism(unittest.TestCase):
         self.assertIn("Bracket 2 band", sig["our_power_estimate"].effect)
 
     def test_commandersalt_meta_scores_object_accepted(self):
-        from analytics.models import MetaScores, PowerScore, SaltScore
+        from src.server.domain.analytics.models import MetaScores, PowerScore, SaltScore
         ms = MetaScores(power=PowerScore(score=5.1, tier=None, description=None),
                         salt=SaltScore(score=12.0, salt_sum=None, description=None),
                         meta_rank=None, provider_metrics={"bracket_rating": 2.2})
@@ -331,7 +331,7 @@ class FallbacksAndDeterminism(unittest.TestCase):
         self.assertEqual(ev.estimated_bracket, 2)
 
     def test_findings_can_be_passed_in(self):
-        from analytics import bracket_check as bc
+        from src.server.domain.analytics import bracket_check as bc
         deck, combos = load("combo")
         f = bc.check_deck_brackets(deck, game_changers=GC, combos=combos)
         ev = be.evaluate_bracket(deck, journal(bracket=4, power=8), {"findings": f, "power_estimate": 8.0})
