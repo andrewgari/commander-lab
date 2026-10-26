@@ -1,0 +1,16 @@
+[Unit]
+Description=Forge game log watcher (Commander Lab auto-recorder)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/forge_log_watcher.py
+Restart=on-failure
+RestartSec=30
+Environment=COMMANDER_LAB_URL=http://tower:8020
+Environment=HONCHO_URL=http://tower:8100
+Environment=HONCHO_WORKSPACE=oracle
+Environment=HONCHO_PEER=andrewgari
+
+[Install]
+WantedBy=default.target

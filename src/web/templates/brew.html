@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Brew a deck | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Brew console layout (BREW-DESIGNER §2). Components live in hud.css. */
+    .brew-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: var(--sp-6); align-items: start; }
+    .brew-grid, .brew-main, .brew-rail { min-width: 0; }
+    .brew-main > * + * { margin-top: var(--sp-6); }
+    .brew-rail { position: sticky; top: var(--sp-4); }
+    .brew-rail .hud-panel + .hud-panel { margin-top: var(--sp-4); }
+    .brew-art { aspect-ratio: 626 / 457; background: var(--surface-2); border: var(--hairline) solid var(--line); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .brew-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .brew-art .brew-art-empty { color: var(--text-3); font-size: var(--fs-sm); }
+    .brew-generate { width: 100%; justify-content: center; margin-top: var(--sp-3); }
+    .brew-generate-note { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); color: var(--text-2); }
+    .brew-generate-hint { margin: var(--sp-1) 0 0; font-size: var(--fs-micro); color: var(--text-3); }
+    .brew-error { margin-top: var(--sp-3); }
+    .brew-error[hidden] { display: none; }
+
+    /* §01 commander picker */
+    .brew-cmd-results { margin: var(--sp-1) 0 0; padding: 0; list-style: none; border: var(--hairline) solid var(--line); background: var(--surface-1); max-height: 20rem; overflow-y: auto; }
+    .brew-cmd-results[hidden] { display: none; }
+    .brew-cmd-results li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
+    .brew-cmd-results li[aria-selected="true"], .brew-cmd-results li:hover { background: var(--surface-2); }
+    .brew-cmd-results li[aria-disabled="true"] { cursor: default; color: var(--text-2); }
+    .brew-cmd-state--loading { color: var(--text-3); }
+    .brew-cmd-state--empty { color: var(--text-2); }
+    .brew-cmd-state--error { color: var(--danger); }
+    .brew-cmd-results img { width: 40px; height: 30px; object-fit: cover; flex: none; }
+    .brew-cmd-name { font-family: var(--font-card); }
+    .brew-cmd-type { color: var(--text-3); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brew-cmd-selected { display: flex; gap: var(--sp-3); align-items: flex-start; }
+    .brew-cmd-selected[hidden] { display: none; }
+    .brew-cmd-frames { display: flex; gap: var(--sp-2); }
+    .brew-cmd-frame { width: 7.5rem; }
+    .brew-cmd-frame img { width: 100%; aspect-ratio: 488 / 680; object-fit: cover; display: block; border: var(--hairline) solid var(--line); }
+    .brew-inline-error { color: var(--danger); font-size: var(--fs-xs); margin: var(--sp-1) 0 0; }
+    .brew-inline-error[hidden] { display: none; }
+
+    /* §02 donors */
+    .brew-donor-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+    .brew-donor-chips:empty { display: none; }
+    .brew-donor-list { margin: var(--sp-2) 0 0; padding: 0; list-style: none; border: var(--hairline) solid var(--line); max-height: 18rem; overflow-y: auto; }
+    .brew-donor-list li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
+    .brew-donor-list li + li { border-top: var(--hairline) solid var(--line); }
+    .brew-donor-list li.kb-focus { background: var(--surface-2); }
+    .brew-donor-list li.brew-donor-none { color: var(--text-3); font-size: var(--fs-sm); cursor: default; }
+    .brew-donor-name { font-family: var(--font-card); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brew-donor-meta { margin-left: auto; color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .brew-micro { font-size: var(--fs-micro); color: var(--text-3); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+    .brew-note { color: var(--signal); font-size: var(--fs-xs); margin: var(--sp-2) 0 0; }
+    .brew-note[hidden] { display: none; }
+
+    /* §04 details */
+    .brew-field { margin-bottom: var(--sp-3); }
+    .brew-field label { display: block; margin-bottom: var(--sp-1); }
+    .brew-field input[type="text"], .brew-field textarea { width: 100%; background: var(--surface-1); border: var(--hairline) solid var(--line); color: var(--text-1); padding: var(--sp-2); font: inherit; }
+    .brew-field .hud-field-hint { display: block; margin-top: var(--sp-1); }
+    .brew-theme-pills { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+    .brew-theme-pills:empty { display: none; }
+
+    /* Recent brews tray */
+    .brew-recent ul { margin: 0; padding: 0; list-style: none; }
+    .brew-recent li { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
+    .brew-recent li + li { border-top: var(--hairline) solid var(--line); }
+    .brew-recent a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Mobile: single column, sticky bottom generate bar */
+    .brew-mobilebar { display: none; }
+    @media (max-width: 900px) {
+        .brew-grid { grid-template-columns: minmax(0, 1fr); }
+        .brew-rail { position: static; }
+        .brew-rail .hud-panel.brew-summary { display: none; }
+        .brew-mobilebar { display: flex; position: sticky; bottom: 0; z-index: 20; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border-top: var(--hairline) solid var(--line); }
+        .brew-mobilebar .brew-mobilebar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
+        .brew-mobilebar .hud-btn { margin-left: auto; flex: none; min-height: 44px; padding: 0 var(--sp-4); }
+
+        /* Stepper (hud.doc_index): the shared component side-scrolls on narrow
+           screens, which leaves steps 03/04 clipped past the viewport edge on
+           phones. On the brew page, wrap the steps onto two rows instead so
+           every step stays inside the viewport and fully legible. */
+        .hud-doc-index { overflow-x: visible; }
+        .hud-doc-index ol { white-space: normal; flex-wrap: wrap; }
+
+        /* Donor rows: the metadata line (pips + "N cards · Commanders") is
+           longer than a phone is wide, so it takes its own wrapped line under
+           the deck name instead of being squeezed or clipped. */
+        .brew-donor-list li > label { flex-wrap: wrap; }
+        .brew-donor-name { white-space: normal; }
+        .brew-donor-meta { flex-basis: 100%; margin-left: 1.75rem; white-space: normal; }
+        #brewModeGroup { grid-template-columns: minmax(0, 1fr) !important; }
+    }
+    @media (max-width: 420px) {
+        .brew-mobilebar { gap: var(--sp-2); padding-inline: var(--sp-2); }
+        .brew-mobilebar .brew-micro { font-size: 0.65rem; }
+        .brew-mobilebar .hud-btn { padding-inline: var(--sp-2); }
+        .brew-cmd-selected { flex-wrap: wrap; }
+    }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Decks", "href": "/decks"}, {"label": "Brew a deck"}]) }}{% endblock %}
+
+{% block content %}
+{{ hud.page_head("Brew a deck", eyebrow="Virtual deck generator") }}
+
+{{ hud.doc_index([
+    {"href": "#brew-commander", "code": "01", "label": "Commander"},
+    {"href": "#brew-donors", "code": "02", "label": "Donor decks"},
+    {"href": "#brew-mode", "code": "03", "label": "Build mode"},
+    {"href": "#brew-details", "code": "04", "label": "Details"},
+], label="Brew steps") }}
+
+<div class="brew-grid">
+    <div class="brew-main">
+        <section id="brew-commander">
+            {{ hud.section_head("Commander", code="01") }}
+            <div>
+                <input type="text" id="brewCmdSearch" role="combobox" aria-expanded="false"
+                       aria-autocomplete="list" aria-controls="brewCmdResults"
+                       placeholder="Search commanders…" autocomplete="off"
+                       style="width:100%;background:var(--surface-1);border:var(--hairline) solid var(--line);color:var(--text-1);padding:var(--sp-2);font:inherit;">
+                <ul id="brewCmdResults" class="brew-cmd-results" role="listbox" hidden></ul>
+                <p class="brew-inline-error" id="brewCmdError" role="alert" hidden></p>
+                <div id="brewCmdEmpty" hidden></div>
+                <div class="brew-cmd-selected" id="brewCmdSelected" hidden>
+                    <div class="brew-cmd-frames" id="brewCmdFrames"></div>
+                    <div>
+                        <div id="brewCmdNames" style="font-family:var(--font-card)"></div>
+                        <div id="brewCmdPips"></div>
+                        <button type="button" class="hud-btn hud-btn--ghost hud-btn--sm" id="brewCmdPartner" hidden>+ Add partner</button>
+                        <button type="button" class="hud-btn hud-btn--ghost hud-btn--sm" id="brewCmdRemove">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="brew-donors">
+            {{ hud.section_head("Donor decks", code="02") }}
+            <div>
+                <span class="brew-micro">Only named decks are sourced</span>
+                <div class="brew-donor-chips" id="brewDonorChips"></div>
+                <div id="brewDonorEmpty">{{ hud.empty("No donors named — the brew uses free inventory and buys the rest.") }}</div>
+                {% if donor_decks %}
+                <input type="text" id="brewDonorFilter" placeholder="Filter decks…" autocomplete="off"
+                       style="width:100%;background:var(--surface-1);border:var(--hairline) solid var(--line);color:var(--text-1);padding:var(--sp-2);font:inherit;">
+                <ul class="brew-donor-list" id="brewDonorList"></ul>
+                {% else %}
+                {{ hud.empty("No decks synced yet — run a sync from Settings first.") }}
+                {% endif %}
+                <p class="brew-note" id="brewDonorNote" hidden>Large pools dilute provenance — brew rarely needs more than a few donors.</p>
+            </div>
+        </section>
+
+        <section id="brew-mode">
+            {{ hud.section_head("Build mode", code="03") }}
+            <div role="radiogroup" aria-label="Build mode" id="brewModeGroup" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:var(--sp-3);">
+                <label class="hud-radio-card">
+                    <input type="radio" name="build_mode" value="owned_first" checked>
+                    <span class="hud-radio-card-title">Owned-first</span>
+                    <span class="hud-radio-card-body">Use owned cards wherever they fit; buy only what nothing owned can fill.</span>
+                    <span class="hud-radio-card-foot">Fewer buys · more "close enough" slots</span>
+                </label>
+                <label class="hud-radio-card">
+                    <input type="radio" name="build_mode" value="best_build">
+                    <span class="hud-radio-card-title">Best build</span>
+                    <span class="hud-radio-card-body">Build the ideal list for the idea; buy what's missing.</span>
+                    <span class="hud-radio-card-foot">Strongest list · bigger buy list</span>
+                </label>
+            </div>
+        </section>
+
+        <section id="brew-details">
+            {{ hud.section_head("Details", code="04") }}
+            <div>
+                <div class="brew-field">
+                    <label for="brewName">Deck name</label>
+                    <input type="text" id="brewName" placeholder="Commander brew">
+                </div>
+                <div class="brew-field">
+                    <label id="brewPowerLabel">Power level</label>
+                    {{ hud.seg("power", [("1","1"),("2","2"),("3","3"),("4","4"),("5","5")], selected="3", mod="scale", label_id="brewPowerLabel") }}
+                    <span class="hud-field-hint" id="brewPowerDesc">Mid — tuned casual, some staples.</span>
+                </div>
+                <div class="brew-field">
+                    <label for="brewIdea">Deck idea</label>
+                    <input type="text" id="brewIdea" placeholder="What should this deck do? e.g. proliferate superfriends">
+                </div>
+                <div class="brew-field">
+                    <label for="brewThemeInput">Themes</label>
+                    <div class="brew-theme-pills" id="brewThemePills"></div>
+                    <input type="text" id="brewThemeInput" placeholder="Add a theme…">
+                </div>
+                <div class="brew-field">
+                    <label for="brewNotes">Notes</label>
+                    <textarea id="brewNotes" rows="3" placeholder="no extra turns, keep CMC ≤ 4"></textarea>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <aside class="brew-rail">
+        <div class="hud-panel brew-summary">
+            <div class="hud-panel-head"><h3>Summary</h3></div>
+            <div class="brew-art" id="brewRailArt"><span class="brew-art-empty">Pick a commander</span></div>
+            <dl class="hud-kv" id="brewRailKv">
+                <dt>Commander</dt><dd id="brewKvCmd">—</dd>
+                <dt>Color identity</dt><dd id="brewKvColors">—</dd>
+                <dt>Donors</dt><dd id="brewKvDonors">0 decks</dd>
+                <dt>Build mode</dt><dd id="brewKvMode">Owned-first</dd>
+                <dt>Est. donor pool</dt><dd id="brewKvPool">0 unique cards</dd>
+            </dl>
+            <button type="button" class="hud-btn hud-btn--primary brew-generate" id="brewGenerate" disabled aria-disabled="true">Generate brew</button>
+            <p class="brew-generate-note"><b>Virtual only — no cards move. Donor decks stay fully intact.</b></p>
+            <p class="brew-generate-hint" id="brewGenerateHint">Pick a commander to brew</p>
+            <div class="hud-panel brew-error hud-panel--signal" id="brewError" hidden></div>
+        </div>
+        <div class="hud-panel brew-recent" id="brewRecent" hidden>
+            <div class="hud-panel-head"><h3>Recent brews</h3></div>
+            <ul id="brewRecentList"></ul>
+        </div>
+    </aside>
+</div>
+
+<div class="brew-mobilebar">
+    <span class="brew-mobilebar-name" id="brewMobileName">No commander</span>
+    <span class="brew-micro" id="brewMobilePool"></span>
+    <button type="button" class="hud-btn hud-btn--primary" id="brewGenerateMobile" disabled aria-disabled="true">Generate</button>
+</div>
+
+<script id="brew-donor-data" type="application/json">{{ donor_decks | tojson }}</script>
+<script id="brew-resume-data" type="application/json">{{ (resume_session or {}) | tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+{# ?v={{ version }} cache-busts like every other static asset (base.html); a
+   bare URL let browsers serve a stale brew.js across deploys, which is how the
+   commander autocomplete fix shipped but never reached Andrew's browser. #}
+<script src="{{ url_for('static', path='/js/brew.js') }}?v={{ version }}"></script>
+{% endblock %}
