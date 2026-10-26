@@ -27,8 +27,8 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app as app_module
-import registry
+import src.server.app.main as app_module
+import src.server.domain.decks.registry as registry
 
 
 class FakeRedis:
@@ -298,7 +298,7 @@ class TestRecommendations(TuneOverlayTestCase):
         return f"/api/decks/{rid or self.rid}/tuneup/recommendations"
 
     def _save_active(self, payload):
-        from analytics import tune_store
+        from src.server.domain.analytics import tune_store
 
         deck_id = tune_store.deck_key(self.deck)
         rec_id = "rec-test-1"
@@ -316,7 +316,7 @@ class TestRecommendations(TuneOverlayTestCase):
         self.assertEqual(j["adds"], [])
 
     def test_unowned_pick_is_flagged_and_owned_free_pick_is_suppressed(self):
-        import instances as instance_store
+        import src.server.domain.inventory.instances as instance_store
 
         instance_store.create_instance(self.fake_r, "Owned Bomb", ownership_status="in_collection")
         self._save_active({"swaps": [
@@ -337,7 +337,7 @@ class TestRecommendations(TuneOverlayTestCase):
         self.assertTrue(entry["id"].startswith("add-"))
 
     def test_owned_but_sleeved_pick_shows_without_purchase_flag(self):
-        import instances as instance_store
+        import src.server.domain.inventory.instances as instance_store
 
         instance_store.create_instance(self.fake_r, "Sleeved Bomb", ownership_status="in_deck",
                                        deck_id="archidekt:1", deck_name="Other Deck")
@@ -355,7 +355,7 @@ class TestTemplateShell(unittest.TestCase):
 
     def setUp(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "templates", "deck_tune.html"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/templates", "deck_tune.html"), encoding="utf-8") as f:
             self.html = f.read()
 
     def test_overlay_markup_and_script(self):
@@ -370,7 +370,7 @@ class TestTemplateShell(unittest.TestCase):
     def test_dt6_float_panel_markup_and_js(self):
         self.assertIn('id="tuneRecPanel"', self.html)
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "static", "js", "tune_overlay.js"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/static", "js", "tune_overlay.js"), encoding="utf-8") as f:
             js = f.read()
         self.assertIn("/tuneup/recommendations", js)
         self.assertIn("TuneOverlay.adds", js)
@@ -380,7 +380,7 @@ class TestTemplateShell(unittest.TestCase):
     def test_overlay_js_uses_existing_tag_endpoints(self):
         """DT-1 must not fork the tag system: drag = POST/DELETE card-tags."""
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "static", "js", "tune_overlay.js"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src/web/static", "js", "tune_overlay.js"), encoding="utf-8") as f:
             js = f.read()
         self.assertIn('send("POST", "/card-tags"', js)
         self.assertIn('send("DELETE", "/card-tags"', js)

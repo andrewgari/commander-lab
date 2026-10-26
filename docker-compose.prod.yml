@@ -48,7 +48,7 @@ services:
       - /mnt/user/appdata/commander-lab/data:/data
     depends_on:
       - redis
-    command: uvicorn app:app --host 0.0.0.0 --port 8000
+    command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000
     networks:
       - internal
     labels:
@@ -71,7 +71,7 @@ services:
       - INTERACTIONS_DISABLED=1
     depends_on:
       - redis
-    command: python -m analytics.bracket_worker
+    command: python -m src.server.domain.analytics.bracket_worker
     networks:
       - internal
     labels:

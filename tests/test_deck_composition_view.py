@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-import app as app_mod
+import src.server.app.main as app_mod
 
 client = TestClient(app_mod.app)
 
@@ -18,9 +18,9 @@ class TestDeckCompositionRedirect(unittest.TestCase):
         self.assertEqual(resp.status_code, 301)
         self.assertEqual(resp.headers["location"], "/deck/Holy%20Hellfire/stats#composition")
 
-    @patch("app.comp_svc.resolve_for_deck")
-    @patch("app._find_deck_any")
-    @patch("app.registry.list_decks")
+    @patch("src.server.app.main.comp_svc.resolve_for_deck")
+    @patch("src.server.app.main._find_deck_any")
+    @patch("src.server.app.main.registry.list_decks")
     def test_stats_page_carries_the_composition_section(self, mock_list_decks, mock_find, mock_resolve):
         deck_data = {
             "name": "Holy Hellfire",
@@ -60,7 +60,7 @@ class TestDeckCompositionRedirect(unittest.TestCase):
         self.assertIn("Card Advantage", html)
         self.assertIn("compPickerForm", html)
 
-    @patch("app.registry.list_decks")
+    @patch("src.server.app.main.registry.list_decks")
     def test_unknown_deck_still_404s_after_the_redirect(self, mock_list_decks):
         mock_list_decks.return_value = []
         resp = client.get("/deck/NonexistentDeck/composition")

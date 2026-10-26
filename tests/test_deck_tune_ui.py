@@ -19,14 +19,16 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from analytics import journal, tuner
-from app import app
+import src.server.app.main as app_mod
+from src.server.domain.analytics import journal, tuner
+from src.server.app.main import app
 from tests.test_deck_stats_ui import DECK, DECK_JS, HUD_JS, _DeckPage, _classes
 from tests.test_interactions import FakeRedis
 from tests.test_tuner import COMP, WEAK, cand
 
-TEMPLATE = app_mod.os.path.join(app_mod.os.path.dirname(app_mod.__file__), "templates", "deck_tune.html")
+TEMPLATE = app_mod.os.path.join(
+    app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.os.path.dirname(app_mod.__file__)))),
+    "src/web/templates", "deck_tune.html")
 
 
 class _TunePage(_DeckPage):
@@ -155,7 +157,7 @@ class TestSavedRecommendationWiring(_TunePage, unittest.TestCase):
         self.assertNotIn('x.addEventListener("change", function () { whyAsked = false; load(); })', self.body)
 
 
-CSS = TEMPLATE.replace("templates/deck_tune.html", "static/css/hud.css")
+CSS = TEMPLATE.replace("src/web/templates/deck_tune.html", "src/web/static/css/hud.css")
 
 
 class TestDismissedCutsUI(_TunePage, unittest.TestCase):
@@ -190,8 +192,8 @@ class TestTuneStateAPI(unittest.TestCase):
         self.fake = FakeRedis()
         self.client = TestClient(app)
         self.patches = [patch.object(app_mod, "r", self.fake),
-                        patch("app.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[DECK])]
+                        patch("src.server.app.main.registry.find_deck", side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
+                        patch("src.server.app.main.registry.list_decks", return_value=[DECK])]
         for p in self.patches:
             p.start()
         self.addCleanup(lambda: [p.stop() for p in self.patches])
@@ -250,9 +252,9 @@ class TestTuneAPI(unittest.TestCase):
         deck = dict(DECK, cards=[{"name": n, "quantity": 1} for n in ("Kaalia of the Vast", "Weak Plan", "Weak Removal",
                                                                        "Pet Card", "Okay Plan")])
         self.patches = [patch.object(app_mod, "r", self.fake),
-                        patch("app.registry.find_deck", side_effect=lambda r, d: deck if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[deck]),
-                        patch("app.tuner_mod.compute", side_effect=_fake_compute)]
+                        patch("src.server.app.main.registry.find_deck", side_effect=lambda r, d: deck if d in ("archidekt:417707", "417707") else None),
+                        patch("src.server.app.main.registry.list_decks", return_value=[deck]),
+                        patch("src.server.app.main.tuner_mod.compute", side_effect=_fake_compute)]
         for p in self.patches:
             p.start()
 
@@ -261,7 +263,7 @@ class TestTuneAPI(unittest.TestCase):
             p.stop()
 
     def test_unknown_deck_404(self):
-        with patch("app.registry.find_deck", return_value=None), patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.find_deck", return_value=None), patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/api/decks/nope/tune").status_code, 404)
 
     def test_tune_payload_and_caps(self):
@@ -290,8 +292,8 @@ class TestTuneAPI(unittest.TestCase):
         self.assertEqual(self.client.post("/api/decks/archidekt:417707/tune/pet", json={"name": "Nope"}).status_code, 400)
 
     def test_why_without_llm_is_502_but_keeps_numbers(self):
-        from analytics.interactions import llm as llm_mod
-        with patch("analytics.interactions.llm.default_chain", return_value=llm_mod.LLMChain([])):
+        from src.server.domain.analytics.interactions import llm as llm_mod
+        with patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=llm_mod.LLMChain([])):
             res = self.client.post("/api/decks/archidekt:417707/tune/why", json={})
         self.assertEqual(res.status_code, 502)
         body = res.json()
@@ -300,7 +302,7 @@ class TestTuneAPI(unittest.TestCase):
 
     def test_finish_checkin_goes_to_tune(self):
         journal.save_journal(self.fake, DECK, {"target_power_level": {"scale": 7}})
-        with patch("analytics.journal.collect_context", return_value={"power": 6.5}):
+        with patch("src.server.domain.analytics.journal.collect_context", return_value={"power": 6.5}):
             self.client.post("/api/decks/archidekt:417707/checkin")
         res = self.client.post("/api/decks/archidekt:417707/checkin/finish", json={})
         self.assertEqual(res.json()["next"], "/deck/Holy%20Hellfire/tune")

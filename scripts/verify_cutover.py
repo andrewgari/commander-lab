@@ -35,7 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import redis_pg_import as imp  # noqa: E402
+import src.server.workers.redis_pg_import as imp  # noqa: E402
 
 PHYSICAL_FOLDER_ID = 588380  # AGENTS.md: active physical Archidekt folder
 

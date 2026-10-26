@@ -19,13 +19,13 @@ from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
-import card_refs
-import tcgplayer
+import src.server.domain.decks.card_refs as card_refs
+import src.server.infra.providers.tcgplayer as tcgplayer
 from jinja2 import Environment, FileSystemLoader
 
-import app as app_mod
-from analytics import theory, theory_view
-from analytics.oracle_client import OracleClient
+import src.server.app.main as app_mod
+from src.server.domain.analytics import theory, theory_view
+from src.server.domain.analytics.oracle_client import OracleClient
 from tests.test_deck_stats_ui import DECK, HUD_CSS, INVENTORY, _classes, _DeckPage, _page_style
 from tests.test_theory import FakeRedis
 
@@ -41,7 +41,7 @@ def _doc(**over):
 
 
 def _env():
-    env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(ROOT / "src/web/templates")), autoescape=True)
     env.globals["card_preview_attrs"] = card_refs.preview_attrs
     env.globals["tcgplayer_cart"] = tcgplayer.cart
     return env
@@ -95,11 +95,11 @@ class TestSectionRouting(unittest.TestCase):
         for s in DOC["sections"][:4]:
             with self.subTest(type=s["type"]):
                 self.assertEqual(theory_view.section_template(s), f"partials/theory/{s['type']}.html")
-                self.assertTrue((ROOT / "templates" / theory_view.section_template(s)).is_file())
+                self.assertTrue((ROOT / "src/web/templates" / theory_view.section_template(s)).is_file())
 
     def test_every_renderer_has_a_partial(self):
         for t in theory_view.RENDERERS:
-            self.assertTrue((ROOT / "templates" / "partials" / "theory" / f"{t}.html").is_file(), t)
+            self.assertTrue((ROOT / "src/web/templates" / "partials" / "theory" / f"{t}.html").is_file(), t)
         self.assertEqual(set(theory_view.RENDERERS), set(theory.KNOWN_TYPES))
 
     def test_unknown_type_falls_back(self):
@@ -206,7 +206,7 @@ class TestKnownPartials(unittest.TestCase):
         self.assertNotRegex(css, r"\.is-salt-high[^{]*\{[^}]*--text-3")
 
     def test_th3r_hidden_buttons_stay_hidden(self):
-        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
         self.assertIn(".hud-btn[hidden] { display: none; }", css)
 
     def test_commander_change_callout(self):
@@ -226,7 +226,7 @@ class TestKnownPartials(unittest.TestCase):
     def test_every_hud_class_in_partials_is_defined(self):
         css = HUD_CSS.read_text()
         defined = set(re.findall(r"\.(hud-[a-z0-9-]+)", css))
-        for f in (ROOT / "templates" / "partials" / "theory").glob("*.html"):
+        for f in (ROOT / "src/web/templates" / "partials" / "theory").glob("*.html"):
             used = set(re.findall(r"(?<![-\w])(hud-[a-z0-9-]+)", f.read_text()))
             with self.subTest(f=f.name):
                 self.assertEqual(sorted(used - defined), [])
@@ -358,7 +358,7 @@ class TestIdeasPage(_IdeasPage, unittest.TestCase):
         js = self._script()
         self.assertIn("A.age(t.getAttribute(\"datetime\"))", js)
         self.assertIn("t.title = abs", js)
-        self.assertIn("age: age", (ROOT / "static" / "js" / "deck_analytics.js").read_text())
+        self.assertIn("age: age", (ROOT / "src/web/static" / "js" / "deck_analytics.js").read_text())
 
 
 class TestIdeasEmpty(_IdeasPage, unittest.TestCase):
@@ -403,9 +403,9 @@ class TestDocPage(_IdeasPage, unittest.TestCase):
         self.assertLess(self.body.index("hud-doc-index"), self.body.index('<section class="hud-doc-section"'))
         self.assertIn("data-doc-index", nav)
         self.assertRegex(self.css, r"\.hud-doc-index \{\s*position: sticky;")
-        self.assertIn("initDocIndex", (ROOT / "static" / "js" / "hud.js").read_text())
+        self.assertIn("initDocIndex", (ROOT / "src/web/static" / "js" / "hud.js").read_text())
         # Copilot (PR #86): a short final section must still become current at the page end.
-        self.assertIn("cur = heads.length - 1", (ROOT / "static" / "js" / "hud.js").read_text())
+        self.assertIn("cur = heads.length - 1", (ROOT / "src/web/static" / "js" / "hud.js").read_text())
 
 
 class TestDocPageSwapped(_IdeasPage, unittest.TestCase):
@@ -430,9 +430,9 @@ class TestPageEdges(unittest.TestCase):
     def setUp(self):
         self.fake = _Fake()
         self.client = TestClient(app_mod.app)
-        for p in (patch.object(app_mod, "r", self.fake), patch("app.registry.list_decks", return_value=[DECK]),
-                  patch("app.registry.find_deck", lambda r, i: DECK if i in (RID, str(DECK["id"])) else None),
-                  patch("app.inventory_view.build_inventory", return_value=INVENTORY)):
+        for p in (patch.object(app_mod, "r", self.fake), patch("src.server.app.main.registry.list_decks", return_value=[DECK]),
+                  patch("src.server.app.main.registry.find_deck", lambda r, i: DECK if i in (RID, str(DECK["id"])) else None),
+                  patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY)):
             p.start()
             self.addCleanup(p.stop)
 
@@ -473,7 +473,7 @@ class TestPageEdges(unittest.TestCase):
             res = self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad")
         self.assertEqual(res.status_code, 503)
         self.assertIn("Try again", res.text)
-        with patch("app.registry.list_decks", side_effect=ConnectionError("redis down")):
+        with patch("src.server.app.main.registry.list_decks", side_effect=ConnectionError("redis down")):
             self.assertEqual(self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad").status_code, 503)
 
     def test_delete_updates_tab_badge_and_409_syncs_job_fields(self):
@@ -503,7 +503,7 @@ class TestPageEdges(unittest.TestCase):
 
 class TestTabHotkey(unittest.TestCase):
     def test_key_6(self):
-        js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
+        js = (ROOT / "src/web/static" / "js" / "deck_analytics.js").read_text()
         self.assertIn("/^[0-9]$/", js)
 
 

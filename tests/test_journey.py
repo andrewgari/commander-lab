@@ -23,9 +23,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from analytics import journey
-from app import app
+import src.server.app.main as app_mod
+from src.server.domain.analytics import journey
+from src.server.app.main import app
 from tests.test_deck_stats_ui import DECK
 from tests.test_interactions import FakeRedis
 
@@ -226,8 +226,8 @@ class JournalPageJourneyTest(unittest.TestCase):
         cls.fake = fresh()
         journey.append_entry(cls.fake, DECK, kind="milestone", title="Seeded")
         with patch.object(app_mod, "r", cls.fake), \
-                patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+                patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             cls.res = cls.client.get("/deck/Holy%20Hellfire/journal")
         cls.html = cls.res.text
 

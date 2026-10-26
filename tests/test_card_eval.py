@@ -7,12 +7,12 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card_eval import (DeckContext, ScoringWeights, UnknownCardError, InvalidDeckError, evaluate_card)
-from analytics.card_eval import edhrec_data
-from analytics.card_eval.config import ROLE_LABELS
-from analytics.card_eval.hf_classifier import HFClassifier, HFError
-from analytics.card_eval.service import compute_strength
-from analytics.providers.edhrec import EDHRecNotFoundError, EDHRecRequestError
+from src.server.domain.analytics.card_eval import (DeckContext, ScoringWeights, UnknownCardError, InvalidDeckError, evaluate_card)
+from src.server.domain.analytics.card_eval import edhrec_data
+from src.server.domain.analytics.card_eval.config import ROLE_LABELS
+from src.server.domain.analytics.card_eval.hf_classifier import HFClassifier, HFError
+from src.server.domain.analytics.card_eval.service import compute_strength
+from src.server.domain.analytics.providers.edhrec import EDHRecNotFoundError, EDHRecRequestError
 
 
 class FakeRedis:
@@ -237,7 +237,7 @@ def test_variant_cards_never_enter_the_mainboard_pool():
 
 
 def test_card_source_record_exposes_mainboard_gate_alongside_commander_legality():
-    from analytics.card_eval.card_source import _record, mainboard_gate, variant_type_class
+    from src.server.domain.analytics.card_eval.card_source import _record, mainboard_gate, variant_type_class
     plane = _record({"name": "The Abyssal Plane", "type_line": "Plane — The Abyss",
                      "color_identity": [], "legalities": {"commander": "legal"}})
     assert plane["legal"] is True  # Commander-legal is NOT mainboard-legal

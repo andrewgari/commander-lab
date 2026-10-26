@@ -11,12 +11,12 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import brew
-import brew_builder
-import instances
-import reconstruct
-import reconstruct_pools
-import registry
+import src.server.domain.draft.brew as brew
+import src.server.domain.draft.brew_builder as brew_builder
+import src.server.domain.inventory.instances as instances
+import src.server.domain.draft.reconstruct as reconstruct
+import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+import src.server.domain.decks.registry as registry
 
 
 class FakePipe:

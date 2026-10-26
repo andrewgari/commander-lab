@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE = ROOT / "templates" / "deck_tune.html"
+TEMPLATE = ROOT / "src/web/templates" / "deck_tune.html"
 
 
 class TestCartPanelMarkup(unittest.TestCase):

@@ -2,7 +2,7 @@ from typing import Dict, Optional, Sequence
 
 import pytest
 
-from analytics.repository_interfaces import (
+from src.server.domain.analytics.repository_interfaces import (
     Cache, ConflictError, NotFoundError, Repository,
 )
 

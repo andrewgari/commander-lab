@@ -23,8 +23,8 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import bracket_check as bc  # noqa: E402
-from src.integrations.scryfall import ScryfallClient  # noqa: E402
+from src.server.domain.analytics import bracket_check as bc  # noqa: E402
+from src.server.infra.providers.scryfall import ScryfallClient  # noqa: E402
 
 
 async def fetch(client: ScryfallClient, query: str):

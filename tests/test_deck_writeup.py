@@ -6,9 +6,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.deck_writeup import (FormError, WriteupError, clean_form, generate_description, generate_primer,
+from src.server.domain.analytics.deck_writeup import (FormError, WriteupError, clean_form, generate_description, generate_primer,
                                     missing_required, summarize_cards)
-from analytics.deck_writeup.service import build_user_prompt, unknown_mentions, validate_primer
+from src.server.domain.analytics.deck_writeup.service import build_user_prompt, unknown_mentions, validate_primer
 
 DECK = {"name": "Goblin Party", "commanders": ["Krenko, Mob Boss"]}
 META = [
@@ -153,7 +153,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_module
+import src.server.app.main as app_module
 
 
 class FakeOracle:
@@ -168,7 +168,7 @@ class FakeOracle:
 def _post(path, body, reply="A goblin swarm led by Krenko.", preflight=None):
     client = FakeOracle(reply)
     with patch.object(app_module, "_find_deck_any", return_value=dict(DECK, cards=[{"name": "Goblin Chieftain", "types": ["Creature"]}])), \
-            patch("analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
+            patch("src.server.domain.analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
             patch.object(app_module, "_oracle_preflight", return_value=preflight), \
             patch.object(app_module, "_oracle_client", return_value=client):
         return TestClient(app_module.app).post(path, json=body), client

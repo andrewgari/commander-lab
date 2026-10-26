@@ -2,8 +2,8 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-import datastore
-from datastore import GuardedRedis, WritesDisabledError
+import src.server.infra.cache.datastore as datastore
+from src.server.infra.cache.datastore import GuardedRedis, WritesDisabledError
 
 
 class TestDatastoreFlag(unittest.TestCase):
@@ -46,7 +46,7 @@ class TestDatastoreFlag(unittest.TestCase):
 
     def test_api_returns_503(self):
         from fastapi.testclient import TestClient
-        import app as app_mod
+        import src.server.app.main as app_mod
         with self._env("readonly"), patch.object(app_mod, "r", GuardedRedis(MagicMock())):
             c = TestClient(app_mod.app, raise_server_exceptions=False)
             m = app_mod.r._client
@@ -59,7 +59,7 @@ class TestDatastoreFlag(unittest.TestCase):
 
 class TestCardExports(unittest.TestCase):
     def test_is_readonly_and_assert_readwrite(self):
-        import datastore
+        import src.server.infra.cache.datastore as datastore
         with patch.dict(os.environ, {"DATA_ACCESS_MODE": "readonly"}):
             self.assertTrue(datastore.is_readonly())
             with self.assertRaises(datastore.WritesDisabledError):
