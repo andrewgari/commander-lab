@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Deck reviewer groundwork (internal): the review pipeline now has its first two passes — a brief of what the deck is trying to do (with questions for the owner where intent is unclear) and a seven-axis analysis with 1–10 scores — plus per-pass model configuration, structured-output enforcement with bounded repair, prompt caching and a stored trace of every run. Findings that cite cards outside the deck or facts that do not exist are dropped and logged. No user-visible change yet.
 - Deck reviewer eval harness: deterministic review gates with good/bad fixtures (`make eval-gates`), an LLM judge, calibration tooling, golden decks, and `scripts/eval_compare.py`.
 
 ### Fixed
