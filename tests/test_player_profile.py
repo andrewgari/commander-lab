@@ -290,6 +290,28 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(len(svc.list_versions(self.s, "andrew")), 1)
         self.assertNotIn("Rhystic Study", after.dislikes.cards)
 
+    def test_summarizer_latest_decision_wins_same_review(self):
+        self.fb("r1", "A", "Rhystic Study", "rejected")
+        self.fb("r1", "A", "Rhystic Study", "accepted")
+        self.fb("r2", "C", "Rhystic Study", "rejected")
+        profile = svc.load_profile(self.s, "andrew")
+        self.assertEqual(pp.summarize_feedback(profile), [])
+        self.assertEqual(svc.generate_proposals(self.s, "andrew"), [])
+
+    def test_summarizer_rejected_twice_then_accepted_does_not_propose(self):
+        self.fb("r1", "A", "Rhystic Study", "rejected")
+        self.fb("r2", "C", "Rhystic Study", "rejected")
+        self.fb("r2", "C", "Rhystic Study", "accepted")
+        profile = svc.load_profile(self.s, "andrew")
+        self.assertEqual(pp.summarize_feedback(profile), [])
+
+    def test_summarizer_still_proposes_when_latest_stays_rejected(self):
+        self.fb("r1", "A", "Rhystic Study", "accepted")
+        self.fb("r1", "A", "Rhystic Study", "rejected")
+        self.fb("r2", "C", "Rhystic Study", "rejected")
+        profile = svc.load_profile(self.s, "andrew")
+        self.assertEqual([p.value for p in pp.summarize_feedback(profile)], ["Rhystic Study"])
+
     def test_single_rejection_proposes_nothing(self):
         self.fb("r1", "A", "B", "rejected")
         self.assertEqual(svc.generate_proposals(self.s, "andrew"), [])
