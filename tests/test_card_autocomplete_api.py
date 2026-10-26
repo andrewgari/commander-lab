@@ -260,6 +260,74 @@ class TestCardAutocompleteAPI(unittest.TestCase):
             res = self.client.get("/api/cards/autocomplete?q=anything&commanders_only=true")
             self.assertEqual(res.status_code, 200)
 
+    # -- typo tolerance (default scope) -----------------------------------------
+    CATALOG = ["Biscuit, Tavern Cook", "Spider-Man, Web Slinger", "Ancient Spider", "Sol Ring",
+               "Atraxa, Praetors' Voice", "Atraxa, Grand Unifier", "Lightning Bolt", "Bolt Hound"]
+
+    def _typo_get(self, names=None):
+        """Scryfall double: autocomplete finds nothing for the misspelling, the
+        card-names catalog holds the real names, search/enrichment is empty."""
+        catalog = names if names is not None else self.CATALOG
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/autocomplete"):
+                return Mock(status_code=200, json=lambda: {"data": []})
+            if url.endswith("/catalog/card-names"):
+                return Mock(status_code=200, json=lambda: {"data": catalog})
+            return Mock(status_code=200, json=lambda: {"data": []})
+        return fake_get
+
+    def test_misspelling_recovers_close_names_when_scryfall_finds_none(self):
+        for typo, want in (("buscuit", "Biscuit, Tavern Cook"), ("spidr", "Ancient Spider"),
+                           ("atraxxa", "Atraxa, Grand Unifier"), ("sol rnig", "Sol Ring"),
+                           ("lightnin bolt", "Lightning Bolt")):
+            with patch.object(self.app_module.httpx, "get", side_effect=self._typo_get()):
+                payload = self.client.get(f"/api/cards/autocomplete?q={typo}").json()
+            names = [r["name"] for r in payload["results"]]
+            self.assertIn(want, names, (typo, names))
+            self.assertEqual(payload["degraded"], False)
+
+    def test_misspelling_best_match_is_first(self):
+        with patch.object(self.app_module.httpx, "get", side_effect=self._typo_get()):
+            names = [r["name"] for r in self.client.get("/api/cards/autocomplete?q=buscuit").json()["results"]]
+        self.assertEqual(names[0], "Biscuit, Tavern Cook")
+
+    def test_gibberish_stays_empty_not_random_cards(self):
+        with patch.object(self.app_module.httpx, "get", side_effect=self._typo_get()):
+            payload = self.client.get("/api/cards/autocomplete?q=zzqxv").json()
+        self.assertEqual(payload["results"], [])
+
+    def test_catalog_is_fetched_once_then_cached_in_redis(self):
+        fake = self._typo_get()
+        with patch.object(self.app_module.httpx, "get", side_effect=fake) as get:
+            self.client.get("/api/cards/autocomplete?q=buscuit")
+            self.client.get("/api/cards/autocomplete?q=spidr")
+        catalog_calls = [c for c in get.call_args_list if c[0][0].endswith("/catalog/card-names")]
+        self.assertEqual(len(catalog_calls), 1)
+        self.assertIsNotNone(self.r.get("cards:catalog:names"))
+
+    def test_catalog_failure_degrades_quietly_to_no_matches(self):
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/autocomplete"):
+                return Mock(status_code=200, json=lambda: {"data": []})
+            raise RuntimeError("catalog down")
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            res = self.client.get("/api/cards/autocomplete?q=buscuit")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["results"], [])
+        # A catalog outage must not poison the cache with an empty list.
+        self.assertIsNone(self.r.get("cards:catalog:names"))
+
+    def test_exact_prefix_hit_does_not_touch_the_catalog(self):
+        with patch.object(self.app_module.httpx, "get", side_effect=self._typo_get()) as get:
+            def fake_get(url, **kwargs):
+                if url.endswith("/cards/autocomplete"):
+                    return Mock(status_code=200, json=lambda: {"data": ["Sol Ring"]})
+                return Mock(status_code=200, json=lambda: {"data": []})
+            get.side_effect = fake_get
+            self.client.get("/api/cards/autocomplete?q=sol")
+        self.assertFalse([c for c in get.call_args_list if c[0][0].endswith("/catalog/card-names")])
+
     # -- brew alias stays put ------------------------------------------------
     def test_brew_commanders_alias_delegates_to_shared_search(self):
         fresh = _card("The Gitrog Monster")

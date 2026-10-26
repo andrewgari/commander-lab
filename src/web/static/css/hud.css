@@ -3745,10 +3745,6 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 
 .tnov-add { position: relative; margin-top: var(--sp-2); }
 .tnov-add-input { width: 100%; font-size: var(--fs-xs); }
-.tnov-ac { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; max-height: 16rem; overflow-y: auto; background: var(--surface-1); border: var(--stroke-strong); border-radius: var(--radius-1); }
-.tnov-ac-option { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); cursor: pointer; }
-.tnov-ac-option:hover, .tnov-ac-option.is-active { background: var(--surface-3); }
-.tnov-ac-type { color: var(--text-3); font: var(--fs-micro) var(--font-mono); white-space: nowrap; }
 
 @media (max-width: 768px) {
     .tnov-columns { flex-direction: column; overflow-x: visible; }

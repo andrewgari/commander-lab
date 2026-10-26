@@ -26,6 +26,9 @@ import httpx
 SCRYFALL_SEARCH = "https://api.scryfall.com/cards/search"
 SCRYFALL_AUTOCOMPLETE = "https://api.scryfall.com/cards/autocomplete"
 SCRYFALL_NAMED = "https://api.scryfall.com/cards/named"
+SCRYFALL_CATALOG_NAMES = "https://api.scryfall.com/catalog/card-names"
+CATALOG_KEY = "cards:catalog:names"
+CATALOG_TTL_SECONDS = 7 * 24 * 60 * 60
 
 TTL_NONEMPTY_SECONDS = 24 * 60 * 60  # 24h
 TTL_EMPTY_SECONDS = 60               # an empty result recovers fast
@@ -250,6 +253,24 @@ async def search_commanders(r, query, limit=None):
                     if candidates:
                         break
 
+            # Last resort, same recovery the default scope uses: rank Scryfall's
+            # card-name catalog by per-word similarity ("buscuit" -> Biscuit...),
+            # then keep only the commander-legal ones via an exact-name lookup.
+            if not candidates:
+                fuzzy_names = _fuzzy_names(r, query, 8, headers)
+                if fuzzy_names:
+                    clauses = " or ".join(
+                        '!"%s"' % n.replace("\\", "").replace('"', "") for n in fuzzy_names)
+                    rescue = httpx.get(
+                        SCRYFALL_SEARCH,
+                        params={"q": f"({clauses}) is:commander legal:commander",
+                                "unique": "cards", "order": "name"},
+                        headers=headers, timeout=8.0,
+                    )
+                    if rescue.status_code == 200:
+                        for card in (rescue.json().get("data") or []):
+                            candidates[card.get("id") or card.get("name")] = card
+
             # A successful direct fuzzy-name match preserves pre-existing
             # behavior exactly: return it without any similarity gate, so a
             # short query against a long card name (e.g. "atraxa" -> "Atraxa,
@@ -356,6 +377,64 @@ def _enrich_from_scryfall(names, headers):
     return by_name
 
 
+def _catalog_names(r, headers):
+    """Scryfall's card-name catalog (~35k names), cached 7 days in Redis.
+    Returns [] on any failure and never caches a failure."""
+    try:
+        raw = r.get(CATALOG_KEY)
+        if raw:
+            names = json.loads(raw.decode() if isinstance(raw, bytes) else raw)
+            if isinstance(names, list) and names:
+                return names
+    except Exception:
+        pass
+    try:
+        resp = httpx.get(SCRYFALL_CATALOG_NAMES, headers=headers, timeout=15.0)
+        if resp.status_code != 200:
+            return []
+        names = [n for n in (resp.json().get("data") or []) if isinstance(n, str)]
+    except Exception:
+        return []
+    if names:
+        try:
+            r.set(CATALOG_KEY, json.dumps(names), ex=CATALOG_TTL_SECONDS)
+        except TypeError:
+            r.set(CATALOG_KEY, json.dumps(names))
+        except Exception:
+            pass
+    return names
+
+
+def _fuzzy_names(r, query, limit, headers):
+    """Typo recovery for the default scope: when Scryfall's prefix autocomplete
+    finds nothing, rank catalog names by per-word edit similarity to the
+    query (\"spidr\" -> Spider cards, \"atraxxa\" -> Atraxa). Gibberish stays
+    empty: a word must reach 0.75 similarity to count."""
+    import difflib
+    import re
+
+    names = _catalog_names(r, headers)
+    if not names:
+        return []
+    words = {}
+    for n in names:
+        for w in re.split(r"[^a-z0-9']+", n.casefold()):
+            if len(w) >= 3:
+                words.setdefault(w, []).append(n)
+    tokens = [t for t in re.split(r"[^a-z0-9']+", query.casefold()) if t]
+    if not tokens:
+        return []
+    vocab = list(words)
+    scores = {}
+    for tok in tokens:
+        for w in difflib.get_close_matches(tok, vocab, n=10, cutoff=0.75):
+            ratio = difflib.SequenceMatcher(None, tok, w).ratio()
+            for n in words[w]:
+                scores[n] = scores.get(n, 0.0) + ratio
+    ranked = sorted(scores.items(), key=lambda kv: (-kv[1], len(kv[0]), kv[0]))
+    return [n for n, _ in ranked[:limit]]
+
+
 async def search_cards(r, query, limit=DEFAULT_LIMIT):
     """Default (any-card) autocomplete: Scryfall GET /cards/autocomplete for
     names, then ONE Scryfall card lookup so every row carries the full contract
@@ -379,6 +458,8 @@ async def search_cards(r, query, limit=DEFAULT_LIMIT):
         if resp.status_code != 200:
             raise ValueError(f"scryfall autocomplete status {resp.status_code}")
         names = (resp.json().get("data") or [])[:limit]
+        if not names:
+            names = _fuzzy_names(r, query, limit, headers)
     except Exception:
         # Degraded path: never cache a failure-derived result, never raise.
         return {
