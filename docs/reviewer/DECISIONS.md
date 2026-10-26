@@ -1,6 +1,6 @@
 # Deck Reviewer Decisions
 
-**Status: PROPOSED** (card 00, awaiting Andrew's approval). Once approved, this file overrides CONTRACT §4 where they differ. Evidence for each call is in `docs/reviewer/REVIEWER_AUDIT.md` (cited as "Audit Qn").
+**Status: APPROVED 2026-10-26** (Andrew; D1–D12 accepted, D3 amended; locked by card 02). Once approved, this file overrides CONTRACT §4 where they differ. Evidence for each call is in `docs/reviewer/REVIEWER_AUDIT.md` (cited as "Audit Qn").
 
 ---
 
@@ -52,7 +52,8 @@
 - **Facts (Audit Q3):** the app only talks to the oracle Hermes gateway (`ORACLE_URL`/`ORACLE_KEY`, 600 s timeout floor, full agent loop per request, no retries, no structured-output mode, one model per client) and Gemini/Nous for tagging. There is no direct provider client suitable for 5–8 structured calls per review.
 - **Options:** (a) route every pass through the oracle gateway; (b) add a direct provider client (Anthropic API or OpenAI-compatible endpoint) in `infra/llm/` for structured passes A–D, keep oracle for E; (c) Gemini via the existing `interactions/llm.py` provider for A–D.
 - **Recommendation: (b), with the provider chosen by Andrew.** I recommend an Anthropic-or-OpenAI-compatible API behind one `infra/llm/provider.py` interface (`generate_json(system, prompt, schema, model, max_retries) -> (obj, usage)`) with native schema/tool-forced JSON, retry on 429/5xx/invalid-JSON (≤2, then explicit failure), and a per-call `model` argument. Oracle gateway stays the writer because CONTRACT §2.10 makes the oracle profile the owner of review prose, and its agent loop latency is acceptable for one call.
-- **Needs Andrew:** which vendor/key. Default if unanswered: **Anthropic API, `ANTHROPIC_API_KEY` as a Docker secret** (file `secrets/ANTHROPIC_API_KEY`, same mechanism as `ORACLE_KEY` in `docker-compose.prod.yml`), because the existing `llm.py` already reserves an `anthropic` slot. Never in git, never in cards.
+- **AMENDMENT (Andrew, approved): D3: "okay anthropic then" — Anthropic API key as Docker secret for passes A–D, critic on Gemini; oracle writes prose**
+- **Resolved (was: needs Andrew):** vendor/key. Chosen: **Anthropic API, `ANTHROPIC_API_KEY` as a Docker secret** (file `secrets/ANTHROPIC_API_KEY`, same mechanism as `ORACLE_KEY` in `docker-compose.prod.yml`), because the existing `llm.py` already reserves an `anthropic` slot. Never in git, never in cards.
 - **Per-pass plan (generator ≠ critic ≠ judge):**
 
 | Pass | Role | Model class | Notes |
@@ -105,7 +106,7 @@
   4. Session-scoped autouse fixture unsets `DATABASE_URL` and calls `dispose_engine()` so an un-overridden `deps.db_session` can't reach the live DB (it would raise `db_unavailable` instead).
   5. Default for agents: SQLite in-memory for unit tests (as `test_slice3.py` does); Postgres fixture only for pgvector/AGE/JSONB-operator tests, which skip with an explicit reason when `TEST_DATABASE_URL` is unset.
   6. Where Postgres is on the same host as the live app, run a **separate Postgres instance/role** for tests: `docker run` from `docker/db/` image on port 5433, role `tester` with `CREATEDB` but no access to the live database. A role without privileges on the live DB is the guard that doesn't depend on code being correct.
-- **Needs Andrew:** permission to run that second Postgres container (or a restricted role on the existing server). Default: the separate container via `make test-db` (card 01).
+- **Approved (default accepted):** permission to run that second Postgres container (or a restricted role on the existing server). Default: the separate container via `make test-db` (card 01).
 - **Reversible:** yes (test-only).
 
 ## D8. Oracle consultation mechanics
@@ -137,7 +138,16 @@
 
 ---
 
-## Open questions for Andrew (blocking only where noted)
-1. **D3 (blocks card 03+):** which provider/key does the app use for passes A–D and the critic/judge? Default: Anthropic API key as a Docker secret, critic on a different vendor.
-2. **D7 (blocks card 01):** may agents run a separate test Postgres container (`make test-db`, port 5433)? Default: yes.
-3. **D4:** OK with an optional separate Playwright container for PDF? Default: yes.
+## Open questions for Andrew
+All resolved: D3 amended as above (Anthropic for passes A–D, Gemini critic); D4 and D7 extra containers accepted as defaults; all other defaults accepted.
+
+---
+
+## Binding for later cards
+
+- **Module paths:** as the D1 table, with one exception: the review document schema lives at top-level `schemas/review_document.schema.json` (CONTRACT §4, card 02 scope), not under `domain/review/schemas/`. Cross-reference checks: `tests/review_document_refs.py:check_references`. Fixture: `tests/fixtures/review_document/example.json`.
+- **Storage:** Postgres only, hybrid per D2 (new tables `player_profile_versions`, `player_profile_overrides`, `deck_intents`, `review_documents`, `review_runs`, `review_run_steps`, `recommendation_feedback`; alembic `a009`+; nullable `owner_id`). New caches (LLM calls, provider payloads) go to Postgres, not Redis.
+- **Runtime model plan:** direct provider client in `infra/llm/provider.py`. Passes A–D on Anthropic (key from Docker secret `ANTHROPIC_API_KEY`); critic on Gemini (different family); pass E prose by the oracle profile via the oracle gateway; eval judge different from the generator. Model ids pinned in config and recorded in `meta.models` and `review_run_steps.model`.
+- **PDF engine:** Playwright/Chromium in a separate optional `pdf` container, rendering the review page with `?print=1` and a short-lived signed token.
+- **Test isolation:** per-session throwaway Postgres database via `tests/pg_isolation.py` + `tests/conftest.py` (card 01), `TEST_DATABASE_URL` only, name guards (`t_*` / `*_test`), never `DATABASE_URL`; separate test Postgres container (`make test-db`, port 5433, role without access to the live DB); SQLite in-memory for unit tests.
+- **Review document:** `review_document.v1`, new alongside the legacy doc (D5); ids match `^[a-z][a-z0-9_-]{0,63}$`; `charts` is copied from the fact pack by code only.
