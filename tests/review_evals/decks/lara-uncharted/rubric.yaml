@@ -1,5 +1,16 @@
+# Golden rubric. Lines carrying a trailing DRAFT marker were machine-drafted from the fact pack (fact_pack/2); Andrew has not confirmed them.
+# Bracketed names are dotted fact-pack keys; roles.<role>.* means the entry in roles.roles with that role.
+# must_mention / must_not_recommend / owner_would_reject are intentionally empty: they come from Andrew only (see QUESTIONS.md).
 must_mention: []        # findings a great review has to surface
 must_not_recommend: []  # cards/strategies that should never be suggested
-known_strengths: []
-known_flaws: []
+known_strengths:
+  - "Card draw 14 vs 11-13 norm (above norm) [roles.draw.count]"  # DRAFT
+  - "Ramp 17 vs 9-11 norm (above norm) [roles.ramp.count]"  # DRAFT
+  - "Complete combo in list: The Reaver Cleaver + Aggravated Assault [combos.complete]"  # DRAFT
+known_flaws:
+  - "Lands: 35 vs 38 norm [mana.lands, mana.norms.lands.target] (plus 5 MDFC spell-lands not counted) [mana.mdfc_spell_lands]"  # DRAFT
+  - "Colored sources below recommended (sources/recommended): U 16/30, R 16/28, G 17/28 [mana.pips_vs_sources]"  # DRAFT
+  - "Targeted removal: 6 vs 11-13 norm [roles.targeted_removal.count, roles.targeted_removal.target_min/target_max]"  # DRAFT
+  - "Board wipes: 2 vs 5-7 norm [roles.wipes.count, roles.wipes.target_min/target_max]"  # DRAFT
+  - "20 orphans (cards in no synergy cluster): Academy Manufactor, Aggravated Assault, Andúril, Flame of the West, Andúril, Narsil Reforged, Blackblade Reforged, Chaos Warp, +14 more; synergy density 0.1186 [synergy.orphans, synergy.density]"  # DRAFT
 owner_would_reject: []  # suggestions Andrew would dismiss, and why

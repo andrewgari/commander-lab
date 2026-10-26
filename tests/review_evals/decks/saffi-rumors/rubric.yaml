@@ -1,5 +1,16 @@
+# Golden rubric. Lines carrying a trailing DRAFT marker were machine-drafted from the fact pack (fact_pack/2); Andrew has not confirmed them.
+# Bracketed names are dotted fact-pack keys; roles.<role>.* means the entry in roles.roles with that role.
+# must_mention / must_not_recommend / owner_would_reject are intentionally empty: they come from Andrew only (see QUESTIONS.md).
 must_mention: []        # findings a great review has to surface
 must_not_recommend: []  # cards/strategies that should never be suggested
-known_strengths: []
-known_flaws: []
+known_strengths:
+  - "Targeted removal 12 within 11-13 norm [roles.targeted_removal.count]"  # DRAFT
+  - "30 complete Commander Spellbook combos in the list, e.g. Karmic Guide + Reveillark + Ashnod's Altar [combos.complete]"  # DRAFT
+known_flaws:
+  - "Lands: 36 vs 38 norm [mana.lands, mana.norms.lands.target]"  # DRAFT
+  - "Colored sources below recommended (sources/recommended): W 21/30, G 20/36 [mana.pips_vs_sources]"  # DRAFT
+  - "Card draw: 8 vs 11-13 norm [roles.draw.count, roles.draw.target_min/target_max]"  # DRAFT
+  - "Board wipes: 2 vs 5-7 norm [roles.wipes.count, roles.wipes.target_min/target_max]"  # DRAFT
+  - "No synergy cluster found (0 clusters, density 0.0) [synergy.clusters, synergy.density]"  # DRAFT
+  - "13 orphans (cards in no synergy cluster): Altar of Dementia, Altar of the Brood, Cosmic Rebirth, Evolutionary Leap, Felidar Guardian, Fiend Hunter, +7 more; synergy density 0.0 [synergy.orphans, synergy.density]"  # DRAFT
 owner_would_reject: []  # suggestions Andrew would dismiss, and why
