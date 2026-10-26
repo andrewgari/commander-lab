@@ -209,6 +209,7 @@ class CuratedCard:
                 self.release_year = RECENT_SETS[self.set_code]["year"]
 
 
+# DEPRECATED (DECISIONS D6): legacy /api/review path only; never an input to analytics.candidates.candidate_pool.
 # Comprehensive database of archetype enablers, payoffs, recent set gems, and unique synergies
 CURATED_CARD_CATALOG: List[CuratedCard] = [
     # -------------------------------------------------------------------------
