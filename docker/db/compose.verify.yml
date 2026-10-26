@@ -1,0 +1,6 @@
+# Overlay the DEV compose with a unique -p project for disposable verification.
+# Example: sh docker/db/verify.sh -p cl-db-verify -f docker-compose.yml -f docker/db/compose.verify.yml
+services:
+  db:
+    container_name: commander-lab-db-infra-test
+    restart: "no"

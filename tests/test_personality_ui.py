@@ -24,11 +24,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-PS_JS = ROOT / "static" / "js" / "personality.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+PS_JS = ROOT / "src/web/static" / "js" / "personality.js"
 FIX = ROOT / "tests" / "fixtures" / "ps4"
 
 DOCTOR = json.loads((FIX / "doctor_rose.json").read_text())
@@ -74,19 +74,29 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('data-scope="physical"', res.text)
         self.assertNotIn("<script>\"", res.text)
 
-    def test_nav_has_player_profile_after_decks(self):
-        nav = _nav(self.client.get("/").text)
+    def test_nav_has_player_profile_as_footer_chip(self):
+        page = self.client.get("/").text
+        nav = _nav(page)
         labels = re.findall(r'<span class="nav-label">([^<]+)</span>', nav)
-        self.assertIn("Player Profile", labels)
-        self.assertEqual(labels.index("Player Profile"), labels.index("Commander Decks") + 1)
-        self.assertIn('href="/profile"', nav)
-        active = re.findall(r'class="nav-item active"[^>]*>.*?<span class="nav-label">([^<]+)</span>', _nav(self.client.get("/profile").text), re.S)
-        self.assertEqual(active, ["Player Profile"])
+        # Profile is no longer a sidebar nav item; it lives in the footer chip.
+        self.assertNotIn("Player Profile", labels)
+        footer = re.search(r'<div class="sidebar-footer">(.*?)</div>', page, re.S)
+        self.assertIsNotNone(footer)
+        chip = footer.group(1)
+        self.assertIn('href="/profile"', chip)
+        self.assertIn('<span class="profile-chip-label">Player Profile</span>', chip)
+        self.assertIn('class="profile-chip"', chip)
+        self.assertNotIn('class="profile-chip active"', chip)
+        self.assertIn('href="/profile"', nav)  # still reachable from the sidebar shell
+        profile_page = self.client.get("/profile").text
+        self.assertIn('class="profile-chip active"', profile_page)
+        self.assertIn('aria-current="page"', profile_page)
 
-    @patch("app.registry.list_decks", return_value=[DECK])
+    @patch("src.server.app.main.registry.list_decks", return_value=[DECK])
     def test_deck_page_has_ability_panel_under_stat_strip(self, _):
         body = self.client.get("/deck/The%20Laws%20of%20Time%20are%20Mine!!").text.split("<body", 1)[1]
-        order = [body.find(m) for m in ('id="deckStats"', 'id="psPanel"', 'id="deckCurve"')]
+        # NAV_IA §3.3: the ability panel sits under the stats-at-a-glance strip.
+        order = [body.find(m) for m in ('id="deckStats"', 'id="deckCurve"', 'id="psPanel"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertIn('aria-labelledby="psH"', body)

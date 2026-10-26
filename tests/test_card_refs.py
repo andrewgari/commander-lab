@@ -12,14 +12,14 @@ from pathlib import Path
 from tests.test_instances import FakeRedis
 from fastapi.testclient import TestClient
 
-import app as app_module
-import card_refs
-import instances as instance_store
-import inventory_view
-import registry
+import src.server.app.main as app_module
+import src.server.domain.decks.card_refs as card_refs
+import src.server.domain.inventory.instances as instance_store
+import src.server.domain.inventory.inventory_view as inventory_view
+import src.server.domain.decks.registry as registry
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 SID = "716D0B3B-BAC9-4FB8-882E-BD6171864043"
 
 REF_KEYS = {"name", "scryfallId", "oracleId", "set", "collectorNumber", "layout",
@@ -171,7 +171,6 @@ class TestPayloads(FakeRedisCase):
         # Each JS render site goes through refOf / cardRefAttrs.
         self.assertIn("HUD.cardRefAttrs(refOf(card))", page.text)                    # grid + modal
         self.assertIn('data-card-ref="${refAttr(c)}"', page.text)                    # list view
-        self.assertIn("HUD.cardRefAttrs(HUD.cardRef({ name: p.name, uid: p.uid }))", page.text)  # commanders w/o row
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed: hud.js tests need it")

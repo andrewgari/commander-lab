@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 
 class TestDeckRepoUI(unittest.TestCase):
@@ -43,7 +43,7 @@ class TestDeckRepoUI(unittest.TestCase):
         self.assertIn('<div class="deck-status-row">', html)
         self.assertIn("${renderRepoBadge(deck)}", html)
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     def test_api_decks_enriches_with_repo_status(self, mock_redis):
         """Verify GET /api/decks enriches deck objects with repo_status, dirty, and has_changes."""
         mock_redis.get.return_value = json.dumps([
@@ -67,7 +67,7 @@ class TestRenderRepoBadgeJS(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with open("templates/decks.html", "r", encoding="utf-8") as f:
+        with open("src/web/templates/decks.html", "r", encoding="utf-8") as f:
             content = f.read()
 
         # Extract escapeHtml and renderRepoBadge functions

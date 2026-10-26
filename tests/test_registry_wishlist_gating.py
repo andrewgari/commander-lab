@@ -19,8 +19,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import registry
-import instances as instance_store
+import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.instances as instance_store
 
 
 class FakeRedis:
