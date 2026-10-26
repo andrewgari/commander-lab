@@ -391,6 +391,25 @@ class ProfileSnapshotRow(Base):
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
+class DerivedIndexStatusRow(Base):
+    """Freshness bookkeeping for the derived (rebuildable) indexes
+    (ARCHITECTURE.md §4.2/§7.1). Written ONLY by
+    src/server/workers/index_rebuild.py. The embedding tables themselves are
+    deliberately not ORM-mapped: the ``vector`` column type is
+    PostgreSQL-only and access goes through src/server/infra/vector/ with raw
+    SQL."""
+    __tablename__ = "derived_index_status"
+    store: Mapped[str] = mapped_column(String(16), primary_key=True)  # vector | graph
+    rebuilt_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    source_watermark: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
 class ProfileOverrideRow(Base):
     """User steering over the computed profile (ARCHITECTURE.md §4.2). Every
     write also appends a profile_snapshots row — enforced by the service
