@@ -263,7 +263,75 @@ class TestChangelog(unittest.TestCase):
         # that the JS could mis-render; it echoes the unknown-date text and the
         # script's isNaN guard leaves the date-only text untouched.
         self.assertNotIn("datetime=", html.split('class="release-date"')[1].split(">")[0])
-        self.assertNotIn("data-rel>", html.split('class="release-date"')[1].split(">")[0] + ">")
+        self.assertNotIn("data-rel", html.split('class="release-date"')[1].split(">")[0])
+
+    def _run_relative_age(self, cases):
+        """Execute the page's inline relative-age script under node.
+
+        cases: list of (datetime_attr, title). Returns rendered texts.
+        """
+        import re, shutil, subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        tpl = open("src/web/templates/changelog.html", encoding="utf-8").read()
+        script = re.search(r"<script>(.*?)</script>", tpl, re.S).group(1)
+        harness = (
+            "var NOW=Date.parse('2026-10-26T12:00:00Z');Date.now=function(){return NOW;};"
+            "var els=%s.map(function(c){return {title:c[1],textContent:c[1],"
+            "getAttribute:function(){return c[0];}};});"
+            "var document={querySelectorAll:function(){return els;}};"
+            "%s;console.log(JSON.stringify(els.map(function(e){return e.textContent;})));"
+        ) % (json.dumps(cases), script)
+        out = subprocess.run(
+            [node, "-e", harness], capture_output=True, text=True, check=True
+        ).stdout
+        return json.loads(out)
+
+    def test_relative_age_thresholds(self):
+        cases = [
+            ("2026-10-26T11:59:30Z", "D"),  # 30s
+            ("2026-10-26T11:55:00Z", "D"),  # 5 min
+            ("2026-10-26T11:00:00Z", "D"),  # 1 hour
+            ("2026-10-26T09:00:00Z", "D"),  # 3 hours
+            ("2026-10-25T10:00:00Z", "D"),  # yesterday
+            ("2026-10-23T12:00:00Z", "D"),  # 3 days
+            ("2026-10-19T12:00:00Z", "D"),  # 7 days -> last week
+            ("2026-10-12T12:00:00Z", "D"),  # 2 weeks
+            ("2026-08-26T12:00:00Z", "D"),  # 2 months
+            ("2023-10-26T12:00:00Z", "D"),  # years
+            ("garbage", "D"),               # unparseable untouched
+        ]
+        out = self._run_relative_age(cases)
+        self.assertEqual(out[0], "just now \u00b7 D")
+        self.assertEqual(out[1], "5 min ago \u00b7 D")
+        self.assertEqual(out[2], "1 hour ago \u00b7 D")
+        self.assertEqual(out[3], "3 hours ago \u00b7 D")
+        self.assertEqual(out[4], "yesterday \u00b7 D")
+        self.assertEqual(out[5], "3 days ago \u00b7 D")
+        self.assertEqual(out[6], "last week \u00b7 D")
+        self.assertEqual(out[7], "2 weeks ago \u00b7 D")
+        self.assertEqual(out[8], "2 months ago \u00b7 D")
+        self.assertTrue(out[9].endswith("years ago \u00b7 D"))
+        self.assertEqual(out[10], "D")
+
+    def test_relative_age_date_only_never_precise(self):
+        out = self._run_relative_age(
+            [
+                ("2026-10-26", "D"),
+                ("2026-10-25", "D"),
+                ("2026-10-23", "D"),
+                ("2026-10-12", "D"),
+            ]
+        )
+        self.assertEqual(out[0], "today \u00b7 D")
+        self.assertEqual(out[1], "yesterday \u00b7 D")
+        self.assertEqual(out[2], "3 days ago \u00b7 D")
+        self.assertEqual(out[3], "2 weeks ago \u00b7 D")
+        for t in out:
+            self.assertNotIn("min ago", t)
+            self.assertNotIn("hour", t)
+            self.assertNotIn("just now", t)
 
     @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
