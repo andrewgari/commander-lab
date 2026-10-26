@@ -301,6 +301,10 @@ def candidate_pool(deck: Any, intent: Any, profile: PlayerProfile | None, *,
         kept.append({
             "name": card.get("name") or name, "oracle_id": fs.oracle_id_of(card), "type_line": card.get("type_line"),
             "cmc": card.get("cmc"), "price_usd": price, "game_changer": card.get("game_changer"),
+            # Carried so later passes read card text from data (CONTRACT §2.1) and the verifier can re-check the
+            # pool's own guarantees (identity, legality) instead of trusting them.
+            "oracle_text": text, "color_identity": sorted(card.get("color_identity") or []),
+            "legalities": {"commander": (card.get("legalities") or {}).get("commander")},
             "roles": sorted(r_ for r_ in FUNCTION_ROLES if r_ in roles), "themes": themes,
             "sources": sorted(r["sources"]), "edhrec": r.get("edhrec"),
             "owned": bool(own), "owned_copies": own.get("copies") if own else 0,

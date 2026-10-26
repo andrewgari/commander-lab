@@ -6,6 +6,7 @@ Model ids are config, never pass logic (DECISIONS D3: "pin model ids in config, 
 
 Environment (all optional):
     REVIEW_MODEL_A, REVIEW_MODEL_B           model for Pass A / every Pass B axis
+    REVIEW_MODEL_C, REVIEW_MODEL_CRITIC      model for Pass C / the Pass D critic (must be a different family, D3)
     REVIEW_MODEL_B_<AXIS_ID>                 override one Pass B axis, e.g. REVIEW_MODEL_B_MANA_CONSISTENCY
     REVIEW_PROMPT_<NAME>                     prompt version override, e.g. REVIEW_PROMPT_B_ANALYSIS=v2
     REVIEW_MAX_REPAIRS    (default 2)        repair retries per call on invalid output
@@ -23,15 +24,28 @@ from typing import Mapping
 
 PIPELINE_VERSION = "review-ab-1"
 
-DEFAULT_MODELS = {      # DECISIONS D3: Anthropic for passes A-D (mid for A, strong for B)
+DEFAULT_MODELS = {      # DECISIONS D3: Anthropic generates passes A-C (mid for A, strong for B and C); Gemini critiques
     "A": "anthropic:claude-sonnet-5-5",
     "B": "anthropic:claude-opus-5-5",
+    "C": "anthropic:claude-opus-5-5",
+    "critic": "openrouter:google/gemini-3.1-pro-preview",   # a different model family from every generator (D3)
 }
-PROMPT_VERSIONS = {"a_brief": "v1", "b_analysis": "v1", "quality_standard": "v1"}
+GENERATOR_PASSES = ("A", "B", "C")
+PROMPT_VERSIONS = {"a_brief": "v1", "b_analysis": "v1", "c_recommend": "v1", "d_critic": "v1", "d_regen": "v1",
+                   "quality_standard": "v1"}
 
 
 class ConfigError(ValueError):
     pass
+
+
+def model_family(spec: str) -> str:
+    """Vendor family of a ``<provider>:<model id>`` spec: ``anthropic:claude-x`` and
+    ``openrouter:anthropic/claude-x`` are both ``anthropic``; ``openrouter:google/gemini-x`` is ``google``."""
+    provider, _, model = spec.partition(":")
+    if provider == "openrouter" and "/" in model:
+        return model.split("/", 1)[0].lower()
+    return {"gemini": "google"}.get(provider.lower(), provider.lower())
 
 
 @dataclass(frozen=True)
@@ -97,6 +111,11 @@ class PipelineConfig:
     warm_cache: bool = True
     max_tokens_a: int = 6000
     max_tokens_b: int = 8000
+    max_tokens_c: int = 10000
+    max_tokens_critic: int = 6000
+    max_verify_loops: int = 2          # regenerate-then-recheck rounds before a failing item is removed (CONTRACT §3)
+    critic_batch: int = 20             # items judged per critic call
+    pool_prompt_cards: int = 150       # cap on candidate-pool cards shown to Pass C
 
     def model(self, pass_name: str, axis_id: str | None = None) -> str:
         if pass_name == "B" and axis_id and axis_id in self.axis_models:
@@ -109,13 +128,23 @@ class PipelineConfig:
     def prompt_version(self, name: str) -> str:
         return self.prompt_versions[name]
 
+    def check_critic_is_independent(self) -> None:
+        """D3: the critic must come from a different model family than every generator that produced what it judges."""
+        critic = self.model("critic")
+        gens = {p: self.model(p) for p in GENERATOR_PASSES if p in self.models}
+        gens.update({f"B:{a}": m for a, m in self.axis_models.items()})
+        clash = sorted(p for p, m in gens.items() if model_family(m) == model_family(critic))
+        if clash:
+            raise ConfigError(f"critic model {critic!r} is the same family ({model_family(critic)}) as the generator for "
+                              f"pass {', '.join(clash)}; D3 requires a different model family")
+
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "PipelineConfig":
         env = os.environ if env is None else env
         models = dict(DEFAULT_MODELS)
-        for p in ("A", "B"):
-            if env.get(f"REVIEW_MODEL_{p}"):
-                models[p] = env[f"REVIEW_MODEL_{p}"]
+        for p in ("A", "B", "C", "critic"):
+            if env.get(f"REVIEW_MODEL_{p.upper()}"):
+                models[p] = env[f"REVIEW_MODEL_{p.upper()}"]
         axis_models = {a.id: env[f"REVIEW_MODEL_B_{a.id.upper()}"] for a in AXES if env.get(f"REVIEW_MODEL_B_{a.id.upper()}")}
         for spec in [*models.values(), *axis_models.values()]:
             if ":" not in spec:
