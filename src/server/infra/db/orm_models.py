@@ -521,3 +521,61 @@ class CardNoteRow(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Deck reviewer card 04 (migrations/a009_player_profile; DECISIONS.md D2).
+# ---------------------------------------------------------------------------
+
+class PlayerProfileVersionRow(Base):
+    """Append-only profile history; current = max(version) for ``name``."""
+    __tablename__ = "player_profile_versions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    data: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    provenance: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    supersedes_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("player_profile_versions.id"), nullable=True
+    )
+    __table_args__ = (UniqueConstraint("name", "version"),)
+
+
+class RecommendationFeedbackRow(Base):
+    __tablename__ = "recommendation_feedback"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    profile: Mapped[str] = mapped_column(String(64), nullable=False)
+    deck_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    review_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    cut: Mapped[str] = mapped_column(String(255), nullable=False)
+    add: Mapped[str] = mapped_column("add", String(255), nullable=False)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=False, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PlayerProfileProposalRow(Base):
+    __tablename__ = "player_profile_proposals"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    profile: Mapped[str] = mapped_column(String(64), nullable=False)
+    path: Mapped[str] = mapped_column(String(128), nullable=False)
+    op: Mapped[str] = mapped_column(String(8), nullable=False)
+    value: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    rationale: Mapped[str] = mapped_column(String, nullable=False, default="")
+    evidence: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    resolved_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
