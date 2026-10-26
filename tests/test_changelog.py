@@ -344,12 +344,18 @@ class TestChangelogRelativeAgeBehavior(unittest.TestCase):
 
         now = dt.datetime.now(dt.timezone.utc)
         iso = lambda d: (now - dt.timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        cases = [{"attr": iso(d), "text": "D"} for d in (3, 8, 13, 30)]
-        r = self.run_cases(cases)
-        self.assertEqual(r[0]["text"], "3 days ago \u00b7 D")
-        self.assertEqual(r[1]["text"], "last week \u00b7 D")
-        self.assertEqual(r[2]["text"], "last week \u00b7 D")
-        self.assertEqual(r[3]["text"], "D")  # too old: plain date only
+        days = (3, 6, 7, 8, 13, 14, 15, 20, 29, 30)
+        r = self.run_cases([{"attr": iso(d), "text": "D"} for d in days])
+        want = {
+            3: "3 days ago \u00b7 D",
+            6: "6 days ago \u00b7 D",
+            7: "last week \u00b7 D",
+            8: "last week \u00b7 D",
+            13: "last week \u00b7 D",
+        }
+        for d, got in zip(days, r):
+            # 14+ days: too old, plain date only
+            self.assertEqual(got["text"], want.get(d, "D"), f"{d} days")
 
     def test_date_only_never_minutes_or_hours(self):
         import datetime as dt
@@ -357,13 +363,15 @@ class TestChangelogRelativeAgeBehavior(unittest.TestCase):
         today = dt.date.today()
         cases = [
             {"attr": (today - dt.timedelta(days=d)).isoformat(), "text": "D"}
-            for d in (0, 1, 8, 40)
+            for d in (0, 1, 7, 13, 14, 20, 29, 40)
         ]
         r = self.run_cases(cases)
         self.assertEqual(r[0]["text"], "today \u00b7 D")
         self.assertEqual(r[1]["text"], "yesterday \u00b7 D")
         self.assertEqual(r[2]["text"], "last week \u00b7 D")
-        self.assertEqual(r[3]["text"], "D")
+        self.assertEqual(r[3]["text"], "last week \u00b7 D")
+        for i in (4, 5, 6, 7):
+            self.assertEqual(r[i]["text"], "D")
         for x in r:
             self.assertNotRegex(x["text"], r"min|hour|just now")
 
