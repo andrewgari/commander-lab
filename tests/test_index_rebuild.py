@@ -109,6 +109,7 @@ def pg_engine():
         pytest.skip("pgvector extension not available in TEST_DATABASE_URL "
                     "(use the commander-lab-db image)")
     with eng.begin() as conn:
+        _drop_schema(conn)  # hermetic: rebuild the fixture schema from zero
         _create_schema(conn)
         _seed(conn)
     yield eng
