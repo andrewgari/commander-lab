@@ -1,8 +1,9 @@
 """Forge auto-recorder: parser, analyzer, store (sqlite) and API tests.
 
-Fixtures are real captured logs (javaagent FORGELOG lines) with the middle of
-the game elided; forge_human_game.log is the same capture with player names
-substituted (Ai(1)-Deck1 -> Andrew, Ai(2)-Deck2 -> Benni).
+Fixtures are real captured logs (javaagent FORGELOG lines plus the plain
+"Game Result:" terminator line); forge_human_game.txt is the same capture
+with player names substituted (Ai(1)-Deck1 -> Andrew, Ai(2)-Deck2 -> Benni).
+They use a .txt extension because *.log is gitignored.
 """
 from __future__ import annotations
 
@@ -28,14 +29,14 @@ def _fixture(name: str) -> list[str]:
 # --- parser ---------------------------------------------------------------
 
 def test_segment_sim_fixture_is_one_game():
-    blocks = parser.segment_games(_fixture("forge_sim_game.log"))
+    blocks = parser.segment_games(_fixture("forge_sim_game.txt"))
     # The capture is one Commander game; lines flushed after MATCH_RESULTS
     # (no fresh "Turn 1") merge back instead of forming a phantom game.
     assert len(blocks) == 1
 
 
 def test_parse_sim_fixture():
-    block = parser.segment_games(_fixture("forge_sim_game.log"))[0]
+    block = parser.segment_games(_fixture("forge_sim_game.txt"))[0]
     game = parser.parse_game(block)
     assert game is not None
     assert game["is_simulation"] is True
@@ -56,7 +57,7 @@ def test_parse_sim_fixture():
 
 
 def test_parse_human_fixture():
-    block = parser.segment_games(_fixture("forge_human_game.log"))[0]
+    block = parser.segment_games(_fixture("forge_human_game.txt"))[0]
     game = parser.parse_game(block)
     assert game is not None
     assert game["is_simulation"] is False
@@ -130,7 +131,7 @@ def test_build_profile_human_games():
 
 
 def test_build_profile_skips_simulations():
-    sim = parser.parse_game(parser.segment_games(_fixture("forge_sim_game.log"))[0])
+    sim = parser.parse_game(parser.segment_games(_fixture("forge_sim_game.txt"))[0])
     profile = analyzer.build_profile("u1", [sim])
     assert profile["games_analyzed"] == 0
     assert profile["primary_player"] is None
@@ -163,7 +164,7 @@ def _make_user(factory, uid="u1"):
 
 def test_ingest_store_and_profile(factory):
     _make_user(factory)
-    lines = _fixture("forge_human_game.log")
+    lines = _fixture("forge_human_game.txt")
     with session_scope(factory) as s:
         result = store.ingest_lines(s, None, lines)
     assert len(result["stored"]) == 1 and result["duplicates"] == []
@@ -192,7 +193,7 @@ def test_ingest_requires_user(factory):
 def test_sim_game_stored_but_not_profiled(factory):
     _make_user(factory)
     with session_scope(factory) as s:
-        result = store.ingest_lines(s, None, _fixture("forge_sim_game.log"))
+        result = store.ingest_lines(s, None, _fixture("forge_sim_game.txt"))
     assert len(result["stored"]) == 1
     with session_scope(factory) as s:
         games = store.list_games(s)
@@ -217,7 +218,7 @@ def client(factory, monkeypatch):
 
 def test_api_ingest_games_profile(client):
     resp = client.post("/api/forge/ingest",
-                       json={"lines": _fixture("forge_human_game.log")})
+                       json={"lines": _fixture("forge_human_game.txt")})
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] and len(body["stored"]) == 1
