@@ -43,6 +43,7 @@ from src.server.domain.decks.deck_links import DeckLinkError
 from src.server.workers.forge_recorder import store as forge_store
 from src.server.workers.forge_recorder.store import IngestError
 import src.server.domain.decks.deck_export as deck_export
+import src.server.domain.decks.decklist_export as decklist_export
 import src.server.domain.decks.deck_sync as deck_sync
 from src.server.domain.decks.deck_sync import DeckSyncError
 from src.server.app.version import __version__, VERSION
@@ -4227,6 +4228,103 @@ async def api_similar(card: Optional[str] = None, n: int = 10):
 # Bracket evaluation (BR-5): stored results from the separate worker process
 # (analytics/bracket_worker.py, compose service bracket-worker). These routes
 # never evaluate; they read bracket:eval:{registry_id} or queue a request.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Copy decklist (deck page): the stored deck rendered as paste/import text by
+# decklist_export.export_decklist_text. The export function is the single
+# source of format logic; this route only adapts the stored deck shape.
+# ---------------------------------------------------------------------------
+
+
+def _decklist_export_input(deck: dict) -> dict:
+    """Stored registry deck -> decklist_export input shape.
+
+    The stored deck folds commanders into deck["cards"] (account sync) and
+    keeps named slots (maybeboard, ...) under deck["slots"]; Sideboard is a
+    removed slot concept whose entries survive as maybeboard items flagged
+    remapped_from="sideboard". Printing (set/collector number) is not stored
+    per card — it is resolved from the deck's card_refs map and left blank
+    when unknown (the export falls back to name-only for that card).
+    """
+    try:
+        refs = card_refs_mod.deck_card_refs(r, deck)
+    except Exception:  # noqa: BLE001 - printing is best-effort; names still export
+        refs = {}
+
+    def entry(name, qty, board):
+        ref = card_refs_mod.lookup(refs, name)
+        return {"name": str(name or ""), "quantity": qty, "board": board,
+                "set": ref.get("set") or "", "collector_number": ref.get("collectorNumber") or ""}
+
+    stored = [c for c in (deck.get("cards") or []) if isinstance(c, dict)]
+
+    def stored_qty(name):
+        low = str(name or "").strip().lower()
+        for c in stored:
+            if str(c.get("name") or "").strip().lower() == low:
+                try:
+                    return int(c.get("quantity") or 1)
+                except (TypeError, ValueError):
+                    return 1
+        return 1
+
+    commanders = [str(n) for n in (deck.get("commanders") or []) if n]
+    cmd_names = {n.strip().lower() for n in commanders}
+    cards = [entry(n, stored_qty(n), "commander") for n in commanders]
+    emitted = set(cmd_names)
+
+    slots = deck.get("slots") or {}
+    for e in slots.get("commander") or []:  # slot-model decks may carry commanders here
+        low = str(e.get("name") or "").strip().lower()
+        if low and low not in emitted:
+            emitted.add(low)
+            cmd_names.add(low)
+            cards.append(entry(e.get("name"), int(e.get("quantity") or 1), "commander"))
+    for c in stored:
+        if str(c.get("name") or "").strip().lower() in cmd_names:
+            continue  # commanders export from the commander board, never twice
+        try:
+            qty = int(c.get("quantity") or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        cards.append(entry(c.get("name"), qty, "main"))
+    for e in slots.get("mainboard") or []:
+        low = str(e.get("name") or "").strip().lower()
+        if low and low not in emitted and low not in cmd_names:
+            emitted.add(low)
+            cards.append(entry(e.get("name"), int(e.get("quantity") or 1), "main"))
+    for e in slots.get("maybeboard") or []:
+        board = "sideboard" if e.get("remapped_from") == "sideboard" else "maybeboard"
+        cards.append(entry(e.get("name"), int(e.get("quantity") or 1), board))
+    return {"name": deck.get("name") or "", "cards": cards}
+
+
+def _decklist_text(deck_name: str, fmt: str, want_sb: bool, want_mb: bool, want_printing: bool) -> str:
+    deck = next((d for d in registry.list_decks(r) if d.get("name") == deck_name), None)
+    if not deck:
+        raise LookupError(deck_name)
+    return decklist_export.export_decklist_text(
+        _decklist_export_input(deck), fmt,
+        include_sideboard=want_sb, include_maybeboard=want_mb, include_printing=want_printing)
+
+
+@app.get("/api/deck/{deck_name}/decklist")
+async def api_deck_decklist(deck_name: str, format: str = "plain", include_sideboard: bool = False,
+                            include_maybeboard: bool = False, include_printing: bool = False):
+    """Decklist as paste/import text for the deck page's Copy decklist control.
+    format: plain | archidekt | moxfield | forge | tcgplayer (decklist_export).
+    404 for an unknown deck name, 400 for an unknown format."""
+    try:
+        text = await asyncio.to_thread(
+            _decklist_text, deck_name, format, include_sideboard, include_maybeboard, include_printing)
+    except LookupError:
+        return JSONResponse(status_code=404, content={"success": False, "error": f"Deck '{deck_name}' not found"})
+    except decklist_export.ExportFormatError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    return {"success": True, "format": format, "text": text}
+
+
 # ---------------------------------------------------------------------------
 
 

@@ -3836,3 +3836,27 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
 .hud-prov-bar-key.hud-prov-bar-donor { background: var(--signal); }
 .hud-prov-bar-key.hud-prov-bar-inv { background: var(--data); }
 .hud-prov-bar-key.hud-prov-bar-buy { background: var(--surface-3); }
+
+/* Copy decklist control (deck pages, partials/deck_head.html): the ⚙ options
+   popover anchors to the button pair; fallback is the manual-copy textarea. */
+.hud-copydeck { position: relative; display: inline-flex; gap: var(--sp-2); align-items: center; }
+.hud-copydeck-msg { font-size: var(--fs-xs); color: var(--ok); white-space: nowrap; }
+.hud-copydeck-msg.is-error { color: var(--danger); white-space: normal; }
+.hud-copydeck-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    min-width: 18rem;
+    margin-top: var(--sp-1);
+    padding: var(--sp-3);
+    background: var(--surface-1);
+    border: var(--stroke-strong);
+    border-radius: var(--radius-1);
+}
+.hud-copydeck-panel[hidden] { display: none; }
+.hud-copydeck-fallback-note { margin: 0 0 var(--sp-2); color: var(--danger); font-size: var(--fs-xs); }
+.hud-copydeck-fallback textarea { box-sizing: border-box; width: 100%; min-height: 10rem; font-family: var(--font-mono); font-size: var(--fs-xs); }
