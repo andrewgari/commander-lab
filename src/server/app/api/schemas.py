@@ -434,3 +434,52 @@ class InstanceProvenanceResponse(BaseModel):
     current_deck_id: Optional[str] = None
     steps: list[ProvenanceStep]
     count: int
+
+
+# ---------------------------------------------------------------------------
+# Slice 6 PR1: derived vector index (ARCHITECTURE.md §4.3). The store is a
+# rebuildable index; "unavailable" + reason is a first-class value (§4).
+# ---------------------------------------------------------------------------
+
+class SimilarCardResult(BaseModel):
+    oracle_id: str
+    name: str
+    score: float
+
+
+class SimilarCardsResponse(BaseModel):
+    status: str  # ok | unavailable
+    oracle_id: str
+    model_id: Optional[str] = None
+    reason: Optional[str] = None
+    results: list[SimilarCardResult] = Field(default_factory=list)
+
+
+class SimilarDeckResult(BaseModel):
+    deck_id: str
+    name: str
+    score: float
+
+
+class SimilarDecksResponse(BaseModel):
+    status: str  # ok | unavailable
+    deck_id: str
+    model_id: Optional[str] = None
+    reason: Optional[str] = None
+    results: list[SimilarDeckResult] = Field(default_factory=list)
+
+
+class DerivedIndexStoreStatus(BaseModel):
+    store: str  # vector | graph
+    status: str  # ok | never_built
+    fresh: bool
+    rebuilt_at: Optional[str] = None
+    source_watermark: Optional[str] = None
+    current_watermark: Optional[str] = None
+    row_count: int = 0
+
+
+class DerivedIndexStatusResponse(BaseModel):
+    status: str  # ok | unavailable
+    reason: Optional[str] = None
+    stores: list[DerivedIndexStoreStatus] = Field(default_factory=list)
