@@ -378,17 +378,17 @@ class TestChangelogRelativeAgeBehavior(unittest.TestCase):
     def test_timestamp_yesterday_threshold(self):
         import datetime as dt
 
-        # Build from local calendar midnight so the result is independent of
-        # the wall-clock time the suite runs at (template buckets by calendar day).
+        # Under 24h elapsed the template says "N hours ago"; "yesterday" needs
+        # >=24h elapsed AND a previous calendar day. Yesterday 00:01 local
+        # satisfies both at any time of day (except the first minutes after
+        # midnight, which we skip to stay deterministic).
         midnight = dt.datetime.combine(dt.date.today(), dt.time())
-        iso = lambda h: (
-            (midnight - dt.timedelta(days=1) + dt.timedelta(hours=h))
-            .astimezone(dt.timezone.utc)
-            .strftime("%Y-%m-%dT%H:%M:%SZ")
-        )
-        r = self.run_cases([{"attr": iso(h), "text": "D"} for h in (1, 12, 23)])
-        for x in r:
-            self.assertEqual(x["text"], "yesterday \u00b7 D")
+        ts = midnight - dt.timedelta(days=1) + dt.timedelta(minutes=1)
+        if dt.datetime.now() - ts < dt.timedelta(hours=24, minutes=1):
+            self.skipTest("too close to local midnight")
+        attr = ts.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": attr, "text": "D"}])
+        self.assertEqual(r[0]["text"], "yesterday \u00b7 D")
 
     def test_one_minute_band_is_not_just_now(self):
         import datetime as dt
