@@ -257,3 +257,44 @@ class GameReportResponse(BaseModel):
     meta: dict = Field(default_factory=dict)
     players: list[PlayerCurve] = Field(default_factory=list)
     cards: list[CardCast] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Reviews (Slice 3, ARCHITECTURE.md §4.2/§6)
+# ---------------------------------------------------------------------------
+
+class ReviewJobRecord(BaseModel):
+    id: int
+    review_id: int
+    stage: str
+    status: str
+    error: Optional[str] = None
+    ts: Optional[str] = None
+
+
+class ReviewSummary(BaseModel):
+    id: int
+    deck_id: str
+    version: int
+    fingerprint: str
+    status: str
+    created_at: Optional[str] = None
+
+
+class ReviewListResponse(BaseModel):
+    reviews: list[ReviewSummary]
+
+
+class ReviewResponse(BaseModel):
+    """One stored review: fact_pack + analysis + doc from the same row, so
+    the document and the dashboard render the same numbers."""
+    id: int
+    deck_id: str
+    version: int
+    fingerprint: str
+    status: str
+    fact_pack: dict = Field(default_factory=dict)
+    analysis: dict = Field(default_factory=dict)
+    doc: dict = Field(default_factory=dict)
+    created_at: Optional[str] = None
+    jobs: list[ReviewJobRecord] = Field(default_factory=list)
