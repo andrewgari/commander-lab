@@ -296,6 +296,7 @@ class ReviewResponse(BaseModel):
     fact_pack: dict = Field(default_factory=dict)
     analysis: dict = Field(default_factory=dict)
     doc: dict = Field(default_factory=dict)
+    panels: list[dict] = Field(default_factory=list)
     created_at: Optional[str] = None
     jobs: list[ReviewJobRecord] = Field(default_factory=list)
 # --- Slice 5: draft mode (staging + one-transaction commit) -------------------

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.server.app.api import schemas
 from src.server.app.api.deps import db_session
+from src.server.domain.review import doc as doc_mod
 from src.server.infra.db import repositories as repo
 from src.server.infra.services import review_service
 
@@ -20,6 +21,9 @@ def _response(review: dict, jobs: list | None = None) -> schemas.ReviewResponse:
         **{k: review[k] for k in
            ("id", "deck_id", "version", "fingerprint", "status",
             "fact_pack", "analysis", "doc", "created_at")},
+        # Dashboard panels are derived server-side from the SAME stored row the
+        # document renders, so the two views can never show different numbers.
+        panels=doc_mod.dashboard_panels(review["fact_pack"], review["analysis"]),
         jobs=[schemas.ReviewJobRecord(**j) for j in (jobs if jobs is not None else [])],
     )
 
