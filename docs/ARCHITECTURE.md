@@ -306,8 +306,19 @@ most persistence/UI adaptation. **Rebuild** = rewritten on the new stack.
 ## 6. Review pipeline (document + dashboard from one record)
 
 ```
-┌ fact pack (code only) ─ deterministic metrics: composition, curve/tempo,
-│   genre match, interactions, brackets, weak performers, inventory have/buy
+┌ fact pack (code only) ─ five deterministic code passes, assembled before
+│   any multi-pass analysis:
+│   1. Mana math ─ land count, color sources, ramp density, curve by color
+│   2. Deck spirit ─ spirit/pet cards/journal; pet cards marked untouchable
+│      BEFORE candidate retrieval; spirit outranks power
+│   3. Bracket/salt ─ Game Changer, mass land destruction, stax, extra turns;
+│      each flagged with a reason, never hidden
+│   4. Combo lines ─ Commander Spellbook combo lines + tutor-to-combo paths
+│   5. Own-first retrieval ─ prefer owned cards not in another deck; if a
+│      card is pulled from a donor deck, the replacement must leave the
+│      donor no worse
+│   Plus deterministic metrics: composition, curve/tempo, genre match,
+│   interactions, brackets, weak performers, inventory have/buy
 ▼
 ┌ intent + profile ─ user_intent answers + latest profile snapshot + overrides
 ▼
