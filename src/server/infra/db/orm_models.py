@@ -77,11 +77,15 @@ class DeckLinkRow(Base):
     )
 
 
-class GameRow(Base):
-    """One recorded Forge game: parsed per-player stats, summary and the
-    (noise-filtered) event list. ``game_uid`` is a content hash for idempotent
-    ingest from the log watcher."""
-    __tablename__ = "games"
+class LegacyGameRow(Base):
+    """LEGACY Forge auto-recorder row (pre-Slice-4): parsed per-player stats,
+    summary and the (noise-filtered) event list. ``game_uid`` is a content
+    hash for idempotent ingest from the log watcher.
+
+    The canonical games model is the ARCHITECTURE.md §4.2 trio
+    (game_imports/games/game_telemetry) below; migration a004 renames the
+    old table to ``legacy_games`` so the watcher keeps working unchanged."""
+    __tablename__ = "legacy_games"
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), ForeignKey("users.id"), nullable=False)
     game_uid: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
@@ -98,6 +102,74 @@ class GameRow(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+# ---------------------------------------------------------------------------
+# Slice 4 games-on-demand tables (ARCHITECTURE.md §4.2; DDL in
+# migrations/a004_games_on_demand). On-demand Forge verbose-log imports only
+# (§0); the parser is domain/forge/forge_game_telemetry.py (verbatim port).
+# ---------------------------------------------------------------------------
+
+class GameImportRow(Base):
+    """One on-demand Forge log import. ``log_hash`` (sha256 of the raw log)
+    fingerprints the file: re-importing the same log short-circuits on this
+    column, so no duplicate games are ever written."""
+    __tablename__ = "game_imports"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    deck_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("decks.id"), nullable=False
+    )
+    imported_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    raw_log_uri: Mapped[str] = mapped_column(String, nullable=False, default="")
+    parser_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(8), nullable=False)  # parsed | failed
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    log_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class GameRow(Base):
+    """One completed game from an imported log (§4.2). ``played_at``,
+    ``result`` and ``turns`` are NULL when the log does not carry them —
+    unavailable is a first-class value, the reason lives in ``notes`` and the
+    game's `meta` telemetry row (AGENT_RULES.md §4), never a dressed-up 0."""
+    __tablename__ = "games"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    import_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("game_imports.id"), nullable=False
+    )
+    deck_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("decks.id"), nullable=False
+    )
+    played_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    seat_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    result: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)  # win | loss | draw
+    turns: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(String, nullable=False, default="")
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class GameTelemetryRow(Base):
+    """Parser output for one game (§4.2). Metrics: ``meta`` (one per game:
+    user seat, game number, unavailable reasons), ``curve`` (one per seat:
+    per-turn land/mana/spells), ``card_cast`` (one per seat+card: cast_turn,
+    drawn/stuck NULL with explicit unavailable reasons). ``oracle_id`` is the
+    resolved cards row for card_cast metrics, NULL when unresolved."""
+    __tablename__ = "game_telemetry"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    game_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("games.id"), nullable=False
+    )
+    oracle_id: Mapped[Optional[str]] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), nullable=True
+    )
+    metric: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class PlayStyleProfileRow(Base):

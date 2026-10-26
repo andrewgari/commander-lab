@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Your whole collection now lives in Postgres: every deck and every physical card copy was migrated with its provenance (counts reconciled 1:1 with the old store), and a new Inventory page plus a Profile page show your collection stats, mana curve, archetype mix, and power level. Profile edits are saved as versioned snapshots you can browse back through.
+- Games page: paste or upload a verbose Forge log for one of your decks and Commander Lab imports it on demand — the game (result, turns, seats), per-seat curves and per-card cast timings are stored, a game report renders right away, and your profile gets a new snapshot. Draw/stuck data Forge never records is shown as "unavailable" with the reason, and re-importing the same log is a no-op instead of creating duplicate games.
 - Decks now have a Postgres-backed home: importing an Archidekt deck stores it alongside your physical card collection, and the new deck list and deck pages show a have/buy split (copies you own, have incoming, or still need to buy) plus a plain-language profile summary of the deck's mana curve and archetype mix.
 
 ### Fixed
