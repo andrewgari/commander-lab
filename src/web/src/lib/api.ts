@@ -82,6 +82,66 @@ export interface DeckDetail {
 	snapshot: ProfileSnapshot | null;
 }
 
+export interface GameRecord {
+	id: number;
+	import_id: number;
+	deck_id: string;
+	deck_name: string | null;
+	played_at: string | null;
+	seat_count: number;
+	result: string | null;
+	turns: number | null;
+	imported_at: string | null;
+}
+
+export interface PlayerCurve {
+	seat: number;
+	deck: string;
+	is_user_seat: boolean;
+	points: Array<{
+		turn: number;
+		land_played: string | null;
+		mana_spent: number | null;
+		spells_cast: number;
+	}>;
+	unavailable: Record<string, string>;
+}
+
+export interface CardCast {
+	seat: number;
+	deck: string;
+	card: string;
+	oracle_id: string | null;
+	oracle_resolved: boolean;
+	cast_turn: number | null;
+	drawn: number | null;
+	stuck: boolean | null;
+	unavailable: Record<string, string>;
+}
+
+export interface GameReport {
+	game: GameRecord & { notes: string; parser_version: string; raw_log_uri: string };
+	meta: {
+		user_seat?: number;
+		game_number?: number;
+		duration_ms?: number | null;
+		unavailable?: Record<string, string | null>;
+	};
+	players: PlayerCurve[];
+	cards: CardCast[];
+}
+
+export interface ForgeLogImportResult {
+	duplicate: boolean;
+	import_id: number;
+	status: string;
+	error: string | null;
+	deck_id: string;
+	deck_name: string;
+	games: Array<{ game_id: number; result: string | null; turns: number | null; seat_count: number }>;
+	snapshot_id: number | null;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
 	const res = await fetch(`${API_URL}${path}`);
 	if (!res.ok) {
@@ -89,6 +149,25 @@ export async function apiGet<T>(path: string): Promise<T> {
 		try {
 			const body = await res.json();
 			reason = body?.detail?.reason ?? body?.detail ?? reason;
+		} catch {
+			/* keep statusText */
+		}
+		throw new ApiError(res.status, String(reason));
+	}
+	return (await res.json()) as T;
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+	const res = await fetch(`${API_URL}${path}`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	if (!res.ok) {
+		let reason = res.statusText;
+		try {
+			const payload = await res.json();
+			reason = payload?.detail?.reason ?? payload?.detail ?? reason;
 		} catch {
 			/* keep statusText */
 		}

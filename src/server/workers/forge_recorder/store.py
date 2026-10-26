@@ -13,7 +13,7 @@ from typing import Iterable, List, Optional
 
 from sqlalchemy import select
 
-from src.server.infra.db.orm_models import GameRow, PlayStyleProfileRow, UserRow
+from src.server.infra.db.orm_models import LegacyGameRow, PlayStyleProfileRow, UserRow  # legacy_games (a004 rename)
 from src.server.infra.db.session import session_scope as _session_scope  # re-exported for tests/routes
 from src.server.workers.forge_recorder import analyzer, parser
 
@@ -45,11 +45,11 @@ def _insert_game(session, user_id: str, game: dict,
                  played_at: Optional[datetime.datetime]) -> bool:
     """Insert one parsed game. Returns False when the game_uid already exists."""
     exists = session.execute(
-        select(GameRow.id).where(GameRow.game_uid == game["game_uid"])
+        select(LegacyGameRow.id).where(LegacyGameRow.game_uid == game["game_uid"])
     ).first()
     if exists:
         return False
-    session.add(GameRow(
+    session.add(LegacyGameRow(
         user_id=user_id,
         game_uid=game["game_uid"],
         source="forge",
@@ -88,7 +88,7 @@ def ingest_lines(session, user_id: Optional[str], lines: Iterable[str],
 def rebuild_profile(session, user_id: str) -> dict:
     """Recompute the cumulative play-style profile from all stored games."""
     rows = session.execute(
-        select(GameRow).where(GameRow.user_id == user_id).order_by(GameRow.id)
+        select(LegacyGameRow).where(LegacyGameRow.user_id == user_id).order_by(LegacyGameRow.id)
     ).scalars().all()
     games = [_row_to_game(r) for r in rows]
     profile = analyzer.build_profile(user_id, games)
@@ -102,7 +102,7 @@ def rebuild_profile(session, user_id: str) -> dict:
     return profile
 
 
-def _row_to_game(row: GameRow) -> dict:
+def _row_to_game(row: LegacyGameRow) -> dict:
     """Reconstruct the parser-shaped record the analyzer expects."""
     summary = row.summary or {}
     return {
@@ -119,8 +119,8 @@ def _row_to_game(row: GameRow) -> dict:
 def list_games(session, user_id: Optional[str] = None, limit: int = 50) -> List[dict]:
     uid = resolve_user_id(session, user_id)
     rows = session.execute(
-        select(GameRow).where(GameRow.user_id == uid)
-        .order_by(GameRow.id.desc()).limit(max(1, min(int(limit), 200)))
+        select(LegacyGameRow).where(LegacyGameRow.user_id == uid)
+        .order_by(LegacyGameRow.id.desc()).limit(max(1, min(int(limit), 200)))
     ).scalars().all()
     return [
         {

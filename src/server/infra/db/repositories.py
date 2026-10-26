@@ -18,6 +18,9 @@ from src.server.infra.db.orm_models import (
     CardRow,
     DeckCardRow,
     DeckRow,
+    GameImportRow,
+    GameRow,
+    GameTelemetryRow,
     InstanceEventRow,
     PrintingRow,
     ProfileSnapshotRow,
@@ -384,3 +387,134 @@ def list_snapshots(session: Session, limit: int = 50) -> list[dict]:
         select(ProfileSnapshotRow).order_by(ProfileSnapshotRow.id.desc()).limit(limit)
     ).all()
     return [_snapshot_dict(row) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# game_imports / games / game_telemetry (Slice 4, ARCHITECTURE.md §4.2)
+# ---------------------------------------------------------------------------
+
+def create_game_import(session: Session, imp: dict) -> int:
+    row = GameImportRow(
+        deck_id=imp["deck_id"],
+        raw_log_uri=imp.get("raw_log_uri", ""),
+        parser_version=imp["parser_version"],
+        status=imp["status"],
+        error=imp.get("error"),
+        log_hash=imp["log_hash"],
+    )
+    session.add(row)
+    session.flush()
+    return row.id
+
+
+def _import_dict(row: GameImportRow) -> dict:
+    return {
+        "id": row.id,
+        "deck_id": row.deck_id,
+        "imported_at": row.imported_at.isoformat() if row.imported_at else None,
+        "raw_log_uri": row.raw_log_uri,
+        "parser_version": row.parser_version,
+        "status": row.status,
+        "error": row.error,
+        "log_hash": row.log_hash,
+    }
+
+
+def get_game_import_by_hash(session: Session, log_hash: str) -> Optional[dict]:
+    row = session.scalars(
+        select(GameImportRow).where(GameImportRow.log_hash == log_hash)
+    ).first()
+    return _import_dict(row) if row else None
+
+
+def insert_game(session: Session, game: dict) -> int:
+    row = GameRow(
+        import_id=game["import_id"],
+        deck_id=game["deck_id"],
+        played_at=game.get("played_at"),
+        seat_count=int(game["seat_count"]),
+        result=game.get("result"),
+        turns=game.get("turns"),
+        notes=game.get("notes", ""),
+    )
+    session.add(row)
+    session.flush()
+    return row.id
+
+
+def insert_telemetry(session: Session, game_id: int, metric: str, value: dict,
+                     oracle_id: Optional[str] = None) -> None:
+    session.add(GameTelemetryRow(
+        game_id=game_id, metric=metric, value=value, oracle_id=oracle_id,
+    ))
+
+
+def _game_dict(row: GameRow, deck_name: Optional[str] = None,
+               imported_at: Optional[str] = None) -> dict:
+    return {
+        "id": row.id,
+        "import_id": row.import_id,
+        "deck_id": row.deck_id,
+        "deck_name": deck_name,
+        "played_at": row.played_at.isoformat() if row.played_at else None,
+        "seat_count": row.seat_count,
+        "result": row.result,
+        "turns": row.turns,
+        "notes": row.notes,
+        "imported_at": imported_at,
+    }
+
+
+def list_games_for_import(session: Session, import_id: int) -> list[dict]:
+    rows = session.scalars(
+        select(GameRow).where(GameRow.import_id == import_id).order_by(GameRow.id)
+    ).all()
+    return [_game_dict(r) for r in rows]
+
+
+def list_games(session: Session, deck_id: Optional[str] = None,
+               limit: int = 50) -> list[dict]:
+    stmt = (
+        select(GameRow, DeckRow.name, GameImportRow.imported_at)
+        .join(DeckRow, DeckRow.id == GameRow.deck_id)
+        .join(GameImportRow, GameImportRow.id == GameRow.import_id)
+        .order_by(GameRow.id.desc())
+        .limit(max(1, min(int(limit), 200)))
+    )
+    if deck_id:
+        stmt = stmt.where(GameRow.deck_id == deck_id)
+    out = []
+    for game, deck_name, imported_at in session.execute(stmt).all():
+        out.append(_game_dict(game, deck_name=deck_name,
+                              imported_at=imported_at.isoformat() if imported_at else None))
+    return out
+
+
+def get_game(session: Session, game_id: int) -> Optional[dict]:
+    row = session.execute(
+        select(GameRow, DeckRow.name, GameImportRow.imported_at,
+               GameImportRow.parser_version, GameImportRow.raw_log_uri)
+        .join(DeckRow, DeckRow.id == GameRow.deck_id)
+        .join(GameImportRow, GameImportRow.id == GameRow.import_id)
+        .where(GameRow.id == game_id)
+    ).first()
+    if row is None:
+        return None
+    game, deck_name, imported_at, parser_version, raw_log_uri = row
+    out = _game_dict(game, deck_name=deck_name,
+                     imported_at=imported_at.isoformat() if imported_at else None)
+    out["parser_version"] = parser_version
+    out["raw_log_uri"] = raw_log_uri
+    return out
+
+
+def get_game_telemetry(session: Session, game_id: int) -> list[dict]:
+    rows = session.scalars(
+        select(GameTelemetryRow)
+        .where(GameTelemetryRow.game_id == game_id)
+        .order_by(GameTelemetryRow.id)
+    ).all()
+    return [
+        {"metric": r.metric, "oracle_id": r.oracle_id, "value": r.value}
+        for r in rows
+    ]
