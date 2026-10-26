@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SIM_JS = ROOT / "static" / "js" / "deck_sim.js"
+SIM_JS = ROOT / "src/web/static" / "js" / "deck_sim.js"
 
 HARNESS = r"""
 const fs = require('fs');

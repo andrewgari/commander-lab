@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import reconstruct_agent as ra
+import src.server.domain.draft.reconstruct_agent as ra
 
 PREFS = [
     {"name": "Bat Swarm", "commanders": ["Vito, Thorn of the Dusk Rose"], "themes": ["lifedrain"],
@@ -260,7 +260,7 @@ class MalformedTests(unittest.TestCase):
         c.chat.assert_not_called()
 
     def test_oracle_errors_propagate(self):
-        from analytics.oracle_client import OracleUnavailable
+        from src.server.domain.analytics.oracle_client import OracleUnavailable
 
         c = MagicMock()
         c.chat.side_effect = OracleUnavailable("down")
@@ -277,7 +277,7 @@ class ClientTests(unittest.TestCase):
 
     def test_default_client_is_existing_oracle_client(self):
         c = mock_client(reply(deck()))
-        with patch("analytics.oracle_client.OracleClient.from_env", return_value=c) as fe:
+        with patch("src.server.domain.analytics.oracle_client.OracleClient.from_env", return_value=c) as fe:
             ra.call_agent(PREFS[:1], TIER1, TIER2, TIER3, 1)
         fe.assert_called_once()
         c.chat.assert_called_once()

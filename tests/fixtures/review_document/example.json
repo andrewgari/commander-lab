@@ -1,0 +1,725 @@
+{
+  "schema_version": "review_document.v1",
+  "meta": {
+    "deck_id": "fixture-atraxa-counters",
+    "deck_name": "Atraxa, Counters Everywhere",
+    "commanders": [
+      {
+        "name": "Atraxa, Praetors' Voice",
+        "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+      }
+    ],
+    "generated_at": "2026-10-26T18:30:00Z",
+    "pipeline_version": "fixture-1",
+    "prompt_versions": {
+      "A": "v1",
+      "B": "v1",
+      "C": "v1",
+      "D": "v1",
+      "E": "v1",
+      "critic": "v1"
+    },
+    "models": {
+      "A": "claude-sonnet-fixture",
+      "B": "claude-opus-fixture",
+      "C": "claude-opus-fixture",
+      "D": "critic-gemini-fixture",
+      "E": "oracle-profile"
+    },
+    "fact_pack_hash": "f4218550fcb366617a0bbde01c3703e790b4e689d8dbea68a38d0166a44dc346"
+  },
+  "verdict": {
+    "headline": "A focused counters deck that wins by doubling proliferate, held back by blue mana and thin redundancy.",
+    "summary": "Atraxa's proliferate plus doublers is a coherent plan with strong ramp and interaction. The main risks are a single point of failure on the commander, an underfed blue half, and a top-heavy curve. Three swaps address the first two.",
+    "grade": "B",
+    "confidence": 0.78
+  },
+  "deck_identity": {
+    "what_it_does": "Builds a small board of creatures, grows them with counters and doubles that growth using Atraxa's proliferate and doublers.",
+    "win_paths": [
+      "Proliferate-doubled counters on a single large threat",
+      "Infect-style poison pressure with Contagion Clasp and proliferate",
+      "Planeswalker ultimate acceleration"
+    ],
+    "success_criteria": [
+      "Atraxa resolved by turn 5",
+      "At least two counter doublers online by turn 7"
+    ],
+    "intentional_quirks": [
+      "Asmoranomardicadaistinaculdacar is included as a joke piece, not for power",
+      "Plays Toothy and Pir over staples on purpose"
+    ]
+  },
+  "scorecard": [
+    {
+      "axis": "Synergy",
+      "score": 8,
+      "one_line": "Tight counter-doubling plan.",
+      "finding_ids": [
+        "s-counters"
+      ]
+    },
+    {
+      "axis": "Mana",
+      "score": 6,
+      "one_line": "Ramp is fine, blue is under-sourced.",
+      "finding_ids": [
+        "s-ramp",
+        "p-blue"
+      ]
+    },
+    {
+      "axis": "Consistency",
+      "score": 5,
+      "one_line": "Too reliant on the commander.",
+      "finding_ids": [
+        "p-redundancy"
+      ]
+    },
+    {
+      "axis": "Curve",
+      "score": 6,
+      "one_line": "Top-heavy with few two-drops.",
+      "finding_ids": [
+        "p-top"
+      ]
+    },
+    {
+      "axis": "Interaction",
+      "score": 7,
+      "one_line": "Three answers, wide coverage.",
+      "finding_ids": [
+        "s-interact",
+        "p-protect"
+      ]
+    },
+    {
+      "axis": "Card flow",
+      "score": 5,
+      "one_line": "Draw is below target.",
+      "finding_ids": [
+        "p-draw"
+      ]
+    }
+  ],
+  "strengths": [
+    {
+      "id": "s-counters",
+      "axis": "Synergy",
+      "claim": "Counter doublers (Doubling Season, Hardened Scales, Winding Constrictor, Vorinclex) stack on Atraxa's proliferate, so a single +1/+1 counter on a creature becomes lethal-scale growth within two turns.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Doubling Season",
+            "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6"
+          },
+          {
+            "name": "Hardened Scales",
+            "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+          },
+          {
+            "name": "Winding Constrictor",
+            "oracle_id": "c9404d7d-a026-4082-9fcb-1ab571a136b5"
+          },
+          {
+            "name": "Vorinclex, Monstrous Raider",
+            "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b"
+          },
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+          }
+        ],
+        "fact_keys": [
+          "roles.counters_payoff",
+          "synergy.counters.strength"
+        ]
+      },
+      "severity": "high",
+      "confidence": 0.9
+    },
+    {
+      "id": "s-ramp",
+      "axis": "Mana",
+      "claim": "Ramp density is healthy: Sol Ring, Arcane Signet, Cultivate, Kodama's Reach and Rampant Growth give 12 pieces of acceleration before turn 4.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Sol Ring",
+            "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+          },
+          {
+            "name": "Arcane Signet",
+            "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+          },
+          {
+            "name": "Cultivate",
+            "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+          },
+          {
+            "name": "Kodama's Reach",
+            "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+          },
+          {
+            "name": "Rampant Growth",
+            "oracle_id": "8539f295-5d58-4436-a73a-b9277c4c7795"
+          }
+        ],
+        "fact_keys": [
+          "roles.ramp.count"
+        ]
+      },
+      "severity": "med",
+      "confidence": 0.85
+    },
+    {
+      "id": "s-interact",
+      "axis": "Interaction",
+      "claim": "Swords to Plowshares, Cyclonic Rift and Beast Within cover creature, board-wide and permanent answers at three different costs.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Swords to Plowshares",
+            "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+          },
+          {
+            "name": "Cyclonic Rift",
+            "oracle_id": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b"
+          },
+          {
+            "name": "Beast Within",
+            "oracle_id": "7735eeba-693b-47e2-bd51-414379cf1016"
+          }
+        ],
+        "fact_keys": [
+          "roles.removal.count"
+        ]
+      },
+      "severity": "low",
+      "confidence": 0.7
+    }
+  ],
+  "problems": [
+    {
+      "id": "p-redundancy",
+      "axis": "Consistency",
+      "claim": "Only two cards (Hardened Scales, Winding Constrictor) produce counters without Atraxa herself; if the commander is removed the deck has no repeatable proliferate engine.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Hardened Scales",
+            "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+          },
+          {
+            "name": "Winding Constrictor",
+            "oracle_id": "c9404d7d-a026-4082-9fcb-1ab571a136b5"
+          },
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+          }
+        ],
+        "fact_keys": [
+          "roles.proliferate.count"
+        ]
+      },
+      "severity": "critical",
+      "confidence": 0.8
+    },
+    {
+      "id": "p-blue",
+      "axis": "Mana",
+      "claim": "Blue has 9 pips but only 7 sources against a recommended 10, which makes Counterspell and Cyclonic Rift unreliable on curve.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Counterspell",
+            "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5"
+          },
+          {
+            "name": "Cyclonic Rift",
+            "oracle_id": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b"
+          },
+          {
+            "name": "Inexorable Tide",
+            "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+          }
+        ],
+        "fact_keys": [
+          "pips_vs_sources.U"
+        ]
+      },
+      "severity": "high",
+      "confidence": 0.9
+    },
+    {
+      "id": "p-top",
+      "axis": "Curve",
+      "claim": "Five or more mana-value 5+ permanents (Doubling Season, Inexorable Tide, Ghave, Vorinclex, Deepglow Skate) crowd the top while the 2-drop slot is only 8 cards.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Doubling Season",
+            "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6"
+          },
+          {
+            "name": "Inexorable Tide",
+            "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+          },
+          {
+            "name": "Ghave, Guru of Spores",
+            "oracle_id": "e579a72f-4933-40fe-9e57-96f8d65370bc"
+          },
+          {
+            "name": "Vorinclex, Monstrous Raider",
+            "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b"
+          },
+          {
+            "name": "Deepglow Skate",
+            "oracle_id": "debce64a-18bd-42f5-9e85-158c2242e9e9"
+          }
+        ],
+        "fact_keys": [
+          "curve.buckets.2",
+          "curve.buckets.5"
+        ]
+      },
+      "severity": "med",
+      "confidence": 0.75
+    },
+    {
+      "id": "p-draw",
+      "axis": "Card flow",
+      "claim": "Card draw is below target: 5 sources versus a 8-12 range, and most depend on a counter-bearing creature surviving.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Fathom Mage",
+            "oracle_id": "93d0e129-e3b5-4aff-9e50-f34771ed00ff"
+          },
+          {
+            "name": "Thrummingbird",
+            "oracle_id": "eac94269-4baa-4b8e-a0fd-d6b227d1cde3"
+          },
+          {
+            "name": "Brainstorm",
+            "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd"
+          }
+        ],
+        "fact_keys": [
+          "roles.draw.count"
+        ]
+      },
+      "severity": "med",
+      "confidence": 0.8
+    },
+    {
+      "id": "p-protect",
+      "axis": "Resilience",
+      "claim": "Commander protection is thin: one Heroic Intervention and one Counterspell to defend a four-color commander.",
+      "evidence": {
+        "cards": [
+          {
+            "name": "Heroic Intervention",
+            "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+          },
+          {
+            "name": "Counterspell",
+            "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5"
+          },
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+          }
+        ],
+        "fact_keys": [
+          "roles.protection.count"
+        ]
+      },
+      "severity": "low",
+      "confidence": 0.6
+    }
+  ],
+  "top_changes": {
+    "swap_ids": [
+      "sw-1",
+      "sw-2",
+      "sw-6"
+    ],
+    "why_these_first": "They fix the blue mana gap and the commander-dependence with the least cost and without raising the bracket."
+  },
+  "swaps": [
+    {
+      "id": "sw-1",
+      "cut": {
+        "name": "Rampant Growth",
+        "oracle_id": "8539f295-5d58-4436-a73a-b9277c4c7795"
+      },
+      "add": {
+        "name": "Command Tower",
+        "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25"
+      },
+      "resolves_finding_id": "p-blue",
+      "tradeoff": "Loses a land-fetching spell; gains a land that fixes all four colors with no tempo cost.",
+      "bracket_effect": "none",
+      "budget_effect": "Free if owned; otherwise ~$0.",
+      "alternative": null,
+      "owned": true,
+      "price": null
+    },
+    {
+      "id": "sw-2",
+      "cut": {
+        "name": "Inexorable Tide",
+        "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+      },
+      "add": {
+        "name": "Asmoranomardicadaistinaculdacar",
+        "oracle_id": "1f74e26f-5cf3-4b0e-bcc6-f858599474fc"
+      },
+      "resolves_finding_id": "p-redundancy",
+      "tradeoff": "Trades a slow five-drop for a free-to-cast engine piece, but the replacement does little by itself.",
+      "bracket_effect": "none",
+      "budget_effect": "About $0.31.",
+      "alternative": null,
+      "owned": false,
+      "price": 0.31
+    },
+    {
+      "id": "sw-3",
+      "cut": {
+        "name": "Tezzeret's Gambit",
+        "oracle_id": "b33d2b77-f068-4fdc-a1a8-0353a35e3973"
+      },
+      "add": {
+        "name": "Skullclamp",
+        "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+      },
+      "resolves_finding_id": "p-draw",
+      "tradeoff": "Loses a cheap artifact-matters draw spell; Skullclamp draws only with X/1 tokens.",
+      "bracket_effect": "raises",
+      "budget_effect": "Unpriced on Scryfall (reprint); roughly $2-4 at retail.",
+      "alternative": {
+        "name": "Brainstorm",
+        "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd"
+      },
+      "owned": false,
+      "price": null
+    },
+    {
+      "id": "sw-4",
+      "cut": {
+        "name": "Deepglow Skate",
+        "oracle_id": "debce64a-18bd-42f5-9e85-158c2242e9e9"
+      },
+      "add": {
+        "name": "Fathom Mage",
+        "oracle_id": "93d0e129-e3b5-4aff-9e50-f34771ed00ff"
+      },
+      "resolves_finding_id": "p-draw",
+      "tradeoff": "Fathom Mage grows with counters and draws for each; costs one more mana but needs no blue-only pips beyond U.",
+      "bracket_effect": "none",
+      "budget_effect": "About $0.84.",
+      "alternative": null,
+      "owned": true,
+      "price": 0.84
+    },
+    {
+      "id": "sw-5",
+      "cut": {
+        "name": "Flux Channeler",
+        "oracle_id": "83874e60-291b-47a7-ba9f-69437fa7e3c7"
+      },
+      "add": {
+        "name": "Pir, Imaginative Rascal",
+        "oracle_id": "7683c2b2-a06f-4691-9cc5-1968dc032885"
+      },
+      "resolves_finding_id": "p-top",
+      "tradeoff": "Pir lowers the curve of the counter plan to 3 and doubles counters with Atraxa; Flux Channeler only fixes proliferate.",
+      "bracket_effect": "none",
+      "budget_effect": "About $4.40.",
+      "alternative": null,
+      "owned": false,
+      "price": 4.4
+    },
+    {
+      "id": "sw-6",
+      "cut": {
+        "name": "Contagion Clasp",
+        "oracle_id": "43f2d81e-aa01-4fa9-9046-6a27a05dbd2d"
+      },
+      "add": {
+        "name": "Evolution Sage",
+        "oracle_id": "b45fdeab-00cc-4422-af9f-66f30a880a7c"
+      },
+      "resolves_finding_id": "p-redundancy",
+      "tradeoff": "Contagion Clasp is a mana-neutral proliferate; Evolution Sage adds a repeatable one on each land drop.",
+      "bracket_effect": "none",
+      "budget_effect": "About $3.54.",
+      "alternative": null,
+      "owned": false,
+      "price": 3.54
+    },
+    {
+      "id": "sw-7",
+      "cut": {
+        "name": "Thrummingbird",
+        "oracle_id": "eac94269-4baa-4b8e-a0fd-d6b227d1cde3"
+      },
+      "add": {
+        "name": "Mikaeus, the Lunarch",
+        "oracle_id": "82f3faa8-39fa-450b-843f-d60a4c36d8f7"
+      },
+      "resolves_finding_id": "p-protect",
+      "tradeoff": "Gives up a flyer that makes proliferate cheap; gains a mana sink that makes mass counters.",
+      "bracket_effect": "none",
+      "budget_effect": "About $0.91.",
+      "alternative": null,
+      "owned": true,
+      "price": 0.91
+    },
+    {
+      "id": "sw-8",
+      "cut": {
+        "name": "Hex Parasite",
+        "oracle_id": "c180f21b-f553-4839-80c7-a3ce2fae9b5a"
+      },
+      "add": {
+        "name": "Smothering Tithe",
+        "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+      },
+      "resolves_finding_id": "p-protect",
+      "tradeoff": "Loses a repeatable counter-removal engine; Smothering Tithe is a rock-plus-defence enchantment at the price of white pips.",
+      "bracket_effect": "raises",
+      "budget_effect": "About $58.38, the most expensive swap.",
+      "alternative": {
+        "name": "Sol Ring",
+        "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+      },
+      "owned": false,
+      "price": 58.38
+    },
+    {
+      "id": "sw-9",
+      "cut": {
+        "name": "Brainstorm",
+        "oracle_id": "36cd2364-d113-47d1-b2c4-b088d9eb88dd"
+      },
+      "add": {
+        "name": "Gaea's Cradle",
+        "oracle_id": "7c427c3d-ecd8-45ef-bebd-8f10f4a311db"
+      },
+      "resolves_finding_id": "p-top",
+      "tradeoff": "Cradle accelerates the top end but the deck has few creatures, so mana output is modest.",
+      "bracket_effect": "raises",
+      "budget_effect": "About $1630.77. Not budget-friendly.",
+      "alternative": null,
+      "owned": false,
+      "price": 1630.77
+    }
+  ],
+  "cuts_to_consider": [
+    {
+      "card": {
+        "name": "Asmoranomardicadaistinaculdacar",
+        "oracle_id": "1f74e26f-5cf3-4b0e-bcc6-f858599474fc"
+      },
+      "reason": "A 30-letter commander with no cost does nothing alone here; consider cutting if the joke is not worth the slot.",
+      "evidence": [
+        "roles.proliferate.count"
+      ]
+    },
+    {
+      "card": {
+        "name": "Deepglow Skate",
+        "oracle_id": "debce64a-18bd-42f5-9e85-158c2242e9e9"
+      },
+      "reason": "Five-mana body whose draw trigger rarely fires in this deck.",
+      "evidence": []
+    }
+  ],
+  "bracket": {
+    "estimated": 3,
+    "target": 3,
+    "reasons": [
+      "No two-card infinite combos",
+      "Game Changers present: Cyclonic Rift, Gaea's Cradle is only a suggested swap"
+    ]
+  },
+  "mana": {
+    "summary": "37 lands plus 12 ramp gives high floor; blue is the weak color.",
+    "issues": [
+      "Blue sources 7 versus recommended 10",
+      "Karn's Bastion enters tapped and only helps proliferate"
+    ]
+  },
+  "questions_for_owner": [
+    {
+      "id": "q-bracket",
+      "question": "Is a bracket 4 upgrade acceptable for this deck?",
+      "why_asked": "Gaea's Cradle and Smothering Tithe swaps would raise the bracket."
+    },
+    {
+      "id": "q-joke",
+      "question": "Should Asmoranomardicadaistinaculdacar stay as a joke slot?",
+      "why_asked": "It is flagged as a cut but marked as intentional."
+    }
+  ],
+  "charts": {
+    "curve": {
+      "buckets": [
+        {
+          "mv": 0,
+          "count": 1,
+          "label": "0"
+        },
+        {
+          "mv": 1,
+          "count": 8,
+          "label": "1"
+        },
+        {
+          "mv": 2,
+          "count": 8,
+          "label": "2"
+        },
+        {
+          "mv": 3,
+          "count": 12,
+          "label": "3"
+        },
+        {
+          "mv": 4,
+          "count": 6,
+          "label": "4"
+        },
+        {
+          "mv": 5,
+          "count": 5,
+          "label": "5"
+        },
+        {
+          "mv": 6,
+          "count": 2,
+          "label": "6"
+        },
+        {
+          "mv": 7,
+          "count": 1,
+          "label": "7+"
+        }
+      ],
+      "average_mv": 2.9
+    },
+    "pips_vs_sources": [
+      {
+        "color": "W",
+        "pips": 6,
+        "sources": 8,
+        "recommended_sources": 8
+      },
+      {
+        "color": "U",
+        "pips": 9,
+        "sources": 7,
+        "recommended_sources": 10
+      },
+      {
+        "color": "B",
+        "pips": 5,
+        "sources": 8,
+        "recommended_sources": 8
+      },
+      {
+        "color": "G",
+        "pips": 22,
+        "sources": 18,
+        "recommended_sources": 18
+      }
+    ],
+    "roles": [
+      {
+        "role": "ramp",
+        "count": 12,
+        "target_min": 10,
+        "target_max": 14
+      },
+      {
+        "role": "draw",
+        "count": 5,
+        "target_min": 8,
+        "target_max": 12
+      },
+      {
+        "role": "removal",
+        "count": 6,
+        "target_min": 5,
+        "target_max": 10
+      },
+      {
+        "role": "protection",
+        "count": 2,
+        "target_min": 3,
+        "target_max": 6
+      }
+    ],
+    "synergy_clusters": [
+      {
+        "name": "Counter doublers",
+        "cards": [
+          {
+            "name": "Doubling Season",
+            "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6"
+          },
+          {
+            "name": "Hardened Scales",
+            "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+          },
+          {
+            "name": "Winding Constrictor",
+            "oracle_id": "c9404d7d-a026-4082-9fcb-1ab571a136b5"
+          },
+          {
+            "name": "Vorinclex, Monstrous Raider",
+            "oracle_id": "5a3fdf5a-bff8-4896-b288-3f43f9a72d9b"
+          }
+        ],
+        "strength": 0.92
+      },
+      {
+        "name": "Proliferate engines",
+        "cards": [
+          {
+            "name": "Atraxa, Praetors' Voice",
+            "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+          },
+          {
+            "name": "Contagion Clasp",
+            "oracle_id": "43f2d81e-aa01-4fa9-9046-6a27a05dbd2d"
+          },
+          {
+            "name": "Fathom Mage",
+            "oracle_id": "93d0e129-e3b5-4aff-9e50-f34771ed00ff"
+          }
+        ],
+        "strength": 0.7
+      }
+    ]
+  },
+  "forge": {
+    "status": "unavailable",
+    "reason": "No Forge games imported for this deck."
+  },
+  "omitted": [
+    {
+      "kind": "swap",
+      "item": "Cut Counterspell for Mana Drain",
+      "reason": "Mana Drain is not in the candidate pool; verifier dropped it."
+    },
+    {
+      "kind": "claim",
+      "item": "Deck wins on turn 6 on average",
+      "reason": "No Forge evidence; claim removed."
+    }
+  ]
+}

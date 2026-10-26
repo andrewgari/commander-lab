@@ -82,7 +82,7 @@ All existing fields (`id`, `name`, `color`, `commanders`, `status`, `folder_id`)
 docker compose up -d
 
 # Run local development server
-uvicorn app:app --reload --port 8000
+uvicorn src.server.app.main:app --reload --port 8000
 
 # Run test suite
 python -m unittest discover -s tests

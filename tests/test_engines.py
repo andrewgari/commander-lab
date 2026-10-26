@@ -20,10 +20,10 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.interactions import engines as eng
-from analytics.interactions import graph as graph_mod
-from analytics.interactions import llm as llm_mod
-from analytics.interactions import service
+from src.server.domain.analytics.interactions import engines as eng
+from src.server.domain.analytics.interactions import graph as graph_mod
+from src.server.domain.analytics.interactions import llm as llm_mod
+from src.server.domain.analytics.interactions import service
 
 from tests.test_interactions import FakeProvider, FakeRedis, FakeScryfall
 

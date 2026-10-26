@@ -8,9 +8,9 @@ from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.shared.http.exceptions import ApiError, HttpClientError, RateLimitError
-from src.shared.http.exceptions import TimeoutError as HttpTimeoutError
-from src.shared.http.retry import RetryConfig, retry_request
+from src.server.infra.http.exceptions import ApiError, HttpClientError, RateLimitError
+from src.server.infra.http.exceptions import TimeoutError as HttpTimeoutError
+from src.server.infra.http.retry import RetryConfig, retry_request
 
 
 @dataclass
