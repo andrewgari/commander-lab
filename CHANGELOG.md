@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Your whole collection now lives in Postgres: every deck and every physical card copy was migrated with its provenance (counts reconciled 1:1 with the old store), and a new Inventory page plus a Profile page show your collection stats, mana curve, archetype mix, and power level. Profile edits are saved as versioned snapshots you can browse back through.
 - Decks now have a Postgres-backed home: importing an Archidekt deck stores it alongside your physical card collection, and the new deck list and deck pages show a have/buy split (copies you own, have incoming, or still need to buy) plus a plain-language profile summary of the deck's mana curve and archetype mix.
 
 ### Fixed
