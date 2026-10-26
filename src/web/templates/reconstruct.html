@@ -1,0 +1,2173 @@
+{% extends "base.html" %}
+
+{% block title %}Reconstruct | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reconstruct-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding-bottom: 5rem;
+    }
+
+    /* Stepper Bar */
+    .stepper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--sp-4) var(--sp-6);
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        margin-bottom: var(--sp-8);
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+    }
+    .step-item {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-size: var(--fs-sm);
+        color: var(--text-3);
+    }
+    .step-item.active {
+        color: var(--signal);
+        font-weight: var(--fw-semibold);
+    }
+    .step-item.completed {
+        color: var(--ok);
+    }
+    .step-bubble {
+        width: 24px;
+        height: 24px;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--fs-micro);
+        font-family: var(--font-mono);
+        background: var(--surface-2);
+        border: var(--stroke);
+    }
+    .step-item.active .step-bubble {
+        background: var(--signal-dim);
+        border-color: var(--signal);
+        color: var(--signal);
+    }
+    .step-item.completed .step-bubble {
+        background: var(--ok-dim);
+        border-color: var(--ok);
+        color: var(--ok);
+    }
+    .step-separator {
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+        min-width: 20px;
+    }
+
+    /* Cards and Surfaces */
+    .recon-card {
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        padding: var(--sp-6);
+        margin-bottom: var(--sp-6);
+    }
+    .recon-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--sp-4);
+        padding-bottom: var(--sp-3);
+        border-bottom: var(--stroke);
+    }
+
+    /* Form Fields */
+    .input-group {
+        margin-bottom: var(--sp-5);
+    }
+    .input-label {
+        display: block;
+        font-size: var(--fs-sm);
+        font-weight: var(--fw-medium);
+        color: var(--text-1);
+        margin-bottom: var(--sp-2);
+    }
+    .input-hint {
+        font-size: var(--fs-xs);
+        color: var(--text-3);
+        margin-top: var(--sp-2);
+    }
+    .input-field {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--surface-0);
+        border: var(--stroke);
+        color: var(--text-1);
+        padding: var(--sp-2) var(--sp-3);
+        border-radius: var(--radius-1);
+        font-size: var(--fs-base);
+        font-family: inherit;
+        transition: border-color var(--dur-fast) var(--ease);
+    }
+    .input-field:focus {
+        border-color: var(--signal);
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-offset);
+    }
+    textarea.input-field {
+        min-height: 80px;
+        resize: vertical;
+    }
+
+    /* Autocomplete dropdown */
+    .autocomplete-wrapper {
+        position: relative;
+    }
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: var(--surface-0);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        max-height: 220px;
+        overflow-y: auto;
+        margin-top: var(--sp-1);
+    }
+    .autocomplete-item {
+        padding: var(--sp-2) var(--sp-3);
+        font-size: var(--fs-sm);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--line-faint);
+    }
+    .autocomplete-item:hover, .autocomplete-item.selected {
+        background: var(--surface-2);
+        color: var(--data-strong);
+    }
+
+    /* Clickable theme/suggestion chips (wear hud-chip--custom) */
+    .tag-chip {
+        cursor: pointer;
+        margin-right: var(--sp-1);
+        margin-bottom: var(--sp-1);
+    }
+    .tag-chip:hover {
+        --chip-fg: var(--text-1);
+        --chip-line: var(--text-3);
+    }
+
+    /* Tables */
+    .recon-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--fs-sm);
+    }
+    .recon-table th {
+        text-align: left;
+        padding: var(--sp-2) var(--sp-3);
+        background: var(--surface-0);
+        color: var(--text-3);
+        font-weight: var(--fw-medium);
+        border-bottom: var(--stroke);
+    }
+    .recon-table td {
+        padding: var(--sp-2) var(--sp-3);
+        border-bottom: 1px solid var(--line-faint);
+        color: var(--text-2);
+    }
+    .recon-table tr:hover td {
+        background: var(--surface-2);
+    }
+
+    /* Sticky Footer Action Bar */
+    .sticky-action-bar {
+        position: fixed;
+        bottom: 0;
+        left: var(--sidebar-w);
+        right: 0;
+        background: var(--surface-0);
+        border-top: var(--stroke);
+        padding: var(--sp-4) var(--sp-8);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 40;
+    }
+    @media (max-width: 900px) {
+        .sticky-action-bar {
+            left: var(--sidebar-w-collapsed);
+            padding: var(--sp-3) var(--sp-4);
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+    }
+
+    /* Alert / Error Banners */
+    .alert {
+        padding: var(--sp-3) var(--sp-4);
+        border-radius: var(--radius-1);
+        font-size: var(--fs-base);
+        margin-bottom: var(--sp-5);
+        display: flex;
+        align-items: flex-start;
+        gap: var(--sp-3);
+    }
+    .alert-danger {
+        background: var(--danger-dim);
+        border: 1px solid var(--danger);
+        color: var(--danger);
+    }
+    .alert-warning {
+        background: var(--signal-dim);
+        border: 1px solid var(--signal-line);
+        color: var(--signal);
+    }
+    .alert-success {
+        background: var(--ok-dim);
+        border: 1px solid var(--ok);
+        color: var(--ok);
+    }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--scrim);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: var(--sp-4);
+    }
+    .modal-content {
+        background: var(--surface-1);
+        border: var(--stroke);
+        border-radius: var(--radius-1);
+        max-width: 500px;
+        width: 100%;
+        padding: var(--sp-6);
+    }
+
+    /* Mana pips */
+    .mana-pip {
+        width: 16px;
+        height: 16px;
+        vertical-align: middle;
+        margin-right: 2px;
+    }
+
+    /* Building-state spinner */
+    .recon-spinner {
+        display: inline-block;
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 2px solid var(--line-strong);
+        border-top-color: var(--signal);
+        border-radius: 9999px;
+        animation: recon-spin 0.9s linear infinite;
+    }
+    @keyframes recon-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+        .recon-spinner { animation: none; }
+    }
+
+    .input-field.is-invalid { border-color: var(--danger) !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reconstruct-container">
+
+    <!-- Global App Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="margin: 0;">Reconstruct</h1>
+            <p style="color: var(--text-3); margin-top: 0.35rem; font-size: 0.9rem;" id="headerSubtitle">
+                Decommission physical decks and craft new decks prioritizing your retired card pool and collection.
+            </p>
+        </div>
+        <div id="sessionStatusContainer" style="display: none;">
+            <span class="hud-chip hud-chip--data" id="sessionStatusBadge">Status: Pending Preferences</span>
+            <span class="hud-chip hud-chip--signal" id="dryRunSessionBadge" style="display: none; margin-left: 0.5rem;">DRY RUN — NO DECOMMISSION</span>
+        </div>
+    </div>
+
+    <div class="alert alert-warning" id="dryRunNoticeBanner" style="display: none; margin-bottom: 1rem;">
+        <div>
+            <strong>Dry run:</strong> source decks were not decommissioned and no cards were moved. Pools and drafts are counted exactly as a real Reconstruct would; drafts cannot be accepted.
+        </div>
+    </div>
+
+    <!-- Stepper (Shown only when in an active session) -->
+    <div class="stepper" id="reconstructStepper" style="display: none;">
+        <div class="step-item completed" id="step1">
+            <div class="step-bubble">✓</div>
+            <span id="step1Label">1. Decommission</span>
+        </div>
+        <div class="step-separator"></div>
+        <div class="step-item" id="step2">
+            <div class="step-bubble">2</div>
+            <span>2. The Pool</span>
+        </div>
+        <div class="step-separator"></div>
+        <div class="step-item" id="step3">
+            <div class="step-bubble">3</div>
+            <span>3. Preferences</span>
+        </div>
+        <div class="step-separator"></div>
+        <div class="step-item" id="step4">
+            <div class="step-bubble">4</div>
+            <span>4. Drafting</span>
+        </div>
+        <div class="step-separator"></div>
+        <div class="step-item" id="step5">
+            <div class="step-bubble">5</div>
+            <span>5. Results</span>
+        </div>
+    </div>
+
+    <!-- Error container -->
+    <div id="globalError" class="alert alert-danger" style="display: none;" role="alert">
+        <div id="globalErrorMessage">An unexpected error occurred.</div>
+    </div>
+
+    <!-- SCREEN 0: Landing / Hub (When no session ID provided) -->
+    <div id="screenLanding" style="display: none;">
+        <div class="recon-card">
+            <div class="recon-card-header">
+                <h2 style="font-size: var(--fs-md); margin: 0; color: var(--text-1);">Start a New Reconstruct</h2>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-3); margin-top: 0;">
+                Select 1 or 2 physical Commander decks to decommission. Their decklists will be snapshotted and cards pooled for drafting new decks.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                <div class="input-group">
+                    <label class="input-label" for="landingDeck1Select">Primary Physical Deck (Required):</label>
+                    <select id="landingDeck1Select" class="input-field">
+                        <option value="">-- Choose primary deck --</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="landingDeck2Select">Second Physical Deck (Optional):</label>
+                    <select id="landingDeck2Select" class="input-field">
+                        <option value="">-- None (Single deck reconstruct) --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="alert alert-warning" id="landingDecomWarning" style="margin-top: 0.5rem;">
+                <div>
+                    <strong>Note:</strong> Starting reconstruct will immediately decommission and retire the selected deck(s), returning their cards to your unassigned inventory.
+                </div>
+            </div>
+
+            <label for="landingDryRunToggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.75rem; cursor: pointer; color: var(--text-3); font-size: 0.9rem;">
+                <input type="checkbox" id="landingDryRunToggle" onchange="onLandingDryRunChange(this.checked)" style="margin-top: 0.2rem;">
+                <span>Dry Run (No Decommission) — Count cards and preview available pools &amp; drafts without retiring decks, moving cards, or deleting anything</span>
+            </label>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+                <button class="hud-btn hud-btn--primary" id="btnLandingStart" onclick="startReconstructFromLanding()">Start Reconstruct</button>
+            </div>
+        </div>
+
+        <div class="recon-card">
+            <div class="recon-card-header">
+                <h2 style="font-size: var(--fs-md); margin: 0; color: var(--text-1);">Recent Reconstruct Sessions</h2>
+            </div>
+            <div id="recentSessionsContainer">
+                <div style="color: var(--text-3); font-size: 0.875rem; text-align: center; padding: 2rem;">
+                    Loading recent sessions...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: Resource Review (The Pool) -->
+    <div id="screenPool" style="display: none;">
+        <div class="recon-card">
+            <div class="recon-card-header">
+                <div>
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);" id="poolHeaderTitle">Pooled Resources</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="poolHeaderDecks">
+                        Retired source decks: -
+                    </p>
+                </div>
+                <button class="hud-btn hud-btn--primary" id="btnProceedToPrefs" onclick="showScreen('preferences')">Set Preferences for New Deck(s)</button>
+            </div>
+
+            <!-- Stats Bar -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Total Pool Cards</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;" id="poolTotalCards">0</div>
+                </div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Unique Cards</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;" id="poolUniqueCards">0</div>
+                </div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Source Decks</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--data-strong); margin-top: 0.25rem;" id="poolSourceDecksCount">0</div>
+                </div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4); display: none;" id="poolOwnedCollectionCardsBox">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Free Owned Copies (Tier 2)</div>
+                    <div style="font-size: 1.5rem; font-weight: 600; color: var(--ok); margin-top: 0.25rem;" id="poolOwnedCollectionCards">0</div>
+                </div>
+                <div style="background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);">
+                    <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Combined Color Identity</div>
+                    <div style="margin-top: 0.35rem;" id="poolCombinedColors">-</div>
+                </div>
+            </div>
+
+            <!-- Source Decks Cards Preview -->
+            <div id="poolSourceDecksDetail" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <!-- Filled dynamically with deck cards info -->
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 220px;">
+                    <input type="text" id="poolCardSearch" class="input-field" placeholder="Search cards in pool..." oninput="filterPoolCards()">
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" id="poolFilterButtons">
+                    <button class="hud-btn hud-btn--sm hud-btn--primary" onclick="setPoolFilter('all', this)">All</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('creature', this)">Creatures</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('spell', this)">Spells</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('artifact_enchantment', this)">Artifacts & Enchantments</button>
+                    <button class="hud-btn hud-btn--sm" onclick="setPoolFilter('land', this)">Lands</button>
+                </div>
+            </div>
+
+            <!-- Pool Cards Table -->
+            <div style="border: 1px solid var(--line); border-radius: var(--radius-1); overflow: hidden; max-height: 480px; overflow-y: auto;">
+                <table class="recon-table" id="poolCardsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">Qty</th>
+                            <th>Card Name</th>
+                            <th>Source Deck</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poolCardsTableBody">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="hud-btn hud-btn--primary" onclick="showScreen('preferences')">Set Preferences for New Deck(s)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: Preferences Form -->
+    <div id="screenPreferences" style="display: none;">
+        <div class="recon-card">
+            <div class="recon-card-header">
+                <div>
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);">Target Deck Preferences</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="prefPoolSummary">
+                        Pool: -
+                    </p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-base); color: var(--text-2); cursor: pointer; background: var(--surface-0); border: 1px solid var(--line); padding: 0.45rem 0.75rem; border-radius: var(--radius-1);">
+                        <input type="checkbox" id="buildTwoDecksToggle" onchange="toggleTwoDecks(this.checked)" style="margin: 0; cursor: pointer;">
+                        <span>I want to build TWO new decks from this pool</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="prefsError" class="alert alert-danger" style="display: none;"></div>
+
+            <!-- Form Container -->
+            <form id="reconstructPrefsForm" onsubmit="event.preventDefault(); submitPreferencesAndDraft();">
+
+                <!-- DECK 1 PREFERENCES -->
+                <div id="deckPrefsSection_0" class="recon-card" style="background: var(--surface-0); border: 1px solid var(--line-strong); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
+                        <h3 style="font-size: var(--fs-md); margin: 0; color: var(--data-strong); font-weight: var(--fw-semibold);">Deck 1 Preferences</h3>
+                        <span class="hud-chip hud-chip--data">Target Deck 1</span>
+                    </div>
+
+                    <!-- Deck Name (Optional) -->
+                    <div class="input-group">
+                        <label class="input-label" for="pref_name_0">Deck Name (Optional):</label>
+                        <input type="text" id="pref_name_0" class="input-field" placeholder="e.g., Squirrel Swarm, Kraum & Tymna Spellslinger">
+                    </div>
+
+                    <!-- Commander 1 -->
+                    <div class="input-group">
+                        <label class="input-label" for="pref_cmdr_0">
+                            Commander (Optional)
+                        </label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="pref_cmdr_0" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off" oninput="onCommanderInput(0, this.value)">
+                            <div id="cmdrDropdown_0" class="autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                        <div class="input-hint" id="suggestedCmdrs_0">
+                            Suggested from pool: <span id="poolCmdrSuggestions_0" style="color: var(--text-2);">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Partner / Background Button & Container -->
+                    <div style="margin-bottom: 1.25rem;">
+                        <button type="button" class="hud-btn hud-btn--sm" id="btnTogglePartner_0" onclick="togglePartnerSlot(0)">Add Partner / Background Commander</button>
+                    </div>
+
+                    <div id="partnerContainer_0" class="input-group" style="display: none; background: var(--surface-2); padding: 0.75rem; border: 1px solid var(--line-strong); border-radius: var(--radius-1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="input-label" for="pref_partner_cmdr_0" style="margin: 0;">
+                                Second Commander (Partner / Background / Friends Forever):
+                            </label>
+                            <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(0)">Remove</button>
+                        </div>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="pref_partner_cmdr_0" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(0, this.value)">
+                            <div id="partnerCmdrDropdown_0" class="autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Themes & Strategies Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                        <div class="input-group">
+                            <label class="input-label" for="pref_themes_0">Themes (Optional):</label>
+                            <input type="text" id="pref_themes_0" class="input-field" placeholder="e.g., Aristocrats, Tokens, +1/+1 Counters">
+                            <div style="margin-top: 0.4rem;">
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Tokens')">+ Tokens</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Aristocrats')">+ Aristocrats</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Spellslinger')">+ Spellslinger</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Artifacts')">+ Artifacts</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Graveyard')">+ Graveyard</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(0, 'Landfall')">+ Landfall</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label" for="pref_strategy_0">Strategy (Optional):</label>
+                            <select id="pref_strategy_0" class="input-field">
+                                <option value="Any">Any Strategy</option>
+                                <option value="Aggro">Aggro</option>
+                                <option value="Midrange">Midrange</option>
+                                <option value="Control">Control</option>
+                                <option value="Combo">Combo</option>
+                                <option value="Stax-lite">Stax-lite</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Art & Aesthetics -->
+                    <div class="input-group">
+                        <label class="input-label">Art & Aesthetics (Optional):</label>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_fullart_0"> Prefer Full Art
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_oldborder_0"> Old Border Only
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_matchframes_0"> Match Frames
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_showcase_0"> Borderless / Showcase
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Flavor & Notes -->
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label class="input-label" for="pref_notes_0">Flavor & Notes (Optional):</label>
+                        <textarea id="pref_notes_0" class="input-field" placeholder="What's the vibe? Any strict exclusions or must-haves? (e.g., No extra turn loops, budget under $20)"></textarea>
+                    </div>
+                </div>
+
+                <!-- DECK 2 PREFERENCES (Hidden unless 2 decks toggle is checked) -->
+                <div id="deckPrefsSection_1" class="recon-card" style="display: none; background: var(--surface-0); border: 1px solid var(--line-strong); margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
+                        <h3 style="font-size: var(--fs-md); margin: 0; color: var(--signal); font-weight: var(--fw-semibold);">Deck 2 Preferences</h3>
+                        <span class="hud-chip hud-chip--signal">Target Deck 2</span>
+                    </div>
+
+                    <!-- Deck Name (Optional) -->
+                    <div class="input-group">
+                        <label class="input-label" for="pref_name_1">Deck Name (Optional):</label>
+                        <input type="text" id="pref_name_1" class="input-field" placeholder="e.g., Vampire Aggro, Thrasios Landfall">
+                    </div>
+
+                    <!-- Commander 2 -->
+                    <div class="input-group">
+                        <label class="input-label" for="pref_cmdr_1">Commander (Optional):</label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="pref_cmdr_1" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off" oninput="onCommanderInput(1, this.value)">
+                            <div id="cmdrDropdown_1" class="autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                        <div class="input-hint" id="suggestedCmdrs_1">
+                            Suggested from pool: <span id="poolCmdrSuggestions_1" style="color: var(--text-2);">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Partner / Background Button & Container for Deck 2 -->
+                    <div style="margin-bottom: 1.25rem;">
+                        <button type="button" class="hud-btn hud-btn--sm" id="btnTogglePartner_1" onclick="togglePartnerSlot(1)">Add Partner / Background Commander</button>
+                    </div>
+
+                    <div id="partnerContainer_1" class="input-group" style="display: none; background: var(--surface-2); padding: 0.75rem; border: 1px solid var(--line-strong); border-radius: var(--radius-1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="input-label" for="pref_partner_cmdr_1" style="margin: 0;">
+                                Second Commander (Partner / Background / Friends Forever):
+                            </label>
+                            <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(1)">Remove</button>
+                        </div>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="pref_partner_cmdr_1" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(1, this.value)">
+                            <div id="partnerCmdrDropdown_1" class="autocomplete-dropdown" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Themes & Strategies Grid for Deck 2 -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                        <div class="input-group">
+                            <label class="input-label" for="pref_themes_1">Themes (Optional):</label>
+                            <input type="text" id="pref_themes_1" class="input-field" placeholder="e.g., Vampires, Lifegain, Madness">
+                            <div style="margin-top: 0.4rem;">
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Tokens')">+ Tokens</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Aristocrats')">+ Aristocrats</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Spellslinger')">+ Spellslinger</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Vampires')">+ Vampires</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Lifegain')">+ Lifegain</span>
+                                <span class="hud-chip hud-chip--custom tag-chip" onclick="addThemeChip(1, 'Aggro')">+ Aggro</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label" for="pref_strategy_1">Strategy (Optional):</label>
+                            <select id="pref_strategy_1" class="input-field">
+                                <option value="Any">Any Strategy</option>
+                                <option value="Aggro">Aggro</option>
+                                <option value="Midrange">Midrange</option>
+                                <option value="Control">Control</option>
+                                <option value="Combo">Combo</option>
+                                <option value="Stax-lite">Stax-lite</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Art & Aesthetics for Deck 2 -->
+                    <div class="input-group">
+                        <label class="input-label">Art & Aesthetics (Optional):</label>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_fullart_1"> Prefer Full Art
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_oldborder_1"> Old Border Only
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_matchframes_1"> Match Frames
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-2); cursor: pointer;">
+                                <input type="checkbox" id="pref_art_showcase_1"> Borderless / Showcase
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Flavor & Notes for Deck 2 -->
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label class="input-label" for="pref_notes_1">Flavor & Notes (Optional):</label>
+                        <textarea id="pref_notes_1" class="input-field" placeholder="What's the vibe? Any strict exclusions or must-haves?"></textarea>
+                    </div>
+                </div>
+
+                <!-- Form Bottom Actions -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <button type="button" class="hud-btn" id="btnPrefsBack" onclick="showScreen('pool')">Back to Pool Review</button>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="hud-btn hud-btn--danger" onclick="openAbandonDialog()">Abandon</button>
+                        <button type="submit" class="hud-btn hud-btn--primary" id="btnDraftWithAgent">Draft with Agent</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCREEN 4: Building / Progress State -->
+    <div id="screenBuilding" style="display: none;">
+        <div class="recon-card" style="text-align: center; padding: 3rem 1.5rem;">
+            <div class="recon-spinner" style="margin: 0 auto 1.5rem auto;"></div>
+            <h2 style="font-size: 1.5rem; margin: 0 0 0.5rem 0; color: var(--text-1);" id="buildingTitle">
+                Agent is Drafting Your Deck(s)...
+            </h2>
+            <p style="color: var(--text-3); font-size: 0.95rem; max-width: 600px; margin: 0 auto 2rem auto;">
+                Analyzing retired source cards, scanning undedicated collection staples, balancing the mana curve, and minimizing new purchase costs.
+            </p>
+
+            <!-- Animated Log Container -->
+            <div style="max-width: 640px; margin: 0 auto; background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: 1.25rem; text-align: left; font-family: var(--font-mono); font-size: var(--fs-sm);">
+                <div id="buildingLog_1" style="color: var(--ok); margin-bottom: 0.4rem;">
+                    ✓ [1/5] Source deck snapshots and unassigned collection indexed.
+                </div>
+                <div id="buildingLog_2" style="color: var(--signal); margin-bottom: 0.4rem;">
+                    » [2/5] Establishing commander color identities & strategy roles...
+                </div>
+                <div id="buildingLog_3" style="color: var(--text-3); margin-bottom: 0.4rem;">
+                    ○ [3/5] Allocating Tier 1 (free pool) and Tier 2 (free collection) staples...
+                </div>
+                <div id="buildingLog_4" style="color: var(--text-3); margin-bottom: 0.4rem;">
+                    ○ [4/5] Structuring land base, mana pips, and curve floors...
+                </div>
+                <div id="buildingLog_5" style="color: var(--text-3);">
+                    ○ [5/5] Finalizing draft decklists and cost calculations...
+                </div>
+            </div>
+
+            <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-3);" id="buildingPollStatus">
+                Polling build progress...
+            </div>
+
+            <div id="buildingError" class="alert alert-danger" style="display: none; max-width: 640px; margin: 1.5rem auto 0 auto; text-align: left;">
+                <div>
+                    <span id="buildingErrorMessage">Build failed or timed out.</span>
+                    <button class="hud-btn hud-btn--sm hud-btn--primary" onclick="retryBuild()" style="margin-left: 0.5rem;">Retry Build</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 5: Draft Results View -->
+    <div id="screenResults" style="display: none;">
+        <div class="recon-card" style="margin-bottom: 1.5rem;">
+            <div class="recon-card-header">
+                <div>
+                    <h2 style="font-size: var(--fs-lg); margin: 0; color: var(--text-1);">Reconstruct: Draft Results</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-3); margin: 0.35rem 0 0 0;" id="resultsHeaderSubtitle">
+                        Review drafted decks, inspect card sourcing tiers, and accept to create your new physical deck(s).
+                    </p>
+                </div>
+                <div id="resultsSessionBadge">
+                    <span class="hud-chip hud-chip--ok">Drafts Ready</span>
+                </div>
+            </div>
+
+            <!-- Accepted Decks Notice (shown if status is accepted) -->
+            <div id="acceptedSuccessBanner" class="alert alert-success" style="display: none;">
+                <div>
+                    <strong>Draft(s) Accepted!</strong> The new deck(s) have been registered in Commander Lab, and Tier 1 & 2 cards are dedicated.
+                    <div id="acceptedDecksLinks" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+
+            <!-- Draft Decks Container (populated dynamically) -->
+            <div id="draftsListContainer" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <!-- Populated dynamically with draft deck cards -->
+            </div>
+        </div>
+
+        <!-- Sticky Footer Action Bar -->
+        <div class="sticky-action-bar" id="draftsActionBar">
+            <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+                <span style="font-size: 0.85rem; color: var(--text-3); text-transform: uppercase; font-weight: 600;">Total New Cost:</span>
+                <span style="font-size: 1.5rem; font-weight: 700; color: var(--danger);" id="resultsGrandTotalCost">$0.00</span>
+                <span style="font-size: 0.75rem; color: var(--text-3);">(Tier 1 & Tier 2 cards are Free)</span>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="hud-btn" id="btnTweakPrefs" onclick="tweakPreferences()">Tweak Preferences</button>
+                <button class="hud-btn" id="btnRegenerateDraft" onclick="regenerateDrafts()">Regenerate Draft</button>
+                <button class="hud-btn hud-btn--primary" id="btnAcceptSave" onclick="acceptDrafts()">Accept & Save Deck(s)</button>
+                <button class="hud-btn hud-btn--danger" id="btnAbandonDraft" onclick="openAbandonDialog()">Abandon</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Abandon Confirmation Dialog -->
+<div id="abandonModal" class="modal-overlay" onclick="closeAbandonDialog()">
+    <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="abandonTitle">
+        <h2 id="abandonTitle" style="margin: 0 0 0.5rem 0; font-size: var(--fs-md); color: var(--danger);">Abandon Reconstruct?</h2>
+        <p style="color: var(--text-3); font-size: 0.875rem; margin-bottom: 1rem;">
+            Abandons this reconstruct session. The source deck(s) remain retired and their cards remain unassigned in your inventory.
+        </p>
+        <div class="input-group">
+            <label class="input-label" for="abandonReason">Reason (Optional):</label>
+            <input type="text" id="abandonReason" class="input-field" placeholder="e.g. Decided not to rebuild">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+            <button class="hud-btn" onclick="closeAbandonDialog()">Keep Session</button>
+            <button class="hud-btn hud-btn--danger" id="confirmAbandonBtn" onclick="confirmAbandon()">Abandon Reconstruct</button>
+        </div>
+    </div>
+</div>
+
+<!-- Accept Success Modal -->
+<div id="acceptModal" class="modal-overlay" onclick="closeAcceptModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="acceptTitle">
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <div style="font-size: 2.5rem; color: var(--ok); margin-bottom: 0.5rem;" aria-hidden="true">✓</div>
+            <h2 id="acceptTitle" style="margin: 0; font-size: var(--fs-lg); color: var(--text-1);">Reconstructed Decks Created!</h2>
+            <p style="color: var(--text-3); font-size: 0.875rem; margin-top: 0.25rem;">
+                Your draft has been accepted and registered as new physical deck(s). Tier 1 & 2 cards are now dedicated to the new deck(s).
+            </p>
+        </div>
+        <div id="acceptCreatedDecksList" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <!-- Links inserted here -->
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+            <button class="hud-btn hud-btn--primary" onclick="closeAcceptModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Draft Modal -->
+<div id="exportModal" class="modal-overlay" onclick="closeExportModal()">
+    <div class="modal-content" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <h2 id="exportTitle" style="margin: 0 0 0.25rem; font-size: var(--fs-lg); color: var(--text-1);">Export decklist</h2>
+        <p id="exportDeckName" style="margin: 0 0 1rem; color: var(--text-3); font-size: 0.875rem;"></p>
+        <p style="color: var(--text-3); font-size: 0.8rem; margin: 0 0 1rem;">Creates a <strong>new</strong> deck on each selected site. Nothing existing is changed.</p>
+        <fieldset style="border: 0; padding: 0; margin: 0 0 1rem;">
+            <legend style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-3); margin-bottom: 0.4rem;">Destination</legend>
+            <label style="display: block; margin-bottom: 0.3rem;"><input type="checkbox" id="exportProvMoxfield" value="moxfield" checked> Moxfield</label>
+            <label style="display: block;"><input type="checkbox" id="exportProvArchidekt" value="archidekt" checked> Archidekt</label>
+        </fieldset>
+        <label style="display: block; margin-bottom: 0.4rem;"><input type="checkbox" id="exportPrivate" checked> Private deck</label>
+        <label style="display: block; margin-bottom: 1rem;"><input type="checkbox" id="exportDryRun"> Dry run (validate only, create nothing)</label>
+        <div id="exportStatus" role="status" aria-live="polite" style="font-size: 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button" class="hud-btn" id="exportCancelBtn" onclick="closeExportModal()">Close</button>
+            <button type="button" class="hud-btn hud-btn--primary" id="exportConfirmBtn" onclick="submitExport()">Export</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const INITIAL_SESSION_ID = {{ session_id | tojson }};
+    let currentSessionId = INITIAL_SESSION_ID || '';
+    let currentSession = null;
+    let pollInterval = null;
+    let poolFilterState = 'all';
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, ch => (
+            {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch]
+        ));
+    }
+
+    function createColorPips(colorString) {
+        if (!colorString || colorString === 'C') {
+            return `<img src="https://svgs.scryfall.io/card-symbols/C.svg" class="mana-pip" alt="C">`;
+        }
+        let pips = '';
+        for (let i = 0; i < colorString.length; i++) {
+            pips += `<img src="https://svgs.scryfall.io/card-symbols/${colorString[i]}.svg" class="mana-pip" alt="${colorString[i]}">`;
+        }
+        return pips;
+    }
+
+    // Navigation and screen manager
+    function showScreen(screenName) {
+        const screens = ['Landing', 'Pool', 'Preferences', 'Building', 'Results'];
+        screens.forEach(s => {
+            const el = document.getElementById(`screen${s}`);
+            if (el) el.style.display = 'none';
+        });
+
+        const activeScreenEl = document.getElementById(`screen${screenName.charAt(0).toUpperCase() + screenName.slice(1)}`);
+        if (activeScreenEl) activeScreenEl.style.display = 'block';
+
+        // Update Stepper
+        const stepper = document.getElementById('reconstructStepper');
+        if (screenName === 'landing') {
+            stepper.style.display = 'none';
+            document.getElementById('draftsActionBar').style.display = 'none';
+        } else {
+            stepper.style.display = 'flex';
+            // Show sticky action bar only on Results screen (and when not accepted)
+            const actionBar = document.getElementById('draftsActionBar');
+            if (actionBar) {
+                actionBar.style.display = (screenName === 'results') ? 'flex' : 'none';
+            }
+        }
+
+        const stepMap = { 'pool': 2, 'preferences': 3, 'building': 4, 'results': 5 };
+        const activeNum = stepMap[screenName.toLowerCase()] || 1;
+        for (let i = 1; i <= 5; i++) {
+            const stepEl = document.getElementById(`step${i}`);
+            if (!stepEl) continue;
+            stepEl.classList.remove('active', 'completed');
+            if (i < activeNum) {
+                stepEl.classList.add('completed');
+                stepEl.querySelector('.step-bubble').textContent = '✓';
+            } else if (i === activeNum) {
+                stepEl.classList.add('active');
+                stepEl.querySelector('.step-bubble').textContent = i;
+            } else {
+                stepEl.querySelector('.step-bubble').textContent = i;
+            }
+        }
+
+        // Scroll to top of content
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Autocomplete cache
+    const autocompleteCache = {};
+    let debounceTimer = null;
+
+    function debounce(func, delay) {
+        return function(...args) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    async function searchCardNames(query) {
+        if (!query || query.length < 2) return [];
+        if (autocompleteCache[query]) return autocompleteCache[query];
+        try {
+            const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            autocompleteCache[query] = data.data || [];
+            return data.data || [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function setupAutocomplete(inputId, dropdownId, onSelect) {
+        const input = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropdownId);
+        if (!input || !dropdown) return;
+
+        const handleInput = debounce(async (val) => {
+            if (!val || val.trim().length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            // Gather pool cards first
+            const poolMatches = [];
+            if (currentSession && currentSession.source_decks) {
+                for (const d of currentSession.source_decks) {
+                    for (const c of (d.cards || [])) {
+                        if (c.name && c.name.toLowerCase().includes(val.toLowerCase()) && !poolMatches.includes(c.name)) {
+                            poolMatches.push(c.name);
+                        }
+                    }
+                }
+            }
+
+            const scryfallMatches = await searchCardNames(val);
+            const combined = [...new Set([...poolMatches, ...scryfallMatches])].slice(0, 8);
+
+            if (combined.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            dropdown.innerHTML = '';
+            combined.forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                const isPool = poolMatches.includes(name);
+                item.innerHTML = `
+                    <span>${esc(name)}</span>
+                    ${isPool ? '<span class="hud-chip hud-chip--ok badge-source-pool">From Pool</span>' : ''}
+                `;
+                item.onclick = () => {
+                    input.value = name;
+                    dropdown.style.display = 'none';
+                    if (onSelect) onSelect(name);
+                };
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = 'block';
+        }, 200);
+
+        input.addEventListener('input', (e) => handleInput(e.target.value));
+
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+
+    function onCommanderInput(idx, val) {
+        // Triggered on input change
+    }
+
+    function onPartnerCommanderInput(idx, val) {
+        // Triggered on input change
+    }
+
+    function togglePartnerSlot(idx) {
+        const container = document.getElementById(`partnerContainer_${idx}`);
+        const btn = document.getElementById(`btnTogglePartner_${idx}`);
+        if (container) container.style.display = 'block';
+        if (btn) btn.style.display = 'none';
+    }
+
+    function removePartnerSlot(idx) {
+        const container = document.getElementById(`partnerContainer_${idx}`);
+        const btn = document.getElementById(`btnTogglePartner_${idx}`);
+        const input = document.getElementById(`pref_partner_cmdr_${idx}`);
+        if (container) container.style.display = 'none';
+        if (btn) btn.style.display = 'inline-flex';
+        if (input) input.value = '';
+    }
+
+    function addThemeChip(idx, theme) {
+        const input = document.getElementById(`pref_themes_${idx}`);
+        if (!input) return;
+        const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!current.includes(theme)) {
+            current.push(theme);
+            input.value = current.join(', ');
+        }
+    }
+
+    function toggleTwoDecks(checked) {
+        const sec1 = document.getElementById('deckPrefsSection_1');
+        if (sec1) sec1.style.display = checked ? 'block' : 'none';
+    }
+
+    // Load session data
+    async function loadSession(sessionId) {
+        clearInterval(pollInterval);
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(sessionId)}`);
+            if (!res.ok) {
+                throw new Error(`Session not found (${res.status})`);
+            }
+            const data = await res.json();
+            if (!data.success || !data.session) {
+                throw new Error(data.error || 'Failed to retrieve session');
+            }
+            currentSession = data.session;
+            currentSessionId = sessionId;
+            renderSessionState();
+        } catch (e) {
+            showGlobalError(`Failed to load reconstruct session: ${e.message}`);
+            showScreen('landing');
+            loadRecentSessions();
+            loadPhysicalDecksForLanding();
+        }
+    }
+
+    function renderSessionState() {
+        if (!currentSession) return;
+
+        // Status badge
+        const badge = document.getElementById('sessionStatusBadge');
+        const container = document.getElementById('sessionStatusContainer');
+        if (badge && container) {
+            container.style.display = 'block';
+            badge.textContent = `Status: ${currentSession.status.replace('_', ' ').toUpperCase()}`;
+            const tones = { accepted: 'hud-chip--ok', abandoned: 'hud-chip--danger', drafts_ready: 'hud-chip--data' };
+            badge.classList.remove('hud-chip--ok', 'hud-chip--danger', 'hud-chip--data', 'hud-chip--signal');
+            badge.classList.add(tones[currentSession.status] || 'hud-chip--signal');
+        }
+
+        const dry = Boolean(currentSession.dry_run);
+        const dryBadge = document.getElementById('dryRunSessionBadge');
+        if (dryBadge) dryBadge.style.display = dry ? 'inline-block' : 'none';
+        const dryBanner = document.getElementById('dryRunNoticeBanner');
+        if (dryBanner) dryBanner.style.display = dry ? 'flex' : 'none';
+        const step1Label = document.getElementById('step1Label');
+        if (step1Label) step1Label.textContent = dry ? '1. Snapshot (Dry Run)' : '1. Decommission';
+        const acceptBtnDry = document.getElementById('btnAcceptSave');
+        if (acceptBtnDry) {
+            acceptBtnDry.style.display = dry ? 'none' : '';
+            if (dry) acceptBtnDry.disabled = true;
+        }
+        const abandonBtnDry = document.getElementById('btnAbandonDraft');
+        if (abandonBtnDry && dry) abandonBtnDry.textContent = 'Close Dry Run';
+
+        renderPoolScreen();
+        prefillPreferencesForm();
+
+        // Determine which screen to show based on lifecycle
+        if (currentSession.status === 'building') {
+            showScreen('building');
+            startPolling();
+        } else if (currentSession.status === 'failed') {
+            showScreen('building');
+            showBuildFailure(currentSession);
+        } else if (currentSession.status === 'drafts_ready' || currentSession.status === 'accepted') {
+            renderDraftsResults();
+            showScreen('results');
+        } else if (currentSession.status === 'abandoned') {
+            renderDraftsResults();
+            showScreen('results');
+            const actionBar = document.getElementById('draftsActionBar');
+            if (actionBar) actionBar.style.display = 'none';
+            showGlobalError('This reconstruct session has been abandoned.');
+        } else {
+            // Default to pool review if no preferences submitted yet
+            if (currentSession.preferences && currentSession.preferences.length > 0) {
+                showScreen('preferences');
+            } else {
+                showScreen('pool');
+            }
+        }
+    }
+
+    function renderPoolScreen() {
+        if (!currentSession || !currentSession.source_decks) return;
+        const decks = currentSession.source_decks;
+        const deckNames = decks.map(d => d.name).join(' & ');
+
+        document.getElementById('poolHeaderTitle').textContent = `Pooled Resources: ${deckNames}`;
+        document.getElementById('poolHeaderDecks').textContent = currentSession.dry_run
+            ? `Dry run source decks (not decommissioned): ${deckNames}`
+            : `Decommissioned decks: ${deckNames}`;
+        const ownedBox = document.getElementById('poolOwnedCollectionCardsBox');
+        if (ownedBox) ownedBox.style.display = currentSession.dry_run ? 'block' : 'none';
+        document.getElementById('poolOwnedCollectionCards').textContent =
+            (currentSession.pool_summary && currentSession.pool_summary.tier2_total_qty) || 0;
+        document.getElementById('prefPoolSummary').textContent = `Pool: ${deckNames} (${decks.length} deck${decks.length > 1 ? 's' : ''})`;
+
+        let totalCards = 0;
+        const uniqueCards = new Set();
+        let combinedColors = '';
+
+        decks.forEach(d => {
+            (d.cards || []).forEach(c => {
+                totalCards += (c.quantity || 1);
+                if (c.name) uniqueCards.add(c.name);
+            });
+            if (d.color) {
+                for (const char of d.color) {
+                    if (!combinedColors.includes(char)) combinedColors += char;
+                }
+            }
+        });
+
+        document.getElementById('poolTotalCards').textContent = totalCards;
+        document.getElementById('poolUniqueCards').textContent = uniqueCards.size;
+        document.getElementById('poolSourceDecksCount').textContent = decks.length;
+        document.getElementById('poolCombinedColors').innerHTML = createColorPips(combinedColors);
+
+        // Render source decks detail
+        const detailContainer = document.getElementById('poolSourceDecksDetail');
+        detailContainer.innerHTML = '';
+        decks.forEach((d, idx) => {
+            const cardEl = document.createElement('div');
+            cardEl.style.cssText = 'background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-4);';
+            const cmdrs = (d.commanders && d.commanders.length) ? d.commanders.join(' / ') : 'None';
+            cardEl.innerHTML = `
+                <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase;">Source Deck ${idx + 1}</div>
+                <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-1); margin-top: 0.25rem;">${esc(d.name)}</div>
+                <div style="font-size: 0.85rem; color: var(--text-2); margin-top: 0.25rem;">
+                    <strong>Commander:</strong> ${cmdrs}
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-2); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>Colors:</span> ${createColorPips(d.color)}
+                    <span style="color: var(--text-3); margin-left: 0.5rem;">${(d.cards || []).length} cards</span>
+                </div>
+            `;
+            detailContainer.appendChild(cardEl);
+        });
+
+        // Set suggested commanders in preferences
+        const suggestedCmdrs = [];
+        decks.forEach(d => {
+            (d.commanders || []).forEach(c => {
+                if (!suggestedCmdrs.includes(c)) suggestedCmdrs.push(c);
+            });
+        });
+
+        [0, 1].forEach(idx => {
+            const target = document.getElementById(`poolCmdrSuggestions_${idx}`);
+            if (target) {
+                if (suggestedCmdrs.length > 0) {
+                    target.innerHTML = suggestedCmdrs.map(c =>
+                        `<span class="suggested-cmdr-chip hud-chip hud-chip--custom tag-chip" onclick="setPrefCommander(${idx}, '${c.replace(/'/g, "\\'")}')">${c}</span>`
+                    ).join(' ');
+                } else {
+                    target.textContent = 'None detected';
+                }
+            }
+        });
+
+        renderPoolTable();
+    }
+
+    function setPrefCommander(idx, name) {
+        const input = document.getElementById(`pref_cmdr_${idx}`);
+        if (input) input.value = name;
+    }
+
+    function renderPoolTable() {
+        if (!currentSession || !currentSession.source_decks) return;
+        const tbody = document.getElementById('poolCardsTableBody');
+        tbody.innerHTML = '';
+
+        const filterQuery = (document.getElementById('poolCardSearch').value || '').toLowerCase().trim();
+
+        currentSession.source_decks.forEach(d => {
+            (d.cards || []).forEach(c => {
+                if (!c.name) return;
+                if (filterQuery && !c.name.toLowerCase().includes(filterQuery)) return;
+
+                // Category filter
+                const cname = c.name.toLowerCase();
+                if (poolFilterState === 'land') {
+                    if (!cname.includes('land') && !cname.includes('plains') && !cname.includes('island') && !cname.includes('swamp') && !cname.includes('mountain') && !cname.includes('forest')) return;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="color: var(--text-3); font-weight: 500;">${c.quantity || 1}x</td>
+                    <td style="font-weight: 500; color: var(--text-1);">${esc(c.name)}</td>
+                    <td>
+                        <span class="hud-chip hud-chip--ok badge-source-pool">${esc(d.name)}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        if (tbody.children.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="3" style="text-align: center; color: var(--text-3); padding: 1.5rem;">No cards matched your filter.</td>`;
+            tbody.appendChild(tr);
+        }
+    }
+
+    function filterPoolCards() {
+        renderPoolTable();
+    }
+
+    function setPoolFilter(filter, btn) {
+        poolFilterState = filter;
+        const container = document.getElementById('poolFilterButtons');
+        if (container) {
+            container.querySelectorAll('button').forEach(b => b.classList.remove('hud-btn--primary'));
+        }
+        if (btn) btn.classList.add('hud-btn--primary');
+        renderPoolTable();
+    }
+
+    // Preferences prefill
+    function prefillPreferencesForm() {
+        if (!currentSession || !currentSession.preferences) return;
+        const prefs = currentSession.preferences;
+        if (!Array.isArray(prefs) || prefs.length === 0) return;
+
+        const twoDecks = prefs.length > 1;
+        document.getElementById('buildTwoDecksToggle').checked = twoDecks;
+        toggleTwoDecks(twoDecks);
+
+        prefs.forEach((p, idx) => {
+            if (idx > 1) return;
+            const nameEl = document.getElementById(`pref_name_${idx}`);
+            if (nameEl) nameEl.value = p.name || '';
+
+            const cmdrs = p.commanders || [];
+            const cmdr1 = document.getElementById(`pref_cmdr_${idx}`);
+            if (cmdr1) cmdr1.value = cmdrs[0] || '';
+
+            if (cmdrs.length > 1) {
+                togglePartnerSlot(idx);
+                const cmdr2 = document.getElementById(`pref_partner_cmdr_${idx}`);
+                if (cmdr2) cmdr2.value = cmdrs[1];
+            }
+
+            const themesEl = document.getElementById(`pref_themes_${idx}`);
+            if (themesEl) themesEl.value = Array.isArray(p.themes) ? p.themes.join(', ') : (p.themes || '');
+
+            const stratEl = document.getElementById(`pref_strategy_${idx}`);
+            if (stratEl && p.strategies && p.strategies.length) {
+                stratEl.value = p.strategies[0];
+            }
+
+            const notesEl = document.getElementById(`pref_notes_${idx}`);
+            if (notesEl) notesEl.value = p.notes || '';
+
+            const artStyles = p.art_style || [];
+            const artList = Array.isArray(artStyles) ? artStyles : [artStyles];
+            if (document.getElementById(`pref_art_fullart_${idx}`)) {
+                document.getElementById(`pref_art_fullart_${idx}`).checked = artList.includes('full-art') || artList.includes('full art');
+            }
+            if (document.getElementById(`pref_art_oldborder_${idx}`)) {
+                document.getElementById(`pref_art_oldborder_${idx}`).checked = artList.includes('old border');
+            }
+            if (document.getElementById(`pref_art_matchframes_${idx}`)) {
+                document.getElementById(`pref_art_matchframes_${idx}`).checked = artList.includes('match frames');
+            }
+            if (document.getElementById(`pref_art_showcase_${idx}`)) {
+                document.getElementById(`pref_art_showcase_${idx}`).checked = artList.includes('borderless') || artList.includes('showcase');
+            }
+        });
+    }
+
+    // ---- Preferences validation (per docs/design/reconstruct/SPEC.md) ----
+    const commanderCheckCache = {};
+
+    function clearPrefFieldErrors() {
+        document.querySelectorAll('.pref-field-error').forEach(el => el.remove());
+        document.querySelectorAll('.input-field.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    }
+
+    function showPrefFieldError(inputId, message) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.classList.add('is-invalid');
+        const hint = document.createElement('div');
+        hint.className = 'pref-field-error';
+        hint.setAttribute('role', 'alert');
+        hint.style.cssText = 'color: var(--danger); font-size: 0.8rem; margin-top: 0.3rem;';
+        hint.textContent = message;
+        const host = input.closest('.autocomplete-wrapper') || input;
+        host.insertAdjacentElement('afterend', hint);
+    }
+
+    // Returns {ok: bool, unverified?: bool, reason?: string}. A name is a valid
+    // commander if it is a Legendary Creature, a Background, or says it can be
+    // your commander. Falls back to "unverified but allowed" if Scryfall is down.
+    async function checkCommanderLegal(name) {
+        const key = name.toLowerCase();
+        if (commanderCheckCache[key]) return commanderCheckCache[key];
+        let result;
+        try {
+            const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+            if (res.status === 404) {
+                result = { ok: false, reason: 'Invalid commander selected.' };
+            } else if (!res.ok) {
+                result = { ok: true, unverified: true };
+            } else {
+                const card = await res.json();
+                const faces = card.card_faces && card.card_faces.length ? card.card_faces : [card];
+                const typeLine = (card.type_line || faces[0].type_line || '');
+                const oracle = faces.map(f => f.oracle_text || '').join(' ') + ' ' + (card.oracle_text || '');
+                const legal = (typeLine.includes('Legendary') && typeLine.includes('Creature'))
+                    || typeLine.includes('Background')
+                    || /can be your commander/i.test(oracle);
+                result = legal ? { ok: true } : { ok: false, reason: 'Invalid commander selected.' };
+            }
+        } catch (e) {
+            result = { ok: true, unverified: true };
+        }
+        if (!result.unverified) commanderCheckCache[key] = result;
+        return result;
+    }
+
+    // Synchronous validation; returns list of {id, msg}.
+    function validatePreferenceFields(count) {
+        const errors = [];
+        const seenCommanders = new Map();
+        for (let i = 0; i < count; i++) {
+            const name = document.getElementById(`pref_name_${i}`).value.trim();
+            if (name.length > 100) {
+                errors.push({ id: `pref_name_${i}`, msg: 'Deck name must be 100 characters or fewer.' });
+            }
+            const notes = document.getElementById(`pref_notes_${i}`).value;
+            if (notes.length > 2000) {
+                errors.push({ id: `pref_notes_${i}`, msg: 'Notes must be 2000 characters or fewer.' });
+            }
+            const c1 = document.getElementById(`pref_cmdr_${i}`).value.trim();
+            const partnerEl = document.getElementById(`pref_partner_cmdr_${i}`);
+            const partnerVisible = partnerEl && document.getElementById(`partnerContainer_${i}`).style.display !== 'none';
+            const c2 = partnerVisible ? partnerEl.value.trim() : '';
+            if (c2 && !c1) {
+                errors.push({ id: `pref_cmdr_${i}`, msg: 'Pick a primary commander before adding a partner or background.' });
+            }
+            if (c1 && c2 && c1.toLowerCase() === c2.toLowerCase()) {
+                errors.push({ id: `pref_partner_cmdr_${i}`, msg: 'Partner must be a different card than the primary commander.' });
+            }
+            [[c1, `pref_cmdr_${i}`], [c2, `pref_partner_cmdr_${i}`]].forEach(([val, id]) => {
+                if (!val) return;
+                const k = val.toLowerCase();
+                const prior = seenCommanders.get(k);
+                if (prior === undefined) {
+                    seenCommanders.set(k, i);
+                } else if (prior !== i) {
+                    errors.push({ id, msg: 'This commander is already used by another target deck.' });
+                }
+            });
+        }
+        return errors;
+    }
+
+    async function validateCommandersRemote(count) {
+        const errors = [];
+        for (let i = 0; i < count; i++) {
+            const ids = [`pref_cmdr_${i}`];
+            if (document.getElementById(`partnerContainer_${i}`).style.display !== 'none') ids.push(`pref_partner_cmdr_${i}`);
+            for (const id of ids) {
+                const val = document.getElementById(id).value.trim();
+                if (!val) continue;
+                const res = await checkCommanderLegal(val);
+                if (!res.ok) errors.push({ id, msg: res.reason || 'Invalid commander selected.' });
+            }
+        }
+        return errors;
+    }
+
+    function isPrefsEntirelyBlank(preferences) {
+        return preferences.every(p => !p.name && p.commanders.length === 0 && p.themes.length === 0
+            && p.strategies.length === 0 && p.art_style.length === 0 && !p.notes);
+    }
+
+    // Submit Preferences & Draft
+    async function submitPreferencesAndDraft() {
+        const errEl = document.getElementById('prefsError');
+        errEl.style.display = 'none';
+
+        const isTwoDecks = document.getElementById('buildTwoDecksToggle').checked;
+        const count = isTwoDecks ? 2 : 1;
+        const preferences = [];
+
+        for (let i = 0; i < count; i++) {
+            const name = document.getElementById(`pref_name_${i}`).value.trim();
+            const cmdr1 = document.getElementById(`pref_cmdr_${i}`).value.trim();
+            const cmdr2 = document.getElementById(`pref_partner_cmdr_${i}`) ? document.getElementById(`pref_partner_cmdr_${i}`).value.trim() : '';
+
+            const commanders = [];
+            if (cmdr1) commanders.push(cmdr1);
+            if (cmdr2) commanders.push(cmdr2);
+
+            const rawThemes = document.getElementById(`pref_themes_${i}`).value;
+            const themes = rawThemes.split(',').map(s => s.trim()).filter(Boolean);
+
+            const strategy = document.getElementById(`pref_strategy_${i}`).value;
+            const strategies = strategy && strategy !== 'Any' ? [strategy] : [];
+
+            const artStyles = [];
+            if (document.getElementById(`pref_art_fullart_${i}`) && document.getElementById(`pref_art_fullart_${i}`).checked) artStyles.push('full-art');
+            if (document.getElementById(`pref_art_oldborder_${i}`) && document.getElementById(`pref_art_oldborder_${i}`).checked) artStyles.push('old border');
+            if (document.getElementById(`pref_art_matchframes_${i}`) && document.getElementById(`pref_art_matchframes_${i}`).checked) artStyles.push('match frames');
+            if (document.getElementById(`pref_art_showcase_${i}`) && document.getElementById(`pref_art_showcase_${i}`).checked) artStyles.push('showcase');
+
+            const notes = document.getElementById(`pref_notes_${i}`).value.trim();
+
+            preferences.push({
+                name: name,
+                commanders: commanders,
+                themes: themes,
+                strategies: strategies,
+                art_style: artStyles,
+                notes: notes,
+            });
+        }
+
+        const submitBtn = document.getElementById('btnDraftWithAgent');
+
+        clearPrefFieldErrors();
+        let fieldErrors = validatePreferenceFields(count);
+        if (fieldErrors.length === 0) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Validating Commanders...';
+            fieldErrors = await validateCommandersRemote(count);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Draft with Agent';
+        }
+        if (fieldErrors.length > 0) {
+            fieldErrors.forEach(e => showPrefFieldError(e.id, e.msg));
+            errEl.textContent = 'Please fix the highlighted fields before drafting.';
+            errEl.style.display = 'block';
+            const first = document.getElementById(fieldErrors[0].id);
+            if (first) first.focus();
+            return;
+        }
+
+        if (isPrefsEntirelyBlank(preferences) && !window.confirm('Draft completely random decks from the pool?')) {
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Submitting Preferences...';
+
+        try {
+            // 1. Submit preferences
+            const prefRes = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/preferences`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preferences: preferences })
+            });
+            let prefData = {};
+            try { prefData = await prefRes.json(); } catch (e) {}
+            if (!prefRes.ok || !prefData.success) {
+                throw new Error(prefData.error || `Preferences submission failed (${prefRes.status})`);
+            }
+            currentSession = prefData.session;
+
+            // 2. Trigger build (async background task)
+            submitBtn.innerHTML = 'Triggering Agent Build...';
+            const buildRes = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/build`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sync: false })
+            });
+            let buildData = {};
+            try { buildData = await buildRes.json(); } catch (e) {}
+            if (!buildRes.ok && buildRes.status !== 202) {
+                throw new Error(buildData.error || `Build initiation failed (${buildRes.status})`);
+            }
+            if (buildData.session) currentSession = buildData.session;
+
+            // Transition to building state & start polling
+            showScreen('building');
+            startPolling();
+
+        } catch (e) {
+            errEl.textContent = `Error: ${e.message}`;
+            errEl.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Draft with Agent';
+        }
+    }
+
+    // Polling building state
+    function startPolling() {
+        clearInterval(pollInterval);
+        const pollStatus = document.getElementById('buildingPollStatus');
+        const errEl = document.getElementById('buildingError');
+        errEl.style.display = 'none';
+
+        let attempts = 0;
+        let failures = 0;
+        const maxAttempts = 600; // 10 minutes limit
+
+        pollInterval = setInterval(async () => {
+            attempts++;
+            if (pollStatus) pollStatus.textContent = `Polling build status... (${attempts}s)`;
+
+            try {
+                const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}`);
+                if (!res.ok) throw new Error(`Polling request failed (${res.status})`);
+                const data = await res.json();
+                if (data.success && data.session) {
+                    currentSession = data.session;
+                    if (currentSession.status === 'drafts_ready' || currentSession.status === 'accepted') {
+                        clearInterval(pollInterval);
+                        renderDraftsResults();
+                        showScreen('results');
+                    } else if (currentSession.status === 'abandoned') {
+                        clearInterval(pollInterval);
+                        renderDraftsResults();
+                        showScreen('results');
+                    } else if (currentSession.status === 'failed') {
+                        clearInterval(pollInterval);
+                        showBuildFailure(currentSession);
+                        return;
+                    }
+                }
+                failures = 0;
+            } catch (e) {
+                console.warn('Polling error:', e);
+                failures++;
+                if (failures >= 5) {
+                    clearInterval(pollInterval);
+                    errEl.style.display = 'block';
+                    document.getElementById('buildingErrorMessage').textContent = `Lost contact with the server while building: ${e.message}`;
+                    return;
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                document.getElementById('buildingErrorMessage').textContent = 'Draft generation is taking longer than expected. Hold tight...';
+            }
+        }, 1000);
+    }
+
+    async function retryBuild() {
+        const errEl = document.getElementById('buildingError');
+        errEl.style.display = 'none';
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/build`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sync: false })
+            });
+            if (!res.ok) {
+                let d = {};
+                try { d = await res.json(); } catch (_) {}
+                throw new Error(d.error || `Build request failed (${res.status})`);
+            }
+            startPolling();
+        } catch (e) {
+            errEl.style.display = 'block';
+            document.getElementById('buildingErrorMessage').textContent = `Retry failed: ${e.message}`;
+        }
+    }
+
+    // Turn a stored build error into a friendly message. The builder reports a
+    // swapped/mismatched commander as "[COMMANDER_MISMATCH] ..." in session.error.
+    function describeBuildError(raw) {
+        const msg = String(raw || '').trim();
+        if (msg.includes('COMMANDER_MISMATCH')) {
+            return {
+                code: 'COMMANDER_MISMATCH',
+                text: 'The agent kept returning a deck whose commander differs from the one you asked for, so no draft was saved. Check your commander picks (or loosen the other preferences) and try again.',
+                detail: msg
+            };
+        }
+        return { code: '', text: msg || 'Build failed.', detail: '' };
+    }
+
+    function showBuildFailure(session) {
+        const info = describeBuildError(session && (session.error_message || session.error));
+        const errEl = document.getElementById('buildingError');
+        const msgEl = document.getElementById('buildingErrorMessage');
+        msgEl.textContent = info.text;
+        errEl.dataset.code = info.code;
+        if (info.detail) msgEl.title = info.detail; else msgEl.removeAttribute('title');
+        errEl.style.display = 'flex';
+    }
+
+    // Notice shown on a draft whose cost is a lower bound or that has unpriced cards.
+    function draftCompletenessNotice(draft) {
+        const unpriced = Array.isArray(draft.unpriced_cards) ? draft.unpriced_cards : [];
+        if (draft.is_complete !== false && unpriced.length === 0) return '';
+        const list = unpriced.length
+            ? `<div style="margin-top: 0.3rem; color: var(--signal);">Unpriced: ${unpriced.map(esc).join(', ')}</div>` : '';
+        return `
+            <div class="draft-incomplete-notice" role="status" style="background: var(--signal-dim); border: 1px solid var(--signal-line); border-radius: var(--radius-1); padding: 0.65rem 0.85rem; font-size: var(--fs-sm); color: var(--signal); margin-bottom: 1rem;">
+                <strong>Incomplete pricing:</strong> ${unpriced.length ? `${unpriced.length} card${unpriced.length === 1 ? '' : 's'} could not be priced` : 'some cards could not be priced'}, so the new-card cost shown is a lower bound.
+                ${list}
+            </div>`;
+    }
+
+    // Render Draft Results
+    function renderDraftsResults() {
+        if (!currentSession) return;
+        const drafts = currentSession.drafts || [];
+        const container = document.getElementById('draftsListContainer');
+        container.innerHTML = '';
+
+        if (drafts.length === 0) {
+            const failed = currentSession.status === 'drafts_ready';
+            container.innerHTML = failed ? `
+                <div class="alert alert-danger" id="draftsEmptyError" role="alert">
+                    <div>
+                        Could not generate a legal deck with these preferences. Try loosening the constraints.
+                        <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" style="margin-left: 0.5rem;" onclick="tweakPreferences()">Back to Preferences</button>
+                    </div>
+                </div>
+            ` : `
+                <div style="text-align: center; padding: 2rem; color: var(--text-3);">
+                    No drafts generated yet.
+                </div>
+            `;
+            const acceptBtn0 = document.getElementById('btnAcceptSave');
+            if (acceptBtn0 && failed) acceptBtn0.disabled = true;
+            document.getElementById('resultsGrandTotalCost').textContent = '$0.00';
+            return;
+        }
+
+        let grandTotal = 0;
+
+        drafts.forEach((draft, idx) => {
+            const draftCost = typeof draft.total_new_cost === 'number' ? draft.total_new_cost : 0.0;
+            grandTotal += draftCost;
+
+            const cards = draft.cards || [];
+            let t1Count = 0, t2Count = 0, t3Count = 0;
+            const t3Items = [];
+            cards.forEach(c => {
+                const tier = c.tier || (c.tier_label === 'previous_deck' ? 1 : (c.tier_label === 'owned' ? 2 : 3));
+                if (tier === 1) t1Count++;
+                else if (tier === 2) t2Count++;
+                else { t3Count++; t3Items.push({name: c.name, qty: c.qty || 1}); }
+            });
+
+            const cmdrs = draft.commanders && draft.commanders.length ? draft.commanders.map(esc).join(' / ') : 'Commander TBD';
+            const themes = draft.themes && draft.themes.length ? draft.themes.map(t => `<span class="hud-chip hud-chip--data">${esc(t)}</span>`).join(' ') : '';
+            const strategies = draft.strategies && draft.strategies.length ? draft.strategies.map(s => `<span class="hud-chip hud-chip--neutral">${esc(s)}</span>`).join(' ') : '';
+
+            const draftCard = document.createElement('div');
+            draftCard.style.cssText = 'background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--radius-1); padding: var(--sp-6);';
+            draftCard.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <h3 style="font-size: 1.3rem; margin: 0; color: var(--text-1); font-weight: 600;">
+                                ${esc(draft.name || `Draft Deck ${idx + 1}`)}
+                            </h3>
+                            <span class="hud-chip hud-chip--data">Deck ${idx + 1} of ${drafts.length}</span>
+                        </div>
+                        <div style="font-size: 0.95rem; color: var(--text-1); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <span><strong>Commander:</strong> ${cmdrs}</span>
+                            ${draft.color ? `<span>| Colors: ${createColorPips(draft.color)}</span>` : ''}
+                        </div>
+                        <div style="margin-top: 0.5rem; display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                            ${themes} ${strategies}
+                        </div>
+                    </div>
+
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; font-weight: 600;">New Card Cost</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger); margin-top: 0.2rem;">
+                            $${draftCost.toFixed(2)}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-3); margin-top: 0.25rem;">
+                            ${cards.length} cards total
+                        </div>
+                        <button type="button" class="hud-btn export-draft-btn" data-draft-index="${idx}" onclick="openExportModal(${idx})" style="margin-top: 0.75rem;">Export to Moxfield / Archidekt</button>
+                    </div>
+                </div>
+
+                <!-- Tier breakdown pills -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <span class="hud-chip hud-chip--ok badge-source-pool">Retired Pool: ${t1Count} cards (Free)</span>
+                    <span class="hud-chip hud-chip--data badge-source-owned">Owned (Undedicated): ${t2Count} cards (Free)</span>
+                    <span class="hud-chip hud-chip--signal badge-source-new">New to Buy: ${t3Count} cards ($${draftCost.toFixed(2)})</span>
+                    ${window.TcgCart ? window.TcgCart.button(t3Items, {size: "sm"}) : ''}
+                </div>
+
+                <!-- Rationale banner -->
+                ${draftCompletenessNotice(draft)}
+
+                ${draft.explanation ? `
+                    <div style="background: var(--surface-2); border-left: 2px solid var(--data); padding: 0.65rem 0.85rem; font-size: var(--fs-sm); color: var(--text-2); margin-bottom: 1rem; border-radius: 0 var(--radius-1) var(--radius-1) 0;">
+                        ${esc(draft.explanation)}
+                    </div>
+                ` : ''}
+
+                <!-- Decklist table -->
+                <div style="border: 1px solid var(--line); border-radius: 6px; overflow: hidden; max-height: 380px; overflow-y: auto;">
+                    <table class="recon-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Qty</th>
+                                <th>Card Name</th>
+                                <th>Source Tag</th>
+                                <th style="width: 80px; text-align: right;">Cost</th>
+                                <th>Rationale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${cards.map(c => {
+                                const tier = c.tier || (c.tier_label === 'previous_deck' ? 1 : (c.tier_label === 'owned' ? 2 : 3));
+                                let badgeHtml = '';
+                                if (tier === 1) {
+                                    badgeHtml = '<span class="hud-chip hud-chip--ok badge-source-pool">Retired Pool</span>';
+                                } else if (tier === 2) {
+                                    badgeHtml = '<span class="hud-chip hud-chip--data badge-source-owned">Owned</span>';
+                                } else {
+                                    const costStr = typeof c.cost === 'number' ? `$${c.cost.toFixed(2)}` : '$0.00';
+                                    badgeHtml = `<span class="hud-chip hud-chip--signal badge-source-new">New (${costStr})</span>`;
+                                }
+                                const costDisplay = (tier === 1 || tier === 2) ? '$0.00' : (typeof c.cost === 'number' ? `$${c.cost.toFixed(2)}` : '$0.00');
+
+                                return `
+                                    <tr>
+                                        <td style="color: var(--text-3); font-weight: 500;">${c.quantity || 1}x</td>
+                                        <td style="font-weight: 500; color: var(--text-1);">${esc(c.name)}</td>
+                                        <td>${badgeHtml}</td>
+                                        <td style="text-align: right; color: ${tier === 3 ? 'var(--danger)' : 'var(--ok)'}; font-weight: 600;">${costDisplay}</td>
+                                        <td style="font-size: 0.75rem; color: var(--text-3);">${esc(c.rationale || '-')}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            container.appendChild(draftCard);
+        });
+
+        document.getElementById('resultsGrandTotalCost').textContent = `$${grandTotal.toFixed(2)}`;
+
+        // Check if accepted
+        if (currentSession.status === 'accepted') {
+            document.getElementById('acceptedSuccessBanner').style.display = 'flex';
+            const linksContainer = document.getElementById('acceptedDecksLinks');
+            linksContainer.innerHTML = '';
+            const acceptedIdx = currentSession.accepted_draft_indices || [];
+            (currentSession.created_deck_ids || []).forEach((deckId, n) => {
+                const draftRef = drafts[acceptedIdx[n]] || {};
+                const label = draftRef.name || deckId;
+                const btn = document.createElement('a');
+                btn.className = 'hud-btn hud-btn--primary hud-btn--sm';
+                btn.href = `/deck/${encodeURIComponent(label)}`;
+                btn.textContent = `Open Deck: ${label}`;
+                linksContainer.appendChild(btn);
+            });
+            // Disable accept button
+            const acceptBtn = document.getElementById('btnAcceptSave');
+            if (acceptBtn) {
+                acceptBtn.disabled = true;
+                acceptBtn.innerHTML = 'Accepted & Saved';
+            }
+        }
+    }
+
+    // Action handlers: Tweak, Regenerate, Accept, Abandon
+    function tweakPreferences() {
+        showScreen('preferences');
+    }
+
+    async function regenerateDrafts() {
+        if (!currentSessionId) return;
+        const btn = document.getElementById('btnRegenerateDraft');
+        btn.disabled = true;
+        btn.innerHTML = 'Regenerating...';
+
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/build`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sync: false })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok && res.status !== 202) {
+                throw new Error(data.error || 'Failed to trigger rebuild');
+            }
+            if (data.session) currentSession = data.session;
+            showScreen('building');
+            startPolling();
+        } catch (e) {
+            showGlobalError(`Failed to regenerate drafts: ${e.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Regenerate Draft';
+        }
+    }
+
+    async function acceptDrafts() {
+        if (!currentSessionId) return;
+        const btn = document.getElementById('btnAcceptSave');
+        btn.disabled = true;
+        btn.innerHTML = 'Accepting & Creating Deck(s)...';
+
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/accept`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'physical' })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Failed to accept drafts (${res.status})`);
+            }
+
+            currentSession = data.session;
+            renderDraftsResults();
+
+            // Populate accept modal
+            const modalList = document.getElementById('acceptCreatedDecksList');
+            modalList.innerHTML = '';
+            (data.created_decks || []).forEach(deck => {
+                const link = document.createElement('a');
+                link.className = 'hud-btn hud-btn--primary';
+                link.style.justifyContent = 'space-between';
+                link.href = `/deck/${encodeURIComponent(deck.name)}`;
+                link.innerHTML = `
+                    <span>${esc(deck.name)}</span>
+                    <span aria-hidden="true">→</span>
+                `;
+                modalList.appendChild(link);
+            });
+            document.getElementById('acceptModal').style.display = 'flex';
+
+        } catch (e) {
+            showGlobalError(`Failed to accept draft: ${e.message}`);
+            btn.disabled = false;
+            btn.innerHTML = 'Accept & Save Deck(s)';
+        }
+    }
+
+    // ---- Export a draft as a NEW deck on Moxfield / Archidekt ----
+    let exportDraftIndex = null;
+    let exportBusy = false;
+
+    function openExportModal(idx) {
+        const draft = ((currentSession && currentSession.drafts) || [])[idx];
+        if (!draft) return;
+        exportDraftIndex = idx;
+        document.getElementById('exportDeckName').textContent = draft.name || `Draft Deck ${idx + 1}`;
+        document.getElementById('exportStatus').innerHTML = '';
+        const btn = document.getElementById('exportConfirmBtn');
+        btn.disabled = false;
+        btn.textContent = 'Export';
+        document.getElementById('exportModal').style.display = 'flex';
+    }
+
+    function closeExportModal() {
+        if (exportBusy) return;
+        document.getElementById('exportModal').style.display = 'none';
+    }
+
+    function renderExportResults(results) {
+        const labels = { moxfield: 'Moxfield', archidekt: 'Archidekt' };
+        return Object.keys(results || {}).map(p => {
+            const r = results[p] || {};
+            const name = labels[p] || esc(p);
+            if (r.status === 'created') {
+                const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--data-strong);">Open deck</a>` : '';
+                return `<div style="color:var(--ok);">✓ ${name}: created.${link}</div>`;
+            }
+            if (r.status === 'dry_run') return `<div style="color:var(--data-strong);">✓ ${name}: dry run OK, nothing created.</div>`;
+            if (r.status === 'not_configured') return `<div style="color:var(--signal);">⚠ ${name}: not configured (missing token).</div>`;
+            const link = /^https?:\/\//.test(r.url || '') ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--data-strong);">Partial deck</a>` : '';
+            return `<div style="color:var(--danger);" role="alert">✗ ${name}: failed${r.error ? ' — ' + esc(r.error) : ''}.${link}</div>`;
+        }).join('');
+    }
+
+    async function submitExport() {
+        if (exportBusy || exportDraftIndex === null || !currentSessionId) return;
+        const providers = ['exportProvMoxfield', 'exportProvArchidekt']
+            .map(id => document.getElementById(id))
+            .filter(el => el.checked).map(el => el.value);
+        const statusEl = document.getElementById('exportStatus');
+        if (providers.length === 0) {
+            statusEl.innerHTML = '<div style="color:var(--danger);" role="alert">Select at least one destination.</div>';
+            return;
+        }
+        const btn = document.getElementById('exportConfirmBtn');
+        exportBusy = true;
+        btn.disabled = true;
+        btn.textContent = 'Exporting…';
+        statusEl.innerHTML = '';
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/drafts/${exportDraftIndex}/export`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    providers,
+                    private: document.getElementById('exportPrivate').checked,
+                    dry_run: document.getElementById('exportDryRun').checked
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 200 || res.status === 207) {
+                statusEl.innerHTML = renderExportResults(data.results);
+                const allOk = res.status === 200;
+                btn.textContent = allOk ? 'Export again' : 'Retry';
+            } else {
+                statusEl.innerHTML = `<div style="color:var(--danger);" role="alert">${esc(data.error || data.detail || `Export failed (${res.status})`)}</div>`;
+                btn.textContent = 'Retry';
+            }
+        } catch (e) {
+            statusEl.innerHTML = `<div style="color:var(--danger);" role="alert">Export failed: ${esc(e.message)}</div>`;
+            btn.textContent = 'Retry';
+        } finally {
+            exportBusy = false;
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeExportModal();
+    });
+
+    function closeAcceptModal() {
+        document.getElementById('acceptModal').style.display = 'none';
+    }
+
+    function openAbandonDialog() {
+        document.getElementById('abandonModal').style.display = 'flex';
+    }
+
+    function closeAbandonDialog() {
+        document.getElementById('abandonModal').style.display = 'none';
+    }
+
+    async function confirmAbandon() {
+        const btn = document.getElementById('confirmAbandonBtn');
+        const reason = document.getElementById('abandonReason').value.trim();
+        btn.disabled = true;
+        btn.innerHTML = 'Abandoning...';
+
+        try {
+            const res = await fetch(`/api/reconstruct/${encodeURIComponent(currentSessionId)}/abandon`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: reason })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) {}
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || `Abandon failed (${res.status})`);
+            }
+            currentSession = data.session;
+            closeAbandonDialog();
+            renderSessionState();
+        } catch (e) {
+            showGlobalError(`Failed to abandon session: ${e.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Abandon Reconstruct';
+        }
+    }
+
+    // Landing screen helpers
+    async function loadRecentSessions() {
+        const container = document.getElementById('recentSessionsContainer');
+        try {
+            const res = await fetch('/api/reconstruct/sessions');
+            const data = await res.json();
+            const sessions = data.sessions || [];
+
+            if (sessions.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--text-3); padding: 2rem;">
+                        No reconstruct sessions recorded yet.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="recon-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Source Decks</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sessions.map(s => {
+                            const sourceNames = (s.source_decks || []).map(d => d.name).join(' & ') || (s.source_deck_ids || []).join(', ');
+                            const dryBadge = s.dry_run === true ? ' <span class="hud-chip hud-chip--signal badge-dry-run">DRY RUN</span>' : '';
+                            const statusBadge = `<span class="hud-chip hud-chip--data">${s.status.replace('_', ' ')}</span>${dryBadge}`;
+                            const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '-';
+                            return `
+                                <tr>
+                                    <td style="font-family: var(--font-mono); color: var(--data-strong);">${s.session_id}</td>
+                                    <td style="font-weight: 500;">${sourceNames || '-'}</td>
+                                    <td>${statusBadge}</td>
+                                    <td style="color: var(--text-3); font-size: 0.8rem;">${dateStr}</td>
+                                    <td style="text-align: right;">
+                                        <a href="/reconstruct/${encodeURIComponent(s.session_id)}" class="hud-btn hud-btn--sm hud-btn--primary">Open Session</a>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (e) {
+            container.innerHTML = `<div style="color: var(--danger); padding: 1rem;">Failed to load recent sessions: ${e.message}</div>`;
+        }
+    }
+
+    async function loadPhysicalDecksForLanding() {
+        const sel1 = document.getElementById('landingDeck1Select');
+        const sel2 = document.getElementById('landingDeck2Select');
+        try {
+            const res = await fetch('/api/decks');
+            const data = await res.json();
+            const decks = (data.decks || []).filter(d => (d.status || 'physical') === 'physical');
+
+            sel1.innerHTML = '<option value="">-- Choose primary deck --</option>';
+            sel2.innerHTML = '<option value="">-- None (Single deck reconstruct) --</option>';
+
+            decks.forEach(d => {
+                const cmdrs = d.commanders && d.commanders.length ? `(${d.commanders.join(' / ')})` : '';
+                const opt1 = document.createElement('option');
+                opt1.value = d.registry_id || d.id;
+                opt1.textContent = `${d.name} ${cmdrs}`;
+                sel1.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = d.registry_id || d.id;
+                opt2.textContent = `${d.name} ${cmdrs}`;
+                sel2.appendChild(opt2);
+            });
+        } catch (e) {
+            console.error('Failed to load decks for landing:', e);
+        }
+    }
+
+    function onLandingDryRunChange(checked) {
+        const btn = document.getElementById('btnLandingStart');
+        if (btn.disabled) return;
+        btn.textContent = checked ? 'Start Dry Run' : 'Start Reconstruct';
+        const warn = document.getElementById('landingDecomWarning');
+        if (warn) warn.style.display = checked ? 'none' : '';
+    }
+
+    async function startReconstructFromLanding() {
+        const deck1 = document.getElementById('landingDeck1Select').value;
+        const deck2 = document.getElementById('landingDeck2Select').value;
+        if (!deck1) {
+            alert('Please select a primary deck to decommission and reconstruct.');
+            return;
+        }
+
+        const deckIds = [deck1];
+        if (deck2 && deck2 !== deck1) {
+            deckIds.push(deck2);
+        }
+
+        const btn = document.getElementById('btnLandingStart');
+        btn.disabled = true;
+        btn.innerHTML = 'Initializing...';
+
+        try {
+            const res = await fetch('/api/reconstruct/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    deck_ids: deckIds,
+                    tag: 'removed',
+                    dry_run: Boolean(document.getElementById('landingDryRunToggle') && document.getElementById('landingDryRunToggle').checked)
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to start reconstruct');
+            }
+            window.location.href = `/reconstruct/${encodeURIComponent(data.session_id)}`;
+        } catch (e) {
+            showGlobalError(`Failed to start reconstruct: ${e.message}`);
+            btn.disabled = false;
+            btn.innerHTML = 'Start Reconstruct';
+            onLandingDryRunChange(document.getElementById('landingDryRunToggle').checked);
+        }
+    }
+
+    function showGlobalError(msg) {
+        const el = document.getElementById('globalError');
+        const msgEl = document.getElementById('globalErrorMessage');
+        if (el && msgEl) {
+            msgEl.textContent = msg;
+            el.style.display = 'flex';
+        }
+    }
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', () => {
+        // Setup commander autocompletes
+        setupAutocomplete('pref_cmdr_0', 'cmdrDropdown_0');
+        setupAutocomplete('pref_partner_cmdr_0', 'partnerCmdrDropdown_0');
+        setupAutocomplete('pref_cmdr_1', 'cmdrDropdown_1');
+        setupAutocomplete('pref_partner_cmdr_1', 'partnerCmdrDropdown_1');
+
+        if (INITIAL_SESSION_ID) {
+            loadSession(INITIAL_SESSION_ID);
+        } else {
+            showScreen('landing');
+            loadRecentSessions();
+            loadPhysicalDecksForLanding();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oracle.hermes.local/schemas/deck-review/2/review.schema.json",
+  "title": "Oracle Deep Review prose",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fingerprint", "sections"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "fingerprint": { "type": "string", "minLength": 1, "description": "Echoed verbatim from the input." },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["genre", "composition", "curve_tempo", "focus", "strong_cards", "stragglers", "combos_engines", "oracle_summary"],
+      "properties": {
+        "genre": { "$ref": "#/$defs/prose" },
+        "composition": { "$ref": "#/$defs/prose" },
+        "curve_tempo": { "$ref": "#/$defs/prose" },
+        "focus": { "$ref": "#/$defs/prose" },
+        "strong_cards": { "$ref": "#/$defs/prose" },
+        "stragglers": { "$ref": "#/$defs/prose" },
+        "combos_engines": { "$ref": "#/$defs/prose" },
+        "oracle_summary": { "type": "string", "minLength": 1, "maxLength": 900 }
+      }
+    }
+  },
+  "$defs": {
+    "prose": { "type": "string", "maxLength": 900, "description": "Plain prose. May be empty. No numbers that are not in the input metrics." }
+  }
+}

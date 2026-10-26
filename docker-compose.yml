@@ -1,4 +1,33 @@
 services:
+  # Slice 0 foundation only: app stays on Redis until the migration slice.
+  db:
+    image: commander-lab-db:pg17-vector0.8.2-age1.6.0
+    build:
+      context: ./docker/db
+    container_name: commander-lab-db
+    restart: unless-stopped
+    shm_size: "256m"
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_DB: commander_lab
+      POSTGRES_USER: commander_lab
+      POSTGRES_PASSWORD: ${COMMANDER_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "commander-db-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks:
+      - internal
+    labels:
+      net.unraid.docker.managed: compose-manager
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/postgres.png"
+      com.centurylinklabs.watchtower.enable: "false"
+
   redis:
     image: redis:alpine
     container_name: commander-lab-redis
@@ -20,12 +49,44 @@ services:
       - "8010:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      # Slice 1: Postgres is truth for imported decks/collection/profile (AGENT_RULES.md).
+      - DATABASE_URL=postgresql://commander_lab:${COMMANDER_DB_PASSWORD}@db:5432/commander_lab
+      - DATA_ACCESS_MODE=${DATA_ACCESS_MODE:-readwrite}
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
       - ARCHIDEKT_CSRF=${ARCHIDEKT_CSRF}
+      # Optional: enable explicit Push (commander.lab -> external). Unset = Push
+      # returns 501 push_not_configured. See docs/SYNC_UPDATE_PUSH.md.
+      - ARCHIDEKT_TOKEN=${ARCHIDEKT_TOKEN:-}
+      - MOXFIELD_TOKEN=${MOXFIELD_TOKEN:-}
+      - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
+      - ORACLE_KEY=${ORACLE_KEY:-}
     depends_on:
-      - redis
-    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+    volumes:
+      - app_data:/data
+    command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - internal
+
+  # Slice 1: SvelteKit frontend (src/web) — replaces Jinja pages for imported decks.
+  web:
+    image: commander-lab-web:${TAG:-latest}
+    build:
+      context: ./src/web
+    container_name: commander-lab-web
+    pull_policy: build
+    restart: unless-stopped
+    ports:
+      - "8011:3000"
+    environment:
+      - COMMANDER_API_URL=http://app:8000
+    depends_on:
+      - app
     networks:
       - internal
 
@@ -34,4 +95,6 @@ networks:
     driver: bridge
 
 volumes:
+  pgdata:
   redis_data:
+  app_data:
