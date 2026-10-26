@@ -125,6 +125,8 @@ class TestCardAutocompleteAPI(unittest.TestCase):
             payload = self.client.get("/api/cards/autocomplete?q=sol").json()
         self.assertEqual(payload["results"][0]["type_line"], "Artifact")
         self.assertIsNone(self.r.get("cards:autocomplete:cards:sol"))
+        self.assertTrue(payload["degraded"])
+        self.assertEqual(payload["source"], "local")
 
     def test_limit_is_applied_and_bounded(self):
         body = {"data": [f"Card {i}" for i in range(20)]}

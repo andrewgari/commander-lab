@@ -483,8 +483,11 @@ async def search_cards(r, query, limit=DEFAULT_LIMIT):
         else:
             results.append(_shape_local(name, _local_meta(r, name)))
 
-    if enriched:
-        _write_cache(r, scope, query, results)
+    if not enriched:
+        # Enrichment failed: rows are locally shaped (possibly blank), so say so
+        # instead of claiming a healthy Scryfall answer. Never cached.
+        return {"results": results, "source": "local", "degraded": True}
+    _write_cache(r, scope, query, results)
     return {"results": results, "source": "scryfall", "degraded": False}
 
 
