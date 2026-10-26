@@ -483,3 +483,96 @@ class DerivedIndexStatusResponse(BaseModel):
     status: str  # ok | unavailable
     reason: Optional[str] = None
     stores: list[DerivedIndexStoreStatus] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Card dossier (docs/architecture/card-dossier-spec.md). One aggregate
+# response feeds every panel of /card/{oracle_id}; each panel maps 1:1 to a
+# key and is an empty list/state when its query has no rows — never
+# fabricated data (AGENT_RULES.md §4).
+# ---------------------------------------------------------------------------
+
+class DossierCard(BaseModel):
+    oracle_id: str
+    name: str
+    mana_cost: str = ""
+    type_line: str = ""
+    oracle_text: str = ""
+    colors: list[str] = Field(default_factory=list)
+    color_identity: list[str] = Field(default_factory=list)
+    cmc: float = 0
+    keywords: list[str] = Field(default_factory=list)
+    image_uri: str = ""
+
+
+class DossierPrinting(BaseModel):
+    scryfall_id: str
+    oracle_id: str
+    set_code: str = ""
+    set_name: str = ""
+    collector_number: str = ""
+    rarity: str = ""
+    released_at: Optional[str] = None
+    is_default: bool = False
+    image_uri_normal: str = ""
+    image_uri_art_crop: str = ""
+    prices: dict = Field(default_factory=dict)
+
+
+class DossierTag(BaseModel):
+    tag: str
+    source: str  # learned | manual
+    confidence: Optional[float] = None
+
+
+class DossierDeckLine(BaseModel):
+    deck_id: str
+    name: str
+    status: str
+    board: str
+    category: Optional[str] = None
+    qty: int
+
+
+class DossierSynergyNeighbor(BaseModel):
+    oracle_id: str
+    name: str
+    direction: str  # out | in
+    weight: int
+    reasons: list[str] = Field(default_factory=list)
+    reason_labels: list[str] = Field(default_factory=list)
+    reason_text: str = ""
+
+
+class DossierAffinity(BaseModel):
+    oracle_id: str
+    affinity: Optional[int] = None
+    notes: str = ""
+    updated_at: Optional[str] = None
+
+
+class DossierCollection(BaseModel):
+    owned: bool = False
+    copies: int = 0
+    statuses: list[str] = Field(default_factory=list)
+    finishes: list[str] = Field(default_factory=list)
+
+
+class CardDossierResponse(BaseModel):
+    card: DossierCard
+    printing: Optional[DossierPrinting] = None
+    printings: list[DossierPrinting] = Field(default_factory=list)
+    tags: list[DossierTag] = Field(default_factory=list)
+    decks: list[DossierDeckLine] = Field(default_factory=list)
+    synergy: list[DossierSynergyNeighbor] = Field(default_factory=list)
+    affinity: Optional[DossierAffinity] = None
+    collection: DossierCollection
+
+
+class CardNotesPutRequest(BaseModel):
+    affinity: Optional[int] = Field(default=None, ge=1, le=5)
+    notes: str = ""
+
+
+class CardNotesResponse(BaseModel):
+    affinity: DossierAffinity

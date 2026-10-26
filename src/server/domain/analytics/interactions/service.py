@@ -181,6 +181,18 @@ def _make_tagger(r, scryfall=None, llm: Optional[LLMChain] = None) -> Interactio
                              llm=llm if llm is not None else default_chain())
 
 
+# Edge sink (card dossier spec §2): the app/infra layer registers a callable
+# (deck_graphs, collection_graph, vocab_version) -> summary that persists
+# rebuild edges into Postgres card_interaction_edges. Kept as an injected
+# callback so domain/ never imports infra/ (AGENT_RULES.md §2).
+_EDGE_SINK = None
+
+
+def register_edge_sink(sink) -> None:
+    global _EDGE_SINK
+    _EDGE_SINK = sink
+
+
 def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[List[str]] = None) -> dict:
     run = RunLog(trigger)
     try:
@@ -204,6 +216,7 @@ def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[L
             run.graphs_built += 1
             deck_graphs.append(g)
 
+        coll = None
         if not deck_ids:
             coll = graph_mod.build_collection_graph(owned, tags, meta={
                 "scope": "collection", "built_at": _now(), "vocab_version": VOCAB_VERSION,
@@ -214,6 +227,16 @@ def _rebuild_once(r, trigger: str, scryfall=None, llm=None, deck_ids: Optional[L
             run.extra["collection_counts"] = coll["counts"]
         run.extra["engine_naming"] = _name_new_engines(r, deck_graphs, tagger.llm, run)
         run.extra["identity"] = _draft_identities(r, decks, tags, tagger.llm, run)
+        # Edge persistence runs on FULL rebuilds only: the sink replaces the
+        # whole derived edge table, and a partial (per-deck) rebuild would
+        # wipe every edge outside the rebuilt decks.
+        if _EDGE_SINK is not None and not deck_ids:
+            try:
+                run.extra["edge_persistence"] = _EDGE_SINK(
+                    deck_graphs, coll, VOCAB_VERSION)
+            except Exception as exc:  # noqa: BLE001 - PG edge persistence is best-effort
+                log.exception("interaction edge persistence failed")
+                run.extra["edge_persistence"] = {"error": str(exc)[:200]}
         run.status = "ok"
     except Exception as exc:  # noqa: BLE001 - the run log must record the failure
         log.exception("interaction graph rebuild failed")

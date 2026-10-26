@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Iterator
 
 from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 
 from src.server.infra.db.session import get_session_factory
@@ -27,6 +28,12 @@ def db_session() -> Iterator[Session]:
         yield session
         session.commit()
     except HTTPException:
+        session.rollback()
+        raise
+    except RequestValidationError:
+        # FastAPI throws body-validation failures into the dependency
+        # generator — a bad request body is not a DB outage; let it
+        # surface as the standard 422 instead of 503 db_unavailable.
         session.rollback()
         raise
     except Exception as e:  # connection lost mid-request, constraint errors, ...
