@@ -29,6 +29,8 @@ from src.server.infra.db.orm_models import (
     PrintingRow,
     ProfileOverrideRow,
     ProfileSnapshotRow,
+    ReviewJobRow,
+    ReviewRow,
 )
 
 
@@ -80,25 +82,53 @@ def upsert_printing(session: Session, printing: dict) -> None:
             setattr(existing, key, value)
 
 
+def _card_dict(row) -> dict:
+    return {
+        "oracle_id": row.oracle_id,
+        "name": row.name,
+        "type_line": row.type_line,
+        "oracle_text": row.oracle_text,
+        "mana_cost": row.mana_cost,
+        "colors": row.colors,
+        "color_identity": row.color_identity,
+        "cmc": row.cmc,
+        "keywords": row.keywords,
+        "image_uri": row.image_uri,
+    }
+
+
 def get_cards(session: Session, oracle_ids: Iterable[str]) -> dict[str, dict]:
     rows = session.scalars(
         select(CardRow).where(CardRow.oracle_id.in_(list(oracle_ids)))
     ).all()
-    return {
-        row.oracle_id: {
-            "oracle_id": row.oracle_id,
-            "name": row.name,
-            "type_line": row.type_line,
-            "oracle_text": row.oracle_text,
-            "mana_cost": row.mana_cost,
-            "colors": row.colors,
-            "color_identity": row.color_identity,
-            "cmc": row.cmc,
-            "keywords": row.keywords,
-            "image_uri": row.image_uri,
-        }
-        for row in rows
-    }
+    return {row.oracle_id: _card_dict(row) for row in rows}
+
+
+def get_cards_by_names(session: Session, names: Iterable[str]) -> dict[str, dict]:
+    """{input name: card} for exact (case-insensitive) or front-face matches.
+
+    Front-face: input "X" also matches a stored "X // Y" (the same name_key
+    rule the verifier and review pipeline use). Names with no match are
+    simply absent from the result.
+    """
+    wanted = {n.lower(): n for n in names if n}
+    if not wanted:
+        return {}
+    rows = session.scalars(
+        select(CardRow).where(func.lower(CardRow.name).in_(list(wanted)))
+    ).all()
+    out: dict[str, dict] = {}
+    for row in rows:
+        out[wanted[row.name.lower()]] = _card_dict(row)
+    for low, orig in wanted.items():
+        if orig in out:
+            continue
+        row = session.scalars(
+            select(CardRow).where(CardRow.name.ilike(f"{orig} // %"))
+        ).first()
+        if row is not None:
+            out[orig] = _card_dict(row)
+    return out
 
 
 def known_oracle_ids(session: Session, oracle_ids: Iterable[str]) -> set[str]:
@@ -630,6 +660,63 @@ def get_game_telemetry(session: Session, game_id: int) -> list[dict]:
         for r in rows
     ]
 
+# ---------------------------------------------------------------------------
+# reviews / review_jobs (Slice 3, ARCHITECTURE.md §4.2)
+# ---------------------------------------------------------------------------
+
+def _review_dict(row: ReviewRow) -> dict:
+    return {
+        "id": row.id,
+        "deck_id": row.deck_id,
+        "version": row.version,
+        "fingerprint": row.fingerprint,
+        "status": row.status,
+        "fact_pack": row.fact_pack,
+        "analysis": row.analysis,
+        "doc": row.doc,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def next_review_version(session: Session, deck_id: str) -> int:
+    current = session.scalar(
+        select(func.max(ReviewRow.version)).where(ReviewRow.deck_id == deck_id)
+    )
+    return int(current or 0) + 1
+
+
+def insert_review(session: Session, review: dict) -> int:
+    """Insert one review row; returns the new id (inside the caller's transaction)."""
+    row = ReviewRow(
+        deck_id=review["deck_id"],
+        version=int(review["version"]),
+        fingerprint=review["fingerprint"],
+        status=review["status"],
+        fact_pack=review["fact_pack"],
+        analysis=review["analysis"],
+        doc=review["doc"],
+    )
+    session.add(row)
+    session.flush()  # assign the id inside the caller's transaction
+    return row.id
+
+
+def insert_review_job(session: Session, review_id: int, stage: str, status: str,
+                      error: Optional[str] = None) -> None:
+    session.add(ReviewJobRow(review_id=review_id, stage=stage, status=status, error=error))
+
+
+def list_review_jobs(session: Session, review_id: int) -> list[dict]:
+    rows = session.scalars(
+        select(ReviewJobRow).where(ReviewJobRow.review_id == review_id).order_by(ReviewJobRow.id)
+    ).all()
+    return [
+        {"id": r.id, "review_id": r.review_id, "stage": r.stage, "status": r.status,
+         "error": r.error, "ts": r.ts.isoformat() if r.ts else None}
+        for r in rows
+    ]
+
+
 
 # ---------------------------------------------------------------------------
 # drafts / draft_cards / draft_instance_moves (Slice 5, ARCHITECTURE.md §7.8)
@@ -881,6 +968,37 @@ def list_instance_events(session: Session, instance_id: str) -> list[dict]:
             "to_deck": r.to_deck,
             "draft_id": r.draft_id,
         }
+        for r in rows
+    ]
+
+
+def latest_review_for_deck(session: Session, deck_id: str) -> Optional[dict]:
+    row = session.scalars(
+        select(ReviewRow)
+        .where(ReviewRow.deck_id == deck_id)
+        .order_by(ReviewRow.id.desc())
+        .limit(1)
+    ).first()
+    return _review_dict(row) if row else None
+
+
+def get_review(session: Session, review_id: int) -> Optional[dict]:
+    row = session.get(ReviewRow, review_id)
+    return _review_dict(row) if row else None
+
+
+def list_reviews_for_deck(session: Session, deck_id: str, limit: int = 20) -> list[dict]:
+    """History summaries (no fact_pack/doc payloads), newest first."""
+    rows = session.scalars(
+        select(ReviewRow)
+        .where(ReviewRow.deck_id == deck_id)
+        .order_by(ReviewRow.id.desc())
+        .limit(max(1, min(int(limit), 100)))
+    ).all()
+    return [
+        {"id": r.id, "deck_id": r.deck_id, "version": r.version,
+         "fingerprint": r.fingerprint, "status": r.status,
+         "created_at": r.created_at.isoformat() if r.created_at else None}
         for r in rows
     ]
 

@@ -421,3 +421,43 @@ class ProfileOverrideRow(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Slice 3 review pipeline (ARCHITECTURE.md §4.2; DDL in migrations/a005_create_reviews).
+# ---------------------------------------------------------------------------
+
+class ReviewRow(Base):
+    """One stored review. `fact_pack` + `doc` render both the styled document
+    and the dashboard panels — always from this same row."""
+    __tablename__ = "reviews"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    deck_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("decks.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(8), nullable=False)  # complete | partial
+    fact_pack: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    analysis: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    doc: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class ReviewJobRow(Base):
+    """Pipeline audit trail: one row per build stage."""
+    __tablename__ = "review_jobs"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    review_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("reviews.id"), nullable=False
+    )
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)  # ok | degraded | failed
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    ts: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

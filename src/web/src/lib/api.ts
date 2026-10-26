@@ -357,3 +357,48 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
 	}
 	return (await res.json()) as T;
 }
+
+export interface ReviewJobRecord {
+	id: number;
+	review_id: number;
+	stage: string;
+	status: string;
+	error: string | null;
+	ts: string | null;
+}
+
+export interface ReviewSection {
+	type: string;
+	title: string;
+	data: Record<string, unknown>;
+}
+
+export interface ReviewExplanation {
+	status: string;
+	text: string;
+	reason?: string | null;
+	cards?: string[];
+	rejected_cards?: string[];
+}
+
+export interface ReviewPanel {
+	key: string;
+	label: string;
+	value: unknown;
+	note?: string;
+	unavailable?: string | null;
+}
+
+export interface ReviewResponse {
+	id: number;
+	deck_id: string;
+	version: number;
+	fingerprint: string;
+	status: string;
+	fact_pack: Record<string, unknown>;
+	analysis: { adds?: Array<{ name: string; why?: string }>; cuts?: Array<{ name: string; why?: string }> } & Record<string, unknown>;
+	doc: { sections: ReviewSection[] } & Record<string, unknown>;
+	panels: ReviewPanel[];
+	created_at: string | null;
+	jobs: ReviewJobRecord[];
+}
