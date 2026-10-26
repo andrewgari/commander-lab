@@ -24,7 +24,7 @@ import httpx
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
-from src.shared.http import (
+from src.server.infra.http import (
     ApiError,
     HttpClientConfig,
     HttpClientError,
@@ -35,7 +35,7 @@ from src.shared.http import (
     TimeoutError as HttpTimeoutError,
     create_http_client,
 )
-from src.shared.http.cache import TTLCache
+from src.server.infra.http.cache import TTLCache
 
 
 class FakeClock:

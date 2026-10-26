@@ -25,10 +25,10 @@ def read(rel):
         return f.read()
 
 
-BASE = read("templates/base.html")
-BREW_HTML = read("templates/brew.html")
-BREW_DECK_HTML = read("templates/brew_deck.html")
-BREW_JS = read("static/js/brew.js")
+BASE = read("src/web/templates/base.html")
+BREW_HTML = read("src/web/templates/brew.html")
+BREW_DECK_HTML = read("src/web/templates/brew_deck.html")
+BREW_JS = read("src/web/static/js/brew.js")
 
 
 class TestBrewNavEntry(unittest.TestCase):
@@ -152,6 +152,50 @@ class TestBrewAssetCacheBusting(unittest.TestCase):
         self.assertIsNotNone(m, "brew.js script tag not found in brew_deck.html")
         self.assertIn("?v={{ version }}", m.group(1),
                       "brew.js on the brew deck page must be loaded with ?v={{ version }} like base.html assets")
+
+
+class TestMobileLayout(unittest.TestCase):
+    """390px mobile layout contract (t_d684b75a, live finding on v0.4.226).
+
+    At 390x844 the stepper's side-scroll left steps 03/04 clipped past the
+    viewport edge (right edge x=578), donor metadata spans ran to x=568, and
+    the mobile Generate button was 36px tall. These pin the brew.html style
+    rules that keep every element inside the viewport at phone widths; the
+    fix was verified by real-browser measurement (max right edge <= 390).
+    """
+
+    def _mobile_block(self):
+        m = re.search(r"@media \(max-width: 900px\) \{(.*?)\n    \}\n</style>",
+                      BREW_HTML, re.S)
+        self.assertIsNotNone(m, "mobile media block not found in brew.html")
+        return m.group(1)
+
+    def test_stepper_wraps_instead_of_side_scrolling(self):
+        mobile = self._mobile_block()
+        self.assertIn(".hud-doc-index { overflow-x: visible; }", mobile)
+        self.assertRegex(mobile, r"\.hud-doc-index ol \{[^}]*flex-wrap: wrap")
+
+    def test_donor_meta_wraps_to_own_line(self):
+        mobile = self._mobile_block()
+        self.assertRegex(mobile, r"\.brew-donor-list li > label \{[^}]*flex-wrap: wrap")
+        self.assertRegex(mobile, r"\.brew-donor-meta \{[^}]*flex-basis: 100%")
+        self.assertRegex(mobile, r"\.brew-donor-meta \{[^}]*white-space: normal")
+
+    def test_donor_text_never_overflows_any_width(self):
+        # Outside the media query too: name/meta are flex items that must be
+        # allowed to shrink below their min-content width and ellipsize.
+        for cls in (".brew-donor-name", ".brew-donor-meta"):
+            m = re.search(re.escape(cls) + r" \{([^}]*)\}", BREW_HTML)
+            self.assertIsNotNone(m, cls + " rule missing")
+            body = m.group(1)
+            self.assertIn("min-width: 0", body)
+            self.assertIn("text-overflow: ellipsis", body)
+
+    def test_mobile_generate_meets_touch_target(self):
+        mobile = self._mobile_block()
+        m = re.search(r"\.brew-mobilebar \.hud-btn \{([^}]*)\}", mobile)
+        self.assertIsNotNone(m, "mobilebar button rule missing")
+        self.assertIn("min-height: 44px", m.group(1))
 
 
 class TestSubmitPathUnchanged(unittest.TestCase):

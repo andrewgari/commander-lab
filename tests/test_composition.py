@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import composition as comp
+from src.server.domain.analytics import composition as comp
 from tests.test_interactions import FakeRedis
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "holy_hellfire_cards.json")
@@ -202,12 +202,12 @@ class TestDeltaStatus(unittest.TestCase):
 class TestCompositionRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
+        from src.server.app.main import app
         self.client = TestClient(app)
         self.deck, self.tags = load_hh()
 
-    @patch("app.insights")
-    @patch("app.registry")
+    @patch("src.server.app.main.insights")
+    @patch("src.server.app.main.registry")
     def test_get(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = self.deck
         mock_service.deck_composition.return_value = {"actual": {"lands": 35}}
@@ -215,9 +215,9 @@ class TestCompositionRoutes(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["composition"]["actual"]["lands"], 35)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_put_and_delete_template(self, mock_registry):
-        import app as app_mod
+        import src.server.app.main as app_mod
         fake = FakeRedis()
         mock_registry.find_deck.return_value = self.deck
         with patch.object(app_mod, "r", fake):
@@ -229,7 +229,7 @@ class TestCompositionRoutes(unittest.TestCase):
             res = self.client.delete("/api/decks/archidekt:417707/composition/template")
             self.assertEqual(res.json()["template"]["lands"], 38)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_unknown_deck(self, mock_registry):
         mock_registry.find_deck.return_value = None
         mock_registry.list_decks.return_value = []

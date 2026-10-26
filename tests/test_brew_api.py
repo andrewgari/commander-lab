@@ -7,14 +7,14 @@ import json
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import brew_builder
-import instances
-import reconstruct_pools
-import registry
+import src.server.domain.draft.brew_builder as brew_builder
+import src.server.domain.inventory.instances as instances
+import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+import src.server.domain.decks.registry as registry
 from fastapi.testclient import TestClient
 
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
@@ -22,7 +22,7 @@ from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 class TestBrewAPI(unittest.TestCase):
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.app_module = app_module
         self.r = FakeRedis()
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
@@ -143,12 +143,63 @@ class TestBrewAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["results"], [])
 
+    @staticmethod
+    def _card(name, type_line="Legendary Creature — Spider Hero", legality="legal"):
+        return {
+            "id": name.lower().replace(" ", "-"), "name": name, "type_line": type_line,
+            "legalities": {"commander": legality}, "colors": [], "color_identity": [],
+            "keywords": [], "mana_cost": "", "image_uris": {},
+        }
+
+    def test_commander_search_paginates_and_prioritizes_relevant_matches(self):
+        first = [self._card(f"Spider Hero {i}") for i in range(30)]
+        second = [self._card("Amazing Spider Hero"), self._card("Alibou, Ancient Witness", "Legendary Artifact Creature")]
+        pages = [
+            {"data": first, "has_more": True, "next_page": "https://api.scryfall.com/page/2"},
+            {"data": second, "has_more": False},
+        ]
+        def mocked_page(*args, **kwargs):
+            return Mock(status_code=200, json=lambda: pages.pop(0))
+        with patch.object(self.app_module.httpx, "get", side_effect=mocked_page) as get:
+            results = self.client.get("/api/brew/commanders?q=spider").json()["results"]
+            self.assertEqual(len(results), 32)
+            self.assertEqual(get.call_count, 2)
+        self.assertEqual(results[0]["name"], "Amazing Spider Hero")
+        self.assertIn("Alibou, Ancient Witness", [row["name"] for row in results])
+
+    def test_commander_search_fuzzy_fallback_is_legal_and_general(self):
+        with patch.object(self.app_module.httpx, "get", side_effect=[
+            Mock(status_code=200, json=lambda: {"data": [], "has_more": False}),
+            Mock(status_code=200, json=lambda: self._card("Atraxa, Praetors’ Voice")),
+        ]) as get:
+            results = self.client.get("/api/brew/commanders?q=atraxa").json()["results"]
+        self.assertEqual(results[0]["name"], "Atraxa, Praetors’ Voice")
+        self.assertEqual(get.call_count, 2)
+        # A misspelled arbitrary query gets the same general Scryfall fuzzy path.
+        with patch.object(self.app_module.httpx, "get", side_effect=[
+            Mock(status_code=200, json=lambda: {"data": [], "has_more": False}),
+            Mock(status_code=200, json=lambda: self._card("The Gitrog Monster")),
+        ]):
+            results = self.client.get("/api/brew/commanders?q=gitrog").json()["results"]
+        self.assertEqual(results[0]["name"], "The Gitrog Monster")
+
+    def test_commander_search_cache_expires_and_does_not_keep_empty_results_forever(self):
+        old = json.dumps({"cached_at": 1, "results": []})
+        self.r.set("brew:commander_search:spider", old)
+        fresh = self._card("Spider Hero")
+        with patch.object(self.app_module.httpx, "get", return_value=Mock(
+            status_code=200, json=lambda: {"data": [fresh], "has_more": False}
+        )) as get:
+            results = self.client.get("/api/brew/commanders?q=spider").json()["results"]
+        self.assertEqual(results[0]["name"], "Spider Hero")
+        get.assert_called_once()
+
 
 class TestBrewPages(unittest.TestCase):
     """Template-level checks for /brew (console) and /brew/{id} (deck view)."""
 
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.r = FakeRedis()
         self.r.set("decks", json.dumps([make_deck(deck_id=42, name="Atraxa Superfriends")]))
         self.patch = patch.object(app_module, "r", self.r)
@@ -185,7 +236,7 @@ class TestBrewPages(unittest.TestCase):
         # and brew.js aggregates buys via TcgCart.mount.
         self.assertIn("tcgplayer_cart.js", html)
         js = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "static", "js", "brew.js")).read()
+                               "src/web/static", "js", "brew.js")).read()
         self.assertIn("TcgCart.mount", js)
 
     def test_decks_page_brew_button(self):

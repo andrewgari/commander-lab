@@ -13,11 +13,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_links
-import deck_sync
-import registry
-from deck_sync import DeckSyncError
-from providers import PROVIDERS, ProviderError
+import src.server.domain.decks.deck_links as deck_links
+import src.server.domain.decks.deck_sync as deck_sync
+import src.server.domain.decks.registry as registry
+from src.server.domain.decks.deck_sync import DeckSyncError
+from src.server.infra.providers import PROVIDERS, ProviderError
 
 
 class FakeRedis:

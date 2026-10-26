@@ -6,8 +6,8 @@ from pathlib import Path
 
 from prometheus_client import CollectorRegistry
 
-import redis_pg_import as imp
-import transfer_metrics as tm
+import src.server.workers.redis_pg_import as imp
+import src.server.workers.transfer_metrics as tm
 
 FIX = str(Path(__file__).parent / "fixtures" / "redis_export_small.json")
 DSN = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")

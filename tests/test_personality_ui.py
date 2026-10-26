@@ -24,11 +24,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-PS_JS = ROOT / "static" / "js" / "personality.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+PS_JS = ROOT / "src/web/static" / "js" / "personality.js"
 FIX = ROOT / "tests" / "fixtures" / "ps4"
 
 DOCTOR = json.loads((FIX / "doctor_rose.json").read_text())
@@ -92,7 +92,7 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('class="profile-chip active"', profile_page)
         self.assertIn('aria-current="page"', profile_page)
 
-    @patch("app.registry.list_decks", return_value=[DECK])
+    @patch("src.server.app.main.registry.list_decks", return_value=[DECK])
     def test_deck_page_has_ability_panel_under_stat_strip(self, _):
         body = self.client.get("/deck/The%20Laws%20of%20Time%20are%20Mine!!").text.split("<body", 1)[1]
         # NAV_IA §3.3: the ability panel sits under the stats-at-a-glance strip.

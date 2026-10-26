@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from analytics.fact_pack import build_fact_pack
+from src.server.domain.analytics.fact_pack import build_fact_pack
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -67,3 +67,31 @@ def test_card_tag_and_salt_fetchers_are_optional_and_visible():
     assert card["tags"] == ["ramp", "artifact"]
     assert card["salt"] == 0.5
     assert card["edhrec"]["status"] == "unavailable"
+
+
+def test_holy_hellfire_fixture_deck_resolves_every_card():
+    """Both recorded fixtures are exercised: this one uses holy_hellfire_cards.json."""
+    fixture = json.loads((FIXTURES / "holy_hellfire_cards.json").read_text())
+    deck = fixture["deck"]
+
+    def scryfall(name):
+        return {
+            "name": name, "cmc": 2.0, "type_line": "Card",
+            "colors": [], "color_identity": [],
+            "legalities": {"commander": "legal"},
+            "prices": {"usd": "0.10"},
+        }
+
+    result = build_fact_pack(deck, {"scryfall": scryfall})
+
+    expected_names = list(dict.fromkeys(
+        list(deck["commanders"]) + [c["name"] for c in deck["cards"]]
+    ))
+    assert [card["name"] for card in result["cards"]] == expected_names
+    for card in result["cards"]:
+        assert card["oracle"]["type_line"] == "Card"
+        assert card["price"] == "0.10"
+        assert card["legalities"] == {"commander": "legal"}
+        # No edhrec/salt fetchers supplied -> explicit markers, never None.
+        assert card["edhrec"]["status"] == "unavailable"
+        assert card["salt"]["status"] == "unavailable"

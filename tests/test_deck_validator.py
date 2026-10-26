@@ -10,9 +10,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_repair
-import deck_validator as dv
-from deck_validator import (
+import src.server.domain.draft.deck_repair as deck_repair
+import src.server.domain.draft.deck_validator as dv
+from src.server.domain.draft.deck_validator import (
     CardCatalog, CardInfo, DraftCard, DraftDeck, RuleCode, validate_deck, validate_decks,
 )
 

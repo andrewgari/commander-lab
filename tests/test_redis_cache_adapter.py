@@ -4,8 +4,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.repository_interfaces import Cache
-from redis_cache import RedisCache, RedisCacheAdapter
+from src.server.domain.analytics.repository_interfaces import Cache
+from src.server.infra.cache.redis_cache import RedisCache, RedisCacheAdapter
 from tests.test_redis_cache import FakeRedis
 
 

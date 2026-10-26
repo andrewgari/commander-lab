@@ -13,7 +13,7 @@ import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
-DECK_HTML = (Path(__file__).resolve().parent.parent / "templates" / "deck.html").read_text()
+DECK_HTML = (Path(__file__).resolve().parent.parent / "src/web/templates" / "deck.html").read_text()
 MOVED = ("footerLinks", "syncControls", "deckStatusField")
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
         "source", "track", "wbr"}

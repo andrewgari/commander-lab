@@ -12,15 +12,15 @@ from fastapi.testclient import TestClient
 import unittest
 from unittest.mock import patch
 
-from app import app
-from linked_accounts import LinkedAccountError
+from src.server.app.main import app
+from src.server.infra.providers.linked_accounts import LinkedAccountError
 
 
 class TestListLinkedAccounts(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_list_returns_accounts_and_count(self, mock_la):
         accounts = [
             {"id": "archidekt:foo", "provider": "archidekt", "username": "foo",
@@ -34,7 +34,7 @@ class TestListLinkedAccounts(unittest.TestCase):
         self.assertEqual(data["count"], 1)
         mock_la.list_accounts.assert_called_once()
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_list_empty(self, mock_la):
         mock_la.list_accounts.return_value = []
         response = self.client.get("/api/linked-accounts")
@@ -48,7 +48,7 @@ class TestAddLinkedAccount(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_add_account_validates_and_adds_without_syncing(self, mock_la):
         # Linking is not a sync trigger: decks are only pulled when the user
         # explicitly presses Sync (POST /api/linked-accounts/{id}/sync).
@@ -67,7 +67,7 @@ class TestAddLinkedAccount(unittest.TestCase):
         mock_la.sync_account.assert_not_called()
         mock_la.sync_all.assert_not_called()
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_add_account_rejects_duplicate(self, mock_la):
         mock_la.add_account.side_effect = LinkedAccountError("account already linked: archidekt:foo")
 
@@ -79,7 +79,7 @@ class TestAddLinkedAccount(unittest.TestCase):
         self.assertIn("already linked", data["error"])
         mock_la.sync_account.assert_not_called()
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_add_account_rejects_unknown_provider_or_bad_username(self, mock_la):
         mock_la.add_account.side_effect = LinkedAccountError("unknown provider: bogus")
 
@@ -93,7 +93,7 @@ class TestRemoveLinkedAccount(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_remove_account_success(self, mock_la):
         mock_la.remove_account.return_value = True
         response = self.client.delete("/api/linked-accounts/archidekt:foo")
@@ -102,7 +102,7 @@ class TestRemoveLinkedAccount(unittest.TestCase):
         remove_args = mock_la.remove_account.call_args[0]
         self.assertEqual(remove_args[1:], ("archidekt:foo",))
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_remove_account_not_found(self, mock_la):
         mock_la.remove_account.side_effect = LinkedAccountError("linked account not found: archidekt:foo")
         response = self.client.delete("/api/linked-accounts/archidekt:foo")
@@ -114,7 +114,7 @@ class TestSyncOneLinkedAccount(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_sync_one_success(self, mock_la):
         account = {"id": "archidekt:foo", "last_synced_at": "t1",
                    "last_sync_result": {"decks_synced": 3, "failures": []}}
@@ -125,7 +125,7 @@ class TestSyncOneLinkedAccount(unittest.TestCase):
         self.assertTrue(data["success"])
         self.assertEqual(data["account"], account)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_sync_one_not_found(self, mock_la):
         mock_la.sync_account.side_effect = LinkedAccountError("linked account not found: archidekt:foo")
         response = self.client.post("/api/linked-accounts/archidekt:foo/sync")
@@ -137,7 +137,7 @@ class TestSyncAllLinkedAccounts(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.linked_accounts")
     def test_sync_all_returns_every_account(self, mock_la):
         accounts = [
             {"id": "archidekt:foo", "last_synced_at": "t1", "last_sync_result": {"decks_synced": 1, "failures": []}},

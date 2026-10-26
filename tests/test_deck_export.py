@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_export
-from deck_export import ExportError
-import providers
-from providers import PushError, PushNotConfigured, moxfield, archidekt
+import src.server.domain.decks.deck_export as deck_export
+from src.server.domain.decks.deck_export import ExportError
+import src.server.infra.providers as providers
+from src.server.infra.providers import PushError, PushNotConfigured, moxfield, archidekt
 
 
 def _resp(status=200, body=None):
@@ -82,12 +82,12 @@ class TestExportDecklist(unittest.TestCase):
 class TestExportDraft(unittest.TestCase):
     def test_draft(self):
         drafts = [{"name": "D", "cards": [{"name": "Sol Ring", "quantity": 1}], "commanders": ["Atraxa"]}]
-        with patch("reconstruct.get_drafts", return_value=drafts):
+        with patch("src.server.domain.draft.reconstruct.get_drafts", return_value=drafts):
             out = deck_export.export_draft(None, "s", 0, dry_run=True)
             self.assertEqual(out["deck"]["name"], "D")
             with self.assertRaises(ExportError):
                 deck_export.export_draft(None, "s", 5)
-        with patch("reconstruct.get_drafts", side_effect=ValueError("session not found")):
+        with patch("src.server.domain.draft.reconstruct.get_drafts", side_effect=ValueError("session not found")):
             with self.assertRaises(ExportError):
                 deck_export.export_draft(None, "s", 0)
 

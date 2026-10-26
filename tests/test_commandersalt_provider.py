@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 # Ensure project root is in path for standalone execution
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.exceptions import UnsupportedAnalyticsQueryError
-from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
-from analytics.providers.commandersalt import (
+from src.server.domain.analytics.exceptions import UnsupportedAnalyticsQueryError
+from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
+from src.server.domain.analytics.providers.commandersalt import (
     CommanderSaltClient,
     CommanderSaltNotFoundError,
     CommanderSaltNotIngestedError,
@@ -511,8 +511,8 @@ class TestCommanderSaltProvider(unittest.TestCase):
 class TestProviderRegistration(unittest.TestCase):
     def test_registered_under_commandersalt_name(self):
         import importlib
-        from analytics.registry import default_registry
-        import analytics.providers.commandersalt as commandersalt_module
+        from src.server.domain.analytics.registry import default_registry
+        import src.server.domain.analytics.providers.commandersalt as commandersalt_module
 
         # Verify import-time registration via @register_provider decorator
         default_registry.unregister("commandersalt")

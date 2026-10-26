@@ -18,10 +18,10 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 
 
 def _classes(html):
@@ -64,7 +64,7 @@ class TestShell(unittest.TestCase):
                 html = self.client.get(path).text
                 self.assertEqual(_active_nav_labels(html), expected)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_deck_manage_lights_up_decks_section(self, mock_registry):
         mock_registry.list_decks.return_value = [{"name": "TestDeck", "id": "archidekt:1"}]
         mock_registry.registry_id_of.return_value = "archidekt:1"
