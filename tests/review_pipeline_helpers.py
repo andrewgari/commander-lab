@@ -97,5 +97,5 @@ class ScriptedClient:
 
 
 def profile() -> pp.PlayerProfile:
-    return pp.parse_profile({"name": "tester", "builder_identity": {"text": "Builds more than pilots.", "tags": ["wacky"]},
+    return pp.profile_from_seed({"name": "tester", "builder_identity": {"text": "Builds more than pilots.", "tags": ["wacky"]},
                              "pet_cards": ["Skullclamp"], "review_preferences": {"tone": "direct", "skip": ["padding"]}})
