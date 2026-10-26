@@ -27,6 +27,7 @@ from src.server.infra.db.orm_models import (
     GameTelemetryRow,
     InstanceEventRow,
     PrintingRow,
+    ProfileOverrideRow,
     ProfileSnapshotRow,
 )
 
@@ -163,6 +164,25 @@ def list_decks(session: Session, include_archived: bool = False) -> list[dict]:
     if not include_archived:
         stmt = stmt.where(DeckRow.archived_at.is_(None))
     return [_deck_dict(row) for row in session.scalars(stmt).all()]
+
+
+def update_deck_status(session: Session, deck_id: str, status: str,
+                       archived: bool = False) -> bool:
+    """Apply a lifecycle status (+ optional archive stamp). True when a field
+    actually changed; False for unknown decks and no-ops."""
+    row = session.get(DeckRow, deck_id)
+    if row is None:
+        return False
+    changed = False
+    if row.status != status:
+        row.status = status
+        changed = True
+    if archived and row.archived_at is None:
+        row.archived_at = _utcnow()
+        changed = True
+    if changed:
+        row.updated_at = _utcnow()
+    return changed
 
 
 def replace_deck_cards(session: Session, deck_id: str, cards: list[dict]) -> int:
@@ -349,6 +369,12 @@ def event_counts_by_instance(session: Session, instance_ids: Iterable[str]) -> d
     return {iid: int(n) for iid, n in session.execute(stmt).all()}
 
 
+def event_counts_by_kind(session: Session) -> dict[str, int]:
+    """Provenance events per kind (migration reconciliation reports)."""
+    stmt = select(InstanceEventRow.kind, func.count()).group_by(InstanceEventRow.kind)
+    return {kind: int(n) for kind, n in session.execute(stmt).all()}
+
+
 # ---------------------------------------------------------------------------
 # profile_snapshots
 # ---------------------------------------------------------------------------
@@ -392,6 +418,87 @@ def list_snapshots(session: Session, limit: int = 50) -> list[dict]:
     ).all()
     return [_snapshot_dict(row) for row in rows]
 
+
+# ---------------------------------------------------------------------------
+# profile_overrides
+# ---------------------------------------------------------------------------
+
+def _override_dict(row: ProfileOverrideRow) -> dict:
+    return {
+        "key": row.key,
+        "value": row.value,
+        "set_at": row.set_at.isoformat() if row.set_at else None,
+    }
+
+
+def get_overrides(session: Session) -> dict[str, dict]:
+    """All active overrides keyed by override key."""
+    rows = session.scalars(select(ProfileOverrideRow).order_by(ProfileOverrideRow.key)).all()
+    return {row.key: _override_dict(row) for row in rows}
+
+
+def upsert_override(session: Session, key: str, value: Any) -> dict:
+    """Insert or replace one override; returns the stored row as a dict.
+
+    Appending the matching profile_snapshots row is the caller's job
+    (ARCHITECTURE.md §4.2: every override change appends a snapshot).
+    """
+    row = session.get(ProfileOverrideRow, key)
+    if row is None:
+        row = ProfileOverrideRow(key=key, value=value)
+        session.add(row)
+    else:
+        row.value = value
+        row.set_at = _utcnow()
+    session.flush()
+    return _override_dict(row)
+
+
+# ---------------------------------------------------------------------------
+# inventory read model (Slice 2 inventory page)
+# ---------------------------------------------------------------------------
+
+def inventory_rows(session: Session, query: str = "") -> list[dict]:
+    """Per-card collection rows: instance counts by ownership status plus the
+    decks copies are bound to, joined with card reference facts.
+
+    One row per oracle_id that has at least one instance; ``not_owned``
+    placeholder copies are counted but never summed into ``owned``.
+    """
+    stmt = (
+        select(CardInstanceRow, CardRow)
+        .join(CardRow, CardRow.oracle_id == CardInstanceRow.oracle_id)
+        .order_by(CardRow.name)
+    )
+    if query:
+        stmt = stmt.where(CardRow.name.ilike(f"%{query}%"))
+    by_card: dict[str, dict] = {}
+    for inst, card in session.execute(stmt).all():
+        row = by_card.setdefault(inst.oracle_id, {
+            "oracle_id": inst.oracle_id,
+            "name": card.name,
+            "type_line": card.type_line,
+            "image_uri": card.image_uri,
+            "in_collection": 0,
+            "in_deck": 0,
+            "in_mail": 0,
+            "not_owned": 0,
+            "decks": set(),
+        })
+        if inst.status in ("in_collection", "in_deck", "in_mail", "not_owned"):
+            row[inst.status] += 1
+        if inst.status == "in_deck" and inst.deck_id:
+            row["decks"].add(inst.deck_id)
+    rows = list(by_card.values())
+    deck_names = {
+        d["id"]: d["name"]
+        for d in list_decks(session, include_archived=True)
+    }
+    for row in rows:
+        row["decks"] = sorted(deck_names.get(d, d) for d in row["decks"])
+        row["owned"] = row["in_collection"] + row["in_deck"] + row["in_mail"]
+    rows.sort(key=lambda r: (-r["owned"], r["name"].lower()))
+    return rows
 
 # ---------------------------------------------------------------------------
 # game_imports / games / game_telemetry (Slice 4, ARCHITECTURE.md §4.2)
