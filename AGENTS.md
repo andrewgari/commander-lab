@@ -14,6 +14,7 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 - `sync.py`: Sync script pulling decks and cards from Archidekt v3 API and Scryfall into Redis.
 - `templates/`: Jinja2 HTML templates (`base.html`, `decks.html`, `deck.html`, `inventory.html`, `tags.html`).
 - `docs/`: Architecture and feature implementation documentation.
+- `AGENT_RULES.md`: Enforceable agent coding rules (target architecture, Oracle consults, changelog discipline) — every agent reads this.
 - `scripts/`: One-off utilities, auth setup, and sync helpers.
 - `tests/`: API and integration verification scripts.
 - `docker-compose.yml` & `Dockerfile`: Container environment definitions.
