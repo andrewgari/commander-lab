@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quick reviews now use real card data instead of showing cards as unknown.
 
 ### Added
+- Deck reviewer groundwork (internal): the fact pack now covers curve, mana/colored sources vs published norms, role counts, bracket reasons, Commander Spellbook combos and near-misses, EDHREC deviation, salt, synergy clusters/orphans and chart data, each with its source and fetch time or an explicit "unavailable" reason; a candidate pool of legal, in-identity, in-budget swap options (owned cards first) is built for later review passes. No user-visible change yet.
 - Deck reviewer groundwork (internal): approved design decisions and the `review_document` v1 JSON Schema, with a fixture and validation tests. No user-visible change yet.
 - Deck pages: a Copy decklist control copies the deck as paste-ready text in one click — Plain by default, with Archidekt, Moxfield, Forge and TCGplayer formats, optional sideboard/maybeboard/printing toggles, your last format remembered between visits, a "Copied!" confirmation, and a select-all manual-copy fallback when the clipboard is unavailable.
 - Card dossier: opening a single card (`/card/{oracle_id}`, optional `?printing=` to switch art) shows every printing, oracle text/mana/type, your tags, which of your decks play it, ranked synergy neighbors with the reason for each link, an editable affinity/notes field, and whether you own a copy — all from Postgres, with printings lazily fetched from Scryfall and cached on first view.
