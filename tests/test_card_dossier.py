@@ -335,3 +335,30 @@ def test_api_dossier_404_and_notes_validation(client, factory):
         repo.upsert_card(s, _card("o-a", "Card A"))
     assert client.put("/api/v2/card/o-a/notes",
                       json={"affinity": 0, "notes": "bad"}).status_code == 422
+
+
+def test_db_session_reraises_validation_error(monkeypatch):
+    """Regression for QA_FAIL on PR #350: the real deps.db_session generator
+    must re-raise RequestValidationError (thrown into it by FastAPI when a
+    request body fails validation) instead of wrapping it as 503
+    db_unavailable. Generic failures still map to 503."""
+    from unittest.mock import MagicMock
+
+    from fastapi import HTTPException
+    from fastapi.exceptions import RequestValidationError
+
+    from src.server.app.api import deps
+
+    monkeypatch.setattr(deps, "get_session_factory",
+                        lambda: lambda: MagicMock())
+    gen = deps.db_session()
+    next(gen)
+    with pytest.raises(RequestValidationError):
+        gen.throw(RequestValidationError(
+            [{"loc": ("body", "affinity"), "msg": "bad", "type": "value_error"}]))
+
+    gen2 = deps.db_session()
+    next(gen2)
+    with pytest.raises(HTTPException) as ei:
+        gen2.throw(RuntimeError("connection lost"))
+    assert ei.value.status_code == 503
