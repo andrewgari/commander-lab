@@ -2,5 +2,7 @@
 <nav>
 	<ul>
 		<li><a href="/decks">Decks</a></li>
+		<li><a href="/inventory">Inventory</a></li>
+		<li><a href="/profile">Profile</a></li>
 	</ul>
 </nav>

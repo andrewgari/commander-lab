@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from src.server.domain.decks import deck_import
 from src.server.domain.inventory import have_buy as have_buy_mod
+from src.server.domain.profile import power as power_mod
 from src.server.domain.profile import snapshot as snapshot_mod
 from src.server.infra.db import repositories as repo
 from src.server.infra.db.session import get_session_factory, session_scope
@@ -51,6 +52,16 @@ def import_archidekt_deck(
         created = existing is None
         changed = created or existing.get("fingerprint") != normalized["fingerprint"]
 
+        if not created and normalized["status"] != "have":
+            # Re-import of a known deck outside the physical folder: the
+            # folder rule carries no information over the deck's lifecycle
+            # state (pending/possible are user-driven, Slice 2 migration
+            # states), so it never downgrades them. Folder membership CAN
+            # still promote a deck to "have" (and a deck that left the
+            # physical folder drops from "have" to "virtual").
+            if existing.get("status") in ("pending", "possible"):
+                normalized = {**normalized, "status": existing["status"]}
+
         repo.upsert_deck(session, normalized)
         rows_written = repo.replace_deck_cards(
             session, normalized["id"], normalized["cards"]
@@ -73,8 +84,10 @@ def import_archidekt_deck(
 
         snapshot_id = None
         if changed:
+            power = power_mod.estimate_power(deck_cards)
             snap = snapshot_mod.build_snapshot(
-                normalized, deck_cards, report, repo.collection_stats(session)
+                normalized, deck_cards, report, repo.collection_stats(session),
+                power=power,
             )
             snapshot_id = repo.append_snapshot(
                 session, "import", snap["inputs"], snap["metrics"], snap["summary_text"]

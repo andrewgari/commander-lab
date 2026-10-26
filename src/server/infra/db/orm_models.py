@@ -251,3 +251,16 @@ class ProfileSnapshotRow(Base):
     metrics: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
     summary_text: Mapped[str] = mapped_column(String, nullable=False, default="")
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class ProfileOverrideRow(Base):
+    """User steering over the computed profile (ARCHITECTURE.md §4.2). Every
+    write also appends a profile_snapshots row — enforced by the service
+    layer (infra/services/profile_service.py), not by this table."""
+    __tablename__ = "profile_overrides"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[Any] = mapped_column(JsonType, nullable=False)
+    set_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
