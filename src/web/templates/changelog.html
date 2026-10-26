@@ -209,7 +209,7 @@
                     <span class="badge-prerelease">Pre-release</span>
                     {% endif %}
                 </div>
-                <time class="release-date">{{ release.release_date or release.published_at[:10] }}</time>
+                <time class="release-date"{% if release.published_at %} datetime="{{ release.published_at }}" data-rel{% endif %} title="{{ release.release_date or (release.published_at or '')[:10] }}">{{ release.release_date or release.published_at[:10] }}</time>
             </div>
             {% if release.name and release.name != release.tag_name %}
             <h2 class="release-name">{{ release.name }}</h2>
@@ -220,4 +220,53 @@
     </div>
     {% endif %}
 </div>
+<script>
+(function () {
+  var DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+  // Timestamp: minutes / hours / yesterday / days / last week; older -> "".
+  function agoTimestamp(d) {
+    var now = new Date();
+    var secs = Math.max(0, (now.getTime() - d.getTime()) / 1000);
+    var mins = Math.floor(secs / 60), hrs = Math.floor(secs / 3600);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " min ago";
+    if (hrs < 24) return hrs + (hrs === 1 ? " hour ago" : " hours ago");
+    return agoDays(calendarDays(d, now));
+  }
+
+  function calendarDays(d, now) {
+    var a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var b = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((b - a) / 86400000);
+  }
+
+  function agoDays(n) {
+    if (n < 0) return "";
+    if (n === 0) return "today";
+    if (n === 1) return "yesterday";
+    if (n < 7) return n + " days ago";
+    if (n < 14) return "last week";
+    return "";
+  }
+
+  document.querySelectorAll("time[data-rel]").forEach(function (t) {
+    var raw = (t.getAttribute("datetime") || "").trim();
+    var dateOnly = DATE_ONLY.test(raw);
+    var d;
+    if (dateOnly) {
+      var p = raw.split("-");
+      d = new Date(+p[0], +p[1] - 1, +p[2]);  // local midnight, no time claimed
+    } else {
+      d = new Date(raw);
+    }
+    if (isNaN(d.getTime())) return;
+    // Date-only values never get minute/hour precision.
+    var rel = dateOnly ? agoDays(calendarDays(d, new Date())) : agoTimestamp(d);
+    if (!rel) return;
+    // textContent only: no HTML parsing of injected data.
+    t.textContent = rel + " \u00b7 " + t.textContent;
+  });
+})();
+</script>
 {% endblock %}

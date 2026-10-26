@@ -214,6 +214,58 @@ class TestChangelog(unittest.TestCase):
 
     @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
+    def test_changelog_release_date_carries_datetime_attr_for_relative_age(
+        self, mock_client_cls, mock_redis
+    ):
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "1.2.0",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(self.sample_releases),
+        }.get(key)
+
+        response = self.client.get("/changelog")
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        # The <time> tag carries the full ISO timestamp for the relative-age
+        # script, plus the date-only text as fallback content and title.
+        self.assertIn('datetime="2026-09-29T18:00:00Z"', html)
+        self.assertIn("data-rel", html)
+        self.assertIn('title="2026-09-29"', html)
+        # Date-only values never get an hour/minute phrase.
+        self.assertIn("DATE_ONLY", html)
+        # The inline relative-age script targets exactly these tags.
+        self.assertIn('querySelectorAll("time[data-rel]")', html)
+
+    @patch("src.server.app.main.r")
+    @patch("httpx.AsyncClient")
+    def test_changelog_release_without_published_at_degrades_to_unknown_date(
+        self, mock_client_cls, mock_redis
+    ):
+        releases = [
+            {
+                "tag_name": "v0.0.1",
+                "name": "v0.0.1",
+                "published_at": None,
+                "prerelease": False,
+                "body": "Old release with no timestamp.",
+            }
+        ]
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "0.0.1",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(releases),
+        }.get(key)
+
+        response = self.client.get("/changelog")
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        self.assertIn("Unknown date", html)
+        # The datetime attribute must not be a parseable-looking empty string
+        # that the JS could mis-render; it echoes the unknown-date text and the
+        # script's isNaN guard leaves the date-only text untouched.
+        self.assertNotIn("datetime=", html.split('class="release-date"')[1].split(">")[0])
+        self.assertNotIn("data-rel>", html.split('class="release-date"')[1].split(">")[0] + ">")
+
+    @patch("src.server.app.main.r")
+    @patch("httpx.AsyncClient")
     def test_changelog_scrollable_container_present(self, mock_client_cls, mock_redis):
         mock_redis.get.return_value = json.dumps(self.sample_releases)
 
