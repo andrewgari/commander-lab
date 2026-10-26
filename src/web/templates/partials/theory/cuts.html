@@ -1,0 +1,22 @@
+{% import "partials/hud.html" as hud %}
+{#- cuts: {cards[{name, qty, reason?, pet?, commander?}], count} -#}
+{%- set d = section.data %}
+{%- set cards = d.cards or [] %}
+{%- if cards %}
+<div class="hud-panel hud-panel--flush">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Leaves the deck</h3><span class="hud-panel-meta">{{ d.count if d.count is not none else cards | length }} card{{ "" if (d.count or cards | length) == 1 else "s" }}</span></header>
+    <ul class="hud-tcards hud-tcards--panel hud-panel-body">
+        {%- for card in cards if card is mapping %}
+        <li class="hud-tcard">
+            <span class="hud-tcard-qty">{{ card.qty or 1 }}</span>
+            <s class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</s>
+            {%- if card.commander %}{{ hud.chip("commander", "signal") }}{% elif card.pet %}{{ hud.chip("♥ pet", "danger") }}{% else %}<span></span>{% endif %}
+            <span></span>
+            {%- if card.reason %}<span class="hud-tcard-note">{{ card.reason }}</span>{% endif %}
+        </li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- else %}
+{{ hud.empty("No cuts") }}
+{%- endif %}
