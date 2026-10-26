@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from forge_recorder import honcho_push
+from src.server.workers.forge_recorder import honcho_push
 
 
 def test_build_request_targets_oracle_and_formats_profile_without_network():
