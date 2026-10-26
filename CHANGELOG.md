@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Quick reviews now use real card data instead of showing cards as unknown.
+- Brew/Reconstruct/Manage card search fields now share one autocomplete; the Brew commander field selects the top suggestion on Enter so Generate enables.
 
 ### Added
 - Taste profile: the Profile page now has a section that stores what the deck reviewer should know about you (identity, color and archetype leanings, pet cards, dislikes, budget, review style) in Postgres, seeded from `profiles/andrew.json`. Every value records whether you stated it or it was learned from your swap feedback, and your own statements are never overwritten. Accept/reject/maybe answers on suggested swaps are stored; patterns in them (e.g. a card you keep rejecting) show up as proposals that only change your profile after you confirm them.

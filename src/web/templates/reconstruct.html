@@ -121,35 +121,11 @@
         resize: vertical;
     }
 
-    /* Autocomplete dropdown */
+    /* Autocomplete dropdown: the shared hud-autocomplete component
+       (hud.css + card_autocomplete.js) owns the list; the wrapper only
+       anchors it. */
     .autocomplete-wrapper {
         position: relative;
-    }
-    .autocomplete-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 50;
-        background: var(--surface-0);
-        border: var(--stroke);
-        border-radius: var(--radius-1);
-        max-height: 220px;
-        overflow-y: auto;
-        margin-top: var(--sp-1);
-    }
-    .autocomplete-item {
-        padding: var(--sp-2) var(--sp-3);
-        font-size: var(--fs-sm);
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid var(--line-faint);
-    }
-    .autocomplete-item:hover, .autocomplete-item.selected {
-        background: var(--surface-2);
-        color: var(--data-strong);
     }
 
     /* Clickable theme/suggestion chips (wear hud-chip--custom) */
@@ -514,8 +490,7 @@
                             Commander (Optional)
                         </label>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="pref_cmdr_0" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off" oninput="onCommanderInput(0, this.value)">
-                            <div id="cmdrDropdown_0" class="autocomplete-dropdown" style="display: none;"></div>
+                            <input type="text" id="pref_cmdr_0" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off">
                         </div>
                         <div class="input-hint" id="suggestedCmdrs_0">
                             Suggested from pool: <span id="poolCmdrSuggestions_0" style="color: var(--text-2);">-</span>
@@ -535,8 +510,7 @@
                             <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(0)">Remove</button>
                         </div>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="pref_partner_cmdr_0" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(0, this.value)">
-                            <div id="partnerCmdrDropdown_0" class="autocomplete-dropdown" style="display: none;"></div>
+                            <input type="text" id="pref_partner_cmdr_0" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off">
                         </div>
                     </div>
 
@@ -611,8 +585,7 @@
                     <div class="input-group">
                         <label class="input-label" for="pref_cmdr_1">Commander (Optional):</label>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="pref_cmdr_1" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off" oninput="onCommanderInput(1, this.value)">
-                            <div id="cmdrDropdown_1" class="autocomplete-dropdown" style="display: none;"></div>
+                            <input type="text" id="pref_cmdr_1" class="input-field" placeholder="Search for a commander... (Leave blank for agent suggestions)" autocomplete="off">
                         </div>
                         <div class="input-hint" id="suggestedCmdrs_1">
                             Suggested from pool: <span id="poolCmdrSuggestions_1" style="color: var(--text-2);">-</span>
@@ -632,8 +605,7 @@
                             <button type="button" class="hud-btn hud-btn--sm hud-btn--danger" onclick="removePartnerSlot(1)">Remove</button>
                         </div>
                         <div class="autocomplete-wrapper">
-                            <input type="text" id="pref_partner_cmdr_1" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off" oninput="onPartnerCommanderInput(1, this.value)">
-                            <div id="partnerCmdrDropdown_1" class="autocomplete-dropdown" style="display: none;"></div>
+                            <input type="text" id="pref_partner_cmdr_1" class="input-field" placeholder="Search for partner/background commander..." autocomplete="off">
                         </div>
                     </div>
 
@@ -925,96 +897,33 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Autocomplete cache
-    const autocompleteCache = {};
-    let debounceTimer = null;
-
-    function debounce(func, delay) {
-        return function(...args) {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
-
-    async function searchCardNames(query) {
-        if (!query || query.length < 2) return [];
-        if (autocompleteCache[query]) return autocompleteCache[query];
-        try {
-            const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query)}`);
-            if (!res.ok) return [];
-            const data = await res.json();
-            autocompleteCache[query] = data.data || [];
-            return data.data || [];
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function setupAutocomplete(inputId, dropdownId, onSelect) {
-        const input = document.getElementById(inputId);
-        const dropdown = document.getElementById(dropdownId);
-        if (!input || !dropdown) return;
-
-        const handleInput = debounce(async (val) => {
-            if (!val || val.trim().length < 2) {
-                dropdown.style.display = 'none';
-                return;
-            }
-
-            // Gather pool cards first
-            const poolMatches = [];
-            if (currentSession && currentSession.source_decks) {
-                for (const d of currentSession.source_decks) {
-                    for (const c of (d.cards || [])) {
-                        if (c.name && c.name.toLowerCase().includes(val.toLowerCase()) && !poolMatches.includes(c.name)) {
-                            poolMatches.push(c.name);
-                        }
+    // Commander/partner fields: the shared CardAutocomplete component
+    // (card_autocomplete.js, loaded versioned in base.html) backed by
+    // GET /api/cards/autocomplete, with the retired-pool cards merged in as a
+    // local extraSource ("From Pool" badge). The old browser-direct Scryfall
+    // call swallowed errors and looked like "no matches"; the shared endpoint
+    // + component surfaces error and degraded states distinctly.
+    function poolCommanderSource(q) {
+        const ql = (q || '').toLowerCase();
+        const matches = [];
+        if (currentSession && currentSession.source_decks) {
+            for (const d of currentSession.source_decks) {
+                for (const c of (d.cards || [])) {
+                    if (c.name && c.name.toLowerCase().includes(ql) && !matches.some(m => m.name === c.name)) {
+                        matches.push({ name: c.name, badge: 'From Pool' });
                     }
                 }
             }
+        }
+        return matches;
+    }
 
-            const scryfallMatches = await searchCardNames(val);
-            const combined = [...new Set([...poolMatches, ...scryfallMatches])].slice(0, 8);
-
-            if (combined.length === 0) {
-                dropdown.style.display = 'none';
-                return;
-            }
-
-            dropdown.innerHTML = '';
-            combined.forEach(name => {
-                const item = document.createElement('div');
-                item.className = 'autocomplete-item';
-                const isPool = poolMatches.includes(name);
-                item.innerHTML = `
-                    <span>${esc(name)}</span>
-                    ${isPool ? '<span class="hud-chip hud-chip--ok badge-source-pool">From Pool</span>' : ''}
-                `;
-                item.onclick = () => {
-                    input.value = name;
-                    dropdown.style.display = 'none';
-                    if (onSelect) onSelect(name);
-                };
-                dropdown.appendChild(item);
-            });
-            dropdown.style.display = 'block';
-        }, 200);
-
-        input.addEventListener('input', (e) => handleInput(e.target.value));
-
-        document.addEventListener('click', (e) => {
-            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
+    function attachCommanderAutocompletes() {
+        if (!window.CardAutocomplete) return;
+        ['pref_cmdr_0', 'pref_partner_cmdr_0', 'pref_cmdr_1', 'pref_partner_cmdr_1'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) CardAutocomplete.attach(el, { extraSource: poolCommanderSource });
         });
-    }
-
-    function onCommanderInput(idx, val) {
-        // Triggered on input change
-    }
-
-    function onPartnerCommanderInput(idx, val) {
-        // Triggered on input change
     }
 
     function togglePartnerSlot(idx) {
@@ -2155,11 +2064,8 @@
 
     // Initialization
     document.addEventListener('DOMContentLoaded', () => {
-        // Setup commander autocompletes
-        setupAutocomplete('pref_cmdr_0', 'cmdrDropdown_0');
-        setupAutocomplete('pref_partner_cmdr_0', 'partnerCmdrDropdown_0');
-        setupAutocomplete('pref_cmdr_1', 'cmdrDropdown_1');
-        setupAutocomplete('pref_partner_cmdr_1', 'partnerCmdrDropdown_1');
+        // Setup commander autocompletes (shared component)
+        attachCommanderAutocompletes();
 
         if (INITIAL_SESSION_ID) {
             loadSession(INITIAL_SESSION_ID);

@@ -9,38 +9,8 @@
     .search-container { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; position: relative; }
     .search-container input { flex: 1; margin-bottom: 0; }
 
-    .add-card-dropdown {
-        display: none;
-        position: absolute;
-        top: calc(100% + 4px);
-        left: 0;
-        right: 0;
-        max-height: 320px;
-        overflow-y: auto;
-        background: #0a0a0a;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        z-index: 20;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    }
-
-    .add-card-dropdown.active { display: block; }
-
-    .add-card-result {
-        padding: 0.6rem 0.85rem;
-        cursor: pointer;
-        border-bottom: 1px solid #111827;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.875rem;
-    }
-
-    .add-card-result:hover { background: var(--row-hover); }
-    .add-card-result:last-child { border-bottom: none; }
-    .add-card-result-meta { color: var(--text-muted); font-size: 0.75rem; }
-
-    .add-card-empty { padding: 0.85rem; color: var(--text-muted); font-size: 0.85rem; }
+    /* The add-card dropdown is the shared hud-autocomplete component
+       (hud.css + card_autocomplete.js); .search-container only anchors it. */
 
     .category-section { margin-bottom: 2.5rem; }
 
@@ -195,6 +165,7 @@
     }
 
     .instance-option:hover { background: var(--row-hover); border-color: var(--accent); }
+    .instance-option-meta { color: var(--text-muted); font-size: 0.75rem; }
 
     #resync-review-panel {
         background: rgba(30, 58, 138, 0.2);
@@ -255,7 +226,6 @@
 
 <div class="search-container">
     <input type="text" id="addCardInput" placeholder="Search cards to add to this deck..." autocomplete="off">
-    <div id="addCardDropdown" class="add-card-dropdown"></div>
 </div>
 
 <div id="manageContainer">
@@ -276,7 +246,6 @@
     const deckIdStr = {{ deck_id | tojson }};
     const deckNameStr = {{ deck_name | tojson }};
     let manageCards = [];
-    let searchDebounce = null;
 
     async function loadManageData() {
         const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/manage`);
@@ -423,67 +392,19 @@
         await loadManageData();
     }
 
-    // --- Add card search ---
+    // --- Add card search: the shared CardAutocomplete component (loaded
+    // versioned in base.html) backed by GET /api/cards/autocomplete. The old
+    // per-page /api/decks/{id}/search dropdown is retired (endpoint kept,
+    // deprecated); picking a suggestion adds the card straight to the deck.
     document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('addCardInput');
-        input.addEventListener('input', () => {
-            clearTimeout(searchDebounce);
-            const q = input.value.trim();
-            if (!q) {
-                closeAddDropdown();
-                return;
-            }
-            searchDebounce = setTimeout(() => runCardSearch(q), 200);
-        });
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-container')) closeAddDropdown();
-        });
+        if (window.CardAutocomplete && input) {
+            CardAutocomplete.attach(input, {
+                emptyText: 'No matching cards found.',
+                onSelect: (card) => addCardToDeck(card.name),
+            });
+        }
     });
-
-    async function runCardSearch(q) {
-        try {
-            const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/search?q=${encodeURIComponent(q)}`);
-            if (!res.ok) {
-                renderAddDropdownError('Search failed (' + res.status + '). Please try again.');
-                return;
-            }
-            let data;
-            try {
-                data = await res.json();
-            } catch (parseErr) {
-                renderAddDropdownError('Search returned an unexpected response. Please try again.');
-                return;
-            }
-            renderAddDropdown(data.results || []);
-        } catch (err) {
-            renderAddDropdownError('Search failed. Please check your connection and try again.');
-        }
-    }
-
-    function renderAddDropdownError(message) {
-        const dropdown = document.getElementById('addCardDropdown');
-        dropdown.innerHTML = `<div class="add-card-empty">${escapeHtml(message)}</div>`;
-        dropdown.classList.add('active');
-    }
-
-    function renderAddDropdown(results) {
-        const dropdown = document.getElementById('addCardDropdown');
-        if (results.length === 0) {
-            dropdown.innerHTML = '<div class="add-card-empty">No matching cards in card_meta.</div>';
-        } else {
-            dropdown.innerHTML = results.map(c => `
-                <div class="add-card-result" onclick="addCardToDeck('${escapeAttr(c.name)}')">
-                    <span>${escapeHtml(c.name)}</span>
-                    <span class="add-card-result-meta">${escapeHtml(c.type || '')}${c.cmc != null ? ' &middot; CMC ' + escapeHtml(c.cmc) : ''}</span>
-                </div>
-            `).join('');
-        }
-        dropdown.classList.add('active');
-    }
-
-    function closeAddDropdown() {
-        document.getElementById('addCardDropdown').classList.remove('active');
-    }
 
     async function addCardToDeck(cardName) {
         const res = await fetch(`/api/decks/${encodeURIComponent(deckIdStr)}/cards`, {
@@ -497,7 +418,6 @@
             return;
         }
         document.getElementById('addCardInput').value = '';
-        closeAddDropdown();
         await loadManageData();
     }
 
@@ -520,7 +440,7 @@
         list.innerHTML = instances.map(inst => `
             <div class="instance-option" onclick="doRemoveInstance('${escapeAttr(inst.instance_id)}')">
                 <span>${escapeHtml(cardName)}</span>
-                <span class="add-card-result-meta">instance ${escapeHtml(inst.instance_id)}</span>
+                <span class="instance-option-meta">instance ${escapeHtml(inst.instance_id)}</span>
             </div>
         `).join('');
         document.getElementById('instancePickerOverlay').classList.add('active');
