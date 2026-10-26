@@ -576,3 +576,26 @@ class CardNotesPutRequest(BaseModel):
 
 class CardNotesResponse(BaseModel):
     affinity: DossierAffinity
+
+
+# --- Player taste profile + feedback (deck reviewer card 04) ----------------
+
+class PlayerProfileResponse(BaseModel):
+    name: str
+    profile: dict
+    provenance: dict
+    versions: list[dict]
+    pending_proposals: list[dict]
+
+
+class PlayerProfilePutRequest(BaseModel):
+    values: dict = Field(description="full profile values (no provenance); edits become 'stated'")
+
+
+class FeedbackRequest(BaseModel):
+    deck_id: str
+    review_id: str
+    cut: str
+    add: str
+    decision: str = Field(description="accepted | rejected | maybe")
+    reason: str = ""
