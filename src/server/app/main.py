@@ -118,6 +118,12 @@ async def github_sync_middleware(request: Request, call_next):
 import src.server.infra.cache.route_cache as route_cache
 app.middleware("http")(route_cache.make_route_cache_middleware(lambda: r))
 
+# Slice 1 typed API (Postgres source of truth): /api/v2/imports, /api/v2/decks,
+# /api/v2/profile. Importing never connects to the DB (lazy engine); requests
+# without a reachable DB answer 503 db_unavailable.
+from src.server.app.api import router as api_v2_router
+app.include_router(api_v2_router)
+
 # Web assets live in src/web/ (slice-0 layout); resolve relative to this file
 # so the app boots regardless of the working directory it is launched from.
 _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "web")

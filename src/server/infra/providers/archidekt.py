@@ -91,6 +91,18 @@ def list_decks(username: str) -> list:
     return deck_ids
 
 
+def fetch_deck_raw(identifier: str) -> dict:
+    """Raw GET /api/decks/{id}/ payload, unmodified.
+
+    Import path (Slice 1): domain.decks.deck_import normalizes this into the
+    Postgres shapes. Raises requests.HTTPError on non-2xx.
+    """
+    deck_id = parse_identifier(identifier)
+    res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/", timeout=20)
+    res.raise_for_status()
+    return res.json()
+
+
 def fetch_deck(identifier: str) -> dict:
     deck_id = parse_identifier(identifier)
     res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/", timeout=20)
