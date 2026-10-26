@@ -123,3 +123,73 @@ def test_apply_and_reconcile(session):
     from src.server.infra.db.models import InstanceEventRow
     n = session.execute(select(func.count()).select_from(InstanceEventRow)).scalar()
     assert n >= 3  # acquired for each; assigned for the in_deck copy
+
+
+def _fk_enforced_session():
+    """SQLite session with FK enforcement ON — the shape that made the
+    missing-printings backfill crash on real Postgres data."""
+    from sqlalchemy import event
+    eng = create_engine("sqlite://", poolclass=StaticPool,
+                        connect_args={"check_same_thread": False})
+
+    @event.listens_for(eng, "connect")
+    def _fk_on(dbapi_conn, _):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(eng)
+    return eng, sessionmaker(bind=eng, expire_on_commit=False)()
+
+
+def _printing_world():
+    store = {"idx:card_name_to_oracle:Alpha": "oid-a"}
+    inst = {"id": "i1", "card_name": "Alpha", "ownership_status": "in_collection",
+            "finish": "nonfoil", "condition": "NM", "date_acquired": "2025-12-01T00:00:00",
+            "archidekt_uid": "arch-uid-123", "notes": ""}
+    store[f"instance:{inst['id']}"] = json.dumps(inst)
+    return FakeRedis(store)
+
+
+def test_apply_backfills_printings_for_archidekt_uids():
+    """Instances carrying an archidekt_uid must get a printings row before
+    insert (card_instances.printing_id FK -> printings.scryfall_id)."""
+    eng, s = _fk_enforced_session()
+    try:
+        result = mig.plan(_printing_world(), s, skip_scryfall=True)
+        assert result["report"]["printings_backfilled"] == 1
+        planned = result["planned"][0]
+        assert planned["printing_id"] == "arch-uid-123"
+        applied = mig.apply_plan(s, result["planned"])
+        assert applied == {"inserted": 1, "skipped_existing": 0}
+        s.flush()  # would raise IntegrityError here without the backfill
+        from src.server.infra.db.models import PrintingRow
+        printing = s.get(PrintingRow, "arch-uid-123")
+        assert printing is not None and printing.oracle_id == "oid-a"
+        # idempotent re-run: no duplicate printings, no inserts
+        result2 = mig.plan(_printing_world(), s, skip_scryfall=True)
+        assert mig.apply_plan(s, result2["planned"]) == {"inserted": 0, "skipped_existing": 1}
+        s.flush()
+    finally:
+        s.close()
+        eng.dispose()
+
+
+def test_backfill_does_not_clobber_import_printing_rows():
+    """A printing row an import already enriched keeps its fields; the
+    migration only fills what is missing."""
+    eng, s = _fk_enforced_session()
+    try:
+        repo.upsert_card(s, {"oracle_id": "oid-a", "name": "Alpha"})
+        repo.upsert_printing(s, {"scryfall_id": "arch-uid-123", "oracle_id": "oid-a",
+                                 "set_code": "lea", "collector_number": "42",
+                                 "rarity": "rare"})
+        result = mig.plan(_printing_world(), s, skip_scryfall=True)
+        assert result["report"]["printings_backfilled"] == 1  # touched, not duplicated
+        assert mig.apply_plan(s, result["planned"]) == {"inserted": 1, "skipped_existing": 0}
+        s.flush()
+        from src.server.infra.db.models import PrintingRow
+        printing = s.get(PrintingRow, "arch-uid-123")
+        assert printing is not None
+        assert (printing.set_code, printing.collector_number, printing.rarity) == ("lea", "42", "rare")
+    finally:
+        s.close()
+        eng.dispose()

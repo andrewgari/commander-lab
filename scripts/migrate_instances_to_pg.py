@@ -145,6 +145,23 @@ def plan(r, session, *, skip_scryfall: bool = False) -> dict:
             unresolved.append(name)
             repo.upsert_card(session, {"oracle_id": oid, "name": name})
 
+    # Ensure printing rows exist for every printing id we are about to
+    # reference: card_instances.printing_id FK -> printings.scryfall_id, and
+    # the Redis record's archidekt_uid is stored as that key (same convention
+    # as the importer). Archidekt uids are not Scryfall-resolvable, so these
+    # are minimal identity rows (oracle link only); upsert never clears richer
+    # fields an import may already have written.
+    printing_oids = {}
+    for inst in instances:
+        pid = inst.get("archidekt_uid") or None
+        if not pid or pid in printing_oids:
+            continue
+        oid = inst.get("oracle_id") or oracle_by_name.get(inst.get("card_name") or "", "")
+        if oid:  # instances without an oracle id are unmappable anyway
+            printing_oids[pid] = oid
+    for pid, oid in printing_oids.items():
+        repo.upsert_printing(session, {"scryfall_id": pid, "oracle_id": oid})
+
     planned, unmappable, unmapped_decks = [], [], []
     for inst in instances:
         name = inst.get("card_name") or ""
@@ -181,6 +198,7 @@ def plan(r, session, *, skip_scryfall: bool = False) -> dict:
         "unmappable_instances": unmappable,
         "unmapped_deck_instances": unmapped_decks,
         "unresolved_cards": sorted(set(unresolved)),
+        "printings_backfilled": len(printing_oids),
         "pg_decks_known": len(deck_map),
     })
     return {"planned": planned, "report": report}
