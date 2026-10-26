@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Quick reviews now use real card data instead of showing cards as unknown.
+
 ### Added
 - Deck reviews (API): build a stored, versioned review for any deck — deterministic fact pack (mana math, curve/tempo, composition, bracket/salt, combos, have/buy), candidate retrieval from EDHREC + your collection, and LLM-written section explanations where every card name is validated against Scryfall before it is stored. Rebuilding an unchanged deck reproduces identical facts under a new version; if the LLM is offline the review still renders with "explanation offline" in place of prose, and document sections and dashboard panels always show the same numbers.
 - Similarity API backed by a rebuildable pgvector index: `/api/v2/analytics/similar-cards/{oracle_id}` and `/similar-decks/{deck_id}` answer from bge-small embeddings of oracle text + learned tags, `/api/v2/analytics/derived-index-status` reports whether the index is fresh or stale, and `python -m src.server.workers.index_rebuild vector` rebuilds the whole index from Postgres in one transaction — the index is a disposable cache, never the source of truth.
