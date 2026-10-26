@@ -200,6 +200,67 @@
 	</section>
 {/if}
 
+<section class="player-profile">
+	<h2>Taste profile</h2>
+	<p class="hint">
+		What the reviewer knows about you. Values you edit are <strong>stated</strong> and are never
+		overwritten by learning. Deck-level intent beats this profile.
+	</p>
+	{#if form?.playerError}
+		<p class="error">{form.playerError}</p>
+	{/if}
+	{#if form?.playerOk}
+		<p class="ok">{form.playerOk}</p>
+	{/if}
+	{#if !data.player}
+		<p class="unavailable">Not available: {data.playerError ?? 'no profile yet'}</p>
+		<form method="POST" action="?/seedPlayer">
+			<button type="submit">Seed from profiles/andrew.json</button>
+		</form>
+	{:else}
+		<form method="POST" action="?/savePlayer">
+			<label for="player-json">Profile values (JSON)</label>
+			<textarea id="player-json" name="values" rows="18" spellcheck="false"
+				>{JSON.stringify(data.player.profile, null, 2)}</textarea
+			>
+			<button type="submit">Save as stated</button>
+		</form>
+
+		<h3>Provenance</h3>
+		<ul class="prov">
+			{#each Object.entries(data.player.provenance) as [key, p] (key)}
+				<li><code>{key}</code> — {p.source} · {fmtTs(p.at)}</li>
+			{/each}
+		</ul>
+
+		<h3>Proposed from your feedback</h3>
+		<form method="POST" action="?/generateProposals">
+			<button type="submit">Look for patterns in my feedback</button>
+		</form>
+		{#if data.player.pending_proposals.length === 0}
+			<p class="hint">No pending proposals.</p>
+		{:else}
+			<ul class="proposals">
+				{#each data.player.pending_proposals as pr (pr.id)}
+					<li>
+						<strong>{pr.op === 'add' ? 'Add' : 'Set'} {pr.path}:</strong>
+						{JSON.stringify(pr.value)}
+						<span class="meta">{pr.rationale}</span>
+						<form method="POST" action="?/confirmProposal" class="inline">
+							<input type="hidden" name="id" value={pr.id} />
+							<button type="submit">Confirm</button>
+						</form>
+						<form method="POST" action="?/dismissProposal" class="inline">
+							<input type="hidden" name="id" value={pr.id} />
+							<button type="submit" class="clear">Dismiss</button>
+						</form>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	{/if}
+</section>
+
 <style>
 	h1 {
 		font-size: 1.5rem;
@@ -282,6 +343,15 @@
 	}
 	.unavailable {
 		opacity: 0.75;
+	}
+	textarea {
+		width: 100%;
+		font-family: monospace;
+		font-size: 0.8rem;
+	}
+	.inline {
+		display: inline-block;
+		margin-left: 0.5rem;
 	}
 	.steered ul {
 		margin: 0;

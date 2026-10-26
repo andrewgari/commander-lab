@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quick reviews now use real card data instead of showing cards as unknown.
 
 ### Added
+- Taste profile: the Profile page now has a section that stores what the deck reviewer should know about you (identity, color and archetype leanings, pet cards, dislikes, budget, review style) in Postgres, seeded from `profiles/andrew.json`. Every value records whether you stated it or it was learned from your swap feedback, and your own statements are never overwritten. Accept/reject/maybe answers on suggested swaps are stored; patterns in them (e.g. a card you keep rejecting) show up as proposals that only change your profile after you confirm them.
 - Deck reviewer groundwork (internal): the fact pack now covers curve, mana/colored sources vs published norms, role counts, bracket reasons, Commander Spellbook combos and near-misses, EDHREC deviation, salt, synergy clusters/orphans and chart data, each with its source and fetch time or an explicit "unavailable" reason; a candidate pool of legal, in-identity, in-budget swap options (owned cards first) is built for later review passes. No user-visible change yet.
 - Deck reviewer groundwork (internal): approved design decisions and the `review_document` v1 JSON Schema, with a fixture and validation tests. No user-visible change yet.
 - Show human-relative release age (e.g. "3 hours ago") next to release dates on the changelog page.
