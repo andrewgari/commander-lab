@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Quick reviews now use real card data instead of showing cards as unknown.
+- Brew/Reconstruct/Manage card search fields now share one autocomplete; the Brew commander field selects the top suggestion on Enter so Generate enables.
 
 ### Added
 - Deck pages: a Copy decklist control copies the deck as paste-ready text in one click — Plain by default, with Archidekt, Moxfield, Forge and TCGplayer formats, optional sideboard/maybeboard/printing toggles, your last format remembered between visits, a "Copied!" confirmation, and a select-all manual-copy fallback when the clipboard is unavailable.
