@@ -1,4 +1,35 @@
 services:
+  # Prebuild on Tower (docker/db/README.md). Never reuse an existing PGDATA.
+  # This adds no application DB wiring or Redis->Postgres cutover in slice 0.
+  db:
+    image: commander-lab-db:pg17-vector0.8.2-age1.6.0
+    pull_policy: never
+    container_name: commander-lab-db
+    restart: unless-stopped
+    shm_size: "256m"
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_DB: commander_lab
+      POSTGRES_USER: commander_lab
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      # Direct SSD pool path bypasses Unraid FUSE/shfs for database I/O.
+      - /mnt/config/appdata/commander-lab/pgdata:/var/lib/postgresql/data
+      - /mnt/config/appdata/commander-lab/secrets/postgres_password:/run/secrets/postgres_password:ro
+    healthcheck:
+      test: ["CMD", "commander-db-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks:
+      - internal
+    labels:
+      net.unraid.docker.managed: compose-manager
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/postgres.png"
+      com.centurylinklabs.watchtower.enable: "false"
+
   redis:
     image: redis:alpine
     container_name: commander-lab-redis
