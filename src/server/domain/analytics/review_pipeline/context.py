@@ -105,14 +105,17 @@ class ReviewContext:
         if isinstance(combos, Mapping):
             for c in combos.get("near_misses") or []:
                 foreign.update(n for n in c.get("card_names") or [] if n not in deck_set)
+        resolver = CardResolver(ids)
+        # A name that resolves to a deck card (incl. one face of a double-faced card) is NOT foreign.
+        foreign = {n for n in foreign if isinstance(n, str) and n and n not in deck_set and resolver.resolve(n) is None}
         pack_hash = fact_pack.hash if isinstance(fact_pack, FactPack) else FactPack(dict(fact_pack)).hash
         return cls(
             deck_id=deck_id, deck_name=deck_name, commanders=tuple(commanders), deck_cards=tuple((n, q) for n, q in deck_cards),
-            index=index, resolver=CardResolver(ids),
+            index=index, resolver=resolver,
             card_table=fx.render_card_table(fact_pack, deck_cards, owned=owned, commanders=commanders),
             profile_block=pp.render_profile_for_prompt(profile, intent),
             intent_text="\n".join(lines) if lines else NO_INTENT, has_stated_intent=bool(lines),
             has_stated_power=bool((intent and (intent.target_bracket is not None or intent.target_power_level.tier != _DEFAULT_TIER))
                                   or eff.power_tendencies.tier),
             fact_pack_hash=pack_hash,
-            foreign_names=frozenset(n for n in foreign if isinstance(n, str) and n and n not in deck_set))
+            foreign_names=frozenset(foreign))

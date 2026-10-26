@@ -29,6 +29,19 @@ class ContextTests(unittest.TestCase):
         self.assertIn("Sol Ring", ctx.card_table)
         self.assertEqual(len(ctx.fact_pack_hash), 64)
 
+    def test_front_face_of_a_double_faced_deck_card_is_not_foreign(self):
+        # Regression from the first live run: 'Storm the Vault' (front face of a DFC in the deck) was in the
+        # EDHREC/near-miss foreign set, so valid findings naming it were dropped.
+        import copy
+        pk = copy.deepcopy(h.pack())
+        dfc = dict(pk["cards"][0], name="Storm the Vault // Vault of Catlacan", oracle_id="00000000-0000-4000-8000-0000000000ff")
+        pk["cards"].append(dfc)
+        ctx = context.ReviewContext.build(
+            deck_id="d1", deck_name="T", fact_pack=pk, deck_cards=h.DECK_CARDS + [(dfc["name"], 1)], commanders=["Lara"],
+            profile=h.profile(), intent=None, extra_foreign_names=["Storm the Vault", "Cyclonic Rift"])
+        self.assertNotIn("Storm the Vault", ctx.foreign_names)
+        self.assertIn("Cyclonic Rift", ctx.foreign_names)
+
     def test_missing_intent_is_rendered_explicitly(self):
         ctx = make_ctx(intent_text=None)
         self.assertIn("No deck intent recorded", ctx.intent_text)
