@@ -375,6 +375,41 @@ class TestChangelogRelativeAgeBehavior(unittest.TestCase):
         for x in r:
             self.assertNotRegex(x["text"], r"min|hour|just now")
 
+    def test_timestamp_yesterday_threshold(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        iso = lambda h: (now - dt.timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": iso(h), "text": "D"} for h in (25, 30)])
+        for x in r:
+            self.assertEqual(x["text"], "yesterday \u00b7 D")
+
+    def test_relative_age_precedes_formatted_date_in_output(self):
+        import datetime as dt
+
+        attr = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        text = self.run_cases([{"attr": attr, "text": "2026-09-29"}])[0]["text"]
+        self.assertLess(text.index("5 min ago"), text.index("2026-09-29"))
+
+    def test_date_only_dst_span_stays_calendar_correct(self):
+        import datetime as dt
+
+        today = dt.date.today()
+        # 7 and 13 calendar days back must stay "last week" regardless of
+        # any DST shift between then and now (no off-by-one into 6 days/14).
+        r = self.run_cases(
+            [
+                {"attr": (today - dt.timedelta(days=d)).isoformat(), "text": "D"}
+                for d in (6, 7, 13, 14)
+            ]
+        )
+        self.assertEqual(r[0]["text"], "6 days ago \u00b7 D")
+        self.assertEqual(r[1]["text"], "last week \u00b7 D")
+        self.assertEqual(r[2]["text"], "last week \u00b7 D")
+        self.assertEqual(r[3]["text"], "D")
+
     def test_invalid_datetime_left_untouched(self):
         r = self.run_cases([{"attr": "garbage", "text": "D"}, {"attr": "", "text": "D"}])
         self.assertEqual([x["text"] for x in r], ["D", "D"])
