@@ -1,6 +1,5 @@
 """Typed API (mounted at /api/v2): imports, decks, inventory, profile, games,
-<<<<<<< HEAD
-reviews, draft mode.
+draft mode, reviews.
 
 Thin routers only: parse request -> call infra services/repos -> serialize
 pydantic responses (AGENT_RULES.md §6). Business logic lives in domain/,
