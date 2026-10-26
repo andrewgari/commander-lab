@@ -23,8 +23,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import identity
-from analytics.interactions import llm as llm_mod
+from src.server.domain.analytics import identity
+from src.server.domain.analytics.interactions import llm as llm_mod
 from tests.test_interactions import FakeRedis
 from tests.test_pillar_fit import HashEmbedder, load_hh
 
@@ -295,8 +295,8 @@ class TestRebuildIntegration(unittest.TestCase):
     """service.rebuild drafts identities for changed decks and logs the calls in the run."""
 
     def test_rebuild_drafts_and_logs_pillar_calls(self):
-        from analytics.interactions import service
-        from analytics import embeddings
+        from src.server.domain.analytics.interactions import service
+        from src.server.domain.analytics import embeddings
         from tests.test_interactions import FakeScryfall
 
         r = FakeRedis()
@@ -330,14 +330,14 @@ class TestRebuildIntegration(unittest.TestCase):
 class TestIdentityRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
-        import app as app_mod
+        from src.server.app.main import app
+        import src.server.app.main as app_mod
         self.app_mod = app_mod
         self.client = TestClient(app)
         self.deck, _ = load_hh()
         self.fake = FakeRedis()
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_get_without_identity(self, mock_registry):
         mock_registry.find_deck.return_value = self.deck
         with patch.object(self.app_mod, "r", self.fake):
@@ -347,7 +347,7 @@ class TestIdentityRoutes(unittest.TestCase):
         self.assertIsNone(body["thesis"])
         self.assertEqual(body["pillars"], [])
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_patch_unknown_pillar_404_and_bad_action_400(self, mock_registry):
         mock_registry.find_deck.return_value = self.deck
         with patch.object(self.app_mod, "r", self.fake):
@@ -361,7 +361,7 @@ class TestIdentityRoutes(unittest.TestCase):
             self.assertEqual(self.client.patch(f"/api/decks/archidekt:417707/identity/pillars/{pid}",
                                                json={"action": "explode"}).status_code, 400)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_unknown_deck(self, mock_registry):
         mock_registry.find_deck.return_value = None
         mock_registry.list_decks.return_value = []

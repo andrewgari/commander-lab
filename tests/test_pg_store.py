@@ -12,14 +12,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from analytics import composition_pg_store as pg
-from analytics.composition_models import (
+from src.server.domain.analytics import composition_pg_store as pg
+from src.server.domain.analytics.composition_models import (
     CompositionValidationError, KIND_USER, MODE_AUTO, MODE_PINNED,
 )
-from db.config import get_settings, normalize_url
-from db.engine import dispose_engine, get_engine, make_engine
-from db.orm_models import Base
-from db.session import session_scope
+from src.server.infra.db.config import get_settings, normalize_url
+from src.server.infra.db.engine import dispose_engine, get_engine, make_engine
+from src.server.infra.db.orm_models import Base
+from src.server.infra.db.session import session_scope
 
 
 def _slot(ref, target=None):
@@ -110,7 +110,7 @@ def test_rollback_discards_all_writes(factory):
 
 def test_matches_redis_store_shape(factory):
     """Same inputs produce the same dict keys as the Redis store."""
-    from analytics import composition_store as rs
+    from src.server.domain.analytics import composition_store as rs
     from tests.test_interactions import FakeRedis
     r = FakeRedis()
     expected = rs.create_preset(r, _raw())

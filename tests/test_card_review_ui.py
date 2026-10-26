@@ -16,13 +16,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-BASE_HTML = ROOT / "templates" / "base.html"
-HUD_JS = ROOT / "static" / "js" / "hud.js"
-CR_JS = ROOT / "static" / "js" / "card_review.js"
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
+BASE_HTML = ROOT / "src/web/templates" / "base.html"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
+CR_JS = ROOT / "src/web/static" / "js" / "card_review.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
 FIX = ROOT / "tests" / "fixtures"
 
 
@@ -80,7 +80,7 @@ class TestDeckPage(unittest.TestCase):
 
     def test_base_html_script_ordering(self):
         base_html = BASE_HTML.read_text()
-        hud_pos = base_html.find('static/js/hud.js')
+        hud_pos = base_html.find('/static/js/hud.js')
         extra_js_pos = base_html.find('{% block extra_js %}')
         self.assertNotEqual(hud_pos, -1, "hud.js must be present in base.html")
         self.assertNotEqual(extra_js_pos, -1, "extra_js block must be present in base.html")

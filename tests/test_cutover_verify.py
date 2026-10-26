@@ -12,9 +12,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import redis_pg_import as imp
-from db.config import cutover_enabled
-from analytics.deck_links_repository import (
+import src.server.workers.redis_pg_import as imp
+from src.server.infra.db.config import cutover_enabled
+from src.server.domain.analytics.deck_links_repository import (
     PgDeckLinksRepository,
     RedisDeckLinksRepository,
     ReadOnlyError,
@@ -31,7 +31,7 @@ DSN = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
 
 _migration_spec = importlib.util.spec_from_file_location(
     "a001_create_users_deck_links",
-    REPO_ROOT / "db" / "migrations" / "versions" / "a001_create_users_deck_links.py",
+    REPO_ROOT / "src" / "server" / "infra" / "db" / "migrations" / "versions" / "a001_create_users_deck_links.py",
 )
 _migration = importlib.util.module_from_spec(_migration_spec)
 _migration_spec.loader.exec_module(_migration)

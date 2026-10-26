@@ -13,7 +13,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from decklist_parser import (
+from src.server.domain.intake.decklist_parser import (
     DeckSection,
     ParsedCard,
     ParsedDeck,

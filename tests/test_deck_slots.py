@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_slots
-from deck_slots import DeckSlot
+import src.server.domain.decks.deck_slots as deck_slots
+from src.server.domain.decks.deck_slots import DeckSlot
 
 
 class TestDeckSlotModel(unittest.TestCase):
@@ -92,9 +92,9 @@ class TestProviderSlotNormalization(unittest.TestCase):
             "card": {"oracleCard": {"name": name, "types": types, "colorIdentity": []}},
         }
 
-    @patch("providers.archidekt.requests.get")
+    @patch("src.server.infra.providers.archidekt.requests.get")
     def test_archidekt_planar_and_sideboard_slots(self, mock_get):
-        from providers import archidekt
+        from src.server.infra.providers import archidekt
 
         payload = self._archidekt_payload([
             self._archidekt_card("Missy", ["Commander"], ["Creature"]),
@@ -120,9 +120,9 @@ class TestProviderSlotNormalization(unittest.TestCase):
         self.assertEqual([c["name"] for c in deck["slots"]["considering"]], ["Rhystic Study"])
         self.assertIn(deck_slots.SIDEBOARD_MAPPED_FLAG, deck["parse_flags"])
 
-    @patch("providers.archidekt.requests.get")
+    @patch("src.server.infra.providers.archidekt.requests.get")
     def test_archidekt_attraction_deck(self, mock_get):
-        from providers import archidekt
+        from src.server.infra.providers import archidekt
 
         payload = self._archidekt_payload([
             self._archidekt_card("The Most Dangerous Gamer", ["Commander"], ["Creature"]),
@@ -135,9 +135,9 @@ class TestProviderSlotNormalization(unittest.TestCase):
         self.assertEqual(deck["slots"]["attraction_deck"][0]["quantity"], 2)
         self.assertNotIn("Balloon Stand", {c["name"] for c in deck["cards"]})
 
-    @patch("providers.moxfield.requests.get")
+    @patch("src.server.infra.providers.moxfield.requests.get")
     def test_moxfield_boards_to_slots(self, mock_get):
-        from providers import moxfield
+        from src.server.infra.providers import moxfield
 
         payload = {
             "publicId": "abc",
@@ -177,7 +177,7 @@ class _FakeRedis(dict):
 class TestRegistrySlotPersistence(unittest.TestCase):
     def test_upsert_persists_slots(self):
         import json as _json
-        import registry
+        import src.server.domain.decks.registry as registry
 
         r = _FakeRedis()
         normalized = {
@@ -189,8 +189,8 @@ class TestRegistrySlotPersistence(unittest.TestCase):
             }),
             "parse_flags": [],
         }
-        with patch("registry.apply_folder_rule", lambda *a, **k: None), \
-             patch("registry.r_get", create=True):
+        with patch("src.server.domain.decks.registry.apply_folder_rule", lambda *a, **k: None), \
+             patch("src.server.domain.decks.registry.r_get", create=True):
             deck = registry.upsert_deck(r, normalized)
         self.assertEqual(
             deck["slots"]["planar_deck"], [{"name": "The Abyssal Plane", "quantity": 1}]
@@ -201,7 +201,7 @@ class TestRegistrySlotPersistence(unittest.TestCase):
 
     def test_load_migrates_legacy_sideboard(self):
         import json as _json
-        import registry
+        import src.server.domain.decks.registry as registry
 
         r = _FakeRedis()
         r.set(registry.DECKS_KEY, _json.dumps([{
@@ -219,7 +219,7 @@ class TestRegistrySlotPersistence(unittest.TestCase):
 
     def test_update_deck_cards_writes_slots(self):
         import json as _json
-        import registry
+        import src.server.domain.decks.registry as registry
 
         r = _FakeRedis()
         r.set(registry.DECKS_KEY, _json.dumps([{
@@ -239,7 +239,7 @@ class TestRegistrySlotPersistence(unittest.TestCase):
 
 class TestSyncMergeSlots(unittest.TestCase):
     def test_merge_normalized_decks_merges_slots(self):
-        from deck_sync import merge_normalized_decks
+        from src.server.domain.decks.deck_sync import merge_normalized_decks
 
         fetched = {
             "archidekt": {
@@ -273,7 +273,7 @@ class TestSyncMergeSlots(unittest.TestCase):
 
 class TestIntakeSlots(unittest.TestCase):
     def test_intake_parse_sideboard_flag_and_slots(self):
-        from deck_intake import process_deck_intake
+        from src.server.domain.intake.deck_intake import process_deck_intake
 
         decklist = (
             "Commander\n1 Missy\n\nDeck\n1 Sol Ring\n\n"
@@ -293,7 +293,7 @@ class TestIntakeSlots(unittest.TestCase):
         self.assertEqual(migrated["slots"]["planar_deck"][0]["name"], "The Abyssal Plane")
 
     def test_intake_structured_sideboard_section_remapped(self):
-        from deck_intake import process_deck_intake
+        from src.server.domain.intake.deck_intake import process_deck_intake
 
         cards = [
             {"name": "Missy", "section": "commander"},

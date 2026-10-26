@@ -9,10 +9,10 @@ import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import role_tags as RT
-from analytics import archetypes as AR
-from analytics import genres as G
-from analytics.interactions.vocab import RESOURCES
+from src.server.domain.analytics import role_tags as RT
+from src.server.domain.analytics import archetypes as AR
+from src.server.domain.analytics import genres as G
+from src.server.domain.analytics.interactions.vocab import RESOURCES
 
 
 class FakeRedis:

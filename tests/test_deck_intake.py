@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 # Ensure repository root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.models import (
+from src.server.domain.analytics.models import (
     CardRecommendations,
     DeckAnalyticsResult,
     DeckPopularity,
@@ -29,8 +29,8 @@ from analytics.models import (
     PowerScore,
     SaltScore,
 )
-from analytics.provider import BaseAnalyticsProvider
-from deck_intake import (
+from src.server.domain.analytics.provider import BaseAnalyticsProvider
+from src.server.domain.intake.deck_intake import (
     ConsolidatedDeckIntake,
     DeckIntakeError,
     DeckIntakePayload,
@@ -40,7 +40,7 @@ from deck_intake import (
     process_deck_intake,
     validate_deck_intake,
 )
-import intake
+import src.server.domain.intake.intake as intake
 
 
 class MockAnalyticsProvider(BaseAnalyticsProvider):
@@ -315,7 +315,7 @@ Deck
 
     def test_decklist_input_analytics_model_intake(self):
         """Verify intake accepts a DecklistInput domain model as input."""
-        from analytics.models import CommanderIdentifier, DeckCardEntry
+        from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry
         dl_input = DecklistInput(
             deck_id="dl-99",
             name="Lathril Elves",

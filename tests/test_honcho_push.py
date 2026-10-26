@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from forge_recorder import honcho_push
+from src.server.workers.forge_recorder import honcho_push
 
 
 def _write_profile(tmp_path):

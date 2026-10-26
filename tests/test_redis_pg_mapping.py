@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from db.orm_models import Base
+from src.server.infra.db.orm_models import Base
 
 M = json.loads((pathlib.Path(__file__).parent.parent / "docs/redis_pg/mapping.json").read_text())
 EXPECTED = {"comp:presets", "github_changelog_stale", "github_latest_version_stale",

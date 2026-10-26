@@ -14,12 +14,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from analytics import composition_pg_store as pg
-from analytics.composition_models import CompositionValidationError
-from analytics.repository_interfaces import NotFoundError, Repository
-from analytics.composition_repository import CompositionPresetRepository
-from db.orm_models import Base
-from db.session import session_scope
+from src.server.domain.analytics import composition_pg_store as pg
+from src.server.domain.analytics.composition_models import CompositionValidationError
+from src.server.domain.analytics.repository_interfaces import NotFoundError, Repository
+from src.server.domain.analytics.composition_repository import CompositionPresetRepository
+from src.server.infra.db.orm_models import Base
+from src.server.infra.db.session import session_scope
 
 
 class FakeStore:

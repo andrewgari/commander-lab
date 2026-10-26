@@ -3,10 +3,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from analytics.composition_repository import CompositionPresetRepository
-from analytics.repository_interfaces import NotFoundError, Repository
-from analytics import composition_service as svc
-from route_cache import make_route_cache_middleware
+from src.server.domain.analytics.composition_repository import CompositionPresetRepository
+from src.server.domain.analytics.repository_interfaces import NotFoundError, Repository
+from src.server.domain.analytics import composition_service as svc
+from src.server.infra.cache.route_cache import make_route_cache_middleware
 
 
 class FakeRedis:
@@ -62,8 +62,8 @@ def test_repository_contract():
 
 def test_service_uses_repository(monkeypatch):
     fs = FakeStore()
-    monkeypatch.setattr("analytics.composition_repository.composition_store", fs)
-    from analytics import composition_repository as cr
+    monkeypatch.setattr("src.server.domain.analytics.composition_repository.composition_store", fs)
+    from src.server.domain.analytics import composition_repository as cr
     monkeypatch.setattr(cr, "get_preset_repository", lambda c: CompositionPresetRepository(c, store=fs))
     monkeypatch.setattr(svc, "get_preset_repository", cr.get_preset_repository)
     svc.create(None, {"id": "p1"})

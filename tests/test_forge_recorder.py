@@ -13,9 +13,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from db.orm_models import Base, UserRow
-from db.session import session_scope
-from forge_recorder import analyzer, parser, store
+from src.server.infra.db.orm_models import Base, UserRow
+from src.server.infra.db.session import session_scope
+from src.server.workers.forge_recorder import analyzer, parser, store
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -206,8 +206,8 @@ def test_sim_game_stored_but_not_profiled(factory):
 @pytest.fixture()
 def client(factory, monkeypatch):
     from fastapi.testclient import TestClient
-    import app as app_mod
-    from forge_recorder import store as store_mod
+    import src.server.app.main as app_mod
+    from src.server.workers.forge_recorder import store as store_mod
 
     monkeypatch.setattr(store_mod, "session_scope",
                         lambda: session_scope(factory))

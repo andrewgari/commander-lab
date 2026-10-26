@@ -9,13 +9,13 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card_eval import Candidate, EvaluationResult
-from analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
-from analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
-from analytics.card_review import jobs
-from analytics.card_review.debate import extract_json, final_confidence
-from analytics.card_review.packet import build_packet, packet_numbers
-from analytics.card_review.replacements import suggest_replacements
+from src.server.domain.analytics.card_eval import Candidate, EvaluationResult
+from src.server.domain.analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
+from src.server.domain.analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
+from src.server.domain.analytics.card_review import jobs
+from src.server.domain.analytics.card_review.debate import extract_json, final_confidence
+from src.server.domain.analytics.card_review.packet import build_packet, packet_numbers
+from src.server.domain.analytics.card_review.replacements import suggest_replacements
 
 
 # ---- fixtures -------------------------------------------------------------------------------------
@@ -347,8 +347,8 @@ def test_game_changer_penalty_is_a_flag_not_a_filter():
 
 
 def test_card_source_tiers_applied():
-    from analytics.card_review.replacements import suggest_replacements
-    from analytics.card_review import config as cfg
+    from src.server.domain.analytics.card_review.replacements import suggest_replacements
+    from src.server.domain.analytics.card_review import config as cfg
     cfg.VERY_STRONG_THRESHOLD = 0.0
     cands = [cand("BuyMe", ["board_wipe"], inc=0.9, syn=0.5), cand("DonorMe", ["board_wipe"], inc=0.8, syn=0.4), cand("FreeMe", ["board_wipe"], inc=0.7, syn=0.3, owned=True)]
     
@@ -434,14 +434,14 @@ DECK_REC = {"id": 1, "source": "archidekt", "source_id": 1, "name": "Krenko", "c
 @pytest.fixture
 def client():
     from fastapi.testclient import TestClient
-    from app import app
+    from src.server.app.main import app
     r = FakeRedis()
     llm = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
-    with patch("app.r", r), patch("app.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
-            patch("app._oracle_preflight", return_value=None), patch("app._card_review_llm", return_value=llm), \
-            patch("analytics.card_review.service.build_context", return_value=ctx()), \
-            patch("analytics.card_review.service.evaluate_card", return_value=make_ev()), \
-            patch("analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
+    with patch("src.server.app.main.r", r), patch("src.server.app.main.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
+            patch("src.server.app.main._oracle_preflight", return_value=None), patch("src.server.app.main._card_review_llm", return_value=llm), \
+            patch("src.server.domain.analytics.card_review.service.build_context", return_value=ctx()), \
+            patch("src.server.domain.analytics.card_review.service.evaluate_card", return_value=make_ev()), \
+            patch("src.server.domain.analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
         yield TestClient(app), llm
 
 
