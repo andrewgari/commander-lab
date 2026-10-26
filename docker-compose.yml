@@ -49,6 +49,8 @@ services:
       - "8010:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      # Slice 1: Postgres is truth for imported decks/collection/profile (AGENT_RULES.md).
+      - DATABASE_URL=postgresql://commander_lab:${COMMANDER_DB_PASSWORD}@db:5432/commander_lab
       - DATA_ACCESS_MODE=${DATA_ACCESS_MODE:-readwrite}
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
@@ -61,10 +63,30 @@ services:
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     volumes:
       - app_data:/data
     command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - internal
+
+  # Slice 1: SvelteKit frontend (src/web) — replaces Jinja pages for imported decks.
+  web:
+    image: commander-lab-web:${TAG:-latest}
+    build:
+      context: ./src/web
+    container_name: commander-lab-web
+    pull_policy: build
+    restart: unless-stopped
+    ports:
+      - "8011:3000"
+    environment:
+      - COMMANDER_API_URL=http://app:8000
+    depends_on:
+      - app
     networks:
       - internal
 

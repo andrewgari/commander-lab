@@ -112,3 +112,142 @@ class PlayStyleProfileRow(Base):
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+# ---------------------------------------------------------------------------
+# Slice 1 core tables (ARCHITECTURE.md §4.2; DDL in migrations/a003_slice1_core).
+# ---------------------------------------------------------------------------
+
+class CardRow(Base):
+    """Scryfall oracle-card mirror. Facts only; refreshed by sync jobs."""
+    __tablename__ = "cards"
+    oracle_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type_line: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    oracle_text: Mapped[str] = mapped_column(String, nullable=False, default="")
+    mana_cost: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    colors: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    color_identity: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    cmc: Mapped[float] = mapped_column(nullable=False, default=0)
+    keywords: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    legalities: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    image_uri: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    etag: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    refreshed_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class PrintingRow(Base):
+    __tablename__ = "printings"
+    scryfall_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), nullable=False
+    )
+    set_code: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    collector_number: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    rarity: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    prices: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class DeckRow(Base):
+    """A Commander Lab-owned deck. ``id`` is the registry id
+    (``archidekt:{archidekt_id}`` for imported decks)."""
+    __tablename__ = "decks"
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    archidekt_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="virtual")
+    color_identity: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    commanders: Mapped[Any] = mapped_column(JsonType, nullable=False, default=list)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    archived_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class DeckCardRow(Base):
+    __tablename__ = "deck_cards"
+    deck_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("decks.id"), primary_key=True
+    )
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), primary_key=True
+    )
+    qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    board: Mapped[str] = mapped_column(String(16), primary_key=True)
+    category: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class CardInstanceRow(Base):
+    """One row per physical copy; carries the instances.py ownership states."""
+    __tablename__ = "card_instances"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    oracle_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("cards.oracle_id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="not_owned")
+    deck_id: Mapped[Optional[str]] = mapped_column(
+        String(255), ForeignKey("decks.id"), nullable=True
+    )
+    finish: Mapped[str] = mapped_column(String(32), nullable=False, default="nonfoil")
+    condition: Mapped[str] = mapped_column(String(16), nullable=False, default="NM")
+    acquired_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    notes: Mapped[str] = mapped_column(String, nullable=False, default="")
+    set_code: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    collector_number: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    price_paid: Mapped[float] = mapped_column(nullable=False, default=0)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    considered_for_deck: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    legacy_deck_ref: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class InstanceEventRow(Base):
+    """Append-only provenance log for physical copies."""
+    __tablename__ = "instance_events"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    instance_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("card_instances.id"), nullable=False
+    )
+    ts: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    from_deck: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    to_deck: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    draft_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class ProfileSnapshotRow(Base):
+    """Append-only profile history; current profile = latest snapshot."""
+    __tablename__ = "profile_snapshots"
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False)
+    inputs: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    metrics: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    summary_text: Mapped[str] = mapped_column(String, nullable=False, default="")
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
