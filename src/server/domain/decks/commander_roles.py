@@ -196,3 +196,64 @@ def roles_for_decks(r, decks):
     for d in decks:
         d["commander_roles"] = deck_commanders(d, cards)
     return decks
+
+
+# ---------------------------------------------------------------------------
+# Functional roles (deck reviewer fact pack)
+# ---------------------------------------------------------------------------
+# Not command-zone roles: what a card DOES in the 99. ramp / draw / targeted
+# removal / wipes reuse the Command Zone template classifier already used by
+# the composition view (analytics/composition.py) so the two never disagree;
+# protection, recursion and tutors are added here. All are oracle-text
+# heuristics, deterministic, no network, no LLM.
+
+FUNCTION_ROLES = ("ramp", "draw", "targeted_removal", "wipes", "protection", "recursion", "tutors")
+
+_COMPOSITION_TO_ROLE = {"ramp": "ramp", "card_advantage": "draw",
+                        "targeted_disruption": "targeted_removal", "mass_disruption": "wipes"}
+
+_EXTRA_RAMP_RE = (
+    # land fetch by basic land TYPE name (Farseek, Nature's Lore), which composition's "lands?" pattern misses
+    re.compile(r"search your library for [^.]*\b(?:plains|island|swamp|mountain|forest)\b[^.]*onto the battlefield"),
+)
+_EXTRA_WIPE_RE = (re.compile(r"\b(?:all|each) creatures? gets? -x/-x"),)
+
+_PROTECTION_RE = (
+    re.compile(r"\b(?:gains?|have|has|gets?) (?:[^.]*?\b)?(?:hexproof|indestructible|protection from|shroud)\b"),
+    re.compile(r"\bphase[sd]? out\b"),
+    re.compile(r"\bcounter target (?:spell|ability) that targets\b"),
+)
+_RECURSION_RE = (
+    re.compile(r"\breturn [^.]*?\bfrom (?:your|a|target player's|an opponent's) graveyard (?:to|onto) "
+               r"(?:the battlefield|your hand)\b"),
+    re.compile(r"\bput [^.]*?\bfrom (?:your|a|target player's) graveyard onto the battlefield\b"),
+    re.compile(r"\byou may cast [^.]*?\bfrom your graveyard\b"),
+    re.compile(r"\benchant creature card in a graveyard\b"),  # Animate Dead family
+)
+_TUTOR_RE = re.compile(
+    r"\bsearch your library for (?:a|an|up to \w+|x|that many) "
+    r"(?!(?:basic |snow(?:-covered)? |snow )?(?:lands?|plains|islands?|swamps?|mountains?|forests?)\b)[^.]*?\bcards?\b")
+
+
+def function_roles(card):
+    """Functional roles for one card: subset of FUNCTION_ROLES, [] for lands/unknown.
+    `card`: {name?, type_line, oracle_text}."""
+    from src.server.domain.analytics import composition as comp  # lazy: avoid import cycle
+
+    card = card or {}
+    rows = comp.classify_card(card.get("name") or "", card)
+    if rows == ["lands"]:
+        return []
+    roles = [_COMPOSITION_TO_ROLE[r] for r in rows if r in _COMPOSITION_TO_ROLE]
+    text = comp._norm(card.get("oracle_text") or "")
+    if "ramp" not in roles and any(p.search(text) for p in _EXTRA_RAMP_RE):
+        roles.append("ramp")
+    if "wipes" not in roles and any(p.search(text) for p in _EXTRA_WIPE_RE):
+        roles.append("wipes")
+    if any(p.search(text) for p in _PROTECTION_RE):
+        roles.append("protection")
+    if any(p.search(text) for p in _RECURSION_RE):
+        roles.append("recursion")
+    if _TUTOR_RE.search(text):
+        roles.append("tutors")
+    return [r for r in FUNCTION_ROLES if r in roles]

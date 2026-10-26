@@ -1,0 +1,5 @@
+must_mention: []        # findings a great review has to surface
+must_not_recommend: []  # cards/strategies that should never be suggested
+known_strengths: []
+known_flaws: []
+owner_would_reject: []  # suggestions Andrew would dismiss, and why

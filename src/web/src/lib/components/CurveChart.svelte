@@ -4,7 +4,7 @@
 	// §1 leaves that choice open; SVG keeps the page dependency-free).
 	interface Props {
 		buckets: number[]; // index 0..6 = MV, index 7 = "7+"
-		lands?: number;
+		lands?: number | null;
 		avgMv?: number | null;
 	}
 
@@ -40,7 +40,7 @@
 	<figcaption>
 		Mana curve (non-land spells)
 		{#if avgMv !== null}· avg MV {avgMv}{/if}
-		· {lands} lands
+		{#if lands !== null}· {lands} lands{/if}
 	</figcaption>
 </figure>
 
@@ -54,7 +54,7 @@
 		height: auto;
 	}
 	.bar {
-		fill: #4a7dbd;
+		fill: var(--data, #4a7dbd);
 	}
 	.count {
 		font-size: 9px;

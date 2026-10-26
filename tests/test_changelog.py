@@ -214,6 +214,58 @@ class TestChangelog(unittest.TestCase):
 
     @patch("src.server.app.main.r")
     @patch("httpx.AsyncClient")
+    def test_changelog_release_date_carries_datetime_attr_for_relative_age(
+        self, mock_client_cls, mock_redis
+    ):
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "1.2.0",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(self.sample_releases),
+        }.get(key)
+
+        response = self.client.get("/changelog")
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        # The <time> tag carries the full ISO timestamp for the relative-age
+        # script, plus the date-only text as fallback content and title.
+        self.assertIn('datetime="2026-09-29T18:00:00Z"', html)
+        self.assertIn("data-rel", html)
+        self.assertIn('title="2026-09-29"', html)
+        # Date-only values never get an hour/minute phrase.
+        self.assertIn("DATE_ONLY", html)
+        # The inline relative-age script targets exactly these tags.
+        self.assertIn('querySelectorAll("time[data-rel]")', html)
+
+    @patch("src.server.app.main.r")
+    @patch("httpx.AsyncClient")
+    def test_changelog_release_without_published_at_degrades_to_unknown_date(
+        self, mock_client_cls, mock_redis
+    ):
+        releases = [
+            {
+                "tag_name": "v0.0.1",
+                "name": "v0.0.1",
+                "published_at": None,
+                "prerelease": False,
+                "body": "Old release with no timestamp.",
+            }
+        ]
+        mock_redis.get.side_effect = lambda key: {
+            github_sync.CACHE_VERSION_KEY: "0.0.1",
+            github_sync.CACHE_CHANGELOG_KEY: json.dumps(releases),
+        }.get(key)
+
+        response = self.client.get("/changelog")
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        self.assertIn("Unknown date", html)
+        # The datetime attribute must not be a parseable-looking empty string
+        # that the JS could mis-render; it echoes the unknown-date text and the
+        # script's isNaN guard leaves the date-only text untouched.
+        self.assertNotIn("datetime=", html.split('class="release-date"')[1].split(">")[0])
+        self.assertNotIn("data-rel>", html.split('class="release-date"')[1].split(">")[0] + ">")
+
+    @patch("src.server.app.main.r")
+    @patch("httpx.AsyncClient")
     def test_changelog_scrollable_container_present(self, mock_client_cls, mock_redis):
         mock_redis.get.return_value = json.dumps(self.sample_releases)
 
@@ -221,6 +273,155 @@ class TestChangelog(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.text
         self.assertIn("changelog-scrollable", html)
+
+
+import re as _re
+import shutil as _shutil
+import subprocess as _subprocess
+from pathlib import Path as _Path
+
+_TEMPLATE = _Path(__file__).resolve().parent.parent / "src/web/templates/changelog.html"
+
+_HARNESS = r"""
+const js = process.argv[1];
+const cases = JSON.parse(process.argv[2]);
+const out = [];
+for (const c of cases) {
+  let htmlWrites = 0;
+  const el = {
+    textContent: c.text,
+    getAttribute: (k) => (k === 'datetime' ? c.attr : null),
+    set innerHTML(v) { htmlWrites++; },
+  };
+  global.document = { querySelectorAll: (s) => (s === 'time[data-rel]' ? [el] : []) };
+  eval(js);
+  out.push({ text: el.textContent, htmlWrites });
+}
+console.log(JSON.stringify(out));
+"""
+
+
+@unittest.skipUnless(_shutil.which("node"), "node not installed")
+class TestChangelogRelativeAgeBehavior(unittest.TestCase):
+    """Executes the inline script under node with a stub DOM."""
+
+    @classmethod
+    def setUpClass(cls):
+        html = _TEMPLATE.read_text()
+        cls.js = _re.search(r"<script>(.*?)</script>", html, _re.S).group(1)
+
+    def run_cases(self, cases):
+        p = _subprocess.run(
+            ["node", "-e", _HARNESS, self.js, json.dumps(cases)],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return json.loads(p.stdout)
+
+    def test_timestamp_thresholds(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+
+        def iso(**kw):
+            return (now - dt.timedelta(**kw)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        spec = [
+            (dict(seconds=30), "just now"),
+            (dict(minutes=5), "5 min ago"),
+            (dict(minutes=30), "30 min ago"),
+            (dict(minutes=59), "59 min ago"),
+            (dict(hours=1, minutes=1), "1 hour ago"),
+            (dict(hours=3, minutes=1), "3 hours ago"),
+            (dict(hours=23), "23 hours ago"),
+        ]
+        cases = [{"attr": iso(**k), "text": "D"} for k, _ in spec]
+        for (_, want), got in zip(spec, self.run_cases(cases)):
+            self.assertEqual(got["text"], f"{want} \u00b7 D")
+
+    def test_older_timestamps(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        iso = lambda d: (now - dt.timedelta(days=d)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        days = (3, 6, 7, 8, 13, 14, 15, 20, 29, 30)
+        r = self.run_cases([{"attr": iso(d), "text": "D"} for d in days])
+        want = {
+            3: "3 days ago \u00b7 D",
+            6: "6 days ago \u00b7 D",
+            7: "last week \u00b7 D",
+            8: "last week \u00b7 D",
+            13: "last week \u00b7 D",
+        }
+        for d, got in zip(days, r):
+            # 14+ days: too old, plain date only
+            self.assertEqual(got["text"], want.get(d, "D"), f"{d} days")
+
+    def test_date_only_never_minutes_or_hours(self):
+        import datetime as dt
+
+        today = dt.date.today()
+        cases = [
+            {"attr": (today - dt.timedelta(days=d)).isoformat(), "text": "D"}
+            for d in (0, 1, 7, 13, 14, 20, 29, 40)
+        ]
+        r = self.run_cases(cases)
+        self.assertEqual(r[0]["text"], "today \u00b7 D")
+        self.assertEqual(r[1]["text"], "yesterday \u00b7 D")
+        self.assertEqual(r[2]["text"], "last week \u00b7 D")
+        self.assertEqual(r[3]["text"], "last week \u00b7 D")
+        for i in (4, 5, 6, 7):
+            self.assertEqual(r[i]["text"], "D")
+        for x in r:
+            self.assertNotRegex(x["text"], r"min|hour|just now")
+
+    def test_timestamp_yesterday_threshold(self):
+        import datetime as dt
+
+        # Under 24h elapsed the template says "N hours ago"; "yesterday" needs
+        # >=24h elapsed AND a previous calendar day. Yesterday 00:01 local
+        # satisfies both at any time of day (except the first minutes after
+        # midnight, which we skip to stay deterministic).
+        midnight = dt.datetime.combine(dt.date.today(), dt.time())
+        ts = midnight - dt.timedelta(days=1) + dt.timedelta(minutes=1)
+        if dt.datetime.now() - ts < dt.timedelta(hours=24, minutes=1):
+            self.skipTest("too close to local midnight")
+        attr = ts.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": attr, "text": "D"}])
+        self.assertEqual(r[0]["text"], "yesterday \u00b7 D")
+
+    def test_one_minute_band_is_not_just_now(self):
+        import datetime as dt
+
+        now = dt.datetime.now(dt.timezone.utc)
+        iso = lambda s: (now - dt.timedelta(seconds=s)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = self.run_cases([{"attr": iso(s), "text": "D"} for s in (90, 110)])
+        for x in r:
+            self.assertEqual(x["text"], "1 min ago \u00b7 D")
+
+    def test_relative_age_precedes_formatted_date_in_output(self):
+        import datetime as dt
+
+        attr = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        text = self.run_cases([{"attr": attr, "text": "2026-09-29"}])[0]["text"]
+        self.assertLess(text.index("5 min ago"), text.index("2026-09-29"))
+
+    def test_invalid_datetime_left_untouched(self):
+        r = self.run_cases([{"attr": "garbage", "text": "D"}, {"attr": "", "text": "D"}])
+        self.assertEqual([x["text"] for x in r], ["D", "D"])
+
+    def test_injected_text_uses_textcontent_not_innerhtml(self):
+        import datetime as dt
+
+        evil = "<img src=x onerror=alert(1)>"
+        attr = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=5)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        r = self.run_cases([{"attr": attr, "text": evil}])[0]
+        self.assertEqual(r["htmlWrites"], 0)
+        self.assertEqual(r["text"], f"5 min ago \u00b7 {evil}")
 
 
 if __name__ == "__main__":

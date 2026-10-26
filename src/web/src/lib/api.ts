@@ -70,6 +70,22 @@ export interface ProfileOverridesResponse {
 	known_keys: Record<string, string>;
 }
 
+export interface PlayerProfileResponse {
+	name: string;
+	profile: Record<string, unknown>;
+	provenance: Record<string, { source: 'stated' | 'learned_from_feedback'; at: string; evidence?: string[] }>;
+	versions: { version: number; kind: string; created_at: string | null }[];
+	pending_proposals: {
+		id: number;
+		path: string;
+		op: string;
+		value: unknown;
+		rationale: string;
+		evidence: string[];
+		status: string;
+	}[];
+}
+
 export interface OverridePutResponse {
 	override: ProfileOverride;
 	snapshot_id: number;
