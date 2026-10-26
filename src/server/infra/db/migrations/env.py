@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 
 from src.server.infra.db.config import get_settings, normalize_url  # noqa: E402
 from src.server.infra.db.orm_models import Base  # noqa: E402
+import src.server.infra.db.models  # noqa: E402,F401  (registers the Slice-1 tables on Base.metadata)
 
 config = context.config
 
