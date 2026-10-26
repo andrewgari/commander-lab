@@ -24,13 +24,13 @@ from fastapi.testclient import TestClient
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import app as app_module  # noqa: E402
-import deck_sync  # noqa: E402
-import linked_accounts  # noqa: E402
-import providers  # noqa: E402
-from deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
-from providers import archidekt, moxfield  # noqa: E402
-from providers.errors import PushError  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.decks.deck_sync as deck_sync  # noqa: E402
+import src.server.infra.providers.linked_accounts as linked_accounts  # noqa: E402
+import src.server.infra.providers as providers  # noqa: E402
+from src.server.domain.decks.deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
+from src.server.infra.providers import archidekt, moxfield  # noqa: E402
+from src.server.infra.providers.errors import PushError  # noqa: E402
 
 class FakeRedis:
     """In-repo stand-in (CI has no fakeredis package). Dict-backed for the

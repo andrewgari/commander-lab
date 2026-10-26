@@ -53,7 +53,7 @@ jobs:
 
       - name: Verify Python syntax
         run: |
-          python -m py_compile app.py sync.py scripts/*.py tests/*.py
+          python -m py_compile src/server/app/main.py src/server/workers/sync.py scripts/*.py tests/*.py
 
       - name: Run unit tests
         env:
@@ -132,7 +132,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           INTERACTIONS_DISABLED: "1"
         run: |
-          nohup python -m uvicorn app:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
+          nohup python -m uvicorn src.server.app.main:app --host 127.0.0.1 --port 8000 > app.log 2>&1 &
           for i in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/ > /dev/null && exit 0
             sleep 1

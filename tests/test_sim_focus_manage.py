@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import sim_focus as sf
+from src.server.domain.analytics import sim_focus as sf
 from tests.test_sim_store_and_diff import FakeRedis
 
 ROOT = Path(__file__).resolve().parent.parent

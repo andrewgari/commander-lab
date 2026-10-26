@@ -20,7 +20,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
 HUD_CSS = ROOT / "static" / "css" / "hud.css"
@@ -70,8 +70,8 @@ def _contrast(a, b):
 
 def _patched(fn):
     """Route tests: a fake registry with Holy Hellfire and a 2-card inventory."""
-    fn = patch("app.inventory_view.build_inventory", return_value=INVENTORY)(fn)
-    fn = patch("app.registry.list_decks", return_value=[DECK])(fn)
+    fn = patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY)(fn)
+    fn = patch("src.server.app.main.registry.list_decks", return_value=[DECK])(fn)
     return fn
 
 
@@ -145,8 +145,8 @@ class _DeckPage:
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
-        with patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             cls.res = cls.client.get(cls.PATH)
         cls.html = cls.res.text
         cls.body = cls.html.split("<body", 1)[1]
@@ -244,13 +244,13 @@ class TestStatsPage(_DeckPage, unittest.TestCase):
 
     def test_deck_name_is_escaped(self):
         evil = dict(DECK, name="<img src=x onerror=alert(1)>")
-        with patch("app.registry.list_decks", return_value=[evil]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[evil]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             html = self.client.get("/deck/%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E/stats").text
         self.assertNotIn("<img src=x onerror=alert(1)>", html)
 
     def test_unknown_deck_is_404(self):
-        with patch("app.registry.list_decks", return_value=[DECK]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]):
             self.assertEqual(self.client.get("/deck/Nope/stats").status_code, 404)
             self.assertEqual(self.client.get("/deck/Nope/identity").status_code, 404)
 
@@ -292,7 +292,7 @@ class TestOverviewUsesDeckHeader(_DeckPage, unittest.TestCase):
 
     def test_unknown_deck_still_renders(self):
         # The Overview page renders a "not synced" shell for unknown names (pre-AN-4 behaviour).
-        with patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/deck/Unknown").status_code, 200)
 
 

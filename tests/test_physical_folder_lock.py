@@ -25,10 +25,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.environ.setdefault("ARCHIDEKT_USERNAME", "test_user")
 
-import instances as instance_store  # noqa: E402
-import linked_accounts  # noqa: E402
-import registry  # noqa: E402
-from providers import PROVIDERS  # noqa: E402
+import src.server.domain.inventory.instances as instance_store  # noqa: E402
+import src.server.infra.providers.linked_accounts as linked_accounts  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
+from src.server.infra.providers import PROVIDERS  # noqa: E402
 from tests.test_instances import FakeRedis  # noqa: E402
 
 PHYS = 588380
@@ -300,7 +300,7 @@ class TestMoxfield(unittest.TestCase):
 class TestStatusApi(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
-        import app as app_module
+        import src.server.app.main as app_module
         self.r = FakeRedis()
         registry.upsert_deck(self.r, arch(70, "Locked", folder=PHYS))
         registry.upsert_deck(self.r, arch(71, "Free", folder=TEST_FOLDER, theorycrafted=True))
@@ -348,7 +348,7 @@ class TestStatusApi(unittest.TestCase):
 
 class TestSyncPy(unittest.TestCase):
     def test_sync_stores_folder_data_and_applies_rule(self):
-        import sync
+        import src.server.workers.sync as sync
         r = FakeRedis()
         rows = [
             {"id": 101, "name": "Phys", "colors": {"W": 1}, "parentFolderId": PHYS, "theorycrafted": False},
@@ -391,7 +391,7 @@ class TestSyncPy(unittest.TestCase):
 
 class TestArchidektProvider(unittest.TestCase):
     def test_fetch_deck_carries_folder_and_theorycrafted(self):
-        from providers import archidekt
+        from src.server.infra.providers import archidekt
         resp = mock.Mock()
         resp.raise_for_status = lambda: None
         resp.json = lambda: {"name": "X", "cards": [], "parentFolder": PHYS, "theorycrafted": True}
@@ -401,7 +401,7 @@ class TestArchidektProvider(unittest.TestCase):
         self.assertIs(d["theorycrafted"], True)
 
     def test_folder_name_from_list_rows_reaches_fetch_deck(self):
-        from providers import archidekt
+        from src.server.infra.providers import archidekt
 
         def get(url, *a, **k):
             resp = mock.Mock()

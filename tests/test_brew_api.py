@@ -11,10 +11,10 @@ from unittest.mock import patch, Mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import brew_builder
-import instances
-import reconstruct_pools
-import registry
+import src.server.domain.draft.brew_builder as brew_builder
+import src.server.domain.inventory.instances as instances
+import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+import src.server.domain.decks.registry as registry
 from fastapi.testclient import TestClient
 
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
@@ -22,7 +22,7 @@ from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 class TestBrewAPI(unittest.TestCase):
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.app_module = app_module
         self.r = FakeRedis()
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
@@ -199,7 +199,7 @@ class TestBrewPages(unittest.TestCase):
     """Template-level checks for /brew (console) and /brew/{id} (deck view)."""
 
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.r = FakeRedis()
         self.r.set("decks", json.dumps([make_deck(deck_id=42, name="Atraxa Superfriends")]))
         self.patch = patch.object(app_module, "r", self.r)

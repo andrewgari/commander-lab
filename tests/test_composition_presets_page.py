@@ -14,7 +14,7 @@ sys.path.insert(0, __file__.rsplit("tests", 1)[0].rstrip("/"))
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 
 class FakeRedis:
@@ -46,7 +46,7 @@ class FakeRedis:
 class TestCompositionPresetsPage(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
-        self.p = patch("app.r", self.r)
+        self.p = patch("src.server.app.main.r", self.r)
         self.p.start()
         self.addCleanup(self.p.stop)
         self.client = TestClient(app)
@@ -83,13 +83,13 @@ class TestDeckCompositionPickerMarkup(unittest.TestCase):
         }
         import json
         self.r.set("decks", json.dumps([deck]))
-        self.p = patch("app.r", self.r)
+        self.p = patch("src.server.app.main.r", self.r)
         self.p.start()
         self.addCleanup(self.p.stop)
         self.client = TestClient(app)
 
     def test_picker_form_present(self):
-        with patch("app._composition_page_context", return_value={"selection": None, "preset": None, "slots": []}):
+        with patch("src.server.app.main._composition_page_context", return_value={"selection": None, "preset": None, "slots": []}):
             resp = self.client.get("/deck/Test Deck/composition")
         self.assertEqual(resp.status_code, 200)  # 301 -> /stats#composition
         body = resp.text

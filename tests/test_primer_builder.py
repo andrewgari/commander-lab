@@ -11,11 +11,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_module
-import registry
-from analytics.deck_writeup import WriteupError, generate_description, generate_primer, sanitize_primer_html
-from analytics.deck_writeup import prompts, service, store
-from analytics.deck_writeup.service import build_user_prompt, validate_description, validate_primer
+import src.server.app.main as app_module
+import src.server.domain.decks.registry as registry
+from src.server.domain.analytics.deck_writeup import WriteupError, generate_description, generate_primer, sanitize_primer_html
+from src.server.domain.analytics.deck_writeup import prompts, service, store
+from src.server.domain.analytics.deck_writeup.service import build_user_prompt, validate_description, validate_primer
 
 DECK = {"name": "Goblin Party", "commanders": ["Krenko, Mob Boss"], "color": "R", "source": "archidekt",
         "source_id": 7, "cards": [{"name": "Goblin Chieftain", "types": ["Creature"]}]}
@@ -251,7 +251,7 @@ def env():
     fake = FakeRedis({f"journal:deck:{RID}": json.dumps(journal), "decks": json.dumps([dict(DECK)])})
     with patch.object(app_module, "r", fake), \
             patch.object(app_module, "_find_deck_any", return_value=dict(DECK)), \
-            patch("analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
+            patch("src.server.domain.analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
             patch.object(app_module, "_oracle_preflight", return_value=None):
         yield fake, TestClient(app_module.app)
 

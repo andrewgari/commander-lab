@@ -18,8 +18,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import bracket_worker as bw  # noqa: E402
-from analytics import journal  # noqa: E402
+from src.server.domain.analytics import bracket_worker as bw  # noqa: E402
+from src.server.domain.analytics import journal  # noqa: E402
 from tests.test_interactions import FakeRedis as _BaseFake  # noqa: E402
 
 
@@ -278,7 +278,7 @@ class WaitForWake(unittest.TestCase):
 
 class DefaultEvaluator(unittest.TestCase):
     def test_stores_the_br4_model_dump(self):
-        from analytics import bracket_eval as be
+        from src.server.domain.analytics import bracket_eval as be
 
         captured = {}
 
@@ -290,7 +290,7 @@ class DefaultEvaluator(unittest.TestCase):
         r = FakeRedis()
         d = deck(cards=("Demonic Tutor", "Island"))
         put_decks(r, [d])
-        with patch("analytics.bracket_eval.evaluate_bracket_live", live), \
+        with patch("src.server.domain.analytics.bracket_eval.evaluate_bracket_live", live), \
                 patch.dict(os.environ, {"BRACKET_EVAL_COMMANDERSALT": "0"}):
             bw.run_once(r)
         self.assertFalse(captured["cs"])
@@ -305,8 +305,8 @@ class Routes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
 
-        import app as app_mod
-        from app import app
+        import src.server.app.main as app_mod
+        from src.server.app.main import app
 
         self.app_mod = app_mod
         self.client = TestClient(app)
@@ -358,7 +358,7 @@ class Routes(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
 
     def test_post_queues_and_does_not_evaluate_in_request(self):
-        with patch("analytics.bracket_eval.evaluate_bracket_live") as live:
+        with patch("src.server.domain.analytics.bracket_eval.evaluate_bracket_live") as live:
             res = self.client.post("/api/deck/archidekt:417707/bracket")
         live.assert_not_called()
         self.assertEqual(res.status_code, 202)
@@ -393,7 +393,7 @@ class Routes(unittest.TestCase):
         self.assertIn("archidekt:417707", self.fake.lists.get(bw.WAKE_KEY, []))
 
     def test_journal_save_survives_a_failing_wake(self):
-        with patch("analytics.bracket_worker.wake", side_effect=RuntimeError("redis down")):
+        with patch("src.server.domain.analytics.bracket_worker.wake", side_effect=RuntimeError("redis down")):
             res = self.client.put("/api/decks/archidekt:417707/journal", json={"target_bracket": 2})
         self.assertEqual(res.status_code, 200, res.text)
 
@@ -402,11 +402,11 @@ class Routes(unittest.TestCase):
             def to_dict(self):
                 return {"ok": True}
 
-        with patch("app.deck_sync.sync_deck", return_value=Report()):
+        with patch("src.server.app.main.deck_sync.sync_deck", return_value=Report()):
             res = self.client.post("/api/decks/archidekt:417707/sync")
             self.assertEqual(res.status_code, 200, res.text)
             self.assertIn("archidekt:417707", self.fake.lists.get(bw.WAKE_KEY, []))
-            with patch("analytics.bracket_worker.wake", side_effect=RuntimeError("redis down")):
+            with patch("src.server.domain.analytics.bracket_worker.wake", side_effect=RuntimeError("redis down")):
                 res = self.client.post("/api/decks/archidekt:417707/sync")
             self.assertEqual(res.status_code, 200, res.text)
 

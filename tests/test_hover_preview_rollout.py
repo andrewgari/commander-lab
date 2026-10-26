@@ -5,7 +5,7 @@ from pathlib import Path
 
 from jinja2 import Environment
 
-import card_refs
+import src.server.domain.decks.card_refs as card_refs
 
 ROOT = Path(__file__).resolve().parent.parent
 

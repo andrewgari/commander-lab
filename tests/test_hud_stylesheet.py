@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 STYLESHEET_PATH = "/static/css/hud.css"
 
@@ -73,7 +73,7 @@ class TestHudStylesheet(unittest.TestCase):
         css = self.client.get(STYLESHEET_PATH).text.lower()
         self.assertNotRegex(css, r"#000(000)?\b")
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_every_page_links_stylesheet(self, mock_registry):
         mock_registry.list_decks.return_value = [{"name": "TestDeck", "id": "archidekt:1"}]
         mock_registry.registry_id_of.return_value = "archidekt:1"

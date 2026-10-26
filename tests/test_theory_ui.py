@@ -19,13 +19,13 @@ from unittest.mock import patch
 
 import httpx
 from fastapi.testclient import TestClient
-import card_refs
-import tcgplayer
+import src.server.domain.decks.card_refs as card_refs
+import src.server.infra.providers.tcgplayer as tcgplayer
 from jinja2 import Environment, FileSystemLoader
 
-import app as app_mod
-from analytics import theory, theory_view
-from analytics.oracle_client import OracleClient
+import src.server.app.main as app_mod
+from src.server.domain.analytics import theory, theory_view
+from src.server.domain.analytics.oracle_client import OracleClient
 from tests.test_deck_stats_ui import DECK, HUD_CSS, INVENTORY, _classes, _DeckPage, _page_style
 from tests.test_theory import FakeRedis
 
@@ -430,9 +430,9 @@ class TestPageEdges(unittest.TestCase):
     def setUp(self):
         self.fake = _Fake()
         self.client = TestClient(app_mod.app)
-        for p in (patch.object(app_mod, "r", self.fake), patch("app.registry.list_decks", return_value=[DECK]),
-                  patch("app.registry.find_deck", lambda r, i: DECK if i in (RID, str(DECK["id"])) else None),
-                  patch("app.inventory_view.build_inventory", return_value=INVENTORY)):
+        for p in (patch.object(app_mod, "r", self.fake), patch("src.server.app.main.registry.list_decks", return_value=[DECK]),
+                  patch("src.server.app.main.registry.find_deck", lambda r, i: DECK if i in (RID, str(DECK["id"])) else None),
+                  patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY)):
             p.start()
             self.addCleanup(p.stop)
 
@@ -473,7 +473,7 @@ class TestPageEdges(unittest.TestCase):
             res = self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad")
         self.assertEqual(res.status_code, 503)
         self.assertIn("Try again", res.text)
-        with patch("app.registry.list_decks", side_effect=ConnectionError("redis down")):
+        with patch("src.server.app.main.registry.list_decks", side_effect=ConnectionError("redis down")):
             self.assertEqual(self.client.get("/deck/Holy%20Hellfire/ideas/a49befd418ad").status_code, 503)
 
     def test_delete_updates_tab_badge_and_409_syncs_job_fields(self):

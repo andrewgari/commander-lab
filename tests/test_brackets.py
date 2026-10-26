@@ -17,9 +17,9 @@ import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import brackets as br  # noqa: E402
-from src.integrations.scryfall import ScryfallClient  # noqa: E402
-from src.shared.http import RetryConfig, SharedHttpClient  # noqa: E402
+from src.server.domain.analytics import brackets as br  # noqa: E402
+from src.server.infra.providers.scryfall import ScryfallClient  # noqa: E402
+from src.server.infra.http import RetryConfig, SharedHttpClient  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -339,7 +339,7 @@ class BracketsRouteTests(unittest.TestCase):
     def test_api_brackets(self):
         from fastapi.testclient import TestClient
 
-        import app as app_module
+        import src.server.app.main as app_module
 
         fake = br.GameChangerList(cards=["Farewell", "Rhystic Study"], source=br.SOURCE_CACHE,
                                   fetched_at="2026-10-15T00:00:00+00:00")

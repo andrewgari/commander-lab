@@ -6,7 +6,7 @@ import json
 import unittest
 from pathlib import Path
 
-from user_intent import (
+from src.server.domain.intake.user_intent import (
     ALLOWED_DECK_INTENTS,
     ALLOWED_POWER_TIERS,
     ALLOWED_WIN_CONDITIONS,

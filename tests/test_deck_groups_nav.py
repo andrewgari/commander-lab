@@ -18,8 +18,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-import registry
-from app import DECK_GROUPS, app
+import src.server.domain.decks.registry as registry
+from src.server.app.main import DECK_GROUPS, app
 
 ROOT = Path(__file__).resolve().parent.parent
 HUD_JS = ROOT / "static" / "js" / "hud.js"

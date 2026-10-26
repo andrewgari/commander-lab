@@ -2,13 +2,13 @@
 import unittest
 from pathlib import Path
 
-from app import templates
+from src.server.app.main import templates
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def _render_buy_total(cards):
-    from analytics import theory_view
+    from src.server.domain.analytics import theory_view
     tpl = templates.env.get_template("partials/theory/buy_total.html")
     sec = type("S", (), {"data": {"total_usd": 5, "count": len(cards), "cards": cards, "caps": {}}})()
     return tpl.render(section=sec, tv=theory_view, card_preview_attrs=lambda n: "")
@@ -37,7 +37,7 @@ class TestSurfaces(unittest.TestCase):
         self.assertLess(s.index("New to Buy: ${t3Count}"), s.index("TcgCart.button(t3Items"))
 
     def test_theory_decklist_buy_rows_only(self):
-        from analytics import theory_view
+        from src.server.domain.analytics import theory_view
         tpl = templates.env.get_template("partials/theory/decklist.html")
         groups = [{"role": "Ramp", "cards": [
             {"name": "Sol Ring", "qty": 1, "source": "buy", "price": 1.0},
@@ -63,7 +63,7 @@ class TestIdeasRow(unittest.TestCase):
         {"name": "Sol Ring", "qty": 1, "price": 1}, {"name": "Esper Sentinel", "qty": 2, "price": 2}]}}]}
 
     def test_summary_exposes_buy_cards(self):
-        from analytics import theory
+        from src.server.domain.analytics import theory
         self.assertEqual(theory.summary(self.DOC)["buy_cards"],
                          [{"name": "Sol Ring", "qty": 1}, {"name": "Esper Sentinel", "qty": 2}])
         self.assertEqual(theory.summary({"doc_id": "x"})["buy_cards"], [])

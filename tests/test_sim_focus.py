@@ -10,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import sim_focus as sf
-from analytics import sim_service as svc
+from src.server.domain.analytics import sim_focus as sf
+from src.server.domain.analytics import sim_service as svc
 from tests.test_sim_service_and_api import Base, FakeOracle, FakeSim, good_reply, run_sync
 from tests.test_sim_store_and_diff import FakeRedis
 
@@ -181,7 +181,7 @@ class TestRunPersistence(Base):
         self.assertIsNone(svc.focus_view(self.r, changed)["saved"])
 
     def test_legacy_report_defaults(self):
-        from analytics import sim_store
+        from src.server.domain.analytics import sim_store
         from tests.test_sim_store_and_diff import make_report
         rep = make_report()
         rep.pop("params", None)

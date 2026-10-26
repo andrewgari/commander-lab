@@ -13,8 +13,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import commander_roles as cr
-from app import app, templates
+import src.server.domain.decks.commander_roles as cr
+from src.server.app.main import app, templates
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -243,8 +243,8 @@ class TestViewsUseRoles(unittest.TestCase):
         return {"Keruga, the Macrosage": KERUGA, "Helga, Skittish Seer": HELGA}
 
     def test_api_decks_ships_roles(self):
-        with patch("app.r") as r, patch("app.enrich_decks_with_repo_status", side_effect=lambda d: d), \
-                patch("commander_roles.load_cards", side_effect=self._cards):
+        with patch("src.server.app.main.r") as r, patch("src.server.app.main.enrich_decks_with_repo_status", side_effect=lambda d: d), \
+                patch("src.server.domain.decks.commander_roles.load_cards", side_effect=self._cards):
             r.get.return_value = json.dumps([dict(KERUGA_DECK)])
             res = self.client.get("/api/decks")
         self.assertEqual(res.status_code, 200)
@@ -252,9 +252,9 @@ class TestViewsUseRoles(unittest.TestCase):
         self.assertEqual([c["role"] for c in rows], ["commander", "companion"])
 
     def test_deck_header_renders_roles(self):
-        with patch("app.registry.list_decks", return_value=[KERUGA_DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=[]), \
-                patch("commander_roles.load_cards", side_effect=self._cards):
+        with patch("src.server.app.main.registry.list_decks", return_value=[KERUGA_DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=[]), \
+                patch("src.server.domain.decks.commander_roles.load_cards", side_effect=self._cards):
             for path in ("/deck/The%20Gift", "/deck/The%20Gift/stats"):
                 with self.subTest(path=path):
                     html = self.client.get(path).text

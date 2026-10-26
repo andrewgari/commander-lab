@@ -11,11 +11,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from analytics import sim_client as sc
-from analytics import sim_service as svc
-from analytics import sim_store as ss
-from analytics.oracle_client import OracleUnavailable
-from app import app
+from src.server.domain.analytics import sim_client as sc
+from src.server.domain.analytics import sim_service as svc
+from src.server.domain.analytics import sim_store as ss
+from src.server.domain.analytics.oracle_client import OracleUnavailable
+from src.server.app.main import app
 from tests.test_sim_store_and_diff import FakeRedis, make_deck, make_report, make_review
 
 RID = "archidekt:417707"
@@ -405,8 +405,8 @@ class TestApi(Base):
         self.sim = FakeSim()
         self.oracle = FakeOracle(good_reply)
         real_client = sc.SimClient
-        for p in (patch("app.r", self.r), patch("app._find_deck_any", return_value=self.deck),
-                  patch("app._oracle_client", return_value=self.oracle),
+        for p in (patch("src.server.app.main.r", self.r), patch("src.server.app.main._find_deck_any", return_value=self.deck),
+                  patch("src.server.app.main._oracle_client", return_value=self.oracle),
                   patch.object(sc, "SimClient", lambda *a, **k: self.sim),
                   patch.object(svc, "_static_review", return_value=make_review()),
                   patch.object(svc, "POLL_INTERVAL_S", 0.01)):
@@ -429,7 +429,7 @@ class TestApi(Base):
         self.assertTrue({"precon", "user_deck"} <= {o["source"] for o in body["opponent_pool"]})
 
     def test_get_unknown_deck_404(self):
-        with patch("app._find_deck_any", return_value=None):
+        with patch("src.server.app.main._find_deck_any", return_value=None):
             self.assertEqual(self.client.get("/api/decks/nope/sim").status_code, 404)
             self.assertEqual(self.client.post("/api/decks/nope/sim/run", json={}).status_code, 404)
 
@@ -455,7 +455,7 @@ class TestApi(Base):
             time.sleep(0.02)
         changed = copy.deepcopy(self.deck)
         changed["cards"].append({"name": "Brand New Card", "quantity": 1})
-        with patch("app._find_deck_any", return_value=changed):
+        with patch("src.server.app.main._find_deck_any", return_value=changed):
             meta = self.client.get(f"/api/decks/{RID}/sim").json()["meta"]
         self.assertTrue(meta["stale"])
         self.assertTrue(meta["stale_reason"])

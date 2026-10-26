@@ -12,14 +12,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import card_refs
+import src.server.domain.decks.card_refs as card_refs
 from jinja2 import Environment, FileSystemLoader
 
-import app as app_mod
-from analytics import review_doc as rd
-from analytics import review_metrics as rm
-from analytics import review_view as rv
-from analytics import theory_view
+import src.server.app.main as app_mod
+from src.server.domain.analytics import review_doc as rd
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.analytics import review_view as rv
+from src.server.domain.analytics import theory_view
 from tests.test_deck_stats_ui import DECK, _DeckPage
 from tests.test_review_doc import FakeRedis
 from tests.test_review_metrics import make_inputs
@@ -362,8 +362,8 @@ class TestStorageDown(unittest.TestCase):
                 return super().get(k)
 
         with patch.object(app_mod, "r", Boom()), \
-                patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=[]):
+                patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=[]):
             from fastapi.testclient import TestClient
             res = TestClient(app_mod.app).get("/deck/Holy%20Hellfire/review")
         self.assertEqual(res.status_code, 200)
@@ -371,7 +371,7 @@ class TestStorageDown(unittest.TestCase):
 
     def test_unknown_deck_404(self):
         from fastapi.testclient import TestClient
-        with patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(TestClient(app_mod.app).get("/deck/Nope/review").status_code, 404)
 
 
