@@ -21,6 +21,7 @@ from src.server.infra.db.orm_models import (
     CardRow,
     CardTagRow,
     DeckCardRow,
+    DeckIntentRow,
     DeckRow,
     DraftCardRow,
     DraftInstanceMoveRow,
@@ -276,6 +277,54 @@ def deck_card_counts(session: Session, deck_ids: Iterable[str]) -> dict[str, int
         .group_by(DeckCardRow.deck_id)
     )
     return {deck_id: int(total) for deck_id, total in session.execute(stmt).all()}
+
+
+# ---------------------------------------------------------------------------
+# deck_intents (STA-11 B: owner-stated per-deck intent; rules in
+# domain/decks/deck_intent.py)
+# ---------------------------------------------------------------------------
+
+def _deck_intent_dict(row: DeckIntentRow) -> dict:
+    return {
+        "deck_id": row.deck_id,
+        "payload": row.payload,
+        "provenance": row.provenance,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def get_deck_intent(session: Session, deck_id: str) -> Optional[dict]:
+    """The stored intent record for a deck, or None when unstated."""
+    row = session.get(DeckIntentRow, deck_id)
+    return _deck_intent_dict(row) if row else None
+
+
+def upsert_deck_intent(
+    session: Session, deck_id: str, payload: dict, provenance: str = "stated"
+) -> dict:
+    """Store a deck's stated intent payload (validated upstream by
+    deck_intent.validate_stated). Updates keep the original created_at."""
+    row = session.get(DeckIntentRow, deck_id)
+    if row is None:
+        row = DeckIntentRow(deck_id=deck_id, payload=payload, provenance=provenance)
+        session.add(row)
+    else:
+        row.payload = payload
+        row.provenance = provenance
+        row.updated_at = _utcnow()
+    session.flush()
+    return _deck_intent_dict(row)
+
+
+def delete_deck_intent(session: Session, deck_id: str) -> bool:
+    """Remove a deck's intent record (back to unstated). True when a row existed."""
+    row = session.get(DeckIntentRow, deck_id)
+    if row is None:
+        return False
+    session.delete(row)
+    session.flush()
+    return True
 
 
 # ---------------------------------------------------------------------------
