@@ -618,10 +618,21 @@ def generate_deck_review(
     card_metadata: Optional[Dict[str, Any]] = None,
     external_recommendations: Optional[CardRecommendations] = None,
     pricing: Optional[Dict[str, Any]] = None,
-) -> DeckReview:
+    *,
+    review_format: str = "legacy",
+    review_pipeline_args: Optional[Dict[str, Any]] = None,
+) -> Any:
     """
-    Public entrypoint to generate a full DeckReview report.
+    Public entrypoint to generate a full DeckReview report. ``review_format='v1'`` opts into the
+    additive review_document pipeline; the legacy DeckReview format and its exporters remain default.
     """
+    if review_format == "v1":
+        if not review_pipeline_args:
+            raise ValueError("review_format='v1' requires review_pipeline_args for the v1 review pipeline")
+        from src.server.domain.analytics.review_pipeline.runner import run_review
+        return run_review(**review_pipeline_args)
+    if review_format != "legacy":
+        raise ValueError(f"unsupported review_format: {review_format!r}")
     return default_review_pipeline.review(
         deck=deck,
         intent=intent,

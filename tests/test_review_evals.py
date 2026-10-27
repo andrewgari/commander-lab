@@ -56,12 +56,12 @@ def test_judge_scores_with_injected_client():
     assert out["judge_model"] == "b" and out["scores"]["generic_filler"] == 7
 
 
-def test_make_eval_fails_cleanly_without_models_or_entrypoint():
-    # The pipeline module exists since card 08 (Pass A+B); the live eval still needs model env vars and the
-    # run_review entrypoint (later card), and must exit 2 with an explanatory message rather than a traceback.
+def test_make_eval_runs_offline_pipeline_without_model_credentials():
     env = {k: v for k, v in os.environ.items() if not k.startswith("REVIEW_")}
-    r = subprocess.run([sys.executable, "-m", "tests.review_evals.run_eval"], capture_output=True, text=True, env=env)
-    assert r.returncode == 2 and r.stderr.startswith("eval: ") and "Traceback" not in r.stderr
+    r = subprocess.run(["make", "eval"], capture_output=True, text=True, env=env, timeout=120)
+    assert r.returncode == 0, r.stderr
+    assert "offline review_document pipeline smoke passed" in r.stdout
+    assert "Traceback" not in r.stderr
 
 
 def test_eval_compare(tmp_path):

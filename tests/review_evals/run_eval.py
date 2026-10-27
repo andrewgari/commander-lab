@@ -1,53 +1,65 @@
-"""Live eval: pipeline on the golden set -> gates -> judge -> results JSON.
-
-Fails cleanly while the review pipeline does not exist yet.
-"""
+"""Offline pipeline smoke and optional live eval for the golden set."""
 from __future__ import annotations
 
-import importlib
+import argparse
+import copy
 import json
 import sys
-import time
-from datetime import datetime, timezone
 from pathlib import Path
-
-from tests.review_evals import judge as judge_mod
+from types import SimpleNamespace
 
 HERE = Path(__file__).parent
-PIPELINE_MODULE = "src.server.domain.analytics.review_pipeline.runner"
 
 
-def main() -> int:
-    try:
-        runner = importlib.import_module(PIPELINE_MODULE)
-    except ModuleNotFoundError as exc:
-        if exc.name and PIPELINE_MODULE.startswith(exc.name):
-            print(f"eval: the review pipeline does not exist yet ({PIPELINE_MODULE} not found).\n"
-                  "      Live evals need cards 04+; use `make eval-gates` for the offline gates.", file=sys.stderr)
-            return 2
-        raise
-    try:
-        generator, judge = judge_mod.resolve_models()
-    except judge_mod.JudgeConfigError as exc:
-        print(f"eval: {exc}", file=sys.stderr)
-        return 2
-    run = getattr(runner, "run_review", None)
-    if run is None:
-        print(f"eval: {PIPELINE_MODULE} has no run_review(deck, intent) entrypoint yet.", file=sys.stderr)
-        return 2
-    # Wiring of per-deck execution (decklist -> deck, Scryfall context, judge client) lands with the pipeline card;
-    # results schema below is what eval_compare.py consumes.
-    results = {"generator": generator, "judge": judge, "decks": {}, "started_at": datetime.now(timezone.utc).isoformat()}
-    for d in sorted((HERE / "decks").iterdir()):
-        t0 = time.monotonic()
-        out = run(deck_dir=d)
-        results["decks"][d.name] = {"latency_s": round(time.monotonic() - t0, 2), "cost_usd": getattr(out, "cost_usd", None),
-                                    "gate_violations": [], "judge": {}}
-    (HERE / "results").mkdir(exist_ok=True)
-    path = HERE / "results" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.json"
-    path.write_text(json.dumps(results, indent=2))
-    print(f"wrote {path}")
+def _offline_smoke() -> int:
+    """Exercise run_review with deterministic A-D and E callbacks, no credentials."""
+    from src.server.domain.analytics.review_pipeline import config
+    from src.server.domain.analytics.review_pipeline.runner import run_review
+
+    example_path = HERE.parent / "fixtures" / "review_document" / "example.json"
+    example = json.loads(example_path.read_text(encoding="utf-8"))
+    commander = example["meta"]["commanders"][0]
+    ctx = SimpleNamespace(
+        deck_id="offline-eval-fixture", deck_name=example["meta"]["deck_name"],
+        commanders=(commander["name"],), fact_pack_hash=example["meta"]["fact_pack_hash"],
+        estimated_bracket=example["bracket"]["estimated"], target_bracket=example["bracket"]["target"],
+        bracket_reasons=tuple(example["bracket"]["reasons"]),
+    )
+    verified = {key: copy.deepcopy(example[key]) for key in
+                ("verdict", "strengths", "problems", "swaps", "cuts_to_consider", "top_changes", "omitted")}
+    verified["axes"] = copy.deepcopy(example["scorecard"])
+    fact_pack = {"charts": copy.deepcopy(example["charts"]), "cards": [commander]}
+    writer_output = {
+        "verdict": {**copy.deepcopy(verified["verdict"]), "headline": "steady review", "summary": "clear plan."},
+        "deck_identity": {"what_it_does": "this deck builds a clear plan.", "win_paths": ["combat"],
+                          "success_criteria": [], "intentional_quirks": []},
+        "mana": {"summary": "mana is adequate.", "issues": []},
+        "questions_for_owner": [],
+    }
+    verified["verdict"] = copy.deepcopy(writer_output["verdict"])
+
+    def run_passes(*_args, **_kwargs):
+        return SimpleNamespace(verified=verified, trace=None)
+
+    document = run_review(ctx=ctx, fact_pack=fact_pack, pool=None, client=None,
+                          writer=lambda _verified: json.dumps(writer_output),
+                          config=config.PipelineConfig(), run_passes=run_passes)
+    print(f"offline review_document pipeline smoke passed ({document['schema_version']})")
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--offline", action="store_true", help="run deterministic run_review assembly smoke")
+    args = parser.parse_args(argv)
+    if args.offline:
+        try:
+            return _offline_smoke()
+        except Exception as exc:
+            print(f"eval: offline pipeline smoke failed: {exc}", file=sys.stderr)
+            return 2
+    print("eval: live eval is not configured; use --offline or make eval-gates", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

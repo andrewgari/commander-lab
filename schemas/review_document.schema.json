@@ -58,12 +58,18 @@
     "strengths": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
     "problems": {"description": "Ordered by severity, most severe first (checked by the ref checker).", "type": "array", "items": {"$ref": "#/$defs/finding"}},
     "top_changes": {
-      "type": "object", "additionalProperties": false,
-      "required": ["swap_ids", "why_these_first"],
-      "properties": {
-        "swap_ids": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
-        "why_these_first": {"type": "string", "minLength": 1}
-      }
+      "description": "Null when verification removed this selection or fewer than one verified swap remains; otherwise lists up to three verified swaps without padding.",
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["swap_ids", "why_these_first"],
+          "properties": {
+            "swap_ids": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+            "why_these_first": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
     },
     "swaps": {
       "type": "array",
