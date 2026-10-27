@@ -135,6 +135,11 @@ class TraceRecorder:
         with self._lock:
             self._t.finding_steps[finding_id] = {"step_index": step_index, "kept": kept}
 
+    def step_of(self, finding_id: str) -> int | None:
+        with self._lock:
+            link = self._t.finding_steps.get(finding_id)
+            return link["step_index"] if link else None
+
     def finish(self, status: str, error: str | None = None) -> Trace:
         with self._lock:
             self._t.status, self._t.error, self._t.finished_at = status, error, _now()

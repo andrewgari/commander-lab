@@ -77,6 +77,15 @@ class ReviewContext:
     has_stated_power: bool
     fact_pack_hash: str
     foreign_names: frozenset[str] = field(default_factory=frozenset)   # cards known NOT to be in the deck
+    # Inputs of Pass C/D (recommendations + verifier); all derived from the profile, intent and fact pack by ``build``.
+    pet_cards: tuple[str, ...] = ()                                    # protected: never cut (profile + deck intent)
+    hard_cap_usd: float | None = None                                  # per-card hard cap with deck intent applied
+    rejected_swaps: frozenset[tuple[str, str]] = frozenset()           # (cut, add) pairs the owner rejected for this deck
+    target_bracket: int | None = None                                  # from the deck intent (None = not stated)
+    estimated_bracket: int | None = None                               # fact pack bracket.minimum_bracket (None = unavailable)
+    bracket_reasons: tuple[str, ...] = ()                              # one readable line per bracket rule, built by code
+    card_info: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)   # deck card -> identity, legality, type, text, price, roles
+    game_changers: tuple[str, ...] | None = None                       # Game Changers in the deck; None = bracket data unavailable
 
     @classmethod
     def build(cls, *, deck_id: str, deck_name: str, fact_pack: Mapping[str, Any], deck_cards: Sequence[tuple[str, int]],
@@ -109,6 +118,26 @@ class ReviewContext:
         # A name that resolves to a deck card (incl. one face of a double-faced card) is NOT foreign.
         foreign = {n for n in foreign if isinstance(n, str) and n and n not in deck_set and resolver.resolve(n) is None}
         pack_hash = fact_pack.hash if isinstance(fact_pack, FactPack) else FactPack(dict(fact_pack)).hash
+        br = fact_pack.get("bracket")
+        est = br.get("minimum_bracket") if isinstance(br, Mapping) else None
+        reasons = tuple(f"{r.get('rule')} (floor {r.get('floor')}): {', '.join(r.get('cards') or [])}".strip()
+                        for r in (br.get("reasons") or []) if isinstance(r, Mapping)) if isinstance(br, Mapping) else ()
+        roles_of: dict[str, list[str]] = {}
+        rp = fact_pack.get("roles")
+        if isinstance(rp, Mapping):
+            for r in rp.get("roles") or []:
+                for n in r.get("cards") or []:
+                    roles_of.setdefault(n, []).append(r.get("role"))
+        gcs = br.get("game_changers") if isinstance(br, Mapping) and not br.get("status") == "unavailable" else None
+        info: dict[str, dict] = {}
+        for name, _q in deck_cards:
+            c = by_name.get(name) or {}
+            text = c.get("oracle_text")
+            info[name] = {"color_identity": list(c.get("color_identity") or []),
+                          "legalities": {"commander": (c.get("legalities") or {}).get("commander")},
+                          "type_line": c.get("type_line") if isinstance(c.get("type_line"), str) else None,
+                          "oracle_text": text if isinstance(text, str) else None,
+                          "price": fx.FactIndex._price(c), "roles": sorted(roles_of.get(name, []))}
         return cls(
             deck_id=deck_id, deck_name=deck_name, commanders=tuple(commanders), deck_cards=tuple((n, q) for n, q in deck_cards),
             index=index, resolver=resolver,
@@ -118,4 +147,10 @@ class ReviewContext:
             has_stated_power=bool((intent and (intent.target_bracket is not None or intent.target_power_level.tier != _DEFAULT_TIER))
                                   or eff.power_tendencies.tier),
             fact_pack_hash=pack_hash,
-            foreign_names=frozenset(foreign))
+            foreign_names=frozenset(foreign),
+            pet_cards=tuple(eff.pet_cards), hard_cap_usd=eff.budget_norms.hard_cap,
+            rejected_swaps=frozenset(pp.previously_rejected(profile, deck_id)),
+            target_bracket=intent.target_bracket if intent is not None else None,
+            estimated_bracket=est if isinstance(est, int) and not isinstance(est, bool) else None,
+            bracket_reasons=reasons, card_info=info,
+            game_changers=tuple(gcs) if isinstance(gcs, list) else None)

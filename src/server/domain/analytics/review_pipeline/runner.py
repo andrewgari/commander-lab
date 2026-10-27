@@ -10,7 +10,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from src.server.domain.analytics.review_pipeline import a_brief, b_analysis
+from src.server.domain.analytics.review_pipeline import a_brief, b_analysis, c_recommend, d_verify
 from src.server.domain.analytics.review_pipeline import config as cfg
 from src.server.domain.analytics.review_pipeline.context import ReviewContext
 from src.server.domain.analytics.review_pipeline.llm import LLMClient
@@ -60,3 +60,60 @@ def run_ab(ctx: ReviewContext, client: LLMClient, config: cfg.PipelineConfig | N
     if on_trace:
         on_trace(trace)
     return RunResult(brief=brief, analysis=analysis, trace=trace)
+
+
+@dataclass
+class ReviewResult:
+    """Pass A-D output. ``verified`` is what may ship; ``recommendations`` and ``analysis`` are the unverified drafts, kept for the trace."""
+    brief: dict[str, Any]
+    analysis: b_analysis.AnalysisResult
+    recommendations: c_recommend.Recommendations
+    verified: d_verify.VerifyResult
+    trace: Trace
+
+    def document_sections(self) -> dict[str, Any]:
+        """The review_document v1 sections Passes A-D own. ``omitted`` is the verifier's removals (debug appendix only)."""
+        v = self.verified
+        return {"strengths": v.strengths, "problems": v.problems, "swaps": v.swaps, "cuts_to_consider": v.cuts_to_consider,
+                "top_changes": v.top_changes, "omitted": v.omitted,
+                "scorecard": [{"axis": a["axis"], "score": a["score"], "one_line": a["one_line"], "finding_ids": a["finding_ids"]}
+                              for a in v.axes]}
+
+
+def run_abcd(ctx: ReviewContext, client: LLMClient, pool: Any, config: cfg.PipelineConfig | None = None, *,
+             on_trace: Callable[[Trace], None] | None = None) -> ReviewResult:
+    """Brief -> analysis -> recommendations (from ``pool`` only) -> verification. Like ``run_ab`` it never returns a
+    partial review: it returns a ReviewResult or raises ``ReviewRunFailed`` carrying the failed trace.
+
+    ``pool``: a ``candidates.CandidatePool`` (or its ``to_dict()``). The critic must be a different model family
+    from every generator (``ConfigError`` otherwise, before any call is made)."""
+    if client is None:
+        raise TypeError("run_abcd needs an LLMClient; there is no default live client in domain code")
+    config = config or cfg.PipelineConfig.from_env()
+    config.check_critic_is_independent()
+    view = c_recommend.PoolView.from_pool(pool, max_cards=config.pool_prompt_cards)
+    rec = TraceRecorder(
+        deck_id=ctx.deck_id, prices=config.prices, max_cost_usd=config.max_cost_usd,
+        inputs={"deck_id": ctx.deck_id, "deck_name": ctx.deck_name, "pipeline_version": cfg.PIPELINE_VERSION,
+                "fact_pack_hash": ctx.fact_pack_hash, "profile_hash": _h(ctx.profile_block), "intent_hash": _h(ctx.intent_text),
+                "deck_hash": _h("\n".join(f"{q} {n}" for n, q in ctx.deck_cards)),
+                "pool_hash": pool.hash if hasattr(pool, "hash") else pool.get("hash"),
+                "rejected_swaps": sorted([list(p) for p in ctx.rejected_swaps]),
+                "configured_models": {**config.models, **{f"B:{k}": v for k, v in config.axis_models.items()}},
+                "configured_prompt_versions": dict(config.prompt_versions)})
+    try:
+        brief = a_brief.run(ctx, client, config, rec)
+        analysis = b_analysis.run(ctx, brief, client, config, rec)
+        recs, _ = c_recommend.run(ctx, brief, analysis, view, client, config, rec)
+        verified = d_verify.verify(ctx, brief, analysis, recs, view, client, config, rec)
+    except BaseException as exc:
+        trace = rec.finish("failed", error=f"{type(exc).__name__}: {exc}"[:500])
+        if on_trace:
+            on_trace(trace)
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        raise ReviewRunFailed(f"review run failed: {type(exc).__name__}: {exc}", trace) from exc
+    trace = rec.finish("ok")
+    if on_trace:
+        on_trace(trace)
+    return ReviewResult(brief=brief, analysis=analysis, recommendations=recs, verified=verified, trace=trace)
