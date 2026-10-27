@@ -32,7 +32,7 @@ DEFAULT_MODELS = {      # DECISIONS D3: Anthropic generates passes A-C (mid for 
 }
 GENERATOR_PASSES = ("A", "B", "C")
 PROMPT_VERSIONS = {"a_brief": "v1", "b_analysis": "v1", "c_recommend": "v1", "d_critic": "v1", "d_regen": "v1",
-                   "quality_standard": "v1"}
+                   "e_writer": "v1", "quality_standard": "v1"}
 
 
 class ConfigError(ValueError):
