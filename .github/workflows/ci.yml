@@ -55,6 +55,11 @@ jobs:
         run: |
           python -m py_compile src/server/app/main.py src/server/workers/sync.py scripts/*.py tests/*.py
 
+      - name: "Import-linter (AGENT_RULES rule 2: domain purity)"
+        run: |
+          pip install import-linter
+          lint-imports
+
       - name: Run unit tests
         env:
           REDIS_URL: redis://localhost:6379/0
