@@ -51,7 +51,7 @@ SCHEMA_BREAKS = {
     "score_zero": lambda d: d["scorecard"][0].update(score=0),
     "confidence_over_1": lambda d: d["verdict"].update(confidence=1.5),
     "bad_severity": lambda d: d["problems"][0].update(severity="severe"),
-    "two_top_changes": lambda d: d["top_changes"].update(swap_ids=d["top_changes"]["swap_ids"][:2]),
+    "empty_top_changes": lambda d: d["top_changes"].update(swap_ids=[]),
     "four_top_changes": lambda d: d["top_changes"].update(swap_ids=d["top_changes"]["swap_ids"] + ["x"]),
     "missing_charts": lambda d: d.pop("charts"),
     "chart_bucket_count": lambda d: d["charts"]["curve"]["buckets"].pop(),

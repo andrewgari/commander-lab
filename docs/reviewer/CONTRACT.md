@@ -82,7 +82,7 @@ deck_identity   what_it_does, win_paths[], success_criteria[], intentional_quirk
 scorecard[]     axis, score (1–10), one_line, finding_ids[]
 strengths[]     finding
 problems[]      finding, ordered by severity
-top_changes     exactly 3 swap_ids + why_these_first
+top_changes     up to 3 verified swap_ids + why_these_first; null when none survive verification
 swaps[]         id, cut, add, resolves_finding_id, tradeoff, bracket_effect, budget_effect,
                 alternative, owned (bool), price
 cuts_to_consider[]   card, reason, evidence (may be empty)

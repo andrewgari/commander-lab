@@ -37,10 +37,10 @@ sync:
 creature-types:
 	docker compose exec app python scripts/refresh_creature_types.py
 
-# Deck reviewer evals. eval-gates is offline/deterministic (runs in CI);
-# eval is live (needs the review pipeline + REVIEW_GENERATOR_MODEL/REVIEW_JUDGE_MODEL).
+# Deck reviewer evals. eval is a deterministic offline pipeline smoke using the
+# same run_review entrypoint; live model-backed evaluation is a separate follow-up.
 eval-gates:
 	python -m tests.review_evals.run_gates --self-test
 
 eval:
-	python -m tests.review_evals.run_eval
+	python -m tests.review_evals.run_eval --offline

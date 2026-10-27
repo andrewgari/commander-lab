@@ -117,14 +117,13 @@ class MaterialiseTests(unittest.TestCase):
         top_schema = {"$defs": sch["$defs"], **sch["properties"]["top_changes"]}
         self.assertEqual(validate_schema(out.top_changes, top_schema), [])
 
-    def test_fewer_than_three_swaps_cannot_fill_the_documents_exactly_three_top_changes(self):
-        # Known gap, recorded for the document assembler (card 10+): review_document.v1 requires exactly 3 top_changes
-        # swap_ids, but CONTRACT §6 says do not pad a good deck. Pass C lists every swap it has and does not invent more.
+    def test_fewer_than_three_swaps_validate_without_padding(self):
         from tests.review_document_refs import load_schema
         out, *_ = run_c([t.recommend_reply([t.swap_in()])])
         sch = load_schema()
-        errs = validate_schema(out.top_changes, {"$defs": sch["$defs"], **sch["properties"]["top_changes"]})
-        self.assertTrue(any("too short" in e for e in errs), errs)
+        top_schema = {"$defs": sch["$defs"], **sch["properties"]["top_changes"]}
+        self.assertEqual(validate_schema(out.top_changes, top_schema), [])
+        self.assertEqual(out.top_changes["swap_ids"], ["sw-1"])
 
     def test_ownership_unknown_budget_text_says_so(self):
         out, *_ = run_c([t.recommend_reply([t.swap_in()])], pool=t.pool(ownership_known=False))
