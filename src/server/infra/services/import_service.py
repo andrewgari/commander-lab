@@ -17,6 +17,7 @@ from typing import Callable, Optional
 from sqlalchemy.orm import sessionmaker
 
 from src.server.domain.decks import deck_import
+from src.server.domain.decks import reconciliation_preview as reconcile
 from src.server.domain.inventory import have_buy as have_buy_mod
 from src.server.domain.profile import power as power_mod
 from src.server.domain.profile import snapshot as snapshot_mod
@@ -110,6 +111,35 @@ def import_archidekt_deck(
         "have_buy": report["totals"],
         "parse_flags": normalized["parse_flags"],
     }
+
+
+def preview_archidekt_deck(
+    identifier: str,
+    session_factory: Optional[sessionmaker] = None,
+    fetcher: Optional[Callable[[str], dict]] = None,
+) -> dict:
+    """Read-only reconciliation preview for one Archidekt deck.
+
+    Fetches the raw source payload and reads the locally matched deck (by
+    stable provider identity), then builds the domain diff. Writes nothing:
+    the session is used read-only and closed without commit, no upserts,
+    no snapshot, no instance claims, no Archidekt writes. Re-running the
+    preview with the same source and local state returns the same result.
+    """
+    fetch = fetcher or archidekt_provider.fetch_deck_raw
+    payload = fetch(identifier)
+    source_id = archidekt_provider.parse_identifier(identifier)
+
+    factory = session_factory or get_session_factory()
+    with factory() as session:  # read-only: no commit on close
+        local_deck = repo.get_deck(session, reconcile.registry_identity(source_id))
+        if local_deck is None:
+            local_deck = repo.get_deck_by_archidekt_id(session, source_id)
+        local_cards = (
+            repo.get_deck_cards(session, local_deck["id"]) if local_deck else []
+        )
+
+    return reconcile.preview_deck_refresh(payload, local_deck, local_cards)
 
 
 def deck_detail(session, deck_id: str) -> Optional[dict]:
