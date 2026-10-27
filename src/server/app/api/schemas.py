@@ -66,6 +66,40 @@ class HaveBuyReport(BaseModel):
     lines: list[HaveBuyLine]
 
 
+# --- Deck-local intent + copy demand (STA-11 work package B) ----------------
+
+class DeckIntentResponse(BaseModel):
+    deck_id: str
+    status: str  # "stated" | "unstated"
+    intent: Optional[dict] = None
+    provenance: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class DeckIntentPutRequest(BaseModel):
+    intent: dict = Field(
+        description="Sparse UserDeckIntent payload; only stated sections are stored."
+    )
+    merge: bool = Field(
+        default=False,
+        description="false = replace the whole record; true = merge whole sections.",
+    )
+
+
+class CopyDemandLine(HaveBuyLine):
+    printing: Optional[str] = None
+    printing_status: str = "unknown"
+    printing_reason: str = ""
+
+
+class CopyDemandResponse(BaseModel):
+    deck_id: str
+    totals: HaveBuyTotals
+    lines: list[CopyDemandLine]
+    unknowns: dict = Field(default_factory=dict)
+
+
 class ProfileSnapshot(BaseModel):
     id: int
     created_at: Optional[str] = None
