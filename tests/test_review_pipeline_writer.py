@@ -1,4 +1,5 @@
 """Pass E output must stay within the verified Pass D evidence."""
+import json
 import unittest
 
 from src.server.domain.analytics.review_pipeline import e_writer, prompts
@@ -17,7 +18,7 @@ class WriterChecks(unittest.TestCase):
         }
 
     def test_clean_prose_passes(self):
-        errors = e_writer.check_writer_output("Sol Ring helps. Front supports the plan; 36 lands and 12 sources.", self.verified)
+        errors = e_writer.check_writer_output('{"verdict":{"grade":"B","confidence":0.8},"text":"The deck improves. Sol Ring helps. Front supports the plan; 36 lands and 12 sources."}', self.verified)
         self.assertEqual(errors, [])
 
     def test_unknown_card_name_is_rejected(self):
@@ -28,7 +29,8 @@ class WriterChecks(unittest.TestCase):
 
     def test_double_faced_card_full_name_and_faces_are_allowed(self):
         for name in ("Front // Back", "Front", "Back"):
-            self.assertEqual(e_writer.check_writer_output(f"{name} supports the plan.", self.verified), [])
+            output = json.dumps({"verdict": {"grade": "B", "confidence": 0.8}, "text": f"{name} supports the plan."})
+            self.assertEqual(e_writer.check_writer_output(output, self.verified), [])
 
     def test_omitted_swap_id_cannot_be_resurrected(self):
         self.assertTrue(any("swap id" in e for e in e_writer.check_writer_output("Prioritize sw-2.", self.verified)))
@@ -38,6 +40,97 @@ class WriterChecks(unittest.TestCase):
         errors = e_writer.check_writer_output(output, self.verified)
         self.assertIn("verdict grade does not exactly match the verified input", errors)
         self.assertIn("verdict confidence does not exactly match the verified input", errors)
+        embedded_claim = '{"verdict":{"grade":"B","confidence":0.8},"summary":"Grade A confidence 0.9."}'
+        errors = e_writer.check_writer_output(embedded_claim, self.verified)
+        self.assertIn("verdict grade claim does not match the verified input", errors)
+        self.assertIn("verdict confidence claim does not match the verified input", errors)
+
+    def test_grade_claim_in_prose_is_rejected(self):
+        errors = e_writer.check_writer_output("The grade is A, and the deck is strong.", self.verified)
+        self.assertTrue(any("verdict" in e for e in errors))
+
+    def test_missing_or_invalid_output_verdict_is_rejected(self):
+        for output in ('{"summary":"Fine"}', '{"verdict":"A"}', 'Final: {"verdict":{"grade":"A","confidence":0.8}}'):
+            with self.subTest(output=output):
+                self.assertTrue(any("verdict" in e for e in e_writer.check_writer_output(output, self.verified)))
+
+    def test_single_word_unknown_card_at_sentence_start_is_rejected(self):
+        self.assertTrue(any("card name" in e for e in e_writer.check_writer_output("Lotus wins the game.", self.verified)))
+
+    def test_names_and_numbers_from_omitted_items_are_not_allowed(self):
+        for phrase in ("Thrasios is the real problem here.", "Kindred Discovery is strong.", "There are 2 weak swaps."):
+            with self.subTest(phrase=phrase):
+                self.assertTrue(e_writer.check_writer_output(phrase, self.verified))
+
+    def _wrap(self, text):
+        return json.dumps({"verdict": {"grade": "B", "confidence": 0.8}, "text": text})
+
+    def test_grade_modifier_upgrade_is_rejected(self):
+        for text in ("The grade is B+ overall.", "Grade: A- for this list.", "grade is B+ overall."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertIn("verdict grade claim does not match the verified input", errors)
+
+    def test_grade_claim_without_the_word_grade_is_rejected(self):
+        for text in ("the deck is an A.", "This is an A-level deck.", "It earns a B+ today.", "Rated A by the numbers."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertIn("verdict grade claim does not match the verified input", errors)
+
+    def test_matching_grade_claims_and_ordinary_articles_pass(self):
+        for text in ("The grade is B overall.", "It is a B deck.", "A deck with a plan; plan B is not needed.", "It is a b-level deck.",
+                     "Sol Ring is a great add."):
+            with self.subTest(text=text):
+                self.assertEqual(e_writer.check_writer_output(self._wrap(text), self.verified), [])
+
+    def test_lowercase_unknown_card_names_are_rejected(self):
+        for text in ("black lotus wins the game.", "BLACK LOTUS wins the game.", "Play thrasios next."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertTrue(any("card name" in e for e in errors), errors)
+
+    def test_lowercase_caller_supplied_universe_name_is_rejected(self):
+        errors = e_writer.check_writer_output(self._wrap("cut the mana crypt idea."), self.verified, known_names=["Mana Crypt"])
+        self.assertTrue(any("card name" in e for e in errors), errors)
+
+    def test_lowercase_verified_names_and_faces_pass(self):
+        self.assertEqual(e_writer.check_writer_output(self._wrap("sol ring and back help; front // back too."), self.verified), [])
+
+    def test_verified_name_followed_by_connector_is_not_flagged(self):
+        for text in ("Sol Ring for ramp.", "Sol Ring and mana are fine.", "Sol Ring to speed things up.",
+                     "Sol Ring in the deck.", "Add Sol Ring and cut Front // Back."):
+            with self.subTest(text=text):
+                self.assertEqual(e_writer.check_writer_output(self._wrap(text), self.verified), [])
+
+    def test_unverified_name_next_to_verified_name_and_connector_is_still_flagged(self):
+        errors = e_writer.check_writer_output(self._wrap("Sol Ring and Black Lotus for ramp."), self.verified)
+        self.assertTrue(any("Black Lotus" in e for e in errors), errors)
+        self.assertFalse(any("Sol Ring" in e for e in errors), errors)
+
+    def test_bare_modified_grade_tokens_are_rejected(self):
+        for text in ("B+ territory.", "This deck is a solid b+.", "It is a b+ deck.", "It is a c-level deck.",
+                     "The deck is A-.", "This deck is A- quality.", "The deck is B+ overall."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertIn("verdict grade claim does not match the verified input", errors)
+
+    def test_modified_grade_matching_the_verified_grade_passes(self):
+        verified = {**self.verified, "verdict": {**self.verified["verdict"], "grade": "B+"}}
+        output = json.dumps({"verdict": {"grade": "B+", "confidence": 0.8}, "text": "B+ territory; a b+ deck."})
+        self.assertEqual(e_writer.check_writer_output(output, verified), [])
+
+    def test_partial_name_of_known_card_is_rejected_even_when_not_omitted(self):
+        errors = e_writer.check_writer_output(self._wrap("thrasios drives the deck."), self.verified,
+                                              known_names=["Thrasios, Triton Hero"])
+        self.assertTrue(any("thrasios" in e.casefold() for e in errors), errors)
+
+    def test_short_name_of_verified_legend_is_allowed(self):
+        verified = {**self.verified, "swaps": [{"id": "sw-1", "add": {"name": "Thrasios, Triton Hero"}}]}
+        verified["top_changes"] = {"swap_ids": ["sw-1"], "why_these_first": "x"}
+        for text in ("Thrasios drives the deck.", "thrasios drives the deck.", "Thrasios, Triton Hero drives the deck."):
+            with self.subTest(text=text):
+                self.assertEqual(e_writer.check_writer_output(self._wrap(text), verified,
+                                                              known_names=["Thrasios, Triton Hero"]), [])
 
     def test_prompt_renders_only_from_verified_json_and_preferences(self):
         template = prompts.load("e_writer")
