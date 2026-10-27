@@ -1,18 +1,118 @@
 """Pass E output checks: prose may only restate verified Pass D evidence."""
 from __future__ import annotations
 
+import functools
 import json
 import re
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from src.server.domain.analytics.review_pipeline.names import normalize
 
+_WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
 _NUMBER = re.compile(r"(?<![\w])\d+(?:\.\d+)?%?(?![\w])")
 _SWAP_ID = re.compile(r"\bsw-[a-z0-9_-]+\b", re.I)
-_GRADE_CLAIM = re.compile(r"\bgrade\s*(?:is\s+|:\s*)?([A-F])\b", re.I)
+_GRADE_LETTER = r"([A-Fa-f])([+\-\u2212]?)"
+# Every way prose can assert a letter grade; each pattern captures (letter, optional +/- modifier).
+_GRADE_CLAIMS = (
+    re.compile(r"\bgrade\s*(?:is\s+|of\s+|:\s*)?" + _GRADE_LETTER + r"(?![\w])", re.I),
+    # "the deck is an A", "earns a B+", "an A-level deck": article + capital letter, no keyword needed.
+    re.compile(r"\b(?:[Aa]n?|[Tt]he)\s+([A-F])([+\-\u2212]?)(?![\w])"),
+    # "rated A", "scores B+", "earns A-".
+    re.compile(r"\b(?:rated|rating|graded|rates?|earns?|earned|scores?|scored|deserves?|merits?|receives?|gets?)\s+(?:at\s+)?([A-F])([+\-\u2212]?)(?![\w])", re.I),
+    # "A-level", "B+ tier", "A grade".
+    re.compile(r"(?<![\w])([A-F])([+\-\u2212]?)[\s-]+(?:level|tier|grade)\b"),
+)
 _CONFIDENCE_CLAIM = re.compile(r"\bconfidence\s*(?:is\s+|:\s*)?(0(?:\.\d+)?|1(?:\.0+)?)\b", re.I)
 _NON_NAME_TITLE_WORDS = {"a", "an", "the", "this", "that", "these", "those", "it", "its", "your", "you", "we", "our", "they", "their", "with", "for", "from", "while", "because", "when", "if", "cards", "deck", "mana", "overall"}
 _TITLE_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+(?:['’][A-Za-z]+)?)(?:\s+(?:of|the|and|to|in|for|with|at|on|a|an|[A-Z][a-z]+(?:['’][A-Za-z]+)?)){0,5}\b")
+
+
+def _grade_claims(text: str) -> list[str]:
+    """Every letter grade (with +/- modifier) the prose asserts, uppercased."""
+    claims: list[str] = []
+    for pattern in _GRADE_CLAIMS:
+        for match in pattern.finditer(text):
+            letter, modifier = match.group(1), match.group(2)
+            if letter == "a" and not modifier:        # lowercase "a" after the word grade is an article
+                continue
+            claims.append(letter.upper() + modifier.replace("\u2212", "-"))
+    return claims
+
+
+def _tokens(text: str) -> tuple[str, ...]:
+    return tuple(_WORD.findall(normalize(text)))
+
+
+def _name_tokens(name: str) -> set[tuple[str, ...]]:
+    full = name.strip()
+    faces = [full] + ([f.strip() for f in full.split("//")] if "//" in full else [])
+    return {t for t in map(_tokens, faces) if t}
+
+
+@functools.lru_cache(maxsize=1)
+def _name_universe() -> frozenset[tuple[str, ...]]:
+    """Multi-word real card names used to catch unverified names written in any case."""
+    names: set[str] = set()
+    try:
+        import numpy as np
+        from src.server.domain.analytics import card2vec
+        with np.load(card2vec.DEFAULT_PATH) as z:
+            names.update(str(n) for n in z["names"])
+    except Exception:                                  # optional corpus: absence only narrows the lowercase check
+        pass
+    try:
+        from src.server.domain.draft.deck_validator import COMMANDER_BANNED
+        names.update(COMMANDER_BANNED)
+    except Exception:
+        pass
+    return frozenset(t for n in names for t in _name_tokens(n) if len(t) > 1)
+
+
+def _omitted_names(data: Mapping[str, Any]) -> set[str]:
+    """Card names that appear only in omitted[] labels: the writer must not echo them in any case."""
+    out: set[str] = set()
+    for item in data.get("omitted") or []:
+        label = str(item.get("item", "")) if isinstance(item, Mapping) else str(item)
+        swap = re.search(r"\bcut\s+(.+?)\s+->\s+add\s+(.+?)\s*$", label)
+        if swap:
+            out.update(g.strip() for g in swap.groups())
+        elif ":" in label:
+            out.add(label.split(":", 1)[0].strip())
+    return {n for n in out if n and not _SWAP_ID.fullmatch(n)}
+
+
+def _unverified_names_any_case(text: str, allowed: set[str], data: Mapping[str, Any],
+                               known_names: Iterable[str]) -> list[str]:
+    """Names of real cards (or omitted ones) written in the prose, whatever the letter case, that are not verified."""
+    allowed_tokens = {t for n in allowed for t in [_tokens(n)] if t}
+    universe = set(_name_universe())
+    single: set[tuple[str, ...]] = set()
+    for name in _omitted_names(data):
+        for t in _name_tokens(name):
+            (single if len(t) == 1 else universe).add(t)
+    for name in known_names:
+        universe.update(t for t in _name_tokens(str(name)) if len(t) > 1)
+    words = list(_tokens(text))
+    covered = [False] * len(words)                     # words that belong to a verified name occurrence
+    longest = max([len(t) for t in allowed_tokens | universe | single] or [1])
+    for n in range(min(longest, len(words)), 0, -1):
+        for i in range(len(words) - n + 1):
+            if any(covered[i:i + n]):
+                continue
+            if tuple(words[i:i + n]) in allowed_tokens:
+                covered[i:i + n] = [True] * n
+    found: list[str] = []
+    for n in range(min(longest, len(words)), 0, -1):
+        for i in range(len(words) - n + 1):
+            if any(covered[i:i + n]):
+                continue
+            gram = tuple(words[i:i + n])
+            if gram in allowed_tokens:
+                continue
+            if gram in universe or gram in single:
+                found.append(" ".join(gram))
+                covered[i:i + n] = [True] * n
+    return found
 
 
 def _walk_verified(value: Any):
@@ -44,7 +144,7 @@ def _verified_numbers(data: Mapping[str, Any]) -> set[str]:
             for m in _NUMBER.finditer(str(value))}
 
 
-def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
+def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Iterable[str] = ()) -> list[str]:
     """Return policy violations; verified contains only the completed, Pass-D-approved payload."""
     errors: list[str] = []
     allowed_names = _verified_names(verified)
@@ -64,9 +164,6 @@ def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
         for field in ("grade", "confidence"):
             if field not in output_verdict or output_verdict.get(field) != source_verdict.get(field):
                 errors.append(f"verdict {field} does not exactly match the verified input")
-        for match in _GRADE_CLAIM.finditer(text):
-            if match.group(1).upper() != str(source_verdict["grade"]).upper():
-                errors.append("verdict grade claim does not match the verified input")
         for match in _CONFIDENCE_CLAIM.finditer(text):
             try:
                 matches_source = float(match.group(1)) == float(source_verdict["confidence"])
@@ -74,6 +171,12 @@ def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
                 matches_source = False
             if not matches_source:
                 errors.append("verdict confidence claim does not match the verified input")
+    if source_verdict.get("grade") is not None:
+        expected = str(source_verdict["grade"]).strip().upper()
+        for claim in _grade_claims(text):
+            if claim != expected:
+                errors.append("verdict grade claim does not match the verified input")
+                break
     for match in _TITLE_PHRASE.finditer(text):
         phrase = match.group(0).strip()
         # Sentence-initial function words are ordinary prose, not candidate card names.
@@ -82,6 +185,10 @@ def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
         if normalize(phrase) in allowed_names:
             continue
         errors.append(f"unverified card name or proper-name phrase: {phrase}")
+    for name in _unverified_names_any_case(text, allowed_names, verified, known_names):
+        message = f"unverified card name or proper-name phrase: {name}"
+        if not any(e.casefold() == message.casefold() for e in errors):
+            errors.append(message)
     allowed_numbers = _verified_numbers(verified)
     for match in _NUMBER.finditer(text):
         number = match.group(0).rstrip("%")
@@ -96,11 +203,11 @@ def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
     return errors
 
 
-def generate_checked(writer, verified: Mapping[str, Any], *, max_attempts: int = 2) -> str | None:
+def generate_checked(writer, verified: Mapping[str, Any], *, max_attempts: int = 2, known_names: Iterable[str] = ()) -> str | None:
     """Call writer with the verified payload, retry policy violations at most twice, then drop."""
     for _ in range(max(0, max_attempts) + 1):
         text = writer(verified)
-        if not check_writer_output(text, verified):
+        if not check_writer_output(text, verified, known_names):
             return text
     return None
 
@@ -108,7 +215,6 @@ def generate_checked(writer, verified: Mapping[str, Any], *, max_attempts: int =
 def render_user_input(verified: Mapping[str, Any], review_preferences: str = "") -> str:
     """Render only the verified JSON and the explicitly supplied profile voice preference."""
     from src.server.domain.analytics.review_pipeline import prompts
-    import json
 
     template = prompts.load("e_writer")
     return template.render("user", verified_json=json.dumps(verified, ensure_ascii=False, sort_keys=True),

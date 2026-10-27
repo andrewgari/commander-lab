@@ -62,6 +62,40 @@ class WriterChecks(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertTrue(e_writer.check_writer_output(phrase, self.verified))
 
+    def _wrap(self, text):
+        return json.dumps({"verdict": {"grade": "B", "confidence": 0.8}, "text": text})
+
+    def test_grade_modifier_upgrade_is_rejected(self):
+        for text in ("The grade is B+ overall.", "Grade: A- for this list.", "grade is B+ overall."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertIn("verdict grade claim does not match the verified input", errors)
+
+    def test_grade_claim_without_the_word_grade_is_rejected(self):
+        for text in ("the deck is an A.", "This is an A-level deck.", "It earns a B+ today.", "Rated A by the numbers."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertIn("verdict grade claim does not match the verified input", errors)
+
+    def test_matching_grade_claims_and_ordinary_articles_pass(self):
+        for text in ("The grade is B overall.", "It is a B deck.", "A deck with a plan; plan B is not needed.",
+                     "Sol Ring is a great add."):
+            with self.subTest(text=text):
+                self.assertEqual(e_writer.check_writer_output(self._wrap(text), self.verified), [])
+
+    def test_lowercase_unknown_card_names_are_rejected(self):
+        for text in ("black lotus wins the game.", "BLACK LOTUS wins the game.", "Play thrasios next."):
+            with self.subTest(text=text):
+                errors = e_writer.check_writer_output(self._wrap(text), self.verified)
+                self.assertTrue(any("card name" in e for e in errors), errors)
+
+    def test_lowercase_caller_supplied_universe_name_is_rejected(self):
+        errors = e_writer.check_writer_output(self._wrap("cut the mana crypt idea."), self.verified, known_names=["Mana Crypt"])
+        self.assertTrue(any("card name" in e for e in errors), errors)
+
+    def test_lowercase_verified_names_and_faces_pass(self):
+        self.assertEqual(e_writer.check_writer_output(self._wrap("sol ring and back help; front // back too."), self.verified), [])
+
     def test_prompt_renders_only_from_verified_json_and_preferences(self):
         template = prompts.load("e_writer")
         rendered = template.render("user", verified_json='{"grade":"B"}', review_preferences="plain")
