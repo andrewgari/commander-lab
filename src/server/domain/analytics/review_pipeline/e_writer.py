@@ -9,22 +9,28 @@ from src.server.domain.analytics.review_pipeline.names import normalize
 
 _NUMBER = re.compile(r"(?<![\w])\d+(?:\.\d+)?%?(?![\w])")
 _SWAP_ID = re.compile(r"\bsw-[a-z0-9_-]+\b", re.I)
+_GRADE_CLAIM = re.compile(r"\bgrade\s*(?:is\s+|:\s*)?([A-F])\b", re.I)
+_CONFIDENCE_CLAIM = re.compile(r"\bconfidence\s*(?:is\s+|:\s*)?(0(?:\.\d+)?|1(?:\.0+)?)\b", re.I)
+_NON_NAME_TITLE_WORDS = {"a", "an", "the", "this", "that", "these", "those", "it", "its", "your", "you", "we", "our", "they", "their", "with", "for", "from", "while", "because", "when", "if", "cards", "deck", "mana", "overall"}
 _TITLE_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+(?:['’][A-Za-z]+)?)(?:\s+(?:of|the|and|to|in|for|with|at|on|a|an|[A-Z][a-z]+(?:['’][A-Za-z]+)?)){0,5}\b")
 
 
-def _walk(value: Any):
+def _walk_verified(value: Any):
+    """Walk only reviewable evidence; verifier diagnostics are not writer input."""
     if isinstance(value, Mapping):
         for key, item in value.items():
+            if key == "omitted":
+                continue
             yield key, item
-            yield from _walk(item)
+            yield from _walk_verified(item)
     elif isinstance(value, (list, tuple)):
         for item in value:
-            yield from _walk(item)
+            yield from _walk_verified(item)
 
 
 def _verified_names(data: Mapping[str, Any]) -> set[str]:
     names: set[str] = set()
-    for key, value in _walk(data):
+    for key, value in _walk_verified(data):
         if key == "name" and isinstance(value, str):
             full = value.strip()
             names.add(normalize(full))
@@ -34,7 +40,7 @@ def _verified_names(data: Mapping[str, Any]) -> set[str]:
 
 
 def _verified_numbers(data: Mapping[str, Any]) -> set[str]:
-    return {m.group(0).rstrip("%") for _, value in _walk(data) if isinstance(value, (str, int, float))
+    return {m.group(0).rstrip("%") for _, value in _walk_verified(data) if isinstance(value, (str, int, float))
             for m in _NUMBER.finditer(str(value))}
 
 
@@ -47,21 +53,35 @@ def check_writer_output(text: str, verified: Mapping[str, Any]) -> list[str]:
     except (TypeError, json.JSONDecodeError):
         output = None
     source_verdict = verified.get("verdict") if isinstance(verified.get("verdict"), Mapping) else {}
-    output_verdict = output.get("verdict") if isinstance(output, Mapping) else None
-    if isinstance(output_verdict, Mapping) and isinstance(source_verdict, Mapping):
+    if not source_verdict or "grade" not in source_verdict or "confidence" not in source_verdict:
+        errors.append("verified input is missing grade or confidence")
+    if not isinstance(output, Mapping) or not isinstance(output.get("verdict"), Mapping):
+        errors.append("writer output must be JSON with a verdict object")
+        output_verdict = None
+    else:
+        output_verdict = output["verdict"]
+    if isinstance(output_verdict, Mapping) and source_verdict:
         for field in ("grade", "confidence"):
-            if output_verdict.get(field) != source_verdict.get(field):
+            if field not in output_verdict or output_verdict.get(field) != source_verdict.get(field):
                 errors.append(f"verdict {field} does not exactly match the verified input")
+        for match in _GRADE_CLAIM.finditer(text):
+            if match.group(1).upper() != str(source_verdict["grade"]).upper():
+                errors.append("verdict grade claim does not match the verified input")
+        for match in _CONFIDENCE_CLAIM.finditer(text):
+            try:
+                matches_source = float(match.group(1)) == float(source_verdict["confidence"])
+            except (TypeError, ValueError):
+                matches_source = False
+            if not matches_source:
+                errors.append("verdict confidence claim does not match the verified input")
     for match in _TITLE_PHRASE.finditer(text):
         phrase = match.group(0).strip()
-        # Sentence-initial capitalization is not enough to make a one-word card name.
+        # Sentence-initial function words are ordinary prose, not candidate card names.
+        if len(phrase.split()) == 1 and phrase.casefold() in _NON_NAME_TITLE_WORDS:
+            continue
         if normalize(phrase) in allowed_names:
             continue
-        tokens = phrase.split()
-        if len(tokens) == 1 and match.start() == 0:
-            continue
-        if normalize(phrase) not in allowed_names:
-            errors.append(f"unverified card name or proper-name phrase: {phrase}")
+        errors.append(f"unverified card name or proper-name phrase: {phrase}")
     allowed_numbers = _verified_numbers(verified)
     for match in _NUMBER.finditer(text):
         number = match.group(0).rstrip("%")
