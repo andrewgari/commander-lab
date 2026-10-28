@@ -254,8 +254,12 @@ class SpotOnClient:
         model = request.model.split(":", 1)[1]
         system = _system_blocks(request, cache=model.startswith("claude"))
         system.append({"type": "text", "text": _schema_note(request)})
+        messages = [{"role": m.role, "content": m.content} for m in request.messages]
+        if not model.lower().startswith("claude") and messages and messages[-1]["role"] == "user" and isinstance(messages[-1]["content"], str):
+            # gateway models that ignore output_config (mistral, deepseek, ...) answer in prose unless the schema is the last thing they read
+            messages[-1] = {**messages[-1], "content": messages[-1]["content"] + "\n\n" + _schema_note(request)}
         body = {"model": model, "max_tokens": request.max_tokens, "system": system,
-                "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+                "messages": messages,
                 "output_config": {"format": {"type": "json_schema", "schema": dict(request.schema)}}}
         if request.temperature is not None:
             body["temperature"] = request.temperature

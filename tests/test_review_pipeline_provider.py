@@ -113,6 +113,17 @@ class SpotOnTests(unittest.TestCase):
             return issued.pop(0) if len(issued) > 1 else issued[0]
         return provider.SpotOnClient(token, client=client(handler), **kw), calls
 
+    def test_non_claude_models_get_the_schema_restated_in_the_last_user_message_claude_does_not(self):
+        # mistral / deepseek ignore output_config and answer in prose unless the schema is the last thing they read
+        bodies = {}
+        def h(r):
+            b = json.loads(r.content); bodies[b["model"]] = b
+            return self.ok()
+        c, _ = self.make(h)
+        c.complete(req(model="spoton:mistral-large-3")); c.complete(req(model="spoton:claude-haiku-4-5"))
+        self.assertIn('"properties"', bodies["mistral-large-3"]["messages"][-1]["content"])
+        self.assertNotIn('"properties"', bodies["claude-haiku-4-5"]["messages"][-1]["content"])
+
     def test_parses_an_openai_chat_completion_reply_too(self):
         # mistral / deepseek on the gateway answer in chat.completion shape (choices[0].message.content), not content[] blocks
         def h(r):
