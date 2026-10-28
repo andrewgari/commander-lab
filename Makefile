@@ -1,4 +1,4 @@
-.PHONY: build up down logs sync restart deploy deploy-push gitops-setup creature-types
+.PHONY: eval eval-gates build up down logs sync restart deploy deploy-push gitops-setup creature-types
 
 build:
 	docker compose build
@@ -30,9 +30,17 @@ logs:
 restart: down up
 
 sync:
-	docker compose exec app python sync.py
+	docker compose exec app python -m src.server.workers.sync
 
 # Deck Genre: refresh the Kindred autocomplete's creature-type list from Scryfall into Redis.
 # Optional: the app falls back to the snapshot in deck_genre.py.
 creature-types:
 	docker compose exec app python scripts/refresh_creature_types.py
+
+# Deck reviewer evals. eval is a deterministic offline pipeline smoke using the
+# same run_review entrypoint; live model-backed evaluation is a separate follow-up.
+eval-gates:
+	python -m tests.review_evals.run_gates --self-test
+
+eval:
+	python -m tests.review_evals.run_eval --offline

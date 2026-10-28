@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 STYLESHEET_PATH = "/static/css/hud.css"
 
@@ -73,7 +73,7 @@ class TestHudStylesheet(unittest.TestCase):
         css = self.client.get(STYLESHEET_PATH).text.lower()
         self.assertNotRegex(css, r"#000(000)?\b")
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_every_page_links_stylesheet(self, mock_registry):
         mock_registry.list_decks.return_value = [{"name": "TestDeck", "id": "archidekt:1"}]
         mock_registry.registry_id_of.return_value = "archidekt:1"
@@ -99,7 +99,7 @@ class SimLogMobileHeightTests(unittest.TestCase):
     """F2: .hud-table td pins height at --row-h; card-grid cells must reset it at <=640px."""
 
     def test_sim_card_cells_reset_height_in_640_block(self):
-        css = open("static/css/hud.css", encoding="utf-8").read()
+        css = open("src/web/static/css/hud.css", encoding="utf-8").read()
         for sel in (".sm-log td", ".sm-tempo td"):
             rules = re.findall(r"^\s+" + re.escape(sel) + r" \{([^}]*)\}", css, re.M)
             self.assertTrue(any("display: block" in r and "height: auto" in r for r in rules), sel)

@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 
-from app import app
+from src.server.app.main import app
 
 
 def _pipeline_returning(values):
@@ -18,9 +18,9 @@ class TestDeckManage(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.instance_store.list_instances")
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.instance_store.list_instances")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_manage_aggregate_full_response(self, mock_redis, mock_find_deck, mock_list_instances):
         mock_find_deck.return_value = {"id": "archidekt:123", "registry_id": "archidekt:123", "name": "Test Deck", "status": "physical"}
         mock_list_instances.return_value = [
@@ -69,9 +69,9 @@ class TestDeckManage(unittest.TestCase):
 
         self.assertEqual(data["deck_categories"], {"Sol Ring": ["Fast Mana"]})
 
-    @patch("app.instance_store.list_instances")
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.instance_store.list_instances")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_manage_uncategorized_fallback(self, mock_redis, mock_find_deck, mock_list_instances):
         mock_find_deck.return_value = {"id": "archidekt:123", "registry_id": "archidekt:123", "name": "Test Deck"}
         mock_list_instances.return_value = [
@@ -91,9 +91,9 @@ class TestDeckManage(unittest.TestCase):
         self.assertEqual(card["deck_categories"], [])
         self.assertEqual(card["effective_category"], "Uncategorized")
 
-    @patch("app.instance_store.list_instances")
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.instance_store.list_instances")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_manage_empty_deck_no_instances(self, mock_redis, mock_find_deck, mock_list_instances):
         mock_find_deck.return_value = {"id": "archidekt:123", "registry_id": "archidekt:123", "name": "Empty Deck"}
         mock_list_instances.return_value = []
@@ -108,7 +108,7 @@ class TestDeckManage(unittest.TestCase):
         # No cards bound -> the pipeline should never even be built.
         mock_redis.pipeline.assert_not_called()
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_manage_missing_deck_404(self, mock_find_deck):
         mock_find_deck.return_value = None
 
@@ -116,9 +116,9 @@ class TestDeckManage(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    @patch("app.instance_store.list_instances")
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.instance_store.list_instances")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_manage_numeric_id_reads_categories_from_matching_key(
         self, mock_redis, mock_find_deck, mock_list_instances
     ):
@@ -166,7 +166,7 @@ class TestDeckManage(unittest.TestCase):
         self.assertEqual(sol_ring["deck_categories"], ["Fast Mana"])
         self.assertEqual(sol_ring["effective_category"], "Fast Mana")
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_deck_manage_page_renders_resync_review_panel(self, mock_registry):
         """Verify templates/deck_manage.html includes the resync review panel and actions."""
         mock_registry.list_decks.return_value = [

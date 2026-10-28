@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { describePillar, PillarDescribeError, serializeRequest } from "../static/ts/pillarDescribeClient.ts";
+import { describePillar, PillarDescribeError, serializeRequest } from "../src/web/static/ts/pillarDescribeClient.ts";
 
 const json = (status: number, body: unknown) =>
   (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;

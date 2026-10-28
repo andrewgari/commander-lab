@@ -126,7 +126,7 @@ def server():
     port = _free_port()
     env = dict(os.environ, REDIS_URL=f"{REDIS_URL}/{REDIS_DB}", PYTHONPATH=str(ROOT))
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "src.server.app.main:app", "--host", "127.0.0.1", "--port", str(port)],
         cwd=str(ROOT), env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     )
     base = f"http://127.0.0.1:{port}"
@@ -160,7 +160,7 @@ def r(server):
     # docs/PHYSICAL_FOLDER_LOCK.md), never via the status endpoint. Run the same
     # registry transition the folder sync uses so the decklists bind in_deck.
     sys.path.insert(0, str(ROOT))
-    import registry
+    import src.server.domain.decks.registry as registry
     for rid in (PHYS_ID, OTHER_ID):
         registry.set_status(client, rid, "physical", origin="archidekt_folder")
     return client
