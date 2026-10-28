@@ -91,6 +91,9 @@ RECORDED_ENV = {
 def _no_keys_env(tmp_path, **extra):
     env = {k: v for k, v in os.environ.items() if not k.endswith("_API_KEY") and not k.startswith("REVIEW_")}
     env["INTERACTIONS_SECRETS_DIR"] = str(tmp_path)          # an empty secrets dir: nothing to find on this host either
+    env["REVIEW_SPOTON_TOKEN_CMD"] = str(tmp_path / "no-such-spoton-cli") + " ai token"      # spoton-cli / claude may be on this PATH:
+    env["REVIEW_CLAUDE_CMD"] = str(tmp_path / "no-such-claude")                                  # never let a unit test reach a real provider
+    env.pop("GOOGLE_API_KEY", None)
     env.update(extra)
     return env
 
@@ -103,10 +106,124 @@ def test_live_without_any_key_exits_nonzero_and_says_missing_key(tmp_path):
     assert "Traceback" not in r.stderr
 
 
-def test_live_with_nothing_configured_still_reports_the_missing_key_and_models(tmp_path):
+def test_live_with_nothing_configured_exits_2_and_says_how_to_set_up_every_provider(tmp_path):
     r = subprocess.run(["make", "eval-live"], capture_output=True, text=True, env=_no_keys_env(tmp_path), timeout=120)
-    assert r.returncode != 0
-    assert "missing API key" in r.stderr and "REVIEW_MODEL" in r.stderr and "REVIEW_JUDGE_MODEL" in r.stderr
+    assert r.returncode == 2, (r.returncode, r.stderr)
+    assert "live eval is not configured" in r.stderr and "no usable provider" in r.stderr
+    for hint in ("REVIEW_SPOTON_TOKEN_CMD", "claude", "GEMINI_API_KEY", "OPENROUTER_API_KEY"):
+        assert hint in r.stderr, hint
+    assert "spoton:claude-sonnet-5-5" in r.stderr and "spoton:gpt-5-6-sol" in r.stderr, "the default tiers are named"
+    assert "Traceback" not in r.stderr and "eval: live," not in r.stdout, "nothing was spent"
+
+
+def test_make_eval_live_dry_defaults_use_the_spoton_tiers_with_no_model_env(tmp_path):
+    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\""}
+    from tests.review_evals import run_eval
+    assert run_eval.preflight(env, None, None) == []
+    cfg, writer, tier, judge = run_eval.resolve_models(env, None, None)
+    assert (tier, judge, writer) == ("spoton:claude-sonnet-5-5", "spoton:gpt-5-6-sol", "spoton:claude-sonnet-5-5")
+    assert [cfg.model(p) for p in "ABC"] == ["spoton:claude-sonnet-5-5"] * 3
+
+
+def test_tier_aliases_planned_and_cheaper_and_explicit_env_wins():
+    from tests.review_evals import run_eval
+    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\""}
+    assert run_eval.resolve_models(env, "cheaper", None)[2] == "spoton:claude-haiku-4-5"
+    assert run_eval.resolve_models(env, "planned", None)[2] == "spoton:claude-sonnet-5-5"
+    assert run_eval.resolve_models({**env, "REVIEW_MODEL": "spoton:claude-opus-5-5"}, None, None)[2] == "spoton:claude-opus-5-5"
+    assert run_eval.resolve_models({**env, "REVIEW_JUDGE_MODEL": "spoton:grok-4-7"}, None, None)[3] == "spoton:grok-4-7"
+
+
+def test_default_critic_is_a_third_model_family_the_gateway_serves_and_an_explicit_one_wins():
+    from src.server.domain.analytics.review_pipeline.config import model_family
+    from tests.review_evals import run_eval
+    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\""}
+    cfg, _, tier, judge = run_eval.resolve_models(env, None, None)
+    fams = {model_family(tier), model_family(judge), model_family(cfg.model("critic"))}
+    assert cfg.model("critic").startswith("spoton:") and len(fams) == 3, fams
+    assert run_eval.resolve_models({**env, "REVIEW_MODEL_CRITIC": "openrouter:google/gemini-x"}, None, None)[0].model("critic") == "openrouter:google/gemini-x"
+    assert run_eval.resolve_models({**env, "REVIEW_MODEL": "openrouter:anthropic/claude-x"}, None, None)[0].model("critic").startswith("openrouter:google/")
+
+
+def test_spoton_specs_are_usable_through_any_provider_in_the_chain_and_say_what_is_missing_otherwise(tmp_path):
+    from tests.review_evals import run_eval
+    none = {"INTERACTIONS_SECRETS_DIR": str(tmp_path), "REVIEW_SPOTON_TOKEN_CMD": str(tmp_path / "x") + " ai token", "REVIEW_CLAUDE_CMD": str(tmp_path / "y")}
+    msg = "\n".join(run_eval.preflight(none, None, None))
+    assert "no usable provider for 'spoton:claude-sonnet-5-5'" in msg and "REVIEW_SPOTON_TOKEN_CMD" in msg
+    assert run_eval.preflight({**none, "OPENROUTER_API_KEY": "k", "REVIEW_MODEL_CRITIC": "openrouter:google/gemini-x"}, None, None) == [], \
+        "OpenRouter alone can serve the generator and the judge (the default critic is gateway-only: mistral has no route elsewhere)"
+    only_or = "\n".join(run_eval.preflight({**none, "OPENROUTER_API_KEY": "k"}, None, None))
+    assert "provider 'spoton' is not set up" in only_or, "the gateway-only critic is reported, not silently rerouted"
+    only_claude = {**none, "REVIEW_CLAUDE_CMD": sys.executable}
+    assert any("spoton:gpt-5-6-sol" in p for p in run_eval.preflight(only_claude, None, None)), "the subscription cannot serve the judge"
+
+
+def test_gateway_models_carry_list_prices_so_cost_is_never_blank_and_user_prices_win():
+    from src.server.domain.analytics.review_pipeline import config as cfg, llm
+    from tests.review_evals import run_eval
+    merged = run_eval.with_default_prices(cfg.PipelineConfig())
+    meter = run_eval.MeteredClient(type("C", (), {"complete": lambda self, r: llm.LLMResponse(text="{}", usage=llm.Usage(1_000_000, 1_000_000))})(), merged.prices)
+    meter.complete(llm.LLMRequest(model="spoton:claude-haiku-4-5", system_blocks=(), messages=(), schema_name="s", schema={}))
+    assert meter.snapshot()["cost_usd"] == 6.0 and meter.snapshot()["cost_complete"]          # $1 in + $5 out per 1M tokens
+    own = cfg.PipelineConfig(prices={"spoton:claude-haiku-4-5": {"in": 9, "out": 9}})
+    assert run_eval.with_default_prices(own).prices["spoton:claude-haiku-4-5"] == {"in": 9, "out": 9}
+    assert "spoton:gpt-5-6-sol" in run_eval.with_default_prices(own).prices
+
+
+class LabelReplay:
+    """Serves the recorded Saffi replies by call label, ignoring the model in the request (the fallback rewrites it)."""
+
+    def __init__(self, replies):
+        self.queues = {}
+        for r in replies:
+            self.queues.setdefault(r["label"], []).append(r)
+
+    def complete(self, request):
+        from src.server.domain.analytics.review_pipeline import llm
+        r = self.queues[request.label].pop(0)
+        return llm.LLMResponse(text=r["text"], usage=llm.Usage.from_dict(r["usage"]), model=request.model, latency_ms=r["latency_ms"])
+
+
+def _run_with_providers(tmp_path, monkeypatch, providers, capsys, extra_env=None):
+    from src.server.infra.llm import provider
+    from tests.review_evals import run_eval
+    rec = _recorded_saffi()
+    monkeypatch.setattr(provider.RoutingClient, "from_env", classmethod(lambda cls, env=None: cls(providers(LabelReplay(rec["replies"])))))
+    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\"", "REVIEW_CLAUDE_CMD": sys.executable, **(extra_env or {})}
+    rc = run_eval.main(["--live", "--decks", "saffi-rumors", "--out", str(tmp_path)], env=env,
+                       fetch_sources=lambda deck, profile: (rec["fact_pack"], rec["pool"]), writer=_golden_writer,
+                       judge_complete=lambda m, p: json.dumps({**{d: 7 for d in judge.DIMENSIONS}, "notes": ""}))
+    return rc, json.loads((tmp_path / "results.json").read_text())["decks"]["saffi-rumors"], capsys.readouterr()
+
+
+def test_a_dead_gateway_falls_back_in_order_and_each_deck_logs_which_provider_served(tmp_path, monkeypatch, capsys):
+    from src.server.infra.llm import provider
+    down = provider.ProviderUnavailable("HTTP 401: unauthorized", status=401)
+    unavailable = type("Down", (), {"complete": lambda self, r: (_ for _ in ()).throw(down)})()
+    rc, deck, out = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": unavailable, "claude": replay, "openrouter": replay}, capsys,
+                                      extra_env={"REVIEW_MODEL_CRITIC": "openrouter:x-ai/grok-4.7", "OPENROUTER_API_KEY": "k"})     # the gateway-only default critic has no other route
+    assert rc == 0 and deck["status"] == "ok", deck.get("error")
+    served = deck["providers"]["served"]
+    assert set(served) == {"claude:claude-sonnet-5-5", "openrouter:x-ai/grok-4.7"}, served    # Claude generators on the subscription, critic on OpenRouter
+    assert [f["provider"] for f in deck["providers"]["failed"]] == ["spoton"], "the dead gateway is tried once, not once per call"
+    assert "401" in deck["providers"]["failed"][0]["reason"]
+    assert "claude:claude-sonnet-5-5" in out.out and "spoton" in out.out, "the per-deck summary line names the providers"
+
+
+def test_a_healthy_gateway_serves_everything_and_nothing_falls_back(tmp_path, monkeypatch, capsys):
+    rc, deck, _ = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": replay, "claude": replay, "openrouter": replay}, capsys)
+    assert rc == 0 and deck["providers"]["failed"] == []
+    assert set(deck["providers"]["served"]) == {"spoton:claude-sonnet-5-5", "spoton:mistral-large-3"}
+
+
+def test_every_provider_unreachable_fails_the_deck_naming_each_and_exits_1(tmp_path, monkeypatch, capsys):
+    from src.server.infra.llm import provider
+    class Down:
+        def __init__(self, status): self.status = status
+        def complete(self, r): raise provider.ProviderUnavailable(f"HTTP {self.status}: nope", status=self.status)
+    rc, deck, _ = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": Down(401), "claude": Down(None)}, capsys)
+    assert rc == 1 and deck["status"] == "failed"
+    assert "spoton" in deck["error"] and "claude" in deck["error"] and "openrouter" in deck["error"]
 
 
 def test_live_refuses_judge_equal_to_generator_before_spending_anything(tmp_path, capsys):
