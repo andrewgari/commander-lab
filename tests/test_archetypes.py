@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_module
-from analytics import archetypes as AR
+import src.server.app.main as app_module
+from src.server.domain.analytics import archetypes as AR
 
 
 class FakeRedis:

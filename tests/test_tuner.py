@@ -27,9 +27,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import journal
-from analytics import tuner
-from analytics.interactions import llm as llm_mod
+from src.server.domain.analytics import journal
+from src.server.domain.analytics import tuner
+from src.server.domain.analytics.interactions import llm as llm_mod
 from tests.test_interactions import FakeRedis
 
 DECK = {"id": 417707, "name": "Holy Hellfire", "registry_id": "archidekt:417707", "color": "WBR",
@@ -711,7 +711,7 @@ class TestInventoryFilter(unittest.TestCase):
     missing exact printing or unowned → shown with needs_purchase."""
 
     def setUp(self):
-        import instances as instance_store
+        import src.server.domain.inventory.instances as instance_store
         from tests.test_instances import FakeRedis as InstanceRedis
 
         self.inst = instance_store

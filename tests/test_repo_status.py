@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from app import app
-from src.services.repo_status import (
+from src.server.app.main import app
+from src.server.infra.services.repo_status import (
     DEFAULT_CACHE_TTL,
     RepoStatus,
     clear_repo_status_cache,
@@ -240,8 +240,8 @@ class TestRepoStatusCache(unittest.TestCase):
         def current_time():
             return fake_time
 
-        with patch("src.services.repo_status.time.time", side_effect=current_time):
-            with patch("src.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
+        with patch("src.server.infra.services.repo_status.time.time", side_effect=current_time):
+            with patch("src.server.infra.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
                 # 1. First call: Cache miss -> invokes git once
                 status1 = get_repo_status(self.repo_dir, ttl=10.0)
                 self.assertEqual(mock_git.call_count, 1)
@@ -286,7 +286,7 @@ class TestRepoStatusCache(unittest.TestCase):
 
     def test_cache_ttl_zero_always_bypasses_cache(self):
         """Calls with ttl=0 or effective_ttl=0 bypass cache and re-invoke git every time."""
-        with patch("src.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
+        with patch("src.server.infra.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
             get_repo_status(self.repo_dir, ttl=0)
             self.assertEqual(mock_git.call_count, 1)
 
@@ -439,7 +439,7 @@ class TestApiDecksIntegration(unittest.TestCase):
     def tearDown(self):
         clear_repo_status_cache()
 
-    @patch("app.r")
+    @patch("src.server.app.main.r")
     def test_api_decks_smoke_and_backward_compatibility(self, mock_redis):
         """GET /api/decks returns 200, includes new status fields, and maintains backward compatibility for existing consumers."""
         with tempfile.TemporaryDirectory() as tmpdir:

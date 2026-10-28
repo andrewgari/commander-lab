@@ -6,7 +6,7 @@ from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tcgplayer import build_tcgplayer_url, cart_items, BASE_URL  # noqa: E402
+from src.server.infra.providers.tcgplayer import build_tcgplayer_url, cart_items, BASE_URL  # noqa: E402
 
 
 def decoded_c(url: str) -> str:

@@ -14,9 +14,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app as app_mod
-from app import app
-from analytics import tune_store, tuner
+import src.server.app.main as app_mod
+from src.server.app.main import app
+from src.server.domain.analytics import tune_store, tuner
 from fastapi.testclient import TestClient
 from tests.test_tuner import CAPS, COMP, DECK, WEAK, build, cand
 
@@ -337,9 +337,9 @@ class TestApi(unittest.TestCase):
         self.r = FakeRedis()
         self.client = TestClient(app)
         self.patches = [patch.object(app_mod, "r", self.r),
-                        patch("app.registry.find_deck",
+                        patch("src.server.app.main.registry.find_deck",
                               side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[DECK]),
+                        patch("src.server.app.main.registry.list_decks", return_value=[DECK]),
                         patch.object(tuner, "compute", real_compute)]
         for p in self.patches:
             p.start()

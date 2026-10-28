@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import redis
-from redis_cache import RedisCache
+from src.server.infra.cache.redis_cache import RedisCache
 
 
 class FakeRedis:

@@ -23,9 +23,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from analytics import bracket_eval as be
-from analytics import brackets as br
-from analytics import engine, journal
+from src.server.domain.analytics import bracket_eval as be
+from src.server.domain.analytics import brackets as br
+from src.server.domain.analytics import engine, journal
 from tests.test_bracket_eval import evaluate, journal as jr, load, three_gc_deck
 from tests.test_deck_journal_ui import SAVED, _JournalPage
 from tests.test_deck_stats_ui import DECK, HUD_CSS, HUD_JS, INVENTORY, _classes
@@ -33,11 +33,11 @@ from tests.test_hud_shell_deck import _page_style
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from app import app
+import src.server.app.main as app_mod
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-BR_JS = ROOT / "static" / "js" / "brackets.js"
+BR_JS = ROOT / "src/web/static" / "js" / "brackets.js"
 
 
 def _api(ev, **over):
@@ -352,8 +352,8 @@ class TestDeckPageWiring(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         client = TestClient(app)
-        with patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             cls.html = client.get("/deck/Holy%20Hellfire").text
         cls.body = cls.html.split("<body", 1)[1]
         cls.css = HUD_CSS.read_text()
@@ -381,8 +381,8 @@ class TestDeckPageWiring(unittest.TestCase):
     def test_tolerance_comes_from_the_engine_constant(self):
         self.assertRegex(self.body, r"POWER_TOL = 1\.5\b")
         with patch.object(engine, "POWER_ALIGN_TOLERANCE", 2.25), \
-                patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+                patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             html = TestClient(app).get("/deck/Holy%20Hellfire").text
         self.assertIn("POWER_TOL = 2.25", html)
 
@@ -485,8 +485,8 @@ class TestDeckPagePolling(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             cls.body = TestClient(app).get("/deck/Holy%20Hellfire").text.split("<body", 1)[1]
         cls.script = cls.body.split("// ---- Bracket evaluation", 1)[1].split("async function loadDeckData", 1)[0]
 

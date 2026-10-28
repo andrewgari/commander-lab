@@ -9,9 +9,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import archetype_describe as ad
-from analytics import archetypes as ar
-from analytics.interactions import llm as llm_mod
+from src.server.domain.analytics import archetype_describe as ad
+from src.server.domain.analytics import archetypes as ar
+from src.server.domain.analytics.interactions import llm as llm_mod
 from tests.test_identity import JsonProvider
 
 GOOD = {"description": "This deck wants to flood the board with tokens and turn them sideways. "
@@ -129,8 +129,8 @@ class TestRoute(unittest.TestCase):
 
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
-        import app as app_mod
+        from src.server.app.main import app
+        import src.server.app.main as app_mod
         from tests.test_archetypes import FakeRedis
         self.app_mod = app_mod
         self.client = TestClient(app)
@@ -139,7 +139,7 @@ class TestRoute(unittest.TestCase):
 
     def post(self, body, ch):
         with patch.object(self.app_mod, "r", self.fake), \
-                patch("analytics.interactions.llm.default_chain", return_value=ch):
+                patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=ch):
             return self.client.post(self.URL, json=body)
 
     def test_draft_ok_nothing_saved(self):

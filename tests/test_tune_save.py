@@ -5,11 +5,11 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-import instances as inst
-import registry
-from analytics import tune_save
-from app import app
+import src.server.app.main as app_mod
+import src.server.domain.inventory.instances as inst
+import src.server.domain.decks.registry as registry
+from src.server.domain.analytics import tune_save
+from src.server.app.main import app
 
 DECK = {"id": 417707, "registry_id": "archidekt:417707", "source": "archidekt", "name": "Holy Hellfire",
         "status": "testing", "links": {"moxfield": {"identifier": "abc", "deck_id": "abc"}},

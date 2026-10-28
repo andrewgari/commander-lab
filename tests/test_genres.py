@@ -10,9 +10,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_module
-from analytics import genres as G
-from analytics.oracle_client import OracleUnavailable
+import src.server.app.main as app_module
+from src.server.domain.analytics import genres as G
+from src.server.domain.analytics.oracle_client import OracleUnavailable
 
 
 class FakeRedis:
@@ -139,7 +139,7 @@ class TestApi(unittest.TestCase):
                                  "required_roles": [{"tag": "consumes:lands", "min_count": 1, "weight": 1}]})
         deck = {"name": "D", "registry_id": "archidekt:1", "cards": [{"name": "A", "quantity": 1}]}
         graph = {"counts": {"untagged": 1}, "nodes": [{"name": "A", "produces": ["lands"], "consumes": ["lands"]}]}
-        from analytics import role_tags
+        from src.server.domain.analytics import role_tags
         with patch.object(app_module, "_deck_or_404", return_value=(deck, None)), \
                 patch.object(app_module.interactions_service, "get_deck_graph", return_value=graph), \
                 patch.object(role_tags, "scryfall_search", _fake_source({"landfall": ["A"]})):
