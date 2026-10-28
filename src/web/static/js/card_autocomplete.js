@@ -228,10 +228,11 @@
         }
         function onKeydown(ev) {
             if (ev.key === "Escape") {
-                if (!listEl.hidden) {
-                    ev.preventDefault();
-                    closeList();
-                }
+                // Esc also cancels a pending debounce / in-flight search, so a
+                // keystroke-then-Esc does not re-open the list afterwards.
+                var wasOpen = !listEl.hidden;
+                closeList();
+                if (wasOpen) ev.preventDefault();
                 return;
             }
             if (listEl.hidden || !currentResults.length) return;
