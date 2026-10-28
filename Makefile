@@ -1,4 +1,4 @@
-.PHONY: eval eval-gates build up down logs sync restart deploy deploy-push gitops-setup creature-types
+.PHONY: eval eval-live eval-gates build up down logs sync restart deploy deploy-push gitops-setup creature-types
 
 build:
 	docker compose build
@@ -38,9 +38,15 @@ creature-types:
 	docker compose exec app python scripts/refresh_creature_types.py
 
 # Deck reviewer evals. eval is a deterministic offline pipeline smoke using the
-# same run_review entrypoint; live model-backed evaluation is a separate follow-up.
+# same run_review entrypoint. eval-live runs every golden deck through run_review with
+# real model calls (COSTS MONEY): needs REVIEW_MODEL, REVIEW_JUDGE_MODEL and the provider
+# API key(s) in the environment or the secrets dir; see tests/review_evals/run_eval.py.
+# Example: make eval-live EVAL_ARGS="--decks saffi-rumors --tier openrouter:anthropic/claude-sonnet-5.5"
 eval-gates:
 	python -m tests.review_evals.run_gates --self-test
 
 eval:
 	python -m tests.review_evals.run_eval --offline
+
+eval-live:
+	python -m tests.review_evals.run_eval --live $(EVAL_ARGS)
