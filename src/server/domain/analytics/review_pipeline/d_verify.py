@@ -46,6 +46,7 @@ PASS_REGEN = "D"
 DOSSIER_TEXT_CHARS = 700
 MAX_FACT_LINES = 24
 REASON_CHARS = 320
+QUOTE_HINT_CHARS = 700
 TOP_ID = "top_changes"
 
 
@@ -102,9 +103,29 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", " ", strip_typography(text)).casefold()
 
 
+_ELLIPSIS = re.compile(r"\.{3,}|…")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
 def quote_in(quote: str, text: str) -> bool:
+    """True when the quote is the item's own words. Typography, case and spacing are forgiven. A critic that elides
+    with an ellipsis or stitches two sentences of the item is still quoting it, so such a quote passes when every
+    piece (split at ellipses, then at sentence ends) appears in the text, in order. Any word not in the item fails."""
+    haystack = _squash(text)
     q = _squash(quote).strip(" .…\"'")
-    return bool(q) and q in _squash(text)
+    if not q:
+        return False
+    if q in haystack:
+        return True
+    pieces = [piece.strip(" .…\"'") for part in _ELLIPSIS.split(_squash(quote)) for piece in _SENTENCE_END.split(part)]
+    pieces = [piece for piece in pieces if piece]
+    pos = 0
+    for piece in pieces:
+        at = haystack.find(piece, pos)
+        if at < 0:
+            return False
+        pos = at + len(piece)
+    return bool(pieces)
 
 
 def critic_validate(obj: Any, texts: Mapping[str, str]) -> list[str]:
@@ -135,7 +156,9 @@ def critic_validate(obj: Any, texts: Mapping[str, str]) -> list[str]:
                 errs.append(f"{v['item_id']}: a flag needs one of {', '.join(schemas.CRITIC_CATEGORIES)}")
             if not quote_in(v["quote"], texts[v["item_id"]]):
                 errs.append(f"{v['item_id']}: the quote {v['quote']!r} does not appear verbatim in the TEXT UNDER REVIEW; "
-                            "copy the exact words that are wrong, or return ok")
+                            "copy the exact words that are wrong, or return ok. The TEXT UNDER REVIEW for "
+                            f"{v['item_id']} is: {_compact(texts[v['item_id']], QUOTE_HINT_CHARS)!r}. "
+                            "Quote one contiguous span of it, nothing from any other item or from the dossier")
     return errs
 
 

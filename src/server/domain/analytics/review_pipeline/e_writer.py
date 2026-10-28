@@ -27,7 +27,8 @@ _GRADE_CLAIMS = (
 _CONFIDENCE_CLAIM = re.compile(r"\bconfidence\s*(?:is\s+|:\s*)?(0(?:\.\d+)?|1(?:\.0+)?)\b", re.I)
 _NON_NAME_TITLE_WORDS = {"a", "an", "the", "this", "that", "these", "those", "it", "its", "your", "you", "we", "our", "they", "their", "with", "for", "from", "while", "because", "when", "if", "cards", "deck", "mana", "overall",
                          "add", "cut", "swap", "keep", "drop", "play", "run", "replace", "consider", "prioritize",
-                         "start", "trim", "count", "counts", "expect", "since", "so", "but", "and", "or", "also"}
+                         "start", "trim", "count", "counts", "expect", "since", "so", "but", "and", "or", "also",
+                         "white", "blue", "black", "red", "green", "colorless", "multicolor", "snow"}
 _CONNECTORS = frozenset({"of", "the", "and", "to", "in", "for", "with", "at", "on", "a", "an"})
 _TITLE_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+(?:['’][A-Za-z]+)?)(?:\s+(?:of|the|and|to|in|for|with|at|on|a|an|[A-Z][a-z]+(?:['’][A-Za-z]+)?)){0,5}\b")
 
@@ -131,7 +132,8 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
             continue
         if _in_payload(text, payload):
             continue
-        if len(run) == 1 and first == 0 and sentence_initial and run[0].casefold() in _SENTENCE_STARTERS:
+        if len(run) == 1 and first == 0 and sentence_initial and (run[0].casefold() in _SENTENCE_STARTERS
+                                                                  or _is_plain_word(run[0], payload)):
             continue
         # Sentence-initial verb before a verified name ("Prioritize Sol Ring"): ordinary prose, not a card name.
         if len(run) == 1 and first == 0 and sentence_initial and before_verified:
@@ -195,6 +197,30 @@ def _name_universe() -> frozenset[tuple[str, ...]]:
     return frozenset(universe)
 
 
+@functools.lru_cache(maxsize=1)
+def _card_name_vocabulary() -> frozenset[str]:
+    """Every word that occurs in some real card name (normalized). Empty when the card corpus is unavailable."""
+    names: set[str] = set()
+    try:
+        import numpy as np
+        from src.server.domain.analytics import card2vec
+        with np.load(card2vec.DEFAULT_PATH) as z:
+            names.update(str(n) for n in z["names"])
+    except Exception:                                  # optional corpus: without it nothing is treated as plain prose
+        return frozenset()
+    return frozenset(w for n in names for w in _WORD.findall(normalize(n)))
+
+
+def _is_plain_word(word: str, payload: tuple[str, ...]) -> bool:
+    """A sentence-opening word ('Critically', 'Apply') that is no part of any real card name, or that the verified payload
+    itself uses as an ordinary word ('combat damage'), is prose, not a name. 'Lotus' or 'Entomb' are neither, so they stay names."""
+    vocabulary = _card_name_vocabulary()
+    token = _phrase_tokens(word)
+    if not vocabulary or not token:
+        return False
+    return token[0] not in vocabulary or token[0] in payload or (len(token[0]) > 4 and token[0].endswith("ly"))
+
+
 def _omitted_names(data: Mapping[str, Any]) -> set[str]:
     """Card names that appear only in omitted[] labels: the writer must not echo them in any case."""
     out: set[str] = set()
@@ -256,6 +282,8 @@ def _walk_verified(value: Any):
             yield from _walk_verified(item)
     elif isinstance(value, (list, tuple)):
         for item in value:
+            if isinstance(item, (str, int, float)) and not isinstance(item, bool):
+                yield None, item                          # a bare list element (win_paths, success_criteria, ...) is evidence too
             yield from _walk_verified(item)
 
 
