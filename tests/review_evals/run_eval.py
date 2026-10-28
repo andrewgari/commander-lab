@@ -2,7 +2,7 @@
 
     python -m tests.review_evals.run_eval --offline          # `make eval`: deterministic, no credentials, no network
     python -m tests.review_evals.run_eval --live             # `make eval-live`: real model calls, costs money
-    python -m tests.review_evals.run_eval --live --tier openrouter:anthropic/claude-sonnet-5.5 --decks saffi-rumors
+    python -m tests.review_evals.run_eval --live --tier cheaper --decks saffi-rumors
 
 ``--live`` runs every deck in ``tests/review_evals/decks/*`` through ``run_review`` (Passes A-E) with live provider calls.
 Per deck it builds the fact pack and candidate pool from ``decklist.txt`` (Scryfall, EDHREC, Commander Spellbook), the
@@ -11,15 +11,30 @@ latency and judge scores to ``--out`` (default ``tests/review_evals/results/<tim
 ``rubric_recall`` is the judge's score for that dimension against ``rubric.yaml``. ``results.json`` is the file
 ``scripts/eval_compare.py`` diffs.
 
-Configuration is environment only; nothing secret is read from, or written to, the repo:
+Configuration is environment only; nothing secret is read from, or written to, the repo. With nothing set, ``--live`` uses
+the SpotOn gateway and needs no pasted key:
 
-    REVIEW_MODEL          generator tier, ``<provider>:<model id>`` (``--tier`` overrides): Passes A, B, C and the Pass E
-                          writer. REVIEW_MODEL_A/B/C/E override one pass; REVIEW_MODEL_CRITIC sets the Pass D critic (a
-                          different model family from every generator, D3). The rest is ``review_pipeline.config``.
+    planned tier (generator)   spoton:claude-sonnet-5-5        --tier planned   (the default)
+    cheaper tier               spoton:claude-haiku-4-5         --tier cheaper
+    judge                      spoton:gpt-5-6-sol              (a different vendor family from every generator)
+    Pass D critic              spoton:grok-4-7                 (a third family; D3 needs one that is not a generator's)
+
+    REVIEW_MODEL          generator tier, ``<provider>:<model id>`` (``--tier`` overrides; ``planned``/``cheaper`` are aliases):
+                          Passes A, B, C and the Pass E writer. REVIEW_MODEL_A/B/C/E override one pass; REVIEW_MODEL_CRITIC
+                          sets the Pass D critic. The rest is ``review_pipeline.config``.
     REVIEW_JUDGE_MODEL    judge, ``<provider>:<model id>``; must differ from every generator model.
-    OPENROUTER_API_KEY / ANTHROPIC_API_KEY
+    REVIEW_SPOTON_URL / REVIEW_SPOTON_TOKEN_CMD
+                          the SpotOn gateway base URL and the command that prints its short-lived bearer token
+                          (default ``spoton-cli ai token``, fetched at run time, never stored).
+    REVIEW_CLAUDE_CMD     the Claude CLI used for the subscription fallback (default ``claude``).
+    GEMINI_API_KEY / OPENROUTER_API_KEY / ANTHROPIC_API_KEY
                           one per provider in use, as an env var or a file in $INTERACTIONS_SECRETS_DIR
                           (default /run/commander-lab-secrets, the Docker secret mount).
+
+A ``spoton:<model>`` spec falls back when SpotOn is unreachable, rejects the token, or has no route for the model: to the Claude
+subscription (Claude models), then Gemini (Gemini models), then OpenRouter, in that order, skipping providers that are not set up
+here. Each deck's row in ``results.json`` (``providers``) and its summary line say which provider served its calls and which
+failed. A spec with an explicit provider (``openrouter:...``, ``anthropic:...``) is never rerouted.
 
 Configuration and keys are checked before the first model call, so a misconfigured run spends nothing. Exit codes:
 0 every deck produced a review with zero gate violations, 1 a deck failed or violated a gate, 2 bad configuration or usage.
@@ -105,8 +120,30 @@ def _providers(specs: Sequence[str]) -> list[str]:
     return sorted({s.split(":", 1)[0] for s in specs if ":" in s})
 
 
+DEFAULT_TIERS = {"planned": "spoton:claude-sonnet-5-5", "cheaper": "spoton:claude-haiku-4-5"}
+DEFAULT_TIER = DEFAULT_TIERS["planned"]
+DEFAULT_JUDGE = "spoton:gpt-5-6-sol"
+DEFAULT_SPOTON_CRITIC = "spoton:grok-4-7"
+# USD per 1M tokens. List prices of the underlying models (OpenRouter's published rates), used only when the provider does not
+# report cost itself, so a gateway run has a cost estimate. Override per spec with REVIEW_MODEL_PRICES.
+DEFAULT_PRICES = {
+    "spoton:claude-sonnet-5-5": {"in": 2.0, "out": 10.0, "cache_read": 0.2, "cache_write": 2.5},
+    "spoton:claude-haiku-4-5": {"in": 1.0, "out": 5.0, "cache_read": 0.1, "cache_write": 1.25},
+    "spoton:claude-opus-5-5": {"in": 5.0, "out": 25.0, "cache_read": 0.5, "cache_write": 6.25},
+    "spoton:gpt-5-6-sol": {"in": 4.0, "out": 20.0, "cache_read": 0.4, "cache_write": 5.0},
+    "spoton:grok-4-7": {"in": 2.0, "out": 6.0, "cache_read": 0.5},
+}
+
+
+def with_default_prices(config: Any) -> Any:
+    import dataclasses
+
+    return dataclasses.replace(config, prices={**DEFAULT_PRICES, **dict(config.prices)})
+
+
 def _env_models(env: Mapping[str, str], tier: str | None):
-    """(PipelineConfig, writer model): the tier fills Passes A, B, C unless that pass is set explicitly."""
+    """(PipelineConfig, writer model): the tier fills Passes A, B, C unless that pass is set explicitly. On the SpotOn gateway
+    the Pass D critic defaults to a third model family (the pipeline default needs an OpenRouter key)."""
     from src.server.domain.analytics.review_pipeline import config as cfg
 
     cfg_env = dict(env)
@@ -114,15 +151,26 @@ def _env_models(env: Mapping[str, str], tier: str | None):
         for p in ("A", "B", "C"):
             if not cfg_env.get(f"REVIEW_MODEL_{p}"):
                 cfg_env[f"REVIEW_MODEL_{p}"] = tier
-    config = cfg.PipelineConfig.from_env(cfg_env)
+        if tier.startswith("spoton:") and not cfg_env.get("REVIEW_MODEL_CRITIC"):
+            cfg_env["REVIEW_MODEL_CRITIC"] = DEFAULT_SPOTON_CRITIC
+    config = with_default_prices(cfg.PipelineConfig.from_env(cfg_env))
     return config, env.get("REVIEW_MODEL_E") or tier or config.model("C")
 
 
+def resolve_models(env: Mapping[str, str], tier: str | None, judge: str | None):
+    """(PipelineConfig, writer model, tier, judge) with the defaults applied: ``--tier`` > REVIEW_MODEL > the planned tier."""
+    tier = tier or env.get("REVIEW_MODEL") or DEFAULT_TIER
+    tier = DEFAULT_TIERS.get(tier.strip().lower(), tier)
+    judge = judge or env.get("REVIEW_JUDGE_MODEL") or DEFAULT_JUDGE
+    config, writer = _env_models(env, tier if ":" in tier else None)
+    return config, writer, tier, judge
+
+
 def _norm_model(spec: str) -> str:
-    """Route-independent model identity: ``anthropic:claude-x`` == ``openrouter:anthropic/claude-x``."""
+    """Route-independent model identity: ``anthropic:claude-x`` == ``openrouter:anthropic/claude-x`` == ``spoton:claude-x``."""
     from src.server.domain.analytics.review_pipeline.config import model_family
 
-    model = spec.partition(":")[2].strip().lower()
+    model = spec.partition(":")[2].strip().lower().replace(".", "-")
     return model.split("/", 1)[1] if "/" in model and model_family(spec) == model.split("/", 1)[0] else model
 
 
@@ -146,33 +194,48 @@ def _judge_independence_problems(judge: str, generators: Mapping[str, str], crit
     return out
 
 
+KEY_PROVIDERS = ("openrouter", "anthropic", "gemini")
+
+
+def _spec_provider_problem(spec: str, env: Mapping[str, str]) -> str | None:
+    """None when some provider in the spec's fallback chain is set up here, else why the spec cannot run."""
+    from src.server.infra.llm import provider
+
+    status = provider.provider_status(env)
+    chain = provider.fallback_chain(spec)
+    if any(status.get(c.split(":", 1)[0], "unknown provider") is None for c in chain):
+        return None
+    prov = spec.split(":", 1)[0]
+    if len(chain) > 1:
+        return f"no usable provider for {spec!r}; tried in order: {', '.join(c.split(':', 1)[0] for c in chain)}"
+    if prov in KEY_PROVIDERS:
+        return f"missing API key: {prov.upper()}_API_KEY"
+    return f"provider {prov!r} is not set up: {status.get(prov, 'unknown provider')}"
+
+
 def preflight(env: Mapping[str, str], tier: str | None, judge: str | None) -> list[str]:
     """Everything that can be checked without spending money; returns human-readable problems (empty = go)."""
     from src.server.domain.analytics.review_pipeline import config as cfg
     from src.server.infra.llm import provider
-    from tests.review_evals import judge as judge_mod
 
     problems: list[str] = []
-    tier = tier or env.get("REVIEW_MODEL") or None
-    judge = judge or env.get("REVIEW_JUDGE_MODEL") or None
-    if not tier:
-        problems.append("REVIEW_MODEL is not set (the generator model, '<provider>:<model id>'; or pass --tier)")
-    elif ":" not in tier:
-        problems.append(f"REVIEW_MODEL {tier!r} must look like '<provider>:<model id>'")
-    if not judge:
-        problems.append("REVIEW_JUDGE_MODEL is not set (the judge model, '<provider>:<model id>', different from the generator)")
-    elif ":" not in judge:
+    tier = tier or env.get("REVIEW_MODEL") or DEFAULT_TIER
+    tier = DEFAULT_TIERS.get(tier.strip().lower(), tier)
+    judge = judge or env.get("REVIEW_JUDGE_MODEL") or DEFAULT_JUDGE
+    if ":" not in tier:
+        problems.append(f"REVIEW_MODEL {tier!r} must look like '<provider>:<model id>' (or planned / cheaper)")
+    if ":" not in judge:
         problems.append(f"REVIEW_JUDGE_MODEL {judge!r} must look like '<provider>:<model id>'")
 
     specs: list[str] = []
     try:
-        config, writer_model = _env_models(env, tier if tier and ":" in tier else None)
+        config, writer_model = _env_models(env, tier if ":" in tier else None)
     except (cfg.ConfigError, ValueError) as exc:
         problems.append(f"pipeline model configuration: {exc}")
     else:
         generators = {p: config.model(p) for p in cfg.GENERATOR_PASSES} | {"E": writer_model}
         specs = [*generators.values(), *config.axis_models.values(), config.model("critic")]
-        if judge and ":" in judge:
+        if ":" in judge:
             specs.append(judge)
             problems.extend(_judge_independence_problems(judge, generators, config.model("critic")))
         try:
@@ -180,10 +243,15 @@ def preflight(env: Mapping[str, str], tier: str | None, judge: str | None) -> li
         except cfg.ConfigError as exc:
             problems.append(str(exc))
 
-    missing = [f"{p.upper()}_API_KEY" for p in _providers(specs) if not provider._secret(f"{p.upper()}_API_KEY", env)]
-    if missing:
-        problems.append(f"missing API key: {', '.join(missing)}. Set it as an env var or as a file in "
-                        f"$INTERACTIONS_SECRETS_DIR (default {DEFAULT_SECRETS_DIR}); keys are never read from the repo")
+    unusable = list(dict.fromkeys(p for s in dict.fromkeys(specs) if (p := _spec_provider_problem(s, env))))
+    problems.extend(unusable)
+    if any(p.startswith("no usable provider") for p in unusable):
+        status = provider.provider_status(env)
+        problems.append("set up at least one provider (tried in this order): " +
+                        "; ".join(f"{n}: {status[n]}" for n in provider.FALLBACK_ORDER if status[n]))
+    if unusable:
+        problems.append(f"API keys are env vars or files in $INTERACTIONS_SECRETS_DIR (default {DEFAULT_SECRETS_DIR}); "
+                        f"keys and tokens are never read from the repo")
     return problems
 
 
@@ -473,6 +541,7 @@ def evaluate_deck(deck: Mapping[str, Any], *, client: MeteredClient, judge_meter
                            "cost_complete": False, "latency_s": None, "calls": 0, "review_file": None}
     client.reset()
     judge_meter.reset()
+    _drain_providers(client)                                   # a fresh provider log per deck
     traces: list = []
     bridge: dict[str, Any] = {}
     try:
@@ -495,6 +564,7 @@ def evaluate_deck(deck: Mapping[str, Any], *, client: MeteredClient, judge_meter
         if trace is not None:
             _write_json(out / f"{slug}.trace.json", trace.to_dict())
         row.update(client.snapshot())
+        row["providers"] = _drain_providers(client)
         return row
     review["meta"]["models"]["E"] = writer_model              # assemble_review_document labels Pass E 'oracle-profile'; this run used this model
     row.update(client.snapshot())
@@ -513,7 +583,23 @@ def evaluate_deck(deck: Mapping[str, Any], *, client: MeteredClient, judge_meter
     except Exception as exc:                                   # the review is kept; only its scoring is missing
         row["judge_error"] = f"{type(exc).__name__}: {exc}"[:300]
     row["judge_cost_usd"] = judge_meter.snapshot()["cost_usd"]
+    row["providers"] = _drain_providers(client)
     return row
+
+
+def _drain_providers(meter: "MeteredClient") -> dict[str, Any] | None:
+    """Which provider served this deck's calls, and which failed, when the client is a fallback chain (else None)."""
+    drain = getattr(meter.inner, "drain_log", None)
+    return drain() if callable(drain) else None
+
+
+def _providers_note(row: Mapping[str, Any]) -> str:
+    log = row.get("providers")
+    if not log or not (log["served"] or log["failed"]):
+        return ""
+    served = ", ".join(f"{spec} x{n}" for spec, n in sorted(log["served"].items())) or "none"
+    failed = "; ".join(f"{f['provider']} unavailable ({f['reason'][:80]})" for f in log["failed"])
+    return f"  served by: {served}" + (f"  fell back: {failed}" if failed else "")
 
 
 def _money(v: float | None) -> str:
@@ -522,11 +608,11 @@ def _money(v: float | None) -> str:
 
 def _summary_line(slug: str, row: Mapping[str, Any]) -> str:
     if row["status"] != "ok":
-        return f"{slug}: FAILED  {row['error']}  (spent {_money(row.get('cost_usd'))})"
+        return f"{slug}: FAILED  {row['error']}  (spent {_money(row.get('cost_usd'))}){_providers_note(row)}"
     recall = "n/a" if row["rubric_recall"] is None else f"{row['rubric_recall']:g}/10"
     return (f"{slug}: ok  {len(row['gate_violations'])} gate violation(s) of {row['gates_checked']} checks  "
             f"cost {_money(row['cost_usd'])}{'' if row['cost_complete'] else ' (floor)'}  latency {row['latency_s']}s  "
-            f"rubric recall {recall}")
+            f"rubric recall {recall}{_providers_note(row)}")
 
 
 def run_live(args: argparse.Namespace, env: Mapping[str, str], *, client=None, fetch_sources=None, writer=None,
@@ -536,20 +622,18 @@ def run_live(args: argparse.Namespace, env: Mapping[str, str], *, client=None, f
     if unknown:
         print(f"eval: unknown deck(s) {', '.join(unknown)}; available: {', '.join(deck_slugs())}", file=sys.stderr)
         return 2
-    tier = args.tier or env.get("REVIEW_MODEL") or None
-    judge_model = env.get("REVIEW_JUDGE_MODEL") or None
+    config, writer_model, tier, judge_model = resolve_models(env, args.tier, None)
     problems = preflight(env, tier, judge_model)
     if client is not None:                                   # an injected client carries its own credentials
-        problems = [p for p in problems if not p.startswith("missing API key")]
+        problems = [p for p in problems if not p.startswith(("missing API key", "no usable provider", "provider ", "set up at least", "API keys are"))]
     if problems:
         print("eval: live eval is not configured:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 2
-    config, writer_model = _env_models(env, tier)
     if client is None:
-        from src.server.infra.llm.provider import RoutingClient
-        client = RoutingClient.from_env(env)
+        from src.server.infra.llm.provider import FallbackClient, RoutingClient
+        client = FallbackClient(RoutingClient.from_env(env))
     metered, judge_meter = MeteredClient(client, config.prices), MeteredClient(client, config.prices)
     judge_complete = judge_complete or make_live_judge(judge_meter)
     fetch_sources = fetch_sources or live_fetch_sources
