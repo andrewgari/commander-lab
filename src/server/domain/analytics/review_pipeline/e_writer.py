@@ -55,8 +55,48 @@ def _decoded_strings(output: Any) -> str:
     return ""
 
 
-def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool) -> list[str]:
+# Ordinary English that merely starts a sentence capitalized; never a card or proper name on its own.
+_SENTENCE_STARTERS = frozenset({
+    "i", "he", "she", "we", "you", "they", "it", "him", "her", "them", "us", "me",
+    "this", "that", "these", "those", "there", "here", "then", "thus", "hence", "still", "yet", "now", "even",
+    "most", "many", "much", "some", "any", "all", "no", "none", "every", "each", "both", "either", "neither",
+    "few", "several", "more", "less", "fewer", "other", "others", "another", "such", "only", "just", "both",
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "what", "which", "who", "whom", "whose", "where", "why", "how", "whether",
+    "however", "therefore", "meanwhile", "otherwise", "instead", "likewise", "overall", "finally", "first", "second",
+    "next", "last", "later", "once", "twice", "although", "though", "unless", "until", "after", "before", "during",
+    "as", "at", "by", "in", "on", "of", "to", "is", "are", "was", "were", "be", "do", "does", "not", "without",
+})
+
+
+def _phrase_tokens(text: str) -> tuple[str, ...]:
+    """Word tokens with possessive 's removed, so \"Fauna Shaman's\" and \"Fauna Shaman\" compare equal."""
+    return tuple(w[:-2] if w.endswith("'s") else w for w in _tokens(text))
+
+
+def _payload_phrases(data: Mapping[str, Any]) -> tuple[str, ...]:
+    """Everything the verified payload literally says (omitted[] excluded), as one possessive-stripped token stream."""
+    stream: list[str] = []
+    for key, value in _walk_verified(data):
+        if isinstance(value, str):
+            stream.extend(_phrase_tokens(value))
+            stream.append("\0")                          # string boundary: a phrase never spans two strings
+    return tuple(stream)
+
+
+def _in_payload(phrase: str, payload: tuple[str, ...]) -> bool:
+    needle = _phrase_tokens(phrase)
+    if not needle or not payload:
+        return False
+    n = len(needle)
+    return any(payload[i:i + n] == needle for i in range(len(payload) - n + 1))
+
+
+def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
+                     payload: tuple[str, ...] = ()) -> list[str]:
     """Split a capitalized phrase into runs of words not covered by a verified name; connectors never end a run."""
+    if _in_payload(phrase, payload):
+        return []
     words = phrase.split()
     covered = [False] * len(words)
     for n in range(len(words), 0, -1):                # longest verified span first
@@ -88,6 +128,10 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool) -> 
     for run, first, before_verified in runs:
         text = " ".join(run)
         if len(run) == 1 and run[0].casefold() in _NON_NAME_TITLE_WORDS:
+            continue
+        if _in_payload(text, payload):
+            continue
+        if len(run) == 1 and first == 0 and sentence_initial and run[0].casefold() in _SENTENCE_STARTERS:
             continue
         # Sentence-initial verb before a verified name ("Prioritize Sol Ring"): ordinary prose, not a card name.
         if len(run) == 1 and first == 0 and sentence_initial and before_verified:
@@ -165,7 +209,7 @@ def _omitted_names(data: Mapping[str, Any]) -> set[str]:
 
 
 def _unverified_names_any_case(text: str, allowed: set[str], data: Mapping[str, Any],
-                               known_names: Iterable[str]) -> list[str]:
+                               known_names: Iterable[str], payload: tuple[str, ...] = ()) -> list[str]:
     """Names of real cards (or omitted ones) written in the prose, whatever the letter case, that are not verified."""
     allowed_tokens = {t for n in allowed for t in [_tokens(n)] if t}
     universe = set(_name_universe())
@@ -194,6 +238,9 @@ def _unverified_names_any_case(text: str, allowed: set[str], data: Mapping[str, 
             if gram in allowed_tokens:
                 continue
             if gram in universe or gram in single:
+                if _in_payload(" ".join(gram), payload):   # the verified payload literally says it
+                    covered[i:i + n] = [True] * n
+                    continue
                 found.append(" ".join(gram))
                 covered[i:i + n] = [True] * n
     return found
@@ -271,12 +318,13 @@ def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Ite
             if claim != expected:
                 errors.append("verdict grade claim does not match the verified input")
                 break
+    payload = _payload_phrases(verified)
     for match in _TITLE_PHRASE.finditer(text):
         before = text[:match.start()].rstrip(" \t\"'([{*_>-")
         sentence_initial = not before or before[-1] in ".!?:;\n"
-        for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial):
+        for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial, payload):
             errors.append(f"unverified card name or proper-name phrase: {phrase}")
-    for name in _unverified_names_any_case(text, allowed_names, verified, known_names):
+    for name in _unverified_names_any_case(text, allowed_names, verified, known_names, payload):
         message = f"unverified card name or proper-name phrase: {name}"
         if not any(e.casefold() == message.casefold() for e in errors):
             errors.append(message)
