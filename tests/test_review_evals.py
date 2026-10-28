@@ -340,3 +340,17 @@ def test_load_deck_reads_every_golden_deck_from_disk():
         deck = run_eval.load_deck(slug)
         assert deck["commanders"] and deck["meta"]["deck_id"].startswith("archidekt:") and deck["rubric"]["must_mention"]
         assert sum(q for _, q in deck["deck_cards"]) in (99, 100)
+
+
+def test_a_gate_violation_is_reported_per_deck_and_fails_the_run(tmp_path, monkeypatch, capsys):
+    """The review is kept and its violation is named, but the run exits 1: a violating review is not a pass."""
+    from src.server.domain.analytics.review_pipeline import checks
+    from src.server.domain.analytics.review_pipeline.checks import Violation
+
+    monkeypatch.setitem(checks.CHECKS, "always_fails", lambda doc, ctx: [Violation("always_fails", "injected for the test")])
+    rc, *_ = _run_saffi(tmp_path)
+    deck = json.loads((tmp_path / "results.json").read_text())["decks"]["saffi-rumors"]
+    assert rc == 1 and deck["status"] == "ok"
+    assert deck["gate_violations"] == ["[always_fails] injected for the test"]
+    assert (tmp_path / "saffi-rumors.review.json").exists()
+    assert "injected for the test" in capsys.readouterr().err
