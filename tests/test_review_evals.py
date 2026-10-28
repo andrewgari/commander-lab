@@ -150,7 +150,10 @@ def test_spoton_specs_are_usable_through_any_provider_in_the_chain_and_say_what_
     none = {"INTERACTIONS_SECRETS_DIR": str(tmp_path), "REVIEW_SPOTON_TOKEN_CMD": str(tmp_path / "x") + " ai token", "REVIEW_CLAUDE_CMD": str(tmp_path / "y")}
     msg = "\n".join(run_eval.preflight(none, None, None))
     assert "no usable provider for 'spoton:claude-sonnet-5-5'" in msg and "REVIEW_SPOTON_TOKEN_CMD" in msg
-    assert run_eval.preflight({**none, "OPENROUTER_API_KEY": "k"}, None, None) == [], "OpenRouter alone can serve every default model"
+    assert run_eval.preflight({**none, "OPENROUTER_API_KEY": "k", "REVIEW_MODEL_CRITIC": "openrouter:google/gemini-x"}, None, None) == [], \
+        "OpenRouter alone can serve the generator and the judge (the default critic is gateway-only: mistral has no route elsewhere)"
+    only_or = "\n".join(run_eval.preflight({**none, "OPENROUTER_API_KEY": "k"}, None, None))
+    assert "provider 'spoton' is not set up" in only_or, "the gateway-only critic is reported, not silently rerouted"
     only_claude = {**none, "REVIEW_CLAUDE_CMD": sys.executable}
     assert any("spoton:gpt-5-6-sol" in p for p in run_eval.preflight(only_claude, None, None)), "the subscription cannot serve the judge"
 
@@ -181,12 +184,12 @@ class LabelReplay:
         return llm.LLMResponse(text=r["text"], usage=llm.Usage.from_dict(r["usage"]), model=request.model, latency_ms=r["latency_ms"])
 
 
-def _run_with_providers(tmp_path, monkeypatch, providers, capsys):
+def _run_with_providers(tmp_path, monkeypatch, providers, capsys, extra_env=None):
     from src.server.infra.llm import provider
     from tests.review_evals import run_eval
     rec = _recorded_saffi()
     monkeypatch.setattr(provider.RoutingClient, "from_env", classmethod(lambda cls, env=None: cls(providers(LabelReplay(rec["replies"])))))
-    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\"", "REVIEW_CLAUDE_CMD": sys.executable}
+    env = {"REVIEW_SPOTON_TOKEN_CMD": f"{sys.executable} -c \"print('t')\"", "REVIEW_CLAUDE_CMD": sys.executable, **(extra_env or {})}
     rc = run_eval.main(["--live", "--decks", "saffi-rumors", "--out", str(tmp_path)], env=env,
                        fetch_sources=lambda deck, profile: (rec["fact_pack"], rec["pool"]), writer=_golden_writer,
                        judge_complete=lambda m, p: json.dumps({**{d: 7 for d in judge.DIMENSIONS}, "notes": ""}))
@@ -197,7 +200,8 @@ def test_a_dead_gateway_falls_back_in_order_and_each_deck_logs_which_provider_se
     from src.server.infra.llm import provider
     down = provider.ProviderUnavailable("HTTP 401: unauthorized", status=401)
     unavailable = type("Down", (), {"complete": lambda self, r: (_ for _ in ()).throw(down)})()
-    rc, deck, out = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": unavailable, "claude": replay, "openrouter": replay}, capsys)
+    rc, deck, out = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": unavailable, "claude": replay, "openrouter": replay}, capsys,
+                                      extra_env={"REVIEW_MODEL_CRITIC": "openrouter:x-ai/grok-4.7", "OPENROUTER_API_KEY": "k"})     # the gateway-only default critic has no other route
     assert rc == 0 and deck["status"] == "ok", deck.get("error")
     served = deck["providers"]["served"]
     assert set(served) == {"claude:claude-sonnet-5-5", "openrouter:x-ai/grok-4.7"}, served    # Claude generators on the subscription, critic on OpenRouter
@@ -209,7 +213,7 @@ def test_a_dead_gateway_falls_back_in_order_and_each_deck_logs_which_provider_se
 def test_a_healthy_gateway_serves_everything_and_nothing_falls_back(tmp_path, monkeypatch, capsys):
     rc, deck, _ = _run_with_providers(tmp_path, monkeypatch, lambda replay: {"spoton": replay, "claude": replay, "openrouter": replay}, capsys)
     assert rc == 0 and deck["providers"]["failed"] == []
-    assert set(deck["providers"]["served"]) == {"spoton:claude-sonnet-5-5", "spoton:grok-4-7"}
+    assert set(deck["providers"]["served"]) == {"spoton:claude-sonnet-5-5", "spoton:mistral-large-3"}
 
 
 def test_every_provider_unreachable_fails_the_deck_naming_each_and_exits_1(tmp_path, monkeypatch, capsys):

@@ -194,6 +194,29 @@ def spoton_token(env: Mapping[str, str]) -> str:
     return token
 
 
+def _reply_text(data: dict) -> str:
+    """Text of a gateway reply. Claude models answer in Anthropic shape (``content[]`` blocks); some others (mistral)
+    come back as an OpenAI ``chat.completion`` (``choices[0].message.content``). Accept both."""
+    blocks = data.get("content")
+    if isinstance(blocks, list):
+        text = "".join(b.get("text") or "" for b in blocks if isinstance(b, dict) and b.get("type") == "text")
+        if text.strip():
+            return text
+    choices = data.get("choices")
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        content = (choices[0].get("message") or {}).get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "".join(b.get("text") or "" for b in content if isinstance(b, dict))
+    return ""
+
+
+def _finish_reason(data: dict) -> str | None:
+    choices = data.get("choices")
+    return choices[0].get("finish_reason") if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
+
+
 class SpotOnClient:
     """SpotOn AI gateway, Anthropic Messages wire format at ``.../anthropic/v1/messages``. Auth is the
     ``authorization: Bearer`` header ONLY (adding ``x-api-key`` makes the gateway answer 401). The token is fetched
@@ -239,13 +262,15 @@ class SpotOnClient:
         if model.lower().startswith("grok"):
             body["reasoning_effort"] = "low"     # grok reasons until max_tokens (no text, ~3 min a call) unless capped
         data, ms = self._post(body)
-        text = "".join(b.get("text") or "" for b in data.get("content") or [] if b.get("type") == "text")
+        text = _reply_text(data)
         if not text.strip():
-            raise LLMTransportError(f"spoton reply had no text content (stop_reason={data.get('stop_reason')})")
+            raise LLMTransportError(f"spoton reply had no text content (stop_reason={data.get('stop_reason') or _finish_reason(data)})")
         u = data.get("usage") or {}
         read, write = int(u.get("cache_read_input_tokens") or 0), int(u.get("cache_creation_input_tokens") or 0)
+        tokens_in = u.get("input_tokens") if "input_tokens" in u else u.get("prompt_tokens")          # OpenAI-shaped replies say prompt_/completion_
+        tokens_out = u.get("output_tokens") if "output_tokens" in u else u.get("completion_tokens")
         return LLMResponse(text=text, model=str(data.get("model") or model), latency_ms=ms, provider_request_id=data.get("id"),
-                           usage=Usage(int(u.get("input_tokens") or 0) + read + write, int(u.get("output_tokens") or 0), read, write, None))
+                           usage=Usage(int(tokens_in or 0) + read + write, int(tokens_out or 0), read, write, None))
 
 
 def _run_cli(argv: list[str], stdin: str, env: Mapping[str, str]) -> tuple[int, str, str]:

@@ -17,7 +17,7 @@ the SpotOn gateway and needs no pasted key:
     planned tier (generator)   spoton:claude-sonnet-5-5        --tier planned   (the default)
     cheaper tier               spoton:claude-haiku-4-5         --tier cheaper
     judge                      spoton:gpt-5-6-sol              (a different vendor family from every generator)
-    Pass D critic              spoton:grok-4-7                 (a third family; D3 needs one that is not a generator's)
+    Pass D critic              spoton:mistral-large-3               (a third family; D3 needs one that is not a generator's)
 
     REVIEW_MODEL          generator tier, ``<provider>:<model id>`` (``--tier`` overrides; ``planned``/``cheaper`` are aliases):
                           Passes A, B, C and the Pass E writer. REVIEW_MODEL_A/B/C/E override one pass; REVIEW_MODEL_CRITIC
@@ -123,7 +123,7 @@ def _providers(specs: Sequence[str]) -> list[str]:
 DEFAULT_TIERS = {"planned": "spoton:claude-sonnet-5-5", "cheaper": "spoton:claude-haiku-4-5"}
 DEFAULT_TIER = DEFAULT_TIERS["planned"]
 DEFAULT_JUDGE = "spoton:gpt-5-6-sol"
-DEFAULT_SPOTON_CRITIC = "spoton:grok-4-7"
+DEFAULT_SPOTON_CRITIC = "spoton:mistral-large-3"      # fallback if it fails on the gateway: spoton:deepseek-v3-2 (family deepseek)
 # USD per 1M tokens. List prices of the underlying models (OpenRouter's published rates), used only when the provider does not
 # report cost itself, so a gateway run has a cost estimate. Override per spec with REVIEW_MODEL_PRICES.
 DEFAULT_PRICES = {
@@ -132,6 +132,8 @@ DEFAULT_PRICES = {
     "spoton:claude-opus-5-5": {"in": 5.0, "out": 25.0, "cache_read": 0.5, "cache_write": 6.25},
     "spoton:gpt-5-6-sol": {"in": 4.0, "out": 20.0, "cache_read": 0.4, "cache_write": 5.0},
     "spoton:grok-4-7": {"in": 2.0, "out": 6.0, "cache_read": 0.5},
+    "spoton:mistral-large-3": {"in": 0.5, "out": 1.5},
+    "spoton:deepseek-v3-2": {"in": 0.3, "out": 0.9},
 }
 
 

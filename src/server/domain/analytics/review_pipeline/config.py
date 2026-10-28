@@ -47,7 +47,7 @@ def model_family(spec: str) -> str:
         return model.split("/", 1)[0].lower()
     if provider in ("spoton", "claude"):       # gateway / subscription CLI: the vendor is whatever the model id says
         m = model.strip().lower()
-        for prefix, vendor in (("claude", "anthropic"), ("gpt", "openai"), ("gemini", "google"), ("grok", "xai")):
+        for prefix, vendor in (("claude", "anthropic"), ("gpt", "openai"), ("gemini", "google"), ("grok", "xai"), ("mistral", "mistral"), ("deepseek", "deepseek")):
             if m.startswith(prefix):
                 return vendor
         return provider if provider == "spoton" else "anthropic"

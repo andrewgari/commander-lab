@@ -113,6 +113,21 @@ class SpotOnTests(unittest.TestCase):
             return issued.pop(0) if len(issued) > 1 else issued[0]
         return provider.SpotOnClient(token, client=client(handler), **kw), calls
 
+    def test_parses_an_openai_chat_completion_reply_too(self):
+        # mistral / deepseek on the gateway answer in chat.completion shape (choices[0].message.content), not content[] blocks
+        def h(r):
+            return httpx.Response(200, json={"id": "cmpl_1", "model": "mistral-large-3", "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": '{"v":1}'}}],
+                                             "usage": {"prompt_tokens": 21, "completion_tokens": 4}})
+        c, _ = self.make(h)
+        resp = c.complete(req(model="spoton:mistral-large-3"))
+        self.assertEqual((resp.text, resp.model, resp.usage.tokens_in, resp.usage.tokens_out, resp.provider_request_id), ('{"v":1}', "mistral-large-3", 21, 4, "cmpl_1"))
+
+    def test_an_empty_openai_shaped_reply_is_a_transport_error_naming_the_finish_reason(self):
+        c, _ = self.make(lambda r: httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": ""}}]}))
+        with self.assertRaises(provider.LLMTransportError) as cm:
+            c.complete(req(model="spoton:mistral-large-3"))
+        self.assertIn("length", str(cm.exception))
+
     def test_bearer_only_auth_and_anthropic_messages_shape(self):
         seen = {}
         def h(r):
@@ -293,7 +308,8 @@ class ModelFamilyTests(unittest.TestCase):
         fam = config.model_family
         self.assertEqual([fam("spoton:claude-sonnet-5-5"), fam("spoton:claude-haiku-4-5"), fam("claude:claude-haiku-4-5")], ["anthropic"] * 3)
         self.assertEqual([fam("spoton:gpt-5-6-sol"), fam("spoton:grok-4-7"), fam("spoton:gemini-3-pro")], ["openai", "xai", "google"])
-        self.assertEqual(fam("spoton:mistral-large-3"), "spoton")           # unknown gateway model: its own family, never merged
+        self.assertEqual([fam("spoton:mistral-large-3"), fam("spoton:deepseek-v3-2")], ["mistral", "deepseek"])
+        self.assertEqual(fam("spoton:some-new-model"), "spoton")             # unknown gateway model: its own family, never merged
         self.assertEqual([fam("openrouter:anthropic/x"), fam("anthropic:x"), fam("gemini:x")], ["anthropic", "anthropic", "google"])
 
 
