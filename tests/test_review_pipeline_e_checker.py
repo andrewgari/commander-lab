@@ -127,6 +127,17 @@ class PlainSentenceOpeners(unittest.TestCase):
         for prose in ("This Zorblax ends the game.", "Redundant Zorblax ends it.", "Then Craterhoof Behemoth ends it."):
             self.assertTrue(_name_errors(prose, self.verified), prose)
 
+    def test_live_writer_openers_are_prose_not_names(self):
+        # Seen from claude-sonnet-5-5 on lara-uncharted: headline / bullet openers that are ordinary review vocabulary.
+        for prose in ("Coherent Sol Ring plan with a smooth curve.", "Proposed fixes: Sol Ring first.",
+                      "Proposed: swap in Sol Ring.", "Protection for Sol Ring is layered."):
+            self.assertEqual(_name_errors(prose, self.verified), [], prose)
+
+    def test_vocabulary_openers_do_not_launder_an_invented_name(self):
+        for prose in ("Coherent Zorblax plan.", "Proposed Zorblax for Sol Ring.", "Protection for Zorblax is layered.",
+                      "Proposed Craterhoof Behemoth."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
     def test_multi_word_unverified_name_is_still_rejected(self):
         self.assertTrue(_name_errors("Critically, Craterhoof Behemoth ends it.", self.verified))
 

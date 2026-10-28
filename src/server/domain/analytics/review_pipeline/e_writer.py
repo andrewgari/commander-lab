@@ -79,6 +79,36 @@ _SENTENCE_STARTERS = frozenset({
     "apply", "reject", "avoid", "accept", "ignore", "treat", "note", "check", "ask", "decide", "confirm", "choose",
     "powerful", "flavor", "theme", "upside", "downside", "tradeoff", "caveat", "summary", "result", "risk",
     "scores", "score", "volume", "grade", "redundant", "overall", "verdict", "headline", "plan", "mana", "power",
+    # ordinary review vocabulary (adjectives, abstract nouns, headings) that opens a sentence or a bullet: "Coherent Lara plan",
+    # "Proposed fixes:", "Protection for Lara". Live writers open prose with these; none is a card name in the corpus.
+    "acceptable", "adding", "additions", "adds", "adequate", "affordable", "alternative", "alternatives", "analysis",
+    "anyone", "anything", "assessment", "available", "average", "backup", "balanced", "being", "best", "better",
+    "biggest", "board", "bottom", "budget", "caution", "caveats", "central", "certain", "change", "changes", "cheap",
+    "choice", "choices", "clean", "clear", "clock", "coherent", "colors", "colour", "colours", "combat", "common",
+    "complete", "complex", "confidence", "confirmed", "considering", "consistency", "consistent", "core", "cost",
+    "costs", "creature", "creatures", "current", "curve", "cuts", "cutting", "damage", "data", "decent", "difficult",
+    "doing", "downgrade", "draw", "dropping", "early", "easily", "easy", "effect", "effects", "efficiency",
+    "efficient", "engine", "engines", "equipment", "evaluation", "everyone", "everything", "evidence", "existing",
+    "expected", "expects", "expensive", "exposed", "fact", "facts", "fast", "finding", "findings", "fine", "finisher",
+    "finishers", "fix", "fixes", "fixing", "flexibility", "flexible", "fragile", "full", "generic", "good", "great",
+    "hard", "harder", "hardest", "having", "healthy", "heavy", "high", "impact", "improve", "improvement",
+    "improvements", "improves", "improving", "incomplete", "inefficient", "intended", "interaction", "keeping",
+    "known", "land", "lands", "large", "late", "line", "lines", "low", "main", "major", "making", "minor", "missing",
+    "nor", "notes", "nothing", "number", "numbers", "observation", "observations", "opinion", "opinions", "option",
+    "options", "order", "ordering", "owned", "pace", "package", "packages", "partial", "percent", "percentage",
+    "pillar", "pillars", "planned", "poor", "possible", "potential", "pressure", "price", "prices", "primary",
+    "priorities", "prioritise", "priority", "probable", "problem", "problems", "proposal", "proposals", "proposed",
+    "protection", "protective", "quality", "quantity", "question", "questions", "quick", "quickly", "ramp", "ratio",
+    "rationale", "reason", "reasonable", "reasoning", "reasons", "recommendation", "recommended", "redundancy",
+    "reliable", "reliably", "removal", "removing", "replacing", "resilience", "resilient", "riskier", "risky",
+    "robust", "safe", "safer", "safest", "secondary", "sequence", "sequencing", "simple", "slow", "slowly", "small",
+    "smooth", "solid", "someone", "something", "source", "sources", "sourcing", "specific", "speed", "splash",
+    "splashing", "state", "strength", "strengths", "strong", "stronger", "strongest", "sufficient", "suggested",
+    "suggestion", "suite", "suites", "swapping", "swaps", "synergies", "synergy", "taking", "tempo", "themes",
+    "threat", "threats", "tight", "top", "total", "totals", "trade", "tradeoffs", "typical", "unavailable",
+    "uncertain", "unclear", "unconfirmed", "unknown", "unowned", "unpriced", "unreliable", "unverified", "upgrade",
+    "upgrades", "value", "values", "verification", "verified", "versatile", "version", "versions", "vulnerable",
+    "warning", "warnings", "weak", "weaker", "weakest", "weakness", "worse", "worst",
 })
 
 
@@ -121,10 +151,12 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
     start = 0
 
     def flush(next_covered: bool) -> None:
+        popped = False
         while cur and cur[-1].casefold() in _CONNECTORS:
             cur.pop()
+            popped = True
         if cur:
-            runs.append((list(cur), start, next_covered))
+            runs.append((list(cur), start, next_covered and not popped))   # "Zorblax for Sol Ring": the name is not adjacent
         cur.clear()
 
     for idx, (word, is_covered) in enumerate(zip(words, covered)):
@@ -142,6 +174,7 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
         if first == 0 and sentence_initial:           # "This Mardu ...", "Redundant Selesnya ...": drop leading prose words
             while len(run) > 1 and (run[0].casefold() in _SENTENCE_STARTERS or run[0].casefold() in _NON_NAME_TITLE_WORDS):
                 run = run[1:]
+                before_verified = False                # what is left is no longer a lone verb right before a verified name
         text = " ".join(run)
         if len(run) == 1 and run[0].casefold() in _NON_NAME_TITLE_WORDS:
             continue
