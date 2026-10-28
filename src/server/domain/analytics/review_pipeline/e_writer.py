@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import re
 from typing import Any, Iterable, Mapping
 
 from src.server.domain.analytics.review_pipeline.names import normalize
+
+LOG = logging.getLogger(__name__)
 
 _WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
 _NUMBER = re.compile(r"(?<![\w])\d+(?:\.\d+)?%?(?![\w])")
@@ -110,6 +113,31 @@ _SENTENCE_STARTERS = frozenset({
     "uncertain", "unclear", "unconfirmed", "unknown", "unowned", "unpriced", "unreliable", "unverified", "upgrade",
     "upgrades", "value", "values", "verification", "verified", "versatile", "version", "versions", "vulnerable",
     "warning", "warnings", "weak", "weaker", "weakest", "weakness", "worse", "worst",
+    # verbs / adverbs / gerunds that live writers (haiku-4-5, sonnet-5-5) open a sentence or list item with; none is a card name
+    "survive", "survives", "surviving", "survival", "fallback", "recover", "recovers", "recovering", "recovery",
+    "converting", "converts", "convert", "protected", "protecting", "protects", "actual", "actually", "almost",
+    "repeated", "repeatedly", "extremely", "deliberately", "heavy", "execute", "executes", "executing",
+    "assembles", "assemble", "assembling", "recursive", "recursion", "fetches", "fetch", "fetching", "resolve",
+    "resolves", "resolving", "recruiting", "recruit", "thirty", "twenty", "under", "over", "across", "against",
+    "among", "between", "through", "within", "per", "via", "using", "use", "uses", "build", "builds", "building",
+    "generate", "generates", "generating", "attack", "attacks", "attacking", "ensure", "ensures", "ensuring",
+    "keep", "keeps", "maintain", "maintains", "maintaining", "enable", "enables", "enabling", "provide", "provides",
+    "providing", "support", "supports", "supporting", "reduce", "reduces", "reducing", "increase", "increases",
+    "increasing", "lower", "raise", "target", "targets", "targeting", "tutors", "tutoring",
+    # more live-writer openers: number words, third-person verbs, gerunds, abstract nouns
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "forty", "fifty",
+    "sixty", "seventy", "eighty", "ninety", "hundred", "half", "about", "dense", "fills", "fill", "filling", "recur",
+    "recurs", "activate", "activates", "activating", "combines", "combine", "combining", "requires", "require",
+    "requiring", "consistently", "weaknesses", "achieve", "achieves", "achieving", "grinding", "grinds", "grind",
+    "requires", "needs", "need", "needing", "wants", "want", "wanting", "lacks", "lack", "lacking", "offers", "offer",
+    "carries", "carry", "runs", "running", "plays", "playing", "drops", "dropping", "gains", "gain", "gaining",
+    "loses", "lose", "losing", "wins", "win", "winning", "finds", "find", "finding", "makes", "make", "gives", "give",
+    "giving", "holds", "hold", "holding", "leaves", "leave", "leaving", "relies", "rely", "relying", "feeds", "feed",
+    "feeding", "stocks", "stock", "stocking", "pays", "pay", "paying", "triggers", "trigger", "triggering", "counts",
+    "covers", "cover", "covering", "includes", "include", "including", "contains", "contain", "containing",
+    "depends", "depend", "depending", "delivers", "deliver", "delivering", "draws", "drawing", "tutoring", "ramps",
+    "ramping", "sits", "sit", "sitting", "sees", "see", "seeing", "shows", "show", "showing", "stays", "stay", "staying",
+    "strengthens", "strengthen", "swaps", "swap", "trims", "trim", "trimming", "weakens", "weaken", "weakening",
 })
 
 
@@ -133,7 +161,16 @@ def _in_payload(phrase: str, payload: tuple[str, ...]) -> bool:
     if not needle or not payload:
         return False
     n = len(needle)
-    return any(payload[i:i + n] == needle for i in range(len(payload) - n + 1))
+    variants = [needle]
+    last = needle[-1]                                  # "Wolves" for a payload that says "Wolf": a plural of a payload word
+    if last.endswith("ves") and len(last) > 4:
+        variants.append(needle[:-1] + (last[:-3] + "f",))
+        variants.append(needle[:-1] + (last[:-3] + "fe",))
+    if last.endswith("es") and len(last) > 4:
+        variants.append(needle[:-1] + (last[:-2],))
+    if last.endswith("s") and len(last) > 3:
+        variants.append(needle[:-1] + (last[:-1],))
+    return any(payload[i:i + n] == v for v in variants for i in range(len(payload) - n + 1))
 
 
 def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
@@ -145,7 +182,7 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
     covered = [False] * len(words)
     for n in range(len(words), 0, -1):                # longest verified span first
         for i in range(len(words) - n + 1):
-            if not any(covered[i:i + n]) and normalize(" ".join(words[i:i + n])) in allowed:
+            if not any(covered[i:i + n]) and normalize(" ".join(words[i:i + n]).replace("\u2019s", "").replace("'s", "")) in allowed:
                 covered[i:i + n] = [True] * n
     runs: list[tuple[list[str], int, bool]] = []
     cur: list[str] = []
@@ -288,6 +325,8 @@ def _unverified_names_any_case(text: str, allowed: set[str], data: Mapping[str, 
             if gram in allowed_tokens:
                 continue
             if gram in universe or gram in single:
+                if len(gram) > 1 and all(w in _CONNECTORS or w in _SENTENCE_STARTERS or w in _NON_NAME_TITLE_WORDS for w in gram):
+                    continue                       # "the core loop": ordinary words that also happen to be a card's name
                 if _in_payload(" ".join(gram), payload):   # the verified payload literally says it
                     covered[i:i + n] = [True] * n
                     continue
@@ -371,11 +410,17 @@ def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Ite
                 errors.append("verdict grade claim does not match the verified input")
                 break
     payload = _payload_phrases(verified)
-    for match in _TITLE_PHRASE.finditer(text):
-        before = text[:match.start()].rstrip(" \t\"'([{*_>-")
-        sentence_initial = not before or before[-1] in ".!?:;\n"
-        for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial, payload):
-            errors.append(f"unverified card name or proper-name phrase: {phrase}")
+    # Scan each decoded string value on its own: a JSON list element ('["A.","Survive ..."]') starts a sentence even though a
+    # comma precedes it in the raw text, and \u escapes cannot hide a name. Unparseable output is scanned as one text.
+    segments = [seg for seg in _decoded_strings(output).split("\n") if seg.strip()] if isinstance(output, Mapping) else [text]
+    for segment in segments:
+        for match in _TITLE_PHRASE.finditer(segment):
+            before = segment[:match.start()].rstrip(" \t\"'([{*_>-")
+            sentence_initial = not before or before[-1] in ".!?:;\n"
+            for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial, payload):
+                message = f"unverified card name or proper-name phrase: {phrase}"
+                if message not in errors:
+                    errors.append(message)
     for name in _unverified_names_any_case(text, allowed_names, verified, known_names, payload):
         message = f"unverified card name or proper-name phrase: {name}"
         if not any(e.casefold() == message.casefold() for e in errors):
@@ -394,12 +439,30 @@ def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Ite
     return errors
 
 
+FEEDBACK_KEY = "checker_feedback"
+
+
+def _feedback(errors: list[str]) -> dict[str, Any]:
+    return {"rejected_previous_draft": errors[:12],
+            "instruction": "Rewrite the whole review. Fix every rejected item: use only names, numbers and facts that appear in the "
+                           "verified JSON above, copy card names exactly, and do not capitalize ordinary words (verbs, adjectives, "
+                           "headings) mid-sentence or as a list-item label."}
+
+
 def generate_checked(writer, verified: Mapping[str, Any], *, max_attempts: int = 2, known_names: Iterable[str] = ()) -> str | None:
-    """Call writer with the verified payload, retry policy violations at most twice, then drop."""
-    for _ in range(max(0, max_attempts) + 1):
-        text = writer(verified)
-        if not check_writer_output(text, verified, known_names):
+    """Call writer with the verified payload; retry policy violations at most ``max_attempts`` more times, then drop.
+
+    A retry sends the writer the checker's rejection reasons (``checker_feedback``) so it can fix them instead of repeating
+    the same draft. The feedback is only an extra writer input: the checker always judges against the unmodified ``verified``
+    payload, so a rejected name echoed back to the writer never becomes verified text. On exhaustion the last reasons are logged."""
+    errors: list[str] = []
+    for attempt in range(max(0, max_attempts) + 1):
+        payload = verified if not errors else {**verified, FEEDBACK_KEY: _feedback(errors)}
+        text = writer(payload)
+        errors = check_writer_output(text, verified, known_names)
+        if not errors:
             return text
+        LOG.warning("Pass E writer attempt %d/%d rejected: %s", attempt + 1, max_attempts + 1, "; ".join(errors[:12]))
     return None
 
 

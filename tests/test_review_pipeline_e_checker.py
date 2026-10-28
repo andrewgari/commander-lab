@@ -142,5 +142,72 @@ class PlainSentenceOpeners(unittest.TestCase):
         self.assertTrue(_name_errors("Critically, Craterhoof Behemoth ends it.", self.verified))
 
 
+class RetryFeedback(unittest.TestCase):
+    """A retry tells the writer what the checker rejected; blind retries repeat the same mistake."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.verified = asdict(replay("saffi")[-1].verified) | {"verdict": {"grade": "B", "confidence": 0.7}}
+
+    def _doc(self, prose):
+        return json.dumps({"verdict": self.verified["verdict"], "summary": prose})
+
+    def test_second_attempt_receives_the_rejected_phrases_and_can_pass(self):
+        seen = []
+
+        def writer(payload):
+            seen.append(payload)
+            return self._doc("Zorblax ends the game." if len(seen) == 1 else "No names here, just prose.")
+
+        out = e_writer.generate_checked(writer, self.verified)
+        self.assertIsNotNone(out)
+        self.assertEqual(len(seen), 2)
+        self.assertNotIn("checker_feedback", seen[0])
+        self.assertIn("Zorblax", json.dumps(seen[1]["checker_feedback"]))
+
+    def test_feedback_never_widens_what_the_checker_accepts(self):
+        # The rejected name is echoed to the writer in feedback; it must not become 'verified payload' text.
+        def writer(payload):
+            return self._doc("Zorblax ends the game.")
+
+        self.assertIsNone(e_writer.generate_checked(writer, self.verified))
+
+    def test_exhaustion_logs_the_last_rejection_reasons(self):
+        with self.assertLogs(e_writer.LOG, level="WARNING") as logs:
+            self.assertIsNone(e_writer.generate_checked(lambda payload: self._doc("Zorblax ends the game."), self.verified))
+        self.assertIn("Zorblax", "\n".join(logs.output))
+
+    def test_the_original_payload_is_not_mutated(self):
+        before = json.dumps(self.verified, sort_keys=True, default=str)
+        e_writer.generate_checked(lambda payload: self._doc("Zorblax ends the game."), self.verified)
+        self.assertEqual(json.dumps(self.verified, sort_keys=True, default=str), before)
+
+
+class LiveWriterVocabulary(unittest.TestCase):
+    """Phrases seen from haiku-4-5 / sonnet-5-5 on the golden decks that are ordinary English, not card names."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.verified = asdict(replay("saffi")[-1].verified) | {"verdict": {"grade": "B", "confidence": 0.7}}
+
+    def test_list_items_opening_with_a_capitalized_verb_or_adverb_are_prose(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": [
+            "Survive removal by holding Silence.", "Fallback plans are thin.", "Recover from a Wrath of God.",
+            "Converting mana is slow.", "Fills the graveyard and recurs.", "Thirteen sources are tight.", "About half is fine."]})
+        self.assertEqual([e for e in e_writer.check_writer_output(text, self.verified) if e.startswith(NAME_ERR)], [])
+
+    def test_a_json_list_item_is_judged_as_a_sentence_start_not_by_the_comma_before_it(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": ["Fine.", "Zorblax ends the game."]})
+        self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "Zorblax" in e])
+
+    def test_names_inside_list_items_are_still_rejected(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": ["Survive with Craterhoof Behemoth."]})
+        self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "Craterhoof" in e])
+
+    def test_a_plural_of_a_word_the_payload_says_is_not_a_new_name(self):
+        self.assertEqual(_name_errors("Sol Ring and friends.", self.verified), [])
+        self.assertTrue(_name_errors("Zorblaxes end the game.", self.verified))
+
+
 if __name__ == "__main__":
     unittest.main()
