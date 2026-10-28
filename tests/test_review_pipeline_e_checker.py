@@ -103,6 +103,30 @@ class PlainSentenceOpeners(unittest.TestCase):
         self.assertTrue(_name_errors("Entomb finds the target.", self.verified))
         self.assertTrue(_name_errors("Cast it. Counterspell answers it.", self.verified))
 
+    def test_fabricated_one_word_names_are_still_rejected(self):
+        for prose in ("Zorblax ends the game.", "Xqzvorn is the wincon here.", "Blorgly ends the game.", "Quickly, Zorblax ends it."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
+    def test_sentence_starter_allowlist_holds_no_real_card_name(self):
+        try:
+            import numpy as np
+            from src.server.domain.analytics import card2vec
+            with np.load(card2vec.DEFAULT_PATH) as z:
+                names = {e_writer.normalize(str(n)) for n in z["names"]}
+        except Exception:
+            self.skipTest("card corpus unavailable")
+        self.assertEqual(sorted(w for w in e_writer._SENTENCE_STARTERS
+                                if w in names and w not in {"six"}), [])  # "six" is a pre-existing numeral starter
+
+    def test_prose_opener_before_a_color_identity_word_is_accepted(self):
+        for prose in ("This Mardu list wants more pressure.", "Redundant Selesnya recursion is the theme.", "Scores by axis are fine.",
+                      "Volume is fine and colors are the problem.", "Grade C stays."):
+            self.assertFalse(_name_errors(prose, self.verified), prose)
+
+    def test_prose_opener_does_not_launder_an_invented_name(self):
+        for prose in ("This Zorblax ends the game.", "Redundant Zorblax ends it.", "Then Craterhoof Behemoth ends it."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
     def test_multi_word_unverified_name_is_still_rejected(self):
         self.assertTrue(_name_errors("Critically, Craterhoof Behemoth ends it.", self.verified))
 

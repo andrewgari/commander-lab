@@ -28,7 +28,10 @@ _CONFIDENCE_CLAIM = re.compile(r"\bconfidence\s*(?:is\s+|:\s*)?(0(?:\.\d+)?|1(?:
 _NON_NAME_TITLE_WORDS = {"a", "an", "the", "this", "that", "these", "those", "it", "its", "your", "you", "we", "our", "they", "their", "with", "for", "from", "while", "because", "when", "if", "cards", "deck", "mana", "overall",
                          "add", "cut", "swap", "keep", "drop", "play", "run", "replace", "consider", "prioritize",
                          "start", "trim", "count", "counts", "expect", "since", "so", "but", "and", "or", "also",
-                         "white", "blue", "black", "red", "green", "colorless", "multicolor", "snow"}
+                         "white", "blue", "black", "red", "green", "colorless", "multicolor", "snow",
+                         # color-identity names: adjectives for a deck ("This Mardu list"), never a card name on their own
+                         "azorius", "dimir", "rakdos", "gruul", "selesnya", "orzhov", "izzet", "golgari", "boros", "simic",
+                         "bant", "esper", "grixis", "jund", "naya", "abzan", "jeskai", "sultai", "mardu", "temur"}
 _CONNECTORS = frozenset({"of", "the", "and", "to", "in", "for", "with", "at", "on", "a", "an"})
 _TITLE_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+(?:['’][A-Za-z]+)?)(?:\s+(?:of|the|and|to|in|for|with|at|on|a|an|[A-Z][a-z]+(?:['’][A-Za-z]+)?)){0,5}\b")
 
@@ -67,6 +70,15 @@ _SENTENCE_STARTERS = frozenset({
     "however", "therefore", "meanwhile", "otherwise", "instead", "likewise", "overall", "finally", "first", "second",
     "next", "last", "later", "once", "twice", "although", "though", "unless", "until", "after", "before", "during",
     "as", "at", "by", "in", "on", "of", "to", "is", "are", "was", "were", "be", "do", "does", "not", "without",
+    # discourse adverbs, imperatives and abstract nouns a writer opens a sentence with; none is a real card name
+    # (tests/test_review_pipeline_e_checker.py checks this against the card corpus). Add words here, never "any unknown word".
+    "critically", "importantly", "notably", "crucially", "essentially", "ideally", "typically", "generally", "mostly",
+    "mainly", "currently", "realistically", "practically", "honestly", "specifically", "additionally", "furthermore",
+    "moreover", "basically", "effectively", "broadly", "largely", "roughly", "simply", "strictly", "usually", "often",
+    "sometimes", "rarely", "ultimately", "initially", "ordinarily", "naturally", "obviously", "clearly", "likely",
+    "apply", "reject", "avoid", "accept", "ignore", "treat", "note", "check", "ask", "decide", "confirm", "choose",
+    "powerful", "flavor", "theme", "upside", "downside", "tradeoff", "caveat", "summary", "result", "risk",
+    "scores", "score", "volume", "grade", "redundant", "overall", "verdict", "headline", "plan", "mana", "power",
 })
 
 
@@ -127,13 +139,15 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
     flush(False)
     out: list[str] = []
     for run, first, before_verified in runs:
+        if first == 0 and sentence_initial:           # "This Mardu ...", "Redundant Selesnya ...": drop leading prose words
+            while len(run) > 1 and (run[0].casefold() in _SENTENCE_STARTERS or run[0].casefold() in _NON_NAME_TITLE_WORDS):
+                run = run[1:]
         text = " ".join(run)
         if len(run) == 1 and run[0].casefold() in _NON_NAME_TITLE_WORDS:
             continue
         if _in_payload(text, payload):
             continue
-        if len(run) == 1 and first == 0 and sentence_initial and (run[0].casefold() in _SENTENCE_STARTERS
-                                                                  or _is_plain_word(run[0], payload)):
+        if len(run) == 1 and first == 0 and sentence_initial and run[0].casefold() in _SENTENCE_STARTERS:
             continue
         # Sentence-initial verb before a verified name ("Prioritize Sol Ring"): ordinary prose, not a card name.
         if len(run) == 1 and first == 0 and sentence_initial and before_verified:
@@ -195,30 +209,6 @@ def _name_universe() -> frozenset[tuple[str, ...]]:
     universe = {t for n in names for t in _name_tokens(n) if len(t) > 1}
     universe.update(_legend_heads(names))
     return frozenset(universe)
-
-
-@functools.lru_cache(maxsize=1)
-def _card_name_vocabulary() -> frozenset[str]:
-    """Every word that occurs in some real card name (normalized). Empty when the card corpus is unavailable."""
-    names: set[str] = set()
-    try:
-        import numpy as np
-        from src.server.domain.analytics import card2vec
-        with np.load(card2vec.DEFAULT_PATH) as z:
-            names.update(str(n) for n in z["names"])
-    except Exception:                                  # optional corpus: without it nothing is treated as plain prose
-        return frozenset()
-    return frozenset(w for n in names for w in _WORD.findall(normalize(n)))
-
-
-def _is_plain_word(word: str, payload: tuple[str, ...]) -> bool:
-    """A sentence-opening word ('Critically', 'Apply') that is no part of any real card name, or that the verified payload
-    itself uses as an ordinary word ('combat damage'), is prose, not a name. 'Lotus' or 'Entomb' are neither, so they stay names."""
-    vocabulary = _card_name_vocabulary()
-    token = _phrase_tokens(word)
-    if not vocabulary or not token:
-        return False
-    return token[0] not in vocabulary or token[0] in payload or (len(token[0]) > 4 and token[0].endswith("ly"))
 
 
 def _omitted_names(data: Mapping[str, Any]) -> set[str]:
