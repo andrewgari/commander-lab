@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Fixed
+- Brew commander search: pressing Esc right after typing no longer lets the pending search re-open the suggestion list, and on narrow screens the sticky Generate bar now says "Pick a commander to brew" until a commander is chosen.
 - Quick reviews now use real card data instead of showing cards as unknown.
 - Brew/Reconstruct/Manage card search fields now share one autocomplete; the Brew commander field selects the top suggestion on Enter so Generate enables.
 - Staple Themes card field and the Deck Tuner overlay's add-card boxes now use the same shared card autocomplete as Brew, Reconstruct, Manage and Journal; misspellings such as "spidr" or "atraxxa" now find the intended card in every field, including Brew's commander search.

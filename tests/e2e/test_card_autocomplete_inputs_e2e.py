@@ -156,3 +156,121 @@ def test_card_name_input_uses_shared_autocomplete(page, base_url, name, path, se
     if name == "brew-commander":
         expect(page.locator("#brewGenerate")).to_be_enabled()
         assert expect_top in page.locator("#brewCmdNames").inner_text()
+
+
+# ---------------------------------------------------------------------------
+# Brew commander picker UX contract (t_d30383bb): one case per behavior.
+# ---------------------------------------------------------------------------
+def _open_brew(page, base_url, width=1440, height=900):
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/brew", wait_until="domcontentloaded")
+    page.wait_for_function("window.CardAutocomplete !== undefined")
+    page.wait_for_timeout(300)
+    inp = page.locator("#brewCmdSearch")
+    expect(inp).to_have_attribute("aria-controls", "brewCmdResults")
+    return inp, page.locator("#brewCmdResults")
+
+
+def test_brew_keyboard_arrows_and_enter_select(page, base_url):
+    inp, lst = _open_brew(page, base_url)
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    opts = lst.locator("[role=option]")
+    expect(opts.first).to_be_visible(timeout=8000)
+    assert opts.count() >= 2
+    inp.press("ArrowDown")
+    inp.press("ArrowDown")
+    active = inp.get_attribute("aria-activedescendant")
+    assert active and page.locator(f"#{active}").get_attribute("aria-selected") == "true"
+    expect(opts.nth(1)).to_have_attribute("aria-selected", "true")
+    second = opts.nth(1).locator(".hud-autocomplete-name").inner_text()
+    inp.press("ArrowUp")
+    expect(opts.nth(0)).to_have_attribute("aria-selected", "true")
+    inp.press("ArrowDown")
+    inp.press("Enter")
+    assert second in page.locator("#brewCmdNames").inner_text()
+    expect(lst).to_be_hidden()
+    expect(page.locator("#brewGenerate")).to_be_enabled()
+
+
+def test_brew_escape_dismisses_even_during_debounce(page, base_url):
+    inp, lst = _open_brew(page, base_url)
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst.locator("[role=option]").first).to_be_visible(timeout=8000)
+    inp.press("Escape")
+    expect(lst).to_be_hidden()
+    assert inp.get_attribute("aria-expanded") == "false"
+    # Esc pressed inside the debounce window must not be undone by the pending search.
+    inp.press("Backspace")
+    inp.press("Escape")
+    page.wait_for_timeout(900)
+    expect(lst).to_be_hidden()
+
+
+def test_brew_outside_click_dismisses(page, base_url):
+    inp, lst = _open_brew(page, base_url)
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst).to_be_visible(timeout=8000)
+    page.locator(".brew-summary .hud-panel-head h3").click()
+    expect(lst).to_be_hidden()
+    assert inp.get_attribute("aria-expanded") == "false"
+
+
+def test_brew_loading_empty_and_failure_states(page, base_url):
+    inp, lst = _open_brew(page, base_url)
+    # loading: hold the request until we have seen the loading row
+    held = []
+    page.route("**/api/cards/autocomplete*", lambda route: held.append(route))
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst.locator(".hud-autocomplete-state--loading")).to_have_text("Searching commanders…", timeout=5000)
+    while not held:
+        page.wait_for_timeout(50)
+    held[0].continue_()
+    page.unroute("**/api/cards/autocomplete*")
+    expect(lst.locator("[role=option]").first).to_be_visible(timeout=8000)
+    # empty: gibberish
+    inp.fill("")
+    inp.press_sequentially("zzqxjv", delay=20)
+    expect(lst.locator(".hud-autocomplete-state--empty")).to_have_text(
+        "No commanders match — check spelling", timeout=8000)
+    # failure: distinguishable from empty
+    page.route("**/api/cards/autocomplete*", lambda route: route.abort())
+    inp.fill("")
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst.locator(".hud-autocomplete-state--error")).to_have_text(
+        "Commander search failed. Try again.", timeout=8000)
+    assert lst.locator(".hud-autocomplete-state--empty").count() == 0
+
+
+def test_brew_generate_disabled_shows_reason_until_commander_picked(page, base_url):
+    inp, lst = _open_brew(page, base_url)
+    expect(page.locator("#brewGenerate")).to_be_disabled()
+    expect(page.locator("#brewGenerateHint")).to_have_text("Pick a commander to brew")
+    expect(page.locator("#brewGenerateHint")).to_be_visible()
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst.locator("[role=option]").first).to_be_visible(timeout=8000)
+    inp.press("Enter")
+    expect(page.locator("#brewGenerate")).to_be_enabled()
+    expect(page.locator("#brewGenerateHint")).to_have_text("")
+
+
+def test_brew_mobile_390_no_overflow_and_reason_visible(page, base_url):
+    inp, lst = _open_brew(page, base_url, width=390, height=844)
+    expect(page.locator("#brewGenerateMobile")).to_be_visible()
+    expect(page.locator("#brewGenerateMobile")).to_be_disabled()
+    expect(page.locator("#brewMobileName")).to_have_text("Pick a commander to brew")
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390
+    inp.click()
+    inp.press_sequentially("atraxa", delay=20)
+    expect(lst.locator("[role=option]").first).to_be_visible(timeout=8000)
+    box = lst.bounding_box()
+    assert box["x"] >= 0 and box["x"] + box["width"] <= 390 + 0.5, box
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390
+    inp.press("ArrowDown")
+    inp.press("Enter")
+    expect(page.locator("#brewGenerateMobile")).to_be_enabled()
+    assert page.evaluate("document.documentElement.scrollWidth") <= 390

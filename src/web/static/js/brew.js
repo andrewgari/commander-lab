@@ -307,7 +307,7 @@
                 else b.removeAttribute("title");
             });
             $("brewGenerateHint").textContent = reason;
-            $("brewMobileName").textContent = first ? first.name : "No commander";
+            $("brewMobileName").textContent = first ? first.name : reason;
             $("brewMobilePool").textContent = state.donors.length + " donors";
         }
         document.querySelectorAll('input[name="build_mode"]').forEach(function (r) {
