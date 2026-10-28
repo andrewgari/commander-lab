@@ -103,7 +103,7 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", " ", strip_typography(text)).casefold()
 
 
-_ELLIPSIS = re.compile(r"\.{3,}|…")
+_ELLIPSIS = re.compile(r"\[\s*(?:\.{3,}|…)\s*\]|\.{3,}|…")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 

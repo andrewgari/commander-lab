@@ -228,6 +228,9 @@ class CriticFlow(unittest.TestCase):
         self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported... A turn-3 Lara is routine.", text))
         self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported. A turn-3 Lara is routine.", text))
         self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported \u2026 Sol Ring pushes ramp to 17", text))
+        protection = "Heroic Intervention is the only instant-speed cover, and the rest of the protection must first be equipped with mana."
+        self.assertTrue(d_verify.quote_in("...the rest of the protection [...] must first be equipped with mana.", protection))
+        self.assertTrue(d_verify.quote_in("...the rest of the protection […] must first be equipped with mana.", protection))
 
     def test_quote_must_stay_in_order_and_contain_only_the_items_words(self):
         text = "First sentence here. Second sentence here. Third sentence here."
