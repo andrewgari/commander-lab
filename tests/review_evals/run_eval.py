@@ -118,6 +118,34 @@ def _env_models(env: Mapping[str, str], tier: str | None):
     return config, env.get("REVIEW_MODEL_E") or tier or config.model("C")
 
 
+def _norm_model(spec: str) -> str:
+    """Route-independent model identity: ``anthropic:claude-x`` == ``openrouter:anthropic/claude-x``."""
+    from src.server.domain.analytics.review_pipeline.config import model_family
+
+    model = spec.partition(":")[2].strip().lower()
+    return model.split("/", 1)[1] if "/" in model and model_family(spec) == model.split("/", 1)[0] else model
+
+
+def _judge_independence_problems(judge: str, generators: Mapping[str, str], critic: str) -> list[str]:
+    """The judge must be a different model *and* a different vendor family than every generator and the critic,
+    however each is routed (direct vs OpenRouter), or its scores would grade its own family's work."""
+    from src.server.domain.analytics.review_pipeline.config import model_family
+
+    fam = model_family(judge)
+    same_model = sorted(p for p, m in generators.items() if m.strip().lower() == judge.strip().lower() or _norm_model(m) == _norm_model(judge))
+    same_family = sorted(p for p, m in generators.items() if model_family(m) == fam and p not in same_model)
+    out: list[str] = []
+    if same_model:
+        out.append(f"judge model must differ from every generator model ({judge!r} is also the model for pass "
+                   f"{', '.join(same_model)}, possibly via a different route)")
+    if same_family:
+        out.append(f"judge model {judge!r} is the same family ({fam}) as the generator for pass {', '.join(same_family)}; "
+                   f"the judge must come from a different model family")
+    if model_family(critic) == fam or _norm_model(critic) == _norm_model(judge):
+        out.append(f"judge model {judge!r} must not be the same model family ({fam}) as the Pass D critic {critic!r}")
+    return out
+
+
 def preflight(env: Mapping[str, str], tier: str | None, judge: str | None) -> list[str]:
     """Everything that can be checked without spending money; returns human-readable problems (empty = go)."""
     from src.server.domain.analytics.review_pipeline import config as cfg
@@ -146,11 +174,7 @@ def preflight(env: Mapping[str, str], tier: str | None, judge: str | None) -> li
         specs = [*generators.values(), *config.axis_models.values(), config.model("critic")]
         if judge and ":" in judge:
             specs.append(judge)
-            clash = sorted(p for p, m in generators.items() if m.strip().lower() == judge.strip().lower())
-            if tier and judge.strip().lower() == tier.strip().lower():
-                problems.append(f"judge model must differ from the generator model (both are {judge!r})")
-            elif clash:
-                problems.append(f"judge model must differ from every generator model (it is also the model for pass {', '.join(clash)})")
+            problems.extend(_judge_independence_problems(judge, generators, config.model("critic")))
         try:
             config.check_critic_is_independent()
         except cfg.ConfigError as exc:

@@ -116,6 +116,37 @@ def test_live_refuses_judge_equal_to_generator_before_spending_anything(tmp_path
     assert "must differ" in capsys.readouterr().err
 
 
+def test_live_refuses_same_model_reached_through_a_different_route(capsys):
+    from tests.review_evals import run_eval
+    env = {**LIVE_ENV, "REVIEW_MODEL": "anthropic:claude-sonnet-5.5",
+           "REVIEW_JUDGE_MODEL": "openrouter:anthropic/claude-sonnet-5.5",
+           "OPENROUTER_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}
+    assert run_eval.main(["--live"], env=env) == 2
+    assert "must differ from every generator model" in capsys.readouterr().err
+
+
+def test_live_refuses_judge_of_the_generators_family(capsys):
+    from tests.review_evals import run_eval
+    env = {**LIVE_ENV, "REVIEW_MODEL": "openrouter:anthropic/claude-opus-5.5",
+           "REVIEW_JUDGE_MODEL": "anthropic:claude-opus-5", "OPENROUTER_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}
+    assert run_eval.main(["--live"], env=env) == 2
+    err = capsys.readouterr().err
+    assert "same family (anthropic)" in err and "different model family" in err
+
+
+def test_live_refuses_judge_of_the_critics_family(capsys):
+    from tests.review_evals import run_eval
+    env = {**LIVE_ENV, "REVIEW_JUDGE_MODEL": "openrouter:google/gemini-3-flash", "OPENROUTER_API_KEY": "k"}
+    assert run_eval.main(["--live"], env=env) == 2
+    assert "Pass D critic" in capsys.readouterr().err
+
+
+def test_judge_independence_accepts_a_third_family():
+    from tests.review_evals import run_eval
+    gens = {"A": "anthropic:claude-x", "B": "openrouter:anthropic/claude-y", "E": "anthropic:claude-x"}
+    assert run_eval._judge_independence_problems("openrouter:openai/gpt-x", gens, "openrouter:google/gemini-x") == []
+
+
 def test_live_refuses_critic_of_the_generators_family(capsys):
     from tests.review_evals import run_eval
     env = {**LIVE_ENV, "REVIEW_MODEL_CRITIC": "openrouter:anthropic/claude-x", "OPENROUTER_API_KEY": "k"}
