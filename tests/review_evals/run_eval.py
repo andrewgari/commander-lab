@@ -17,7 +17,7 @@ the SpotOn gateway and needs no pasted key:
     planned tier (generator)   spoton:claude-sonnet-5-5        --tier planned   (the default)
     cheaper tier               spoton:claude-haiku-4-5         --tier cheaper
     judge                      spoton:gpt-5-6-sol              (a different vendor family from every generator)
-    Pass D critic              spoton:mistral-large-3               (a third family; D3 needs one that is not a generator's)
+    Pass D critic              spoton:mistral-large-3          (a third family; D3 needs one that is not a generator's)
 
     REVIEW_MODEL          generator tier, ``<provider>:<model id>`` (``--tier`` overrides; ``planned``/``cheaper`` are aliases):
                           Passes A, B, C and the Pass E writer. REVIEW_MODEL_A/B/C/E override one pass; REVIEW_MODEL_CRITIC
