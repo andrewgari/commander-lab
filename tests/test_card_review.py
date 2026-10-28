@@ -9,13 +9,13 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card_eval import Candidate, EvaluationResult
-from analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
-from analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
-from analytics.card_review import jobs
-from analytics.card_review.debate import extract_json, final_confidence
-from analytics.card_review.packet import build_packet, packet_numbers
-from analytics.card_review.replacements import suggest_replacements
+from src.server.domain.analytics.card_eval import Candidate, EvaluationResult
+from src.server.domain.analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
+from src.server.domain.analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
+from src.server.domain.analytics.card_review import jobs
+from src.server.domain.analytics.card_review.debate import extract_json, final_confidence
+from src.server.domain.analytics.card_review.packet import build_packet, packet_numbers
+from src.server.domain.analytics.card_review.replacements import suggest_replacements
 
 
 # ---- fixtures -------------------------------------------------------------------------------------
@@ -248,6 +248,53 @@ def test_hard_filters_exclude_off_identity_banned_and_in_deck_cards():
     assert all(fid in {"o1", "o2", "o3", "o4", "o5"} for fid in (s["oracle_id"] for s in res["suggestions"]))
 
 
+def test_unknown_legality_candidate_is_never_suggested():
+    # Regression: a candidate whose fact record has unknown legality (missing
+    # or None `legal`, e.g. an unsynced planar card) must fail closed.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS, "the matrix of time": {"oracle_id": "o-plane", "color_identity": "",
+                                             "legal": None}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK, lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    assert "The Matrix Of Time" not in {s["card"] for s in res["suggestions"]}
+    assert any(d["card"] == "The Matrix Of Time" and "legality unknown" in d["reason"]
+               for d in res["dropped"])
+
+
+def test_variant_type_candidates_never_suggested_and_dropped_with_slot_reason():
+    # Missy's planar deck: planar/scheme/attraction cards are Commander-legal
+    # on Scryfall but can never be proposed into a mainboard slot.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9),
+                               cand("Balloon Stand", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS,
+             "the matrix of time": {"oracle_id": "o-phen", "color_identity": "", "legal": True,
+                                    "type_line": "Phenomenon"},
+             "balloon stand": {"oracle_id": "o-attr", "color_identity": "R", "legal": True,
+                               "type_line": "Artifact — Attraction"}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK,
+                               lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    names = {s["card"] for s in res["suggestions"]}
+    assert "The Matrix Of Time" not in names and "Balloon Stand" not in names
+    reasons = {d["card"]: d["reason"] for d in res["dropped"]}
+    assert reasons["The Matrix Of Time"] == "phenomenon not legal in mainboard slot (belongs in planar_deck)"
+    assert reasons["Balloon Stand"] == "attraction not legal in mainboard slot (belongs in attraction_deck)"
+
+
+def test_every_suggestion_carries_a_mainboard_slot_gate_reason():
+    res = run()  # full remove-verdict review -> replacements
+    assert res["replacements"]
+    for s in res["replacements"]:
+        gate = s["slot_gate"]
+        assert gate["slot"] == "mainboard" and gate["legal"] is True
+        assert isinstance(gate["reason"], str) and gate["reason"]
+    res2 = suggest_replacements(make_ev(), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                                ctx(), DECK, lookup)
+    assert res2["suggestions"]
+    for s in res2["suggestions"]:
+        assert s["slot_gate"]["legal"] is True and s["slot_gate"]["reason"]
+
+
 def test_spirit_gate_drops_candidates_with_no_role_or_pillar_fit():
     cands = default_cands() + [cand("Random Rock", ["utility_land"], syn=0.0)]
     facts = {**FACTS, "random rock": {"oracle_id": "o10", "color_identity": "", "legal": True}}
@@ -300,8 +347,8 @@ def test_game_changer_penalty_is_a_flag_not_a_filter():
 
 
 def test_card_source_tiers_applied():
-    from analytics.card_review.replacements import suggest_replacements
-    from analytics.card_review import config as cfg
+    from src.server.domain.analytics.card_review.replacements import suggest_replacements
+    from src.server.domain.analytics.card_review import config as cfg
     cfg.VERY_STRONG_THRESHOLD = 0.0
     cands = [cand("BuyMe", ["board_wipe"], inc=0.9, syn=0.5), cand("DonorMe", ["board_wipe"], inc=0.8, syn=0.4), cand("FreeMe", ["board_wipe"], inc=0.7, syn=0.3, owned=True)]
     
@@ -387,14 +434,14 @@ DECK_REC = {"id": 1, "source": "archidekt", "source_id": 1, "name": "Krenko", "c
 @pytest.fixture
 def client():
     from fastapi.testclient import TestClient
-    from app import app
+    from src.server.app.main import app
     r = FakeRedis()
     llm = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
-    with patch("app.r", r), patch("app.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
-            patch("app._oracle_preflight", return_value=None), patch("app._card_review_llm", return_value=llm), \
-            patch("analytics.card_review.service.build_context", return_value=ctx()), \
-            patch("analytics.card_review.service.evaluate_card", return_value=make_ev()), \
-            patch("analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
+    with patch("src.server.app.main.r", r), patch("src.server.app.main.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
+            patch("src.server.app.main._oracle_preflight", return_value=None), patch("src.server.app.main._card_review_llm", return_value=llm), \
+            patch("src.server.domain.analytics.card_review.service.build_context", return_value=ctx()), \
+            patch("src.server.domain.analytics.card_review.service.evaluate_card", return_value=make_ev()), \
+            patch("src.server.domain.analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
         yield TestClient(app), llm
 
 

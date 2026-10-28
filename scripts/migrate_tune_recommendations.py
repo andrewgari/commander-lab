@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import tune_store as ts  # noqa: E402
+from src.server.domain.analytics import tune_store as ts  # noqa: E402
 
 
 def migrate(r, apply: bool = False) -> dict:

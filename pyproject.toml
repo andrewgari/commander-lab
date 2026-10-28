@@ -1,0 +1,41 @@
+[tool.importlinter]
+# Enforces AGENT_RULES.md rule 2:
+#   src/server/domain/ imports no FastAPI, SQLAlchemy, or src/server/infra/*
+# (or src/server/app/*).
+#
+# The contract below is a RATCHET: the `ignore_imports` list pins the legacy
+# violations that existed when the gate was introduced (STA-8). Those are
+# known debt to be burned down — do not add new entries. Any import outside
+# this list fails CI (`lint-imports`).
+root_package = "src"
+# Analyze third-party imports too, so sqlalchemy/starlette/fastapi imports
+# are caught (grimp ignores external packages without this flag).
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain purity: no web/db/infra imports in src.server.domain (AGENT_RULES rule 2)"
+type = "forbidden"
+source_modules = ["src.server.domain"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "sqlalchemy",
+    "src.server.infra",
+    "src.server.app",
+]
+ignore_imports = [
+    # Legacy debt pinned at gate introduction (STA-8). Burn down; never grow.
+    "src.server.domain.analytics.aggregator -> src.server.infra.providers.raw_paste",
+    "src.server.domain.analytics.brackets -> src.server.infra.providers.scryfall",
+    "src.server.domain.analytics.brackets -> src.server.infra.http.exceptions",
+    "src.server.domain.analytics.composition_pg_store -> src.server.infra.db.orm_models",
+    "src.server.domain.analytics.composition_pg_store -> sqlalchemy",
+    "src.server.domain.analytics.deck_links_repository -> sqlalchemy",
+    "src.server.domain.analytics.deck_links_repository -> src.server.infra.db.config",
+    "src.server.domain.analytics.deck_links_repository -> src.server.infra.db.orm_models",
+    "src.server.domain.decks.deck_export -> src.server.infra.providers",
+    "src.server.domain.decks.deck_links -> src.server.infra.providers",
+    "src.server.domain.decks.deck_sync -> src.server.infra.providers",
+    "src.server.domain.profile.player_profile -> src.server.infra.db.session",
+    "src.server.domain.profile.player_profile -> src.server.infra.services.player_profile_service",
+]

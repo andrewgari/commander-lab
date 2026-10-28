@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "snapshot": {"redis": "commander-lab-redis db0", "keys": 7, "types": {"string": 6, "list": 1}, "ttl": "none", "note": "point-in-time; one key per pattern"},
+  "landing_table": {"name": "redis_import", "evidence": "redis_pg_import.py:46", "note": "PR #276/#279 importer is generic: every key lands as (redis_key, redis_type, JSONB value, ttl, checksum). No typed tables are populated."},
+  "observed": [
+    {"pattern": "comp:presets", "redis_type": "string", "payload": "JSON list of preset dicts, newest first", "class": "durable", "pg_table": "composition_presets", "columns": {"id": "preset['id']", "data": "preset dict (JSONB)", "seq": "list index reversed (index 0 = highest seq)"}, "idempotency_key": "id", "status": "typed table + store exist (db/orm_models.py:19, analytics/composition_pg_store.py); importer does not fan out into it", "evidence": ["analytics/composition_store.py:25", "db/orm_models.py:19", "analytics/composition_pg_store.py:29"]},
+    {"pattern": "github_latest_version_stale", "redis_type": "string", "payload": "version string, no TTL", "class": "cache/stale-fallback", "pg_table": null, "disposition": "do not migrate; refetched from GitHub", "evidence": ["github_sync.py:7", "github_sync.py:35", "app.py:98"]},
+    {"pattern": "github_changelog_stale", "redis_type": "string", "payload": "serialized changelog JSON, no TTL", "class": "cache/stale-fallback", "pg_table": null, "disposition": "do not migrate; refetched from GitHub", "evidence": ["github_sync.py:9", "github_sync.py:78", "app.py:529"]},
+    {"pattern": "interaction_graph:collection", "redis_type": "string", "payload": "JSON collection graph (nodes + resource index)", "class": "derived", "pg_table": null, "disposition": "do not migrate; rebuilt by interactions rebuild", "evidence": ["analytics/interactions/service.py:41", "analytics/interactions/service.py:212"]},
+    {"pattern": "interactions:runs", "redis_type": "list", "payload": "JSON run-log per element, newest first, capped at MAX_RUNS (200) via LPUSH+LTRIM", "class": "operational log", "pg_table": null, "disposition": "unmapped; optional proposal below", "proposal": "interaction_runs(id bigserial pk, run_id text unique, created_at timestamptz, data jsonb); import elements in reverse so id order = chronological", "evidence": ["analytics/interactions/service.py:43", "analytics/interactions/service.py:228"]},
+    {"pattern": "lab_tags", "redis_type": "string", "payload": "JSON {card_name: [tag,...]}", "class": "durable", "pg_table": null, "disposition": "unmapped gap; proposal below", "proposal": "card_lab_tags(card_name text, tag text, source text check in ('learned','manual') default 'learned', pk(card_name, tag)); rows from lab_tags, source joined from lab_tags_source (missing entry => 'learned')", "evidence": ["lab_tags.py:3", "app.py:1311"]},
+    {"pattern": "lab_tags_source", "redis_type": "string", "payload": "JSON {card_name: {tag: 'learned'|'manual'}}", "class": "durable (side-channel of lab_tags)", "pg_table": null, "disposition": "folds into card_lab_tags.source", "evidence": ["lab_tags.py:7", "lab_tags.py:19"]}
+  ],
+  "documented_not_observed": [
+    {"pattern": "comp:deck:{registry_id}", "pg_table": "deck_compositions", "columns": {"registry_id": "key suffix", "data": "JSONB value"}, "evidence": ["analytics/composition_store.py:26", "db/orm_models.py:28"]},
+    {"pattern": "interaction_graph:deck:{registry_id}", "pg_table": null, "disposition": "derived; rebuild"},
+    {"pattern": "decks, inventory, deck_status:{id}, card_tags:{name}, deck_categories:{registry_id}", "pg_table": null, "disposition": "listed in AGENTS.md, absent from keyspace, no typed table in the repo; needs human confirmation (stale doc vs. renamed keys such as instance:*/card_meta:*)"},
+    {"pattern": "cache:{namespace}:{generation}:{key}", "pg_table": null, "disposition": "cache; not observed; never migrate", "evidence": ["redis_cache.py:3"]}
+  ]
+}

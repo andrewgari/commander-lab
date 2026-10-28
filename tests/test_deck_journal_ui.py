@@ -20,9 +20,9 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from analytics import journal
-from app import app
+import src.server.app.main as app_mod
+from src.server.domain.analytics import journal
+from src.server.app.main import app
 from tests.test_deck_stats_ui import DECK, DECK_JS, HUD_CSS, HUD_JS, INVENTORY, _DeckPage, _classes, _page_style
 from tests.test_interactions import FakeRedis
 
@@ -52,11 +52,11 @@ class _JournalPage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual(tabs[3][0], "/deck/Holy%20Hellfire/journal")
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual(tabs[6][0], "/deck/Holy%20Hellfire/journal")
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
-        self.assertEqual(tabs[4][0], "/deck/Holy%20Hellfire/tune")  # AN-6
+        self.assertEqual(tabs[2][0], "/deck/Holy%20Hellfire/tune")  # AN-6
 
 
 class TestJournalPage(_JournalPage, unittest.TestCase):
@@ -104,7 +104,13 @@ class TestJournalPage(_JournalPage, unittest.TestCase):
         self.assertRegex(self.body, r'<ul class="hud-picker-list" id="petList" role="listbox"')
         self.assertIn('"Plains"', self.body)  # the deck's card list is embedded for autocomplete
         self.assertIn("hud-chip-remove", self.body)
-        self.assertIn("Autocomplete from this deck's list only.", self.body)
+        self.assertIn("Suggests cards from this deck first, then any card.", self.body)
+        # Shared endpoint, not local-only: an endpoint failure must reach the
+        # component's error row instead of a misleading "No matches".
+        self.assertNotRegex(self.body, r"endpoint:\s*null")
+        attach = self.body.split("CardAutocomplete.attach(petInput", 1)[1].split("});", 1)[0]
+        self.assertNotIn("endpoint", attach)  # defaults to /api/cards/autocomplete
+        self.assertIn("extraSource", attach)
 
     def test_pillars_link(self):
         self.assertIn('href="/deck/Holy%20Hellfire/identity"', self.body)
@@ -155,12 +161,12 @@ class TestReviewEntryPoints(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_unknown_deck_404(self):
-        with patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/deck/Nope/journal").status_code, 404)
 
     def test_overview_review_goes_to_the_checkin(self):
-        with patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             body = self.client.get("/deck/Holy%20Hellfire").text
         self.assertIn("reviewDeck()", body)
         self.assertIn("/journal?review=1", body)
@@ -170,8 +176,8 @@ class TestReviewEntryPoints(unittest.TestCase):
         class Down(FakeRedis):
             def get(self, key):
                 raise redis.exceptions.ConnectionError("down")
-        with patch.object(app_mod, "r", Down()), patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch.object(app_mod, "r", Down()), patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             self.assertEqual(self.client.get("/deck/Holy%20Hellfire/journal").status_code, 200)
 
 
