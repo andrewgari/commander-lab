@@ -84,6 +84,7 @@ _SENTENCE_STARTERS = frozenset({
     "acceptable", "adding", "additions", "adds", "adequate", "affordable", "alternative", "alternatives", "analysis",
     "anyone", "anything", "assessment", "available", "average", "backup", "balanced", "being", "best", "better",
     "biggest", "board", "bottom", "budget", "caution", "caveats", "central", "certain", "change", "changes", "cheap",
+    "axis", "axes", "suggestions", "recommendations", "observed", "noted", "flagged", "highlights", "highlight",
     "choice", "choices", "clean", "clear", "clock", "coherent", "colors", "colour", "colours", "combat", "common",
     "complete", "complex", "confidence", "confirmed", "considering", "consistency", "consistent", "core", "cost",
     "costs", "creature", "creatures", "current", "curve", "cuts", "cutting", "damage", "data", "decent", "difficult",

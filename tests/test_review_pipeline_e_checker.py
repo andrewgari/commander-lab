@@ -130,7 +130,7 @@ class PlainSentenceOpeners(unittest.TestCase):
     def test_live_writer_openers_are_prose_not_names(self):
         # Seen from claude-sonnet-5-5 on lara-uncharted: headline / bullet openers that are ordinary review vocabulary.
         for prose in ("Coherent Sol Ring plan with a smooth curve.", "Proposed fixes: Sol Ring first.",
-                      "Proposed: swap in Sol Ring.", "Protection for Sol Ring is layered."):
+                      "Proposed: swap in Sol Ring.", "Protection for Sol Ring is layered.", "Axis scores are fine. Suggested fixes come first."):
             self.assertEqual(_name_errors(prose, self.verified), [], prose)
 
     def test_vocabulary_openers_do_not_launder_an_invented_name(self):
