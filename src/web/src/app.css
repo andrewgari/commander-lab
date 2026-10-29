@@ -19,6 +19,14 @@
   --color-warning: #f0a63a;
   --color-on-solid: #ffffff;
   --color-focus: #ffc266;
+  /* drafts redesign (page-specs §0.1) */
+  --color-info: #4fb0c6;
+  --color-danger-bg: #2a1715;
+  --color-warning-bg: #2b2112;
+  --color-accent-bg: #3b2a12;
+  --color-backdrop: rgb(8 10 13 / 0.78);
+  --dialog-max: 40rem;
+  --mana-w: #f3e3b0; --mana-u: #7fb8e6; --mana-b: #b7a6c9; --mana-r: #f0876a; --mana-g: #7cc48a; --mana-c: #c3c9cf;
   /* type */
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -115,7 +123,7 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
 
 /* Wide tables scroll inside their wrapper, never the page. Tables keep their natural column
    widths (max-content); override --table-min-width to force more. */
-.table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll { position: relative; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll > table { min-width: var(--table-min-width, max-content); }
 
 /* 44x44 touch-target floor for bare links/buttons (not for links inside running text). */
