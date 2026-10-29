@@ -1,0 +1,1 @@
+<script lang="ts">import Section from './Section.svelte'; import type { ReviewDocument } from './types'; let { mana }: { mana: ReviewDocument['mana'] } = $props();</script><Section title="Mana assessment" code="08"><p>{mana.summary}</p><ul>{#each mana.issues as issue}<li>{issue}</li>{/each}</ul></Section>

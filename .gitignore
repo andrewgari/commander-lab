@@ -18,7 +18,16 @@ ENV/
 next_data.json
 *.dump
 *.log
+*.rdb
 scratch/
+
+# AN-8 mechanically-similar data: private HF parquet + built artifact (never committed)
+mtg_embeddings.parquet
+*.parquet
+analytics/data/mech_similar.npz
+mech_similar.npz
+!tests/fixtures/mech_similar_fixture.npz
+.worktrees/
 
 # Testing and coverage
 .pytest_cache/
@@ -31,3 +40,14 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
+
+docs/screenshots/*
+templates/partials/*
+static/*
+
+# review eval run output
+tests/review_evals/results/*
+!tests/review_evals/results/.gitkeep
+
+# import-linter cache (STA-8)
+.import_linter_cache/

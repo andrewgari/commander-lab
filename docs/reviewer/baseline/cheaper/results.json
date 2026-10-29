@@ -1,0 +1,162 @@
+{
+ "generator": "spoton:claude-haiku-4-5",
+ "judge": "spoton:gpt-5-6-sol",
+ "critic": "spoton:mistral-large-3",
+ "writer": "spoton:claude-haiku-4-5",
+ "models": {
+  "A": "spoton:claude-haiku-4-5",
+  "B": "spoton:claude-haiku-4-5",
+  "C": "spoton:claude-haiku-4-5",
+  "critic": "spoton:mistral-large-3"
+ },
+ "pipeline_version": "review-ab-1",
+ "max_cost_usd": null,
+ "started_at": "20261029T011030Z",
+ "decks": {
+  "celes-ebbing-away": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 5.0,
+     "specificity": 9.0,
+     "intent_alignment": 3.0,
+     "actionability": 3.0,
+     "generic_filler": 4.0
+    },
+    "notes": "The review clearly identifies the fast +1/+1-counter infinite-combo plan and names its Celes, Broodmoth, sacrifice-outlet, Dualcaster, and recursion mechanisms. However, it repeatedly claims no power target was stated, missing the explicit lean Bracket 4 with cEDH/Bracket 5 aspiration, and therefore never evaluates speed or efficiency against that bar. Its reliance on generic Commander norms such as 38 lands and 5\u20137 wipes is poorly suited to this target, while proposed cuts to Black Market Connections, Esper Sentinel, Orcish Bowmasters, Grand Abolisher, and Voice of Victory undermine draw or protection important to competitive combo. Swaps are concrete but often erroneous or counterproductive: Stitch Together is a sorcery that returns directly to the battlefield, Cabal Ritual costs 1B, Vampiric Tutor puts a card on top rather than in hand, and Malakir Rebirth adds black rather than solving white scarcity. Extensive repetition of the same draw, mana, and combo findings adds substantial filler.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 5.0,
+   "cost_usd": 0.601923,
+   "cost_complete": true,
+   "latency_s": 234.26,
+   "calls": 44,
+   "review_file": "celes-ebbing-away.review.json",
+   "fetch_s": 74.74,
+   "api_latency_s": 304.776,
+   "judge_cost_usd": 0.094832,
+   "providers": {
+    "served": {
+     "spoton:claude-haiku-4-5": 33,
+     "spoton:mistral-large-3": 11,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "darien-frozen-throne": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 4.0,
+     "specificity": 8.0,
+     "intent_alignment": 3.0,
+     "actionability": 6.0,
+     "generic_filler": 4.0
+    },
+    "notes": "The review recognizes Darien's damage-to-token conversion and notes that opponents can supply the damage, but it never identifies the deck as Aikido/punisher, never mentions Andrew, and misses the central political devil's choice: attacking him feeds his army while declining to attack lets him sit untouched. It instead frames the list primarily as a generic token-swarm deck and recommends cutting Blood of the Martyr and Jade Monolith, both highly relevant damage-redirection tools for the stated Aikido intent. Card naming is extensive and the swaps are concrete, but several mechanisms are misstated: Jade Monolith is not one-shot, the self-damage lands are repeatedly called mana rocks, Extraplanar Lens is classified as removal, and Rest in Peace does not cripple Darien's core token trigger. The large amount of repetitive benchmark, bracket, budget, and orphan-count discussion adds filler without addressing the owner's defining play pattern.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 4.0,
+   "cost_usd": 0.382466,
+   "cost_complete": true,
+   "latency_s": 192.85,
+   "calls": 35,
+   "review_file": "darien-frozen-throne.review.json",
+   "fetch_s": 10.19,
+   "api_latency_s": 270.558,
+   "judge_cost_usd": 0.081404,
+   "providers": {
+    "served": {
+     "spoton:claude-haiku-4-5": 26,
+     "spoton:mistral-large-3": 9,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "saffi-rumors": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 5.0,
+     "specificity": 9.0,
+     "intent_alignment": 5.0,
+     "actionability": 7.0,
+     "generic_filler": 6.0
+    },
+    "notes": "The review strongly identifies the Saffi Eriksdotter/Karmic Guide/Reveillark recursion-combo shell and names its sacrifice outlets and deterministic payoffs, but it never recognizes the owner's pillowfort-first, combo-later game plan. It does not directly recommend aggro cards, though its question about creature attacks shows uncertainty about the stated intent. Recommendations are concrete and include cuts, additions, costs, and trade-offs, but some are poorly matched: Enlightened Tutor does not resolve colored-source consistency, cutting Silence weakens combo protection, and Fecundity's symmetrical drawback is omitted. The review is highly card-specific but excessively repetitive, with inconsistent combo counts and some inaccurate reasoning, such as claiming Grand Abolisher lacks Reveillark power eligibility.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 5.0,
+   "cost_usd": 0.409516,
+   "cost_complete": true,
+   "latency_s": 140.28,
+   "calls": 36,
+   "review_file": "saffi-rumors.review.json",
+   "fetch_s": 10.25,
+   "api_latency_s": 217.625,
+   "judge_cost_usd": 0.09368,
+   "providers": {
+    "served": {
+     "spoton:claude-haiku-4-5": 25,
+     "spoton:mistral-large-3": 11,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "lara-uncharted": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 8.0,
+     "specificity": 9.0,
+     "intent_alignment": 5.0,
+     "actionability": 3.0,
+     "generic_filler": 5.0
+    },
+    "notes": "The review surfaces Lara's graveyard access to legendary artifacts/lands, repeatedly identifies the large legendary equipment suite, and discusses artifact recursion, substantially covering the sole must-mention. However, it reframes the deck primarily as an Aggravated Assault combo list rather than a utility-equipment/legendary-permanent build and unnecessarily asks whether the known equipment focus is deliberate. Card-level specificity is excellent, but several mechanics and recommendations are wrong: Arcane Denial costs {1}{U}, not {U}{U}; Mana Drain retains Counterspell's {U}{U} pressure; Windfall costs {2}{U}, not {3}{U}{U}; Inventors' Fair does not fix colored mana; Storm the Vault is not a land-slot MDFC; and Reaver Cleaver plus Aggravated Assault is not automatically infinite unless combat damage produces at least five mana per iteration. Cutting two counters while criticizing thin interaction is also internally misaligned. Swaps are concrete and include trade-offs, prices, and alternatives, but these errors make several of them poorly actionable. The document is highly repetitive, restating ramp, combo, tutor, and mana claims across many sections.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 8.0,
+   "cost_usd": 0.407343,
+   "cost_complete": true,
+   "latency_s": 219.65,
+   "calls": 40,
+   "review_file": "lara-uncharted.review.json",
+   "fetch_s": 10.55,
+   "api_latency_s": 302.161,
+   "judge_cost_usd": 0.084412,
+   "providers": {
+    "served": {
+     "spoton:claude-haiku-4-5": 31,
+     "spoton:mistral-large-3": 9,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  }
+ },
+ "note": "Merged from separate runs of the same pipeline head; see docs/reviewer/EVAL_BASELINE.md"
+}
