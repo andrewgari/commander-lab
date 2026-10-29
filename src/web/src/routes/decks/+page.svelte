@@ -1,5 +1,9 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import StatusPill from '#lib/components/StatusPill.svelte';
 
 	let { data }: PageProps = $props();
 </script>
@@ -11,9 +15,9 @@
 <h1>Decks</h1>
 
 {#if data.error}
-	<p class="error" role="alert">Deck data unavailable: {data.error}</p>
+	<ErrorBanner message="Deck data unavailable" detail={data.error} onRetry={() => invalidateAll()} retryLabel="Reload decks" />
 {:else if data.decks.length === 0}
-	<p>No imported decks yet.</p>
+	<EmptyState title="No decks yet" description="Import a deck from Archidekt or Moxfield to start analysing it." />
 {:else}
 	<ul class="deck-list">
 		{#each data.decks as deck (deck.id)}
@@ -28,7 +32,8 @@
 						have {deck.have_buy.have}/{deck.have_buy.need}
 						{#if deck.have_buy.pending}(+{deck.have_buy.pending} in mail){/if}
 						· buy {deck.have_buy.buy}
-						{#if deck.have_buy.complete}· ✅ complete{/if}
+						{#if deck.have_buy.complete}<StatusPill status="owned" label="Complete" />{/if}
+						{#if deck.have_buy.buy > 0}<StatusPill status="short" label="Buy {deck.have_buy.buy}" />{/if}
 					</span>
 				{/if}
 			</li>
@@ -51,12 +56,8 @@
 		flex-direction: column;
 		gap: 0.15rem;
 	}
-	.meta,
 	.have-buy {
 		font-size: 0.85rem;
 		color: var(--color-muted);
-	}
-	.error {
-		color: var(--color-danger);
 	}
 </style>

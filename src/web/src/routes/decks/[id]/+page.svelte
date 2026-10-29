@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import TableScroll from '#lib/components/TableScroll.svelte';
+	import ScrollTable, { type Column } from '#lib/components/ScrollTable.svelte';
+	import StatusPill from '#lib/components/StatusPill.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -9,6 +10,16 @@
 	const orderedBoards = $derived(
 		[...boardOrder.filter((b) => boards[b]?.length), ...Object.keys(boards).filter((b) => !boardOrder.includes(b as (typeof boardOrder)[number]))]
 	);
+
+	const columns: Column[] = [
+		{ key: 'name', header: 'Card' },
+		{ key: 'board', header: 'Board' },
+		{ key: 'need', header: 'Need', numeric: true },
+		{ key: 'have', header: 'Have', numeric: true },
+		{ key: 'buy', header: 'Buy', numeric: true },
+		{ key: 'pending', header: 'In mail', numeric: true },
+		{ key: 'elsewhere', header: 'Elsewhere', numeric: true }
+	];
 </script>
 
 <svelte:head>
@@ -33,31 +44,30 @@
 		{#if have_buy.totals.have_pct !== null}({have_buy.totals.have_pct}%){/if}
 		{#if have_buy.totals.pending}· {have_buy.totals.pending} in mail{/if}
 		· <strong>{have_buy.totals.buy}</strong> to buy
-		{#if have_buy.totals.complete}· ✅ deck complete{/if}
+		{#if have_buy.totals.complete}<StatusPill status="owned" label="Complete" />{/if}
 	</p>
-	<TableScroll label="Deck have/buy breakdown" minWidth="32rem">
-		<table>
-			<caption class="visually-hidden">Deck have/buy breakdown</caption>
-			<thead>
-				<tr>
-					<th scope="col">Card</th><th scope="col">Board</th><th scope="col">Need</th><th scope="col">Have</th><th scope="col">Buy</th><th scope="col">In mail</th><th scope="col">Elsewhere</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each have_buy.lines as line (line.oracle_id + line.board)}
-					<tr class:short={line.buy > 0}>
-						<td>{line.name}{#if line.buy > 0}<span class="visually-hidden">{' — need to buy '}{line.buy}</span>{/if}</td>
-						<td>{line.board}{line.category ? ` · ${line.category}` : ''}</td>
-						<td>{line.need}</td>
-						<td>{line.have}</td>
-						<td>{line.buy}</td>
-						<td>{line.pending || ''}</td>
-						<td>{line.elsewhere || ''}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</TableScroll>
+	<ScrollTable
+		caption="Deck have/buy breakdown"
+		captionHidden
+		{columns}
+		rows={have_buy.lines}
+		rowKey={(line) => line.oracle_id + line.board}
+		rowHeader="name"
+		stickyFirstCol
+		minWidth="52rem"
+	>
+		{#snippet cell(line, column)}
+			{#if column.key === 'board'}
+				{line.board}{line.category ? ` · ${line.category}` : ''}
+			{:else if column.key === 'buy' && line.buy > 0}
+				<StatusPill status="short" label="Buy {line.buy}" />
+			{:else if column.key === 'name'}
+				{line.name}
+			{:else}
+				{line[column.key as 'need' | 'have' | 'buy' | 'pending' | 'elsewhere']}
+			{/if}
+		{/snippet}
+	</ScrollTable>
 </section>
 
 {#if snapshot}
@@ -78,8 +88,8 @@
 			{#each boards[board] as card (card.oracle_id + card.board)}
 				<li>
 					{card.qty}× <a href="/card/{encodeURIComponent(card.oracle_id)}">{card.name}</a>
-					{#if card.buy > 0}<span class="buy-tag">buy {card.buy}</span>{/if}
-					{#if card.pending > 0}<span class="pending-tag">in mail</span>{/if}
+					{#if card.buy > 0}<StatusPill status="short" label="Buy {card.buy}" />{/if}
+					{#if card.pending > 0}<StatusPill status="in-mail" />{/if}
 				</li>
 			{/each}
 		</ul>
@@ -91,34 +101,11 @@
 		font-size: 1.5rem;
 		margin-bottom: 0.25rem;
 	}
-	.meta {
-		color: var(--color-muted);
-	}
-	table {
-		border-collapse: collapse;
-		font-size: 0.85rem;
-	}
-	th,
-	td {
-		padding: 0.15rem 0.6rem 0.15rem 0;
-		text-align: left;
-	}
-	tr.short td {
-		color: var(--color-danger);
-	}
 	.cards {
 		list-style: none;
 		padding: 0;
 		columns: 2;
 		font-size: 0.9rem;
-	}
-	.buy-tag {
-		color: var(--color-danger);
-		font-size: 0.8rem;
-	}
-	.pending-tag {
-		color: var(--color-warning);
-		font-size: 0.8rem;
 	}
 	.summary {
 		font-style: italic;

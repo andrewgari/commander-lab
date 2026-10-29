@@ -1,7 +1,18 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import type { ActionData, PageProps } from './$types';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import StatusPill from '#lib/components/StatusPill.svelte';
+	import SubmitButton from '#lib/components/SubmitButton.svelte';
+	import { createPending } from '#lib/forms/pending.svelte.ts';
+	import { draftStatus } from '#lib/status.ts';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
+
+	const p = createPending();
+	let formEl = $state<HTMLFormElement>();
 </script>
 
 <svelte:head>
@@ -10,6 +21,9 @@
 
 <nav><a href="/">← home</a></nav>
 <h1>Draft mode</h1>
+{#if data.error}
+	<ErrorBanner message="Draft data unavailable" detail={data.error} onRetry={() => invalidateAll()} retryLabel="Reload drafts" />
+{/if}
 <p class="meta">
 	Combine decks or dismantle one to build another. Everything stays in staging — nothing
 	touches your decks or collection until you press <strong>Commit</strong>. Abandoning a
@@ -19,9 +33,10 @@
 <section>
 	<h2>Start a draft</h2>
 	{#if data.decks.length < 1 && !data.error}
-		<p class="meta">No imported decks yet — <a href="/decks">import a deck first</a>.</p>
+		<EmptyState variant="inline" title="No decks to draft from" description="Import a deck first." ctaLabel="Go to Decks" ctaHref="/decks" />
 	{:else}
-		<form method="POST">
+		<form method="POST" use:enhance={p.enhance} bind:this={formEl} aria-busy={p.submitting}>
+			<fieldset class="fields" disabled={p.submitting}>
 			<label>
 				Kind
 				<select name="kind">
@@ -50,8 +65,13 @@
 				<input type="checkbox" name="prefill" checked />
 				Prefill staging from the source decks' lists (you can edit freely afterwards)
 			</label>
-			<button type="submit">Open draft</button>
-			{#if form?.createError}<p class="error" role="alert">{form.createError}</p>{/if}
+			</fieldset>
+			<SubmitButton pending={p.submitting} pendingLabel="Opening draft…" variant="primary">Open draft</SubmitButton>
+			{#if p.transientError}
+				<ErrorBanner message="Couldn't create draft" detail={p.transientError} onRetry={() => formEl?.requestSubmit()} />
+			{:else if form?.createError}
+				<ErrorBanner message="Couldn't create draft" detail={form.createError} dismissible />
+			{/if}
 		</form>
 	{/if}
 </section>
@@ -59,9 +79,9 @@
 <section>
 	<h2>Draft sessions</h2>
 	{#if data.error}
-		<p class="error" role="alert">Draft data unavailable: {data.error}</p>
+		<!-- the page-level banner above carries the error -->
 	{:else if data.drafts.length === 0}
-		<p>No drafts yet.</p>
+		<EmptyState variant="inline" title="No drafts yet" description="Pick source decks above and open one." />
 	{:else}
 		<ul class="draft-list">
 			{#each data.drafts as draft (draft.id)}
@@ -69,9 +89,7 @@
 					<a href="/drafts/{draft.id}">{draft.name}</a>
 					<span class="meta">
 						{draft.kind} → {draft.target_name} ·
-						<span class:open={draft.status === 'open'} class:committed={draft.status === 'committed'}>
-							{draft.status}
-						</span>
+						<StatusPill status={draftStatus(draft.status)} label={draftStatus(draft.status) === 'neutral' ? draft.status : undefined} />
 						{#if draft.result_deck_id}· built {draft.result_deck_id}{/if}
 						· opened {draft.created_at?.slice(0, 10)}
 					</span>
@@ -105,9 +123,13 @@
 		gap: 0.25rem;
 		font-size: 0.85rem;
 	}
-	button {
-		width: fit-content;
-		padding: 0.4rem 1rem;
+	.fields {
+		display: grid;
+		gap: 0.5rem;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		min-width: 0;
 	}
 	.draft-list {
 		list-style: none;
@@ -118,18 +140,5 @@
 	.draft-list li {
 		display: flex;
 		flex-direction: column;
-	}
-	.meta {
-		font-size: 0.85rem;
-		color: var(--color-muted);
-	}
-	.open {
-		color: var(--color-warning);
-	}
-	.committed {
-		color: var(--color-success);
-	}
-	.error {
-		color: var(--color-danger);
 	}
 </style>
