@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 # Ensure repository root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.models import (
+from src.server.domain.analytics.models import (
     CardRecommendations,
     DeckAnalyticsResult,
     DeckPopularity,
@@ -29,8 +29,8 @@ from analytics.models import (
     PowerScore,
     SaltScore,
 )
-from analytics.provider import BaseAnalyticsProvider
-from deck_intake import (
+from src.server.domain.analytics.provider import BaseAnalyticsProvider
+from src.server.domain.intake.deck_intake import (
     ConsolidatedDeckIntake,
     DeckIntakeError,
     DeckIntakePayload,
@@ -40,7 +40,7 @@ from deck_intake import (
     process_deck_intake,
     validate_deck_intake,
 )
-import intake
+import src.server.domain.intake.intake as intake
 
 
 class MockAnalyticsProvider(BaseAnalyticsProvider):
@@ -147,8 +147,12 @@ Sideboard
         self.assertEqual(result.summary.mainboard_count, 20)
         self.assertEqual(result.summary.commander_count, 1)
         self.assertEqual(result.summary.total_cards, 21)
-        self.assertEqual(result.summary.sideboard_count, 2)
-        self.assertEqual(len(result.sideboard), 2)
+        self.assertEqual(result.summary.maybeboard_count, 2)
+        self.assertEqual(result.summary.sideboard_count, 2)  # deprecated alias
+        self.assertEqual(len(result.maybeboard), 2)
+        # Sideboard section was remapped to Maybeboard with a visible flag + warning
+        self.assertIn("sideboard_mapped_to_maybeboard", result.parse_flags)
+        self.assertTrue(any("Sideboard" in w and "Maybeboard" in w for w in result.warnings))
         self.assertTrue(result.summary.is_valid_commander_count)
         self.assertFalse(result.summary.is_100_cards)  # 21 cards is under 100
 
@@ -164,12 +168,12 @@ Sideboard
         self.assertIn("Proliferate", result.user_intent.archetype_preferences.custom_themes)
 
         # Card queries
-        all_names = result.all_card_names(include_commanders=True, include_sideboard=False)
+        all_names = result.all_card_names(include_commanders=True, include_slots=False)
         self.assertIn("Atraxa, Praetors' Voice", all_names)
         self.assertIn("Doubling Season", all_names)
         self.assertNotIn("Heroic Intervention", all_names)
 
-        all_with_sb = result.all_card_names(include_commanders=True, include_sideboard=True)
+        all_with_sb = result.all_card_names(include_commanders=True, include_slots=True)
         self.assertIn("Heroic Intervention", all_with_sb)
 
         # Downstream analytics preparation
@@ -311,7 +315,7 @@ Deck
 
     def test_decklist_input_analytics_model_intake(self):
         """Verify intake accepts a DecklistInput domain model as input."""
-        from analytics.models import CommanderIdentifier, DeckCardEntry
+        from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry
         dl_input = DecklistInput(
             deck_id="dl-99",
             name="Lathril Elves",

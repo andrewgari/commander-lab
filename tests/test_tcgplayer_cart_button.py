@@ -26,12 +26,12 @@ from urllib.parse import parse_qs, urlsplit
 
 from fastapi.testclient import TestClient
 
-from app import app, templates
-import tcgplayer
+from src.server.app.main import app, templates
+import src.server.infra.providers.tcgplayer as tcgplayer
 
 ROOT = Path(__file__).resolve().parent.parent
-CART_JS = ROOT / "static" / "js" / "tcgplayer_cart.js"
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
+CART_JS = ROOT / "src/web/static" / "js" / "tcgplayer_cart.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
 
 DFC = "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki"
 
@@ -56,6 +56,14 @@ CASES = {
         [{"name": "", "qty": 1}, {"name": "Sol Ring", "qty": 0}, {"name": "Mana Crypt", "qty": -2},
          {"name": "  Arcane Signet  ", "qty": 1}, None, "Sol Ring"],
         [{"name": "Arcane Signet", "qty": 1}],
+    ),
+    "with_set": (
+        [{"name": "Lightning Bolt", "qty": 1, "set": "sld"},
+         {"name": "Lightning Bolt", "qty": 2, "set": "2x2"},
+         {"name": "Lightning Bolt", "qty": 1}],
+        [{"name": "Lightning Bolt", "qty": 1, "set": "SLD"},
+         {"name": "Lightning Bolt", "qty": 2, "set": "2X2"},
+         {"name": "Lightning Bolt", "qty": 1}],
     ),
 }
 EMPTY = {
@@ -101,8 +109,12 @@ def _cart_from_url(url):
     assert q["productline"] == ["Magic"]
     out = []
     for line in q["c"][0].split("||"):
-        qty, name = line.split(" ", 1)
-        out.append({"name": name, "qty": int(qty)})
+        m = re.fullmatch(r"(\d+) (.+?)(?: \[([^\]]+)\])?", line)
+        assert m, f"unparseable cart line: {line!r}"
+        it = {"name": m.group(2), "qty": int(m.group(1))}
+        if m.group(3):
+            it["set"] = m.group(3)
+        out.append(it)
     return out
 
 

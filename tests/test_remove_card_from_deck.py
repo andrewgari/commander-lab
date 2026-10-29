@@ -2,18 +2,18 @@ from fastapi.testclient import TestClient
 import unittest
 from unittest.mock import patch, MagicMock, ANY
 
-from app import app
-from instances import InstanceError
+from src.server.app.main import app
+from src.server.domain.inventory.instances import InstanceError
 
 
 class TestRemoveCardFromDeck(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.instance_store.transition_status")
-    @patch("app.instance_store.get_instance")
-    @patch("app.registry.find_deck")
-    @patch("app.registry.registry_id_of")
+    @patch("src.server.app.main.instance_store.transition_status")
+    @patch("src.server.app.main.instance_store.get_instance")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.registry.registry_id_of")
     def test_remove_success(self, mock_reg_id, mock_find_deck, mock_get_instance, mock_transition):
         mock_find_deck.return_value = {"id": "archidekt:123", "name": "Test Deck"}
         mock_reg_id.return_value = "archidekt:123"
@@ -45,7 +45,7 @@ class TestRemoveCardFromDeck(unittest.TestCase):
             _allow_physical_lock_bypass=True,
         )
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_remove_deck_not_found(self, mock_find_deck):
         mock_find_deck.return_value = None
 
@@ -54,9 +54,9 @@ class TestRemoveCardFromDeck(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("Deck not found", response.json()["error"])
 
-    @patch("app.instance_store.get_instance")
-    @patch("app.registry.find_deck")
-    @patch("app.registry.registry_id_of")
+    @patch("src.server.app.main.instance_store.get_instance")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.registry.registry_id_of")
     def test_remove_instance_not_found(self, mock_reg_id, mock_find_deck, mock_get_instance):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_reg_id.return_value = "archidekt:123"
@@ -67,9 +67,9 @@ class TestRemoveCardFromDeck(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("Instance not found", response.json()["error"])
 
-    @patch("app.instance_store.get_instance")
-    @patch("app.registry.find_deck")
-    @patch("app.registry.registry_id_of")
+    @patch("src.server.app.main.instance_store.get_instance")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.registry.registry_id_of")
     def test_remove_mismatched_deck_id(self, mock_reg_id, mock_find_deck, mock_get_instance):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_reg_id.return_value = "archidekt:123"
@@ -85,9 +85,9 @@ class TestRemoveCardFromDeck(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("not bound to this deck", response.json()["error"])
 
-    @patch("app.instance_store.get_instance")
-    @patch("app.registry.find_deck")
-    @patch("app.registry.registry_id_of")
+    @patch("src.server.app.main.instance_store.get_instance")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.registry.registry_id_of")
     def test_remove_instance_not_in_deck(self, mock_reg_id, mock_find_deck, mock_get_instance):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_reg_id.return_value = "archidekt:123"
@@ -103,10 +103,10 @@ class TestRemoveCardFromDeck(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("not bound to this deck", response.json()["error"])
 
-    @patch("app.instance_store.transition_status")
-    @patch("app.instance_store.get_instance")
-    @patch("app.registry.find_deck")
-    @patch("app.registry.registry_id_of")
+    @patch("src.server.app.main.instance_store.transition_status")
+    @patch("src.server.app.main.instance_store.get_instance")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.registry.registry_id_of")
     def test_remove_transition_error(self, mock_reg_id, mock_find_deck, mock_get_instance, mock_transition):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_reg_id.return_value = "archidekt:123"

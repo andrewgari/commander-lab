@@ -6,9 +6,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.deck_writeup import (FormError, WriteupError, clean_form, generate_description, generate_primer,
+from src.server.domain.analytics.deck_writeup import (FormError, WriteupError, clean_form, generate_description, generate_primer,
                                     missing_required, summarize_cards)
-from analytics.deck_writeup.service import build_user_prompt, unknown_mentions
+from src.server.domain.analytics.deck_writeup.service import build_user_prompt, unknown_mentions, validate_primer
 
 DECK = {"name": "Goblin Party", "commanders": ["Krenko, Mob Boss"]}
 META = [
@@ -17,7 +17,17 @@ META = [
     {"name": "Blasphemous Act", "type_line": "Sorcery", "tags": ["wipe"]},
     {"name": "Mountain", "type_line": "Basic Land — Mountain", "tags": []},
 ]
-GOOD_PRIMER = "## Overview\nGoblins.\n\n## Game Plan\nGo wide.\n\n## Weaknesses\nWipes."
+GOOD_PRIMER = ("## Overview\n"
+               "Goblin Party is a mono-red goblin tribal deck led by Krenko, Mob Boss. It floods the board with cheap "
+               "goblins and token makers, then turns the whole horde sideways. Goblin Chieftain pumps the team, and "
+               "Blasphemous Act resets the table when things get out of hand.\n\n"
+               "## Game Plan\n"
+               "Go wide early with one- and two-mana goblins, land Krenko, Mob Boss on turn four, and attack to double "
+               "the board. Goblin Chieftain gives haste and an anthem, so the same turn Krenko lands the deck can swing "
+               "for real damage. In the late game, keep Krenko protected and activate him again for a lethal swarm.\n\n"
+               "## Weaknesses\n"
+               "Board wipes are the big problem; Blasphemous Act is symmetrical, so hold back a haste enabler before "
+               "casting it. Repeated spot removal on Krenko, Mob Boss slows the deck to a crawl.")
 
 
 class Fake:
@@ -97,6 +107,42 @@ def test_primer_rejects_bad_replies(bad):
         generate_primer(DECK, META, Fake(bad), {"theme": "a", "game_plan": "b"})
 
 
+def test_validate_primer_min_chars_floor_is_opt_in():
+    with pytest.raises(WriteupError) as e:
+        validate_primer("## Overview\nShort.", min_chars=500)
+    assert e.value.kind == "too_short"
+    assert validate_primer("## Overview\nShort.") == "## Overview\nShort."  # no floor by default
+    assert validate_primer(GOOD_PRIMER, min_chars=500) == GOOD_PRIMER
+
+
+def test_primer_prompt_states_500_char_floor():
+    ask = Fake(GOOD_PRIMER)
+    generate_primer(DECK, META, ask, {"theme": "a", "game_plan": "b"})
+    assert "at least 500 characters" in ask.calls[0][0]
+
+
+def test_primer_too_short_retries_with_nudge_then_raises():
+    ask = Fake("## Overview\nGoblins.")
+    with pytest.raises(WriteupError) as e:
+        generate_primer(DECK, META, ask, {"theme": "a", "game_plan": "b"})
+    assert e.value.kind == "too_short" and len(ask.calls) == 2  # one retry, no more
+    assert "at least 500 characters" in ask.calls[1][1] and "padding" in ask.calls[1][1]
+
+
+def test_primer_retry_recovers_when_second_draft_meets_floor():
+    class SeqFake:
+        def __init__(self, replies):
+            self.replies, self.calls = list(replies), []
+
+        def __call__(self, system, user):
+            self.calls.append((system, user))
+            return self.replies.pop(0)
+
+    ask = SeqFake(["## Overview\nGoblins.", GOOD_PRIMER])
+    out = generate_primer(DECK, META, ask, {"theme": "a", "game_plan": "b"})
+    assert out["text"] == GOOD_PRIMER and len(ask.calls) == 2
+
+
 def test_card_list_bounded():
     big = [{"name": f"Card {i}", "type_line": "Creature"} for i in range(500)]
     assert build_user_prompt(DECK, big, {}).count("\n- Card") <= 100
@@ -107,7 +153,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_module
+import src.server.app.main as app_module
 
 
 class FakeOracle:
@@ -122,7 +168,7 @@ class FakeOracle:
 def _post(path, body, reply="A goblin swarm led by Krenko.", preflight=None):
     client = FakeOracle(reply)
     with patch.object(app_module, "_find_deck_any", return_value=dict(DECK, cards=[{"name": "Goblin Chieftain", "types": ["Creature"]}])), \
-            patch("analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
+            patch("src.server.domain.analytics.deck_writeup.service.card_meta_for_deck", return_value=META), \
             patch.object(app_module, "_oracle_preflight", return_value=preflight), \
             patch.object(app_module, "_oracle_client", return_value=client):
         return TestClient(app_module.app).post(path, json=body), client

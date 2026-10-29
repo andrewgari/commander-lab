@@ -1,0 +1,8 @@
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Fast combo deck that manipulates +1/+1 counters to go infinite quickly."
+  - "Target power: lean Bracket 4, aspiring cEDH/Bracket 5. Evaluate speed and efficiency against that bar."
+must_not_recommend: []
+known_strengths: []
+known_flaws: []
+owner_would_reject: []

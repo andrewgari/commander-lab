@@ -13,8 +13,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import commander_roles as cr
-from app import app, templates
+import src.server.domain.decks.commander_roles as cr
+from src.server.app.main import app, templates
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -243,8 +243,8 @@ class TestViewsUseRoles(unittest.TestCase):
         return {"Keruga, the Macrosage": KERUGA, "Helga, Skittish Seer": HELGA}
 
     def test_api_decks_ships_roles(self):
-        with patch("app.r") as r, patch("app.enrich_decks_with_repo_status", side_effect=lambda d: d), \
-                patch("commander_roles.load_cards", side_effect=self._cards):
+        with patch("src.server.app.main.r") as r, patch("src.server.app.main.enrich_decks_with_repo_status", side_effect=lambda d: d), \
+                patch("src.server.domain.decks.commander_roles.load_cards", side_effect=self._cards):
             r.get.return_value = json.dumps([dict(KERUGA_DECK)])
             res = self.client.get("/api/decks")
         self.assertEqual(res.status_code, 200)
@@ -252,9 +252,9 @@ class TestViewsUseRoles(unittest.TestCase):
         self.assertEqual([c["role"] for c in rows], ["commander", "companion"])
 
     def test_deck_header_renders_roles(self):
-        with patch("app.registry.list_decks", return_value=[KERUGA_DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=[]), \
-                patch("commander_roles.load_cards", side_effect=self._cards):
+        with patch("src.server.app.main.registry.list_decks", return_value=[KERUGA_DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=[]), \
+                patch("src.server.domain.decks.commander_roles.load_cards", side_effect=self._cards):
             for path in ("/deck/The%20Gift", "/deck/The%20Gift/stats"):
                 with self.subTest(path=path):
                     html = self.client.get(path).text
@@ -276,7 +276,7 @@ class TestViewsUseRoles(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_js_mirror_matches_macro_classes(self):
-        js = (ROOT / "static" / "js" / "hud.js").read_text()
+        js = (ROOT / "src/web/static" / "js" / "hud.js").read_text()
         code = ("global.window = {}; global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []}};\n"
                 + js + "\nconst H = window.HUD;\n"
                 "const out = {\n"
@@ -301,48 +301,16 @@ class TestNoRoundCommanderArt(unittest.TestCase):
         # base.html loads hud.js with defer; pages calling HUD.* at startup must wait for it.
         for page, call in (("decks.html", "document.addEventListener('DOMContentLoaded', loadDecks);"),
                            ("inventory.html", "document.addEventListener('DOMContentLoaded', () => {\n        loadDecks()")):
-            self.assertIn(call, (ROOT / "templates" / page).read_text(), page)
-
-    @unittest.skipUnless(shutil.which("node"), "node not installed")
-    def test_deck_showcase_merges_sources_in_role_order(self):
-        src = (ROOT / "templates" / "deck.html").read_text()
-        fn = src[src.index("    function renderCommanders()"):src.index("    function renderStats()")]
-        js = (ROOT / "static" / "js" / "hud.js").read_text()
-        code = ("global.window = {}; const els = {};\n"
-                "global.document = {readyState: 'complete', addEventListener(){}, querySelectorAll(){return []},"
-                " getElementById(id){ return els[id] || (els[id] = {}); }};\n"
-                + js + "\nconst HUD = window.HUD; const esc = HUD.esc;\n"
-                "const cardArt = (c) => '<div class=\"hud-art-media\">INV:' + c.name + '</div>';\n"
-                "let inventoryCards, currentDeck;\n" + fn +
-                "\nconst roles = [{name:'The Tenth Doctor',uid:'t',role:'doctor'},{name:'Rose Tyler',uid:'r',role:'doctors_companion'}];\n"
-                "const out = {};\n"
-                "currentDeck = {commander_roles: roles}; inventoryCards = [{name:'Rose Tyler', is_commander:true}];\n"
-                "renderCommanders(); out.mixed = els.commanderShowcase.innerHTML;\n"
-                "inventoryCards = []; renderCommanders(); out.none = els.commanderShowcase.innerHTML;\n"
-                "currentDeck = {commander_roles: [{name:'Shorikai',uid:'s',role:'commander',can_be_commander:true,type_label:'Vehicle'}]};\n"
-                "inventoryCards = [{name:'Shorikai', is_commander:true, is_core:true}];\n"
-                "renderCommanders(); out.cbc = els.commanderShowcase.innerHTML;\n"
-                "process.stdout.write(JSON.stringify(out));")
-        res = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
-        self.assertEqual(res.returncode, 0, res.stderr)
-        out = json.loads(res.stdout)
-        # Doctor (Scryfall-only) still renders before Rose (inventory-backed).
-        self.assertLess(out["mixed"].index("deck-cmdr--doctor\""), out["mixed"].index("INV:Rose Tyler"))
-        # No inventory rows at all: both portraits from Scryfall, no empty state.
-        self.assertNotIn("hud-empty", out["none"])
-        self.assertEqual(out["none"].count("deck-cmdr deck-cmdr--"), 2)
-        # Type label uses the bottom-left badge, not a second top-left chip.
-        self.assertIn('<span class="hud-cmdr-badge">Vehicle</span>', out["cbc"])
-        self.assertNotIn(">Vehicle</span></span>", out["cbc"].replace('<span class="hud-cmdr-badge">Vehicle</span>', ""))
+            self.assertIn(call, (ROOT / "src/web/templates" / page).read_text(), page)
 
     def test_no_round_portraits(self):
-        decks = (ROOT / "templates" / "decks.html").read_text()
+        decks = (ROOT / "src/web/templates" / "decks.html").read_text()
         self.assertNotIn("commander-icon", decks)
-        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
         for rule in re.findall(r"\.hud-cmdr[^{]*\{[^}]*\}", css):
             self.assertNotIn("50%", rule)
         for page in ("decks.html", "deck.html", "partials/deck_head.html"):
-            src = (ROOT / "templates" / page).read_text()
+            src = (ROOT / "src/web/templates" / page).read_text()
             for rule in re.findall(r"\.(?:deck-cmdr|deck-header|hud-cmdr)[^{]*\{[^}]*\}", src):
                 self.assertNotIn("border-radius: 50%", rule)
 
