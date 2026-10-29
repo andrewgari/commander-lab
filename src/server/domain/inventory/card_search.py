@@ -5,7 +5,7 @@ One framework-neutral search behind GET /api/cards/autocomplete, with
 
 Response contract (no Jinja coupling; SvelteKit-consumable):
 
-    {"results": [{"name", "uid", "image", "type_line", "color_identity",
+    {"results": [{"name", "uid", "oracle_id", "image", "type_line", "color_identity",
                   "colors", "keywords", "mana_cost"}],
      "source": "scryfall|cache|local", "degraded": bool}
 
@@ -14,14 +14,17 @@ Cache policy is the brew commander incident lesson: results live in a
 non-empty results are served for 24h, empty results for 60s, a result derived
 from a Scryfall failure is NEVER cached, and legacy bare-list entries are
 ignored. On a Scryfall error the search degrades to a substring match over
-local card_meta:* records (legendary-only for the commander scope) and never
-raises to the page.
+local card_meta:* records and never raises to the page. The commander scope
+keeps only commander-eligible cards: the Redis eligible set when present
+(docs/ui/card-search.md §3.1.2), else a type-line predicate.
 """
 import asyncio
 import json
 import time
 
 import httpx
+
+from src.server.domain.cards import commander_set
 
 SCRYFALL_SEARCH = "https://api.scryfall.com/cards/search"
 SCRYFALL_AUTOCOMPLETE = "https://api.scryfall.com/cards/autocomplete"
@@ -105,8 +108,10 @@ def _shape_card(c):
         image = iu.get("art_crop") or iu.get("small") or ""
     elif c.get("card_faces"):
         image = ((c["card_faces"][0].get("image_uris") or {}).get("small")) or ""
+    faces = c.get("card_faces") or []
     return {
         "name": c.get("name", ""), "uid": c.get("id", ""), "image": image,
+        "oracle_id": c.get("oracle_id") or (faces[0].get("oracle_id") if faces else "") or "",
         "colors": c.get("colors") or [], "color_identity": c.get("color_identity") or [],
         "type_line": c.get("type_line", ""), "keywords": c.get("keywords") or [],
         "mana_cost": c.get("mana_cost", ""),
@@ -127,7 +132,7 @@ def _shape_local(name, meta):
     color = meta.get("color") or ""
     colors = [c for c in color if c in "WUBRGC"]
     return {
-        "name": name, "uid": "", "image": "",
+        "name": name, "uid": "", "oracle_id": "", "image": "",
         "type_line": meta.get("type") or "",
         "color_identity": colors, "colors": colors,
         "keywords": meta.get("keywords") or [], "mana_cost": "",
@@ -136,7 +141,8 @@ def _shape_local(name, meta):
 
 def _local_matches(r, query, limit, legendary_only=False):
     """Degraded path: case-insensitive substring match over local card_meta:*
-    names (legendary-only when the caller wants commanders). Best-effort —
+    names (commander-eligible only when the caller wants commanders; the
+    parameter keeps its historical name). Best-effort —
     any storage error just means fewer matches, never an exception."""
     ql = query.casefold()
     out = []
@@ -151,7 +157,7 @@ def _local_matches(r, query, limit, legendary_only=False):
         if ql not in name.casefold():
             continue
         meta = _local_meta(r, name)
-        if legendary_only and "legendary" not in (meta.get("type") or "").casefold():
+        if legendary_only and not commander_set.name_eligible(r, name, meta.get("type") or ""):
             continue
         out.append(_shape_local(name, meta))
         if limit is not None and len(out) >= limit:
