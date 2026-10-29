@@ -98,7 +98,7 @@
 		text-align: left;
 	}
 	tr.short td {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 	.cards {
 		list-style: none;
@@ -107,7 +107,7 @@
 		font-size: 0.9rem;
 	}
 	.buy-tag {
-		color: #c0392b;
+		color: var(--color-danger);
 		font-size: 0.8rem;
 	}
 	.pending-tag {

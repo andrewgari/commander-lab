@@ -195,7 +195,7 @@
 		font-size: 0.85rem;
 	}
 	.mana {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		margin-right: 0.35rem;
 	}
 	.oracle {
@@ -244,7 +244,7 @@
 		margin-bottom: 0.4rem;
 	}
 	.weight {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.75rem;
 		margin: 0 0.4rem;
 	}
@@ -267,7 +267,7 @@
 		max-width: 28rem;
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 	.saved {
 		color: #27ae60;
