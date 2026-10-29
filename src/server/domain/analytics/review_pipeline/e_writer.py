@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import re
 from typing import Any, Iterable, Mapping
 
 from src.server.domain.analytics.review_pipeline.names import normalize
+
+LOG = logging.getLogger(__name__)
 
 _WORD = re.compile(r"[a-z0-9]+(?:'[a-z0-9]+)*")
 _NUMBER = re.compile(r"(?<![\w])\d+(?:\.\d+)?%?(?![\w])")
@@ -27,7 +30,11 @@ _GRADE_CLAIMS = (
 _CONFIDENCE_CLAIM = re.compile(r"\bconfidence\s*(?:is\s+|:\s*)?(0(?:\.\d+)?|1(?:\.0+)?)\b", re.I)
 _NON_NAME_TITLE_WORDS = {"a", "an", "the", "this", "that", "these", "those", "it", "its", "your", "you", "we", "our", "they", "their", "with", "for", "from", "while", "because", "when", "if", "cards", "deck", "mana", "overall",
                          "add", "cut", "swap", "keep", "drop", "play", "run", "replace", "consider", "prioritize",
-                         "start", "trim", "count", "counts", "expect", "since", "so", "but", "and", "or", "also"}
+                         "start", "trim", "count", "counts", "expect", "since", "so", "but", "and", "or", "also",
+                         "white", "blue", "black", "red", "green", "colorless", "multicolor", "snow",
+                         # color-identity names: adjectives for a deck ("This Mardu list"), never a card name on their own
+                         "azorius", "dimir", "rakdos", "gruul", "selesnya", "orzhov", "izzet", "golgari", "boros", "simic",
+                         "bant", "esper", "grixis", "jund", "naya", "abzan", "jeskai", "sultai", "mardu", "temur"}
 _CONNECTORS = frozenset({"of", "the", "and", "to", "in", "for", "with", "at", "on", "a", "an"})
 _TITLE_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+(?:['’][A-Za-z]+)?)(?:\s+(?:of|the|and|to|in|for|with|at|on|a|an|[A-Z][a-z]+(?:['’][A-Za-z]+)?)){0,5}\b")
 
@@ -66,6 +73,75 @@ _SENTENCE_STARTERS = frozenset({
     "however", "therefore", "meanwhile", "otherwise", "instead", "likewise", "overall", "finally", "first", "second",
     "next", "last", "later", "once", "twice", "although", "though", "unless", "until", "after", "before", "during",
     "as", "at", "by", "in", "on", "of", "to", "is", "are", "was", "were", "be", "do", "does", "not", "without",
+    # discourse adverbs, imperatives and abstract nouns a writer opens a sentence with; none is a real card name
+    # (tests/test_review_pipeline_e_checker.py checks this against the card corpus). Add words here, never "any unknown word".
+    "critically", "importantly", "notably", "crucially", "essentially", "ideally", "typically", "generally", "mostly",
+    "mainly", "currently", "realistically", "practically", "honestly", "specifically", "additionally", "furthermore",
+    "moreover", "basically", "effectively", "broadly", "largely", "roughly", "simply", "strictly", "usually", "often",
+    "sometimes", "rarely", "ultimately", "initially", "ordinarily", "naturally", "obviously", "clearly", "likely",
+    "apply", "reject", "avoid", "accept", "ignore", "treat", "note", "check", "ask", "decide", "confirm", "choose",
+    "powerful", "flavor", "theme", "upside", "downside", "tradeoff", "caveat", "summary", "result", "risk",
+    "scores", "score", "volume", "grade", "redundant", "overall", "verdict", "headline", "plan", "mana", "power",
+    # ordinary review vocabulary (adjectives, abstract nouns, headings) that opens a sentence or a bullet: "Coherent Lara plan",
+    # "Proposed fixes:", "Protection for Lara". Live writers open prose with these; none is a card name in the corpus.
+    "acceptable", "adding", "additions", "adds", "adequate", "affordable", "alternative", "alternatives", "analysis",
+    "anyone", "anything", "assessment", "available", "average", "backup", "balanced", "being", "best", "better",
+    "biggest", "board", "bottom", "budget", "caution", "caveats", "central", "certain", "change", "changes", "cheap",
+    "axis", "axes", "suggestions", "recommendations", "observed", "noted", "flagged", "highlights", "highlight",
+    "choice", "choices", "clean", "clear", "clock", "coherent", "colors", "colour", "colours", "combat", "common",
+    "complete", "complex", "confidence", "confirmed", "considering", "consistency", "consistent", "core", "cost",
+    "costs", "creature", "creatures", "current", "curve", "cuts", "cutting", "damage", "data", "decent", "difficult",
+    "doing", "downgrade", "draw", "dropping", "early", "easily", "easy", "effect", "effects", "efficiency",
+    "efficient", "engine", "engines", "equipment", "evaluation", "everyone", "everything", "evidence", "existing",
+    "expected", "expects", "expensive", "exposed", "fact", "facts", "fast", "finding", "findings", "fine", "finisher",
+    "finishers", "fix", "fixes", "fixing", "flexibility", "flexible", "fragile", "full", "generic", "good", "great",
+    "hard", "harder", "hardest", "having", "healthy", "heavy", "high", "impact", "improve", "improvement",
+    "improvements", "improves", "improving", "incomplete", "inefficient", "intended", "interaction", "keeping",
+    "known", "land", "lands", "large", "late", "line", "lines", "low", "main", "major", "making", "minor", "missing",
+    "nor", "notes", "nothing", "number", "numbers", "observation", "observations", "opinion", "opinions", "option",
+    "options", "order", "ordering", "owned", "pace", "package", "packages", "partial", "percent", "percentage",
+    "pillar", "pillars", "planned", "poor", "possible", "potential", "pressure", "price", "prices", "primary",
+    "priorities", "prioritise", "priority", "probable", "problem", "problems", "proposal", "proposals", "proposed",
+    "protection", "protective", "quality", "quantity", "question", "questions", "quick", "quickly", "ramp", "ratio",
+    "rationale", "reason", "reasonable", "reasoning", "reasons", "recommendation", "recommended", "redundancy",
+    "reliable", "reliably", "removal", "removing", "replacing", "resilience", "resilient", "riskier", "risky",
+    "robust", "safe", "safer", "safest", "secondary", "sequence", "sequencing", "simple", "slow", "slowly", "small",
+    "smooth", "solid", "someone", "something", "source", "sources", "sourcing", "specific", "speed", "splash",
+    "splashing", "state", "strength", "strengths", "strong", "stronger", "strongest", "sufficient", "suggested",
+    "suggestion", "suite", "suites", "swapping", "swaps", "synergies", "synergy", "taking", "tempo", "themes",
+    "threat", "threats", "tight", "top", "total", "totals", "trade", "tradeoffs", "typical", "unavailable",
+    "uncertain", "unclear", "unconfirmed", "unknown", "unowned", "unpriced", "unreliable", "unverified", "upgrade",
+    "upgrades", "value", "values", "verification", "verified", "versatile", "version", "versions", "vulnerable",
+    "warning", "warnings", "weak", "weaker", "weakest", "weakness", "worse", "worst",
+    # verbs / adverbs / gerunds that live writers (haiku-4-5, sonnet-5-5) open a sentence or list item with; none is a card name
+    "survive", "survives", "surviving", "survival", "fallback", "recover", "recovers", "recovering", "recovery",
+    "converting", "converts", "convert", "protected", "protecting", "protects", "actual", "actually", "almost",
+    "repeated", "repeatedly", "extremely", "deliberately", "heavy", "execute", "executes", "executing",
+    "assembles", "assemble", "assembling", "recursive", "recursion", "fetches", "fetch", "fetching", "resolve",
+    "resolves", "resolving", "recruiting", "recruit", "thirty", "twenty", "under", "over", "across", "against",
+    "among", "between", "through", "within", "per", "via", "using", "use", "uses", "build", "builds", "building",
+    "generate", "generates", "generating", "attack", "attacks", "attacking", "ensure", "ensures", "ensuring",
+    "keep", "keeps", "maintain", "maintains", "maintaining", "enable", "enables", "enabling", "provide", "provides",
+    "providing", "support", "supports", "supporting", "reduce", "reduces", "reducing", "increase", "increases",
+    "increasing", "lower", "raise", "target", "targets", "targeting", "tutors", "tutoring",
+    # more live-writer openers: number words, third-person verbs, gerunds, abstract nouns
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "forty", "fifty",
+    "sixty", "seventy", "eighty", "ninety", "hundred", "half", "about", "dense", "fills", "fill", "filling", "recur",
+    "recurs", "activate", "activates", "activating", "combines", "combine", "combining", "requires", "require",
+    "requiring", "consistently", "weaknesses", "achieve", "achieves", "achieving", "grinding", "grinds", "grind",
+    "requires", "needs", "need", "needing", "wants", "want", "wanting", "lacks", "lack", "lacking", "offers", "offer",
+    "carries", "carry", "runs", "running", "plays", "playing", "drops", "dropping", "gains", "gain", "gaining",
+    "loses", "lose", "losing", "wins", "win", "winning", "finds", "find", "finding", "makes", "make", "gives", "give",
+    "giving", "holds", "hold", "holding", "leaves", "leave", "leaving", "relies", "rely", "relying", "feeds", "feed",
+    "feeding", "stocks", "stock", "stocking", "pays", "pay", "paying", "triggers", "trigger", "triggering", "counts",
+    "covers", "cover", "covering", "includes", "include", "including", "contains", "contain", "containing",
+    "depends", "depend", "depending", "delivers", "deliver", "delivering", "draws", "drawing", "tutoring", "ramps",
+    "ramping", "sits", "sit", "sitting", "sees", "see", "seeing", "shows", "show", "showing", "stays", "stay", "staying",
+    "strengthens", "strengthen", "swaps", "swap", "trims", "trim", "trimming", "weakens", "weaken", "weakening",
+    # adjectives / nouns live writers open with (cheaper-tier lara: "Promising ...", "Aggressive ...", "Game plan")
+    "promising", "aggressive", "defensive", "conservative", "optimistic", "pessimistic", "ambitious", "modest", "game",
+    "mixed", "narrow", "broad", "wide", "shallow", "deep", "thin", "thick", "tough", "stable", "unstable", "lean",
+    "bloated", "crowded", "greedy", "explosive", "slower", "faster", "cheaper", "pricier", "stronger", "viable",
 })
 
 
@@ -89,7 +165,16 @@ def _in_payload(phrase: str, payload: tuple[str, ...]) -> bool:
     if not needle or not payload:
         return False
     n = len(needle)
-    return any(payload[i:i + n] == needle for i in range(len(payload) - n + 1))
+    variants = [needle]
+    last = needle[-1]                                  # "Wolves" for a payload that says "Wolf": a plural of a payload word
+    if last.endswith("ves") and len(last) > 4:
+        variants.append(needle[:-1] + (last[:-3] + "f",))
+        variants.append(needle[:-1] + (last[:-3] + "fe",))
+    if last.endswith("es") and len(last) > 4:
+        variants.append(needle[:-1] + (last[:-2],))
+    if last.endswith("s") and len(last) > 3:
+        variants.append(needle[:-1] + (last[:-1],))
+    return any(payload[i:i + n] == v for v in variants for i in range(len(payload) - n + 1))
 
 
 def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
@@ -101,17 +186,19 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
     covered = [False] * len(words)
     for n in range(len(words), 0, -1):                # longest verified span first
         for i in range(len(words) - n + 1):
-            if not any(covered[i:i + n]) and normalize(" ".join(words[i:i + n])) in allowed:
+            if not any(covered[i:i + n]) and normalize(" ".join(words[i:i + n]).replace("\u2019s", "").replace("'s", "")) in allowed:
                 covered[i:i + n] = [True] * n
     runs: list[tuple[list[str], int, bool]] = []
     cur: list[str] = []
     start = 0
 
     def flush(next_covered: bool) -> None:
+        popped = False
         while cur and cur[-1].casefold() in _CONNECTORS:
             cur.pop()
+            popped = True
         if cur:
-            runs.append((list(cur), start, next_covered))
+            runs.append((list(cur), start, next_covered and not popped))   # "Zorblax for Sol Ring": the name is not adjacent
         cur.clear()
 
     for idx, (word, is_covered) in enumerate(zip(words, covered)):
@@ -126,6 +213,10 @@ def _unverified_runs(phrase: str, allowed: set[str], sentence_initial: bool,
     flush(False)
     out: list[str] = []
     for run, first, before_verified in runs:
+        if first == 0 and sentence_initial:           # "This Mardu ...", "Redundant Selesnya ...": drop leading prose words
+            while len(run) > 1 and (run[0].casefold() in _SENTENCE_STARTERS or run[0].casefold() in _NON_NAME_TITLE_WORDS):
+                run = run[1:]
+                before_verified = False                # what is left is no longer a lone verb right before a verified name
         text = " ".join(run)
         if len(run) == 1 and run[0].casefold() in _NON_NAME_TITLE_WORDS:
             continue
@@ -238,6 +329,8 @@ def _unverified_names_any_case(text: str, allowed: set[str], data: Mapping[str, 
             if gram in allowed_tokens:
                 continue
             if gram in universe or gram in single:
+                if len(gram) > 1 and all(w in _CONNECTORS or w in _SENTENCE_STARTERS or w in _NON_NAME_TITLE_WORDS for w in gram):
+                    continue                       # "the core loop": ordinary words that also happen to be a card's name
                 if _in_payload(" ".join(gram), payload):   # the verified payload literally says it
                     covered[i:i + n] = [True] * n
                     continue
@@ -256,6 +349,8 @@ def _walk_verified(value: Any):
             yield from _walk_verified(item)
     elif isinstance(value, (list, tuple)):
         for item in value:
+            if isinstance(item, (str, int, float)) and not isinstance(item, bool):
+                yield None, item                          # a bare list element (win_paths, success_criteria, ...) is evidence too
             yield from _walk_verified(item)
 
 
@@ -319,11 +414,17 @@ def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Ite
                 errors.append("verdict grade claim does not match the verified input")
                 break
     payload = _payload_phrases(verified)
-    for match in _TITLE_PHRASE.finditer(text):
-        before = text[:match.start()].rstrip(" \t\"'([{*_>-")
-        sentence_initial = not before or before[-1] in ".!?:;\n"
-        for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial, payload):
-            errors.append(f"unverified card name or proper-name phrase: {phrase}")
+    # Scan each decoded string value on its own: a JSON list element ('["A.","Survive ..."]') starts a sentence even though a
+    # comma precedes it in the raw text, and \u escapes cannot hide a name. Unparseable output is scanned as one text.
+    segments = [seg for seg in _decoded_strings(output).split("\n") if seg.strip()] if isinstance(output, Mapping) else [text]
+    for segment in segments:
+        for match in _TITLE_PHRASE.finditer(segment):
+            before = segment[:match.start()].rstrip(" \t\"'([{*_>-")
+            sentence_initial = not before or before[-1] in ".!?:;\n"
+            for phrase in _unverified_runs(match.group(0).strip(), allowed_names, sentence_initial, payload):
+                message = f"unverified card name or proper-name phrase: {phrase}"
+                if message not in errors:
+                    errors.append(message)
     for name in _unverified_names_any_case(text, allowed_names, verified, known_names, payload):
         message = f"unverified card name or proper-name phrase: {name}"
         if not any(e.casefold() == message.casefold() for e in errors):
@@ -342,12 +443,30 @@ def check_writer_output(text: str, verified: Mapping[str, Any], known_names: Ite
     return errors
 
 
+FEEDBACK_KEY = "checker_feedback"
+
+
+def _feedback(errors: list[str]) -> dict[str, Any]:
+    return {"rejected_previous_draft": errors[:12],
+            "instruction": "Rewrite the whole review. Fix every rejected item: use only names, numbers and facts that appear in the "
+                           "verified JSON above, copy card names exactly, and do not capitalize ordinary words (verbs, adjectives, "
+                           "headings) mid-sentence or as a list-item label."}
+
+
 def generate_checked(writer, verified: Mapping[str, Any], *, max_attempts: int = 2, known_names: Iterable[str] = ()) -> str | None:
-    """Call writer with the verified payload, retry policy violations at most twice, then drop."""
-    for _ in range(max(0, max_attempts) + 1):
-        text = writer(verified)
-        if not check_writer_output(text, verified, known_names):
+    """Call writer with the verified payload; retry policy violations at most ``max_attempts`` more times, then drop.
+
+    A retry sends the writer the checker's rejection reasons (``checker_feedback``) so it can fix them instead of repeating
+    the same draft. The feedback is only an extra writer input: the checker always judges against the unmodified ``verified``
+    payload, so a rejected name echoed back to the writer never becomes verified text. On exhaustion the last reasons are logged."""
+    errors: list[str] = []
+    for attempt in range(max(0, max_attempts) + 1):
+        payload = verified if not errors else {**verified, FEEDBACK_KEY: _feedback(errors)}
+        text = writer(payload)
+        errors = check_writer_output(text, verified, known_names)
+        if not errors:
             return text
+        LOG.warning("Pass E writer attempt %d/%d rejected: %s", attempt + 1, max_attempts + 1, "; ".join(errors[:12]))
     return None
 
 
