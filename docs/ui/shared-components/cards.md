@@ -1,7 +1,7 @@
 # Shared UI components — coder cards
 
 Read `README.md` in this folder first. Decisions D1–D24 and the token map in §3 override the three specs in `specs/`.
-Card IDs (`C0`–`C6`) are used for cross-references; each card has a Kanban task whose id is listed in `README.md` §5 once created.
+Card IDs (`C0`–`C6`) are used for cross-references. Kanban ids are in `README.md` §5: C0 t_04721876 · C1 t_30f96fe0 · C2 t_172e630a · C3 t_cf0db956 · C4 t_26091708 · C5 t_64550f89 · C6 t_d9dd06e7.
 
 ---
 

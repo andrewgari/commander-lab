@@ -107,6 +107,18 @@ No conflict: all three agree that colour is never the only signal (icon + text),
 
 ## 5. Card set and dependency graph
 
+| Card | Kanban | Parents |
+|---|---|---|
+| C0 Foundation primitives | t_04721876 | t_93e75d00, t_cffc0b0e (tokens 1/4 A, merged) |
+| C1 EmptyState | t_30f96fe0 | C0 |
+| C2 ErrorBanner | t_172e630a | C0 |
+| C3 StatusPill | t_cf0db956 | C0 |
+| C4 ScrollTable | t_26091708 | C0, C1 |
+| C5 Form pending | t_64550f89 | C0 |
+| C6 Migration | t_d9dd06e7 | C0–C5 |
+
+All cards are assigned to `coder`. Their workspaces are scratch, so start from the main repo at `/mnt/data/tank/workspace/personal/commander-lab` with `git worktree add .worktrees/<task-id> -b coder/<task-id>-<slug> origin/main`.
+
 ```
 t_cffc0b0e (1/4 tokens, merged #392)
         │
