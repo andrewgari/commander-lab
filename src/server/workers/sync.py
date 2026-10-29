@@ -25,20 +25,6 @@ def should_write_legacy_card_keys(r):
     """
     return not r.get(MIGRATION_LEGACY_CARD_KEYS_PURGED)
 
-# Key set by scripts/migrate_to_instances.py --apply --delete-old to signal
-# that the legacy card:{name} inventory keys have been purged. sync.py checks
-# this before rewriting those keys so a subsequent sync doesn't silently
-# recreate what the migration just deleted.
-MIGRATION_LEGACY_CARD_KEYS_PURGED = "migration:legacy_card_keys_purged"
-
-
-def should_write_legacy_card_keys(r):
-    """Return False when the instance-model migration has purged legacy
-    card:{name} keys (marker is set). Callers use this to decide whether to
-    write the legacy inventory blob for each card in their inventory dict.
-    """
-    return not r.get(MIGRATION_LEGACY_CARD_KEYS_PURGED)
-
 load_dotenv(override=True)
 
 ARCHIDEKT_USERNAME = os.getenv("ARCHIDEKT_USERNAME")
