@@ -14,7 +14,7 @@
  <div class="findings-grid"><Strengths findings={document.strengths}/><Problems findings={document.problems}/></div>
  <SwapList swaps={document.swaps} topIds={document.top_changes?.swap_ids ?? []} {swapActions}/><CutsToConsider cuts={document.cuts_to_consider}/>
  <div class="assessment-grid"><Bracket bracket={document.bracket}/><Mana mana={document.mana}/></div>
- <Section title="By the numbers" code="09"><div class="chart-grid"><ManaCurve data={document.charts.curve}/><PipsSources data={document.charts.pips_vs_sources}/><RoleBreakdown data={document.charts.roles}/><SynergyClusters data={document.charts.synergy_clusters}/></div></Section>
+ <Section title="By the numbers" code="09" id="sec-numbers"><div class="chart-grid"><ManaCurve data={document.charts.curve}/><PipsSources data={document.charts.pips_vs_sources}/><RoleBreakdown data={document.charts.roles}/><SynergyClusters data={document.charts.synergy_clusters}/></div></Section>
  <Forge forge={document.forge}/><Questions questions={document.questions_for_owner}/><DebugAppendix {document}/>
  <footer class="report-footer">Commander Lab · Scouting report <span>Card images © Wizards of the Coast · via Scryfall</span></footer>
 </article>
