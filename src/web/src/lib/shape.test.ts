@@ -30,6 +30,12 @@ describe('detail loads degrade on {}', () => {
 		const err = await load({ params: { id: 'x' }, url: new URL('http://x/') }).catch((e: unknown) => e);
 		expect((err as { status?: number }).status).toBe(502);
 	});
+	it.each(['decks', 'drafts', 'inventory', 'games'])('/%s list load returns an error state on {}, not a TypeError', async (r) => {
+		apiGet.mockResolvedValue({});
+		const { load } = await import(/* @vite-ignore */ `./../routes/${r}/+page.server.ts`);
+		const d = await load({ url: new URL('http://x/') });
+		expect(d.error ?? d.gamesError).toBeTruthy();
+	});
 	it('profile load normalises {} payloads', async () => {
 		apiGet.mockResolvedValue({});
 		const { load } = await import('./../routes/profile/+page.server.ts');

@@ -7,6 +7,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		const data = await apiGet<InventoryResponse>(
 			`/api/v2/inventory${q ? `?q=${encodeURIComponent(q)}` : ''}`
 		);
+		if (!Array.isArray(data?.inventory) || !data?.totals) throw new Error('Inventory data came back incomplete');
 		return { inventory: data.inventory, totals: data.totals, q, error: null as string | null };
 	} catch (e) {
 		return {
