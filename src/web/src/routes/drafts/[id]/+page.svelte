@@ -1,11 +1,18 @@
 <script lang="ts">
 	import type { ActionData, PageProps } from './$types';
 	import TableScroll from '#lib/components/TableScroll.svelte';
+	import CardPicker from '#lib/components/combobox/CardPicker.svelte';
+	import CopyPicker from '#lib/components/combobox/CopyPicker.svelte';
+	import type { CardChoice, ComboOption } from '#lib/components/combobox/model.ts';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
 
 	const draft = $derived(data.state.draft);
 	const open = $derived(draft.status === 'open');
+
+	let pickedCard = $state<ComboOption<CardChoice> | null>(null);
+	let pickedCopy = $state<ComboOption<string> | null>(null);
+	let moveAction = $state('assign');
 
 	function confirmSubmit(message: string) {
 		return (event: SubmitEvent) => {
@@ -77,8 +84,7 @@
 	{/if}
 	{#if open}
 		<form method="POST" action="?/upsert_card" class="inline">
-			<input name="oracle_id" required placeholder="oracle id" aria-label="Oracle ID" />
-			<input name="name" required placeholder="card name" aria-label="Card name" />
+			<CardPicker bind:selected={pickedCard} />
 			<input name="qty" type="number" min="1" value="1" aria-label="Quantity" />
 			<select name="board" aria-label="Board">
 				<option value="main">main</option>
@@ -125,8 +131,8 @@
 	{/if}
 	{#if open}
 		<form method="POST" action="?/stage_move" class="inline">
-			<input name="instance_id" required placeholder="instance id" aria-label="Instance ID" />
-			<select name="move_action" aria-label="Move action">
+			<CopyPicker action={moveAction} bind:selected={pickedCopy} />
+			<select name="move_action" aria-label="Move action" bind:value={moveAction}>
 				<option value="assign">assign into result deck</option>
 				<option value="unassign">unassign back to collection</option>
 			</select>
