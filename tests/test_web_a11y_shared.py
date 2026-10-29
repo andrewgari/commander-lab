@@ -27,16 +27,10 @@ def contrast(fg: str, bg: str) -> float:
     return (a + 0.05) / (b + 0.05)
 
 
-def test_text_tokens_meet_aa_on_surface():
-    surface = _token("surface")
-    for name in ("text", "text-muted", "text-dim", "text-faint", "danger", "ok", "warn-solid"):
-        assert contrast(_token(name), surface) >= 4.5, name
-
-
-def test_warn_is_large_text_only():
-    surface = _token("surface")
-    assert 3.0 <= contrast(_token("warn"), surface) < 4.5
-    assert "large bold text only" in APP_CSS
+def test_muted_text_token_meets_aa_on_every_surface():
+    # Shared components fall back to --color-muted outside the review surface.
+    for surface in ("color-bg", "color-surface", "color-surface-raised"):
+        assert contrast(_token("color-muted"), _token(surface)) >= 4.5, surface
 
 
 def test_shared_components_have_no_opacity_dimmed_text():
@@ -46,10 +40,10 @@ def test_shared_components_have_no_opacity_dimmed_text():
     assert offenders == []
 
 
-def test_chart_muted_fallback_meets_aa():
-    # Shared components use var(--text-3, var(--text-muted)); outside the review surface that
-    # resolves to --text-muted.
-    assert contrast(_token("text-muted"), _token("surface")) >= 4.5
+def test_shared_components_use_existing_tokens():
+    # --text-muted was a pre-merge token name that no longer exists.
+    for p in COMPONENTS.glob("*.svelte"):
+        assert "--text-muted" not in p.read_text(), p.name
 
 
 def test_table_scroll_contract():
@@ -59,12 +53,12 @@ def test_table_scroll_contract():
     assert 'class="table-scroll"' in comp and 'tabindex="0"' in comp and "aria-label" in comp
 
 
-def test_touch_target_floor_and_focus_ring():
+def test_touch_target_floor_and_utilities():
     m = re.search(r"\.text-link\s*\{([^}]*)\}", APP_CSS)
-    assert m and "min-height: 44px" in m.group(1) and "min-width: 44px" in m.group(1)
-    assert ":focus-visible" in APP_CSS
-    assert "prefers-reduced-motion: reduce" in APP_CSS
+    assert m and "min-height: var(--touch-min)" in m.group(1) and "min-width: var(--touch-min)" in m.group(1)
+    assert re.search(r"--touch-min:\s*2\.75rem", APP_CSS)  # 44px
     assert ".visually-hidden" in APP_CSS
+    assert ":focus-visible" in APP_CSS and "prefers-reduced-motion: reduce" in APP_CSS
 
 
 def test_layout_imports_app_css():

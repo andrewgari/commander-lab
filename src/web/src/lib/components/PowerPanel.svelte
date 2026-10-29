@@ -46,7 +46,7 @@
 		font-size: 0.95rem;
 	}
 	.bracket-name {
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 	}
 	.meter {
 		margin-top: 0.4rem;
@@ -58,16 +58,16 @@
 	}
 	.fill {
 		height: 100%;
-		background: linear-gradient(90deg, #4a7dbd, #c0392b);
+		background: linear-gradient(90deg, #4a7dbd, var(--color-danger-solid));
 		border-radius: 3px;
 	}
 	.note {
 		font-size: 0.75rem;
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 		margin: 0.25rem 0 0;
 	}
 	.unavailable {
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 		font-size: 0.85rem;
 	}
 </style>

@@ -58,14 +58,14 @@
 	}
 	.count {
 		font-size: 9px;
-		fill: var(--text-3, var(--text-muted));
+		fill: var(--text-3, var(--color-muted));
 	}
 	.label {
 		font-size: 9px;
-		fill: var(--text-3, var(--text-muted));
+		fill: var(--text-3, var(--color-muted));
 	}
 	figcaption {
 		font-size: 0.8rem;
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 	}
 </style>

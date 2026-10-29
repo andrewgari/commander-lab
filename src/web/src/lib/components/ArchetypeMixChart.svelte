@@ -68,11 +68,11 @@
 	}
 	.value {
 		font-size: 0.75rem;
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 		white-space: nowrap;
 	}
 	.empty {
-		color: var(--text-3, var(--text-muted));
+		color: var(--text-3, var(--color-muted));
 		font-size: 0.85rem;
 	}
 </style>
