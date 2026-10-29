@@ -265,6 +265,41 @@ jobs:
         working-directory: src/web
         run: npm run test:unit
 
+  web-e2e:
+    name: Web E2E (Playwright + axe)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: src/web
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        working-directory: src/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests (mock API)
+        working-directory: src/web
+        run: npm run test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-results
+          path: |
+            src/web/test-results
+            src/web/playwright-report
+
   docker:
     name: Build & Push Docker Image
     needs: test
