@@ -198,12 +198,13 @@
 	.explainer { max-width: 70ch; margin: 0; }
 	.import-form { display: grid; gap: var(--space-4); }
 	.side, .logbox, .import-body, .import-form, label { min-width: 0; }
-	input, select, textarea { max-width: 100%; }
+	input, select, textarea { width: 100%; max-width: 100%; }
+	.import-body, .import-form, .side, .logbox { grid-template-columns: minmax(0, 1fr); }
 	.side, .logbox { display: grid; gap: var(--space-3); align-content: start; }
 	label { display: grid; gap: var(--space-1); font-size: var(--text-sm); }
 	textarea { font-family: var(--font-mono); font-size: var(--text-xs); min-height: 14rem; resize: vertical; }
 	.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-	@media (min-width: 64rem) { .import-form { grid-template-columns: 18rem 1fr; } .actions, .import-form > :global(.banner) { grid-column: 1 / -1; } }
+	@media (min-width: 64rem) { .import-form { grid-template-columns: 18rem minmax(0, 1fr); } .actions, .import-form > :global(.banner) { grid-column: 1 / -1; } }
 	.deck-link { color: var(--color-text); font-weight: var(--weight-medium); display: inline-block; max-width: 22rem; overflow-wrap: anywhere; }
 	.mono { font-family: var(--font-mono); font-size: var(--text-xs); }
 	.dash { color: var(--color-muted); }
