@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from src.server.app.api import analytics, cards, decks, draft, games, imports, inventory, profile, reviews
+from src.server.app.api import analytics, brew, cards, decks, draft, games, imports, inventory, profile, reviews
 
 router = APIRouter(prefix="/api/v2", tags=["v2"])
 router.include_router(imports.router)
@@ -21,3 +21,4 @@ router.include_router(games.router)
 router.include_router(draft.router)
 router.include_router(analytics.router)
 router.include_router(reviews.router)
+router.include_router(brew.router)
