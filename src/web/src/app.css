@@ -115,7 +115,7 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
 
 /* Wide tables scroll inside their wrapper, never the page. Tables keep their natural column
    widths (max-content); override --table-min-width to force more. */
-.table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll { position: relative; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll > table { min-width: var(--table-min-width, max-content); }
 
 /* 44x44 touch-target floor for bare links/buttons (not for links inside running text). */
@@ -158,4 +158,10 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
 @media (forced-colors: active) {
   .btn, .btn:hover { color: ButtonText; background: ButtonFace; border-color: ButtonBorder; }
   .btn--link-danger, .btn--link-danger:hover { background: transparent; }
+}
+
+/* ---- page-level tokens (UI audit 4/4 designer §0.1) ---- */
+:root {
+  --mana-w: #f3e3b0; --mana-u: #7fb8e6; --mana-b: #b7a6c9; --mana-r: #f0876a; --mana-g: #7cc48a; --mana-c: #c3c9cf;
+  --dur-slow: 320ms; --dur-pulse: 1400ms;
 }
