@@ -46,7 +46,7 @@
 		font-size: 0.95rem;
 	}
 	.bracket-name {
-		opacity: 0.75;
+		color: var(--text-3, var(--color-muted));
 	}
 	.meter {
 		margin-top: 0.4rem;
@@ -63,11 +63,11 @@
 	}
 	.note {
 		font-size: 0.75rem;
-		opacity: 0.65;
+		color: var(--text-3, var(--color-muted));
 		margin: 0.25rem 0 0;
 	}
 	.unavailable {
-		opacity: 0.7;
+		color: var(--text-3, var(--color-muted));
 		font-size: 0.85rem;
 	}
 </style>

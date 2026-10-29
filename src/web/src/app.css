@@ -98,3 +98,19 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- shared a11y/responsive utilities (UI audit 3, group G) ---- */
+
+/* Screen-reader-only text (table captions, status cues). */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Wide tables scroll inside their wrapper, never the page. Tables keep their natural column
+   widths (max-content); override --table-min-width to force more. */
+.table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll > table { min-width: var(--table-min-width, max-content); }
+
+/* 44x44 touch-target floor for bare links/buttons (not for links inside running text). */
+.text-link { display: inline-flex; align-items: center; min-width: var(--touch-min); min-height: var(--touch-min); }
