@@ -599,3 +599,51 @@ class FeedbackRequest(BaseModel):
     add: str
     decision: str = Field(description="accepted | rejected | maybe")
     reason: str = ""
+
+
+# --- Review documents: review_document.v1 jobs, history, PDF, feedback (deck reviewer card 11) -----------
+
+class ReviewDocumentSummary(BaseModel):
+    id: int
+    deck_id: str
+    status: str = Field(description="queued | running | ok | failed")
+    stage: str = Field(description="what a queued/running review is doing right now")
+    schema_version: Optional[str] = None
+    pipeline_version: Optional[str] = None
+    fact_pack_hash: Optional[str] = None
+    error: Optional[str] = None
+    grade: Optional[str] = None
+    headline: Optional[str] = None
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+
+class ReviewDocumentResponse(ReviewDocumentSummary):
+    doc: Optional[dict] = Field(default=None, description="the review_document.v1 JSON, present once status is ok")
+
+
+class ReviewDocumentStartResponse(ReviewDocumentSummary):
+    already_running: bool = False
+
+
+class ReviewDocumentListResponse(BaseModel):
+    documents: list[ReviewDocumentSummary]
+    active: Optional[ReviewDocumentSummary] = None
+
+
+class ReviewSwapFeedbackRequest(BaseModel):
+    swap_id: str
+    decision: str = Field(description="accepted | rejected | maybe")
+    reason: str = ""
+
+
+class ReviewSwapFeedback(BaseModel):
+    cut: str
+    add: str
+    decision: str
+    reason: str = ""
+
+
+class ReviewFeedbackResponse(BaseModel):
+    feedback: dict[str, ReviewSwapFeedback] = Field(description="latest decision per swap id")
