@@ -129,7 +129,7 @@
 <style>
 	:global(body:has(.review-report)), :global(body:has(.review-bar)) { margin: 0; background: var(--color-bg); }
 	:global(body:has(.print-mode)) { background: white; }
-	@media print { :global(html) { background:white; } :global(body:has(.review-report)) { background:white; } .review-bar, .review-status { display: none; } }
+	@media print { :global(body:has(.review-report)) { background: white; } .review-bar, .review-status { display: none; } }
 	.review-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 	.review-status { display: flex; flex-direction: column; gap: 4px; max-width: 1280px; margin: 16px auto; padding: 16px 20px; border: 1px solid #29323b; border-left: 3px solid #f0a63a; color: #b6bfc8; background: #141a1f; }
 	.review-status.failed { border-left-color: var(--color-danger-solid); }
