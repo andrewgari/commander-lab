@@ -10,6 +10,8 @@ singleton, supported by evidence) is Pass D's job: ``d_verify.py``.
 """
 from __future__ import annotations
 
+import difflib
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
@@ -25,11 +27,14 @@ from src.server.domain.analytics.review_pipeline.structured import portable_sche
 from src.server.domain.analytics.review_pipeline.trace import TraceRecorder
 from src.server.domain.decks.commander_roles import FUNCTION_ROLES
 
+LOG = logging.getLogger(__name__)
 PASS = "C"
 POOL_TEXT_CHARS = 240
 PER_ROLE_FLOOR = 12          # when the prompt view is capped, every role keeps at least this many cards
 OWNERSHIP_UNKNOWN = "Ownership unavailable"
 _SWAP_ID = re.compile(r"^sw-(\d+)$")
+_FINDING_ID = re.compile(r"^[sp]-[a-z_]+-\d+$")
+_NO_ID = {"null", "none", "n/a", ""}          # how a cheaper model spells "no alternative" inside a string
 
 
 # ----------------------------------------------------------------------------------------------- pool view
@@ -214,6 +219,11 @@ def budget_effect(add: Mapping, cut_price: float | None, owned_known: bool) -> s
     return base + "; not owned"
 
 
+def _no_id(value: Any) -> bool:
+    """``null`` is the schema's way to say "no alternative"; the string "null" / "none" means the same thing."""
+    return value is None or (isinstance(value, str) and value.strip().lower() in _NO_ID)
+
+
 def build_swap(raw: Mapping[str, Any], swap_id: str, ctx: ReviewContext, view: PoolView, problem_ids: set[str]
                ) -> tuple[dict | None, dict | None, list[str]]:
     """(document swap, meta, errors). Errors are written for the model's repair turn."""
@@ -227,7 +237,7 @@ def build_swap(raw: Mapping[str, Any], swap_id: str, ctx: ReviewContext, view: P
     if add is None:
         errs.append(f"{swap_id}: add_id {raw.get('add_id')!r} is not a pool id; use an id like pc-12 from the POOL block, never a name")
     alt = None
-    if raw.get("alternative_id") is not None:
+    if not _no_id(raw.get("alternative_id")):
         alt = view.get(raw["alternative_id"])
         if alt is None:
             errs.append(f"{swap_id}: alternative_id {raw['alternative_id']!r} is not a pool id")
@@ -254,6 +264,18 @@ def build_swap(raw: Mapping[str, Any], swap_id: str, ctx: ReviewContext, view: P
     return doc, meta, []
 
 
+def _bad_fact_key(key: str, ctx: ReviewContext) -> str:
+    """Why one fact key was rejected, written for the model's repair turn."""
+    if _FINDING_ID.match(str(key)):
+        return (f"{key!r} is a finding id, not a fact key; finding ids are never evidence for a cut. Delete it and cite only "
+                "`fact.key` names copied from the FACTS block (for example one starting with roles., mana., synergy. or card.)")
+    if ctx.index.exists(key):
+        return f"{key!r} is unavailable for this deck; do not cite it"
+    near = difflib.get_close_matches(str(key), [*ctx.index.leaves, *ctx.index.nodes], n=3, cutoff=0.6)
+    hint = f"; did you mean {', '.join(repr(n) for n in near)}?" if near else "; copy a key exactly from the FACTS block"
+    return f"{key!r} is not a fact key{hint}"
+
+
 def build_cut(raw: Mapping[str, Any], ctx: ReviewContext) -> tuple[dict | None, list[str]]:
     name = ctx.resolver.resolve(raw.get("card", ""))
     if name is None:
@@ -262,7 +284,8 @@ def build_cut(raw: Mapping[str, Any], ctx: ReviewContext) -> tuple[dict | None, 
         return None, [f"cuts_to_consider: {name!r} is the commander"]
     bad = [k for k in raw.get("fact_keys") or [] if not ctx.index.exists(k) or ctx.index.unavailable_reason(k)]
     if bad:
-        return None, [f"cuts_to_consider: fact key(s) {bad} do not exist or are unavailable; copy keys exactly from FACTS"]
+        return None, [f"cuts_to_consider: fact key(s) {bad} do not exist or are unavailable for {name!r}: "
+                      + "; ".join(_bad_fact_key(k, ctx) for k in bad)]
     if not ctx.resolver.oracle_id(name):
         return None, [f"cuts_to_consider: {name!r} has no oracle id"]
     return {"card": _ref(name, ctx.resolver.oracle_id(name)), "reason": raw["reason"].strip(),
@@ -273,8 +296,9 @@ def build_top(swap_ids: Sequence[str], why: str, available: Sequence[str]) -> di
     return {"swap_ids": list(swap_ids)[:schemas.TOP_CHANGES], "why_these_first": why.strip()}
 
 
-def materialise(obj: Mapping[str, Any], ctx: ReviewContext, view: PoolView, problem_ids: set[str]
-                ) -> tuple[Recommendations, list[str]]:
+def materialise(obj: Mapping[str, Any], ctx: ReviewContext, view: PoolView, problem_ids: set[str], *,
+                drop_bad_cuts: bool = False) -> tuple[Recommendations, list[str]]:
+    """``drop_bad_cuts``: leave out a ``cuts_to_consider`` entry that fails validation instead of reporting it. Only the final\n    attempt uses it: the list is advisory and may legitimately be empty, so losing one unsupportable entry beats losing the\n    whole review. Swap errors are never dropped."""
     errs: list[str] = []
     rec = Recommendations()
     swaps = obj.get("swaps") or []
@@ -297,8 +321,13 @@ def materialise(obj: Mapping[str, Any], ctx: ReviewContext, view: PoolView, prob
     swap_cuts = {s["cut"]["name"] for s in rec.swaps}
     for raw in obj.get("cuts_to_consider") or []:
         doc, e = build_cut(raw, ctx)
+        if e and drop_bad_cuts:
+            LOG.warning("Pass C: dropped cuts_to_consider entry after the last attempt: %s", "; ".join(e))
+            continue
         errs += e
-        if doc and doc["card"]["name"] in swap_cuts:
+        if doc and doc["card"]["name"] in swap_cuts and drop_bad_cuts:
+            LOG.warning("Pass C: dropped cuts_to_consider entry that repeats a swap's cut: %r", doc["card"]["name"])
+        elif doc and doc["card"]["name"] in swap_cuts:
             errs.append(f"cuts_to_consider: {doc['card']['name']!r} is already the cut of a swap; list only cards no swap removes")
         elif doc:
             rec.cuts_to_consider.append(doc)
@@ -323,12 +352,14 @@ def run(ctx: ReviewContext, brief: Mapping, analysis: b_analysis.AnalysisResult,
     problem_ids = {f["id"] for f in analysis.problems}
     req = build_request(ctx, brief, analysis, view, config)
     holder: dict[str, Recommendations] = {}
+    calls = {"n": 0}
 
     def validate(obj: Any) -> list[str]:
+        calls["n"] += 1
         errs = validate_schema(obj, schemas.RECOMMEND_SCHEMA)
         if errs:
             return errs
-        out, errs = materialise(obj, ctx, view, problem_ids)
+        out, errs = materialise(obj, ctx, view, problem_ids, drop_bad_cuts=calls["n"] > config.max_repairs)
         holder["r"] = out
         return errs
 
