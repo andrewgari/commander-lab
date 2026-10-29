@@ -70,9 +70,9 @@ All existing fields (`id`, `name`, `color`, `commanders`, `status`, `folder_id`)
 
 ## Tech Stack & Architecture
 
-- **Backend**: Python 3.11+, FastAPI, Uvicorn
-- **Storage**: Redis (caching decks, inventory, physical deck statuses, card archetype tags)
-- **Frontend**: Jinja2 templates, Tailwind CSS (CDN), FontAwesome icons, Scryfall card imagery
+- **Backend**: Python 3.11+, FastAPI, Uvicorn (`src/server/`: `app/` = HTTP, `domain/` = logic, `infra/` = Postgres/Redis/LLM/providers, `workers/` = sync & index jobs)
+- **Storage**: Postgres 17 (source of truth, with pgvector + Apache AGE as rebuildable indexes); Redis for cache/queues only
+- **Frontend**: SvelteKit (`src/web/`) — the replacement UI; the legacy Jinja HUD is being phased out per `docs/ui-cutover-order.md`
 - **Containerization**: Docker & Docker Compose
 
 ## Quick Start
@@ -82,7 +82,7 @@ All existing fields (`id`, `name`, `color`, `commanders`, `status`, `folder_id`)
 docker compose up -d
 
 # Run local development server
-uvicorn app:app --reload --port 8000
+uvicorn src.server.app.main:app --reload --port 8000
 
 # Run test suite
 python -m unittest discover -s tests

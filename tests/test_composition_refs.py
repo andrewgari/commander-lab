@@ -10,9 +10,9 @@ sys.path.insert(0, __file__.rsplit("tests", 1)[0].rstrip("/"))
 
 from fastapi.testclient import TestClient
 
-from analytics import composition_models as cm
-from analytics import composition_refs as cr
-from app import app
+from src.server.domain.analytics import composition_models as cm
+from src.server.domain.analytics import composition_refs as cr
+from src.server.app.main import app
 from tests.test_composition_presets_page import FakeRedis
 
 
@@ -39,7 +39,7 @@ class TestRefCatalog(unittest.TestCase):
             self.assertEqual(refs - _expected(scope), {"cat:g-abc"} | ({"cat:d-xyz"} if scope == "deck" else set()))
 
     def test_endpoint_scope_isolation_and_errors(self):
-        with patch("app.r", self.r):
+        with patch("src.server.app.main.r", self.r):
             c = TestClient(app)
             pre = {e["ref"] for e in c.get("/api/composition/refs?scope=preset").json()["refs"]}
             self.assertIn("cat:g-abc", pre)

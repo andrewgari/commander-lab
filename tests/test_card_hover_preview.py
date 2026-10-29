@@ -20,9 +20,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CHP_JS = ROOT / "static" / "js" / "card_hover_preview.js"
-SI_JS = ROOT / "static" / "js" / "scryfall_image.js"
-CHP_CSS = ROOT / "static" / "css" / "card_hover_preview.css"
+CHP_JS = ROOT / "src/web/static" / "js" / "card_hover_preview.js"
+SI_JS = ROOT / "src/web/static" / "js" / "scryfall_image.js"
+CHP_CSS = ROOT / "src/web/static" / "css" / "card_hover_preview.css"
 
 SID = "0c3e2a5b-4f4f-4a53-9c3f-5d1a6c1d9e10"
 SID2 = "11111111-2222-3333-4444-555555555555"
@@ -894,7 +894,7 @@ class TestCardHoverPreview(unittest.TestCase):
             self.assertIn(token, css)
 
     def test_loaded_app_wide_from_base(self):
-        base = (ROOT / "templates" / "base.html").read_text()
+        base = (ROOT / "src/web/templates" / "base.html").read_text()
         for needle in ("card_hover_preview.css", "scryfall_image.js", "card_hover_preview.js"):
             self.assertIn(needle, base)
         self.assertLess(base.index("scryfall_image.js"), base.index("card_hover_preview.js"))

@@ -44,3 +44,10 @@ htmlcov/
 docs/screenshots/*
 templates/partials/*
 static/*
+
+# review eval run output
+tests/review_evals/results/*
+!tests/review_evals/results/.gitkeep
+
+# import-linter cache (STA-8)
+.import_linter_cache/

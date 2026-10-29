@@ -1,20 +1,27 @@
 """
-Tests for /deck/{deck_name}/composition route and templates/deck_composition.html.
+Tests for the /deck/{deck_name}/composition redirect (NAV_IA §3.2, N5):
+the standalone page is gone — it 301-redirects to /deck/{n}/stats#composition,
+where the composition section now lives.
 """
 import unittest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-import app as app_mod
+import src.server.app.main as app_mod
 
 client = TestClient(app_mod.app)
 
 
-class TestDeckCompositionView(unittest.TestCase):
-    @patch("app.registry.list_decks")
-    @patch("app._find_deck_any")
-    @patch("app.comp_svc.resolve_for_deck")
-    def test_deck_composition_view_200(self, mock_resolve, mock_find, mock_list_decks):
+class TestDeckCompositionRedirect(unittest.TestCase):
+    def test_composition_301s_to_stats_anchor(self):
+        resp = client.get("/deck/Holy%20Hellfire/composition", follow_redirects=False)
+        self.assertEqual(resp.status_code, 301)
+        self.assertEqual(resp.headers["location"], "/deck/Holy%20Hellfire/stats#composition")
+
+    @patch("src.server.app.main.comp_svc.resolve_for_deck")
+    @patch("src.server.app.main._find_deck_any")
+    @patch("src.server.app.main.registry.list_decks")
+    def test_stats_page_carries_the_composition_section(self, mock_list_decks, mock_find, mock_resolve):
         deck_data = {
             "name": "Holy Hellfire",
             "registry_id": "archidekt:12345",
@@ -41,21 +48,21 @@ class TestDeckCompositionView(unittest.TestCase):
             },
         }
 
+        # The redirect target serves the folded-in composition section.
         resp = client.get("/deck/Holy%20Hellfire/composition")
         self.assertEqual(resp.status_code, 200)
         html = resp.text
-        self.assertIn("Composition · Holy Hellfire | Commander Lab", html)
-        self.assertIn("Composition Preset", html)
+        self.assertIn("Stats · Holy Hellfire | Commander Lab", html)
+        self.assertIn('id="composition"', html)
+        self.assertIn("Composition", html)
         self.assertIn("Command Zone 2025", html)
-        self.assertIn("Auto", html)
         self.assertIn("Ramp", html)
         self.assertIn("Card Advantage", html)
+        self.assertIn("compPickerForm", html)
 
-    @patch("app.registry.list_decks")
-    @patch("app._find_deck_any")
-    def test_deck_composition_view_404(self, mock_find, mock_list_decks):
+    @patch("src.server.app.main.registry.list_decks")
+    def test_unknown_deck_still_404s_after_the_redirect(self, mock_list_decks):
         mock_list_decks.return_value = []
-        mock_find.return_value = None
         resp = client.get("/deck/NonexistentDeck/composition")
         self.assertEqual(resp.status_code, 404)
         self.assertIn("Deck Not Found", resp.text)

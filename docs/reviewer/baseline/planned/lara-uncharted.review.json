@@ -1,0 +1,1949 @@
+{
+ "schema_version": "review_document.v1",
+ "meta": {
+  "deck_id": "archidekt:7453701",
+  "deck_name": "Uncharted: Lara's Legacy",
+  "commanders": [
+   {
+    "name": "Lara Croft, Tomb Raider",
+    "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+   }
+  ],
+  "generated_at": "2026-10-29T01:29:18.498228+00:00",
+  "pipeline_version": "review-ab-1",
+  "prompt_versions": {
+   "A": "v1",
+   "B": "v1",
+   "C": "v1",
+   "D": "v1",
+   "E": "v1",
+   "critic": "v1"
+  },
+  "models": {
+   "A": "spoton:claude-sonnet-5-5",
+   "B": "spoton:claude-sonnet-5-5",
+   "C": "spoton:claude-sonnet-5-5",
+   "D": "spoton:claude-sonnet-5-5",
+   "E": "spoton:claude-sonnet-5-5",
+   "critic": "spoton:mistral-large-3"
+  },
+  "fact_pack_hash": "dcf1693c5b9fbd5fa4da8f86be296d728abad445629ea63be7fdccc78c3f4637"
+ },
+ "verdict": {
+  "headline": "Coherent Temur equipment-and-Treasure pile, held back by U/R mana and a commander trigger that often has no target",
+  "summary": "The deck is a Temur legendary-equipment and Treasure deck built around Lara Croft, Tomb Raider. Treasure doublers, cast-from-exile payoffs and layered protection for the legendary attacker all fit that plan. The problems are structural. Blue and red each have 16 land sources against 30 and 28 recommended. Targeted answers number 6 against a target of 11-13. Lara's attack trigger needs a legendary artifact or land already in a graveyard, and the graveyard fillers are mostly non-targeted. Synergy density is 0.1186 with 20 orphan-tagged cards, so draws vary a lot. Closing runs through one creature connecting, plus a two-card combo (The Reaver Cleaver + Aggravated Assault) where only The Reaver Cleaver can be tutored. The bracket floor is 3, set by The One Ring and that combo. No target bracket has been stated, so fit cannot be judged.",
+  "grade": "C",
+  "confidence": 0.56
+ },
+ "deck_identity": {
+  "what_it_does": "No owner intent is recorded, so this is read from the list. It is a Temur legendary-equipment and artifact deck: Lara Croft, Tomb Raider attacks carrying equipment such as Andúril, Flame of the West, Embercleave and The Reaver Cleaver. Treasure doublers (Academy Manufactor, Xorn, Jolene, the Plunder Queen) and cast-from-exile cards (Chimil, the Inner Sun, Faldorn, Dread Wolf Herald, The Key to the Vault, Urza, Lord High Artificer) turn combat into mana and extra spells. Discard-draw and descend cards stock the graveyard for Lara's exile trigger and for recursion.",
+  "win_paths": [
+   "Two-card combo: The Reaver Cleaver on a creature plus Aggravated Assault gives infinite combat phases, Treasure and mana (flagged by Commander Spellbook).",
+   "Equipped combat damage: Lara or another legendary creature carries Embercleave, Andúril, Flame of the West, Shadowspear or Blackblade Reforged, backed by evasion and protection, and attacks through the table.",
+   "Go-wide token and counter pressure from attack triggers (Spirit tokens, Wolf tokens, Construct token, team-wide +1/+1 counters).",
+   "Slow alternate win: The Millennium Calendar doubling counters to 1,000 and draining each opponent for 1,000."
+  ],
+  "success_criteria": [
+   "Lara or another legendary creature connects with equipment on most turns from turn 4-5 on, using the evasion and protection in the list (Winged Boots, K-9, Mark I, Swiftfoot Boots, Mithril Coat, Hammer of Nazahn).",
+   "The deck makes Treasure and artifacts early enough (Academy Manufactor, Xorn, Jolene, the Plunder Queen, Storm the Vault // Vault of Catlacan, Sol Ring and 17 ramp cards) to cast and equip the 4-6 mana equipment in the same turn.",
+   "Cards cast from exile (Chimil, the Inner Sun, Faldorn, Dread Wolf Herald, The Key to the Vault, Rashmi and Ragavan, Lara's own trigger) happen in most games, so the exile payoffs actually fire.",
+   "The graveyard fills reliably through Faithless Looting, Frantic Search, Brass's Tunnel-Grinder // Tecutlan, the Searing Rift and The Everflowing Well // The Myriad Pools, and recursion (Emry, Lurker of the Loch, Goblin Engineer, Daretti, Scrap Savant, Academy Ruins) returns key artifacts.",
+   "With 35 lands and 17 ramp pieces, the deck does not stall on colors across three colors (blue, red, green), and the legendary-matters lands (Rivendell, The Shire) enter untapped.",
+   "The deck can assemble The Reaver Cleaver plus Aggravated Assault, or the tutors (Fabricate, Reckless Handling, Goblin Engineer) can find the pieces, if the combo is intended."
+  ],
+  "intentional_quirks": [
+   "Very large legendary-equipment package, including two different Andúrils and many cheap equipment cards.",
+   "Graveyard stocking through looting, discard and descend cards in a combat deck.",
+   "Heavy protection and evasion aimed at one legendary creature.",
+   "Legendary-matters mana and utility lands, plus Treasure-doubling creatures."
+  ]
+ },
+ "scorecard": [
+  {
+   "axis": "plan_synergy",
+   "score": 6,
+   "one_line": "Treasure/equipment/exile engine is coherent, but synergy.density is 0.1186 with 20 orphan-tagged cards and Lara's trigger depends on a thin set of legendary artifacts or lands in graveyards.",
+   "finding_ids": [
+    "s-plan_synergy-1",
+    "s-plan_synergy-2",
+    "s-plan_synergy-3",
+    "p-plan_synergy-1",
+    "p-plan_synergy-2",
+    "p-plan_synergy-3",
+    "p-plan_synergy-4"
+   ]
+  },
+  {
+   "axis": "mana_consistency",
+   "score": 6,
+   "one_line": "35 lands plus 17 ramp cover the quantity and the 2.75 curve is low, but U and R each have only 16 sources against 30 and 28 recommended, with heavy UU and RR pips.",
+   "finding_ids": [
+    "s-mana_consistency-1",
+    "s-mana_consistency-2",
+    "s-mana_consistency-3",
+    "p-mana_consistency-1",
+    "p-mana_consistency-2",
+    "p-mana_consistency-3"
+   ]
+  },
+  {
+   "axis": "interaction_resilience",
+   "score": 5,
+   "one_line": "Only 6 targeted-removal/counter pieces against a 11-13 target (roles.targeted_removal.count) and nothing that answers creatures or hostile enchantments cleanly, though protection for the legendary attacker is deep.",
+   "finding_ids": [
+    "s-interaction_resilience-1",
+    "s-interaction_resilience-2",
+    "p-interaction_resilience-1",
+    "p-interaction_resilience-2",
+    "p-interaction_resilience-3",
+    "p-interaction_resilience-4"
+   ]
+  },
+  {
+   "axis": "win_paths_closing",
+   "score": 6,
+   "one_line": "Real two-card infinite (combos.complete.3750-5039) plus Embercleave and Andúril damage, but only 3 tutors (roles.tutors.count) and a lone single-card answer-exposed commander plan keep closing inconsistent.",
+   "finding_ids": [
+    "s-win_paths_closing-1",
+    "s-win_paths_closing-2",
+    "s-win_paths_closing-3",
+    "p-win_paths_closing-1",
+    "p-win_paths_closing-2",
+    "p-win_paths_closing-3"
+   ]
+  },
+  {
+   "axis": "power_bracket",
+   "score": 6,
+   "one_line": "Floor is bracket 3 (bracket.minimum_bracket) from The One Ring and the Reaver Cleaver + Aggravated Assault combo, but the owner's target is unstated, so fit cannot be judged and the open-question exposure is the main hole.",
+   "finding_ids": [
+    "s-power_bracket-1",
+    "s-power_bracket-2",
+    "p-power_bracket-1",
+    "p-power_bracket-2",
+    "p-power_bracket-3"
+   ]
+  },
+  {
+   "axis": "budget_inventory",
+   "score": 7,
+   "one_line": "No cap is set and inventory is unavailable, so there is no budget problem to report; the $592.46 total (derived.price.total_usd) is spread across plan-relevant cards, with The One Ring ($111.84) as the one expensive card of debatable payoff.",
+   "finding_ids": [
+    "s-budget_inventory-1",
+    "s-budget_inventory-2",
+    "p-budget_inventory-1",
+    "p-budget_inventory-2",
+    "p-budget_inventory-3"
+   ]
+  },
+  {
+   "axis": "concept_execution",
+   "score": 5,
+   "one_line": "Lara's attack trigger needs a legendary artifact or land already in a graveyard, and the legendary equipment is mostly orphans (synergy.orphans lists 20 cards) with only 3 tutors to find them.",
+   "finding_ids": [
+    "s-concept_execution-1",
+    "s-concept_execution-2",
+    "s-concept_execution-3",
+    "p-concept_execution-1",
+    "p-concept_execution-2",
+    "p-concept_execution-3",
+    "p-concept_execution-4"
+   ]
+  }
+ ],
+ "strengths": [
+  {
+   "id": "s-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "The deck protects its few legendary attackers in layers: Mithril Coat and Hammer of Nazahn grant indestructible, Swiftfoot Boots and Winged Boots add hexproof or ward 4, and Heroic Intervention covers the whole board at instant speed. This keeps Lara or another legendary carrier alive against spot removal and some sweepers, which fits the equipped-attacker plan.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     },
+     {
+      "name": "Swiftfoot Boots",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391"
+     },
+     {
+      "name": "Winged Boots",
+      "oracle_id": "a178a789-1f5f-46ca-a90b-574bd236a671"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count",
+     "roles.protection.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "Land count and ramp are generous for a 2.75 average curve. 35 lands, 17 ramp pieces (Sol Ring, Arcane Signet, Cultivate, Nature's Lore, Farseek, Thought Vessel) and five MDFC spell-lands mean the deck should rarely miss land drops. Most of the 4-6 mana equipment can be cast and equipped in the same turn.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Nature's Lore",
+      "oracle_id": "78826359-fe63-44ad-adc4-a17ffcd710e4"
+     },
+     {
+      "name": "Farseek",
+      "oracle_id": "495e52e6-4c2b-4574-9474-eadbdcc8b4ac"
+     },
+     {
+      "name": "Thought Vessel",
+      "oracle_id": "9965d9c5-2ebf-4a6c-930e-55c5890979be"
+     }
+    ],
+    "fact_keys": [
+     "mana.lands",
+     "mana.mdfc_spell_lands",
+     "roles.ramp.count",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "Treasure multipliers and Treasure sources stack: Academy Manufactor and Xorn multiply Treasure, Jolene, the Plunder Queen adds one to each of her triggers, and The Reaver Cleaver, Storm the Vault // Vault of Catlacan and Rashmi and Ragavan feed them. Combat damage becomes mana that pays for Embercleave and equip costs.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     },
+     {
+      "name": "Jolene, the Plunder Queen",
+      "oracle_id": "8215f4a2-7131-426b-ad9c-6427caabd715"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Storm the Vault // Vault of Catlacan",
+      "oracle_id": "72205fac-a94a-45cc-94c6-40ece2fdce0e"
+     },
+     {
+      "name": "Rashmi and Ragavan",
+      "oracle_id": "bdef246c-cf66-40a1-aae4-a591846e73ca"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "Treasure and mana engines are dense enough to pay for 4-6 mana equipment: Academy Manufactor, Xorn and Jolene, the Plunder Queen multiply Treasure, and The Reaver Cleaver, Storm the Vault // Vault of Catlacan and Rose, Cutthroat Raider turn combat into more mana. Ramp is far above the norm, so equipment like Embercleave or Hammer of Nazahn can plausibly be cast and equipped on the same turn.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     },
+     {
+      "name": "Jolene, the Plunder Queen",
+      "oracle_id": "8215f4a2-7131-426b-ad9c-6427caabd715"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Storm the Vault // Vault of Catlacan",
+      "oracle_id": "72205fac-a94a-45cc-94c6-40ece2fdce0e"
+     },
+     {
+      "name": "Rose, Cutthroat Raider",
+      "oracle_id": "5a721c27-3e02-4f60-995e-b29d678d93b3"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp_vs_norm.target"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "Several independent damage multipliers exist for equipped combat. Embercleave gives double strike and trample, Blackblade Reforged scales with land count, and Andúril, Flame of the West and Andúril, Narsil Reforged add tokens and counters on each attack. Winged Boots and Shadowspear add evasion and lifelink. Closing does not rest on one card.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Embercleave",
+      "oracle_id": "4d6120d6-fcce-40bc-9fc6-e1f5beb6c728"
+     },
+     {
+      "name": "Blackblade Reforged",
+      "oracle_id": "dca51281-fb21-45b6-beb4-1f13397caee2"
+     },
+     {
+      "name": "Andúril, Flame of the West",
+      "oracle_id": "e6521404-8474-4727-b2d0-537d15d8a63f"
+     },
+     {
+      "name": "Andúril, Narsil Reforged",
+      "oracle_id": "b7d7c131-b628-4b35-b40b-1087589ebdd0"
+     },
+     {
+      "name": "Winged Boots",
+      "oracle_id": "a178a789-1f5f-46ca-a90b-574bd236a671"
+     },
+     {
+      "name": "Shadowspear",
+      "oracle_id": "8b27326f-e7b8-4a4d-b589-df459246d19a"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv",
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "The Reaver Cleaver plus Aggravated Assault is a complete combo that produces infinite combat phases, Treasure, colored mana and combat damage. It is a true game-ending line that needs only two pieces on a creature, and it goes beyond incremental damage.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.3750-5039.card_names",
+     "combos.complete.3750-5039.produces",
+     "combos.counts.complete"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Fixing is strong. 13 multicolor lands, only 1 unconditional tapped land, and mostly fast or conditional-untapped duals (Steam Vents, Stomping Ground, Breeding Pool, Rockfall Vale, Stormcarved Coast) keep tempo high. Rivendell and The Shire usually enter untapped with a legendary creature out.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Steam Vents",
+      "oracle_id": "17039058-822d-409f-938c-b727a366ba63"
+     },
+     {
+      "name": "Stomping Ground",
+      "oracle_id": "16052b52-ade1-406f-a06b-ce7ea607fb63"
+     },
+     {
+      "name": "Breeding Pool",
+      "oracle_id": "20283c4a-f1f0-42f0-bc08-6da87474426b"
+     },
+     {
+      "name": "Rockfall Vale",
+      "oracle_id": "185c70c1-8403-4ae5-b45d-3679d4ee092a"
+     },
+     {
+      "name": "Stormcarved Coast",
+      "oracle_id": "4722105b-0085-4bb8-bca1-9de0d3eb5600"
+     },
+     {
+      "name": "Rivendell",
+      "oracle_id": "2550099d-b3e2-4eb6-9f36-0fc412828ca6"
+     }
+    ],
+    "fact_keys": [
+     "mana.fixing_quality.multicolor_lands",
+     "mana.unconditional_tapped_lands",
+     "mana.fixing_quality.share_of_lands"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Card flow is well stocked. Looting, discard-draw and cheap card draw (Faithless Looting, Frantic Search, Thirst for Knowledge, Brass's Tunnel-Grinder, Jhoira, Weatherlight Captain, The One Ring) let the deck smooth draws and fill the graveyard for Lara's trigger. Three tutors (Fabricate, Reckless Handling, Goblin Engineer) add redundancy for the key equipment.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Frantic Search",
+      "oracle_id": "16e015b2-f8a3-4b1a-80be-58a8f5fb5e8c"
+     },
+     {
+      "name": "Thirst for Knowledge",
+      "oracle_id": "939e6f71-185e-41f2-9d54-72cce06f1dce"
+     },
+     {
+      "name": "Jhoira, Weatherlight Captain",
+      "oracle_id": "c803b788-4213-4fab-b841-7e5bbf66088e"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Equipment payoffs and protection reinforce the attacker plan. Andúril, Flame of the West makes attacking Spirits when a legendary creature carries it, Andúril, Narsil Reforged pumps the team, and Hammer of Nazahn auto-attaches equipment as it enters. Mithril Coat, Swiftfoot Boots and Winged Boots keep the carrier alive and evasive.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Andúril, Flame of the West",
+      "oracle_id": "e6521404-8474-4727-b2d0-537d15d8a63f"
+     },
+     {
+      "name": "Andúril, Narsil Reforged",
+      "oracle_id": "b7d7c131-b628-4b35-b40b-1087589ebdd0"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Winged Boots",
+      "oracle_id": "a178a789-1f5f-46ca-a90b-574bd236a671"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Protection and evasion for the legendary attacker is layered: Mithril Coat, Swiftfoot Boots, Winged Boots, K-9, Mark I and Heroic Intervention all keep Lara or another legendary creature alive and connecting. Hammer of Nazahn and Mithril Coat attach on entering, so protection does not cost an extra equip activation.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Swiftfoot Boots",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391"
+     },
+     {
+      "name": "Winged Boots",
+      "oracle_id": "a178a789-1f5f-46ca-a90b-574bd236a671"
+     },
+     {
+      "name": "K-9, Mark I",
+      "oracle_id": "413bc18b-1579-41b5-a778-3a29def52bb0"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "s-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "The cast-from-exile cluster has enablers and a payoff that connect. Lara Croft, Tomb Raider's attack trigger lets you play a legendary artifact or land exiled from a graveyard. Chimil, the Inner Sun discovers 5 at end step. The Key to the Vault exiles and casts a card on equipped combat damage. Rashmi and Ragavan casts the opponent's exiled top card. Faldorn, Dread Wolf Herald then makes a 2/2 Wolf for each spell cast from exile, so the Wolves add board presence to the equipment attacks.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     },
+     {
+      "name": "The Key to the Vault",
+      "oracle_id": "7a75d565-b0a7-46bf-94a0-c9255c8abd6d"
+     },
+     {
+      "name": "Rashmi and Ragavan",
+      "oracle_id": "bdef246c-cf66-40a1-aae4-a591846e73ca"
+     },
+     {
+      "name": "Faldorn, Dread Wolf Herald",
+      "oracle_id": "d8e6294d-51cc-44ff-8bc6-b0a168e4f423"
+     }
+    ],
+    "fact_keys": []
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "s-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "Fabricate, Reckless Handling and Goblin Engineer give three artifact tutors for the equipment plan, so Embercleave, The Reaver Cleaver or another equipment can be found when Lara Croft, Tomb Raider is ready to attack. Goblin Engineer's enter trigger puts an artifact into the graveyard, which can feed Lara's attack trigger if the card is legendary. Daretti, Scrap Savant's -2 and Goblin Engineer's activated ability return a destroyed equipment, so one removal spell does not end the plan.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     },
+     {
+      "name": "Daretti, Scrap Savant",
+      "oracle_id": "ea9f4de3-fc35-435a-8dff-a5657d14a9bd"
+     },
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Embercleave",
+      "oracle_id": "4d6120d6-fcce-40bc-9fc6-e1f5beb6c728"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.cards",
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "s-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "Cast-from-exile payoffs stack on Lara Croft, Tomb Raider's attack trigger, which lets you play an exiled legendary artifact or land from a graveyard. Faldorn, Dread Wolf Herald makes a 2/2 Wolf whenever you cast from exile, and its own {1}, {T}, discard ability exiles the top card so you can play it. Chimil, the Inner Sun discovers 5 at each end step, and The Key to the Vault casts a free exiled card after equipped combat damage. So attacking and equipment turns turn into extra spells and tokens, though how often it fires depends on legendary artifact or land targets being in a graveyard.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Faldorn, Dread Wolf Herald",
+      "oracle_id": "d8e6294d-51cc-44ff-8bc6-b0a168e4f423"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     },
+     {
+      "name": "The Key to the Vault",
+      "oracle_id": "7a75d565-b0a7-46bf-94a0-c9255c8abd6d"
+     }
+    ],
+    "fact_keys": [
+     "deck.commanders"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.55
+  },
+  {
+   "id": "s-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "Most of the deck's money sits in cards that run the plan. Lara Croft, Tomb Raider, The Reaver Cleaver, Mithril Coat and Shadowspear are the top-priced cards, and they are the commander, a Treasure-engine equipment, and the legendary-only protection and equipment named in the brief. The spend follows the concept.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Shadowspear",
+      "oracle_id": "8b27326f-e7b8-4a4d-b589-df459246d19a"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Lara Croft, Tomb Raider.usd",
+     "derived.price.most_expensive.The Reaver Cleaver.usd",
+     "derived.price.most_expensive.Mithril Coat.usd",
+     "derived.price.most_expensive.Shadowspear.usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The bracket floor is transparent and set by exactly two sources: The One Ring (the only Game Changer) and the Reaver Cleaver + Aggravated Assault infinite combo. With nothing else triggering rules, the deck sits at a clean 'Upgraded' floor with no hidden bracket-4 surprises.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The One Ring",
+      "oracle_id": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers",
+     "bracket.reasons.game_changers.cards",
+     "bracket.reasons.two_card_combos.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "Raw speed and consistency are moderate rather than cEDH-level: average MV is 2.75 and there are only 3 tutors (Fabricate, Reckless Handling, Goblin Engineer), all artifact-only. The combo is findable but not reliably assembled, which suits a bracket 3 table.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv",
+     "roles.tutors.count",
+     "edhrec.deviation_score"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "The engine and enabling pieces are cheap. Andúril, Flame of the West ($2.63), Lost Jitte, Emry, Lurker of the Loch, Faithless Looting and The Key to the Vault are all under $5. The large equipment package therefore costs little, which suits the deliberate equipment pile in the brief.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Andúril, Flame of the West",
+      "oracle_id": "e6521404-8474-4727-b2d0-537d15d8a63f"
+     },
+     {
+      "name": "Lost Jitte",
+      "oracle_id": "a9d72f78-2ab5-4e2e-ab7b-ef875e0a0609"
+     },
+     {
+      "name": "Emry, Lurker of the Loch",
+      "oracle_id": "da3e7d3d-2ca0-40c3-9602-fca37c92f507"
+     },
+     {
+      "name": "The Key to the Vault",
+      "oracle_id": "7a75d565-b0a7-46bf-94a0-c9255c8abd6d"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.total_usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Counterspell, Arcane Denial and An Offer You Can't Refuse give the deck three cheap (MV 1-2) instant-speed answers to a opposing spell on the stack, covering combo pieces and sweepers while mana is open. Chimil, the Inner Sun adds a separate layer by making the deck's own spells uncounterable, which protects the expensive equipment and engine casts. The cost is that Arcane Denial and An Offer You Can't Refuse hand the countered player cards or Treasure.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Counterspell",
+      "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5"
+     },
+     {
+      "name": "Arcane Denial",
+      "oracle_id": "ab1cc360-b9de-48d9-9983-4dfe4a7d2a37"
+     },
+     {
+      "name": "An Offer You Can't Refuse",
+      "oracle_id": "234a734b-ba28-4f1b-9d01-3c3e7d516590"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.65
+  }
+ ],
+ "problems": [
+  {
+   "id": "p-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "Blue and red are the heaviest colors, with 23 and 24 pips, but each has only 16 land sources against 30 and 28 recommended. Counterspell, Arcane Denial, Aggravated Assault ({3}{R}{R}) and Embercleave all want doubled or early colored mana. Green has 17 sources for only 11 pips, so green is over-served. 15 basics split evenly across three colors, plus colorless lands (Reliquary Tower, Temple of the False God, The Grey Havens, Academy Ruins), dilute the colored sources. Rocks like Arcane Signet help, but Sol Ring and Thought Vessel are colorless and cannot cover the gap.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Counterspell",
+      "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5"
+     },
+     {
+      "name": "Arcane Denial",
+      "oracle_id": "ab1cc360-b9de-48d9-9983-4dfe4a7d2a37"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "Embercleave",
+      "oracle_id": "4d6120d6-fcce-40bc-9fc6-e1f5beb6c728"
+     },
+     {
+      "name": "Reliquary Tower",
+      "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+     },
+     {
+      "name": "Temple of the False God",
+      "oracle_id": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.U.pips",
+     "mana.pips_vs_sources.U.sources",
+     "mana.pips_vs_sources.U.recommended_sources",
+     "mana.pips_vs_sources.R.pips",
+     "mana.pips_vs_sources.R.sources",
+     "mana.pips_vs_sources.R.recommended_sources",
+     "mana.pips_vs_sources.G.sources"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.75
+  },
+  {
+   "id": "p-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Only 6 cards count as targeted answers against a 11-13 target, and 3 of them are counterspells (Counterspell, Arcane Denial, An Offer You Can't Refuse). The only permanent-based answers are Beast Within, Bow of Nylea (just 2 damage to a flier) and Vandalblast (artifacts only). There is no cheap way to remove a problem creature, planeswalker or hostile enchantment, so a threat that resolves while counter mana is down goes unanswered. The deck's combat plan also gets little help from clearing blockers.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Beast Within",
+      "oracle_id": "7735eeba-693b-47e2-bd51-414379cf1016"
+     },
+     {
+      "name": "Bow of Nylea",
+      "oracle_id": "361b965f-2ce7-49f8-84e7-7325ea0c948d"
+     },
+     {
+      "name": "Vandalblast",
+      "oracle_id": "3567c3c8-b3c7-45b7-935b-b1fdbc973720"
+     },
+     {
+      "name": "Counterspell",
+      "oracle_id": "cc187110-1148-4090-bbb8-e205694a39f5"
+     },
+     {
+      "name": "Arcane Denial",
+      "oracle_id": "ab1cc360-b9de-48d9-9983-4dfe4a7d2a37"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count",
+     "roles.targeted_removal.target_min",
+     "roles.targeted_removal.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.72
+  },
+  {
+   "id": "p-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "Lara's trigger needs a legendary artifact or land card already in a graveyard, but the graveyard fillers are non-targeted. Faithless Looting, Frantic Search, Windfall and Thirst for Knowledge discard whatever is in hand, and the deck has only Goblin Engineer to put a chosen artifact into the graveyard. The signature exile trigger will often have no target, so the central concept is unreliable.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Frantic Search",
+      "oracle_id": "16e015b2-f8a3-4b1a-80be-58a8f5fb5e8c"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     },
+     {
+      "name": "Windfall",
+      "oracle_id": "08becc07-28bc-4a2f-a6b0-28a2998d2f50"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "The plan relies on a small number of legendary attackers. Lara is the only commander and the deck has 16 creatures (derived.type_counts.creature), many of them utility pieces such as Academy Manufactor and Xorn. If Lara is removed or neutralised, equipment and protection like K-9, Mark I and Mithril Coat have few bodies to use them, so redundancy is thin.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "K-9, Mark I",
+      "oracle_id": "413bc18b-1579-41b5-a778-3a29def52bb0"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     }
+    ],
+    "fact_keys": [
+     "derived.type_counts.creature",
+     "derived.type_counts.artifact"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "Nearly every win route runs through one creature connecting. Lara Croft, Tomb Raider, or one legendary creature, must carry the equipment, and the combo also needs a creature to attack. Only 2 recursion pieces (Daretti, Scrap Savant and Goblin Engineer) support rebuilding after a spot removal or sweeper, and no listed card returns a dead creature. Anger of the Gods and Blasphemous Act also hit the deck's own creature board, which is a closing cost (Blasphemous Act's near-miss combo is not a win path here).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Anger of the Gods",
+      "oracle_id": "3a7fe095-8278-4b1d-bec4-19b35bdcdd1b"
+     },
+     {
+      "name": "Blasphemous Act",
+      "oracle_id": "7a2484a9-04fd-41a0-8224-610c1c07ed10"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.cards",
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "The deck leans on the commander but is not built around her. Synergy shows the artifact cluster with commander_centered = false and low density (synergy.density = 0.1186), and 20 cards are orphans, including Embercleave, Shadowspear, Lost Jitte, Blackblade Reforged, Chimil, the Inner Sun, and both Andúrils. Many are powerful alone, but the pile is not pulled into a repeatable line around Lara, so draws vary a lot from game to game.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Embercleave",
+      "oracle_id": "4d6120d6-fcce-40bc-9fc6-e1f5beb6c728"
+     },
+     {
+      "name": "Shadowspear",
+      "oracle_id": "8b27326f-e7b8-4a4d-b589-df459246d19a"
+     },
+     {
+      "name": "Lost Jitte",
+      "oracle_id": "a9d72f78-2ab5-4e2e-ab7b-ef875e0a0609"
+     },
+     {
+      "name": "Blackblade Reforged",
+      "oracle_id": "dca51281-fb21-45b6-beb4-1f13397caee2"
+     },
+     {
+      "name": "Andúril, Narsil Reforged",
+      "oracle_id": "b7d7c131-b628-4b35-b40b-1087589ebdd0"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans",
+     "synergy.density",
+     "synergy.clusters.artifacts.commander_centered"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Lara's exile trigger needs a legendary artifact or land in a graveyard. Only Goblin Engineer (which tutors an artifact into the graveyard) and the discard and looting cards actively put those there, and the artifacts cluster is not commander-centered (synergy.clusters.artifacts.commander_centered = false). The commander's own payoff is unreliable and the graveyard package serves recursion more than Lara.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Frantic Search",
+      "oracle_id": "16e015b2-f8a3-4b1a-80be-58a8f5fb5e8c"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.artifacts.commander_centered",
+     "synergy.clusters.artifacts.strength"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.55
+  },
+  {
+   "id": "p-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "The plan has little protection against a commander-removal or board-reset loop other than the indestructible and hexproof equipment. The deck depends on Lara and a handful of other legendary creatures as carriers. If Lara is answered with exile or bounce, Heroic Intervention is the only instant-speed save, and the commander tax slows re-equipping. The 4-6 mana equipment and the equip costs make the rebuild slow.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Embercleave",
+      "oracle_id": "4d6120d6-fcce-40bc-9fc6-e1f5beb6c728"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count",
+     "derived.type_counts.creature"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Most of the early ramp is green or colorless-based (Nature's Lore, Cultivate, Farseek, Sword of the Animist). Nature's Lore only finds a Forest, so it does not fix the blue and red shortfall unless it fetches a dual with a Forest type. Farseek fetches Island or Mountain types only, which are the shortfall colors. Yavimaya, Cradle of Growth makes every land a Forest, which helps Nature's Lore but adds no U/R sources.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Nature's Lore",
+      "oracle_id": "78826359-fe63-44ad-adc4-a17ffcd710e4"
+     },
+     {
+      "name": "Farseek",
+      "oracle_id": "495e52e6-4c2b-4574-9474-eadbdcc8b4ac"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Yavimaya, Cradle of Growth",
+      "oracle_id": "8dd5f5af-d2d8-4356-8617-8381081b930c"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.U.sources",
+     "mana.pips_vs_sources.R.sources",
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "Outside combat, the deck's only closers are The Millennium Calendar (slow: it doubles time counters only after untaps and needs {2} and a tap each turn, so it takes many turns to reach 1,000) and Reckless Handling's 2 damage, which only triggers on a random discard. Bident of Thassa's forced-attack ability ({1}{U}, {T}: opponents' creatures attack this turn if able) can push opponents' creatures into bad attacks, but it only helps combat and draws cards when Lara or another creature connects. So if the creature plan is answered or blanked, none of these ends the game quickly.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Millennium Calendar",
+      "oracle_id": "1f250443-8d5e-46c9-920e-8e9373780e32"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Bident of Thassa",
+      "oracle_id": "e1afaef7-9fa3-4662-a95f-adfb0da9fd11"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "The One Ring is the most expensive card at $111.84, about a fifth of the $592.46 total. Its job is protection for one turn and card draw, which is generic value rather than the equipment-combat plan. It is also the Game Changer that sets the bracket-3 floor. If the owner has no budget or pet-card attachment (q-5), it is the clearest cost-efficiency question; if it is a favorite, it is fine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The One Ring",
+      "oracle_id": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.The One Ring.usd",
+     "derived.price.total_usd",
+     "bracket.game_changers"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-plan_synergy-4",
+   "axis": "plan_synergy",
+   "claim": "Fabricate, Reckless Handling and Goblin Engineer each search for an artifact card, so they can fetch The Reaver Cleaver but not Aggravated Assault, which is an enchantment. The two-card combo therefore depends on drawing Aggravated Assault naturally. The tutors cover only half of it, and the card is also tagged as an orphan by the synergy heuristic. Whether the combo is a deliberate win path is open (q-2), so this matters only if the owner wants it as a reliable line.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.3750-5039.card_names",
+     "roles.tutors.cards",
+     "synergy.orphans"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The owner has not stated a target bracket (q-1), so the deck cannot be called too strong or too weak. The floor is bracket 3 (Upgraded) because The One Ring is a Game Changer and The Reaver Cleaver + Aggravated Assault is a complete two-card combo. At a target of 3 or higher, both pieces can stay, but the unconditional infinite (combat phases, Treasure, mana) is the part to confirm with the table, and q-2 asks whether it is a deliberate win path. The trade-off of trimming for a lower bracket is real: cutting Aggravated Assault removes the fastest closer and leaves equipped combat damage as the only main route, and cutting The One Ring removes a card-draw engine, so that choice should be made only after q-1 is answered.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The One Ring",
+      "oracle_id": "3aa83ed2-f48b-4ce6-a614-2c54ddf50538"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.reasons.game_changers.cards",
+     "bracket.reasons.two_card_combos.cards",
+     "combos.complete.3750-5039.card_names"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "Aggravated Assault ($37.19) is the third most expensive card. It matters only for the two-card combo with The Reaver Cleaver, and it costs five mana as an enchantment that does nothing alone. If the combo is accidental (q-2), this is poor value per dollar; if deliberate, the price is justified.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Aggravated Assault.usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-budget_inventory-3",
+   "axis": "budget_inventory",
+   "claim": "Delighted Halfling ($24.85) and Otawara, Soaring City ($27.82) are pricey for a one-mana mana creature and a utility land. Their jobs, mana for legendary spells and a bounce effect, are replaceable at lower cost, so some money goes to marginal upgrades. This is minor since no cap is set.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Delighted Halfling",
+      "oracle_id": "f9d3b046-0b95-4103-a630-4b3fb88bb60b"
+     },
+     {
+      "name": "Otawara, Soaring City",
+      "oracle_id": "e9b6a394-691c-425a-9307-76d8edc7375e"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Delighted Halfling.usd",
+     "derived.price.most_expensive.Otawara, Soaring City.usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "The concept needs legendary creatures and the Spirit and Wolf tokens from Andúril, Flame of the West and Faldorn, Dread Wolf Herald to attack, but Anger of the Gods (3 damage, exiles anything that would die) and Blasphemous Act (13 damage) hit the deck's own board. Only equipment that grants indestructible, Hammer of Nazahn and Mithril Coat, or Heroic Intervention, lets a creature survive them, so casting either sweeper on a turn without those out undoes the board the concept built. Whether this is deliberate sweeper insurance is open (q-4), so the cost is a trade-off rather than a confirmed error.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Anger of the Gods",
+      "oracle_id": "3a7fe095-8278-4b1d-bec4-19b35bdcdd1b"
+     },
+     {
+      "name": "Blasphemous Act",
+      "oracle_id": "7a2484a9-04fd-41a0-8224-610c1c07ed10"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Andúril, Flame of the West",
+      "oracle_id": "e6521404-8474-4727-b2d0-537d15d8a63f"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "roles.protection.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-concept_execution-4",
+   "axis": "concept_execution",
+   "claim": "The Reaver Cleaver plus Aggravated Assault is a complete two-card combo (combos.complete.3750-5039), and Aggravated Assault has no other role in the equipped-combat plan. The deck has three tutors (Fabricate, Reckless Handling, Goblin Engineer) that can fetch The Reaver Cleaver but none that can fetch the enchantment, so the combo is assembled only by drawing Aggravated Assault naturally. Whether the owner wants it as a win path is open (q-2), so this hinges on that answer.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.3750-5039.card_names",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Anger of the Gods deals 3 damage to each creature and Blasphemous Act deals 13 to each, so both hit the deck's own creature engines (Academy Manufactor, Xorn, Jolene, the Plunder Queen) and Lara Croft, Tomb Raider, who is not protected unless Mithril Coat, Hammer of Nazahn, or Heroic Intervention is already in play. This is only a cost if the sweepers are not planned reset buttons, which q-4 leaves open; the owner's answer decides whether they are insurance or a conflict with the creature plan.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Anger of the Gods",
+      "oracle_id": "3a7fe095-8278-4b1d-bec4-19b35bdcdd1b"
+     },
+     {
+      "name": "Blasphemous Act",
+      "oracle_id": "7a2484a9-04fd-41a0-8224-610c1c07ed10"
+     },
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     },
+     {
+      "name": "Jolene, the Plunder Queen",
+      "oracle_id": "8215f4a2-7131-426b-ad9c-6427caabd715"
+     },
+     {
+      "name": "Mithril Coat",
+      "oracle_id": "3dc364f3-3094-4660-80ca-9418588c7fde"
+     },
+     {
+      "name": "Hammer of Nazahn",
+      "oracle_id": "e3955573-3db5-490e-903e-65e0172a9202"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "roles.wipes.cards",
+     "roles.protection.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-interaction_resilience-4",
+   "axis": "interaction_resilience",
+   "claim": "The combo and key engines rely on artifacts, but Vandalblast is the deck's only direct artifact/enchantment answer. There is no clean graveyard hate or enchantment answer beyond Beast Within. Opposing artifact removal can still hit Chimil, the Inner Sun, The Millennium Calendar, Aggravated Assault or equipment. Counterspell backup for the combo (q-2) is thin and it is unknown whether the combo is intended.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Vandalblast",
+      "oracle_id": "3567c3c8-b3c7-45b7-935b-b1fdbc973720"
+     },
+     {
+      "name": "Beast Within",
+      "oracle_id": "7735eeba-693b-47e2-bd51-414379cf1016"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.cards",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "The Reaver Cleaver + Aggravated Assault combo has only one tutorable half. Fabricate, Reckless Handling and Goblin Engineer all search for artifact cards, so they can fetch The Reaver Cleaver, but Aggravated Assault is an enchantment and no tutor in the list can find it. The combo therefore depends on drawing Aggravated Assault naturally. This only matters if the combo is a deliberate win path (q-2); if it is not, it does not apply.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "derived.type_counts.enchantment"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "The Millennium Calendar is a slow alternate win that does not feed the equipped-attack plan. It only gains counters when permanents untap in the untap step, and doubling costs {2} plus a tap each turn. Nothing in Lara Croft, Tomb Raider's attack trigger, the Treasure doublers (Academy Manufactor, Xorn) or the cast-from-exile payoffs advances it, and the synergy heuristic lists it as an orphan. It takes a slot from cards that do feed those engines.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Millennium Calendar",
+      "oracle_id": "1f250443-8d5e-46c9-920e-8e9373780e32"
+     },
+     {
+      "name": "Lara Croft, Tomb Raider",
+      "oracle_id": "ddfd9dca-c886-4e13-b467-990469c31a61"
+     },
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "The Reaver Cleaver + Aggravated Assault produces infinite combat phases, Treasure and mana, but the deck has only 3 artifact-only tutors for it. Aggravated Assault does little else in the deck, so its status as a deliberate win condition (q-2) decides whether it is a power feature or a bracket liability. Either way the combo's protection looks thin. Counterspells exist, but Chimil's counter-immunity is only a conditional end-step effect.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Chimil, the Inner Sun",
+      "oracle_id": "119d9671-61ba-4629-89b1-f94bdec5cb74"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.3750-5039.produces",
+     "roles.tutors.count",
+     "combos.complete.3750-5039.bracket_tag"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-power_bracket-3",
+   "axis": "power_bracket",
+   "claim": "Ramp count is 17 against a target of 9-11, which pushes mana development ahead of typical bracket-3 pacing. Cheap fast mana like Sol Ring and Arcane Signet, plus Treasure doublers such as Academy Manufactor and Xorn, can make 4-6 mana equipment come down early. This is deliberate for the brief's success criteria, so it is a power-fit note rather than a fault. It may run hotter than a pod expecting mid-power games.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Academy Manufactor",
+      "oracle_id": "f36d1d8b-8303-44a9-ab56-531931641ea2"
+     },
+     {
+      "name": "Xorn",
+      "oracle_id": "11d8fab8-93af-4291-80bd-cf9436e99f4b"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp.target_max",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "The one complete combo (The Reaver Cleaver + Aggravated Assault, combos.complete.3750-5039) has a tutorable half and a non-tutorable half: Fabricate, Reckless Handling and Goblin Engineer search only for artifact cards, so they can fetch The Reaver Cleaver, but Aggravated Assault is an enchantment and must be drawn. Whether this matters hinges on q-2, since it only counts if the combo is a deliberate win condition; if equipped combat damage is the main plan, it is a minor note.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "The Reaver Cleaver",
+      "oracle_id": "37a2a31d-51e6-4c07-b4c2-b206ad40eb42"
+     },
+     {
+      "name": "Aggravated Assault",
+      "oracle_id": "20129459-a386-41eb-899d-1aede3427300"
+     },
+     {
+      "name": "Fabricate",
+      "oracle_id": "422e1869-134f-463d-9fa1-86b66a998b3e"
+     },
+     {
+      "name": "Reckless Handling",
+      "oracle_id": "f1ea7dc5-01cb-4780-947c-08ea9324c52f"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.3750-5039.card_names",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  }
+ ],
+ "top_changes": {
+  "swap_ids": [
+   "sw-1",
+   "sw-2",
+   "sw-3"
+  ],
+  "why_these_first": "Swap 1 (Ketria Triome for Reliquary Tower) hits the highest-severity problem, p-mana_consistency-1: blue and red each have only 16 sources against 30 and 28 recommended, and Counterspell, Aggravated Assault and Embercleave need those colors. It costs only a colorless utility land. Swap 2 (Mjölnir, Hammer of Thor for Anger of the Gods) addresses the 6-versus-11 targeted-removal gap in p-interaction_resilience-1. It also drops a sweeper that would hit Lara, Academy Manufactor, Xorn and the tokens, and it leaves a legendary equipment behind that Lara can carry. The trade-off is losing cheap sweeper insurance, which depends on q-4. Swap 3 (Six for Windfall) gives Lara's exile trigger a deliberate graveyard filler, which addresses p-concept_execution-1. Six is also another legendary body to carry equipment and gives retrace to lost permanents. Swaps 4 and 7 are further land fixes for the same mana problem. Swap 5 (Nature's Claim for Passionate Archaeologist) and swap 6 (Glóin for Etherium Sculptor) are smaller, and swap 5 hinges on q-3."
+ },
+ "swaps": [
+  {
+   "id": "sw-1",
+   "cut": {
+    "name": "Reliquary Tower",
+    "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+   },
+   "add": {
+    "name": "Ketria Triome",
+    "oracle_id": "6bae00e8-06cf-4ac4-a1cc-757e454109fe"
+   },
+   "resolves_finding_id": "p-mana_consistency-1",
+   "tradeoff": "Reliquary Tower is a colorless land whose only upside is no maximum hand size, which matters little in a deck that loots and discards. Ketria Triome taps for U, R and G, which helps the 16-source blue and red shortfall that Counterspell, Aggravated Assault ({3}{R}{R}) and Embercleave need. It enters tapped, but the deck has only 1 unconditional tapped land, so this fits.",
+   "bracket_effect": "none",
+   "budget_effect": "adds $16.05; the cut's price is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Thundering Falls",
+    "oracle_id": "d2bcff58-7a8a-46ef-b6b3-39501d4c8e6e"
+   },
+   "owned": false,
+   "price": 16.05
+  },
+  {
+   "id": "sw-2",
+   "cut": {
+    "name": "Anger of the Gods",
+    "oracle_id": "3a7fe095-8278-4b1d-bec4-19b35bdcdd1b"
+   },
+   "add": {
+    "name": "Mjölnir, Hammer of Thor",
+    "oracle_id": "7f9a8845-d760-44a7-a4c9-8a20dba4e14a"
+   },
+   "resolves_finding_id": "p-interaction_resilience-1",
+   "tradeoff": "Cutting Anger of the Gods gives up a cheap, exile-based answer to opposing go-wide boards of toughness 3 or less, and it is also the deck's only recovery from a wide table once Blasphemous Act is gone; that is a real loss if q-4 means it was deliberate reset insurance. On the plus side it no longer deals 3 damage to Lara, Academy Manufactor, Xorn, Jolene and the Spirit and Wolf tokens when cast. Mjölnir, Hammer of Thor kills one creature on entry, with no cost to the owner's board, and stays behind as a legendary equipment for the carrier, doubling its damage. Lara is red, so she counts as worthy and can be equipped for {1}. Chandra's Ignition, already accepted in another swap, still covers sweeping a wide board.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$14.35 (adds $14.75, cuts $0.40); ownership unknown",
+   "alternative": {
+    "name": "Umezawa's Jitte",
+    "oracle_id": "1da10d5c-36a8-473f-a5d4-782ad61d8057"
+   },
+   "owned": false,
+   "price": 14.75
+  },
+  {
+   "id": "sw-3",
+   "cut": {
+    "name": "Windfall",
+    "oracle_id": "08becc07-28bc-4a2f-a6b0-28a2998d2f50"
+   },
+   "add": {
+    "name": "Six",
+    "oracle_id": "dbcbdf37-c40f-4068-b4a7-a849cab1056c"
+   },
+   "resolves_finding_id": "p-concept_execution-1",
+   "tradeoff": "Windfall's mass discard stocks the graveyard blindly and refills opponents' hands, and it rarely hands Lara a legendary target. Cutting it loses a one-shot hand refill and a way to hit descend. Six is a legendary carrier that mills three each attack and gives permanent cards in the graveyard retrace, so it fills the graveyard on purpose and lets the deck recast lost equipment.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$0.13 (adds $5.21, cuts $5.34); ownership unknown",
+   "alternative": {
+    "name": "Diligent Excavator",
+    "oracle_id": "a3866181-c127-45d6-8553-97e9f64a3ca5"
+   },
+   "owned": false,
+   "price": 5.21
+  },
+  {
+   "id": "sw-4",
+   "cut": {
+    "name": "Temple of the False God",
+    "oracle_id": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df"
+   },
+   "add": {
+    "name": "Thundering Falls",
+    "oracle_id": "d2bcff58-7a8a-46ef-b6b3-39501d4c8e6e"
+   },
+   "resolves_finding_id": "p-mana_consistency-1",
+   "tradeoff": "Temple of the False God taps for two colorless once you control five lands, which helps cast Embercleave and equip costs but adds nothing for the blue and red pips. Thundering Falls taps for U or R and surveils on entry, so it also puts legendary artifacts or lands into the graveyard for Lara's trigger. It enters tapped and you lose the colorless burst.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$14.47 (adds $14.82, cuts $0.35); ownership unknown",
+   "alternative": {
+    "name": "Hedge Maze",
+    "oracle_id": "ca4b6689-04ee-4227-9bdc-cb5a9590c745"
+   },
+   "owned": false,
+   "price": 14.82
+  },
+  {
+   "id": "sw-5",
+   "cut": {
+    "name": "Passionate Archaeologist",
+    "oracle_id": "6299d18e-a6a7-414c-85c0-d57a8e7d2627"
+   },
+   "add": {
+    "name": "Nature's Claim",
+    "oracle_id": "6d4e558e-9109-4918-a082-fdcbaffd516b"
+   },
+   "resolves_finding_id": "p-interaction_resilience-1",
+   "tradeoff": "Lara Croft has no Background slot, so Passionate Archaeologist's 'damage equal to mana value when you cast from exile' only works if the owner treats it as a second commander (q-3). In the 99 it does nothing, so the main loss is that unconfirmed exile-damage line. Nature's Claim is a 1-mana instant that destroys a hostile artifact or enchantment, which the deck only had Vandalblast and Beast Within for, and it can be cast while still developing mana.",
+   "bracket_effect": "none",
+   "budget_effect": "adds $1.38; the cut's price is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Krosan Grip",
+    "oracle_id": "3e39224c-72ce-4ecc-aa17-12c071ea1f3e"
+   },
+   "owned": false,
+   "price": 1.38
+  },
+  {
+   "id": "sw-6",
+   "cut": {
+    "name": "Etherium Sculptor",
+    "oracle_id": "96b87445-6362-4a17-91b2-cbf203fd03fd"
+   },
+   "add": {
+    "name": "Glóin, Dwarf Emissary",
+    "oracle_id": "29375a7a-af4e-46aa-8d1c-e8d22d3c0ea7"
+   },
+   "resolves_finding_id": "p-plan_synergy-1",
+   "tradeoff": "Etherium Sculptor's artifact discount saves only 1 mana on a pile of mostly cheap equipment, so little is lost. Glóin is a legendary body that benefits from K-9's ward, Mithril Coat, Blackblade's cheap equip and Andúril's attacking Spirits. It makes a Treasure on the first historic spell each turn, which Academy Manufactor and Xorn multiply, and it gives the deck more carriers if Lara is removed.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$2.17 (adds $2.84, cuts $0.67); ownership unknown",
+   "alternative": {
+    "name": "Syr Ginger, the Meal Ender",
+    "oracle_id": "2eb16535-718f-4b88-92bc-96429d796327"
+   },
+   "owned": false,
+   "price": 2.84
+  },
+  {
+   "id": "sw-7",
+   "cut": {
+    "name": "Forest",
+    "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6"
+   },
+   "add": {
+    "name": "Mines of Moria",
+    "oracle_id": "583cdebe-0195-45be-bd2e-5765f07cb902"
+   },
+   "resolves_finding_id": "p-mana_consistency-1",
+   "tradeoff": "Trading a basic Forest for Mines of Moria drops one green source and one Forest target for Nature's Lore and Cultivate, and green is the over-served color. Mines of Moria adds a red source that enters untapped with a legendary creature. It is also a legendary land that can be milled for Lara's trigger, and it turns graveyard cards into Treasure late in the game.",
+   "bracket_effect": "none",
+   "budget_effect": "adds $3.06; the cut's price is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Sokenzan, Crucible of Defiance",
+    "oracle_id": "c5ee72d5-3a9e-4fe5-8802-3286ee612055"
+   },
+   "owned": false,
+   "price": 3.06
+  }
+ ],
+ "cuts_to_consider": [
+  {
+   "card": {
+    "name": "Passionate Archaeologist",
+    "oracle_id": "6299d18e-a6a7-414c-85c0-d57a8e7d2627"
+   },
+   "reason": "It is a Background, and Lara Croft has no Background slot, so in the 99 it does nothing. Its payoff exists only if it is a second commander (q-3). Replace it with a playable card unless the owner confirms that setup.",
+   "evidence": [
+    "card.Passionate Archaeologist.type_line"
+   ]
+  },
+  {
+   "card": {
+    "name": "Thought Vessel",
+    "oracle_id": "9965d9c5-2ebf-4a6c-930e-55c5890979be"
+   },
+   "reason": "Ramp is 17 against a 9-11 target, and this colorless rock does nothing for the blue and red shortfall. It has the lowest EDHREC inclusion among the ramp pieces (0.0774), so it is the cheapest ramp slot to give back.",
+   "evidence": [
+    "roles.ramp.count",
+    "roles.ramp_vs_norm.target",
+    "card.Thought Vessel.edhrec_inclusion"
+   ]
+  }
+ ],
+ "bracket": {
+  "estimated": 3,
+  "target": null,
+  "reasons": [
+   "game_changers (floor 3): The One Ring",
+   "two_card_combos (floor 3): Aggravated Assault, The Reaver Cleaver"
+  ]
+ },
+ "mana": {
+  "summary": "Quantity is fine: 35 lands, 17 ramp pieces and five MDFC spell-lands against a 2.75 average curve, so land drops should rarely be missed. Fixing is also decent, with 13 multicolor lands and only 1 unconditional tapped land. The weak point is color. Blue and red are the heaviest colors at 23 and 24 pips but have only 16 sources each, against 30 and 28 recommended. Green is over-served. The proposed fixes are Ketria Triome for Reliquary Tower, Thundering Falls for Temple of the False God, and Mines of Moria for a basic Forest.",
+  "issues": [
+   "Blue and red have 16 sources each against 30 and 28 recommended, with 23 and 24 pips. Counterspell, Arcane Denial, Aggravated Assault ({3}{R}{R}) and Embercleave all want doubled or early colored mana. Green has 17 sources for only 11 pips. 15 basics split evenly across three colors, plus colorless lands (Reliquary Tower, Temple of the False God, The Grey Havens, Academy Ruins), dilute the colored sources. Sol Ring and Thought Vessel are colorless and cannot cover the gap.",
+   "Early ramp leans green or colorless (Nature's Lore, Cultivate, Farseek, Sword of the Animist). Nature's Lore only finds a Forest, so it does not fix blue or red unless it fetches a dual with a Forest type. Farseek fetches Island or Mountain types only, which are the shortfall colors. Yavimaya, Cradle of Growth helps Nature's Lore but adds no U/R sources.",
+   "Ramp is 17 against a 9-11 target, and Thought Vessel does nothing for the blue and red shortfall. It has the lowest EDHREC inclusion among the ramp pieces (0.0774), so it is the cheapest ramp slot to give back.",
+   "The Reaver Cleaver + Aggravated Assault has only one tutorable half. Fabricate, Reckless Handling and Goblin Engineer search for artifact cards, so they can fetch The Reaver Cleaver but not Aggravated Assault, an enchantment. This matters only if the combo is a deliberate win path."
+  ]
+ },
+ "questions_for_owner": [
+  {
+   "id": "q-1",
+   "question": "What bracket is this deck meant to play at?",
+   "why_asked": "The floor is 3 from The One Ring and the combo. At a stated 3, the infinite combo and tutors (Fabricate, Reckless Handling) may need review. At 4, they are expected and the review should check consistency and speed."
+  },
+  {
+   "id": "q-2",
+   "question": "Is the Reaver Cleaver + Aggravated Assault infinite combo a deliberate win condition or an accident of the card pool?",
+   "why_asked": "If deliberate, reviewers should judge tutor access, protection and counterspell backup for it. If accidental, the review should treat equipped combat damage as the main plan and may suggest cutting Aggravated Assault."
+  },
+  {
+   "id": "q-3",
+   "question": "Is Passionate Archaeologist meant to be a second commander (Background) or a main-deck card, and does the 100-card count include it?",
+   "why_asked": "It is a Background and only works with a commander that has a Background slot. If it is a second commander, the list's legality and card count change. If it is a main-deck card, it is dead weight and should be replaced."
+  },
+  {
+   "id": "q-4",
+   "question": "Are Anger of the Gods and Blasphemous Act deliberate sweeper insurance, given the deck plays several creatures and relies on tokens?",
+   "why_asked": "If deliberate (e.g. reset with Hammer of Nazahn or Mithril Coat protection), reviewers should leave them. If not, they conflict with the creature plan and are cut candidates."
+  },
+  {
+   "id": "q-5",
+   "question": "Is there a budget or a list of cards you will not swap, given the $592.46 total and expensive cards like The One Ring and Shadowspear?",
+   "why_asked": "If there is a budget, expensive underperformers become cut candidates. If not, upgrades are open and price should not constrain suggestions."
+  }
+ ],
+ "charts": {
+  "curve": {
+   "buckets": [
+    {
+     "mv": 0,
+     "count": 0,
+     "label": "0"
+    },
+    {
+     "mv": 1,
+     "count": 10,
+     "label": "1"
+    },
+    {
+     "mv": 2,
+     "count": 19,
+     "label": "2"
+    },
+    {
+     "mv": 3,
+     "count": 21,
+     "label": "3"
+    },
+    {
+     "mv": 4,
+     "count": 11,
+     "label": "4"
+    },
+    {
+     "mv": 5,
+     "count": 0,
+     "label": "5"
+    },
+    {
+     "mv": 6,
+     "count": 2,
+     "label": "6"
+    },
+    {
+     "mv": 7,
+     "count": 1,
+     "label": "7+"
+    }
+   ],
+   "average_mv": 2.75
+  },
+  "pips_vs_sources": [
+   {
+    "color": "U",
+    "pips": 23,
+    "sources": 16,
+    "recommended_sources": 30
+   },
+   {
+    "color": "R",
+    "pips": 24,
+    "sources": 16,
+    "recommended_sources": 28
+   },
+   {
+    "color": "G",
+    "pips": 11,
+    "sources": 17,
+    "recommended_sources": 28
+   }
+  ],
+  "roles": [
+   {
+    "role": "ramp",
+    "count": 17,
+    "target_min": 9,
+    "target_max": 11
+   },
+   {
+    "role": "draw",
+    "count": 14,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "targeted_removal",
+    "count": 6,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "wipes",
+    "count": 2,
+    "target_min": 5,
+    "target_max": 7
+   }
+  ],
+  "synergy_clusters": [
+   {
+    "name": "artifacts",
+    "cards": [
+     {
+      "name": "Daretti, Scrap Savant",
+      "oracle_id": "ea9f4de3-fc35-435a-8dff-a5657d14a9bd"
+     },
+     {
+      "name": "Etherium Sculptor",
+      "oracle_id": "96b87445-6362-4a17-91b2-cbf203fd03fd"
+     },
+     {
+      "name": "Goblin Engineer",
+      "oracle_id": "c1d6cce8-085f-42cb-8b0c-b6fbbf88b16a"
+     },
+     {
+      "name": "Liberator, Urza's Battlethopter",
+      "oracle_id": "798a4a6f-7443-4e8e-afcb-0a694fdfcbb3"
+     },
+     {
+      "name": "Rashmi and Ragavan",
+      "oracle_id": "bdef246c-cf66-40a1-aae4-a591846e73ca"
+     },
+     {
+      "name": "Tarrian's Soulcleaver",
+      "oracle_id": "2ffb38ec-5852-4e91-85a5-cfccd1f23556"
+     },
+     {
+      "name": "Urza, Lord High Artificer",
+      "oracle_id": "e87906d2-db1a-4e19-b910-adb4eb339945"
+     }
+    ],
+    "strength": 0.1186
+   }
+  ]
+ },
+ "omitted": [
+  {
+   "kind": "finding",
+   "item": "s-interaction_resilience-3: Artifact recovery has four separate sources, so an artifact sweep or a destroyed engine piece does not end the deck. Emry, Lurker of the Loch ({T}) lets you cast an artifact from t…",
+   "reason": "critic:unsupported_claim: The dossier's `roles.recursion.cards` only lists Daretti and Goblin Engineer, but the review claims Emry and Academy Ruins also recover artifacts without citing them as part of the recursion role. (quoted: \"roles.recursion.cards names only Daretti and Goblin Engineer, but the card table text s"
+  }
+ ]
+}

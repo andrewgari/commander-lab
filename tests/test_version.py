@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from app import app
-import version
+from src.server.app.main import app
+import src.server.app.version as version
 
 
 class TestAppVersion(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestAppVersion(unittest.TestCase):
         # Hermetic: the middleware prefers the GitHub-cached latest tag from Redis over
         # version.__version__; in CI that cache is filled from the live GitHub API and drifts.
         # Pin it empty so the bundled version is what renders.
-        import app as app_module
+        import src.server.app.main as app_module
         fake_r = mock.MagicMock()
         fake_r.get.return_value = None
         for p in (

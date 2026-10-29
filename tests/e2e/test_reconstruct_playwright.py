@@ -57,11 +57,11 @@ if ROOT not in sys.path:
 # not collect its tests.
 from tests.e2e import test_reconstruct_e2e as base  # noqa: E402
 
-import app as app_module  # noqa: E402
-import deck_validator as dv  # noqa: E402
-import reconstruct  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.draft.deck_validator as dv  # noqa: E402
+import src.server.domain.draft.reconstruct as reconstruct  # noqa: E402
 import uvicorn  # noqa: E402
-from reconstruct_builder import ReconstructBuilder  # noqa: E402
+from src.server.domain.draft.reconstruct_builder import ReconstructBuilder  # noqa: E402
 
 import redis as redis_lib  # noqa: E402
 

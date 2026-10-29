@@ -9,7 +9,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from providers.raw_paste import parse_decklist
+from src.server.infra.providers.raw_paste import parse_decklist
 
 
 class TestParseDecklist(unittest.TestCase):

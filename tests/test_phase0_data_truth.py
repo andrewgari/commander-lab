@@ -15,9 +15,9 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app as app_module  # noqa: E402
-import instances as instance_store  # noqa: E402
-import registry  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.inventory.instances as instance_store  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
 from scripts import dedupe_instances, remove_orphan_decks  # noqa: E402
 from tests.test_deck_manage_integration import FakeRedis as _BaseFake  # noqa: E402
 
