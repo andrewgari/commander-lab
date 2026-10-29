@@ -18,6 +18,10 @@ export const load: PageServerLoad = async () => {
 	let playerError: string | null = null;
 	try {
 		player = await apiGet<PlayerProfileResponse>(`/api/v2/profile/player/${PLAYER}`);
+		if (player === null || typeof player !== 'object') {
+			player = null;
+			playerError = 'unexpected response';
+		}
 	} catch (e) {
 		playerError = e instanceof Error ? e.message : 'unavailable';
 	}
@@ -27,7 +31,27 @@ export const load: PageServerLoad = async () => {
 			apiGet<ProfileHistoryResponse>('/api/v2/profile/history?limit=50'),
 			apiGet<ProfileOverridesResponse>('/api/v2/profile/overrides')
 		]);
-		return { latest, history: history.snapshots, overrides, player, playerError, error: null as string | null };
+		// Partial payloads are normalised here so the page never reads an undefined field.
+		const normLatest: ProfileLatestResponse = {
+			available: latest?.available === true,
+			reason: latest?.reason ?? null,
+			snapshot: latest?.snapshot ?? null
+		};
+		const normOverrides: ProfileOverridesResponse = {
+			overrides: overrides?.overrides ?? {},
+			known_keys: overrides?.known_keys ?? {}
+		};
+		const normHistory = Array.isArray(history?.snapshots) ? history.snapshots : [];
+		const normPlayer: PlayerProfileResponse | null = player
+			? {
+					...player,
+					profile: player.profile ?? {},
+					provenance: player.provenance ?? {},
+					versions: player.versions ?? [],
+					pending_proposals: player.pending_proposals ?? []
+				}
+			: null;
+		return { latest: normLatest, history: normHistory, overrides: normOverrides, player: normPlayer, playerError, error: null as string | null };
 	} catch (e) {
 		return {
 			latest: { available: false, reason: 'unavailable', snapshot: null },

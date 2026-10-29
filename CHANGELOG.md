@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Web app: Deck, Game, Draft, Home and Profile pages show a clear error message (with a way back) when the API returns incomplete data, instead of a blank server error page.
+- Web app: a thin progress bar appears under the top of the page while a slow navigation is loading.
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
 - Drafts pages: tables scroll inside their own box on narrow screens instead of widening the page, form fields and the Commit / Abandon buttons now have clear names for screen readers, errors are announced, and secondary text is easier to read.
 - Decks pages: secondary text and the "in mail" tag are now readable on the dark theme, the Have / Buy table scrolls inside its own keyboard-reachable region on phones instead of widening the page and has a caption and column headers for screen readers, cards that still need buying are announced as "need to buy N" rather than relying on red text alone, and the deck-list error message is announced.

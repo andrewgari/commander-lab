@@ -1,4 +1,5 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail, isHttpError, redirect } from '@sveltejs/kit';
+import { requireShape } from '#lib/shape.ts';
 import {
 	apiDelete,
 	apiGet,
@@ -13,9 +14,11 @@ export const load: PageServerLoad = async ({ params }) => {
 	let state: DraftState;
 	try {
 		state = await apiGet<DraftState>(`/api/v2/drafts/${params.id}`);
+		requireShape(state, 'Draft data', { draft: 'object', 'draft.name': 'string', 'draft.status': 'string', 'draft.source_decks': 'array', cards: 'array', moves: 'array' });
 	} catch (e) {
+		if (isHttpError(e)) throw e;
 		if (e instanceof ApiError && e.status === 404) error(404, 'Draft not found');
-		throw e;
+		error(503, e instanceof Error ? e.message : 'Draft data unavailable');
 	}
 	let suggestions: DraftSuggestions | null = null;
 	let suggestionsError: string | null = null;
