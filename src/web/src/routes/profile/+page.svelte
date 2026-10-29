@@ -2,6 +2,14 @@
 	import ArchetypeMixChart from '#lib/components/ArchetypeMixChart.svelte';
 	import CurveChart from '#lib/components/CurveChart.svelte';
 	import PowerPanel from '#lib/components/PowerPanel.svelte';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import SubmitButton from '#lib/components/SubmitButton.svelte';
+	import TasteEditor from '#lib/components/profile/TasteEditor.svelte';
+	import { createPending } from '#lib/forms/pending.svelte.ts';
+	import { fieldLabel, type FieldError } from '#lib/profile/taste-form.ts';
+	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -56,6 +64,20 @@
 		return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
 	}
 
+	const seed = createPending();
+	const gen = createPending();
+	const pendingByPath = $derived(
+		(data.player?.pending_proposals ?? []).reduce<Record<string, number>>((m, pr) => {
+			m[pr.path] = (m[pr.path] ?? 0) + 1;
+			return m;
+		}, {})
+	);
+	const serverErrors = $derived<FieldError[]>((form as { fieldErrors?: FieldError[] } | null)?.fieldErrors ?? []);
+	const proposalError = $derived((form as { proposalError?: { id: number; message: string } } | null)?.proposalError ?? null);
+	// Re-mount the editor whenever the saved profile changes so badges and the dirty counter reset.
+	const editorKey = $derived(JSON.stringify([data.player?.profile, data.player?.provenance]));
+	const proposalValue = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
+
 	const snapshot = $derived(data.latest.snapshot);
 	const metrics = $derived(snapshot?.metrics);
 	const curve = $derived(asCurve(metrics));
@@ -80,7 +102,7 @@
 <h1>Profile</h1>
 
 {#if data.error}
-	<p class="error" role="alert">Profile unavailable: {data.error}</p>
+	<ErrorBanner message="Profile snapshots couldn't load" detail={data.error} onRetry={() => invalidateAll()} />
 {:else}
 	{#if !data.latest.available || !snapshot}
 		<p class="unavailable">
@@ -206,58 +228,66 @@
 		What the reviewer knows about you. Values you edit are <strong>stated</strong> and are never
 		overwritten by learning. Deck-level intent beats this profile.
 	</p>
-	{#if form?.playerError}
-		<p class="error" role="alert">{form.playerError}</p>
-	{/if}
-	{#if form?.playerOk}
-		<p class="ok">{form.playerOk}</p>
-	{/if}
-	{#if !data.player}
-		<p class="unavailable">Not available: {data.playerError ?? 'no profile yet'}</p>
-		<form method="POST" action="?/seedPlayer">
-			<button type="submit">Seed from profiles/andrew.json</button>
-		</form>
-	{:else}
-		<form method="POST" action="?/savePlayer">
-			<label for="player-json">Profile values (JSON)</label>
-			<textarea id="player-json" name="values" rows="18" spellcheck="false"
-				>{JSON.stringify(data.player.profile, null, 2)}</textarea
-			>
-			<button type="submit">Save as stated</button>
-		</form>
-
-		<h3>Provenance</h3>
-		<ul class="prov">
-			{#each Object.entries(data.player.provenance) as [key, p] (key)}
-				<li><code>{key}</code> — {p.source} · {fmtTs(p.at)}</li>
-			{/each}
-		</ul>
-
-		<h3>Proposed from your feedback</h3>
-		<form method="POST" action="?/generateProposals">
-			<button type="submit">Look for patterns in my feedback</button>
-		</form>
-		{#if data.player.pending_proposals.length === 0}
-			<p class="hint">No pending proposals.</p>
-		{:else}
-			<ul class="proposals">
-				{#each data.player.pending_proposals as pr (pr.id)}
-					<li>
-						<strong>{pr.op === 'add' ? 'Add' : 'Set'} {pr.path}:</strong>
-						{JSON.stringify(pr.value)}
-						<span class="meta">{pr.rationale}</span>
-						<form method="POST" action="?/confirmProposal" class="inline">
-							<input type="hidden" name="id" value={pr.id} />
-							<button type="submit">Confirm</button>
-						</form>
-						<form method="POST" action="?/dismissProposal" class="inline">
-							<input type="hidden" name="id" value={pr.id} />
-							<button type="submit" class="clear">Dismiss</button>
-						</form>
-					</li>
-				{/each}
-			</ul>
+	{#if form?.playerError && (data.player ? !serverErrors.length || form.playerError : true)}
+		{#if !data.player || !serverErrors.length}
+			<ErrorBanner message="Profile action failed" detail={form.playerError} class="mb" />
 		{/if}
+	{/if}
+	{#if form?.playerOk && !form?.playerError}
+		<p class="ok" role="status">{form.playerOk}</p>
+	{/if}
+	{#if !data.player && data.playerError && !/not.?found|404|no profile/i.test(data.playerError)}
+		<ErrorBanner message="Taste profile couldn't load" detail={data.playerError} onRetry={() => invalidateAll()} />
+	{:else if !data.player}
+		<EmptyState variant="inline" title="No taste profile yet" description={data.playerError ?? 'Seed it from the profiles/andrew.json file, then edit it here.'}>
+			{#snippet actions()}
+				<form method="POST" action="?/seedPlayer" use:enhance={seed.enhance}>
+					<SubmitButton pending={seed.submitting} pendingLabel="Seeding…" variant="primary">Seed from profiles/andrew.json</SubmitButton>
+				</form>
+			{/snippet}
+		</EmptyState>
+	{:else}
+		{#key editorKey}
+			<TasteEditor
+				profile={data.player.profile}
+				provenance={data.player.provenance}
+				{serverErrors}
+				formError={form?.playerError && serverErrors.length ? form.playerError : null}
+				saved={form?.playerOk ?? null}
+				{pendingByPath}
+			/>
+		{/key}
+
+		<section id="proposals" aria-labelledby="proposals-h">
+			<h3 id="proposals-h">Suggested from your feedback</h3>
+			<form method="POST" action="?/generateProposals" use:enhance={gen.enhance}>
+				<SubmitButton pending={gen.submitting} pendingLabel="Looking…">Look for patterns in my feedback</SubmitButton>
+			</form>
+			{#if data.player.pending_proposals.length === 0}
+				<p class="hint">No pending suggestions.</p>
+			{:else}
+				<ul class="proposals">
+					{#each data.player.pending_proposals as pr (pr.id)}
+						<li class="proposal" tabindex="-1">
+							<div>
+								<span class="meta">{fieldLabel(pr.path.split('/')[0])}</span>
+								<p><strong>{pr.op === 'add' ? 'Add' : 'Set'}</strong> <code>{proposalValue(pr.value)}</code></p>
+								<p class="meta">{pr.rationale}</p>
+								{#if proposalError?.id === pr.id}
+									<ErrorBanner severity="warning" message={proposalError.message} />
+								{/if}
+							</div>
+							<div class="proposal__actions">
+								{#if proposalError?.id !== pr.id}
+									<form method="POST" action="?/confirmProposal"><input type="hidden" name="id" value={pr.id} /><button type="submit" class="btn btn--primary">Confirm</button></form>
+								{/if}
+								<form method="POST" action="?/dismissProposal"><input type="hidden" name="id" value={pr.id} /><button type="submit" class="btn btn--secondary">Dismiss</button></form>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
 	{/if}
 </section>
 
@@ -344,15 +374,11 @@
 	.unavailable {
 		color: var(--color-muted);
 	}
-	textarea {
-		width: 100%;
-		font-family: var(--font-mono);
-		font-size: 0.8rem;
-	}
-	.inline {
-		display: inline-block;
-		margin-left: 0.5rem;
-	}
+	.proposals { list-style: none; padding: 0; display: grid; gap: var(--space-3); }
+	.proposal { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-left: 3px solid var(--color-info); }
+	.proposal p { margin: var(--space-1) 0; }
+	.proposal__actions { display: flex; flex-direction: column; gap: var(--space-2); }
+	@media (max-width: 40rem) { .proposal { grid-template-columns: 1fr; } .proposal__actions { flex-direction: row; } }
 	.steered ul {
 		margin: 0;
 		padding-left: 1.2rem;
