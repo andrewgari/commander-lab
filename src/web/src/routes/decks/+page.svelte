@@ -11,7 +11,7 @@
 <h1>Decks</h1>
 
 {#if data.error}
-	<p class="error">Deck data unavailable: {data.error}</p>
+	<p class="error" role="alert">Deck data unavailable: {data.error}</p>
 {:else if data.decks.length === 0}
 	<p>No imported decks yet.</p>
 {:else}
@@ -54,7 +54,7 @@
 	.meta,
 	.have-buy {
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
 	.error {
 		color: var(--color-danger);
