@@ -24,23 +24,32 @@
 	</p>
 
 	<form method="get" class="search">
-		<input type="search" name="q" value={data.q} placeholder="Filter by card name…" />
+		<input
+			type="search"
+			name="q"
+			value={data.q}
+			placeholder="Filter by card name…"
+			aria-label="Filter inventory by card name"
+		/>
 		<button type="submit">Search</button>
-		{#if data.q}<a href="/inventory">clear</a>{/if}
+		{#if data.q}<a href="/inventory" aria-label="Clear inventory filter">clear</a>{/if}
 	</form>
 
 	{#if data.inventory.length === 0}
 		<p>No cards{data.q ? ` matching “${data.q}”` : ''} in the collection.</p>
 	{:else}
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
+		<div class="table-scroll" role="region" aria-label="Inventory by card" tabindex="0">
 		<table>
+			<caption class="visually-hidden">Inventory by card</caption>
 			<thead>
 				<tr>
-					<th>Card</th>
-					<th>Owned</th>
-					<th>In collection</th>
-					<th>In decks</th>
-					<th>In mail</th>
-					<th>Decks</th>
+					<th scope="col">Card</th>
+					<th scope="col">Owned</th>
+					<th scope="col">In collection</th>
+					<th scope="col">In decks</th>
+					<th scope="col">In mail</th>
+					<th scope="col">Decks</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -63,6 +72,7 @@
 				{/each}
 			</tbody>
 		</table>
+		</div>
 	{/if}
 {/if}
 
@@ -72,7 +82,7 @@
 		margin-bottom: 0.25rem;
 	}
 	.totals {
-		opacity: 0.85;
+		color: #262626;
 	}
 	.search {
 		display: flex;
@@ -83,8 +93,52 @@
 	.search input {
 		flex: 1;
 		max-width: 24rem;
+		min-height: 44px;
 		padding: 0.35rem 0.5rem;
+		box-sizing: border-box;
 	}
+	.search button {
+		min-height: 44px;
+		min-width: 44px;
+		padding: 0.35rem 0.9rem;
+	}
+	.search a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		min-width: 44px;
+		padding: 0 0.5rem;
+	}
+	nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	.table-scroll {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		margin-bottom: 1rem;
+	}
+	.table-scroll:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
+	}
+	.table-scroll table {
+		min-width: 40rem;
+		margin-bottom: 0;
+	}
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
 	table {
 		border-collapse: collapse;
 		font-size: 0.85rem;
@@ -101,11 +155,11 @@
 	}
 	.decks {
 		font-size: 0.8rem;
-		opacity: 0.75;
+		color: var(--text-muted, #404040);
 	}
 	.not-owned {
 		font-size: 0.75rem;
-		opacity: 0.6;
+		color: var(--text-faint, #666666);
 	}
 	.error {
 		color: var(--color-danger);
