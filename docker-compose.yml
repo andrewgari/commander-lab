@@ -62,6 +62,13 @@ services:
       - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
+      # Deck reviewer card 11: PDF export goes through the optional `pdf` container (docker compose --profile pdf up -d),
+      # which prints the web page; card art is served from the local Scryfall image cache under /data.
+      - PDF_SERVICE_URL=${PDF_SERVICE_URL:-http://pdf:8100}
+      - PDF_WEB_URL=${PDF_WEB_URL:-http://web:3000}
+      - REVIEW_PDF_SECRET=${REVIEW_PDF_SECRET:-}
+      - CARD_IMAGE_CACHE_DIR=/data/card-images
+      - CARD_IMAGE_OFFLINE=${CARD_IMAGE_OFFLINE:-0}
     depends_on:
       redis:
         condition: service_started
@@ -87,6 +94,23 @@ services:
       - COMMANDER_API_URL=http://app:8000
     depends_on:
       - app
+    networks:
+      - internal
+
+  # Deck reviewer card 11 (DECISIONS D4): Playwright/Chromium that prints the review page to PDF. Optional and off by
+  # default so the stack stays small (the image is ~1.4 GB): docker compose --profile pdf up -d pdf
+  pdf:
+    image: commander-lab-pdf:${TAG:-latest}
+    build:
+      context: ./docker/pdf
+    container_name: commander-lab-pdf
+    profiles: ["pdf"]
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      - PDF_ALLOWED_ORIGIN=http://web:3000
+    depends_on:
+      - web
     networks:
       - internal
 
