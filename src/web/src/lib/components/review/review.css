@@ -1,7 +1,7 @@
 /* Tactical HUD token subset from docs/DESIGN_TOKENS.md. Scoped: no app-shell reset.
    Fonts use installed/system fallbacks; review rendering makes no font requests. */
 .review-report, .review-preview {
- --surface-0:#0e1216; --surface-1:#141a1f; --surface-2:#1a2128; --line:#29323b;
+ --surface-0:var(--color-bg); --surface-1:#141a1f; --surface-2:#1a2128; --line:#29323b;
  --text-1:#e8ebee; --text-2:#b6bfc8; --text-3:#8a96a2;
  --signal:#f0a63a; --signal-dim:#3b2a12; --signal-line:#7a5420; --text-on-signal:#17110a;
  --data:#4fb0c6; --data-dim:#15333b; --ok:#6cbf7a; --ok-dim:#17301d;
