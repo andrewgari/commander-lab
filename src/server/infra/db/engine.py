@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from src.server.infra.db.config import DbSettings, get_settings
+from src.server.infra.db.config import PG_CONNECT_ARGS, DbSettings, get_settings
 
 _lock = threading.Lock()
 _engine: Optional[Engine] = None
@@ -17,7 +17,8 @@ def make_engine(settings: DbSettings) -> Engine:
     kwargs = {"echo": settings.echo, "pool_pre_ping": True}
     if not settings.url.startswith("sqlite"):  # sqlite uses a different pool class
         kwargs.update(pool_size=settings.pool_size, max_overflow=settings.max_overflow,
-                      pool_timeout=settings.pool_timeout, pool_recycle=settings.pool_recycle)
+                      pool_timeout=settings.pool_timeout, pool_recycle=settings.pool_recycle,
+                      connect_args=dict(PG_CONNECT_ARGS))
     return create_engine(settings.url, **kwargs)
 
 
