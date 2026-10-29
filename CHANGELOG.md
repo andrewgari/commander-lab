@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Web app: every page now has a shared header with primary navigation (Home, Decks, Inventory, Games, Drafts, Profile) that marks the current page, and a "Skip to content" link for keyboard users. The header is hidden when printing.
 - Web app: a shared dark theme (colors, type scale, spacing, radii) now applies across all pages, with a visible keyboard focus ring on links, buttons and inputs, and animations are turned off for people who prefer reduced motion. Pages look the same apart from using the shared colors.
 - Card search API: new `GET /api/v2/cards/search` filters by name, color identity (within/exact/includes), card type, mana value, rarity, oracle text, owned / not owned / any, and "Can be commander" (with partner pairing). Results show how many copies you own and whether each card can be a commander; if Scryfall is unavailable it falls back to your local card library and says so. The card autocomplete results now also include each card's `oracle_id`. No page uses it yet.
 - Brew draft editing (internal API): a brewed deck can now have cards added and removed (`POST /api/v2/brew/{session_id}/cards`, `DELETE /api/v2/brew/{session_id}/cards/{oracle_id}`). Each edit re-checks where the card comes from (donor deck, owned, or buy) and updates the buy cost; a second copy of a non-basic card is refused, and the commander cannot be removed. Accepting an unedited brew is unchanged. No user-visible change yet.
