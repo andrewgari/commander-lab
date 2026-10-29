@@ -53,7 +53,7 @@
 		font: var(--weight-bold) 11px / 1 var(--font-mono); text-transform: uppercase; white-space: nowrap;
 		color: var(--color-accent); border: 1px solid currentColor; border-radius: var(--radius-sm); background: transparent;
 	}
-	.pb--unsaved { border-style: dashed; background: var(--color-accent-bg, #3b2a12); }
+	.pb--unsaved { border-style: dashed; background: var(--color-warning-bg); }
 	.pb--learned { color: var(--color-info); background: var(--color-info-bg); cursor: pointer; }
 	.pb--learned:hover { border-color: var(--color-info); }
 	.pb__evidence {
