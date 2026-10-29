@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import ReviewReport from '#lib/components/review/ReviewReport.svelte';
 	import SwapFeedback from '#lib/components/review-page/SwapFeedback.svelte';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
 	const active = $derived(data.print ? null : data.list.active);
 	const viewing = $derived(data.print ? null : data.row);
@@ -31,6 +30,21 @@
 		const t = setInterval(() => (now = Date.now()), 1000);
 		return () => clearInterval(t);
 	});
+
+	let genError = $state('');
+	async function generate() {
+		busy = true;
+		genError = '';
+		try {
+			const res = await fetch(`/decks/${encodeURIComponent(data.deckId)}/review/generate`, { method: 'POST' });
+			if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message ?? res.statusText);
+			await invalidateAll();
+		} catch (e) {
+			genError = e instanceof Error ? e.message : 'Could not start the review';
+		} finally {
+			busy = false;
+		}
+	}
 
 	async function exportPdf() {
 		if (!viewing) return;
@@ -60,7 +74,7 @@
 {#if data.print}
 	<main><ReviewReport document={data.document} theme="light" print={true} /></main>
 {:else}
-	<form class="review-preview review-bar" method="POST" action="?/generate" use:enhance={() => { busy = true; return async ({ update }) => { await update(); busy = false; }; }}>
+	<form class="review-preview review-bar" onsubmit={(e) => { e.preventDefault(); generate(); }}>
 		<a href={`/decks/${encodeURIComponent(data.deckId)}`}>← deck</a>
 		<strong>Deck review</strong>
 		{#if data.list.documents.length}
@@ -77,7 +91,7 @@
 			<button type="button" onclick={exportPdf} disabled={pdfState === 'working'}>{pdfState === 'working' ? 'Preparing PDF…' : 'Export PDF'}</button>
 		{/if}
 		{#if pdfState === 'error'}<span class="review-error" role="alert">PDF export failed: {pdfMessage}</span>{/if}
-		{#if form?.message}<span class="review-error" role="alert">{form.message}</span>{/if}
+		{#if genError}<span class="review-error" role="alert">{genError}</span>{/if}
 	</form>
 
 	{#if active}

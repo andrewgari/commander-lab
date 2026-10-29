@@ -84,7 +84,8 @@ services:
   web:
     image: commander-lab-web:${TAG:-latest}
     build:
-      context: ./src/web
+      context: .
+      dockerfile: src/web/Dockerfile
     container_name: commander-lab-web
     pull_policy: build
     restart: unless-stopped

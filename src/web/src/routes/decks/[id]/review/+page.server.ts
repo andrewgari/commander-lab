@@ -1,14 +1,13 @@
-import { error, fail } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import {
 	apiGet,
-	apiPost,
 	ApiError,
 	type ReviewDocumentList,
 	type ReviewDocumentResponse,
 	type SwapFeedback
 } from '#lib/api.ts';
 import type { ReviewDocument } from '#lib/components/review/types.js';
-import type { Actions, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const requested = Number(url.searchParams.get('doc'));
@@ -58,19 +57,4 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		document: (row?.status === 'ok' ? row.doc : null) as unknown as ReviewDocument | null,
 		feedback
 	};
-};
-
-export const actions: Actions = {
-	/** Queue a new review. The API answers 202 at once; the page polls the running job's stage. */
-	generate: async ({ params }) => {
-		try {
-			const started = await apiPost<{ id: number; already_running: boolean }>(
-				`/api/v2/decks/${encodeURIComponent(params.id)}/review-documents`,
-				{}
-			);
-			return { started: started.id, alreadyRunning: started.already_running };
-		} catch (e) {
-			return fail(e instanceof ApiError ? e.status : 502, { message: e instanceof Error ? e.message : 'Could not start the review' });
-		}
-	}
 };
