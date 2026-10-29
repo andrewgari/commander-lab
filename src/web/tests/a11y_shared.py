@@ -25,7 +25,7 @@ with sync_playwright() as p:
     for sel, name in (("[role=region] .table-scroll, .table-scroll[role=region]", "component wrapper"), ("[data-testid=class-wrapper]", "class wrapper")):
         r = page.evaluate("""(sel) => { const w = document.querySelector(sel); return [w.scrollWidth, w.clientWidth, getComputedStyle(w).overflowX]; }""", sel)
         check(r[0] > r[1] and r[2] == "auto", f"{name} scrolls internally (scrollWidth {r[0]} > clientWidth {r[1]})")
-    region = page.locator(".table-scroll[role=region]")
+    region = page.locator(".table-scroll[role=region]").first
     check(region.get_attribute("tabindex") == "0" and bool(region.get_attribute("aria-label")), "scroll region is focusable and named")
     region.focus()
     check(page.evaluate("getComputedStyle(document.activeElement).outlineStyle") == "solid", "focus-visible ring on scroll region")
