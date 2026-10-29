@@ -77,7 +77,7 @@
 	.fb-choices { display: inline-flex; gap: 4px; }
 	.fb-choice, .fb-save { font: inherit; font-size: 13px; padding: 4px 12px; background: transparent; color: inherit; border: 1px solid var(--line, #29323b); border-radius: 2px; cursor: pointer; }
 	.fb-choice.active { background: var(--signal, #f0a63a); color: var(--text-on-signal, #17110a); border-color: var(--signal, #f0a63a); }
-	.fb-choice[data-decision='rejected'].active { background: #b4443c; border-color: #b4443c; color: #fff; }
+	.fb-choice[data-decision='rejected'].active { background: var(--color-danger-solid); border-color: var(--color-danger-solid); color: var(--color-on-solid); }
 	.fb-reason { flex: 1 1 200px; min-width: 160px; font: inherit; font-size: 13px; padding: 4px 8px; background: transparent; color: inherit; border: 1px solid var(--line, #29323b); border-radius: 2px; }
 	.fb-save:disabled { opacity: 0.5; cursor: not-allowed; }
 	.fb-status { font-size: 12px; min-width: 4em; }

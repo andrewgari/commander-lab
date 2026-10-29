@@ -205,8 +205,8 @@
 	.back a {
 		display: inline-flex;
 		align-items: center;
-		min-height: 44px;
-		min-width: 44px;
+		min-height: var(--touch-min);
+		min-width: var(--touch-min);
 	}
 	.visually-hidden {
 		position: absolute;
@@ -229,13 +229,13 @@
 	.synergy li a {
 		display: inline-flex;
 		align-items: center;
-		min-height: 44px;
+		min-height: var(--touch-min);
 	}
 	.notes-form input,
 	.notes-form textarea,
 	.notes-form button,
 	.printing-switch select {
-		min-height: 44px;
+		min-height: var(--touch-min);
 		box-sizing: border-box;
 	}
 	.notes-form textarea {
@@ -250,11 +250,11 @@
 		margin: 1.25rem 0 0.35rem;
 	}
 	.meta {
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 		font-size: 0.85rem;
 	}
 	.mana {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		margin-right: 0.35rem;
 	}
 	.oracle {
@@ -262,7 +262,7 @@
 		font-size: 0.9rem;
 	}
 	.empty {
-		color: var(--text-faint, #666666);
+		color: var(--color-muted);
 		font-style: italic;
 	}
 	.pills {
@@ -279,7 +279,7 @@
 		font-size: 0.8rem;
 	}
 	.pill .src {
-		color: var(--text-faint, #666666);
+		color: var(--color-muted);
 		font-size: 0.7rem;
 	}
 	.pill.manual {
@@ -303,17 +303,17 @@
 		margin-bottom: 0.4rem;
 	}
 	.weight {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.75rem;
 		margin: 0 0.4rem;
 	}
 	.dir {
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 	.reason {
 		margin: 0.1rem 0 0;
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 	.printing-switch select {
@@ -326,9 +326,9 @@
 		max-width: 28rem;
 	}
 	.error {
-		color: var(--danger, #c0392b);
+		color: var(--color-danger);
 	}
 	.saved {
-		color: var(--ok, #1e8449);
+		color: var(--color-success);
 	}
 </style>
