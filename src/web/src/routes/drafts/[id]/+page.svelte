@@ -220,7 +220,7 @@
 		background: none;
 		border: none;
 		padding: 0;
-		color: #c0392b;
+		color: var(--color-danger);
 		cursor: pointer;
 		font-size: inherit;
 		text-decoration: underline;
@@ -232,15 +232,15 @@
 	}
 	button.commit {
 		padding: 0.45rem 1.1rem;
-		background: #1e8449;
-		color: #fff;
+		background: var(--color-success-solid);
+		color: var(--color-on-solid);
 		border: none;
 		cursor: pointer;
 	}
 	button.abandon {
 		padding: 0.45rem 1.1rem;
-		background: #c0392b;
-		color: #fff;
+		background: var(--color-danger-solid);
+		color: var(--color-on-solid);
 		border: none;
 		cursor: pointer;
 	}
@@ -249,12 +249,12 @@
 		opacity: 0.75;
 	}
 	.open {
-		color: #b9770e;
+		color: var(--color-warning);
 	}
 	.committed {
-		color: #1e8449;
+		color: var(--color-success);
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 </style>

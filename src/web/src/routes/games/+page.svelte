@@ -99,7 +99,7 @@
 		font-size: 0.85rem;
 	}
 	textarea {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.8rem;
 	}
 	button {
@@ -121,6 +121,6 @@
 		opacity: 0.75;
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 </style>
