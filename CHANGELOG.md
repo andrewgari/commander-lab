@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
+- Drafts pages: tables scroll inside their own box on narrow screens instead of widening the page, form fields and the Commit / Abandon buttons now have clear names for screen readers, errors are announced, and secondary text is easier to read.
 - Decks pages: secondary text and the "in mail" tag are now readable on the dark theme, the Have / Buy table scrolls inside its own keyboard-reachable region on phones instead of widening the page and has a caption and column headers for screen readers, cards that still need buying are announced as "need to buy N" rather than relying on red text alone, and the deck-list error message is announced.
 - Web app: text on the Games and Inventory pages (totals, game details, deck lists) is now readable on the dark theme, the "import a deck first" link and the deck review's evidence chips are full-size touch targets, and the accessibility test page has a title and a keyboard-scrollable table.
 - Brew commander search: pressing Esc right after typing no longer lets the pending search re-open the suggestion list, and on narrow screens the sticky Generate bar now says "Pick a commander to brew" until a commander is chosen.
