@@ -201,5 +201,47 @@ class MaterialiseTests(unittest.TestCase):
         json.dumps(tr.to_dict())
 
 
+class FactKeyFeedbackTests(unittest.TestCase):
+    """Cheaper models cite a finding id (p-...) as a fact key; the repair turn must say exactly what is wrong."""
+
+    OK_CUT = {"card": "Island", "reason": "A lone basic in a deck with 38 land target is the weakest land slot.", "fact_keys": ["mana.lands"]}
+
+    def test_finding_id_as_fact_key_gets_a_specific_repair_message(self):
+        bad = {**self.OK_CUT, "fact_keys": ["mana.lands", "p-plan_synergy-1"]}
+        out, client, *_ = run_c([t.recommend_reply([t.swap_in()], cuts=[bad]), t.recommend_reply([t.swap_in()], cuts=[self.OK_CUT])])
+        msg = client.requests[1].messages[-1].content
+        self.assertIn("p-plan_synergy-1", msg)
+        self.assertIn("finding id, not a fact key", msg)
+        self.assertEqual(out.cuts_to_consider[0]["evidence"], ["mana.lands"])
+
+    def test_unknown_fact_key_suggests_the_nearest_real_keys(self):
+        bad = {**self.OK_CUT, "fact_keys": ["mana.land"]}
+        _, client, *_ = run_c([t.recommend_reply([t.swap_in()], cuts=[bad]), t.recommend_reply([t.swap_in()], cuts=[self.OK_CUT])])
+        self.assertIn("mana.lands", client.requests[1].messages[-1].content)
+
+    def test_string_null_alternative_means_no_alternative(self):
+        out, client, *_ = run_c([t.recommend_reply([t.swap_in(alt="null")])])
+        self.assertIsNone(out.swaps[0]["alternative"])
+        self.assertEqual(len(client.requests), 1)
+
+    def test_last_attempt_drops_only_unsupportable_cuts_and_keeps_the_swaps(self):
+        bad = {**self.OK_CUT, "fact_keys": ["p-plan_synergy-1"]}
+        reply = t.recommend_reply([t.swap_in()], cuts=[bad, {**self.OK_CUT, "card": "Skullclamp"}])
+        out, client, *_ = run_c([reply, reply, reply])
+        self.assertEqual(len(client.requests), 3)
+        self.assertEqual([s["cut"]["name"] for s in out.swaps], ["Mana Crypt"])
+        self.assertEqual([c["card"]["name"] for c in out.cuts_to_consider], ["Skullclamp"])
+
+    def test_early_attempts_still_reject_rather_than_drop(self):
+        bad = {**self.OK_CUT, "fact_keys": ["p-plan_synergy-1"]}
+        _, client, *_ = run_c([t.recommend_reply([t.swap_in()], cuts=[bad]), t.recommend_reply([t.swap_in()], cuts=[self.OK_CUT])])
+        self.assertEqual(len(client.requests), 2)
+
+    def test_swap_errors_are_never_dropped_on_the_last_attempt(self):
+        bad = t.recommend_reply([t.swap_in(add_id="Mind Stone")])
+        with self.assertRaises(StructuredOutputError):
+            run_c([bad, bad, bad])
+
+
 if __name__ == "__main__":
     unittest.main()
