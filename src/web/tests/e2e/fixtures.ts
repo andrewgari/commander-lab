@@ -40,13 +40,13 @@ export class Mock {
 
 /** Every test starts from a freshly reset mock (the suite runs with one worker, so state is not shared). */
 export const test = base.extend<{ mock: Mock }>({
-	mock: async ({ playwright }, use) => {
+	mock: [async ({ playwright }, use) => {
 		const api = await playwright.request.newContext();
 		const mock = new Mock(api);
 		await mock.reset();
 		await use(mock);
 		await api.dispose();
-	}
+	}, { auto: true }]
 });
 export { expect };
 
