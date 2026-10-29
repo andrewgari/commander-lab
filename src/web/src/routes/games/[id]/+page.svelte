@@ -1,5 +1,9 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import ScrollTable, { type Column } from '#lib/components/ScrollTable.svelte';
+	import StatusPill from '#lib/components/StatusPill.svelte';
+	import { gameResult } from '#lib/status.ts';
 
 	let { data }: PageProps = $props();
 
@@ -7,6 +11,27 @@
 	const unavailable = $derived(meta.unavailable ?? {});
 	const userCards = $derived(cards.filter((c) => c.seat === meta.user_seat));
 	const title = $derived(game.deck_name ?? game.deck_id);
+	const result = $derived(gameResult(game.result));
+
+	// README D21: a column that is unavailable on every row is dropped and explained once under the table.
+	const castColumns: Column[] = [
+		{ key: 'card', header: 'Card' },
+		{ key: 'cast_turn', header: 'Cast turn', numeric: true }
+	];
+	const turnColumns: Column[] = [
+		{ key: 'turn', header: 'Turn', numeric: true },
+		{ key: 'land_played', header: 'Land played' },
+		{ key: 'spells_cast', header: 'Spells cast', numeric: true }
+	];
+	const allCastColumns: Column[] = [
+		{ key: 'seat', header: 'Seat', numeric: true },
+		{ key: 'card', header: 'Card' },
+		{ key: 'cast_turn', header: 'Cast turn', numeric: true }
+	];
+
+	function reasons(values: Array<string | undefined>): string {
+		return [...new Set(values.filter((v): v is string => !!v))].join('; ');
+	}
 </script>
 
 <svelte:head>
@@ -15,16 +40,12 @@
 
 <nav><a href="/games">← all games</a></nav>
 
-{#if data.imported}<p class="notice">Log imported — this is the game it produced.</p>{/if}
-{#if data.duplicate}<p class="notice">That log was already imported — this is the existing game (no duplicate created).</p>{/if}
+{#if data.imported}<ErrorBanner severity="info" message="Log imported — this is the game it produced." dismissible />{/if}
+{#if data.duplicate}<ErrorBanner severity="info" message="That log was already imported — this is the existing game (no duplicate created)." dismissible />{/if}
 
 <h1>
 	{title}
-	{#if game.result}
-		<span class:win={game.result === 'win'} class:loss={game.result === 'loss'} class="result">
-			{game.result}
-		</span>
-	{/if}
+	<StatusPill status={result} size="md" label={result === 'neutral' ? (game.result ?? undefined) : undefined} />
 </h1>
 <p class="meta">
 	game #{game.id} · {game.seat_count} players
@@ -47,31 +68,28 @@
 
 <section>
 	<h2>Cards cast — your seat {#if meta.user_seat}(seat {meta.user_seat}){/if}</h2>
-	{#if userCards.length === 0}
-		<p class="meta">No casts recorded for your seat.</p>
-	{:else}
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
-		<div class="table-scroll" role="region" aria-label="Casts for your seat" tabindex="0">
-		<table>
-			<caption class="visually-hidden">Casts for your seat</caption>
-			<thead>
-				<tr><th scope="col">Card</th><th scope="col">Cast turn</th><th scope="col">Drawn</th><th scope="col">Stuck in hand</th></tr>
-			</thead>
-			<tbody>
-				{#each userCards as card (card.card)}
-					<tr>
-						<td>
-							{card.card}
-							{#if !card.oracle_resolved}<span class="meta">(reference unavailable)</span>{/if}
-						</td>
-						<td>{card.cast_turn ?? '—'}</td>
-						<td class="unavailable">unavailable — {card.unavailable.drawn}</td>
-						<td class="unavailable">unavailable — {card.unavailable.stuck}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-		</div>
+	<ScrollTable
+		caption="Casts for your seat"
+		captionHidden
+		columns={castColumns}
+		rows={userCards}
+		rowKey={(c) => c.card}
+		rowHeader="card"
+		stickyFirstCol
+		minWidth="20rem"
+		emptyTitle="No casts recorded for your seat"
+	>
+		{#snippet cell(card, column)}
+			{#if column.key === 'card'}
+				{card.card}
+				{#if !card.oracle_resolved}<span class="meta">(reference unavailable)</span>{/if}
+			{:else}
+				{card.cast_turn ?? '—'}
+			{/if}
+		{/snippet}
+	</ScrollTable>
+	{#if userCards.length > 0}
+		<p class="meta">Drawn and Stuck in hand are unavailable: {reasons(userCards.flatMap((c) => [c.unavailable.drawn, c.unavailable.stuck]))}</p>
 	{/if}
 </section>
 
@@ -80,73 +98,49 @@
 	{#each players as player (player.seat)}
 		<h3>
 			Seat {player.seat} — {player.deck}
-			{#if player.is_user_seat}<span class="you">your deck</span>{/if}
+			{#if player.is_user_seat}<StatusPill status="neutral" label="Your deck" icon={null} />{/if}
 		</h3>
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
-		<div class="table-scroll" role="region" aria-label="Mana per turn, seat {player.seat}" tabindex="0">
-		<table>
-			<caption class="visually-hidden">Mana per turn — seat {player.seat}</caption>
-			<thead>
-				<tr><th scope="col">Turn</th><th scope="col">Land played</th><th scope="col">Spells cast</th><th scope="col">Mana spent</th></tr>
-			</thead>
-			<tbody>
-				{#each player.points as point (point.turn)}
-					<tr>
-						<td>{point.turn}</td>
-						<td>{point.land_played ?? ''}</td>
-						<td>{point.spells_cast}</td>
-						<td class="unavailable">unavailable — {player.unavailable.mana_spent}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-		</div>
+		<ScrollTable
+			caption="Mana per turn — seat {player.seat}"
+			captionHidden
+			columns={turnColumns}
+			rows={player.points}
+			rowKey={(pt) => pt.turn}
+			rowHeader="turn"
+			stickyFirstCol
+			minWidth="20rem"
+			emptyTitle="No turns recorded"
+		>
+			{#snippet cell(point, column)}
+				{point[column.key as 'turn' | 'land_played' | 'spells_cast'] ?? ''}
+			{/snippet}
+		</ScrollTable>
+		{#if player.points.length > 0}
+			<p class="meta">Mana spent is unavailable: {player.unavailable.mana_spent}</p>
+		{/if}
 	{/each}
 </section>
 
 <details>
 	<summary>All cards cast (every seat)</summary>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
-	<div class="table-scroll" role="region" aria-label="Casts across seats" tabindex="0">
-	<table>
-		<caption class="visually-hidden">Casts across seats</caption>
-		<thead>
-			<tr><th scope="col">Seat</th><th scope="col">Card</th><th scope="col">Cast turn</th><th scope="col">Drawn</th><th scope="col">Stuck</th></tr>
-		</thead>
-		<tbody>
-			{#each cards as card (`${card.seat}-${card.card}`)}
-				<tr>
-					<td>{card.seat}</td>
-					<td>{card.card}</td>
-					<td>{card.cast_turn ?? '—'}</td>
-					<td class="unavailable">unavailable</td>
-					<td class="unavailable">unavailable</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-	</div>
+	<ScrollTable
+		caption="Casts across seats"
+		captionHidden
+		columns={allCastColumns}
+		rows={cards}
+		rowKey={(c) => `${c.seat}-${c.card}`}
+		minWidth="20rem"
+		emptyTitle="No casts recorded"
+	/>
+	{#if cards.length > 0}
+		<p class="meta">Drawn and Stuck are unavailable for every card.</p>
+	{/if}
 </details>
 
 <style>
 	h1 {
 		font-size: 1.5rem;
 		margin-bottom: 0.25rem;
-	}
-	.result {
-		font-size: 0.9rem;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-	.win {
-		color: var(--color-success);
-	}
-	.loss {
-		color: var(--color-danger);
-	}
-	.meta {
-		font-size: 0.85rem;
-		color: var(--color-muted);
 	}
 	nav a {
 		display: inline-flex;
@@ -159,57 +153,7 @@
 		align-items: center;
 		cursor: pointer;
 	}
-	.table-scroll {
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
-		margin-bottom: 1rem;
-	}
-	.table-scroll:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
-	}
-	.table-scroll table {
-		min-width: 28rem;
-		margin-bottom: 0;
-	}
-	.visually-hidden {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
 	.summary {
 		font-style: italic;
-	}
-	.notice {
-		background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
-		border: 1px solid color-mix(in srgb, var(--color-success) 33%, transparent);
-		padding: 0.4rem 0.6rem;
-		font-size: 0.85rem;
-	}
-	table {
-		border-collapse: collapse;
-		font-size: 0.85rem;
-		margin-bottom: 1rem;
-	}
-	th,
-	td {
-		padding: 0.15rem 0.6rem 0.15rem 0;
-		text-align: left;
-	}
-	.unavailable {
-		color: var(--color-muted);
-		font-style: italic;
-		font-size: 0.8rem;
-	}
-	.you {
-		font-size: 0.75rem;
-		color: var(--color-success);
 	}
 </style>

@@ -1,7 +1,20 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import type { PageProps } from './$types';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import ScrollTable, { type Column } from '#lib/components/ScrollTable.svelte';
 
 	let { data }: PageProps = $props();
+
+	const columns: Column[] = [
+		{ key: 'name', header: 'Card' },
+		{ key: 'owned', header: 'Owned', numeric: true },
+		{ key: 'in_collection', header: 'In collection', numeric: true },
+		{ key: 'in_deck', header: 'In decks', numeric: true },
+		{ key: 'in_mail', header: 'In mail', numeric: true },
+		{ key: 'decks', header: 'Decks' }
+	];
 </script>
 
 <svelte:head>
@@ -13,7 +26,7 @@
 <h1>Inventory</h1>
 
 {#if data.error}
-	<p class="error">Inventory unavailable: {data.error}</p>
+	<ErrorBanner message="Inventory unavailable" detail={data.error} onRetry={() => invalidateAll()} retryLabel="Reload inventory" />
 {:else}
 	<p class="totals">
 		<strong>{data.totals.owned}</strong> copies across
@@ -35,45 +48,38 @@
 		{#if data.q}<a href="/inventory" aria-label="Clear inventory filter">clear</a>{/if}
 	</form>
 
-	{#if data.inventory.length === 0}
-		<p>No cards{data.q ? ` matching “${data.q}”` : ''} in the collection.</p>
-	{:else}
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
-		<div class="table-scroll" role="region" aria-label="Inventory by card" tabindex="0">
-		<table>
-			<caption class="visually-hidden">Inventory by card</caption>
-			<thead>
-				<tr>
-					<th scope="col">Card</th>
-					<th scope="col">Owned</th>
-					<th scope="col">In collection</th>
-					<th scope="col">In decks</th>
-					<th scope="col">In mail</th>
-					<th scope="col">Decks</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.inventory as row (row.oracle_id)}
-					<tr>
-						<td>
-							{row.name}
-							{#if row.not_owned > 0}
-								<span class="not-owned" title="placeholder copies, not counted as owned">
-									+{row.not_owned} not owned
-								</span>
-							{/if}
-						</td>
-						<td><strong>{row.owned}</strong></td>
-						<td>{row.in_collection || ''}</td>
-						<td>{row.in_deck || ''}</td>
-						<td>{row.in_mail || ''}</td>
-						<td class="decks">{row.decks.join(', ')}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-		</div>
-	{/if}
+	<ScrollTable
+		caption="Inventory by card"
+		captionHidden
+		{columns}
+		rows={data.inventory}
+		rowKey={(row) => row.oracle_id}
+		rowHeader="name"
+		stickyFirstCol
+		density="compact"
+	>
+		{#snippet cell(row, column)}
+			{#if column.key === 'name'}
+				{row.name}
+				{#if row.not_owned > 0}
+					<span class="not-owned" title="placeholder copies, not counted as owned">+{row.not_owned} not owned</span>
+				{/if}
+			{:else if column.key === 'decks'}
+				<span class="decks">{row.decks.join(', ')}</span>
+			{:else if column.key === 'owned'}
+				<strong>{row.owned}</strong>
+			{:else}
+				{row[column.key as 'in_collection' | 'in_deck' | 'in_mail']}
+			{/if}
+		{/snippet}
+		{#snippet empty()}
+			{#if data.q}
+				<EmptyState variant="inline" filtered title="No cards match “{data.q}”" ctaLabel="Clear search" ctaHref="/inventory" />
+			{:else}
+				<EmptyState variant="inline" title="Your collection is empty" description="Cards appear here after you sync or import decks." />
+			{/if}
+		{/snippet}
+	</ScrollTable>
 {/if}
 
 <style>
@@ -114,45 +120,6 @@
 		align-items: center;
 		min-height: 44px;
 	}
-	.table-scroll {
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
-		margin-bottom: 1rem;
-	}
-	.table-scroll:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
-	}
-	.table-scroll table {
-		min-width: 40rem;
-		margin-bottom: 0;
-	}
-	.visually-hidden {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
-	table {
-		border-collapse: collapse;
-		font-size: 0.85rem;
-		width: 100%;
-	}
-	th,
-	td {
-		padding: 0.2rem 0.6rem 0.2rem 0;
-		text-align: left;
-		vertical-align: top;
-	}
-	thead th {
-		border-bottom: 1px solid currentColor;
-	}
 	.decks {
 		font-size: 0.8rem;
 		color: var(--color-muted);
@@ -160,8 +127,5 @@
 	.not-owned {
 		font-size: 0.75rem;
 		color: var(--color-muted);
-	}
-	.error {
-		color: var(--color-danger);
 	}
 </style>
