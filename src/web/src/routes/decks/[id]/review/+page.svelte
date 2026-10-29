@@ -36,7 +36,7 @@
 		busy = true;
 		genError = '';
 		try {
-			const res = await fetch(`/decks/${encodeURIComponent(data.deckId)}/review/generate`, { method: 'POST' });
+			const res = await fetch(`/decks/${encodeURIComponent(data.deckId)}/review/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
 			if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.message ?? res.statusText);
 			await invalidateAll();
 		} catch (e) {
