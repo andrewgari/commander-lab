@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { printingHref } from '#lib/card-printing.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -10,9 +12,10 @@
 	);
 	let selectedId = $state(data.dossier.printing?.scryfall_id ?? '');
 
+	// Client-side navigation: no full reload. reset:false (Kit 3 replacement for keepFocus/noScroll) keeps the <select> focused and the scroll position.
 	function switchPrinting() {
 		if (!selectedId) return;
-		window.location.href = `/card/${encodeURIComponent(card.oracle_id)}?printing=${encodeURIComponent(selectedId)}`;
+		void goto(printingHref(card.oracle_id, selectedId), { reset: false });
 	}
 </script>
 
@@ -20,7 +23,7 @@
 	<title>{card.name} — Commander Lab</title>
 </svelte:head>
 
-<nav><a href="/decks">← Decks</a></nav>
+<nav class="back"><a href="/decks">← Decks</a></nav>
 
 <div class="dossier">
 	<section class="identity">
@@ -92,9 +95,11 @@
 		{#if dossier.decks.length === 0}
 			<p class="empty">not in any deck</p>
 		{:else}
+			<div class="table-scroll">
 			<table>
+				<caption class="visually-hidden">Decks containing this card</caption>
 				<thead>
-					<tr><th>Deck</th><th>Status</th><th>Board</th><th>Category</th><th>Qty</th></tr>
+					<tr><th scope="col">Deck</th><th scope="col">Status</th><th scope="col">Board</th><th scope="col">Category</th><th scope="col">Qty</th></tr>
 				</thead>
 				<tbody>
 					{#each dossier.decks as d (d.deck_id + d.board)}
@@ -108,6 +113,7 @@
 					{/each}
 				</tbody>
 			</table>
+			</div>
 		{/if}
 	</section>
 
@@ -147,7 +153,7 @@
 
 	<section>
 		<h2>Affinity &amp; notes</h2>
-		{#if form?.actionError}<p class="error">{form.actionError}</p>{/if}
+		{#if form?.actionError}<p class="error" role="alert">{form.actionError}</p>{/if}
 		{#if form?.savedAffinity}<p class="saved">Saved.</p>{/if}
 		<form method="POST" action="?/save_notes" class="notes-form">
 			<label for="affinity">Affinity (1–5, empty for none)</label>
@@ -180,7 +186,60 @@
 	}
 	.art {
 		width: 16rem;
+		max-width: 100%;
 		border-radius: 0.5rem;
+	}
+	/* The text column must be allowed to shrink, or long names/oracle text force the row wider than the viewport. */
+	.identity > div {
+		min-width: 0;
+	}
+	@media (max-width: 30rem) {
+		.identity {
+			flex-direction: column;
+		}
+		.art {
+			width: 100%;
+			max-width: 18rem;
+		}
+	}
+	.back a {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--touch-min);
+		min-width: var(--touch-min);
+	}
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	.table-scroll {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+	.table-scroll table {
+		min-width: 32rem;
+	}
+	.synergy li a {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--touch-min);
+	}
+	.notes-form input,
+	.notes-form textarea,
+	.notes-form button,
+	.printing-switch select {
+		min-height: var(--touch-min);
+		box-sizing: border-box;
+	}
+	.notes-form textarea {
+		min-height: 6rem;
 	}
 	h1 {
 		font-size: 1.5rem;
@@ -191,7 +250,7 @@
 		margin: 1.25rem 0 0.35rem;
 	}
 	.meta {
-		opacity: 0.75;
+		color: var(--color-muted);
 		font-size: 0.85rem;
 	}
 	.mana {
@@ -203,7 +262,7 @@
 		font-size: 0.9rem;
 	}
 	.empty {
-		opacity: 0.6;
+		color: var(--color-muted);
 		font-style: italic;
 	}
 	.pills {
@@ -220,7 +279,7 @@
 		font-size: 0.8rem;
 	}
 	.pill .src {
-		opacity: 0.6;
+		color: var(--color-muted);
 		font-size: 0.7rem;
 	}
 	.pill.manual {
@@ -249,12 +308,12 @@
 		margin: 0 0.4rem;
 	}
 	.dir {
-		opacity: 0.7;
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 	.reason {
 		margin: 0.1rem 0 0;
-		opacity: 0.75;
+		color: var(--color-muted);
 		font-size: 0.8rem;
 	}
 	.printing-switch select {
@@ -270,6 +329,6 @@
 		color: var(--color-danger);
 	}
 	.saved {
-		color: #27ae60;
+		color: var(--color-success);
 	}
 </style>

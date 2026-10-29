@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import ReviewReport from '#lib/components/review/ReviewReport.svelte';
 	import SwapFeedback from '#lib/components/review-page/SwapFeedback.svelte';
 	import type { PageProps } from './$types';
@@ -79,7 +79,7 @@
 		<strong>Deck review</strong>
 		{#if data.list.documents.length}
 			<label>Review
-				<select aria-label="Review history" onchange={(e) => (window.location.search = `?doc=${e.currentTarget.value}`)} value={viewing?.id}>
+				<select aria-label="Review history" onchange={(e) => goto(`?doc=${encodeURIComponent(e.currentTarget.value)}`, { reset: false })} value={viewing?.id}>
 					{#each data.list.documents as d}
 						<option value={d.id}>#{d.id} · {when(d.created_at)} · {d.status === 'ok' ? `grade ${d.grade ?? '?'}` : d.status}</option>
 					{/each}
@@ -95,10 +95,15 @@
 	</form>
 
 	{#if active}
-		<section class="review-status" role="status" aria-live="polite">
-			<span class="eyebrow">Review #{active.id} · {active.status}</span>
-			<strong data-testid="review-stage">{active.stage || 'Starting'}</strong>
-			<span class="muted" data-now={now}>{elapsed(active.started_at ?? active.created_at)} elapsed · a review takes a few minutes; you can leave this page and come back.</span>
+		<section class="review-status">
+			<!-- Only the stage is a live region: it changes a handful of times per review. The elapsed
+			     counter ticks every second and the 2 s data poll rewrites the page, so neither may sit
+			     inside an announced region. -->
+			<div role="status" aria-live="polite" aria-atomic="true" class="review-live">
+				<span class="eyebrow">Review #{active.id} · {active.status}</span>
+				<strong data-testid="review-stage">{active.stage || 'Starting'}</strong>
+			</div>
+			<span class="muted" data-now={now}><span aria-hidden="true" data-testid="review-elapsed">{elapsed(active.started_at ?? active.created_at)} elapsed · </span>a review takes a few minutes; you can leave this page and come back.</span>
 		</section>
 	{/if}
 
@@ -132,6 +137,7 @@
 	@media print { :global(body:has(.review-report)) { background: white; } .review-bar, .review-status { display: none; } }
 	.review-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 	.review-status { display: flex; flex-direction: column; gap: 4px; max-width: 1280px; margin: 16px auto; padding: 16px 20px; border: 1px solid #29323b; border-left: 3px solid #f0a63a; color: #b6bfc8; background: #141a1f; }
+	.review-live { display: flex; flex-direction: column; gap: 4px; }
 	.review-status.failed { border-left-color: var(--color-danger-solid); }
 	.review-status strong { color: #e8ebee; }
 	.review-error { color: #e5766d; font-size: 13px; }
