@@ -15,10 +15,10 @@ export const load: PageServerLoad = async ({ url }) => {
 		apiGet<{ decks: DeckSummary[] }>('/api/v2/decks')
 	]);
 	return {
-		games: games.status === 'fulfilled' ? games.value.games : ([] as GameRecord[]),
-		gamesError: games.status === 'rejected' ? reasonOf(games.reason, 'Game data unavailable') : null,
-		decks: decks.status === 'fulfilled' ? decks.value.decks : ([] as DeckSummary[]),
-		decksError: decks.status === 'rejected' ? reasonOf(decks.reason, 'Deck data unavailable') : null,
+		games: games.status === 'fulfilled' && Array.isArray(games.value?.games) ? games.value.games : ([] as GameRecord[]),
+		gamesError: games.status === 'rejected' ? reasonOf(games.reason, 'Game data unavailable') : Array.isArray(games.value?.games) ? null : 'Game data came back incomplete',
+		decks: decks.status === 'fulfilled' && Array.isArray(decks.value?.decks) ? decks.value.decks : ([] as DeckSummary[]),
+		decksError: decks.status === 'rejected' ? reasonOf(decks.reason, 'Deck data unavailable') : Array.isArray(decks.value?.decks) ? null : 'Deck data came back incomplete',
 		limit: GAMES_LIMIT,
 		importRequested: url.searchParams.get('import') === '1'
 	};

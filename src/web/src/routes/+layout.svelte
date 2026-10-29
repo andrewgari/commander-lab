@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
-	import { page } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -35,7 +35,12 @@
 		</ul>
 	</nav>
 </header>
-<main id="main" tabindex="-1">
+{#if navigating.to}
+	<!-- Pending indicator for ANY slow navigation (the route-level skeletons only show once the target resolves). -->
+	<div class="nav-progress" role="progressbar" aria-label="Loading page"></div>
+	<p class="visually-hidden" role="status">Loading {navigating.to.url.pathname}…</p>
+{/if}
+<main id="main" tabindex="-1" aria-busy={navigating.to ? 'true' : undefined}>
 	{@render children()}
 </main>
 
@@ -62,6 +67,17 @@
 	}
 	nav a:hover { color: var(--color-text); }
 	nav a[aria-current='page'] { color: var(--color-text); border-bottom-color: var(--color-accent); }
+	/* Hidden for the first 150ms so fast navigations never flash it. */
+	.nav-progress {
+		position: fixed; inset: 0 0 auto 0; z-index: 100; height: 3px; overflow: hidden;
+		background: var(--color-border); opacity: 0; animation: nav-show 0s linear 150ms forwards;
+	}
+	.nav-progress::after { content: ''; display: block; height: 100%; width: 40%; background: var(--color-accent); }
+	@keyframes nav-show { to { opacity: 1; } }
+	@media (prefers-reduced-motion: no-preference) {
+		.nav-progress::after { animation: nav-slide 1.2s var(--ease-out) infinite; }
+		@keyframes nav-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+	}
 	main { max-width: var(--content-max); margin: 0 auto; padding: var(--space-6) var(--space-4); }
 	main:focus { outline: none; } /* programmatic target of skip link only */
 	@media (min-width: 40rem) { main { padding: var(--space-8) var(--space-6); } }
