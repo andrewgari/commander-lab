@@ -298,7 +298,9 @@ def build_top(swap_ids: Sequence[str], why: str, available: Sequence[str]) -> di
 
 def materialise(obj: Mapping[str, Any], ctx: ReviewContext, view: PoolView, problem_ids: set[str], *,
                 drop_bad_cuts: bool = False) -> tuple[Recommendations, list[str]]:
-    """``drop_bad_cuts``: leave out a ``cuts_to_consider`` entry that fails validation instead of reporting it. Only the final\n    attempt uses it: the list is advisory and may legitimately be empty, so losing one unsupportable entry beats losing the\n    whole review. Swap errors are never dropped."""
+    """``drop_bad_cuts``: leave out a ``cuts_to_consider`` entry that fails validation instead of reporting it. Only the final
+    attempt uses it: the list is advisory and may legitimately be empty, so losing one unsupportable entry beats losing the
+    whole review. Swap errors are never dropped."""
     errs: list[str] = []
     rec = Recommendations()
     swaps = obj.get("swaps") or []
