@@ -146,7 +146,7 @@
 	}
 	.meta {
 		font-size: 0.85rem;
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 	}
 	nav a {
 		display: inline-flex;
@@ -188,7 +188,7 @@
 		font-style: italic;
 	}
 	.notice {
-		background: #eef6ee;
+		background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
 		border: 1px solid color-mix(in srgb, var(--color-success) 33%, transparent);
 		padding: 0.4rem 0.6rem;
 		font-size: 0.85rem;
@@ -204,7 +204,7 @@
 		text-align: left;
 	}
 	.unavailable {
-		color: var(--text-faint, #666666);
+		color: var(--color-muted);
 		font-style: italic;
 		font-size: 0.8rem;
 	}

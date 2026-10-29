@@ -107,6 +107,12 @@
 .review-report .report-footer { display:flex; justify-content:space-between; gap:var(--sp-4); margin-top:var(--sp-8); font-size:var(--fs-xs); color:var(--text-3); }
 .review-preview { padding:var(--sp-3) var(--sp-6); display:flex; gap:var(--sp-4); align-items:center; flex-wrap:wrap; }
 .review-preview select,.review-preview button { color:var(--text-1); background:var(--surface-1); border:var(--stroke); padding:var(--sp-2); font:inherit; }
+/* Touch targets (screen only: print/PDF layout is untouched). Evidence chips and links are 44px hit areas. */
+@media screen {
+ .review-report .refs a, .review-report .swap-heading a, .review-preview a { display:inline-flex; align-items:center; justify-content:center; min-height:var(--touch-min,2.75rem); min-width:var(--touch-min,2.75rem); }
+ .review-report .refs { gap:0 var(--sp-1); }
+ .review-report .debug summary { display:flex; align-items:center; min-height:var(--touch-min,2.75rem); }
+}
 @media(max-width:700px) {
  .review-report { padding:var(--sp-4); }
  .review-report .report-header { display:block; }

@@ -13,6 +13,8 @@
 	];
 </script>
 
+<svelte:head><title>Shared a11y primitives — Commander Lab</title></svelte:head>
+
 <main>
 	<h1>Shared a11y primitives</h1>
 	<nav><a class="text-link" href="/decks" data-testid="text-link">← Decks</a></nav>
@@ -25,7 +27,8 @@
 		</table>
 	</TableScroll>
 
-	<div class="table-scroll" data-testid="class-wrapper" style="--table-min-width: 48rem">
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex: scrollable regions must be keyboard-focusable -->
+	<div class="table-scroll" role="region" aria-label="Wide table via class" tabindex="0" data-testid="class-wrapper" style="--table-min-width: 48rem">
 		<table>
 			<caption class="visually-hidden">Wide table via class</caption>
 			<thead><tr>{#each cols as c}<th scope="col">{c}</th>{/each}</tr></thead>
