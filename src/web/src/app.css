@@ -1,0 +1,67 @@
+/* Global a11y/responsive foundation (UI audit 3, group G).
+   Tokens are the values the app already renders, made addressable: no visual redesign.
+   Every text token reaches >= 4.5:1 on --surface (checked by tests/test_web_a11y_shared.py).
+   The app is light-only: the canvas stays white even under prefers-color-scheme: dark, so the
+   text tokens deliberately have no dark override (a lighter grey would fall to ~3:1 on white).
+   The review surface owns its own dark tokens in lib/components/review/review.css and shadows
+   --ok on .review-report/.review-preview. */
+:root {
+	--text: #000000;
+	--text-muted: #404040; /* replaces opacity 0.7-0.75 on black: 10.37:1 */
+	--text-dim: #595959; /* 7.00:1 */
+	--text-faint: #666666; /* replaces opacity 0.6-0.65 on black: 5.74:1, the floor for normal text */
+	--line: #b9c3cb;
+	--danger: #c0392b; /* 5.44:1 */
+	--ok: #1e8449; /* 4.72:1; replaces #27ae60 (2.87:1) */
+	--warn: #b9770e; /* 3.68:1: large bold text only (>= 18.66px) */
+	--warn-solid: #9a6208; /* 5.09:1: normal-size warning text */
+	--surface: #ffffff;
+}
+
+/* Keyboard focus ring on every interactive element (only review.css had one). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--text);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* Screen-reader-only text (table captions, status cues). */
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Wide tables scroll inside their wrapper, never the page. Tables size to their content
+   (min-width: max-content) so columns stay legible; override --table-min-width to force more. */
+.table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+.table-scroll > table {
+	min-width: var(--table-min-width, max-content);
+}
+
+/* 44x44 touch-target floor for bare links/buttons (not for links inside running text). */
+.text-link {
+	display: inline-flex;
+	align-items: center;
+	min-width: 44px;
+	min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+}

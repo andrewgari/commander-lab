@@ -58,16 +58,14 @@
 	}
 	.count {
 		font-size: 9px;
-		fill: currentColor;
-		opacity: 0.75;
+		fill: var(--text-3, var(--text-muted));
 	}
 	.label {
 		font-size: 9px;
-		fill: currentColor;
-		opacity: 0.6;
+		fill: var(--text-3, var(--text-muted));
 	}
 	figcaption {
 		font-size: 0.8rem;
-		opacity: 0.75;
+		color: var(--text-3, var(--text-muted));
 	}
 </style>

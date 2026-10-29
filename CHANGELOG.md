@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Brew page: the Commander and Donor decks fields now behave as real autocomplete pickers — typing shows clickable matches, a query matching no deck says so instead of silently showing nothing, and Arrow keys/Enter/Escape work in both fields. Brew also appears in the sidebar next to Reconstruct.
 
 ### Changed
+- Accessibility: charts and the power panel now use solid AA-contrast greys instead of faded text, keyboard focus is visible on every page, and wide tables can scroll inside their own frame so the page no longer scrolls sideways on phones. Pages adopt the table frame as they are updated.
 - Archetype and genre Required Roles are no longer picked from a fixed produces/consumes list: every role is now a tag you define yourself, where each tag is one Scryfall query shown and editable in the editor. The Add Role picker groups tags by facet (IS / TALKS ABOUT / MAKES / AMPLIFIES / FREE) under a target (e.g. "Birds"), offers starter queries per facet, and previews "N copies · M cards in this deck" against a real deck before you save. Archetype scoring now reports exactly which cards matched each role's query, and a role whose query matches nothing (or fails) is shown as "empty"/"blocked" instead of a silent 0. Saved archetypes and genres keep scoring as before — old produces:/consumes: roles resolve to equivalent migrated tags.
 
 ### Fixed
