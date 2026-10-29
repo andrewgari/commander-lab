@@ -17,6 +17,12 @@ async function settle<T, U>(p: Promise<T>, reduce: (v: T) => U): Promise<Source<
 	}
 }
 
+/** A partial payload fails only its own source (shown in the banner) instead of crashing the page. */
+function need<T>(v: T | null | undefined, what: string): T {
+	if (v === null || v === undefined) throw new Error(`${what} response incomplete`);
+	return v;
+}
+
 const draftLite = (d: DraftRecord): DraftLite => ({
 	id: d.id,
 	name: d.name || d.target_name,
@@ -26,7 +32,7 @@ const draftLite = (d: DraftRecord): DraftLite => ({
 });
 
 function powerLite(r: ProfileLatestResponse): PowerLite | null {
-	const snap = r.snapshot;
+	const snap = r?.snapshot;
 	const power = snap?.metrics?.power as
 		| { available?: boolean; power_level?: number | null; estimated_bracket?: number | null; bracket_name?: string | null }
 		| undefined;
@@ -41,14 +47,14 @@ function powerLite(r: ProfileLatestResponse): PowerLite | null {
 
 export const load: PageServerLoad = async () => {
 	const [decks, inventory, games, drafts, committed, profile] = await Promise.all([
-		settle(apiGet<{ decks: DeckSummary[] }>('/api/v2/decks'), (r) => r.decks),
+		settle(apiGet<{ decks: DeckSummary[] }>('/api/v2/decks'), (r) => need(r?.decks, 'decks')),
 		// Gap G6: the API returns every row; only `totals` leaves the server.
-		settle(apiGet<InventoryResponse>('/api/v2/inventory'), (r) => r.totals),
+		settle(apiGet<InventoryResponse>('/api/v2/inventory'), (r) => need(r?.totals, 'inventory')),
 		settle(apiGet<{ games: GameRecord[] }>('/api/v2/games?limit=200'), (r): GameLite[] =>
-			r.games.map((g) => ({ id: g.id, deck_id: g.deck_id, played_at: g.played_at, imported_at: g.imported_at, result: g.result }))
+			need(r?.games, 'games').map((g) => ({ id: g.id, deck_id: g.deck_id, played_at: g.played_at, imported_at: g.imported_at, result: g.result }))
 		),
-		settle(apiGet<{ drafts: DraftRecord[] }>('/api/v2/drafts?status=open'), (r) => r.drafts.map(draftLite)),
-		settle(apiGet<{ drafts: DraftRecord[] }>('/api/v2/drafts?status=committed&limit=5'), (r) => r.drafts.map(draftLite)),
+		settle(apiGet<{ drafts: DraftRecord[] }>('/api/v2/drafts?status=open'), (r) => need(r?.drafts, 'drafts').map(draftLite)),
+		settle(apiGet<{ drafts: DraftRecord[] }>('/api/v2/drafts?status=committed&limit=5'), (r) => need(r?.drafts, 'drafts').map(draftLite)),
 		settle(apiGet<ProfileLatestResponse>('/api/v2/profile/latest'), powerLite)
 	]);
 	const sources: HomeSources = { decks, inventory, games, drafts, committed, profile };

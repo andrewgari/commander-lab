@@ -77,3 +77,12 @@ describe('games load', () => {
 		expect(d.importRequested).toBe(false);
 	});
 });
+
+describe('home load with empty {} payloads', () => {
+	it('fails every source individually and still resolves', async () => {
+		apiGet.mockResolvedValue({});
+		const { load } = await import('./+page.server.ts');
+		const data = (await load({} as never)) as { sources: Record<string, { ok: boolean }> };
+		expect(Object.entries(data.sources).filter(([k, v]) => !v.ok && k !== 'profile')).toHaveLength(5);
+	});
+});

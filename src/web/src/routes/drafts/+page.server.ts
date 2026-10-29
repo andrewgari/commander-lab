@@ -8,6 +8,7 @@ export const load: PageServerLoad = async () => {
 			apiGet<{ drafts: DraftRecord[] }>('/api/v2/drafts'),
 			apiGet<{ decks: DeckSummary[] }>('/api/v2/decks')
 		]);
+		if (!Array.isArray(drafts?.drafts) || !Array.isArray(decks?.decks)) throw new Error('Draft data came back incomplete');
 		return { drafts: drafts.drafts, decks: decks.decks, error: null as string | null };
 	} catch (e) {
 		return {
