@@ -9,6 +9,9 @@
 	import CommitDialog from '#lib/components/drafts/CommitDialog.svelte';
 	import AbandonDialog from '#lib/components/drafts/AbandonDialog.svelte';
 	import CommitSummary from '#lib/components/drafts/CommitSummary.svelte';
+	import CardPicker from '#lib/components/combobox/CardPicker.svelte';
+	import CopyPicker from '#lib/components/combobox/CopyPicker.svelte';
+	import type { CardChoice, ComboOption } from '#lib/components/combobox/model.ts';
 	import { boardLabel, groupByBoard, nextQty, stagedQty, stagedQtyByOracle, toApiBoard } from '#lib/drafts/boards.ts';
 	import { abandonSentence, deckName, moveRows, summarize } from '#lib/drafts/summary.ts';
 	import type { AddRequest, Board } from '#lib/card-search/types.ts';
@@ -71,6 +74,10 @@
 		e.preventDefault();
 		abandonDialog?.show(e.currentTarget as HTMLElement);
 	}
+
+	let pickedCard = $state<ComboOption<CardChoice> | null>(null);
+	let pickedCopy = $state<ComboOption<string> | null>(null);
+	let moveAction = $state('assign');
 </script>
 
 <svelte:head>
@@ -181,6 +188,19 @@
 			</table>
 		</TableScroll>
 	{/if}
+	{#if open}
+		<form method="POST" action="?/upsert_card" class="inline">
+			<CardPicker bind:selected={pickedCard} />
+			<input name="qty" type="number" min="1" value="1" aria-label="Quantity" />
+			<select name="board" aria-label="Board">
+				<option value="main">main</option>
+				<option value="commander">commander</option>
+				<option value="sideboard">sideboard</option>
+				<option value="maybeboard">maybeboard</option>
+			</select>
+			<button type="submit">Add / update card</button>
+		</form>
+	{/if}
 </section>
 
 <section aria-labelledby="moves-h">
@@ -216,20 +236,14 @@
 		</TableScroll>
 	{/if}
 	{#if open}
-		<details class="advanced">
-			<summary>Advanced: stage a copy by ID</summary>
-			<p class="meta">Copy picking needs an inventory lookup Commander Lab doesn't expose yet. Paste a copy ID from the Inventory export to stage it. You never need this to commit.</p>
-			<form method="POST" action="?/stage_move" class="inline" use:enhance>
-				<label>Copy ID <input name="instance_id" required autocomplete="off" /></label>
-				<label>Move
-					<select name="move_action">
-						<option value="assign">Move into the new deck</option>
-						<option value="unassign">Return to the collection</option>
-					</select>
-				</label>
-				<button type="submit">Stage move</button>
-			</form>
-		</details>
+		<form method="POST" action="?/stage_move" class="inline">
+			<CopyPicker action={moveAction} bind:selected={pickedCopy} />
+			<select name="move_action" aria-label="Move action" bind:value={moveAction}>
+				<option value="assign">assign into result deck</option>
+				<option value="unassign">unassign back to collection</option>
+			</select>
+			<button type="submit">Stage move</button>
+		</form>
 	{/if}
 </section>
 
@@ -316,7 +330,7 @@
 					aria-disabled={blocked ? 'true' : undefined}
 					aria-describedby={blocked ? 'commit-blocked' : undefined}
 					onclick={openCommit}
-				>Review &amp; commit…</button>
+				>Review & commit…</button>
 			</form>
 			{#if blocked}
 				<span id="commit-blocked" class="meta">{summary.blockedReason}</span>
@@ -346,9 +360,6 @@
 	form.inline { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: end; }
 	form.inline label { display: grid; gap: var(--space-1); font-size: var(--text-sm); }
 	button.link { background: none; border: none; padding: var(--space-2) var(--space-3); min-height: var(--touch-min); min-width: var(--touch-min); display: inline-flex; align-items: center; color: var(--color-accent); cursor: pointer; font-size: inherit; text-decoration: underline; }
-	.advanced { margin-top: var(--space-4); border-top: 1px dashed var(--color-border); }
-	.advanced summary { min-height: var(--touch-min); display: flex; align-items: center; cursor: pointer; font-size: var(--text-sm); color: var(--color-muted); }
-	.advanced[open] summary, .advanced summary:hover { color: var(--color-text-body); }
 	.empty { padding: var(--space-4); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); }
 	.empty__title { margin: 0; color: var(--color-text); font-weight: var(--weight-medium); }
 	.status--open { color: var(--color-warning); }

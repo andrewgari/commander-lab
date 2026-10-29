@@ -87,3 +87,10 @@ export const searchProxy = (incoming: URL, apiUrl: string) =>
 /** `GET /api/card-autocomplete` -> FastAPI `/api/cards/autocomplete` (quick-add, §4). */
 export const autocompleteProxy = (incoming: URL, apiUrl: string) =>
 	forwardGet(apiUrl, '/api/cards/autocomplete', incoming, AUTOCOMPLETE_PARAMS);
+
+/** Query params `GET /api/instances` accepts through the copy picker. */
+export const COPIES_PARAMS = ['q', 'status'] as const;
+
+/** `GET /api/card-copies` -> FastAPI `/api/instances` (draft move copy picker). */
+export const copiesProxy = (incoming: URL, apiUrl: string) =>
+	forwardGet(apiUrl, '/api/instances', incoming, COPIES_PARAMS);
