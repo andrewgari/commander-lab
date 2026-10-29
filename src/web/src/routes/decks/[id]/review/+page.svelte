@@ -101,7 +101,7 @@
 	}
 
 	async function generate() {
-		if (busy) return;
+		if (busy || active) return;
 		busy = true;
 		genError = '';
 		try {
