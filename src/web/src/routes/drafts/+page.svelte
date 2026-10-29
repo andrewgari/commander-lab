@@ -51,7 +51,7 @@
 				Prefill staging from the source decks' lists (you can edit freely afterwards)
 			</label>
 			<button type="submit">Open draft</button>
-			{#if form?.createError}<p class="error">{form.createError}</p>{/if}
+			{#if form?.createError}<p class="error" role="alert">{form.createError}</p>{/if}
 		</form>
 	{/if}
 </section>
@@ -59,7 +59,7 @@
 <section>
 	<h2>Draft sessions</h2>
 	{#if data.error}
-		<p class="error">Draft data unavailable: {data.error}</p>
+		<p class="error" role="alert">Draft data unavailable: {data.error}</p>
 	{:else if data.drafts.length === 0}
 		<p>No drafts yet.</p>
 	{:else}
@@ -121,7 +121,7 @@
 	}
 	.meta {
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
 	.open {
 		color: var(--color-warning);
