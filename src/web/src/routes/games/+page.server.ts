@@ -2,20 +2,26 @@ import { fail, redirect } from '@sveltejs/kit';
 import { apiGet, apiPost, ApiError, type DeckSummary, type ForgeLogImportResult, type GameRecord } from '#lib/api.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
-	try {
-		const [games, decks] = await Promise.all([
-			apiGet<{ games: GameRecord[] }>('/api/v2/games'),
-			apiGet<{ decks: DeckSummary[] }>('/api/v2/decks')
-		]);
-		return { games: games.games, decks: decks.decks, error: null as string | null };
-	} catch (e) {
-		return {
-			games: [] as GameRecord[],
-			decks: [] as DeckSummary[],
-			error: e instanceof Error ? e.message : 'Game data unavailable'
-		};
-	}
+const GAMES_LIMIT = 50;
+
+function reasonOf(e: unknown, fallback: string): string {
+	return e instanceof Error && e.message ? e.message : fallback;
+}
+
+export const load: PageServerLoad = async ({ url }) => {
+	// Games and decks fail independently (page-specs D5): one 503 must not blank the page.
+	const [games, decks] = await Promise.allSettled([
+		apiGet<{ games: GameRecord[] }>(`/api/v2/games?limit=${GAMES_LIMIT}`),
+		apiGet<{ decks: DeckSummary[] }>('/api/v2/decks')
+	]);
+	return {
+		games: games.status === 'fulfilled' ? games.value.games : ([] as GameRecord[]),
+		gamesError: games.status === 'rejected' ? reasonOf(games.reason, 'Game data unavailable') : null,
+		decks: decks.status === 'fulfilled' ? decks.value.decks : ([] as DeckSummary[]),
+		decksError: decks.status === 'rejected' ? reasonOf(decks.reason, 'Deck data unavailable') : null,
+		limit: GAMES_LIMIT,
+		importRequested: url.searchParams.get('import') === '1'
+	};
 };
 
 export const actions: Actions = {
