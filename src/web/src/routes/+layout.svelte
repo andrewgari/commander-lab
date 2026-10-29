@@ -65,5 +65,8 @@
 	main { max-width: var(--content-max); margin: 0 auto; padding: var(--space-6) var(--space-4); }
 	main:focus { outline: none; } /* programmatic target of skip link only */
 	@media (min-width: 40rem) { main { padding: var(--space-8) var(--space-6); } }
-	@media print { .skip-link, .site-header { display: none; } }
+	@media print {
+		.skip-link, .site-header { display: none; }
+		main { max-width: none; margin: 0; padding: 0; } /* review PDF owns its own page margins */
+	}
 </style>
