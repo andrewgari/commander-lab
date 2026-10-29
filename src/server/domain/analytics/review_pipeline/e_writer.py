@@ -138,6 +138,10 @@ _SENTENCE_STARTERS = frozenset({
     "depends", "depend", "depending", "delivers", "deliver", "delivering", "draws", "drawing", "tutoring", "ramps",
     "ramping", "sits", "sit", "sitting", "sees", "see", "seeing", "shows", "show", "showing", "stays", "stay", "staying",
     "strengthens", "strengthen", "swaps", "swap", "trims", "trim", "trimming", "weakens", "weaken", "weakening",
+    # adjectives / nouns live writers open with (cheaper-tier lara: "Promising ...", "Aggressive ...", "Game plan")
+    "promising", "aggressive", "defensive", "conservative", "optimistic", "pessimistic", "ambitious", "modest", "game",
+    "mixed", "narrow", "broad", "wide", "shallow", "deep", "thin", "thick", "tough", "stable", "unstable", "lean",
+    "bloated", "crowded", "greedy", "explosive", "slower", "faster", "cheaper", "pricier", "stronger", "viable",
 })
 
 

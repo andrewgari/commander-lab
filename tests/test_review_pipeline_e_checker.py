@@ -204,6 +204,12 @@ class LiveWriterVocabulary(unittest.TestCase):
         text = json.dumps({"verdict": self.verified["verdict"], "issues": ["Survive with Craterhoof Behemoth."]})
         self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "Craterhoof" in e])
 
+    def test_live_cheaper_tier_lara_openers_are_prose(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": [
+            "Promising core, but thin.", "Aggressive curve with few answers.", "The game plan is clear."]})
+        self.assertEqual([e for e in e_writer.check_writer_output(text, self.verified) if e.startswith(NAME_ERR)], [])
+        self.assertTrue(_name_errors("Promising Zorblax ends the game.", self.verified))
+
     def test_a_plural_of_a_word_the_payload_says_is_not_a_new_name(self):
         self.assertEqual(_name_errors("Sol Ring and friends.", self.verified), [])
         self.assertTrue(_name_errors("Zorblaxes end the game.", self.verified))
