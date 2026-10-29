@@ -72,7 +72,7 @@
 </svelte:head>
 
 {#if data.print}
-	<main><ReviewReport document={data.document} theme="light" print={true} /></main>
+	<div><ReviewReport document={data.document} theme="light" print={true} /></div>
 {:else}
 	<form class="review-preview review-bar" onsubmit={(e) => { e.preventDefault(); generate(); }}>
 		<a href={`/decks/${encodeURIComponent(data.deckId)}`}>← deck</a>
@@ -116,13 +116,13 @@
 	{/if}
 
 	{#if data.document}
-		<main>
+		<div>
 			<ReviewReport document={data.document} theme="dark">
 				{#snippet swapActions(swap)}
 					<SwapFeedback documentId={viewing!.id} deckId={data.deckId} {swap} saved={data.feedback[swap.id]} />
 				{/snippet}
 			</ReviewReport>
-		</main>
+		</div>
 	{:else if !active && viewing?.status !== 'failed'}
 		<section class="review-status">
 			<strong>No review yet for this deck.</strong>

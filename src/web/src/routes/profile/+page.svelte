@@ -80,7 +80,7 @@
 <h1>Profile</h1>
 
 {#if data.error}
-	<p class="error">Profile unavailable: {data.error}</p>
+	<p class="error" role="alert">Profile unavailable: {data.error}</p>
 {:else}
 	{#if !data.latest.available || !snapshot}
 		<p class="unavailable">
@@ -134,7 +134,7 @@
 			to the history below as its own snapshot.
 		</p>
 		{#if form?.error}
-			<p class="error">{form.error}</p>
+			<p class="error" role="alert">{form.error}</p>
 		{/if}
 		{#if form?.snapshotId}
 			<p class="ok">Saved — snapshot #{form.snapshotId} appended to history.</p>
@@ -207,7 +207,7 @@
 		overwritten by learning. Deck-level intent beats this profile.
 	</p>
 	{#if form?.playerError}
-		<p class="error">{form.playerError}</p>
+		<p class="error" role="alert">{form.playerError}</p>
 	{/if}
 	{#if form?.playerOk}
 		<p class="ok">{form.playerOk}</p>
@@ -279,7 +279,7 @@
 	}
 	.meta {
 		font-size: 0.8rem;
-		opacity: 0.65;
+		color: var(--color-muted);
 	}
 	.charts {
 		display: grid;
@@ -289,7 +289,7 @@
 	}
 	.hint {
 		font-size: 0.8rem;
-		opacity: 0.7;
+		color: var(--color-muted);
 		max-width: 60ch;
 	}
 	.override-row {
@@ -314,7 +314,7 @@
 		padding: 0.3rem 0.45rem;
 	}
 	.clear {
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
 	.history-list {
 		list-style: none;
@@ -342,7 +342,7 @@
 		color: var(--color-success);
 	}
 	.unavailable {
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
 	textarea {
 		width: 100%;

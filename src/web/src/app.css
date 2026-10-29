@@ -107,6 +107,12 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
+/* Visually hidden until focused (skip link). */
+.visually-hidden-focusable:not(:focus, :focus-within) {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 /* Wide tables scroll inside their wrapper, never the page. Tables keep their natural column
    widths (max-content); override --table-min-width to force more. */
 .table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
