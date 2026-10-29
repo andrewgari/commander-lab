@@ -20,6 +20,7 @@
 
 	async function save() {
 		if (!decision) return;
+		clearTimeout(idleTimer);
 		status = 'saving';
 		try {
 			const res = await fetch(`/decks/${encodeURIComponent(deckId)}/review/feedback`, {
@@ -39,6 +40,16 @@
 		decision = value;
 		status = 'idle';
 	}
+	// Editing the reason invalidates a saved state, but only once typing pauses: flipping the
+	// status per keystroke would make the (polite) status region re-announce while the user types.
+	let idleTimer: ReturnType<typeof setTimeout> | undefined;
+	function reasonInput() {
+		clearTimeout(idleTimer);
+		idleTimer = setTimeout(() => {
+			if (status === 'saved') status = 'idle';
+		}, 400);
+	}
+	$effect(() => () => clearTimeout(idleTimer));
 </script>
 
 <form class="swap-feedback" onsubmit={(e) => { e.preventDefault(); save(); }} aria-label={`Your call on ${swap.cut.name} → ${swap.add.name}`}>
@@ -48,11 +59,17 @@
 			<button type="button" class="fb-choice" class:active={decision === o.value} data-decision={o.value} aria-pressed={decision === o.value} onclick={() => pick(o.value)}>{o.label}</button>
 		{/each}
 	</div>
-	<input class="fb-reason" type="text" maxlength="500" placeholder="Why? (optional)" aria-label="Reason" bind:value={reason} oninput={() => (status = status === 'saved' ? 'idle' : status)} />
+	<input class="fb-reason" type="text" maxlength="500" placeholder="Why? (optional)" aria-label="Reason" bind:value={reason} oninput={reasonInput} />
 	<button type="submit" class="fb-save" disabled={!decision || status === 'saving'}>{status === 'saving' ? 'Saving…' : 'Save'}</button>
-	<span class="fb-status" role="status" data-status={status}>
-		{#if status === 'saved'}Saved{:else if status === 'error'}Not saved: {message}{/if}
-	</span>
+	<!-- A live region is only mounted while there is something to announce, so N swaps don't create N idle regions.
+	     Errors are assertive (role=alert); a successful save is a single polite announcement. -->
+	{#if status === 'error'}
+		<span class="fb-status" role="alert" data-status={status}>Not saved: {message}</span>
+	{:else if status === 'saved'}
+		<span class="fb-status" role="status" data-status={status}>Saved</span>
+	{:else}
+		<span class="fb-status" data-status={status}></span>
+	{/if}
 </form>
 
 <style>

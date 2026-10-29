@@ -50,9 +50,12 @@
 	{#if userCards.length === 0}
 		<p class="meta">No casts recorded for your seat.</p>
 	{:else}
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
+		<div class="table-scroll" role="region" aria-label="Casts for your seat" tabindex="0">
 		<table>
+			<caption class="visually-hidden">Casts for your seat</caption>
 			<thead>
-				<tr><th>Card</th><th>Cast turn</th><th>Drawn</th><th>Stuck in hand</th></tr>
+				<tr><th scope="col">Card</th><th scope="col">Cast turn</th><th scope="col">Drawn</th><th scope="col">Stuck in hand</th></tr>
 			</thead>
 			<tbody>
 				{#each userCards as card (card.card)}
@@ -68,6 +71,7 @@
 				{/each}
 			</tbody>
 		</table>
+		</div>
 	{/if}
 </section>
 
@@ -78,9 +82,12 @@
 			Seat {player.seat} — {player.deck}
 			{#if player.is_user_seat}<span class="you">your deck</span>{/if}
 		</h3>
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
+		<div class="table-scroll" role="region" aria-label="Mana per turn, seat {player.seat}" tabindex="0">
 		<table>
+			<caption class="visually-hidden">Mana per turn — seat {player.seat}</caption>
 			<thead>
-				<tr><th>Turn</th><th>Land played</th><th>Spells cast</th><th>Mana spent</th></tr>
+				<tr><th scope="col">Turn</th><th scope="col">Land played</th><th scope="col">Spells cast</th><th scope="col">Mana spent</th></tr>
 			</thead>
 			<tbody>
 				{#each player.points as point (point.turn)}
@@ -93,14 +100,18 @@
 				{/each}
 			</tbody>
 		</table>
+		</div>
 	{/each}
 </section>
 
 <details>
 	<summary>All cards cast (every seat)</summary>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard-scrollable region) -->
+	<div class="table-scroll" role="region" aria-label="Casts across seats" tabindex="0">
 	<table>
+		<caption class="visually-hidden">Casts across seats</caption>
 		<thead>
-			<tr><th>Seat</th><th>Card</th><th>Cast turn</th><th>Drawn</th><th>Stuck</th></tr>
+			<tr><th scope="col">Seat</th><th scope="col">Card</th><th scope="col">Cast turn</th><th scope="col">Drawn</th><th scope="col">Stuck</th></tr>
 		</thead>
 		<tbody>
 			{#each cards as card (`${card.seat}-${card.card}`)}
@@ -114,6 +125,7 @@
 			{/each}
 		</tbody>
 	</table>
+	</div>
 </details>
 
 <style>
@@ -134,13 +146,49 @@
 	}
 	.meta {
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
+	nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	summary {
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+	}
+	.table-scroll {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		margin-bottom: 1rem;
+	}
+	.table-scroll:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
+	}
+	.table-scroll table {
+		min-width: 28rem;
+		margin-bottom: 0;
+	}
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
 	.summary {
 		font-style: italic;
 	}
 	.notice {
-		background: #eef6ee;
+		background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
 		border: 1px solid color-mix(in srgb, var(--color-success) 33%, transparent);
 		padding: 0.4rem 0.6rem;
 		font-size: 0.85rem;
@@ -156,7 +204,7 @@
 		text-align: left;
 	}
 	.unavailable {
-		opacity: 0.6;
+		color: var(--color-muted);
 		font-style: italic;
 		font-size: 0.8rem;
 	}
