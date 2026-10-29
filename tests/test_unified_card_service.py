@@ -25,12 +25,12 @@ import httpx
 # Ensure workspace root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.integrations.card_service import (
+from src.server.infra.providers.card_service import (
     CardNotFoundError,
     CardServiceError,
     UnifiedCardService,
 )
-from src.integrations.commandersalt import (
+from src.server.infra.providers.commandersalt import (
     CommanderSaltClient,
     CommanderSaltError,
     CommanderSaltNotFoundError,
@@ -39,7 +39,7 @@ from src.integrations.commandersalt import (
     CommanderSaltResponseError,
     slugify_card_name as cs_slugify,
 )
-from src.integrations.edhrec import (
+from src.server.infra.providers.edhrec import (
     EDHRecClient,
     EDHRecError,
     EDHRecNotFoundError,
@@ -49,15 +49,15 @@ from src.integrations.edhrec import (
     commander_slug,
     slugify_card_name as edh_slugify,
 )
-from src.integrations.models import (
+from src.server.infra.providers.models import (
     CardMetadata,
     CardSalt,
     CardSynergy,
     ProviderStatus,
     UnifiedCardData,
 )
-from src.integrations.scryfall import ScryfallCard, ScryfallClient
-from src.shared.http import SharedHttpClient
+from src.server.infra.providers.scryfall import ScryfallCard, ScryfallClient
+from src.server.infra.http import SharedHttpClient
 
 
 # ---------------------------------------------------------------------------

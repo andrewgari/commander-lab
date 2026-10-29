@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 # Ensure repository root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app
+from src.server.app.main import app
 
 
 class TestIntakeAPI(unittest.TestCase):

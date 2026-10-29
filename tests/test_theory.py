@@ -16,8 +16,8 @@ import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import theory  # noqa: E402
-from analytics.oracle_client import OracleClient, OracleUnavailable  # noqa: E402
+from src.server.domain.analytics import theory  # noqa: E402
+from src.server.domain.analytics.oracle_client import OracleClient, OracleUnavailable  # noqa: E402
 from tests.test_interactions import FakeRedis as _BaseFakeRedis  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -550,7 +550,7 @@ class ApiTests(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
 
-        import app as app_mod
+        import src.server.app.main as app_mod
 
         self.app_mod = app_mod
         self.r = FakeRedis()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from analytics import genre_text_improve as gti
+from src.server.domain.analytics import genre_text_improve as gti
 
 
 class FakeChain:

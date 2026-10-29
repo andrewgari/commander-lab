@@ -7,9 +7,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import review_metrics as rm
-from analytics.interactions import engines as engines_mod
-from analytics.interactions import graph as graph_mod
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.analytics.interactions import engines as engines_mod
+from src.server.domain.analytics.interactions import graph as graph_mod
 
 CARDS = {
     "Cmdr": ("Legendary Creature — Human", "Whenever a creature you control dies, each opponent loses 1 life.", "{2}{B}"),
@@ -374,7 +374,7 @@ class TestEndpoint(unittest.TestCase):
 
         from fastapi.testclient import TestClient
 
-        import app as app_module
+        import src.server.app.main as app_module
 
         inp = make_inputs()
         with patch.object(app_module, "_find_deck_any", lambda _id: inp["deck"]), \
