@@ -120,3 +120,42 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
 
 /* 44x44 touch-target floor for bare links/buttons (not for links inside running text). */
 .text-link { display: inline-flex; align-items: center; min-width: var(--touch-min); min-height: var(--touch-min); }
+
+/* ---- shared-component foundation (C0): tint/info/warning-solid tokens, .meta, .btn ---- */
+:root {
+  --color-warning-solid: #8a5a12;
+  --color-info: #7fb3e0;
+  /* 12% of the hue over --color-surface */
+  --color-danger-bg: #271f22;
+  --color-warning-bg: #2e2b22;
+  --color-info-bg: #212c36;
+}
+
+.meta { color: var(--color-muted); font-size: var(--text-sm); }
+
+/* One button system for <a> and <button>. Disabled-while-busy is aria-disabled, never opacity. */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit; text-decoration: none; cursor: pointer;
+}
+.btn--secondary, .btn--secondary:hover {
+  background: var(--color-surface-raised); color: var(--color-text); border-color: var(--color-border-control);
+}
+.btn--secondary:hover { border-color: var(--color-accent); }
+.btn--primary, .btn--primary:hover { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+.btn--primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.btn--success, .btn--success:hover { background: var(--color-success-solid); color: var(--color-on-solid); border-color: var(--color-success-solid); }
+.btn--danger, .btn--danger:hover { background: var(--color-danger-solid); color: var(--color-on-solid); border-color: var(--color-danger-solid); }
+.btn--link-danger, .btn--link-danger:hover {
+  background: transparent; color: var(--color-danger); border-color: transparent; text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.btn[aria-disabled="true"], .btn[aria-disabled="true"]:hover { cursor: progress; border-style: dashed; }
+@media (forced-colors: active) {
+  .btn, .btn:hover { color: ButtonText; background: ButtonFace; border-color: ButtonBorder; }
+  .btn--link-danger, .btn--link-danger:hover { background: transparent; }
+}
