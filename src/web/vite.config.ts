@@ -1,6 +1,6 @@
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
@@ -14,5 +14,13 @@ export default defineConfig({
 			// adapter-node: docs/ARCHITECTURE.md §3 — commander-lab-web runs as a Node container.
 			adapter: adapter()
 		})
-	]
+	],
+	// Vitest must resolve Svelte's browser build so mount() works under jsdom; normal builds keep
+	// Vite's default conditions.
+	...(process.env.VITEST ? { resolve: { conditions: ['browser'] } } : {}),
+	test: {
+		environment: 'jsdom',
+		include: ['src/**/*.test.ts'],
+		setupFiles: ['src/test-setup.ts']
+	}
 });
