@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Drafts pages: tables scroll inside their own box on narrow screens instead of widening the page, form fields and the Commit / Abandon buttons now have clear names for screen readers, errors are announced, and secondary text is easier to read.
+- Web app: text on the Games and Inventory pages (totals, game details, deck lists) is now readable on the dark theme, the "import a deck first" link and the deck review's evidence chips are full-size touch targets, and the accessibility test page has a title and a keyboard-scrollable table.
 - Brew commander search: pressing Esc right after typing no longer lets the pending search re-open the suggestion list, and on narrow screens the sticky Generate bar now says "Pick a commander to brew" until a commander is chosen.
 - Quick reviews now use real card data instead of showing cards as unknown.
 - Brew/Reconstruct/Manage card search fields now share one autocomplete; the Brew commander field selects the top suggestion on Enter so Generate enables.

@@ -82,7 +82,7 @@
 		margin-bottom: 0.25rem;
 	}
 	.totals {
-		color: #262626;
+		color: var(--color-text-body);
 	}
 	.search {
 		display: flex;
@@ -155,11 +155,11 @@
 	}
 	.decks {
 		font-size: 0.8rem;
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 	}
 	.not-owned {
 		font-size: 0.75rem;
-		color: var(--text-faint, #666666);
+		color: var(--color-muted);
 	}
 	.error {
 		color: var(--color-danger);
