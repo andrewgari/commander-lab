@@ -24,13 +24,13 @@ from fastapi.testclient import TestClient
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import app as app_module  # noqa: E402
-import deck_sync  # noqa: E402
-import linked_accounts  # noqa: E402
-import providers  # noqa: E402
-from deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
-from providers import archidekt, moxfield  # noqa: E402
-from providers.errors import PushError  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.decks.deck_sync as deck_sync  # noqa: E402
+import src.server.infra.providers.linked_accounts as linked_accounts  # noqa: E402
+import src.server.infra.providers as providers  # noqa: E402
+from src.server.domain.decks.deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
+from src.server.infra.providers import archidekt, moxfield  # noqa: E402
+from src.server.infra.providers.errors import PushError  # noqa: E402
 
 class FakeRedis:
     """In-repo stand-in (CI has no fakeredis package). Dict-backed for the
@@ -365,13 +365,13 @@ class TestNoAutomaticSync(RouteCase):
         for path in ROOT.rglob("*.py"):
             rel = path.relative_to(ROOT)
             if rel.parts[0] in {"tests", ".venv", "venv", "docs"} or ".worktrees" in rel.parts \
-                    or str(rel) in allowed_modules or rel.parts[0] == "scripts":
+                    or rel.name in allowed_modules or rel.parts[0] == "scripts":
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(rel))
             for fn in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
                 # providers' create_deck fills a brand-new remote deck via push_deck; it is only
                 # reachable from the explicit POST export route (deck_export.py), never a scheduler.
-                if rel.parts[0] == "providers" and fn.name == "create_deck":
+                if "providers" in rel.parts and fn.name == "create_deck":
                     continue
                 is_post_route = any(
                     isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr == "post"
@@ -393,9 +393,12 @@ class TestNoAutomaticSync(RouteCase):
         self.assertEqual(offenders, [])
 
     def test_background_workers_do_not_import_sync(self):
-        for rel in ("analytics/bracket_worker.py", "analytics/interactions/service.py", "github_sync.py"):
+        for rel in ("src/server/domain/analytics/bracket_worker.py",
+                    "src/server/domain/analytics/interactions/service.py",
+                    "src/server/infra/providers/github_sync.py"):
             src = (ROOT / rel).read_text(encoding="utf-8")
-            for mod in ("deck_sync", "linked_accounts", "providers"):
+            for mod in ("deck_sync", "linked_accounts", "providers",
+                        "src.server.domain.decks", "src.server.infra.providers"):
                 self.assertNotIn(f"import {mod}", src, f"{rel} imports {mod}")
                 self.assertNotIn(f"from {mod} ", src, f"{rel} imports from {mod}")
 

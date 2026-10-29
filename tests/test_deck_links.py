@@ -10,8 +10,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_links
-from deck_links import DeckLinkError
+import src.server.domain.decks.deck_links as deck_links
+from src.server.domain.decks.deck_links import DeckLinkError
 
 
 class FakeRedis:

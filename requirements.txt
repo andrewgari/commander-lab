@@ -13,3 +13,6 @@ numpy
 onnxruntime
 tokenizers
 jsonschema
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+prometheus-client

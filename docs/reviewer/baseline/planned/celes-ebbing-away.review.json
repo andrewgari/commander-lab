@@ -1,0 +1,1949 @@
+{
+ "schema_version": "review_document.v1",
+ "meta": {
+  "deck_id": "archidekt:13958290",
+  "deck_name": "The world is slowly ebbing away...",
+  "commanders": [
+   {
+    "name": "Celes, Rune Knight",
+    "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+   }
+  ],
+  "generated_at": "2026-10-29T01:16:11.791558+00:00",
+  "pipeline_version": "review-ab-1",
+  "prompt_versions": {
+   "A": "v1",
+   "B": "v1",
+   "C": "v1",
+   "D": "v1",
+   "E": "v1",
+   "critic": "v1"
+  },
+  "models": {
+   "A": "spoton:claude-sonnet-5-5",
+   "B": "spoton:claude-sonnet-5-5",
+   "C": "spoton:claude-sonnet-5-5",
+   "D": "spoton:claude-sonnet-5-5",
+   "E": "spoton:claude-sonnet-5-5",
+   "critic": "spoton:mistral-large-3"
+  },
+  "fact_pack_hash": "ddbec5de27d01d090bccc7fdca30f6a3f2859449dd0526429bbe03095e9d3f20"
+ },
+ "verdict": {
+  "headline": "Fast Celes combo deck with deep loop redundancy, held back by thin white and red mana and no protection-role cards.",
+  "summary": "This is a Mardu sacrifice-and-reanimation list built around Celes, Rune Knight. It has 31 complete combos, several outlets and 9 tutors, so it can end games quickly, and Luminous Broodmoth and Dualcaster Mage give it engines that do not need the commander. The weak points are the mana and resilience. White has 18 sources against 36 recommended, red has 16 against 30, and black has 20 against 33. Protection-role cards are 0, there is one sweeper, and the recursion package is 8 cards with several slow or conditional pieces. The graveyard cluster is not centered on Celes, and many loop pieces are single points of failure. The bracket floor is 4, set by Bolas's Citadel, Demonic Tutor, Gamble, Orcish Bowmasters and the Abdel Adrian, Gorion's Ward combo with Animate Dead or Necromancy. No power target is stated, so fit cannot be judged. The first changes are Reliquary Tower to Witch Enchanter // Witch-Blessed Meadow, to give an answer to a hostile graveyard-exile enchantment. Mountain to Plateau and High Market to Scrubland fix the color shortfalls without spending spell slots.",
+  "grade": "C",
+  "confidence": 0.57
+ },
+ "deck_identity": {
+  "what_it_does": "No owner intent is recorded, so this is read from the list. It is a Mardu (W/B/R) sacrifice-and-reanimation deck. Celes, Rune Knight puts +1/+1 counters on the team whenever a creature enters from a graveyard. The deck fills the graveyard with Entomb, Buried Alive and Faithless Looting, then returns creatures with Reanimate, Animate Dead, Necromancy, Lively Dirge and Alesha, Who Laughs at Fate. Sacrifice outlets (Goblin Bombardment, Viscera Seer, Ashnod's Altar, Phyrexian Altar) and persist/return engines (Luminous Broodmoth, Murderous Redcap, Putrid Goblin) turn the loops into infinite damage or mana.",
+  "win_paths": [
+   "Infinite combo loops: Celes, Rune Knight with a sacrifice outlet and a creature that returns itself (Murderous Redcap, Luminous Broodmoth), ending in Goblin Bombardment or Blasting Station damage",
+   "Dualcaster Mage loops: copy Twinflame, Saw in Half, Ephemerate or Cloudshift for infinite ETB/LTB triggers, closing with a sac outlet or damage source",
+   "Abdel Adrian, Gorion's Ward with Animate Dead or Necromancy for infinite blink and token loops",
+   "Bolas's Citadel: cast spells from the top of the library with life, then sacrifice ten nonland permanents to drain each opponent for 10",
+   "Incremental pressure: reanimate a big creature, or go wide with Celes counters and Voice of Victory, Alesha, Who Laughs at Fate and Terra, Herald of Hope attacks, and clear blockers with Ruinous Ultimatum"
+  ],
+  "success_criteria": [
+   "Graveyard fills by turn 2-3 with enough payoff creatures to reanimate: check the density of Entomb, Buried Alive, Faithless Looting, Lively Dirge and Celes's own discard-and-draw against the 22 creatures.",
+   "Celes's counter trigger happens most games, with enough returns from graveyard (Reanimate, Animate Dead, Necromancy, Sevinne's Reclamation, Rejoin the Fight, Priest of Fell Rites, Alesha, Who Laughs at Fate) to fire it.",
+   "At least one sacrifice outlet (Viscera Seer, Goblin Bombardment, Ashnod's Altar, Phyrexian Altar, Blasting Station, Altar of Dementia) is reliably findable and paired with a self-returning creature for the Celes loops.",
+   "The 9 tutors (including Demonic Tutor, Diabolic Intent, Imperial Recruiter) find a two-card loop piece when the other half is in play.",
+   "Mana supports a 2.37 average MV: 17 ramp pieces and 34 lands cast the commander on curve and still allow a combo turn in the Dark Ritual / Culling the Weak range.",
+   "Interaction (15 targeted removal, Silence, Grand Abolisher, Deflecting Swat, Pyroblast, Red Elemental Blast) covers the combo turn against a stack response."
+  ],
+  "intentional_quirks": [
+   "Cheap blue-hate and stack protection (Pyroblast, Red Elemental Blast, Silence, Grand Abolisher, Voice of Victory, Deflecting Swat) instead of generic interaction",
+   "Several graveyard fillers and discard outlets in a deck with a creature-based commander: Entomb, Buried Alive, Faithless Looting, Lively Dirge, Lesser Masticore, plus mill on Terra, Herald of Hope and Locke, Treasure Hunter",
+   "Very high count of cheap sacrifice outlets and free-mana artifacts with only 3 colored basic types split across 34 lands, including three Mountains"
+  ]
+ },
+ "scorecard": [
+  {
+   "axis": "plan_synergy",
+   "score": 7,
+   "one_line": "Celes plus any outlet and a self-returning creature is a full combo (combos.complete.5147-6431--5, 1657-6431), but the graveyard cluster is not centered on Celes and many loop pieces are single points of failure.",
+   "finding_ids": [
+    "s-plan_synergy-1",
+    "s-plan_synergy-2",
+    "s-plan_synergy-3",
+    "p-plan_synergy-2",
+    "p-plan_synergy-3"
+   ]
+  },
+  {
+   "axis": "mana_consistency",
+   "score": 6,
+   "one_line": "Low curve (2.37 average MV) and 17 ramp pieces cover 34 lands, but W sources (18 vs 36 recommended) and R sources (16 vs 30) are thin.",
+   "finding_ids": [
+    "s-mana_consistency-1",
+    "s-mana_consistency-2",
+    "s-mana_consistency-3",
+    "p-mana_consistency-1",
+    "p-mana_consistency-2",
+    "p-mana_consistency-3"
+   ]
+  },
+  {
+   "axis": "interaction_resilience",
+   "score": 6,
+   "one_line": "Spot removal and stack protection are plentiful (roles.targeted_removal.count = 15), but roles.protection.count = 0 and roles.wipes.count = 1 leave no answer to graveyard hate or enchantment/artifact problems and no recovery from a sweeper.",
+   "finding_ids": [
+    "s-interaction_resilience-2",
+    "s-interaction_resilience-3",
+    "p-interaction_resilience-1",
+    "p-interaction_resilience-2",
+    "p-interaction_resilience-3"
+   ]
+  },
+  {
+   "axis": "win_paths_closing",
+   "score": 8,
+   "one_line": "31 complete combos (combos.counts.complete), many two-card, built around Celes, Rune Knight and Luminous Broodmoth with several outlets and 9 tutors, so the deck can end games quickly.",
+   "finding_ids": [
+    "s-win_paths_closing-1",
+    "s-win_paths_closing-2",
+    "s-win_paths_closing-3",
+    "p-win_paths_closing-1",
+    "p-win_paths_closing-2"
+   ]
+  },
+  {
+   "axis": "power_bracket",
+   "score": 7,
+   "one_line": "Floor is bracket 4 (bracket.minimum_bracket) from Bolas's Citadel, Demonic Tutor, Gamble, Orcish Bowmasters and the Abdel Adrian + Animate Dead/Necromancy combos; no target is stated, so fit cannot be judged as over or under.",
+   "finding_ids": [
+    "s-power_bracket-1",
+    "s-power_bracket-2",
+    "s-power_bracket-3",
+    "p-power_bracket-1",
+    "p-power_bracket-2"
+   ]
+  },
+  {
+   "axis": "budget_inventory",
+   "score": 7,
+   "one_line": "No budget cap is set and inventory is unavailable, so spend is judged on efficiency alone; Esper Sentinel at $54.35 is the only clear outlier, while Demonic Tutor and Phyrexian Altar serve the plan.",
+   "finding_ids": [
+    "s-budget_inventory-1",
+    "s-budget_inventory-2",
+    "p-budget_inventory-1",
+    "p-budget_inventory-2",
+    "p-budget_inventory-3"
+   ]
+  },
+  {
+   "axis": "concept_execution",
+   "score": 7,
+   "one_line": "Celes combos with Murderous Redcap, Goblin Bombardment, Viscera Seer and the altars are listed as complete infinite loops, but synergy.clusters.graveyard.commander_centered is false and only 8 cards carry the recursion role.",
+   "finding_ids": [
+    "s-concept_execution-1",
+    "s-concept_execution-2",
+    "s-concept_execution-3",
+    "p-concept_execution-1",
+    "p-concept_execution-2",
+    "p-concept_execution-3"
+   ]
+  }
+ ],
+ "strengths": [
+  {
+   "id": "s-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "Celes, Rune Knight is a real combo piece: it pairs with Goblin Bombardment, Viscera Seer, Ashnod's Altar, Phyrexian Altar, Blasting Station and Altar of Dementia, and with Murderous Redcap. Every creature that returns from the graveyard adds counters, and the outlets turn the repeated returns into damage, mana, or mill.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.5147-6431--5.card_names",
+     "combos.complete.2292-6431--5.card_names",
+     "combos.complete.1657-6431.card_names",
+     "combos.complete.2034-6431--5.card_names",
+     "combos.complete.413-6431--5.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "The curve is very low and the ramp is dense. Sol Ring, Dark Ritual, Culling the Weak and three Talismans support 34 lands even though the norm is 38, and Celes at MV 4 comes down on time. This matches the brief's fast-combo build.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Dark Ritual",
+      "oracle_id": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b"
+     },
+     {
+      "name": "Culling the Weak",
+      "oracle_id": "6385fd0d-256d-4400-9319-afa8170024db"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     }
+    ],
+    "fact_keys": [
+     "mana.lands",
+     "mana.norms.lands.target",
+     "curve.average_mv",
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "Celes, Rune Knight forms listed two-card infinite loops with Murderous Redcap, Goblin Bombardment, Viscera Seer, Ashnod's Altar, Phyrexian Altar and Blasting Station. Each creature that returns from the graveyard triggers Celes's +1/+1 counter, so the outlets turn a single sacrifice-and-return into a repeatable engine. The deck has several separate ways to end the game from Celes plus one cheap piece, which is what the concept needs.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.1657-6431.card_names",
+     "combos.complete.5147-6431--5.card_names",
+     "combos.complete.2292-6431--5.card_names",
+     "combos.complete.2034-6431--5.card_names",
+     "combos.complete.4050-6431--5.card_names",
+     "combos.complete.413-6431--5.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.65
+  },
+  {
+   "id": "s-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Luminous Broodmoth is a second self-returning engine that forms complete loops with Ashnod's Altar, Viscera Seer, Phyrexian Altar, Goblin Bombardment, Blasting Station and Altar of Dementia without needing Celes. Together with the Dualcaster Mage loops, the concept has many redundant pieces, so it does not hinge on the commander surviving.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Dualcaster Mage",
+      "oracle_id": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2018-2034--73.card_names",
+     "combos.complete.2018-2292--73.card_names",
+     "combos.complete.2018-4050--73.card_names",
+     "combos.complete.2018-5147--73.card_names",
+     "combos.complete.413-2018--73.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Luminous Broodmoth is a second self-contained engine that does not need Celes. It forms two-card infinite loops with Ashnod's Altar, Viscera Seer, Phyrexian Altar, Goblin Bombardment, Blasting Station and Altar of Dementia. Dualcaster Mage adds a third engine through Twinflame, Saw in Half, Ephemerate and Cloudshift, so the plan survives losing the commander.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Dualcaster Mage",
+      "oracle_id": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28"
+     },
+     {
+      "name": "Twinflame",
+      "oracle_id": "83cf1169-5853-4332-b897-7b17d72d76ab"
+     },
+     {
+      "name": "Ephemerate",
+      "oracle_id": "0fd57894-b917-41c8-a394-360d1d31b236"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2018-2034--73.card_names",
+     "combos.complete.2018-5147--73.card_names",
+     "combos.complete.147-1235.card_names",
+     "combos.complete.147-5144.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The deck's actual power is coherent with its bracket-4 floor: Celes, Rune Knight pairs with Goblin Bombardment, Viscera Seer, Ashnod's Altar and Phyrexian Altar for infinite loops, backed by burst mana and tutors. It is built to play at the level the rules already force, not a lower-power list that hits a floor by accident.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "combos.complete.5147-6431--5.card_names",
+     "combos.complete.2292-6431--5.card_names",
+     "combos.complete.2034-6431--5.card_names",
+     "combos.complete.4050-6431--5.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "Luminous Broodmoth pairs with Ashnod's Altar, Phyrexian Altar, Viscera Seer, Goblin Bombardment, Blasting Station and Altar of Dementia for infinite loops without needing Celes. Celes, Rune Knight does the same with each outlet. Two engines share every outlet, so one outlet or one engine gets the deck to a win.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2018-5147--73.produces",
+     "combos.complete.5147-6431--5.produces",
+     "combos.complete.413-6431--5.produces",
+     "combos.complete.2018-2034--73.produces",
+     "combos.complete.2018-4050--73.produces",
+     "combos.counts.complete"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Fixing is strong. The multicolor lands include shocks, a Triome, Nomad Outpost and pain lands, and Command Tower and Arcane Signet help too. Only 2 lands enter tapped unconditionally, so the three-color base rarely costs tempo.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Savai Triome",
+      "oracle_id": "00625242-9348-4ef4-b975-f2ac82fee21d"
+     },
+     {
+      "name": "Nomad Outpost",
+      "oracle_id": "4619de7e-3d6e-4c6b-8e6e-e24db324839d"
+     },
+     {
+      "name": "Godless Shrine",
+      "oracle_id": "73864fcc-1bde-4bc0-831e-2b93e546e417"
+     },
+     {
+      "name": "Blood Crypt",
+      "oracle_id": "43985bbc-a0f6-4812-984e-392bc8562633"
+     },
+     {
+      "name": "Sacred Foundry",
+      "oracle_id": "45181cb8-2090-4471-ba90-e5a8f04d525f"
+     },
+     {
+      "name": "Command Tower",
+      "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25"
+     }
+    ],
+    "fact_keys": [
+     "mana.fixing_quality.multicolor_lands",
+     "mana.fixing_quality.share_of_lands",
+     "mana.unconditional_tapped_lands"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "The graveyard setup and the returns come from the same package, with the fill steps read straight from oracle text. Entomb and Lively Dirge's first mode put a tutored card into the graveyard, Buried Alive puts up to three creature cards there, and Faithless Looting does it by discarding two. Reanimate, Animate Dead, Necromancy and Priest of Fell Rites then return creatures from the graveyard. Each return is a creature entering from a graveyard, which is exactly what Celes, Rune Knight's counter trigger checks for, so the setup, the payoff and the commander all draw on the same cards.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Entomb",
+      "oracle_id": "299fc083-0834-4064-8344-f895aff68867"
+     },
+     {
+      "name": "Buried Alive",
+      "oracle_id": "8203c621-a1a0-4865-8c9a-0d4064c86107"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Lively Dirge",
+      "oracle_id": "0b23d9aa-d4ed-4ccf-8810-4a4d11d6fb9c"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     },
+     {
+      "name": "Priest of Fell Rites",
+      "oracle_id": "ec6ccd8f-cc75-4a50-8639-f4ec31a280aa"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.graveyard.cards",
+     "roles.recursion.cards",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.78
+  },
+  {
+   "id": "s-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "Most of the engine is cheap. Goblin Bombardment ($3.37), Luminous Broodmoth ($1.73), Murderous Redcap ($2.54), Putrid Goblin ($0.46), Viscera Seer ($0.57), Celes ($1.76) and Mayhem Devil ($0.35) carry the loops, so the $732.99 total is concentrated in a few support slots rather than the core combo pieces.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Putrid Goblin",
+      "oracle_id": "27faa94b-c7a7-45e7-8630-80126fab74ba"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Mayhem Devil",
+      "oracle_id": "4709f11c-aef8-45ac-b2bf-e640c568dfac"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.total_usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "The removal suite is cheap and efficient, with Swords to Plowshares, Path to Exile, Anguished Unmaking and Damn answering threats or opposing blockers at low cost. Several loop pieces, such as Goblin Bombardment, Blasting Station, Mayhem Devil and Orcish Bowmasters, double as repeatable pingers, so the count sits above the target range.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+     },
+     {
+      "name": "Path to Exile",
+      "oracle_id": "d683d985-9888-4d21-8b5f-69e69ce4a03b"
+     },
+     {
+      "name": "Anguished Unmaking",
+      "oracle_id": "ad09b3c3-c8e7-481c-8c45-e7f234935117"
+     },
+     {
+      "name": "Damn",
+      "oracle_id": "b01d61cc-9844-4191-86a0-f2db6d42d6e5"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Mayhem Devil",
+      "oracle_id": "4709f11c-aef8-45ac-b2bf-e640c568dfac"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count",
+     "roles.targeted_removal.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-power_bracket-3",
+   "axis": "power_bracket",
+   "claim": "Redundancy in combos is very high: Luminous Broodmoth alone completes infinite loops with Ashnod's Altar, Viscera Seer, Phyrexian Altar, Goblin Bombardment, Blasting Station and Altar of Dementia, and Dualcaster Mage combines with Twinflame, Saw in Half, Ephemerate and Cloudshift. Losing any single piece does not shut the deck down.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Dualcaster Mage",
+      "oracle_id": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Twinflame",
+      "oracle_id": "83cf1169-5853-4332-b897-7b17d72d76ab"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2018-2034--73.card_names",
+     "combos.complete.2018-5147--73.card_names",
+     "combos.complete.147-1235.card_names",
+     "combos.complete.147-5144.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "The deck's closing is redundant on the outlet side. Luminous Broodmoth forms a complete two-card loop with Ashnod's Altar, Viscera Seer, Phyrexian Altar, Goblin Bombardment and Blasting Station. Celes, Rune Knight forms one with Murderous Redcap, Goblin Bombardment, Viscera Seer, Ashnod's Altar, Phyrexian Altar and Blasting Station. Goblin Bombardment and Blasting Station end in infinite damage, so any of several cheap outlets completes either core piece. The tutors in roles.tutors.cards (for example Demonic Tutor) can fetch whichever half is missing. The data lists the combos but gives no turn-by-turn speed.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     },
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2018-2034--73.card_names",
+     "combos.complete.2018-2292--73.card_names",
+     "combos.complete.2018-4050--73.card_names",
+     "combos.complete.2018-5147--73.card_names",
+     "combos.complete.413-2018--73.card_names",
+     "combos.complete.5147-6431--5.card_names",
+     "combos.complete.2292-6431--5.card_names",
+     "combos.complete.413-6431--5.card_names",
+     "combos.complete.1657-6431.card_names",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Resilience to creature removal is built in. Luminous Broodmoth, Murderous Redcap, Putrid Goblin and Lesser Masticore return themselves via persist or the Broodmoth trigger, and eight recursion pieces (roles.recursion.count) such as Reanimate and Animate Dead rebuy a dead engine from the graveyard.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Putrid Goblin",
+      "oracle_id": "27faa94b-c7a7-45e7-8630-80126fab74ba"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "s-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "Graveyard loading and return are well covered: Entomb, Buried Alive, Lively Dirge and Faithless Looting put creatures into the yard, and Reanimate, Animate Dead and Necromancy return them, which satisfies Celes's 'entered from a graveyard' counter trigger. Several of these (Entomb, Buried Alive, Lively Dirge, Demonic Tutor, Diabolic Intent) also work as tutors, so the same cards can fetch a missing loop piece or a reanimation target.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Entomb",
+      "oracle_id": "299fc083-0834-4064-8344-f895aff68867"
+     },
+     {
+      "name": "Buried Alive",
+      "oracle_id": "8203c621-a1a0-4865-8c9a-0d4064c86107"
+     },
+     {
+      "name": "Lively Dirge",
+      "oracle_id": "0b23d9aa-d4ed-4ccf-8810-4a4d11d6fb9c"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     },
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Diabolic Intent",
+      "oracle_id": "038519b9-bca8-4b27-b5ac-2409595469d0"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.cards",
+     "roles.tutors.cards",
+     "synergy.clusters.graveyard.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "s-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "The two biggest spends that serve the plan are well placed. Demonic Tutor ($65.21) is the unconditional tutor for a combo deck, and Phyrexian Altar ($56.61) is a free sacrifice outlet that also produces mana in the Celes loops.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Phyrexian Altar",
+      "oracle_id": "8d02b297-97c4-4379-9862-0a462400f66f"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Demonic Tutor.usd",
+     "derived.price.most_expensive.Phyrexian Altar.usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Nine tutors (Demonic Tutor, Gamble, Entomb, Diabolic Intent, Imperial Recruiter and others) give the loop pieces redundancy. Many of them are 1-2 MV, so they are cheap to chain on the combo turn.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Gamble",
+      "oracle_id": "a54f0869-94c8-42af-9080-166efb9486a4"
+     },
+     {
+      "name": "Entomb",
+      "oracle_id": "299fc083-0834-4064-8344-f895aff68867"
+     },
+     {
+      "name": "Diabolic Intent",
+      "oracle_id": "038519b9-bca8-4b27-b5ac-2409595469d0"
+     },
+     {
+      "name": "Imperial Recruiter",
+      "oracle_id": "4d6a1391-817a-4ddc-840d-886b138eeb3f"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "Speed and consistency tools are in place: average MV is 2.37, 17 ramp pieces including Dark Ritual, Culling the Weak, Sol Ring and Simian Spirit Guide, and 9 tutors including Demonic Tutor, Gamble and Entomb. That supports fast-combo bracket-4 play.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Dark Ritual",
+      "oracle_id": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b"
+     },
+     {
+      "name": "Culling the Weak",
+      "oracle_id": "6385fd0d-256d-4400-9319-afa8170024db"
+     },
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Simian Spirit Guide",
+      "oracle_id": "44e0ffa3-8915-4c1f-8f1a-4aeea1365f07"
+     },
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Gamble",
+      "oracle_id": "a54f0869-94c8-42af-9080-166efb9486a4"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv",
+     "roles.ramp.count",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "Dualcaster Mage forms a second, independent engine. Twinflame and Saw in Half are complete two-card combos with it, and Ephemerate and Cloudshift loop ETB/LTB triggers. With an outlet, Sevinne's Reclamation or Lively Dirge makes three-card loops that end in damage. A graveyard-and-Celes plan alone cannot be shut off by answering one engine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Dualcaster Mage",
+      "oracle_id": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28"
+     },
+     {
+      "name": "Twinflame",
+      "oracle_id": "83cf1169-5853-4332-b897-7b17d72d76ab"
+     },
+     {
+      "name": "Saw in Half",
+      "oracle_id": "eea18c55-8695-4ba1-9b38-3e7638692f5f"
+     },
+     {
+      "name": "Ephemerate",
+      "oracle_id": "0fd57894-b917-41c8-a394-360d1d31b236"
+     },
+     {
+      "name": "Cloudshift",
+      "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     },
+     {
+      "name": "Lively Dirge",
+      "oracle_id": "0b23d9aa-d4ed-4ccf-8810-4a4d11d6fb9c"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.147-1235.produces",
+     "combos.complete.147-500.produces",
+     "combos.complete.147-5144.card_names",
+     "combos.complete.147-1465-5147.card_names",
+     "combos.complete.147-5147-7682.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  }
+ ],
+ "problems": [
+  {
+   "id": "p-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "White has 22 pips but only 18 sources against 36 recommended. Red has 16 sources against 30. Five Plains and three Mountains are in the base. Damn, Swords to Plowshares and Path to Exile can sit uncastable, and Goblin Bombardment, Murderous Redcap and Blasting Station want red early. Rocks cover part of the gap, though the Talismans and Signet are mostly two-color and Dark Ritual only adds black.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Damn",
+      "oracle_id": "b01d61cc-9844-4191-86a0-f2db6d42d6e5"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Dark Ritual",
+      "oracle_id": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.W.sources",
+     "mana.pips_vs_sources.W.recommended_sources",
+     "mana.pips_vs_sources.R.sources",
+     "mana.pips_vs_sources.R.recommended_sources"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "p-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "The reliable return suite is thin for a deck that wants Celes triggering most games: recursion has only 8 cards (roles.recursion.count), and several are slow or conditional. Rejoin the Fight costs 6, Sevinne's Reclamation hits only mana value 3 or less, Terra, Herald of Hope needs combat damage plus 2 mana, and Priest of Fell Rites is sorcery-speed with a life cost. Only Reanimate, Animate Dead, Necromancy and Lively Dirge give cheap, dependable repeated returns.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Rejoin the Fight",
+      "oracle_id": "d22ea32b-2128-4dcc-8b1c-c4c52f0b2f45"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     },
+     {
+      "name": "Terra, Herald of Hope",
+      "oracle_id": "25d40d28-1b46-4055-959a-45719040ed30"
+     },
+     {
+      "name": "Priest of Fell Rites",
+      "oracle_id": "ec6ccd8f-cc75-4a50-8639-f4ec31a280aa"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Black is the heaviest color (37 pips) with 20 sources against 33 recommended. Several lands make colorless (Reliquary Tower, High Market, Battlefield Forge, Caves of Koilos, Graven Cairns) or require paying life. Culling the Weak and Dark Ritual, which want BBB or BBBB, get weaker without clean black on turn 1-2.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Dark Ritual",
+      "oracle_id": "53f7c868-b03e-4fc2-8dcf-a75bbfa3272b"
+     },
+     {
+      "name": "Culling the Weak",
+      "oracle_id": "6385fd0d-256d-4400-9319-afa8170024db"
+     },
+     {
+      "name": "Reliquary Tower",
+      "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+     },
+     {
+      "name": "High Market",
+      "oracle_id": "86fb3749-37d6-48a6-8524-71e996850307"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.B.pips",
+     "mana.pips_vs_sources.B.sources",
+     "mana.pips_vs_sources.B.recommended_sources"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "Esper Sentinel costs $54.35, the fourth most expensive card, for a tax-draw effect outside the sacrifice-reanimation plan. It does not advance any win path in the brief and is the clearest low-value spend. This hinges on whether it is intentional.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Esper Sentinel.usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "The concept is not commander-centered: synergy.clusters.graveyard.commander_centered is false and the graveyard cluster strength is only 0.1846. Celes, Rune Knight is a 4-mana creature whose counters need a returned creature, so it is dead early without a graveyard return. Most reanimation spells win on their own without Celes, and key engines such as Luminous Broodmoth, Murderous Redcap, Viscera Seer and Putrid Goblin are listed as synergy orphans.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Viscera Seer",
+      "oracle_id": "f82a4e85-526d-4456-b700-7760043a31be"
+     },
+     {
+      "name": "Putrid Goblin",
+      "oracle_id": "27faa94b-c7a7-45e7-8630-80126fab74ba"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.graveyard.commander_centered",
+     "synergy.clusters.graveyard.strength",
+     "synergy.orphans"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Reanimate, Animate Dead, Necromancy and Celes, Rune Knight's counter trigger all depend on creatures entering from a graveyard, so a hostile graveyard-exile enchantment would shut off the plan. In the card table, the only cards that can hit a resolved non-creature, non-artifact permanent are Anguished Unmaking (3 mana, costs 3 life) and Ruinous Ultimatum (7 mana sorcery). Vandalblast is artifact-only, Pyroblast and Red Elemental Blast only hit blue permanents, and the rest of the removal is creature-targeted. That leaves one cheap answer, which the owner has to draw or tutor for.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Anguished Unmaking",
+      "oracle_id": "ad09b3c3-c8e7-481c-8c45-e7f234935117"
+     },
+     {
+      "name": "Ruinous Ultimatum",
+      "oracle_id": "a6f38908-aa4f-4f99-a28e-85d11dab52e4"
+     },
+     {
+      "name": "Vandalblast",
+      "oracle_id": "3567c3c8-b3c7-45b7-935b-b1fdbc973720"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.wipes.count",
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Only one sweeper (roles.wipes.count = 1), Ruinous Ultimatum at 7 mana, and no protection role cards (roles.protection.count = 0) for the board. A wide board of tokens and persist creatures has no way to survive an opposing wrath except Ephemerate and Cloudshift, which save one creature at a time. A sweep or a fast opposing board cannot be answered cheaply except by Damn overload at 4 mana.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ruinous Ultimatum",
+      "oracle_id": "a6f38908-aa4f-4f99-a28e-85d11dab52e4"
+     },
+     {
+      "name": "Damn",
+      "oracle_id": "b01d61cc-9844-4191-86a0-f2db6d42d6e5"
+     },
+     {
+      "name": "Ephemerate",
+      "oracle_id": "0fd57894-b917-41c8-a394-360d1d31b236"
+     },
+     {
+      "name": "Cloudshift",
+      "oracle_id": "6879f5ce-7a1b-4606-bad1-885779b0d456"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "roles.protection.count",
+     "roles.wipes.target_min"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "The deck has few self-returning creatures. Only Murderous Redcap, Luminous Broodmoth and Putrid Goblin return themselves, and Lesser Masticore persists too. Most Celes loops and the Broodmoth loops depend on these few. If Broodmoth or Redcap is removed or exiled, the Celes loops need a different return source. Protection for them is thin (roles.protection.count is 0, though the stack-stopping quirks cover the combo turn).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Putrid Goblin",
+      "oracle_id": "27faa94b-c7a7-45e7-8630-80126fab74ba"
+     },
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.1657-6431.card_names",
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "Every infinite line runs through creatures and an outlet, so the weak spots are shared: graveyard hate or exile (Path-style removal on the engine creature) can stop Luminous Broodmoth, Murderous Redcap or Dualcaster Mage, and the deck has only 22 creatures. Creature-light draws leave only incremental plays such as Alesha, Who Laughs at Fate and Voice of Victory.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Dualcaster Mage",
+      "oracle_id": "8eb7c0a5-6190-40de-b473-2d1daa3bbe28"
+     },
+     {
+      "name": "Alesha, Who Laughs at Fate",
+      "oracle_id": "17ce2c17-b69b-4ebf-9c3c-c64e771af101"
+     },
+     {
+      "name": "Voice of Victory",
+      "oracle_id": "b12cbda1-ac09-49eb-96b3-a4df27bc37ea"
+     }
+    ],
+    "fact_keys": [
+     "combos.counts.complete",
+     "synergy.clusters.graveyard.strength"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "No power target is recorded (q-1), so the computed floor of bracket 4 (Optimized) cannot be called a fit or a mismatch. The facts list Bolas's Citadel, Demonic Tutor, Gamble and Orcish Bowmasters under bracket.reasons.game_changers.cards, and the pair Abdel Adrian, Gorion's Ward with Animate Dead or Necromancy under bracket.reasons.two_card_combos.cards, each with floor 4. If the owner wants a lower pod, those cards would have to go, and the many Celes loops would also need review; if bracket 4 is intended, none of this is a problem.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Bolas's Citadel",
+      "oracle_id": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b"
+     },
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Gamble",
+      "oracle_id": "a54f0869-94c8-42af-9080-166efb9486a4"
+     },
+     {
+      "name": "Orcish Bowmasters",
+      "oracle_id": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3"
+     },
+     {
+      "name": "Abdel Adrian, Gorion's Ward",
+      "oracle_id": "cab092f9-b7ff-43b9-935f-310869a4daf8"
+     },
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.reasons.game_changers.cards",
+     "bracket.reasons.game_changers.floor",
+     "bracket.reasons.two_card_combos.cards",
+     "bracket.reasons.two_card_combos.floor"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "Deflecting Swat is the single most expensive card at $76.05 and is a conditional redirect that only works while the commander is on the battlefield. In a deck whose stack protection mostly comes from cheap pieces (Silence at $9.91, Pyroblast, Red Elemental Blast), this is a lot of money for one narrow protection slot. The protection package is a deliberate quirk, but the premium price is a cost of it.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Deflecting Swat",
+      "oracle_id": "ae120613-97d6-4393-b39d-c3e6c076f5d6"
+     },
+     {
+      "name": "Silence",
+      "oracle_id": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Deflecting Swat.usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "Bolas's Citadel is a slow, high-cost win path (MV 6) that needs ten nonland permanents sacrificed, and Ruinous Ultimatum (MV 7) is a clear-the-board play. Neither fits a deck whose average MV is 2.37 (curve.average_mv). They give an alternative to loops when the combo is disrupted, but they are expensive and unreliable.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Bolas's Citadel",
+      "oracle_id": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b"
+     },
+     {
+      "name": "Ruinous Ultimatum",
+      "oracle_id": "a6f38908-aa4f-4f99-a28e-85d11dab52e4"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv",
+     "bracket.reasons.game_changers.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-budget_inventory-3",
+   "axis": "budget_inventory",
+   "claim": "Several mid-priced cards sit at the edges of the plan: Ranger-Captain of Eos ($36.11) tutors only for MV 1 or less, Warren Soultrader ($20.96) is a pricey outlet next to the cheaper Viscera Seer and Goblin Bombardment, and Beseech the Mirror ($19.94) is a slow 4-mana tutor next to cheaper tutors. Together they add real cost for redundant roles.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ranger-Captain of Eos",
+      "oracle_id": "cada3481-cc2b-4412-b9b5-0436af53aad2"
+     },
+     {
+      "name": "Warren Soultrader",
+      "oracle_id": "ace86e56-efde-4eb7-8815-71456a4c3abe"
+     },
+     {
+      "name": "Beseech the Mirror",
+      "oracle_id": "cbbe535b-12d6-4e6c-8b26-9220f06a1604"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Ranger-Captain of Eos.usd",
+     "derived.price.most_expensive.Warren Soultrader.usd",
+     "derived.price.most_expensive.Beseech the Mirror.usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "Protection is zero (roles.protection.count) and the Celes loops depend on creature or sacrifice pieces. A single removal spell on Murderous Redcap, or hate on the sacrifice outlet, stops the loop, and Luminous Broodmoth only returns creatures without flying. The stack-stopping cards (Silence, Grand Abolisher) are an owner-chosen quirk, but nothing protects the persist creatures or outlets from graveyard hate or removal outside the combo turn.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Luminous Broodmoth",
+      "oracle_id": "28c7c816-07e7-42fb-923c-bf149ba28b38"
+     },
+     {
+      "name": "Silence",
+      "oracle_id": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Much of the free interaction is narrow. Pyroblast and Red Elemental Blast only hit blue, Vandalblast is the only artifact answer and is sorcery-speed, and Silence and Grand Abolisher cover only the owner's own turn. A non-blue opponent's instant-speed removal during the build-up turns, or a held-up interaction on an opposing turn, goes unanswered, and the deck has no counterspell or fog for non-blue threats. The owner chose the blue hate, but the cost is that the set is dead against non-blue tables.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Pyroblast",
+      "oracle_id": "ecc435e2-deb1-420a-a79f-01dd08747314"
+     },
+     {
+      "name": "Red Elemental Blast",
+      "oracle_id": "bb329a5c-b9f9-4973-a53f-090024146325"
+     },
+     {
+      "name": "Vandalblast",
+      "oracle_id": "3567c3c8-b3c7-45b7-935b-b1fdbc973720"
+     },
+     {
+      "name": "Silence",
+      "oracle_id": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Card flow is thin. Only 5 cards are tagged draw against a target of 11-13. Faithless Looting, Deadly Dispute and Black Market Connections are the sources, and the commander's own draw only happens on entry. After a failed combo turn the deck has little to refill. The brief's combo focus softens this, but a tutor-light draw leaves the deck reliant on top-decks.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Deadly Dispute",
+      "oracle_id": "457af74a-02b3-4659-846d-63e482667f34"
+     },
+     {
+      "name": "Black Market Connections",
+      "oracle_id": "d2664f28-49e1-46f8-a863-b217e961a57c"
+     },
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.draw.target_min",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Several cards sit outside the sac-reanimation plan: Esper Sentinel, Lotho, Corrupt Shirriff, Black Market Connections, Locke, Treasure Hunter, and Rejoin the Fight (6 mana). Black Market Connections and Lotho cost life or mana without feeding a loop, and Rejoin the Fight is slow for a deck that wants to win early. Whether they are deliberate is unresolved.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     },
+     {
+      "name": "Lotho, Corrupt Shirriff",
+      "oracle_id": "135cc078-1c45-465e-b0b9-7168c89f56f4"
+     },
+     {
+      "name": "Black Market Connections",
+      "oracle_id": "d2664f28-49e1-46f8-a863-b217e961a57c"
+     },
+     {
+      "name": "Rejoin the Fight",
+      "oracle_id": "d22ea32b-2128-4dcc-8b1c-c4c52f0b2f45"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans",
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "The power target is unstated (q-1), so the bracket floor is the only hard fact: bracket.minimum_bracket is 4, set by Game Changers (Bolas's Citadel, Demonic Tutor, Gamble, Orcish Bowmasters) and by the Abdel Adrian, Gorion's Ward plus Animate Dead / Necromancy combo. Separately, Celes, Rune Knight is itself a combo piece with Murderous Redcap (combos.complete.1657-6431), Goblin Bombardment (combos.complete.5147-6431--5) and Blasting Station (combos.complete.413-6431--5), so the commander cannot be played without the loop. If the owner aims below bracket 4, the Game Changers and the combos would both need trimming, and trimming the commander's own loops would conflict with the concept.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Celes, Rune Knight",
+      "oracle_id": "aea8345a-191d-4c62-8d15-a716a9934b66"
+     },
+     {
+      "name": "Murderous Redcap",
+      "oracle_id": "a498bc70-36e7-4454-bc44-906893df38b8"
+     },
+     {
+      "name": "Goblin Bombardment",
+      "oracle_id": "edad60c6-80de-4033-af1b-a703ac332983"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Bolas's Citadel",
+      "oracle_id": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b"
+     },
+     {
+      "name": "Demonic Tutor",
+      "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+     },
+     {
+      "name": "Gamble",
+      "oracle_id": "a54f0869-94c8-42af-9080-166efb9486a4"
+     },
+     {
+      "name": "Orcish Bowmasters",
+      "oracle_id": "ea5103f5-27e0-4eb1-902c-7f34652d6bf3"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers",
+     "bracket.reasons.game_changers.cards",
+     "combos.complete.1657-6431.card_names",
+     "combos.complete.5147-6431--5.card_names",
+     "combos.complete.413-6431--5.card_names"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  }
+ ],
+ "top_changes": {
+  "swap_ids": [
+   "sw-1",
+   "sw-2",
+   "sw-3"
+  ],
+  "why_these_first": "Swap 1 attacks the deck's biggest single risk, one resolved enchantment shutting off Reanimate, Animate Dead, Necromancy and Celes's trigger, by swapping a colorless Reliquary Tower for a land that also answers it. Swaps 2 and 3 fix the white and black source shortfalls (18 white sources vs 36 recommended, 20 black vs 33) by swapping low-value Mountain and High Market for duals, without spending a spell slot. Together they make the Dark Ritual and Culling the Weak turn more reliable. The recursion and protection swaps come next."
+ },
+ "swaps": [
+  {
+   "id": "sw-1",
+   "cut": {
+    "name": "Reliquary Tower",
+    "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+   },
+   "add": {
+    "name": "Witch Enchanter // Witch-Blessed Meadow",
+    "oracle_id": "0355249a-8e4e-41db-9cea-1b901faffbe6"
+   },
+   "resolves_finding_id": "p-interaction_resilience-1",
+   "tradeoff": "Reliquary Tower makes only colorless mana and its no-maximum-hand-size clause rarely matters when Celes and Faithless Looting keep the hand moving, so the cut is cheap. Witch Enchanter // Witch-Blessed Meadow takes the land slot, taps for white (3 life or tapped), and can be cast as a 4-mana creature to destroy a Rest in Peace-style enchantment or artifact. It does not answer creature or land based graveyard hate, and it costs life or tempo as a land.",
+   "bracket_effect": "none",
+   "budget_effect": "adds $6.16; the cut's price is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Kithkin Spellduster",
+    "oracle_id": "de8beb92-234b-4684-9185-c7077c8a5133"
+   },
+   "owned": false,
+   "price": 6.16
+  },
+  {
+   "id": "sw-2",
+   "cut": {
+    "name": "Mountain",
+    "oracle_id": "a3fb7228-e76b-4e96-a40e-20b5fed75685"
+   },
+   "add": {
+    "name": "Plateau",
+    "oracle_id": "c7a15ca4-085f-4d92-8387-c3711c04c8fa"
+   },
+   "resolves_finding_id": "p-mana_consistency-1",
+   "tradeoff": "A Mountain only makes red, so swapping it for Plateau keeps red and adds an untapped white source, which helps with the 22 white pips against 18 sources (Damn, Swords to Plowshares, Path to Exile). The cost is a basic that dodges nonbasic hate, and Plateau is likely expensive (no price listed). It is also a Mountain Plains, so Clifftop Retreat and Dragonskull Summit still enter untapped.",
+   "bracket_effect": "none",
+   "budget_effect": "price of the add is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Rugged Prairie",
+    "oracle_id": "8e7641e1-e814-4d5a-9cb3-71ad2f4ceee8"
+   },
+   "owned": false,
+   "price": null
+  },
+  {
+   "id": "sw-3",
+   "cut": {
+    "name": "High Market",
+    "oracle_id": "86fb3749-37d6-48a6-8524-71e996850307"
+   },
+   "add": {
+    "name": "Scrubland",
+    "oracle_id": "c8d95ca8-7d12-4072-aeaf-e20f248c7e39"
+   },
+   "resolves_finding_id": "p-mana_consistency-2",
+   "tradeoff": "High Market is a colorless land whose sacrifice-for-1-life ability is a minor extra outlet that the deck already has in abundance (Viscera Seer, Goblin Bombardment, both Altars). Scrubland is an untapped, painless white-black dual that improves black sources (20 vs 33 recommended) for Dark Ritual and Culling the Weak. It also adds a white source. The deck loses a free land-based outlet.",
+   "bracket_effect": "none",
+   "budget_effect": "price of the add is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Shineshadow Snarl",
+    "oracle_id": "c9fc13d6-bd10-47bc-b2b6-7f67a1f3371e"
+   },
+   "owned": false,
+   "price": null
+  },
+  {
+   "id": "sw-4",
+   "cut": {
+    "name": "Rejoin the Fight",
+    "oracle_id": "d22ea32b-2128-4dcc-8b1c-c4c52f0b2f45"
+   },
+   "add": {
+    "name": "Victimize",
+    "oracle_id": "240e85d3-e495-4877-8609-4b4056c402f7"
+   },
+   "resolves_finding_id": "p-concept_execution-2",
+   "tradeoff": "Rejoin the Fight at 6 mana is the slowest return in a deck averaging 2.37 mana value, and your opponents pick which creatures come back. Victimize costs 3, you choose two creatures, and the sacrificed creature is fodder for your outlets. The two creatures entering together fire Celes's counter trigger once. It is a sorcery that needs a creature to sacrifice, so it is weaker on an empty board.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$1.12 (adds $1.35, cuts $0.23); ownership unknown",
+   "alternative": {
+    "name": "Persist",
+    "oracle_id": "367d4cf2-270f-4236-af10-7d5e8ea8c9fe"
+   },
+   "owned": false,
+   "price": 1.35
+  },
+  {
+   "id": "sw-5",
+   "cut": {
+    "name": "Black Market Connections",
+    "oracle_id": "d2664f28-49e1-46f8-a863-b217e961a57c"
+   },
+   "add": {
+    "name": "Akroma's Will",
+    "oracle_id": "fd949f82-fc10-4e37-8aa9-6c7569fe3c55"
+   },
+   "resolves_finding_id": "p-interaction_resilience-2",
+   "tradeoff": "Black Market Connections gives a Treasure, a card or a 3/2 body each turn, but it costs life every turn and sits outside the loops. Cutting it gives up that slow draw and mana, which only partly helps the thin card flow. Akroma's Will is an instant that gives the team indestructible and protection from colors (or flying and double strike with your commander out), the deck's only answer to a sweeper or spot removal on the board. It does not stop exile effects.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$6.03 (adds $18.68, cuts $12.65); ownership unknown",
+   "alternative": {
+    "name": "Clever Concealment",
+    "oracle_id": "42bb7ea9-f6e4-4551-8d93-3b1eae84b865"
+   },
+   "owned": false,
+   "price": 18.68
+  },
+  {
+   "id": "sw-6",
+   "cut": {
+    "name": "Esper Sentinel",
+    "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+   },
+   "add": {
+    "name": "Restless Apparition",
+    "oracle_id": "fbd6dda7-ccee-4640-805d-78a9d60f45ef"
+   },
+   "resolves_finding_id": "p-budget_inventory-1",
+   "tradeoff": "Esper Sentinel is a $54 tax-draw 1-drop with no link to the sacrifice-reanimation loops, so cutting it loses only some incidental draw against noncreature spells. Restless Apparition costs about $0.18, has persist, and is a hybrid white-black creature that can be sacrificed and returned for Celes's trigger. It costs 3 instead of 1.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$54.17 (adds $0.18, cuts $54.35); ownership unknown",
+   "alternative": {
+    "name": "Lingering Tormentor",
+    "oracle_id": "276b1bd8-8918-4226-bab3-100cf5aa3c24"
+   },
+   "owned": false,
+   "price": 0.18
+  },
+  {
+   "id": "sw-7",
+   "cut": {
+    "name": "Lotho, Corrupt Shirriff",
+    "oracle_id": "135cc078-1c45-465e-b0b9-7168c89f56f4"
+   },
+   "add": {
+    "name": "Obstinate Gargoyle",
+    "oracle_id": "f3bd9bfe-847f-4ed1-88aa-6aa6b3fa7199"
+   },
+   "resolves_finding_id": "p-plan_synergy-2",
+   "tradeoff": "Lotho makes Treasure only when a player casts a second spell in a turn and costs you life each time, which is marginal in a deck with 17 ramp pieces. Cutting it loses a little incidental mana. Obstinate Gargoyle is a cheap artifact creature with persist, adding a fourth self-returning body beyond Murderous Redcap, Luminous Broodmoth and Putrid Goblin, so the Celes loops survive losing one of them. It is a 3-mana vanilla body otherwise.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$7.88 (adds $0.18, cuts $8.06); ownership unknown",
+   "alternative": {
+    "name": "Wingrattle Scarecrow",
+    "oracle_id": "034264da-a404-4037-b215-b095bba77490"
+   },
+   "owned": false,
+   "price": 0.18
+  }
+ ],
+ "cuts_to_consider": [
+  {
+   "card": {
+    "name": "Vandalblast",
+    "oracle_id": "3567c3c8-b3c7-45b7-935b-b1fdbc973720"
+   },
+   "reason": "A sorcery-speed artifact answer that is rarely included in this archetype and does nothing for the loops or the combo turn. Cut it if you need a slot for a cheap instant-speed answer.",
+   "evidence": [
+    "card.Vandalblast.edhrec_inclusion",
+    "card.Vandalblast.cmc"
+   ]
+  },
+  {
+   "card": {
+    "name": "Beseech the Mirror",
+    "oracle_id": "cbbe535b-12d6-4e6c-8b26-9220f06a1604"
+   },
+   "reason": "A slow, pricey 4-mana tutor next to cheaper ones like Demonic Tutor, Entomb and Diabolic Intent, and the bargain mode needs a sacrifice to be worthwhile. Tutor density is already high.",
+   "evidence": [
+    "card.Beseech the Mirror.cmc",
+    "card.Beseech the Mirror.edhrec_inclusion",
+    "roles.tutors.count"
+   ]
+  }
+ ],
+ "bracket": {
+  "estimated": 4,
+  "target": null,
+  "reasons": [
+   "game_changers (floor 4): Bolas's Citadel, Demonic Tutor, Gamble, Orcish Bowmasters",
+   "two_card_combos (floor 4): Abdel Adrian, Gorion's Ward, Animate Dead, Necromancy"
+  ]
+ },
+ "mana": {
+  "summary": "The curve is low (2.37 average MV) and the deck has 17 ramp pieces, including Sol Ring, Dark Ritual, Culling the Weak and three Talismans. That supports 34 lands against a norm of 38, and Celes at MV 4 comes down on time. Fixing is strong: shocks, a Triome, Nomad Outpost, pain lands, Command Tower and Arcane Signet, with only 2 lands entering tapped unconditionally. The problem is source counts for the three colors, not the land total.",
+  "issues": [
+   "White has 22 pips but only 18 sources against 36 recommended. Red has 16 sources against 30. Five Plains and three Mountains are in the base. Damn, Swords to Plowshares and Path to Exile can sit uncastable, and Goblin Bombardment, Murderous Redcap and Blasting Station want red early. Rocks cover part of the gap, but the Talismans and Signet are mostly two-color and Dark Ritual only adds black.",
+   "Black is the heaviest color (37 pips) with 20 sources against 33 recommended. Several lands make colorless (Reliquary Tower, High Market, Battlefield Forge, Caves of Koilos, Graven Cairns) or require paying life. Culling the Weak and Dark Ritual, which want BBB or BBBB, get weaker without clean black on turn 1-2.",
+   "Proposed land fixes: Mountain to Plateau keeps red and adds an untapped white source, but Plateau has no listed price and the swap gives up a basic that dodges nonbasic hate. High Market to Scrubland adds an untapped, painless white-black dual and a white source, and the deck loses a free land-based outlet. Reliquary Tower to Witch Enchanter // Witch-Blessed Meadow adds a white source that costs 3 life or enters tapped, adds $6.16, and does not answer creature or land-based graveyard hate.",
+   "Card flow is thin. Only 5 cards are tagged draw against a target of 11-13. Faithless Looting, Deadly Dispute and Black Market Connections are the sources, and the commander's own draw only happens on entry. After a failed combo turn the deck has little to refill and relies on top-decks."
+  ]
+ },
+ "questions_for_owner": [
+  {
+   "id": "q-1",
+   "question": "What bracket or power level is this deck meant to play at?",
+   "why_asked": "The computed minimum is bracket 4 with many two-card infinite combos. If a lower pod is the aim, the combos and tutors become problems to trim; if bracket 4 is intended, they are the plan and the review should focus on consistency."
+  },
+  {
+   "id": "q-2",
+   "question": "Is the goal to win by infinite combo, or is the combo piles incidental to a value/grind game that the loops are an option in?",
+   "why_asked": "If combo is the point, the review should judge tutor density and protection for the combo turn; if the point is a grindy sacrifice-recursion game, reviewers should judge incremental pressure and card flow instead."
+  },
+  {
+   "id": "q-3",
+   "question": "Is the name 'The world is slowly ebbing away...' a hint about a specific theme or just a flavor name (for example, Final Fantasy flavor from Celes, Terra and Locke)?",
+   "why_asked": "If Final Fantasy characters (Celes, Terra, Locke) are a mandatory theme, those cards should be protected from cuts; if it is flavor only, they are judged purely on function."
+  },
+  {
+   "id": "q-4",
+   "question": "Is there a budget limit, and are the pricey cards (Demonic Tutor, Deflecting Swat, Phyrexian Altar, Esper Sentinel) fixed parts of the build?",
+   "why_asked": "The list totals about $733. A budget cap would change which upgrades or swaps are realistic; if there is none, staples can be suggested freely when they serve the plan."
+  },
+  {
+   "id": "q-5",
+   "question": "Are Esper Sentinel, Lotho, Corrupt Shirriff and Black Market Connections intentional, or placeholders?",
+   "why_asked": "They sit outside the main sacrifice-reanimation plan; if deliberate (tax and treasure engine), they stay; if placeholders, they are fair swap candidates."
+  }
+ ],
+ "charts": {
+  "curve": {
+   "buckets": [
+    {
+     "mv": 0,
+     "count": 0,
+     "label": "0"
+    },
+    {
+     "mv": 1,
+     "count": 17,
+     "label": "1"
+    },
+    {
+     "mv": 2,
+     "count": 22,
+     "label": "2"
+    },
+    {
+     "mv": 3,
+     "count": 19,
+     "label": "3"
+    },
+    {
+     "mv": 4,
+     "count": 3,
+     "label": "4"
+    },
+    {
+     "mv": 5,
+     "count": 1,
+     "label": "5"
+    },
+    {
+     "mv": 6,
+     "count": 2,
+     "label": "6"
+    },
+    {
+     "mv": 7,
+     "count": 1,
+     "label": "7+"
+    }
+   ],
+   "average_mv": 2.37
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 22,
+    "sources": 18,
+    "recommended_sources": 36
+   },
+   {
+    "color": "B",
+    "pips": 37,
+    "sources": 20,
+    "recommended_sources": 33
+   },
+   {
+    "color": "R",
+    "pips": 20,
+    "sources": 16,
+    "recommended_sources": 30
+   }
+  ],
+  "roles": [
+   {
+    "role": "ramp",
+    "count": 17,
+    "target_min": 9,
+    "target_max": 11
+   },
+   {
+    "role": "draw",
+    "count": 5,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "targeted_removal",
+    "count": 15,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "wipes",
+    "count": 1,
+    "target_min": 5,
+    "target_max": 7
+   }
+  ],
+  "synergy_clusters": [
+   {
+    "name": "graveyard",
+    "cards": [
+     {
+      "name": "Animate Dead",
+      "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+     },
+     {
+      "name": "Buried Alive",
+      "oracle_id": "8203c621-a1a0-4865-8c9a-0d4064c86107"
+     },
+     {
+      "name": "Entomb",
+      "oracle_id": "299fc083-0834-4064-8344-f895aff68867"
+     },
+     {
+      "name": "Faithless Looting",
+      "oracle_id": "3d6fa57a-aa53-4b5c-b8af-a7612c823117"
+     },
+     {
+      "name": "Lively Dirge",
+      "oracle_id": "0b23d9aa-d4ed-4ccf-8810-4a4d11d6fb9c"
+     },
+     {
+      "name": "Locke, Treasure Hunter",
+      "oracle_id": "a800bec4-bacc-43f9-a773-dd795959935b"
+     },
+     {
+      "name": "Necromancy",
+      "oracle_id": "699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a"
+     },
+     {
+      "name": "Priest of Fell Rites",
+      "oracle_id": "ec6ccd8f-cc75-4a50-8639-f4ec31a280aa"
+     },
+     {
+      "name": "Reanimate",
+      "oracle_id": "a044474a-cd72-4e9d-bd8d-a08f2de9cdc0"
+     },
+     {
+      "name": "Rejoin the Fight",
+      "oracle_id": "d22ea32b-2128-4dcc-8b1c-c4c52f0b2f45"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     },
+     {
+      "name": "Terra, Herald of Hope",
+      "oracle_id": "25d40d28-1b46-4055-959a-45719040ed30"
+     }
+    ],
+    "strength": 0.1846
+   }
+  ]
+ },
+ "omitted": [
+  {
+   "kind": "finding",
+   "item": "s-interaction_resilience-1: Silence (MV 1) stops opponents casting spells for the turn, Grand Abolisher (MV 2) also stops activated abilities of artifacts, creatures and enchantments on the owner's turn, and…",
+   "reason": "critic:unsupported_claim: The dossier does not provide evidence that the heuristic explicitly ignores these cards; it only shows `roles.protection.count = 0`, which does not confirm the heuristic's exclusion criteria. (quoted: \"so these pieces are not counted by the heuristic\")"
+  },
+  {
+   "kind": "finding",
+   "item": "p-plan_synergy-1: Abdel Adrian, Gorion's Ward (MV 5), Bolas's Citadel (MV 6), Twinflame and Dualcaster Mage are tagged orphans and sit outside the Celes/graveyard cluster. Abdel's listed two-card co…",
+   "reason": "critic:tradeoff_missing: The text acknowledges a tradeoff but does not explicitly resolve it or quantify the impact of the dead draws versus the redundancy benefit, which the dossier partially supports but the argument leaves unresolved. (quoted: \"Whether that redundancy is worth the dead draws depends on whether the g"
+  }
+ ]
+}

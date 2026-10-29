@@ -11,10 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from analytics import review_doc as rd
-from analytics import review_metrics as rm
-from analytics.oracle_client import OracleUnavailable
-from app import app
+from src.server.domain.analytics import review_doc as rd
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.analytics.oracle_client import OracleUnavailable
+from src.server.app.main import app
 from tests.test_review_metrics import make_deck, make_inputs
 
 
@@ -213,7 +213,7 @@ class TestOfflineFallback(unittest.TestCase):
         self.assertEqual(json.dumps(rd.math_sections(bad)), json.dumps(rd.math_sections(good)))
 
     def test_not_configured_is_offline(self):
-        from analytics.oracle_client import OracleNotConfigured
+        from src.server.domain.analytics.oracle_client import OracleNotConfigured
 
         def boom():
             raise OracleNotConfigured("ORACLE_URL not set")
@@ -229,7 +229,7 @@ class TestStale(unittest.TestCase):
         run(self.r, FakeOracle(reply_for(FP)), self.deck)
 
     def patched(self, version=7):
-        return patch("analytics.genres.get_version", return_value=version)
+        return patch("src.server.domain.analytics.genres.get_version", return_value=version)
 
     def test_unchanged_deck_is_fresh(self):
         with self.patched():
@@ -267,7 +267,7 @@ class TestStale(unittest.TestCase):
             rd.mark_stale_on_sync(FakeRedis(), self.deck)
 
     def test_registry_update_deck_cards_marks_stale(self):
-        import registry
+        import src.server.domain.decks.registry as registry
 
         deck = make_deck()
         deck.update(source="archidekt", source_id="1")
@@ -283,14 +283,14 @@ class TestApi(unittest.TestCase):
         self.r = FakeRedis()
         self.deck = make_deck()
         self.client = TestClient(app)
-        self.patches = [patch("app.r", self.r), patch("app._find_deck_any", return_value=self.deck),
-                        patch("analytics.genres.get_version", return_value=7)]
+        self.patches = [patch("src.server.app.main.r", self.r), patch("src.server.app.main._find_deck_any", return_value=self.deck),
+                        patch("src.server.domain.analytics.genres.get_version", return_value=7)]
         for p in self.patches:
             p.start()
             self.addCleanup(p.stop)
 
     def test_get_without_doc_never_builds(self):
-        with patch.object(rm, "review_deck") as metrics, patch("app._oracle_client") as oc, \
+        with patch.object(rm, "review_deck") as metrics, patch("src.server.app.main._oracle_client") as oc, \
                 patch.object(rd, "build_review") as build, patch.object(rd, "start_job") as sj:
             res = self.client.get(f"/api/decks/{RID}/review")
             self.assertEqual(res.status_code, 200)
@@ -312,13 +312,13 @@ class TestApi(unittest.TestCase):
         self.assertIsNone(body["review"].get("error"))
 
     def test_unknown_deck_404(self):
-        with patch("app._find_deck_any", return_value=None):
+        with patch("src.server.app.main._find_deck_any", return_value=None):
             self.assertEqual(self.client.get("/api/decks/nope/review").status_code, 404)
             self.assertEqual(self.client.post("/api/decks/nope/review/rebuild").status_code, 404)
 
     def test_rebuild_job_end_to_end(self):
         oracle = FakeOracle(lambda m: reply_for(rm.fingerprint(self.deck)))
-        with patch("app._oracle_client", return_value=oracle), \
+        with patch("src.server.app.main._oracle_client", return_value=oracle), \
                 patch.object(rm, "review_deck", side_effect=lambda r, d, *a, **k: copy.deepcopy(METRICS)):
             res = self.client.post(f"/api/decks/{RID}/review/rebuild")
             self.assertEqual(res.status_code, 202)
@@ -337,7 +337,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(self.client.get(f"/api/decks/{RID}/review/jobs/zzz").status_code, 404)
 
     def test_rebuild_with_oracle_down_still_saves(self):
-        with patch("app._oracle_client", return_value=FakeOracle(fail=True)), \
+        with patch("src.server.app.main._oracle_client", return_value=FakeOracle(fail=True)), \
                 patch.object(rm, "review_deck", side_effect=lambda r, d, *a, **k: copy.deepcopy(METRICS)):
             job_id = self.client.post(f"/api/decks/{RID}/review/rebuild").json()["job_id"]
             for _ in range(100):

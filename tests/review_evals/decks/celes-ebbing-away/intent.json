@@ -1,0 +1,8 @@
+{
+  "deck_id": "archidekt:13958290",
+  "deck_name": "The world is slowly ebbing away...",
+  "commanders": [
+    "Celes, Rune Knight"
+  ],
+  "TODO": "Deck not in Commander Lab Postgres (only archidekt:5054882 synced at 2026-10-26); decklist fetched from the public Archidekt API. No journal/intent recorded. Card 07 to fill with Andrew; re-export from Postgres once deck is synced."
+}

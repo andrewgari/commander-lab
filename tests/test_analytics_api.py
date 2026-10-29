@@ -16,8 +16,8 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
-from app import app
-from analytics.aggregator import (
+from src.server.app.main import app
+from src.server.domain.analytics.aggregator import (
     AggregatedAnalyticsReport,
     AnalyticsSummary,
     ConsolidatedMetrics,
@@ -25,7 +25,7 @@ from analytics.aggregator import (
     ProviderAnalyticsStatus,
     default_aggregator,
 )
-from analytics.models import (
+from src.server.domain.analytics.models import (
     CardRecommendation,
     CardRecommendations,
     CommanderIdentifier,
@@ -36,8 +36,8 @@ from analytics.models import (
     PowerScore,
     SaltScore,
 )
-from analytics.provider import BaseAnalyticsProvider
-from analytics.registry import AnalyticsProviderRegistry
+from src.server.domain.analytics.provider import BaseAnalyticsProvider
+from src.server.domain.analytics.registry import AnalyticsProviderRegistry
 
 
 class DummyProvider(BaseAnalyticsProvider):
@@ -174,7 +174,7 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.assertFalse(data.get("success"))
         self.assertIn("Deck validation error", data.get("error", ""))
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_post_analytics_by_existing_deck_id(self, mock_find_deck) -> None:
         mock_find_deck.return_value = {
             "registry_id": "archidekt:123",
@@ -189,7 +189,7 @@ class TestAnalyticsAPI(unittest.TestCase):
         report = data.get("report", {})
         self.assertEqual(report.get("deck_name"), "Atraxa Stored")
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_post_analytics_by_unknown_deck_id_returns_404(self, mock_find_deck) -> None:
         mock_find_deck.return_value = None
         response = self.client.post("/api/analytics", json={"deck_id": "unknown:999"})
@@ -198,7 +198,7 @@ class TestAnalyticsAPI(unittest.TestCase):
         self.assertFalse(data.get("success"))
         self.assertIn("not found", data.get("error", "").lower())
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_get_deck_analytics_endpoint_success(self, mock_find_deck) -> None:
         mock_find_deck.return_value = {
             "registry_id": "archidekt:123",
@@ -213,7 +213,7 @@ class TestAnalyticsAPI(unittest.TestCase):
         report = data.get("report", {})
         self.assertEqual(report.get("deck_name"), "Atraxa Library")
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_get_deck_analytics_endpoint_not_found(self, mock_find_deck) -> None:
         mock_find_deck.return_value = None
         response = self.client.get("/api/decks/unknown:999/analytics")
