@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Home page: a dashboard of six figures (decks, ready to play, collection, games, open drafts, power level) and a list of recently played decks with colour pips, build status and cards to buy. If one source fails, only its tiles show an error with a Try again button.
 - Web app: every page now has a shared header with primary navigation (Home, Decks, Inventory, Games, Drafts, Profile) that marks the current page, and a "Skip to content" link for keyboard users. The header is hidden when printing.
 - Web app: a shared dark theme (colors, type scale, spacing, radii) now applies across all pages, with a visible keyboard focus ring on links, buttons and inputs, and animations are turned off for people who prefer reduced motion. Pages look the same apart from using the shared colors.
 - Card search API: new `GET /api/v2/cards/search` filters by name, color identity (within/exact/includes), card type, mana value, rarity, oracle text, owned / not owned / any, and "Can be commander" (with partner pairing). Results show how many copies you own and whether each card can be a commander; if Scryfall is unavailable it falls back to your local card library and says so. The card autocomplete results now also include each card's `oracle_id`. No page uses it yet.
@@ -17,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer groundwork (internal): the review pipeline now has its first two passes — a brief of what the deck is trying to do (with questions for the owner where intent is unclear) and a seven-axis analysis with 1–10 scores — plus per-pass model configuration, structured-output enforcement with bounded repair, prompt caching and a stored trace of every run. Findings that cite cards outside the deck or facts that do not exist are dropped and logged. No user-visible change yet.
 - Deck reviewer eval harness: deterministic review gates with good/bad fixtures (`make eval-gates`), an LLM judge, calibration tooling, golden decks, and `scripts/eval_compare.py`.
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
+
+### Changed
+- Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
