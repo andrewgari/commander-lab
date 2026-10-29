@@ -132,7 +132,12 @@
  .review-report .findings-grid { display:block; }
  .review-report .swap-list { display:block; }
  .review-report .swap { margin-bottom:var(--sp-3); }
- .review-report .swap-body { grid-template-columns:220px 1fr; }
+ /* Chromium fragments a grid item mid-card even under break-inside:avoid (swap 07 of the golden review was cut at a page
+    edge); a float + BFC column keeps the same two-column look and honours the avoid. */
+ .review-report .swap-body { display:block; }
+ .review-report .swap-body::after { content:''; display:table; clear:both; }
+ .review-report .swap-pair { float:left; width:220px; margin-right:var(--sp-6); }
+ .review-report .swap-copy { overflow:hidden; }
  .review-report .swap-card h3 { font-size:var(--fs-base); }
  .review-report .swap-opening { break-before:page; page-break-before:always; break-inside:avoid; page-break-inside:avoid; }
  .review-report .debug:not([open]) { display:none; }

@@ -3,10 +3,12 @@ import noCuts from '../../../../../tests/fixtures/review_document/variants/no-cu
 import many from '../../../../../tests/fixtures/review_document/variants/many-swaps.json';
 import long from '../../../../../tests/fixtures/review_document/variants/long-names.json';
 import unavailable from '../../../../../tests/fixtures/review_document/variants/unavailable-chart.json';
+import golden from '../../../../../tests/fixtures/review_document/golden/lara-uncharted.review.json';
 import gradeA from '../../../../../tests/fixtures/review_document/variants/grade-a.json';
 import type { ReviewDocument } from '../components/review/types';
-export const variants = ['example', 'no-cuts', 'many-swaps', 'long-names', 'unavailable-chart', 'grade-a'] as const;
+export const variants = ['example', 'no-cuts', 'many-swaps', 'long-names', 'unavailable-chart', 'grade-a', 'golden'] as const;
 export function reviewFixture(variant: string): ReviewDocument {
+ if (variant === 'golden') return structuredClone(golden) as unknown as ReviewDocument; // real pipeline output (baseline), the visual-regression subject
  const doc = structuredClone(base) as ReviewDocument;
  if (variant === 'no-cuts') doc.cuts_to_consider = noCuts.cuts_to_consider;
  if (variant === 'many-swaps') doc.swaps = Array.from({length:many.repeat_swaps}, (_,i) => ({...doc.swaps[i%doc.swaps.length], id:`sw-${i+1}`}));
