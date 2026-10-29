@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import TableScroll from '#lib/components/TableScroll.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -34,24 +35,29 @@
 		· <strong>{have_buy.totals.buy}</strong> to buy
 		{#if have_buy.totals.complete}· ✅ deck complete{/if}
 	</p>
-	<table>
-		<thead>
-			<tr><th>Card</th><th>Board</th><th>Need</th><th>Have</th><th>Buy</th><th>In mail</th><th>Elsewhere</th></tr>
-		</thead>
-		<tbody>
-			{#each have_buy.lines as line (line.oracle_id + line.board)}
-				<tr class:short={line.buy > 0}>
-					<td>{line.name}</td>
-					<td>{line.board}{line.category ? ` · ${line.category}` : ''}</td>
-					<td>{line.need}</td>
-					<td>{line.have}</td>
-					<td>{line.buy}</td>
-					<td>{line.pending || ''}</td>
-					<td>{line.elsewhere || ''}</td>
+	<TableScroll label="Deck have/buy breakdown" minWidth="32rem">
+		<table>
+			<caption class="visually-hidden">Deck have/buy breakdown</caption>
+			<thead>
+				<tr>
+					<th scope="col">Card</th><th scope="col">Board</th><th scope="col">Need</th><th scope="col">Have</th><th scope="col">Buy</th><th scope="col">In mail</th><th scope="col">Elsewhere</th>
 				</tr>
-			{/each}
-		</tbody>
-	</table>
+			</thead>
+			<tbody>
+				{#each have_buy.lines as line (line.oracle_id + line.board)}
+					<tr class:short={line.buy > 0}>
+						<td>{line.name}{#if line.buy > 0}<span class="visually-hidden">{' — need to buy '}{line.buy}</span>{/if}</td>
+						<td>{line.board}{line.category ? ` · ${line.category}` : ''}</td>
+						<td>{line.need}</td>
+						<td>{line.have}</td>
+						<td>{line.buy}</td>
+						<td>{line.pending || ''}</td>
+						<td>{line.elsewhere || ''}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</TableScroll>
 </section>
 
 {#if snapshot}
@@ -86,7 +92,7 @@
 		margin-bottom: 0.25rem;
 	}
 	.meta {
-		opacity: 0.75;
+		color: var(--color-muted);
 	}
 	table {
 		border-collapse: collapse;
@@ -111,7 +117,7 @@
 		font-size: 0.8rem;
 	}
 	.pending-tag {
-		color: #b8860b;
+		color: var(--color-warning);
 		font-size: 0.8rem;
 	}
 	.summary {
