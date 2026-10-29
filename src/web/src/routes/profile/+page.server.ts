@@ -9,6 +9,8 @@ import {
 	type ProfileLatestResponse,
 	type ProfileOverridesResponse
 } from '#lib/api.ts';
+import { ApiError } from '#lib/api.ts';
+import { cleanForSend, formToValues, mapServerReason, validate } from '#lib/profile/taste-form.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const PLAYER = 'andrew';
@@ -91,17 +93,27 @@ export const actions: Actions = {
 	},
 	savePlayer: async ({ request }) => {
 		const form = await request.formData();
-		let values: unknown;
+		// The form is the whole editable surface; name and metadata pass through from hidden fields unchanged.
+		let metadata: Record<string, unknown> = {};
 		try {
-			values = JSON.parse(String(form.get('values') ?? ''));
+			const raw = String(form.get('metadata') ?? '{}');
+			metadata = JSON.parse(raw) ?? {};
 		} catch {
-			return fail(422, { playerError: 'profile JSON is not valid JSON' });
+			return fail(422, { playerError: 'The saved profile metadata was unreadable. Reload the page and try again.' });
 		}
+		const values = formToValues(form, { name: String(form.get('name') ?? PLAYER), metadata });
+		const fieldErrors = validate(values);
+		if (fieldErrors.length) return fail(422, { fieldErrors, playerError: null as string | null });
 		try {
-			await apiPut(`/api/v2/profile/player/${PLAYER}`, { values });
-			return { playerOk: 'saved (your edits are recorded as stated)' };
+			await apiPut(`/api/v2/profile/player/${PLAYER}`, { values: cleanForSend(values) });
+			return { playerOk: 'Saved. Your edits are recorded as Stated.' };
 		} catch (e) {
-			return fail(422, { playerError: e instanceof Error ? e.message : 'save failed' });
+			if (e instanceof ApiError && e.status === 422) {
+				const { fields, unmapped } = mapServerReason(e.message);
+				return fail(422, { fieldErrors: fields, playerError: unmapped.length ? unmapped.join('; ') : fields.length ? null : e.message });
+			}
+			const status = e instanceof ApiError && e.status >= 500 ? e.status : 502;
+			return fail(status, { playerError: e instanceof Error ? e.message : 'save failed' });
 		}
 	},
 	generateProposals: async () => {
@@ -118,7 +130,7 @@ export const actions: Actions = {
 			await apiPost(`/api/v2/profile/player/${PLAYER}/proposals/${id}/confirm`, {});
 			return { playerOk: 'confirmed and applied as learned_from_feedback' };
 		} catch (e) {
-			return fail(409, { playerError: e instanceof Error ? e.message : 'confirm failed' });
+			return fail(409, { proposalError: { id, message: e instanceof ApiError && e.status === 409 ? "You already set this yourself; the suggestion can't overwrite it." : e instanceof Error ? e.message : 'confirm failed' } });
 		}
 	},
 	dismissProposal: async ({ request }) => {

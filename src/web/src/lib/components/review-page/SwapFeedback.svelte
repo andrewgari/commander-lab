@@ -3,7 +3,7 @@
 	import type { Swap } from '#lib/components/review/types.js';
 
 	type Decision = SwapFeedback['decision'];
-	let { documentId, deckId, swap, saved }: { documentId: number; deckId: string; swap: Swap; saved?: SwapFeedback } = $props();
+	let { documentId, deckId, swap, saved, unavailable = false }: { documentId: number; deckId: string; swap: Swap; saved?: SwapFeedback; unavailable?: boolean } = $props();
 
 	const options: { value: Decision; label: string }[] = [
 		{ value: 'accepted', label: 'Accept' },
@@ -19,7 +19,7 @@
 	let message = $state('');
 
 	async function save() {
-		if (!decision) return;
+		if (!decision || unavailable) return;
 		clearTimeout(idleTimer);
 		status = 'saving';
 		try {
@@ -37,6 +37,7 @@
 		}
 	}
 	function pick(value: Decision) {
+		if (unavailable) return;
 		decision = value;
 		status = 'idle';
 	}
@@ -56,11 +57,12 @@
 	<span class="eyebrow">Your call</span>
 	<div class="fb-choices" role="group" aria-label="Decision">
 		{#each options as o}
-			<button type="button" class="fb-choice" class:active={decision === o.value} data-decision={o.value} aria-pressed={decision === o.value} onclick={() => pick(o.value)}>{o.label}</button>
+			<button type="button" class="fb-choice" class:active={decision === o.value} data-decision={o.value} aria-pressed={decision === o.value} aria-disabled={unavailable || undefined} onclick={() => pick(o.value)}>{o.label}</button>
 		{/each}
 	</div>
-	<input class="fb-reason" type="text" maxlength="500" placeholder="Why? (optional)" aria-label="Reason" bind:value={reason} oninput={reasonInput} />
-	<button type="submit" class="fb-save" disabled={!decision || status === 'saving'}>{status === 'saving' ? 'Saving…' : 'Save'}</button>
+	<input class="fb-reason" type="text" readonly={unavailable} aria-disabled={unavailable || undefined} maxlength="500" placeholder="Why? (optional)" aria-label="Reason" bind:value={reason} oninput={reasonInput} />
+	<button type="submit" class="fb-save" disabled={!decision || status === 'saving'} aria-disabled={unavailable || undefined}>{status === 'saving' ? 'Saving…' : 'Save'}</button>
+	{#if unavailable}<span class="fb-status" data-status="unavailable">Saved decisions unavailable</span>{/if}
 	<!-- A live region is only mounted while there is something to announce, so N swaps don't create N idle regions.
 	     Errors are assertive (role=alert); a successful save is a single polite announcement. -->
 	{#if status === 'error'}
@@ -79,8 +81,10 @@
 	.fb-choice.active { background: var(--signal, #f0a63a); color: var(--text-on-signal, #17110a); border-color: var(--signal, #f0a63a); }
 	.fb-choice[data-decision='rejected'].active { background: var(--color-danger-solid); border-color: var(--color-danger-solid); color: var(--color-on-solid); }
 	.fb-reason { flex: 1 1 200px; min-width: 160px; font: inherit; font-size: 13px; padding: 4px 8px; background: transparent; color: inherit; border: 1px solid var(--line, #29323b); border-radius: 2px; }
-	.fb-save:disabled { opacity: 0.5; cursor: not-allowed; }
+	.fb-save:disabled { color: var(--color-muted); border-style: dashed; cursor: not-allowed; }
 	.fb-status { font-size: 12px; min-width: 4em; }
+	.fb-choice[aria-disabled='true'], .fb-save[aria-disabled='true'] { color: var(--color-muted); border-style: dashed; cursor: not-allowed; }
+	.fb-status[data-status='unavailable'] { color: var(--color-muted); }
 	.fb-status[data-status='error'] { color: #e5766d; }
 	.fb-status[data-status='saved'] { color: var(--ok, #6cbf7a); }
 </style>
