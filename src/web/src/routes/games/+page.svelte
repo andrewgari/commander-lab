@@ -52,10 +52,11 @@
 				Log file
 				<input type="file" accept=".log,.txt" onchange={fillFromFile} />
 			</label>
+			<label for="log_text">Forge log</label>
 			<textarea id="log_text" name="log_text" rows="10" required
 				placeholder="Turn: Turn 1 (Ai(1)-…"></textarea>
 			<button type="submit">Import &amp; analyze</button>
-			{#if form?.importError}<p class="error">Import failed: {form.importError}</p>{/if}
+			{#if form?.importError}<p class="error" role="alert">Import failed: {form.importError}</p>{/if}
 		</form>
 	{/if}
 </section>
@@ -63,7 +64,7 @@
 <section>
 	<h2>Imported games</h2>
 	{#if data.error}
-		<p class="error">Game data unavailable: {data.error}</p>
+		<p class="error" role="alert">Game data unavailable: {data.error}</p>
 	{:else if data.games.length === 0}
 		<p>No games imported yet.</p>
 	{:else}
@@ -104,8 +105,24 @@
 	}
 	button {
 		width: fit-content;
+		min-height: 44px;
+		min-width: 44px;
 		padding: 0.4rem 1rem;
 	}
+	select,
+	input:not([type="file"]) {
+		min-height: 44px;
+		box-sizing: border-box;
+	}
+	input[type="file"] {
+		min-height: 44px;
+	}
+	nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
 	.game-list {
 		list-style: none;
 		padding: 0;
@@ -116,9 +133,15 @@
 		display: flex;
 		flex-direction: column;
 	}
+	.game-list li > a {
+		display: block;
+		padding: 0.4rem 0;
+		min-height: 44px;
+		box-sizing: border-box;
+	}
 	.meta {
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--text-muted, #404040);
 	}
 	.error {
 		color: #c0392b;
