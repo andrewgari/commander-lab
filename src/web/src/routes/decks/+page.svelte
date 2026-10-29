@@ -57,6 +57,6 @@
 		opacity: 0.75;
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 </style>

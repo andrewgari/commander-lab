@@ -139,10 +139,10 @@
 		letter-spacing: 0.05em;
 	}
 	.win {
-		color: #1e8449;
+		color: var(--color-success);
 	}
 	.loss {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 	.meta {
 		font-size: 0.85rem;
@@ -189,7 +189,7 @@
 	}
 	.notice {
 		background: #eef6ee;
-		border: 1px solid #1e844955;
+		border: 1px solid color-mix(in srgb, var(--color-success) 33%, transparent);
 		padding: 0.4rem 0.6rem;
 		font-size: 0.85rem;
 	}
@@ -210,6 +210,6 @@
 	}
 	.you {
 		font-size: 0.75rem;
-		color: #1e8449;
+		color: var(--color-success);
 	}
 </style>

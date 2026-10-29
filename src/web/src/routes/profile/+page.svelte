@@ -336,17 +336,17 @@
 		margin-top: 0.25rem;
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 	.ok {
-		color: #1e8449;
+		color: var(--color-success);
 	}
 	.unavailable {
 		opacity: 0.75;
 	}
 	textarea {
 		width: 100%;
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.8rem;
 	}
 	.inline {

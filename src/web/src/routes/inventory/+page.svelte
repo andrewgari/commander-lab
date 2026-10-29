@@ -162,6 +162,6 @@
 		color: var(--text-faint, #666666);
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 </style>

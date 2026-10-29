@@ -124,12 +124,12 @@
 		opacity: 0.75;
 	}
 	.open {
-		color: #b9770e;
+		color: var(--color-warning);
 	}
 	.committed {
-		color: #1e8449;
+		color: var(--color-success);
 	}
 	.error {
-		color: #c0392b;
+		color: var(--color-danger);
 	}
 </style>

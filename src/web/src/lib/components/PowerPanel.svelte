@@ -58,7 +58,7 @@
 	}
 	.fill {
 		height: 100%;
-		background: linear-gradient(90deg, #4a7dbd, #c0392b);
+		background: linear-gradient(90deg, #4a7dbd, var(--color-danger-solid));
 		border-radius: 3px;
 	}
 	.note {
