@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Drafts page: you now stage cards by searching your owned cards by name (type, pick with the keyboard or mouse; "2x sol" adds two) instead of pasting IDs. Committing or abandoning a draft opens a confirmation dialog with a summary of the deck it creates and the copies it moves, and committing now takes you to the new deck. Adding to the Maybeboard now works.
 - Web app: every page now has a shared header with primary navigation (Home, Decks, Inventory, Games, Drafts, Profile) that marks the current page, and a "Skip to content" link for keyboard users. The header is hidden when printing.
 - Web app: a shared dark theme (colors, type scale, spacing, radii) now applies across all pages, with a visible keyboard focus ring on links, buttons and inputs, and animations are turned off for people who prefer reduced motion. Pages look the same apart from using the shared colors.
 - Card search API: new `GET /api/v2/cards/search` filters by name, color identity (within/exact/includes), card type, mana value, rarity, oracle text, owned / not owned / any, and "Can be commander" (with partner pairing). Results show how many copies you own and whether each card can be a commander; if Scryfall is unavailable it falls back to your local card library and says so. The card autocomplete results now also include each card's `oracle_id`. No page uses it yet.

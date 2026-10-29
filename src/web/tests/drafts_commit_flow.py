@@ -84,7 +84,7 @@ def reset(**kw):
 def main():
     api_port, web_port = free_port(), free_port()
     api = ThreadingHTTPServer(("127.0.0.1", api_port), H); threading.Thread(target=api.serve_forever, daemon=True).start()
-    env = dict(os.environ, PORT=str(web_port), HOST="127.0.0.1", COMMANDER_API_URL=f"http://127.0.0.1:{api_port}", ORIGIN=f"http://127.0.0.1:{web_port}")
+    env = dict(os.environ, PORT=str(web_port), HOST="127.0.0.1", COMMANDER_API_URL=f"http://127.0.0.1:{api_port}", PROTOCOL_HEADER="x-forwarded-proto")
     web = subprocess.Popen(["node", "build"], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     base = f"http://127.0.0.1:{web_port}"
     try:
@@ -93,7 +93,7 @@ def main():
             except OSError: time.sleep(0.25)
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, executable_path=os.environ.get("CHROMIUM") or None)
-            ctx = browser.new_context(viewport={"width": 1280, "height": 900}); page = ctx.new_page()
+            ctx = browser.new_context(viewport={"width": 1280, "height": 900}, extra_http_headers={"x-forwarded-proto": "http"}); page = ctx.new_page()
             errors = []; page.on("pageerror", lambda e: errors.append(str(e)))
             if os.environ.get("DEBUG"): page.on("console", lambda m: print("console:", m.text)); page.on("request", lambda r: print("req", r.method, r.url, r.all_headers().get("origin"), r.all_headers().get("host")) if r.method == "POST" else None); page.on("response", lambda r: print("resp", r.status, r.url, r.text()[:200] if r.status >= 400 else ""))
             page.on("dialog", lambda d: (errors.append("window dialog: " + d.message), d.dismiss()))
@@ -110,7 +110,7 @@ def main():
 
             # --- AC1: type, Enter adds the top owned match; focus stays; status announces; qty prefix; increments
             combo().fill("sol"); page.wait_for_selector("[role=option]")
-            print("OPT", page.get_by_role("option").all_inner_texts()) if os.environ.get("DEBUG") else None; check(page.get_by_role("option").count() == 1 and "Own 4 · 1 free" in page.get_by_role("option").first.inner_text(), "listbox shows the owned match with Own/free counts")
+            print("OPT", page.locator("[role=listbox] [role=option]").all_inner_texts()) if os.environ.get("DEBUG") else None; check(page.locator("[role=listbox] [role=option]").count() == 1 and "Own 4 · 1 free" in page.locator("[role=listbox] [role=option]").first.inner_text(), "listbox shows the owned match with Own/free counts")
             check(combo().get_attribute("aria-expanded") == "true" and combo().get_attribute("aria-controls"), "combobox exposes aria-expanded/aria-controls")
             combo().press("Enter"); page.wait_for_function("document.querySelector('[role=status]') && [...document.querySelectorAll('[role=status]')].some(e => /Added 1× Sol Ring to Main/.test(e.textContent))")
             check(page.evaluate("document.activeElement.getAttribute('role')") == "combobox" and combo().input_value() == "", "input cleared and keeps focus after add")
@@ -130,9 +130,9 @@ def main():
             page.locator("h1").click(); page.keyboard.press("Control+'")
             check(page.evaluate("document.activeElement.getAttribute('role')") == "combobox", "Ctrl+' focuses the combobox")
             combo().fill("a"); page.wait_for_timeout(400)
-            check(page.get_by_role("option").count() == 0, "1 character does not search")
+            check(page.locator("[role=listbox] [role=option]").count() == 0, "1 character does not search")
             combo().fill("r"); combo().fill("ri"); page.wait_for_selector("[role=option]")
-            n = page.get_by_role("option").count()
+            n = page.locator("[role=listbox] [role=option]").count()
             combo().press("ArrowDown"); a1 = combo().get_attribute("aria-activedescendant"); combo().press("ArrowDown"); a2 = combo().get_attribute("aria-activedescendant")
             check(a1 and a2 and (a1 != a2 or n == 1), f"↓ moves aria-activedescendant ({n} options)")
             combo().press("Escape"); check(combo().get_attribute("aria-expanded") == "false" and combo().input_value() == "ri", "first Esc closes the list, keeps the text")
@@ -201,12 +201,12 @@ def main():
 
             # --- AC10: no-JS: Commit renders the inline summary; only confirmed=1 commits
             reset(cards=[{"oracle_id": OID["Sol Ring"], "name": "Sol Ring", "qty": 2, "board": "main", "category": None, "type_line": "Artifact", "cmc": 1, "color_identity": [], "image_uri": ""}])
-            nojs = browser.new_context(java_script_enabled=False, viewport={"width": 1280, "height": 900}).new_page()
+            nojs = browser.new_context(java_script_enabled=False, extra_http_headers={"x-forwarded-proto": "http"}, viewport={"width": 1280, "height": 900}).new_page()
             nojs.goto(url); nojs.get_by_role("button", name="Review & commit…").click(); nojs.wait_for_load_state()
             check(nojs.get_by_role("heading", name="Commit draft?").count() == 1 and state["commit_calls"] == 0, "no-JS: first POST shows the inline summary and does not commit")
             nojs.get_by_role("button", name="Commit draft", exact=True).click(); nojs.wait_for_load_state()
             check(state["commit_calls"] == 1 and "from_draft=1" in nojs.url, "no-JS: second POST (confirmed=1) commits and redirects")
-            reset(); r = nojs.request.post(url + "?/commit", form={}, headers={"origin": base}); check(state["commit_calls"] == 0, f"a stray unconfirmed POST does not commit (status {r.status})")
+            reset(); r = nojs.request.post(url + "?/commit", form={}, headers={"origin": base, "x-forwarded-proto": "http"}); check(state["commit_calls"] == 0, f"a stray unconfirmed POST does not commit (status {r.status})")
             nojs.goto(url)
             nojs.get_by_label("Card name").fill("sol ring"); nojs.get_by_role("button", name="Add card").click(); nojs.wait_for_load_state()
             check(any(c["name"] == "Sol Ring" for c in state["cards"]), "no-JS add-by-name stages the exact owned match")
