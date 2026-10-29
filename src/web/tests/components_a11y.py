@@ -68,6 +68,34 @@ def expand(page, url):
     return out
 
 
+def check_scroll_table(page, url):
+    """Tab reaches the scroll region, ArrowRight scrolls it, and the sticky first column stays put."""
+    tag = f"{url} @375 [scroll-table]"
+    page.goto(url)
+    page.wait_for_load_state("networkidle")
+    region = page.locator('[role="region"][aria-label="Cards to buy"]')
+    page.evaluate("document.activeElement && document.activeElement.blur()")
+    reached = False
+    for _ in range(12):
+        page.keyboard.press("Tab")
+        if page.evaluate("document.activeElement && document.activeElement.getAttribute('aria-label')") == "Cards to buy":
+            reached = True
+            break
+    check(reached, f"{tag}: Tab reaches the scroll region")
+    check(region.evaluate("e => e.scrollWidth > e.clientWidth"), f"{tag}: region overflows horizontally at 375")
+    left0 = region.evaluate("e => e.scrollLeft")
+    sticky0 = page.evaluate("document.querySelector('[aria-label=\"Cards to buy\"] tbody th[scope=row]').getBoundingClientRect().left")
+    page.keyboard.press("ArrowRight")
+    page.wait_for_timeout(300)
+    left1 = region.evaluate("e => e.scrollLeft")
+    check(left1 > left0, f"{tag}: ArrowRight increases scrollLeft ({left0} -> {left1})")
+    region.evaluate("e => { e.scrollLeft = e.scrollWidth }")
+    page.wait_for_timeout(300)
+    sticky1 = page.evaluate("document.querySelector('[aria-label=\"Cards to buy\"] tbody th[scope=row]').getBoundingClientRect().left")
+    check(abs(sticky1 - sticky0) < 1, f"{tag}: sticky first column left unchanged after scroll ({sticky0} -> {sticky1})")
+    page.context.close()
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True, executable_path=os.environ.get("CHROMIUM") or None)
 
@@ -109,6 +137,9 @@ with sync_playwright() as p:
                     check(sw <= iw, f"{tag}: no horizontal page scroll (scrollWidth {sw} <= innerWidth {iw})")
                 check(not errors, f"{tag}: no page errors {errors or ''}")
             page.context.close()
+    # ScrollTable behaviour (keyboard scrolling, sticky first column) on its fixture.
+    for url in [u for u in pages if u.rstrip("/").endswith("/scroll-table")]:
+        check_scroll_table(new_page(375, 812)[0], url)
     browser.close()
 
 print(f"\n{len(pages)} page(s) checked, {len(fails)} failure(s)")
