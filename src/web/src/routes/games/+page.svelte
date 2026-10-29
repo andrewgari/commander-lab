@@ -29,7 +29,7 @@
 		same log is a no-op.
 	</p>
 	{#if data.decks.length === 0 && !data.error}
-		<p class="meta">No imported decks yet — <a href="/decks">import a deck first</a>.</p>
+		<p class="meta">No imported decks yet — <a class="hint-link" href="/decks">import a deck first</a>.</p>
 	{:else}
 		<form method="POST">
 			<label>
@@ -139,9 +139,15 @@
 		min-height: 44px;
 		box-sizing: border-box;
 	}
+	.hint-link {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		min-width: 44px;
+	}
 	.meta {
 		font-size: 0.85rem;
-		color: var(--text-muted, #404040);
+		color: var(--color-muted);
 	}
 	.error {
 		color: var(--color-danger);
