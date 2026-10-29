@@ -15,7 +15,7 @@
 
 <svelte:head><title>Shared a11y primitives — Commander Lab</title></svelte:head>
 
-<main>
+<div>
 	<h1>Shared a11y primitives</h1>
 	<nav><a class="text-link" href="/decks" data-testid="text-link">← Decks</a></nav>
 
@@ -43,4 +43,4 @@
 		<PowerPanel power={{ available: true, estimated_bracket: 3, bracket_name: 'Upgraded', power_level: 7, game_changers: 2, notes: ['Two Game Changers.'] }} />
 		<PowerPanel power={null} />
 	</section>
-</main>
+</div>

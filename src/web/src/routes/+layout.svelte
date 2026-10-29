@@ -10,4 +10,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{@render children()}
+<a class="visually-hidden-focusable" href="#main">Skip to content</a>
+<main id="main">
+	{@render children()}
+</main>

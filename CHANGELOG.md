@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Fixed
+- Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
 - Web app: text on the Games and Inventory pages (totals, game details, deck lists) is now readable on the dark theme, the "import a deck first" link and the deck review's evidence chips are full-size touch targets, and the accessibility test page has a title and a keyboard-scrollable table.
 - Brew commander search: pressing Esc right after typing no longer lets the pending search re-open the suggestion list, and on narrow screens the sticky Generate bar now says "Pick a commander to brew" until a commander is chosen.
 - Quick reviews now use real card data instead of showing cards as unknown.
