@@ -14,7 +14,7 @@
 	<title>{deck.name} — Commander Lab</title>
 </svelte:head>
 
-<nav><a href="/decks">← all decks</a></nav>
+<nav><a href="/decks">← all decks</a> · <a href="/decks/{encodeURIComponent(deck.id)}/review">Deck review</a></nav>
 
 <h1>{deck.name}</h1>
 <p class="meta">

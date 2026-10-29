@@ -196,6 +196,53 @@ jobs:
           name: e2e-app-log
           path: app.log
 
+  review-pdf:
+    name: Review PDF visual regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Build web
+        working-directory: src/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run check
+          npm run build
+
+      - name: Start web
+        working-directory: src/web
+        run: |
+          PORT=3000 nohup node build > web.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3000/dev/review > /dev/null && exit 0
+            sleep 1
+          done
+          cat web.log
+          exit 1
+
+      - name: Build PDF renderer image
+        run: docker build -t commander-lab-pdf:ci docker/pdf
+
+      - name: Compare the golden review PDF with its baseline
+        run: |
+          docker run --rm --network host -v "$PWD:/work" -w /work -e PYTHONPATH=/app commander-lab-pdf:ci \
+            sh -c 'pip install -q pymupdf numpy && python src/web/tests/review_visual.py --web http://127.0.0.1:3000 --out /work/review-visual'
+
+      - name: Upload rendered pages on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-visual
+          path: review-visual
+
   docker:
     name: Build & Push Docker Image
     needs: test

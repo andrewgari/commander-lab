@@ -73,6 +73,10 @@ services:
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
       - ORACLE_TIMEOUT_S=${ORACLE_TIMEOUT_S:-600}
+      # Deck reviewer card 11. Card images are cached under /data/card-images. PDF export needs the pdf + web containers
+      # (docker-compose.yml, profile `pdf`); prod has no web container yet, so PDF export answers 503 pdf_unavailable here.
+      - CARD_IMAGE_CACHE_DIR=/data/card-images
+      - PDF_SERVICE_URL=${PDF_SERVICE_URL:-}
     volumes:
       - /mnt/user/appdata/commander-lab/secrets:/run/commander-lab-secrets:ro
       # AN-8: persistent /data holds mech_similar.npz (built off-box, docs/MECH_SIMILAR.md)
