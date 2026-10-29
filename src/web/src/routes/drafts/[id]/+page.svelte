@@ -62,7 +62,7 @@
 								<form method="POST" action="?/remove_card">
 									<input type="hidden" name="oracle_id" value={card.oracle_id} />
 									<input type="hidden" name="board" value={card.board} />
-									<button type="submit" class="link">remove</button>
+									<button type="submit" class="link" aria-label={`Remove ${card.name} (${card.board}) from staged list`}>remove</button>
 								</form>
 							</td>
 						{/if}
@@ -107,7 +107,7 @@
 							<td>
 								<form method="POST" action="?/unstage_move">
 									<input type="hidden" name="instance_id" value={move.instance_id} />
-									<button type="submit" class="link">unstage</button>
+									<button type="submit" class="link" aria-label={`Unstage move of ${move.card_name} (copy ${move.instance_id.slice(0, 8)})`}>unstage</button>
 								</form>
 							</td>
 						{/if}
@@ -219,7 +219,11 @@
 	button.link {
 		background: none;
 		border: none;
-		padding: 0;
+		padding: 0.4rem 0.6rem;
+		min-height: var(--touch-min, 2.75rem);
+		min-width: var(--touch-min, 2.75rem);
+		display: inline-flex;
+		align-items: center;
 		color: var(--color-danger);
 		cursor: pointer;
 		font-size: inherit;
