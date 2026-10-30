@@ -7,9 +7,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import { draftStatus } from '#lib/status.ts';
 	import { deckName, moveRows } from '#lib/drafts/summary.ts';
-	import CardPicker from '#lib/components/combobox/CardPicker.svelte';
+	import QuickAdd from '#lib/components/card-search/QuickAdd.svelte';
 	import CopyPicker from '#lib/components/combobox/CopyPicker.svelte';
-	import type { CardChoice, ComboOption } from '#lib/components/combobox/model.ts';
+	import type { ComboOption } from '#lib/components/combobox/model.ts';
+	import { deserialize } from '$app/forms';
+	import { boardLabel, nextQty, stagedQty, stagedQtyByOracle, toApiBoard } from '#lib/drafts/boards.ts';
+	import type { AddRequest, Board } from '#lib/card-search/types.ts';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
 
@@ -38,7 +41,36 @@
 		{ key: 'why', header: 'Why' }
 	];
 
-	let pickedCard = $state<ComboOption<CardChoice> | null>(null);
+	const BOARDS: { value: Board; label: string }[] = [
+		{ value: 'main', label: 'Main' },
+		{ value: 'commander', label: 'Commander' },
+		{ value: 'sideboard', label: 'Sideboard' },
+		{ value: 'maybeboard', label: 'Maybeboard' },
+		{ value: 'considering', label: 'Considering' }
+	];
+	const inList = $derived(stagedQtyByOracle(data.state.cards));
+
+	/** Stage a card from the combobox. Upsert SETS qty, so send existing + requested. */
+	async function addToDraft({ card, qty, board }: AddRequest): Promise<string> {
+		const apiBoard = toApiBoard(board);
+		if (!apiBoard) throw new Error(`Unknown board “${board}”`);
+		const existing = stagedQty(data.state.cards, card.oracle_id, apiBoard);
+		const newQty = nextQty(existing, qty);
+		const body = new FormData();
+		body.set('oracle_id', card.oracle_id);
+		body.set('name', card.name);
+		body.set('qty', String(newQty));
+		body.set('board', apiBoard);
+		const res = await fetch('?/upsert_card', { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
+		const result = deserialize(await res.text());
+		if (result.type === 'failure') {
+			throw new Error(String((result.data as { actionError?: string } | undefined)?.actionError ?? 'The server rejected the card.'));
+		}
+		if (result.type === 'error') throw new Error('Network or server error. Try again.');
+		await invalidateAll();
+		return `Added ${qty}× ${card.name} to ${boardLabel(apiBoard)}${existing > 0 ? ` (now ${newQty})` : ''}`;
+	}
+
 	let pickedCopy = $state<ComboOption<string> | null>(null);
 	let moveAction = $state('assign');
 
@@ -77,6 +109,23 @@
 	</section>
 {/if}
 
+{#if open}
+	<section aria-labelledby="add-h">
+		<h2 id="add-h">Add cards</h2>
+		<QuickAdd boards={BOARDS} {inList} onadd={addToDraft} />
+		<noscript>
+			<form method="POST" action="?/upsert_card_by_name" class="inline">
+				<label>Card name <input name="card_name" required /></label>
+				<label>Quantity <input name="qty" type="number" min="1" value="1" /></label>
+				<label>Board
+					<select name="board">{#each BOARDS as b (b.value)}<option value={toApiBoard(b.value)}>{b.label}</option>{/each}</select>
+				</label>
+				<button type="submit">Add card</button>
+			</form>
+		</noscript>
+	</section>
+{/if}
+
 <section>
 	<h2>Staged list ({data.state.cards.reduce((n, c) => n + c.qty, 0)} cards)</h2>
 	{#if data.state.cards.length === 0}
@@ -110,19 +159,6 @@
 			</tbody>
 		</table>
 		</TableScroll>
-	{/if}
-	{#if open}
-		<form method="POST" action="?/upsert_card" class="inline">
-			<CardPicker bind:selected={pickedCard} />
-			<input name="qty" type="number" min="1" value="1" aria-label="Quantity" />
-			<select name="board" aria-label="Board">
-				<option value="main">main</option>
-				<option value="commander">commander</option>
-				<option value="sideboard">sideboard</option>
-				<option value="maybeboard">maybeboard</option>
-			</select>
-			<button type="submit">Add / update card</button>
-		</form>
 	{/if}
 </section>
 

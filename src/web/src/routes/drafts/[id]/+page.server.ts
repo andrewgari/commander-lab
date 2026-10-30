@@ -1,6 +1,9 @@
 import { error, fail, isHttpError, redirect } from '@sveltejs/kit';
 import { requireShape } from '#lib/shape.ts';
+import { toApiBoard } from '#lib/drafts/boards.ts';
+import { pickExactMatch } from '#lib/drafts/match.ts';
 import {
+	API_URL,
 	apiDelete,
 	apiGet,
 	apiPost,
@@ -47,12 +50,35 @@ export const actions: Actions = {
 		const oracle_id = String(form.get('oracle_id') ?? '').trim();
 		const name = String(form.get('name') ?? '').trim();
 		const qty = Number(form.get('qty') ?? 1);
-		const board = String(form.get('board') ?? 'main');
+		const board = toApiBoard(String(form.get('board') ?? 'main'));
 		if (!oracle_id || !name || !Number.isFinite(qty) || qty < 1) {
 			return fail(400, { actionError: 'Card needs an oracle id, a name and a qty ≥ 1.' });
 		}
+		if (!board) return fail(400, { actionError: 'Unknown board.' });
 		try {
 			await apiPost(`/api/v2/drafts/${params.id}/cards`, { oracle_id, name, qty, board });
+		} catch (e) {
+			return actionError(e);
+		}
+	},
+	upsert_card_by_name: async ({ request, params, fetch }) => {
+		const form = await request.formData();
+		const name = String(form.get('card_name') ?? '').trim();
+		const qty = Number(form.get('qty') ?? 1);
+		const board = toApiBoard(String(form.get('board') ?? 'main'));
+		if (!name || !Number.isInteger(qty) || qty < 1 || !board) {
+			return fail(400, { actionError: 'Type a card name, a board, and a quantity of at least 1.' });
+		}
+		try {
+			const qs = new URLSearchParams({ owned: 'owned', name, page_size: '5' });
+			const res = await fetch(`${API_URL}/api/v2/cards/search?${qs}`, { headers: { accept: 'application/json' } });
+			if (!res.ok) return fail(res.status >= 500 ? 503 : res.status, { actionError: 'Card search is unavailable right now.' });
+			const body = (await res.json()) as { results?: Array<{ oracle_id: string; name: string }> };
+			const hit = pickExactMatch(body.results ?? [], name);
+			if (!hit) return fail(400, { actionError: `No owned card named “${name}”.` });
+			const state = await apiGet<DraftState>(`/api/v2/drafts/${params.id}`);
+			const existing = state.cards.find((c) => c.oracle_id === hit.oracle_id && c.board === board)?.qty ?? 0;
+			await apiPost(`/api/v2/drafts/${params.id}/cards`, { oracle_id: hit.oracle_id, name: hit.name, qty: existing + qty, board });
 		} catch (e) {
 			return actionError(e);
 		}
