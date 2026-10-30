@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 
 type Cb = (o: { result: unknown; update: () => Promise<void> }) => Promise<void>;
@@ -13,6 +13,18 @@ vi.mock('$app/forms', () => ({
 }));
 
 import QtyEditor from './QtyEditor.svelte';
+import source from './QtyEditor.svelte?raw';
+
+// Vitest does not emit component CSS, so inject the component's own <style> block verbatim
+// (selectors are unscoped in source) to make computed-style assertions real.
+const css = /<style>([\s\S]*?)<\/style>/.exec(source)?.[1] ?? '';
+
+
+beforeAll(() => {
+	const el = document.createElement('style');
+	el.textContent = css;
+	document.head.appendChild(el);
+});
 
 afterEach(() => {
 	hoisted.submit = null;
@@ -22,7 +34,7 @@ function setup(onsaved = vi.fn()) {
 	render(QtyEditor, { oracleId: 'o1', board: 'main', cardName: 'Sol Ring', boardLabel: 'Main', qty: 2, onsaved });
 	const input = screen.getByLabelText('Quantity of Sol Ring on Main') as HTMLInputElement;
 	const form = document.querySelector('form') as HTMLFormElement;
-	const save = screen.getByRole('button', { name: 'Save quantity for Sol Ring on Main' });
+	const save = form.querySelector('.btn-save') as HTMLButtonElement;
 	return { input, form, save, onsaved };
 }
 
@@ -49,12 +61,15 @@ describe('QtyEditor', () => {
 	});
 
 	it('hides Save (keeping its space) when pristine and shows it when dirty', async () => {
-		const { form, input } = setup();
-		expect(form.classList.contains('is-dirty')).toBe(false);
+		const { form, input, save } = setup();
+			expect(form.classList.contains('is-dirty')).toBe(false);
+		expect(getComputedStyle(save).visibility).toBe('hidden');
 		await fireEvent.input(input, { target: { value: '4' } });
 		expect(form.classList.contains('is-dirty')).toBe(true);
+		expect(getComputedStyle(save).visibility).toBe('visible');
 		await fireEvent.input(input, { target: { value: '2' } });
 		expect(form.classList.contains('is-dirty')).toBe(false);
+		expect(getComputedStyle(save).visibility).toBe('hidden');
 	});
 
 	it('submits the exact qty and reports Saved {name}: {qty}', async () => {
