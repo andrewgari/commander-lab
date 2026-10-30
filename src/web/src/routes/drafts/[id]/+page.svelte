@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { ActionData, PageProps } from './$types';
 	import TableScroll from '#lib/components/TableScroll.svelte';
+	import ScrollTable, { type Column } from '#lib/components/ScrollTable.svelte';
+	import StatusPill from '#lib/components/StatusPill.svelte';
+	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { draftStatus } from '#lib/status.ts';
+	import { deckName, moveRows } from '#lib/drafts/summary.ts';
 	import CardPicker from '#lib/components/combobox/CardPicker.svelte';
 	import CopyPicker from '#lib/components/combobox/CopyPicker.svelte';
 	import type { CardChoice, ComboOption } from '#lib/components/combobox/model.ts';
@@ -9,6 +15,28 @@
 
 	const draft = $derived(data.state.draft);
 	const open = $derived(draft.status === 'open');
+	const names = $derived(data.deckNames ? new Map(Object.entries(data.deckNames)) : null);
+	const rows = $derived(moveRows(data.state.moves, names));
+	const moveColumns: Column[] = [
+		{ key: 'cardName', header: 'Card' },
+		{ key: 'moveLabel', header: 'Move' },
+		{ key: 'from', header: 'From' },
+		{ key: 'state', header: 'Now' },
+		{ key: 'actions', header: 'Actions', headerHidden: true }
+	];
+	const addColumns: Column[] = [
+		{ key: 'name', header: 'Card' },
+		{ key: 'tier', header: 'Tier' },
+		{ key: 'qty_available', header: 'Owned avail.' },
+		{ key: 'donor', header: 'Donor pull' },
+		{ key: 'why', header: 'Why' }
+	];
+	const cutColumns: Column[] = [
+		{ key: 'name', header: 'Card' },
+		{ key: 'board', header: 'Board' },
+		{ key: 'weak', header: 'Weak score' },
+		{ key: 'why', header: 'Why' }
+	];
 
 	let pickedCard = $state<ComboOption<CardChoice> | null>(null);
 	let pickedCopy = $state<ComboOption<string> | null>(null);
@@ -28,11 +56,12 @@
 <nav><a href="/drafts">← drafts</a></nav>
 <h1>{draft.name}</h1>
 <p class="meta">
-	{draft.kind} · {#each draft.source_decks as src, i}{i > 0 ? ' + ' : ''}{src.name}{/each}
+	{draft.kind}: {#each draft.source_decks as src, i}{i > 0 ? ' + ' : ''}{src.name}{/each}
 	→ <strong>{draft.target_name}</strong> ·
-	<span class:open class:committed={draft.status === 'committed'}>{draft.status}</span>
-	{#if draft.result_deck_id}· built <code>{draft.result_deck_id}</code>{/if}
+	<StatusPill status={draftStatus(draft.status)} label={draft.status} />
+	{#if draft.result_deck_id}· Built deck: <a href={`/decks/${draft.result_deck_id}`}>{draft.target_name}</a>{/if}
 </p>
+{#if data.deckNames === null}<p class="meta" role="status">Deck names unavailable</p>{/if}
 {#if draft.notes}<p class="meta">{draft.notes}</p>{/if}
 
 {#if form?.actionError}<p class="error" role="alert">{form.actionError}</p>{/if}
@@ -99,36 +128,25 @@
 
 <section>
 	<h2>Physical-copy moves ({data.state.moves.length})</h2>
-	{#if data.state.moves.length === 0}
-		<p class="meta">No copy moves staged. Moves are applied to card instances only on Commit, with provenance events.</p>
-	{:else}
-		<TableScroll label="Physical-copy moves" minWidth="32rem">
-		<table>
-			<caption class="visually-hidden">Staged physical-copy moves</caption>
-			<thead>
-				<tr><th scope="col">Instance</th><th scope="col">Card</th><th scope="col">Action</th><th scope="col">From deck</th>{#if open}<th scope="col"><span class="visually-hidden">Actions</span></th>{/if}</tr>
-			</thead>
-			<tbody>
-				{#each data.state.moves as move (move.instance_id)}
-					<tr>
-						<td><code>{move.instance_id.slice(0, 8)}…</code></td>
-						<td>{move.card_name}</td>
-						<td>{move.action}</td>
-						<td>{move.from_deck ?? '—'}</td>
-						{#if open}
-							<td>
-								<form method="POST" action="?/unstage_move">
-									<input type="hidden" name="instance_id" value={move.instance_id} />
-									<button type="submit" class="link" aria-label={`Unstage move of ${move.card_name} (copy ${move.instance_id.slice(0, 8)})`}>unstage</button>
-								</form>
-							</td>
-						{/if}
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-		</TableScroll>
-	{/if}
+	<ScrollTable caption="Staged physical-copy moves" captionHidden columns={moveColumns} {rows} rowKey={(r) => r.instanceId} minWidth="32rem">
+		{#snippet cell(row, column)}
+			{#if column.key === 'actions'}
+				{#if open}
+					<form method="POST" action="?/unstage_move">
+						<input type="hidden" name="instance_id" value={row.instanceId} />
+						<button type="submit" class="link" aria-label={`Unstage ${row.displayName} from ${row.from}`}>unstage</button>
+					</form>
+				{/if}
+			{:else if column.key === 'cardName'}
+				{row.displayName}
+			{:else}
+				{row[column.key as 'moveLabel' | 'from' | 'state']}
+			{/if}
+		{/snippet}
+		{#snippet empty()}
+			<p class="meta">No copy moves staged. Commit without moves creates a virtual deck.</p>
+		{/snippet}
+	</ScrollTable>
 	{#if open}
 		<form method="POST" action="?/stage_move" class="inline">
 			<CopyPicker action={moveAction} bind:selected={pickedCopy} />
@@ -144,7 +162,7 @@
 <section>
 	<h2>Suggestions</h2>
 	{#if data.suggestionsError}
-		<p class="error" role="alert">Suggestions unavailable: {data.suggestionsError}</p>
+		<ErrorBanner severity="warning" message="Suggestions unavailable" detail={data.suggestionsError} onRetry={() => invalidateAll()} />
 	{:else if data.suggestions}
 		{@const s = data.suggestions}
 		{#if Object.keys(s.inputs_unavailable).length > 0}
@@ -156,57 +174,36 @@
 			</ul>
 		{/if}
 		<h3>Adds (own-first, donor-no-worse)</h3>
-		{#if s.adds.length === 0}
-			<p class="meta">No add suggestions.</p>
-		{:else}
-			<TableScroll label="Add suggestions" minWidth="32rem">
-			<table>
-				<caption class="visually-hidden">Suggested cards to add</caption>
-				<thead><tr><th scope="col">Card</th><th scope="col">Tier</th><th scope="col">Owned avail.</th><th scope="col">Donor pull</th><th scope="col">Why</th></tr></thead>
-				<tbody>
-					{#each s.adds as add (add.oracle_id)}
-						<tr>
-							<td>{add.name}</td>
-							<td>{add.tier}</td>
-							<td>{add.qty_available}</td>
-							<td>
-								{#if add.donor}
-									from <code>{add.donor.deck_id}</code> ← {add.donor.replacement_name}
-								{:else}
-									—
-								{/if}
-							</td>
-							<td class="meta">{add.reasons.join('; ')}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-			</TableScroll>
+		<ScrollTable caption="Suggested cards to add" captionHidden columns={addColumns} rows={s.adds} rowKey={(r) => r.oracle_id} minWidth="32rem">
+			{#snippet cell(add, column)}
+				{#if column.key === 'donor'}
+					{#if add.donor}from {deckName(add.donor.deck_id, names)} ← {add.donor.replacement_name}{:else}—{/if}
+				{:else if column.key === 'why'}
+					<span class="meta">{add.reasons.join('; ')}</span>
+				{:else}
+					{add[column.key as 'name' | 'tier' | 'qty_available']}
+				{/if}
+			{/snippet}
+			{#snippet empty()}<p class="meta">No add suggestions.</p>{/snippet}
+		</ScrollTable>
 			{#if s.hidden_donor_pulls > 0}
 				<p class="meta">{s.hidden_donor_pulls} donor pull(s) hidden — {s.hidden_reason}</p>
-			{/if}
 		{/if}
 		<h3>Cuts (weak performers)</h3>
-		{#if s.cuts.length === 0}
-			<p class="meta">No cut suggestions.</p>
-		{:else}
-			<TableScroll label="Cut suggestions" minWidth="28rem">
-			<table>
-				<caption class="visually-hidden">Suggested cards to cut</caption>
-				<thead><tr><th scope="col">Card</th><th scope="col">Board</th><th scope="col">Weak score</th><th scope="col">Why</th></tr></thead>
-				<tbody>
-					{#each s.cuts as cut (cut.oracle_id)}
-						<tr>
-							<td>{cut.name}</td>
-							<td>{cut.board ?? '—'}</td>
-							<td>{cut.weak_score.toFixed(2)}</td>
-							<td class="meta">{cut.reasons.join('; ')}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-			</TableScroll>
-		{/if}
+		<ScrollTable caption="Suggested cards to cut" captionHidden columns={cutColumns} rows={s.cuts} rowKey={(r) => r.oracle_id} minWidth="28rem">
+			{#snippet cell(cut, column)}
+				{#if column.key === 'board'}
+					{cut.board ?? '—'}
+				{:else if column.key === 'weak'}
+					{cut.weak_score.toFixed(2)}
+				{:else if column.key === 'why'}
+					<span class="meta">{cut.reasons.join('; ')}</span>
+				{:else}
+					{cut.name}
+				{/if}
+			{/snippet}
+			{#snippet empty()}<p class="meta">No cut suggestions.</p>{/snippet}
+		</ScrollTable>
 		<p class="meta">{s.note}</p>
 	{/if}
 </section>
@@ -275,12 +272,6 @@
 	.meta {
 		font-size: 0.85rem;
 		color: var(--color-muted);
-	}
-	.open {
-		color: var(--color-warning);
-	}
-	.committed {
-		color: var(--color-success);
 	}
 	.error {
 		color: var(--color-danger);
