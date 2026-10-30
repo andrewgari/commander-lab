@@ -5,6 +5,7 @@ import {
 	apiGet,
 	apiPost,
 	ApiError,
+	type DeckSummary,
 	type DraftState,
 	type DraftSuggestions
 } from '#lib/api.ts';
@@ -22,12 +23,17 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 	let suggestions: DraftSuggestions | null = null;
 	let suggestionsError: string | null = null;
-	try {
-		suggestions = await apiGet<DraftSuggestions>(`/api/v2/drafts/${params.id}/suggestions`);
-	} catch (e) {
-		suggestionsError = e instanceof Error ? e.message : 'suggestions unavailable';
+	let deckNames: Record<string, string> | null = null;
+	const [sugg, decks] = await Promise.allSettled([
+		apiGet<DraftSuggestions>(`/api/v2/drafts/${params.id}/suggestions`),
+		apiGet<{ decks: DeckSummary[] }>('/api/v2/decks')
+	]);
+	if (sugg.status === 'fulfilled') suggestions = sugg.value;
+	else suggestionsError = sugg.reason instanceof Error ? sugg.reason.message : 'suggestions unavailable';
+	if (decks.status === 'fulfilled' && Array.isArray(decks.value?.decks)) {
+		deckNames = Object.fromEntries(decks.value.decks.map((d) => [d.id, d.name]));
 	}
-	return { state, suggestions, suggestionsError };
+	return { state, suggestions, suggestionsError, deckNames };
 };
 
 function actionError(e: unknown) {

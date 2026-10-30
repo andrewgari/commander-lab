@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Changed
+- Draft page: the header, copy moves and suggestions show deck names and a status badge instead of internal ids.
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
