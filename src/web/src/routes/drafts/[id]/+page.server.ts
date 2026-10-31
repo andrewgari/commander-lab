@@ -113,18 +113,21 @@ export const actions: Actions = {
 			return actionError(e);
 		}
 	},
-	commit: async ({ params }) => {
+	commit: async ({ request, params }) => {
+		const form = await request.formData();
+		if (form.get('confirmed') !== '1') return fail(400, { needsConfirm: 'commit' as const });
+		let deckId: string;
 		try {
-			const result = await apiPost<{ result_deck_id: string }>(
-				`/api/v2/drafts/${params.id}/commit`,
-				{}
-			);
-			redirect(303, `/decks?built=${result.result_deck_id}`);
+			const result = await apiPost<{ deck_id: string }>(`/api/v2/drafts/${params.id}/commit`, {});
+			deckId = result.deck_id;
 		} catch (e) {
 			return actionError(e);
 		}
+		redirect(303, `/decks/${encodeURIComponent(deckId)}?from_draft=1`);
 	},
-	abandon: async ({ params }) => {
+	abandon: async ({ request, params }) => {
+		const form = await request.formData();
+		if (form.get('confirmed') !== '1') return fail(400, { needsConfirm: 'abandon' as const });
 		try {
 			await apiPost(`/api/v2/drafts/${params.id}/abandon`, {});
 		} catch (e) {
