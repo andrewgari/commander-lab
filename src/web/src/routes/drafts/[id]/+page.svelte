@@ -7,11 +7,16 @@
 	import { invalidateAll } from '$app/navigation';
 	import { draftStatus } from '#lib/status.ts';
 	import { deckName, moveRows } from '#lib/drafts/summary.ts';
+	import EmptyState from '#lib/components/EmptyState.svelte';
+	import SubmitButton from '#lib/components/SubmitButton.svelte';
+	import QtyEditor from '#lib/components/drafts/QtyEditor.svelte';
+	import { createPending } from '#lib/forms/pending.svelte.ts';
+	import { enhance } from '$app/forms';
 	import QuickAdd from '#lib/components/card-search/QuickAdd.svelte';
 	import CopyPicker from '#lib/components/combobox/CopyPicker.svelte';
 	import type { ComboOption } from '#lib/components/combobox/model.ts';
 	import { deserialize } from '$app/forms';
-	import { boardLabel, nextQty, stagedQty, stagedQtyByOracle, toApiBoard } from '#lib/drafts/boards.ts';
+	import { boardLabel, groupByBoard, nextQty, stagedQty, stagedQtyByOracle, toApiBoard } from '#lib/drafts/boards.ts';
 	import type { AddRequest, Board } from '#lib/card-search/types.ts';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
@@ -71,6 +76,10 @@
 		return `Added ${qty}× ${card.name} to ${boardLabel(apiBoard)}${existing > 0 ? ` (now ${newQty})` : ''}`;
 	}
 
+	const groups = $derived(groupByBoard(data.state.cards));
+	let rowMessage = $state('');
+	const removing = createPending({ key: (fd) => String(fd.get('oracle_id')) + String(fd.get('board')) });
+
 	let pickedCopy = $state<ComboOption<string> | null>(null);
 	let moveAction = $state('assign');
 
@@ -129,36 +138,53 @@
 <section>
 	<h2>Staged list ({data.state.cards.reduce((n, c) => n + c.qty, 0)} cards)</h2>
 	{#if data.state.cards.length === 0}
-		<p class="meta">Nothing staged yet.</p>
+		<EmptyState variant="inline" title="Nothing staged yet" description="Search your collection above to add cards." />
 	{:else}
-		<TableScroll label="Staged list" minWidth="32rem">
+		<TableScroll label="Staged list" minWidth="28rem">
 		<table>
-			<caption class="visually-hidden">Staged cards</caption>
+			<caption class="visually-hidden">Staged cards by board</caption>
 			<thead>
-				<tr><th scope="col">Qty</th><th scope="col">Card</th><th scope="col">Board</th><th scope="col">Type</th><th scope="col">CMC</th>{#if open}<th scope="col"><span class="visually-hidden">Actions</span></th>{/if}</tr>
+				<tr>
+					<th scope="col">Card</th>
+					<th scope="col" class="col-type">Type</th>
+					<th scope="col">MV</th>
+					<th scope="col">Qty</th>
+					{#if open}<th scope="col"><span class="visually-hidden">Remove</span></th>{/if}
+				</tr>
 			</thead>
-			<tbody>
-				{#each data.state.cards as card (card.oracle_id + card.board)}
-					<tr>
-						<td>{card.qty}</td>
-						<td>{card.name}</td>
-						<td>{card.board}{#if card.category} · {card.category}{/if}</td>
-						<td class="meta">{card.type_line}</td>
-						<td>{card.cmc}</td>
-						{#if open}
-							<td>
-								<form method="POST" action="?/remove_card">
-									<input type="hidden" name="oracle_id" value={card.oracle_id} />
-									<input type="hidden" name="board" value={card.board} />
-									<button type="submit" class="link" aria-label={`Remove ${card.name} (${card.board}) from staged list`}>remove</button>
-								</form>
-							</td>
-						{/if}
+			{#each groups as group (group.board)}
+				<tbody>
+					<tr class="group-row">
+						<th scope="colgroup" colspan={open ? 5 : 4}>{group.label} {group.qty}</th>
 					</tr>
-				{/each}
-			</tbody>
+					{#each group.rows as card (card.oracle_id + card.board)}
+						<tr>
+							<td><a href={`/card/${card.oracle_id}`}>{card.name}</a></td>
+							<td class="meta col-type">{card.type_line}</td>
+							<td>{card.cmc}</td>
+							<td class="qty-cell">
+								{#if open}
+									<QtyEditor oracleId={card.oracle_id} board={card.board} cardName={card.name} boardLabel={group.label} qty={card.qty} onsaved={(m) => (rowMessage = m)} />
+								{:else}
+									{card.qty}
+								{/if}
+							</td>
+							{#if open}
+								<td>
+									<form method="POST" action="?/remove_card" use:enhance={removing.enhance}>
+										<input type="hidden" name="oracle_id" value={card.oracle_id} />
+										<input type="hidden" name="board" value={card.board} />
+										<SubmitButton variant="link-danger" pending={removing.submitting} busy={removing.key === card.oracle_id + card.board} pendingLabel="Removing…" aria-label={`Remove ${card.name} from ${group.label}`}>Remove</SubmitButton>
+									</form>
+								</td>
+							{/if}
+						</tr>
+					{/each}
+				</tbody>
+			{/each}
 		</table>
 		</TableScroll>
+		<p class="visually-hidden" role="status">{rowMessage}</p>
 	{/if}
 </section>
 
@@ -261,6 +287,20 @@
 		text-align: left;
 		padding: 0.2rem 0.6rem 0.2rem 0;
 		border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+	}
+	.group-row th {
+		background: var(--color-surface-2, rgba(127, 127, 127, 0.12));
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.qty-cell {
+		text-align: right;
+	}
+	@media (max-width: 40rem) {
+		.col-type {
+			display: none;
+		}
 	}
 	form.inline {
 		display: flex;
