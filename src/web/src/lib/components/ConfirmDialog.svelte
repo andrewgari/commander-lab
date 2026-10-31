@@ -75,7 +75,8 @@
 		{#if eyebrow}<p class="dlg__eyebrow">{eyebrow}</p>{/if}
 		<h2 id={titleId}>{title}</h2>
 	</header>
-	<div class="dlg__body" id={descId}>{@render children()}</div>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex: the body scrolls on small screens and must be keyboard-reachable -->
+	<div class="dlg__body" id={descId} role="region" aria-labelledby={titleId} tabindex="0">{@render children()}</div>
 	{#if alert}<div class="dlg__alert">{@render alert()}</div>{/if}
 	<footer class="dlg__foot">
 		<button type="button" class="dlg__cancel" bind:this={cancelBtn} aria-disabled={pending ? 'true' : undefined} onclick={() => { if (!pending) dialog.close(); }}>Cancel</button>
@@ -102,6 +103,7 @@
 	.dlg__head h2 { margin: 0; font-size: var(--text-xl); line-height: var(--leading-xl); }
 	.dlg__eyebrow { margin: 0 0 var(--space-1); font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-label); color: var(--color-muted); overflow-wrap: anywhere; }
 	.dlg__body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--space-5); }
+	.dlg__body:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 	.dlg__alert { padding: 0 var(--space-5) var(--space-3); }
 	.dlg__foot { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-3) var(--space-5); background: var(--color-bg); border-top: 1px solid var(--color-border); flex-wrap: wrap; }
 	.dlg__foot :global(form) { display: contents; }
