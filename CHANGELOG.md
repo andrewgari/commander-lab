@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Changed
+- Draft page: Commit now shows a summary of what will happen (new deck, cards per board, commanders, colours, copies pulled from other decks, warnings) in a dialog before anything changes, Abandon has its own confirmation, and a successful commit opens the new deck.
 - Draft page: staged cards are grouped by board and you can change a card's quantity in place.
 - Draft page: add cards by typing a name in an owned-cards search box (Enter adds the top match, `2x` sets quantity); adding a card that's already staged increases its count, and Maybeboard now works. Works without JavaScript too.
 - Draft page: the header, copy moves and suggestions show deck names and a status badge instead of internal ids.

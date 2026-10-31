@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
+	import { page } from '$app/state';
 	import ScrollTable, { type Column } from '#lib/components/ScrollTable.svelte';
 	import StatusPill from '#lib/components/StatusPill.svelte';
 
@@ -29,6 +30,7 @@
 <nav><a href="/decks">← all decks</a> · <a href="/decks/{encodeURIComponent(deck.id)}/review">Deck review</a></nav>
 
 <h1>{deck.name}</h1>
+{#if page.url.searchParams.get('from_draft') === '1'}<p role="status">Built from a draft.</p>{/if}
 <p class="meta">
 	{deck.status} · {deck.color_identity.join('') || 'colorless'}
 	{#if deck.commanders.length}· {deck.commanders.join(' + ')}{/if}

@@ -6,7 +6,7 @@
 	import ErrorBanner from '#lib/components/ErrorBanner.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { draftStatus } from '#lib/status.ts';
-	import { deckName, moveRows } from '#lib/drafts/summary.ts';
+	import { deckName, moveRows, summarize, abandonSentence } from '#lib/drafts/summary.ts';
 	import EmptyState from '#lib/components/EmptyState.svelte';
 	import SubmitButton from '#lib/components/SubmitButton.svelte';
 	import QtyEditor from '#lib/components/drafts/QtyEditor.svelte';
@@ -18,6 +18,9 @@
 	import { deserialize } from '$app/forms';
 	import { boardLabel, groupByBoard, nextQty, stagedQty, stagedQtyByOracle, toApiBoard } from '#lib/drafts/boards.ts';
 	import type { AddRequest, Board } from '#lib/card-search/types.ts';
+	import CommitDialog from '#lib/components/drafts/CommitDialog.svelte';
+	import AbandonDialog from '#lib/components/drafts/AbandonDialog.svelte';
+	import CommitSummaryView from '#lib/components/drafts/CommitSummary.svelte';
 
 	let { data, form }: PageProps & { form: ActionData } = $props();
 
@@ -83,10 +86,19 @@
 	let pickedCopy = $state<ComboOption<string> | null>(null);
 	let moveAction = $state('assign');
 
-	function confirmSubmit(message: string) {
-		return (event: SubmitEvent) => {
-			if (!window.confirm(message)) event.preventDefault();
-		};
+	const summary = $derived(summarize({ draft, cards: data.state.cards, moves: data.state.moves }, names));
+	const cardCount = $derived(data.state.cards.reduce((n, c) => n + c.qty, 0));
+	let commitDialog: CommitDialog | undefined = $state();
+	let abandonDialog: AbandonDialog | undefined = $state();
+
+	function openCommit(e: MouseEvent) {
+		e.preventDefault();
+		if (summary.blockedReason) return;
+		commitDialog?.show(e.currentTarget as HTMLElement);
+	}
+	function openAbandon(e: MouseEvent) {
+		e.preventDefault();
+		abandonDialog?.show(e.currentTarget as HTMLElement);
 	}
 </script>
 
@@ -107,13 +119,24 @@
 
 {#if form?.actionError}<p class="error" role="alert">{form.actionError}</p>{/if}
 
-{#if open}
-	<section class="danger-zone">
-		<form method="POST" action="?/commit" onsubmit={confirmSubmit('Commit this draft? The new deck, card rows and physical-copy moves are applied in one transaction.')}>
-			<button type="submit" class="commit" aria-label={`Commit draft ${draft.name ?? draft.id}: apply all staged changes`}>Commit draft</button>
+{#if open && form?.needsConfirm === 'commit'}
+	<section class="confirm-inline" aria-labelledby="confirm-h">
+		<h2 id="confirm-h">Commit draft?</h2>
+		<CommitSummaryView {summary} namesMissing={data.deckNames === null} />
+		<form method="POST" action="?/commit">
+			<input type="hidden" name="confirmed" value="1" />
+			<button type="submit" class="btn btn--primary">Commit draft</button>
+			<a href={`/drafts/${encodeURIComponent(draft.id)}`}>Cancel</a>
 		</form>
-		<form method="POST" action="?/abandon" onsubmit={confirmSubmit('Abandon this draft? All staged rows are deleted — zero residue.')}>
-			<button type="submit" class="abandon" aria-label={`Abandon draft ${draft.name ?? draft.id}: delete all staged rows`}>Abandon</button>
+	</section>
+{:else if open && form?.needsConfirm === 'abandon'}
+	<section class="confirm-inline" aria-labelledby="confirm-h">
+		<h2 id="confirm-h">Abandon draft?</h2>
+		<p>{abandonSentence(data.state.cards, data.state.moves)}</p>
+		<form method="POST" action="?/abandon">
+			<input type="hidden" name="confirmed" value="1" />
+			<button type="submit" class="btn btn--danger">Abandon draft</button>
+			<a href={`/drafts/${encodeURIComponent(draft.id)}`}>Cancel</a>
 		</form>
 	</section>
 {/if}
@@ -270,6 +293,27 @@
 	{/if}
 </section>
 
+{#if open}
+	<section class="commit-bar" aria-label="Commit or abandon this draft">
+		<form method="POST" action="?/commit" class="commit-group">
+			<button
+				type="submit"
+				class="btn btn--primary"
+				aria-disabled={summary.blockedReason ? 'true' : undefined}
+				aria-describedby={summary.blockedReason ? 'commit-blocked' : undefined}
+				onclick={openCommit}
+			>Review &amp; commit…</button>
+			<span class="tally mono"><strong>{cardCount}</strong> cards · <strong>{data.state.moves.length}</strong> moves</span>
+			{#if summary.blockedReason}<span id="commit-blocked" class="meta">{summary.blockedReason}</span>{/if}
+		</form>
+		<form method="POST" action="?/abandon" class="abandon-group">
+			<button type="submit" class="btn btn--danger-outline" onclick={openAbandon}>Abandon draft…</button>
+		</form>
+	</section>
+	<CommitDialog bind:this={commitDialog} draftName={draft.name} {summary} namesMissing={data.deckNames === null} />
+	<AbandonDialog bind:this={abandonDialog} draftName={draft.name} cards={data.state.cards} moves={data.state.moves} />
+{/if}
+
 <style>
 	h1 {
 		font-size: 1.5rem;
@@ -324,26 +368,58 @@
 		font-size: inherit;
 		text-decoration: underline;
 	}
-	.danger-zone {
+	.commit-bar {
+		position: sticky;
+		bottom: 0;
+		z-index: 5;
 		display: flex;
-		gap: 0.6rem;
-		margin: 0.75rem 0;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--space-8);
+		margin-top: var(--space-6);
+		padding: var(--space-3) var(--space-4);
+		background: var(--color-surface-2, var(--color-surface));
+		border-top: 1px solid var(--color-border);
 	}
-	button.commit {
-		padding: 0.45rem 1.1rem;
-		min-height: var(--touch-min);
-		background: var(--color-success-solid);
-		color: var(--color-on-solid);
-		border: none;
-		cursor: pointer;
+	.commit-group {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--space-3);
 	}
-	button.abandon {
-		padding: 0.45rem 1.1rem;
-		min-height: var(--touch-min);
-		background: var(--color-danger-solid);
-		color: var(--color-on-solid);
-		border: none;
-		cursor: pointer;
+	.tally {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.85rem;
+	}
+	.btn--danger-outline,
+	.btn--danger-outline:hover {
+		background: transparent;
+		color: var(--color-danger);
+		border-color: var(--color-danger);
+	}
+	.commit-bar :global(.btn[aria-disabled='true']) {
+		opacity: 0.6;
+		cursor: not-allowed;
+		border-style: dashed;
+	}
+	@media (max-width: 40rem) {
+		.commit-bar,
+		.commit-group {
+			flex-direction: column;
+			align-items: stretch;
+			gap: var(--space-3);
+		}
+	}
+	.confirm-inline {
+		border: 1px solid var(--color-border);
+		padding: var(--space-4);
+		margin: var(--space-4) 0;
+	}
+	.confirm-inline form {
+		display: flex;
+		align-items: center;
+		gap: var(--space-4);
 	}
 	.meta {
 		font-size: 0.85rem;

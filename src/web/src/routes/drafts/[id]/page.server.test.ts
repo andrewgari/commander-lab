@@ -14,6 +14,7 @@ vi.mock('#lib/api.ts', () => {
 
 import { apiGet, apiPost } from '#lib/api.ts';
 import { actions } from './+page.server';
+import { ApiError } from '#lib/api.ts';
 
 const SOL = { oracle_id: 'o-sol', name: 'Sol Ring' };
 
@@ -73,5 +74,65 @@ describe('upsert_card board validation', () => {
 		expect(apiPost).toHaveBeenCalledWith('/api/v2/drafts/d1/cards', { oracle_id: 'o', name: 'N', qty: 1, board: 'maybe' });
 		const out = (await run('upsert_card', { oracle_id: 'o', name: 'N', qty: '1', board: 'zzz' }).result) as { status: number };
 		expect(out.status).toBe(400);
+	});
+});
+
+function runConfirm(action: 'commit' | 'abandon', confirmed?: string) {
+	const form = new FormData();
+	if (confirmed !== undefined) form.set('confirmed', confirmed);
+	const event = { request: { formData: async () => form }, params: { id: 'd1' } };
+	return (actions[action] as (e: unknown) => Promise<unknown>)(event);
+}
+
+async function redirectOf(p: Promise<unknown>) {
+	try {
+		await p;
+	} catch (e) {
+		return e as { status: number; location: string };
+	}
+	throw new Error('expected a redirect');
+}
+
+describe('commit / abandon confirm gate', () => {
+	it('commit without confirmed returns needsConfirm and does not call the API', async () => {
+		const out = (await runConfirm('commit')) as { status: number; data: { needsConfirm: string } };
+		expect(out.status).toBe(400);
+		expect(out.data.needsConfirm).toBe('commit');
+		expect(apiPost).not.toHaveBeenCalled();
+	});
+
+	it('commit with confirmed=0 is still gated', async () => {
+		const out = (await runConfirm('commit', '0')) as { data: { needsConfirm: string } };
+		expect(out.data.needsConfirm).toBe('commit');
+		expect(apiPost).not.toHaveBeenCalled();
+	});
+
+	it('commit with confirmed=1 redirects to the new deck', async () => {
+		vi.mocked(apiPost).mockResolvedValue({ deck_id: 'deck 9' });
+		const r = await redirectOf(runConfirm('commit', '1'));
+		expect(apiPost).toHaveBeenCalledWith('/api/v2/drafts/d1/commit', {});
+		expect(r.status).toBe(303);
+		expect(r.location).toBe('/decks/deck%209?from_draft=1');
+	});
+
+	it('commit 409 returns actionError', async () => {
+		vi.mocked(apiPost).mockRejectedValue(new ApiError(409, 'Draft changed'));
+		const out = (await runConfirm('commit', '1')) as { status: number; data: { actionError: string } };
+		expect(out.status).toBe(409);
+		expect(out.data.actionError).toBe('Draft changed');
+	});
+
+	it('abandon without confirmed returns needsConfirm', async () => {
+		const out = (await runConfirm('abandon')) as { status: number; data: { needsConfirm: string } };
+		expect(out.status).toBe(400);
+		expect(out.data.needsConfirm).toBe('abandon');
+		expect(apiPost).not.toHaveBeenCalled();
+	});
+
+	it('abandon with confirmed=1 redirects to /drafts', async () => {
+		vi.mocked(apiPost).mockResolvedValue({});
+		const r = await redirectOf(runConfirm('abandon', '1'));
+		expect(r.status).toBe(303);
+		expect(r.location).toBe('/drafts');
 	});
 });
