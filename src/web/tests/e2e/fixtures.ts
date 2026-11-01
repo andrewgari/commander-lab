@@ -82,6 +82,10 @@ export const VIEWPORTS = [{ width: 375, height: 800 }, { width: 1440, height: 90
 /** Home and Games acceptance (§1.8 / §4.6) name 1280 rather than 1440. */
 export const PAGE_VIEWPORTS = [{ width: 375, height: 800 }, { width: 1280, height: 800 }] as const;
 
+/** Waits for entrance animations (banners fade in): axe reads mid-fade colours as contrast failures. */
+export const settleAnimations = (page: Page) =>
+	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))).then(() => undefined));
+
 /** True when the page scrolls sideways. */
 export const hasHorizontalScroll = (page: Page) =>
 	page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);

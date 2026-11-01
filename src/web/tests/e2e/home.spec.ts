@@ -1,5 +1,5 @@
 // Home dashboard browser tests (page spec §1.5 states, §1.8 acceptance). The API is the mock in tests/e2e/mock.
-import { test, expect, expectNoAxeViolations, hasHorizontalScroll, PAGE_VIEWPORTS } from './fixtures';
+import { test, expect, expectNoAxeViolations, hasHorizontalScroll, PAGE_VIEWPORTS, settleAnimations } from './fixtures';
 
 const tiles = (page: import('@playwright/test').Page) => page.locator('ul.tiles > li');
 const tile = (page: import('@playwright/test').Page, label: string) => tiles(page).filter({ hasText: label });
@@ -110,6 +110,7 @@ test.describe('home dashboard', () => {
 			await page.setViewportSize(vp);
 			await page.goto('/');
 			await expect(tiles(page)).toHaveCount(6);
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'page scrolls sideways').toBe(false);
 		});
@@ -119,12 +120,14 @@ test.describe('home dashboard', () => {
 			await mock.set({ gamesStatus: 500 });
 			await page.goto('/');
 			await expect(page.getByRole('alert').first()).toBeVisible();
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'error state scrolls sideways').toBe(false);
 
 			await mock.set({ gamesStatus: 200, decksFixture: 'empty', inventoryEmpty: true, draftsListEmpty: true });
 			await page.goto('/');
 			await expect(tile(page, 'Collection')).toContainText('No cards yet');
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'empty state scrolls sideways').toBe(false);
 		});

@@ -1,5 +1,5 @@
 // Games list + Forge-log import browser tests (page spec §4.6). The API is the mock in tests/e2e/mock.
-import { test, expect, expectNoAxeViolations, hasHorizontalScroll, PAGE_VIEWPORTS } from './fixtures';
+import { test, expect, expectNoAxeViolations, hasHorizontalScroll, PAGE_VIEWPORTS, settleAnimations } from './fixtures';
 
 const IMPORT_POST = /\/api\/v2\/imports\/forge-log$/;
 const LOG = 'Turn: Turn 1 (Ai(1)-Andrew)\nGame outcome: Ai(1) has won because all opponents have lost';
@@ -110,6 +110,7 @@ test.describe('games list', () => {
 			await mock.set({ gamesFixture: 'some' });
 			await page.goto('/games');
 			await expect(page.getByRole('table', { name: 'Imported games, newest first' })).toBeVisible();
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'list scrolls sideways').toBe(false);
 
@@ -118,6 +119,7 @@ test.describe('games list', () => {
 			await page.getByLabel('Forge log', { exact: true }).fill(LOG);
 			await page.getByRole('button', { name: 'Import & analyze' }).click();
 			await expect(page.getByRole('alert').filter({ hasText: 'Import failed' })).toBeVisible();
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'import form scrolls sideways').toBe(false);
 
@@ -125,6 +127,7 @@ test.describe('games list', () => {
 			await mock.set({ gamesFixture: 'none' });
 			await page.goto('/games');
 			await expect(page.getByRole('heading', { name: 'No games imported yet' })).toBeVisible();
+			await settleAnimations(page);
 			await expectNoAxeViolations(page);
 			expect(await hasHorizontalScroll(page), 'empty state scrolls sideways').toBe(false);
 		});
