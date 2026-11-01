@@ -4,23 +4,26 @@ import { test, expect, expectNoAxeViolations, hasHorizontalScroll, PAGE_VIEWPORT
 const tiles = (page: import('@playwright/test').Page) => page.locator('ul.tiles > li');
 const tile = (page: import('@playwright/test').Page, label: string) => tiles(page).filter({ hasText: label });
 
+/** The tile's primary value, exactly (not the caption: a date or count there must not satisfy it). */
+const value = (page: import('@playwright/test').Page, label: string) => tile(page, label).first().locator('.value');
+
 test.describe('home dashboard', () => {
 	test('§1.8 populated: six stat tiles carry values and recent decks show name, pips and status', async ({ page, mock }) => {
 		await mock.set({ decksFixture: 'home', gamesFixture: 'some', profilePower: true });
 		await page.goto('/');
 
 		await expect(tiles(page)).toHaveCount(6);
-		await expect(tile(page, 'Decks').first()).toContainText('3');
+		await expect(value(page, 'Decks')).toHaveText(/^3,?\s*$/);
 		await expect(tile(page, 'Decks').first()).toContainText('2 built');
-		await expect(tile(page, 'Ready to play')).toContainText('1/2');
+		await expect(value(page, 'Ready to play')).toHaveText(/^1\/2,?\s*$/);
 		await expect(tile(page, 'Ready to play')).toContainText('10 cards to buy');
-		await expect(tile(page, 'Collection')).toContainText('120');
+		await expect(value(page, 'Collection')).toHaveText(/^120,?\s*$/);
 		await expect(tile(page, 'Collection')).toContainText('2 in the mail');
-		await expect(tile(page, 'Games')).toContainText('2');
+		await expect(value(page, 'Games')).toHaveText(/^2,?\s*$/);
 		await expect(tile(page, 'Games')).toContainText('1–1');
-		await expect(tile(page, 'Open drafts')).toContainText('1');
+		await expect(value(page, 'Open drafts')).toHaveText(/^1,?\s*$/);
 		await expect(tile(page, 'Open drafts').getByRole('link', { name: 'Atraxa rebuild' })).toHaveAttribute('href', '/drafts/draft-1');
-		await expect(tile(page, 'Power level')).toContainText('7');
+		await expect(value(page, 'Power level')).toHaveText(/^7\/10,?\s*$/);
 		await expect(tile(page, 'Power level')).toContainText('Bracket 3 (Upgraded)');
 		await expect(page.getByRole('alert')).toHaveCount(0);
 
@@ -46,7 +49,7 @@ test.describe('home dashboard', () => {
 		for (const label of ['Decks', 'Ready to play', 'Collection', 'Open drafts', 'Power level']) {
 			await expect(tile(page, label).first(), label).not.toContainText("Couldn't load");
 		}
-		await expect(tile(page, 'Collection')).toContainText('120');
+		await expect(value(page, 'Collection')).toHaveText(/^120,?\s*$/);
 		const banner = page.getByRole('alert').filter({ hasText: 'Some figures couldn’t load' });
 		await expect(banner).toBeVisible();
 		await expect(banner).toContainText('Games');
@@ -59,8 +62,8 @@ test.describe('home dashboard', () => {
 
 		await expect(tile(page, 'Games')).toContainText('1–1');
 		await expect(page.getByRole('alert')).toHaveCount(0);
-		await expect(tile(page, 'Collection')).toContainText('120');
-		await expect(tile(page, 'Decks').first()).toContainText('3');
+		await expect(value(page, 'Collection')).toHaveText(/^120,?\s*$/);
+		await expect(value(page, 'Decks')).toHaveText(/^3,?\s*$/);
 		await expect(page.getByRole('heading', { level: 2, name: 'Recently played' })).toBeVisible();
 	});
 
@@ -70,7 +73,7 @@ test.describe('home dashboard', () => {
 
 		await expect(tile(page, 'Decks').first()).toContainText("Couldn't load");
 		await expect(tile(page, 'Ready to play')).toContainText("Couldn't load");
-		await expect(tile(page, 'Collection')).toContainText('120');
+		await expect(value(page, 'Collection')).toHaveText(/^120,?\s*$/);
 		await expect(page.getByRole('alert').filter({ hasText: "Decks couldn't load" }).first()).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Try again' }).first()).toBeVisible();
 	});
