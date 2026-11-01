@@ -112,7 +112,7 @@ class TestNothingIsDeleted(ArchiveTestBase):
 
     def test_archive_module_does_not_reference_the_delete_endpoint(self):
         """Static guard: the source must not contain a deck-delete call."""
-        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "archive.py")
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "server", "domain", "decks", "archive.py")
         with open(path, "r", encoding="utf-8") as handle:
             source = handle.read()
         # The docstring names the endpoint to explain why it's unused; make sure
