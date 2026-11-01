@@ -83,6 +83,8 @@
 	let rowMessage = $state('');
 	const removing = createPending({ key: (fd) => String(fd.get('oracle_id')) + String(fd.get('board')) });
 
+	const unstaging = createPending({ key: (fd) => String(fd.get('instance_id')) });
+	const staging = createPending();
 	let pickedCopy = $state<ComboOption<string> | null>(null);
 	let moveAction = $state('assign');
 
@@ -117,7 +119,9 @@
 {#if data.deckNames === null}<p class="meta" role="status">Deck names unavailable</p>{/if}
 {#if draft.notes}<p class="meta">{draft.notes}</p>{/if}
 
-{#if form?.actionError}<p class="error" role="alert">{form.actionError}</p>{/if}
+{#if form?.actionError && !['stage_move', 'unstage_move', 'remove_card'].includes(form.action ?? '')}
+	<ErrorBanner message="That didn't work" detail={form.actionError} dismissible class="form-gap" />
+{/if}
 
 {#if open && form?.needsConfirm === 'commit'}
 	<section class="confirm-inline" aria-labelledby="confirm-h">
@@ -207,6 +211,9 @@
 			{/each}
 		</table>
 		</TableScroll>
+		{#if form?.action === 'remove_card' && form.actionError}
+			<ErrorBanner message="Couldn't remove the card" detail={form.actionError} dismissible class="form-gap" />
+		{/if}
 		<p class="visually-hidden" role="status">{rowMessage}</p>
 	{/if}
 </section>
@@ -217,9 +224,9 @@
 		{#snippet cell(row, column)}
 			{#if column.key === 'actions'}
 				{#if open}
-					<form method="POST" action="?/unstage_move">
+					<form method="POST" action="?/unstage_move" use:enhance={unstaging.enhance}>
 						<input type="hidden" name="instance_id" value={row.instanceId} />
-						<button type="submit" class="link" aria-label={`Unstage ${row.displayName} from ${row.from}`}>unstage</button>
+						<SubmitButton variant="link-danger" pending={unstaging.submitting} busy={unstaging.key === row.instanceId} pendingLabel="Unstaging…" aria-label={`Unstage ${row.displayName} from ${row.from}`}>unstage</SubmitButton>
 					</form>
 				{/if}
 			{:else if column.key === 'cardName'}
@@ -232,14 +239,24 @@
 			<p class="meta">No copy moves staged. Commit without moves creates a virtual deck.</p>
 		{/snippet}
 	</ScrollTable>
+	{#if form?.action === 'unstage_move' && form.actionError}
+		<ErrorBanner message="Couldn't unstage the move" detail={form.actionError} dismissible class="form-gap" />
+	{/if}
 	{#if open}
-		<form method="POST" action="?/stage_move" class="inline">
-			<CopyPicker action={moveAction} bind:selected={pickedCopy} />
-			<select name="move_action" aria-label="Move action" bind:value={moveAction}>
-				<option value="assign">assign into result deck</option>
-				<option value="unassign">unassign back to collection</option>
-			</select>
-			<button type="submit">Stage move</button>
+		<form method="POST" action="?/stage_move" class="inline" use:enhance={staging.enhance}>
+			<fieldset class="inline-fields" disabled={staging.submitting}>
+				<CopyPicker action={moveAction} bind:selected={pickedCopy} />
+				<select name="move_action" aria-label="Move action" bind:value={moveAction}>
+					<option value="assign">assign into result deck</option>
+					<option value="unassign">unassign back to collection</option>
+				</select>
+			</fieldset>
+			<SubmitButton pending={staging.submitting} pendingLabel="Staging…">Stage move</SubmitButton>
+			{#if form?.action === 'stage_move' && form.actionError}
+				<ErrorBanner message="Couldn't stage the move" detail={form.actionError} dismissible class="form-gap" />
+			{:else if staging.transientError}
+				<ErrorBanner message="Couldn't stage the move" detail={staging.transientError} dismissible class="form-gap" />
+			{/if}
 		</form>
 	{/if}
 </section>
@@ -355,19 +372,6 @@
 	form.inline input[name='qty'] {
 		width: 4rem;
 	}
-	button.link {
-		background: none;
-		border: none;
-		padding: 0.4rem 0.6rem;
-		min-height: var(--touch-min, 2.75rem);
-		min-width: var(--touch-min, 2.75rem);
-		display: inline-flex;
-		align-items: center;
-		color: var(--color-danger);
-		cursor: pointer;
-		font-size: inherit;
-		text-decoration: underline;
-	}
 	.commit-bar {
 		position: sticky;
 		bottom: 0;
@@ -425,7 +429,11 @@
 		font-size: 0.85rem;
 		color: var(--color-muted);
 	}
-	.error {
-		color: var(--color-danger);
+	fieldset.inline-fields {
+		display: contents;
+		border: 0;
+	}
+	:global(.form-gap) {
+		margin: var(--space-3) 0;
 	}
 </style>
