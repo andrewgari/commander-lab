@@ -31,6 +31,19 @@ export interface MockConfig {
 	searchDelayMs: number;
 	searchEmpty: boolean;
 	searchDegraded: boolean;
+	decksStatus: number;
+	decksFixture: 'default' | 'home' | 'empty';
+	inventoryStatus: number;
+	inventoryEmpty: boolean;
+	gamesStatus: number;
+	gamesFixture: 'none' | 'some';
+	draftsListStatus: number;
+	draftsListEmpty: boolean;
+	profileLatestStatus: number;
+	profilePower: boolean;
+	importStatus: number;
+	importDetail: string;
+	importDelayMs: number;
 }
 export interface RecordedRequest { method: string; path: string; body: unknown; query?: string }
 
@@ -66,6 +79,16 @@ export const running = (id: number, stage = 'analysing', at = new Date().toISOSt
 // --- axe ------------------------------------------------------------------------------------------
 const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 export const VIEWPORTS = [{ width: 375, height: 800 }, { width: 1440, height: 900 }] as const;
+/** Home and Games acceptance (§1.8 / §4.6) name 1280 rather than 1440. */
+export const PAGE_VIEWPORTS = [{ width: 375, height: 800 }, { width: 1280, height: 800 }] as const;
+
+/** Waits for entrance animations (banners fade in): axe reads mid-fade colours as contrast failures. */
+export const settleAnimations = (page: Page) =>
+	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))).then(() => undefined));
+
+/** True when the page scrolls sideways. */
+export const hasHorizontalScroll = (page: Page) =>
+	page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 
 /** Runs axe-core (bundled from node_modules, no CDN) and fails with a readable list of violations. */
 export async function expectNoAxeViolations(page: Page, opts: { disableRules?: string[] } = {}) {
