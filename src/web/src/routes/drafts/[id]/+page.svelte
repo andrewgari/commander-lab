@@ -211,8 +211,14 @@
 			{/each}
 		</table>
 		</TableScroll>
-		{#if form?.action === 'remove_card' && form.actionError}
-			<ErrorBanner message="Couldn't remove the card" detail={form.actionError} dismissible class="form-gap" />
+		{#if removing.transientError}
+			{#key removing.transientError}
+				<ErrorBanner message="Couldn't remove the card" detail={removing.transientError} dismissible class="form-gap" />
+			{/key}
+		{:else if form?.action === 'remove_card' && form.actionError}
+			{#key form}
+				<ErrorBanner message="Couldn't remove the card" detail={form.actionError} dismissible class="form-gap" />
+			{/key}
 		{/if}
 		<p class="visually-hidden" role="status">{rowMessage}</p>
 	{/if}
@@ -239,8 +245,14 @@
 			<p class="meta">No copy moves staged. Commit without moves creates a virtual deck.</p>
 		{/snippet}
 	</ScrollTable>
-	{#if form?.action === 'unstage_move' && form.actionError}
-		<ErrorBanner message="Couldn't unstage the move" detail={form.actionError} dismissible class="form-gap" />
+	{#if unstaging.transientError}
+		{#key unstaging.transientError}
+			<ErrorBanner message="Couldn't unstage the move" detail={unstaging.transientError} dismissible class="form-gap" />
+		{/key}
+	{:else if form?.action === 'unstage_move' && form.actionError}
+		{#key form}
+			<ErrorBanner message="Couldn't unstage the move" detail={form.actionError} dismissible class="form-gap" />
+		{/key}
 	{/if}
 	{#if open}
 		<form method="POST" action="?/stage_move" class="inline" use:enhance={staging.enhance}>
@@ -252,10 +264,14 @@
 				</select>
 			</fieldset>
 			<SubmitButton pending={staging.submitting} pendingLabel="Staging…">Stage move</SubmitButton>
-			{#if form?.action === 'stage_move' && form.actionError}
-				<ErrorBanner message="Couldn't stage the move" detail={form.actionError} dismissible class="form-gap" />
-			{:else if staging.transientError}
-				<ErrorBanner message="Couldn't stage the move" detail={staging.transientError} dismissible class="form-gap" />
+			{#if staging.transientError}
+				{#key staging.transientError}
+					<ErrorBanner message="Couldn't stage the move" detail={staging.transientError} dismissible class="form-gap" />
+				{/key}
+			{:else if form?.action === 'stage_move' && form.actionError}
+				{#key form}
+					<ErrorBanner message="Couldn't stage the move" detail={form.actionError} dismissible class="form-gap" />
+				{/key}
 			{/if}
 		</form>
 	{/if}
