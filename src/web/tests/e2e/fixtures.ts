@@ -22,8 +22,17 @@ export interface MockConfig {
 	pdfStatus: number;
 	documents: MockDoc[];
 	activeId: number | null;
+	commitStatus: number;
+	commitDetail: string;
+	commitDelayMs: number;
+	abandonStatus: number;
+	abandonDelayMs: number;
+	searchStatus: number;
+	searchDelayMs: number;
+	searchEmpty: boolean;
+	searchDegraded: boolean;
 }
-export interface RecordedRequest { method: string; path: string; body: unknown }
+export interface RecordedRequest { method: string; path: string; body: unknown; query?: string }
 
 export class Mock {
 	constructor(private api: APIRequestContext) {}
@@ -59,12 +68,20 @@ const axePath = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 export const VIEWPORTS = [{ width: 375, height: 800 }, { width: 1440, height: 900 }] as const;
 
 /** Runs axe-core (bundled from node_modules, no CDN) and fails with a readable list of violations. */
-export async function expectNoAxeViolations(page: Page) {
+export async function expectNoAxeViolations(page: Page, opts: { disableRules?: string[] } = {}) {
 	if (!(await page.evaluate(() => 'axe' in window))) await page.addScriptTag({ path: axePath });
-	const violations = await page.evaluate(async () => {
+	const violations = await page.evaluate(async (disabled) => {
+		const rules = Object.fromEntries(disabled.map((id) => [id, { enabled: false }]));
 		// @ts-expect-error injected by the script tag above
-		const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } });
+		const r = await window.axe.run(document, { rules, runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } });
 		return r.violations.map((v: { id: string; impact: string; nodes: { target: unknown[] }[] }) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`);
-	});
+	}, opts.disableRules ?? []);
 	expect(violations, 'axe violations').toEqual([]);
+}
+
+// --- drafts ---------------------------------------------------------------------------------------
+export const DRAFT = '/drafts/draft-1';
+/** Requests of one kind the mock saw, e.g. `draftPosts(mock, 'cards')`. */
+export async function draftPosts(mock: Mock, sub: 'cards' | 'commit' | 'abandon') {
+	return (await mock.requests()).filter((r) => r.method === 'POST' && new RegExp(`/api/v2/drafts/draft-1/${sub}$`).test(r.path));
 }
