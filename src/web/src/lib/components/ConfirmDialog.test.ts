@@ -107,4 +107,14 @@ describe('ConfirmDialog', () => {
 		expect(dialog.getAttribute('role')).toBe('dialog');
 		expect(dialog.classList.contains('dlg--commit')).toBe(true);
 	});
+
+	it('body is a focusable, named region (scrollable-region-focusable) but initial focus stays on Cancel', () => {
+		const { comp, dialog } = setup();
+		const desc = document.getElementById(dialog.getAttribute('aria-describedby')!)!;
+		expect(desc.getAttribute('tabindex')).toBe('0');
+		expect(desc.getAttribute('role')).toBe('region');
+		expect(desc.getAttribute('aria-labelledby')).toBe(dialog.getAttribute('aria-labelledby'));
+		comp.show();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel', hidden: true }));
+	});
 });
