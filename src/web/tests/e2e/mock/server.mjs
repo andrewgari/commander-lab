@@ -92,7 +92,21 @@ function freshState() {
 			searchStatus: 200,
 			searchDelayMs: 0,
 			searchEmpty: false,
-			searchDegraded: false
+			searchDegraded: false,
+			// home + games: every source answers `*Status`; the fixtures pick what a 200 contains.
+			decksStatus: 200,
+			decksFixture: 'default', // 'default' (drafts tests) | 'home' (mixed statuses, have/buy) | 'empty'
+			inventoryStatus: 200,
+			inventoryEmpty: false,
+			gamesStatus: 200,
+			gamesFixture: 'none', // 'none' | 'some'
+			draftsListStatus: 200,
+			draftsListEmpty: false,
+			profileLatestStatus: 200,
+			profilePower: false,
+			importStatus: 400,
+			importDetail: 'Could not find a completed game in that log.',
+			importDelayMs: 0
 		},
 		draft: freshDraft(),
 		requests: []
@@ -161,7 +175,16 @@ const server = createServer(async (req, res) => {
 			return send(res, 200, { ok: true });
 		}
 	}
-	if (path === '/api/v2/profile/latest') return send(res, 200, { available: false, reason: 'no deck imported yet', snapshot: null });
+	if (path === '/api/v2/profile/latest') {
+		if (c.profileLatestStatus !== 200) return fail(c.profileLatestStatus, 'Profile service unavailable');
+		if (c.profilePower) {
+			return send(res, 200, {
+				available: true, reason: null,
+				snapshot: { id: 1, created_at: '2026-10-20T12:00:00+00:00', metrics: { power: { available: true, power_level: 7, estimated_bracket: 3, bracket_name: 'Upgraded' } } }
+			});
+		}
+		return send(res, 200, { available: false, reason: 'no deck imported yet', snapshot: null });
+	}
 	if (path === '/api/v2/profile/history') return send(res, 200, { snapshots: [] });
 	if (path === '/api/v2/profile/overrides') return send(res, 200, { overrides: {}, known_keys: {} });
 	if (path === '/api/cards/autocomplete') return send(res, 200, []);
@@ -169,8 +192,38 @@ const server = createServer(async (req, res) => {
 
 	// --- drafts ------------------------------------------------------------------------------------
 	if (path === '/api/v2/decks' && method === 'GET') {
-		const d = (id, name) => ({ id, name, status: 'have', source: 'archidekt', archidekt_id: null, color_identity: [], commanders: [], card_qty: 100, have_buy: null });
+		if (c.decksStatus !== 200) return fail(c.decksStatus, 'Deck store unavailable');
+		const d = (id, name, extra = {}) => ({ id, name, status: 'have', source: 'archidekt', archidekt_id: null, color_identity: [], commanders: [], card_qty: 100, have_buy: null, ...extra });
+		if (c.decksFixture === 'empty') return send(res, 200, { decks: [] });
+		if (c.decksFixture === 'home') {
+			const hb = (have, buy) => ({ need: 100, have, pending: 0, buy, complete: buy === 0, have_pct: have });
+			return send(res, 200, {
+				decks: [
+					d('archidekt:1001', 'Sliver Swarm', { color_identity: ['W', 'U', 'B', 'R', 'G'], commanders: ['Sliver Overlord'], have_buy: hb(100, 0) }),
+					d('archidekt:1002', 'Elf Ball', { color_identity: ['G'], commanders: ['Lathril, Blade of the Elves'], have_buy: hb(90, 10) }),
+					d('archidekt:1003', 'Atraxa Superfriends', { status: 'virtual', color_identity: ['W', 'U', 'B', 'G'], commanders: ['Atraxa, Praetors’ Voice'] })
+				]
+			});
+		}
 		return send(res, 200, { decks: [d('archidekt:1001', 'Sliver Swarm'), d('archidekt:1002', 'Elf Ball')] });
+	}
+	if (path === '/api/v2/inventory' && method === 'GET') {
+		if (c.inventoryStatus !== 200) return fail(c.inventoryStatus, 'Inventory unavailable');
+		const totals = c.inventoryEmpty
+			? { cards: 0, owned: 0, in_collection: 0, in_deck: 0, in_mail: 0 }
+			: { cards: 100, owned: 120, in_collection: 70, in_deck: 48, in_mail: 2 };
+		return send(res, 200, { inventory: [], totals });
+	}
+	if (path === '/api/v2/games' && method === 'GET') {
+		if (c.gamesStatus !== 200) return fail(c.gamesStatus, 'Game store unavailable');
+		const g = (id, deck_id, deck_name, result, played_at) => ({ id, import_id: id, deck_id, deck_name, played_at, seat_count: 4, result, turns: 9, imported_at: '2026-09-02T10:00:00+00:00' });
+		return send(res, 200, {
+			games: c.gamesFixture === 'some' ? [g(2, 'archidekt:1002', 'Elf Ball', 'loss', '2026-08-02T20:00:00+00:00'), g(1, 'archidekt:1001', 'Sliver Swarm', 'win', '2026-08-01T20:00:00+00:00')] : []
+		});
+	}
+	if (path === '/api/v2/imports/forge-log' && method === 'POST') {
+		if (c.importDelayMs) await sleep(c.importDelayMs);
+		return fail(c.importStatus, c.importDetail);
 	}
 	const builtDeck = path.match(/^\/api\/v2\/decks\/(built-deck-1)$/);
 	if (builtDeck) {
@@ -231,7 +284,13 @@ const server = createServer(async (req, res) => {
 			return send(res, 200, { ok: true });
 		}
 	}
-	if (path === '/api/v2/drafts' && method === 'GET') return send(res, 200, { drafts: [state.draft.draft] });
+	if (path === '/api/v2/drafts' && method === 'GET') {
+		if (c.draftsListStatus !== 200) return fail(c.draftsListStatus, 'Draft store unavailable');
+		// The home dashboard asks for `?status=open` and `?status=committed`; the committed list is always empty.
+		const wanted = url.searchParams.get('status');
+		if (c.draftsListEmpty || wanted === 'committed') return send(res, 200, { drafts: [] });
+		return send(res, 200, { drafts: [state.draft.draft] });
+	}
 
 	// --- review documents --------------------------------------------------------------------------
 	const list = path.match(/^\/api\/v2\/decks\/([^/]+)\/review-documents$/);
