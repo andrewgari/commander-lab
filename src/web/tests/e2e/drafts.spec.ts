@@ -298,14 +298,11 @@ test.describe('§2.9-11 axe', () => {
 			await openDraft(page);
 			await expectNoAxeViolations(page);
 
-			// TODO t_e905cfec: the dialog body is a scroll region without a keyboard stop at 375px (product bug,
-			// fixed in its own card). Every other rule still applies; drop the exemption with that fix.
-			const disableRules = vp.width === 375 ? ['scrollable-region-focusable'] : [];
 			const check = async (trigger: Locator, name: string, role: 'dialog' | 'alertdialog') => {
 				await trigger.click();
 				const dlg = page.getByRole(role, { name });
 				await expect(dlg).toBeVisible();
-				await expectNoAxeViolations(page, { disableRules });
+				await expectNoAxeViolations(page);
 				await dlg.getByRole('button', { name: 'Cancel' }).click();
 				await expect(dlg).toBeHidden();
 			};
