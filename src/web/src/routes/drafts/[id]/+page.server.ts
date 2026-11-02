@@ -39,8 +39,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	return { state, suggestions, suggestionsError, deckNames };
 };
 
-function actionError(e: unknown) {
-	if (e instanceof ApiError) return fail(e.status, { actionError: e.message });
+function actionError(e: unknown, action: string) {
+	if (e instanceof ApiError) return fail(e.status, { actionError: e.message, action });
 	throw e;
 }
 
@@ -52,13 +52,13 @@ export const actions: Actions = {
 		const qty = Number(form.get('qty') ?? 1);
 		const board = toApiBoard(String(form.get('board') ?? 'main'));
 		if (!oracle_id || !name || !Number.isFinite(qty) || qty < 1) {
-			return fail(400, { actionError: 'Card needs an oracle id, a name and a qty ≥ 1.' });
+			return fail(400, { actionError: 'Card needs an oracle id, a name and a qty ≥ 1.', action: 'upsert_card' });
 		}
-		if (!board) return fail(400, { actionError: 'Unknown board.' });
+		if (!board) return fail(400, { actionError: 'Unknown board.', action: 'upsert_card' });
 		try {
 			await apiPost(`/api/v2/drafts/${params.id}/cards`, { oracle_id, name, qty, board });
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'upsert_card');
 		}
 	},
 	upsert_card_by_name: async ({ request, params, fetch }) => {
@@ -67,12 +67,12 @@ export const actions: Actions = {
 		const qty = Number(form.get('qty') ?? 1);
 		const board = toApiBoard(String(form.get('board') ?? 'main'));
 		if (!name || !Number.isInteger(qty) || qty < 1 || !board) {
-			return fail(400, { actionError: 'Type a card name, a board, and a quantity of at least 1.' });
+			return fail(400, { actionError: 'Type a card name, a board, and a quantity of at least 1.', action: 'upsert_card_by_name' });
 		}
 		try {
 			const qs = new URLSearchParams({ owned: 'owned', name, page_size: '5' });
 			const res = await fetch(`${API_URL}/api/v2/cards/search?${qs}`, { headers: { accept: 'application/json' } });
-			if (!res.ok) return fail(res.status >= 500 ? 503 : res.status, { actionError: 'Card search is unavailable right now.' });
+			if (!res.ok) return fail(res.status >= 500 ? 503 : res.status, { actionError: 'Card search is unavailable right now.', action: 'upsert_card_by_name' });
 			const body = (await res.json()) as { results?: Array<{ oracle_id: string; name: string }> };
 			const hit = pickExactMatch(body.results ?? [], name);
 			if (!hit) return fail(400, { actionError: `No owned card named “${name}”.` });
@@ -80,7 +80,7 @@ export const actions: Actions = {
 			const existing = state.cards.find((c) => c.oracle_id === hit.oracle_id && c.board === board)?.qty ?? 0;
 			await apiPost(`/api/v2/drafts/${params.id}/cards`, { oracle_id: hit.oracle_id, name: hit.name, qty: existing + qty, board });
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'upsert_card_by_name');
 		}
 	},
 	remove_card: async ({ request, params }) => {
@@ -90,18 +90,18 @@ export const actions: Actions = {
 		try {
 			await apiDelete(`/api/v2/drafts/${params.id}/cards/${oracle_id}/${board}`);
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'remove_card');
 		}
 	},
 	stage_move: async ({ request, params }) => {
 		const form = await request.formData();
 		const instance_id = String(form.get('instance_id') ?? '').trim();
 		const moveAction = String(form.get('move_action') ?? 'assign');
-		if (!instance_id) return fail(400, { actionError: 'Move needs an instance id.' });
+		if (!instance_id) return fail(400, { actionError: 'Move needs an instance id.', action: 'stage_move' });
 		try {
 			await apiPost(`/api/v2/drafts/${params.id}/moves`, { instance_id, action: moveAction });
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'stage_move');
 		}
 	},
 	unstage_move: async ({ request, params }) => {
@@ -110,7 +110,7 @@ export const actions: Actions = {
 		try {
 			await apiDelete(`/api/v2/drafts/${params.id}/moves/${instance_id}`);
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'unstage_move');
 		}
 	},
 	commit: async ({ request, params }) => {
@@ -121,7 +121,7 @@ export const actions: Actions = {
 			const result = await apiPost<{ deck_id: string }>(`/api/v2/drafts/${params.id}/commit`, {});
 			deckId = result.deck_id;
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'commit');
 		}
 		redirect(303, `/decks/${encodeURIComponent(deckId)}?from_draft=1`);
 	},
@@ -131,7 +131,7 @@ export const actions: Actions = {
 		try {
 			await apiPost(`/api/v2/drafts/${params.id}/abandon`, {});
 		} catch (e) {
-			return actionError(e);
+			return actionError(e, 'abandon');
 		}
 		redirect(303, '/drafts');
 	}
