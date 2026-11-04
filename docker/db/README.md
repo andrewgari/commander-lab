@@ -79,7 +79,7 @@ Major version upgrades require dump/restore or a planned `pg_upgrade`,
 never just swapping an image tag against existing PGDATA. Rebuild the local
 image deliberately for security/extension updates; update pins and rerun
 verification before deploying. Back up canonical data with `pg_dump` to
-storage outside the repository; graph/vector indexes remain rebuildable.
+storage outside the repository; vector indexes remain rebuildable.
 
 ## Repeatable isolated acceptance check
 
