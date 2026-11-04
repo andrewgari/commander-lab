@@ -14,7 +14,7 @@
        endpoint: "/api/cards/autocomplete",  // null = no network (local source only)
        commandersOnly: false,                // adds commanders_only=true
        extraSource: async (q) => [...names], // optional local pool, merged first
-       minChars: 2, debounceMs: 200, limit: 8,
+       minChars: 2, debounceMs: 200, limit: 8,  // brew passes 100
        commitOnEnter: "first",
        onSelect: (card, input) => {},        // default: input.value = card.name
        listEl: existingUl,                   // optional; one is created otherwise
