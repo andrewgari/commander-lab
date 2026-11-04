@@ -14,6 +14,10 @@ ENV/
 .env.local
 *.local
 
+# Saved browser sessions (Moxfield/CommanderTemplate cookies + userId).
+# scripts/setup_auth.py writes these; they are live credentials.
+.auth/
+
 # Scratch and scraped data dumps
 next_data.json
 *.dump
@@ -51,3 +55,6 @@ tests/review_evals/results/*
 
 # import-linter cache (STA-8)
 .import_linter_cache/
+
+# local scratch
+_boot_redis.py

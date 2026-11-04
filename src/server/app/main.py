@@ -38,6 +38,11 @@ from src.server.domain.tags import engine as autotag_engine_mod
 from src.server.domain.tags import tag_registry
 from src.server.infra.providers import fetch_deck, ProviderError
 import src.server.infra.providers.linked_accounts as linked_accounts
+import src.server.domain.inventory.collection as collection
+from src.server.infra.providers import archidekt_collection
+import src.server.domain.decks.transcribe as transcribe
+import src.server.domain.decks.archive as archive
+from src.server.infra.providers.moxfield_writer import MoxfieldAuthError, MoxfieldWriteError
 from src.server.infra.providers.linked_accounts import LinkedAccountError
 import src.server.domain.decks.deck_links as deck_links
 from src.server.domain.decks.deck_links import DeckLinkError
@@ -873,7 +878,7 @@ async def export_deck_api(request: Request):
             deck_export.export_decklist, data.get("name"), data.get("cards") or [],
             data.get("commanders") or [], data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -888,7 +893,7 @@ async def export_reconstruct_draft(session_id: str, draft_index: int, request: R
         out = await asyncio.to_thread(
             deck_export.export_draft, r, session_id, draft_index, data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -1469,7 +1474,7 @@ async def deck_sync_push(deck_id: str, request: Request):
     credential env var is unset. Explicit user action only."""
     data = await _sync_body(request)
     provider = data.get("provider") or None
-    dry_run = bool(data.get("dry_run"))
+    dry_run = bool(data.get("dry_run", True))
     try:
         return await asyncio.to_thread(deck_sync.push_deck, r, deck_id, provider, dry_run)
     except DeckSyncError as e:
@@ -6323,4 +6328,165 @@ async def api_deck_tune_pet(deck_id: str, request: Request):
     except (tuner_mod.TunerError, journal_mod.JournalError) as exc:
         return _bad_request(exc)
     return {"success": True, **out}
+
+
+# ---------------------------------------------------------------------------
+# Collection import — pull the Archidekt card collection into owned instances
+# (see docs/COLLECTION_IMPORT.md). Thin wrappers over collection.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/collection/sync")
+async def get_collection_sync_status():
+    """Last collection import (or null), plus whether credentials are present,
+    so the UI can show a "configure cookies" hint without a failed import."""
+    try:
+        archidekt_collection.credentials()
+        credentialed = True
+    except archidekt_collection.CollectionAuthError:
+        credentialed = False
+
+    return {
+        "credentialed": credentialed,
+        "username": os.getenv("ARCHIDEKT_USERNAME", ""),
+        "last_sync": collection.last_sync(r),
+    }
+
+
+@app.post("/api/collection/import")
+async def import_collection(request: Request):
+    """Import (or preview) the Archidekt collection.
+
+    Body (all optional): {"username": str, "dry_run": bool}
+    dry_run=true returns the same report without writing any instances.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+
+    username = (data or {}).get("username")
+    dry_run = bool((data or {}).get("dry_run", True))
+
+    try:
+        result = await asyncio.to_thread(
+            collection.import_collection, r, username=username, dry_run=dry_run
+        )
+    except archidekt_collection.CollectionAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (archidekt_collection.CollectionFetchError, collection.CollectionImportError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
+
+
+# ---------------------------------------------------------------------------
+# Transcribe — push physical Archidekt decks to Moxfield
+# (see docs/MOXFIELD_TRANSCRIBE.md). Thin wrappers over transcribe.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/transcribe/moxfield")
+async def get_transcribe_status():
+    """Which physical decks are eligible, and which are already on Moxfield."""
+    decks = await asyncio.to_thread(transcribe.eligible_decks, r)
+    return {
+        "folder": transcribe.DEFAULT_FOLDER_NAME,
+        "visibility": transcribe.DEFAULT_VISIBILITY,
+        "eligible": len(decks),
+        "decks": [
+            {
+                "registry_id": registry.registry_id_of(deck),
+                "name": deck.get("name"),
+                "status": deck.get("status"),
+                "cards": transcribe.card_count(deck),
+                "transcribed": transcribe.get_mapping(r, registry.registry_id_of(deck)),
+            }
+            for deck in decks
+        ],
+    }
+
+
+@app.post("/api/transcribe/moxfield")
+async def run_transcribe(request: Request):
+    """Transcribe physical decks to Moxfield.
+
+    Body (all optional): {"folder": str, "visibility": str, "force": bool,
+    "dry_run": bool}. Only decks with registry status "physical" are ever
+    touched; dry_run previews without calling Moxfield at all.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = await asyncio.to_thread(
+            transcribe.transcribe_all,
+            r,
+            folder_name=data.get("folder", transcribe.DEFAULT_FOLDER_NAME),
+            visibility=data.get("visibility", transcribe.DEFAULT_VISIBILITY),
+            force=bool(data.get("force", False)),
+            dry_run=bool(data.get("dry_run", True)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, transcribe.TranscribeError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
+
+
+# ---------------------------------------------------------------------------
+# Archive — rename + re-file existing Moxfield decks. Never deletes.
+# (see docs/MOXFIELD_ARCHIVE.md). Thin wrappers over archive.py.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/archive/moxfield")
+async def run_archive(request: Request):
+    """Archive existing Moxfield decks: prefix the name, set visibility, and
+    move them into a holding folder. Nothing is ever deleted.
+
+    Body (all optional): {"folder": str, "prefix": str, "visibility": str|null,
+    "skip_transcribed": bool, "dry_run": bool}
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = await asyncio.to_thread(
+            archive.archive_all,
+            r,
+            folder_name=data.get("folder", archive.DEFAULT_ARCHIVE_FOLDER),
+            prefix=data.get("prefix", archive.DEFAULT_PREFIX),
+            visibility=data.get("visibility", archive.DEFAULT_VISIBILITY),
+            skip_transcribed=bool(data.get("skip_transcribed", True)),
+            dry_run=bool(data.get("dry_run", True)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, archive.ArchiveError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
+
+
+@app.post("/api/archive/moxfield/{deck_id}/restore")
+async def restore_archived_deck(deck_id: str):
+    """Undo one deck's archive: original name and visibility back from the
+    recorded backup."""
+    try:
+        result = await asyncio.to_thread(archive.restore, r, deck_id)
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except archive.ArchiveError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    except MoxfieldWriteError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
 

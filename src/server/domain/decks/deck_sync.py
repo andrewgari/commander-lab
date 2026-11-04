@@ -5,7 +5,7 @@ Two operations, never run on a timer, schedule, page load, or save hook --
 only from the Update / Push API routes (see docs/SYNC_UPDATE_PUSH.md):
 
 - update_deck(r, id, provider=None, dry_run=False): external -> commander.lab
-- push_deck(r, id, provider, dry_run=False):        commander.lab -> external
+- push_deck(r, id, provider, dry_run=True):        commander.lab -> external
 
 Update details: dual-source sync -- fetches a deck's cardlist from every provider
 linked on its record (see deck_links.py) and merges the results into one
@@ -382,7 +382,7 @@ def update_deck(r, registry_id: str, provider: Optional[str] = None, dry_run: bo
     return out
 
 
-def push_deck(r, registry_id: str, provider: Optional[str], dry_run: bool = False) -> dict:
+def push_deck(r, registry_id: str, provider: Optional[str], dry_run: bool = True) -> dict:
     """PUSH: send the commander.lab deck's current cardlist TO one linked
     external deck. Modifies the external deck only. Runs only when a user asks.
 
