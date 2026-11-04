@@ -51,7 +51,7 @@ POST /api/collection/import        -> {success, username, report, synced_at}
 CLI:
 
 ```
-python scripts/import_collection.py --dry-run
+python scripts/import_collection.py --dry-run --live
 python scripts/import_collection.py
 ```
 
