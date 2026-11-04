@@ -289,6 +289,22 @@ class TestImportCollection(CollectionTestBase):
         self.assertEqual(self.owned("Sol Ring"), [])
         self.assertIsNone(collection.last_sync(self.r))
 
+    def test_cli_defaults_to_dry_run_and_live_is_opt_in(self):
+        import importlib.util
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "import_collection.py")
+        spec = importlib.util.spec_from_file_location("import_collection_cli", path)
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        report = {"rows": 0, "remote_copies": 0, "created": 0, "promoted": 0,
+                  "already_present": 0, "surplus": []}
+        result = {"username": "CovaDax", "report": report}
+        for argv, expected in ((["x"], True), (["x", "--dry-run"], True), (["x", "--live"], False)):
+            with unittest.mock.patch.object(sys, "argv", argv), \
+                 unittest.mock.patch.object(cli.redis, "from_url", return_value=FakeRedis()), \
+                 unittest.mock.patch.object(cli.collection, "import_collection", return_value=result) as m:
+                cli.main()
+            self.assertIs(m.call_args.kwargs["dry_run"], expected, argv)
+
     def test_missing_username_raises(self):
         with unittest.mock.patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(collection.CollectionImportError):
