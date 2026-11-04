@@ -1249,10 +1249,27 @@
         host.insertAdjacentElement('afterend', hint);
     }
 
-    // Returns {ok: bool, unverified?: bool, reason?: string}. A name is a valid
-    // commander if it is a Legendary Creature, a Background, or says it can be
-    // your commander. Falls back to "unverified but allowed" if Scryfall is down.
-    async function checkCommanderLegal(name) {
+    // Returns {ok: bool, unverified?: bool, reason?: string}. Mirrors the
+    // server-side CardInfo.can_be_commander using front-face data only:
+    // legendary creature, legendary Vehicle/Spacecraft with printed P/T,
+    // text that says it can be your commander, or a card that is a creature
+    // off the battlefield (Grist). Meld results are excluded. A Background is
+    // only valid as the second commander next to a Choose a Background card
+    // (pass that card's name as primaryName). Falls back to "unverified but
+    // allowed" if Scryfall is down.
+    async function checkCommanderLegal(name, primaryName) {
+        const info = await fetchCommanderInfo(name);
+        if (info.unverified || !info.ok) return info;
+        if (info.isBackground) {
+            if (!primaryName) return { ok: false, reason: 'A Background can only be a second commander.' };
+            const primary = await fetchCommanderInfo(primaryName);
+            if (primary.unverified) return { ok: true, unverified: true };
+            if (!primary.chooseBackground) return { ok: false, reason: 'A Background needs a commander with Choose a Background.' };
+        }
+        return { ok: true };
+    }
+
+    async function fetchCommanderInfo(name) {
         const key = name.toLowerCase();
         if (commanderCheckCache[key]) return commanderCheckCache[key];
         let result;
@@ -1264,13 +1281,22 @@
                 result = { ok: true, unverified: true };
             } else {
                 const card = await res.json();
-                const faces = card.card_faces && card.card_faces.length ? card.card_faces : [card];
-                const typeLine = (card.type_line || faces[0].type_line || '');
-                const oracle = faces.map(f => f.oracle_text || '').join(' ') + ' ' + (card.oracle_text || '');
-                const legal = (typeLine.includes('Legendary') && typeLine.includes('Creature'))
-                    || typeLine.includes('Background')
-                    || /can be your commander/i.test(oracle);
-                result = legal ? { ok: true } : { ok: false, reason: 'Invalid commander selected.' };
+                const front = card.card_faces && card.card_faces.length ? card.card_faces[0] : card;
+                const typeLine = front.type_line || card.type_line || '';
+                const oracle = front.oracle_text || '';
+                const isMeldResult = (card.all_parts || []).some(
+                    p => p.id === card.id && p.component === 'meld_result');
+                const hasPT = front.power != null && front.toughness != null;
+                const isBackground = /\bBackground\b/.test(typeLine);
+                const legal = !isMeldResult && !isBackground && (
+                    (/\bLegendary\b/.test(typeLine) && (
+                        /\bCreature\b/.test(typeLine)
+                        || (/\b(Vehicle|Spacecraft)\b/.test(typeLine) && hasPT)))
+                    || /can be your commander/i.test(oracle)
+                    || /isn't on the battlefield, it's a[^.]*\bcreature\b/i.test(oracle));
+                result = (legal || isBackground)
+                    ? { ok: true, isBackground, chooseBackground: /choose a background/i.test(oracle) }
+                    : { ok: false, reason: 'Invalid commander selected.' };
             }
         } catch (e) {
             result = { ok: true, unverified: true };
@@ -1321,10 +1347,11 @@
         for (let i = 0; i < count; i++) {
             const ids = [`pref_cmdr_${i}`];
             if (document.getElementById(`partnerContainer_${i}`).style.display !== 'none') ids.push(`pref_partner_cmdr_${i}`);
+            const primary = document.getElementById(ids[0]).value.trim();
             for (const id of ids) {
                 const val = document.getElementById(id).value.trim();
                 if (!val) continue;
-                const res = await checkCommanderLegal(val);
+                const res = await checkCommanderLegal(val, id === ids[0] ? '' : primary);
                 if (!res.ok) errors.push({ id, msg: res.reason || 'Invalid commander selected.' });
             }
         }
