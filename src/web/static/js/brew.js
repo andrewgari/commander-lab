@@ -116,6 +116,7 @@
             CardAutocomplete.attach(cmdInput, {
                 listEl: $("brewCmdResults"),
                 commandersOnly: true,
+                limit: 100,   // show every match; the list scrolls (hud.css max-height)
                 commitOnEnter: "first",
                 loadingText: "Searching commanders…",
                 emptyText: "No commanders match — check spelling",

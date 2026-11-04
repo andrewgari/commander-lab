@@ -1269,6 +1269,27 @@
         return { ok: true };
     }
 
+    // Pure predicate over a Scryfall card object (front-face data only).
+    function commanderEligibilityFromCard(card) {
+        const front = card.card_faces && card.card_faces.length ? card.card_faces[0] : card;
+        const typeLine = front.type_line || card.type_line || '';
+        const oracle = front.oracle_text || '';
+        const isMeldResult = (card.all_parts || []).some(
+            p => p.id === card.id && p.component === 'meld_result');
+        const hasPT = front.power != null && front.toughness != null;
+        // Creature Backgrounds (Faceless One) can be a primary commander.
+        const isBackground = /\bBackground\b/.test(typeLine) && !/\bCreature\b/.test(typeLine);
+        const legal = !isMeldResult && !isBackground && (
+            (/\bLegendary\b/.test(typeLine) && (
+                /\bCreature\b/.test(typeLine)
+                || (/\b(Vehicle|Spacecraft)\b/.test(typeLine) && hasPT)))
+            || /can be your commander/i.test(oracle)
+            || /isn't on the battlefield, it's a[^.]*\bcreature\b/i.test(oracle));
+        return (legal || isBackground)
+            ? { ok: true, isBackground, chooseBackground: /choose a background/i.test(oracle) }
+            : { ok: false, reason: 'Invalid commander selected.' };
+    }
+
     async function fetchCommanderInfo(name) {
         const key = name.toLowerCase();
         if (commanderCheckCache[key]) return commanderCheckCache[key];
@@ -1280,23 +1301,7 @@
             } else if (!res.ok) {
                 result = { ok: true, unverified: true };
             } else {
-                const card = await res.json();
-                const front = card.card_faces && card.card_faces.length ? card.card_faces[0] : card;
-                const typeLine = front.type_line || card.type_line || '';
-                const oracle = front.oracle_text || '';
-                const isMeldResult = (card.all_parts || []).some(
-                    p => p.id === card.id && p.component === 'meld_result');
-                const hasPT = front.power != null && front.toughness != null;
-                const isBackground = /\bBackground\b/.test(typeLine);
-                const legal = !isMeldResult && !isBackground && (
-                    (/\bLegendary\b/.test(typeLine) && (
-                        /\bCreature\b/.test(typeLine)
-                        || (/\b(Vehicle|Spacecraft)\b/.test(typeLine) && hasPT)))
-                    || /can be your commander/i.test(oracle)
-                    || /isn't on the battlefield, it's a[^.]*\bcreature\b/i.test(oracle));
-                result = (legal || isBackground)
-                    ? { ok: true, isBackground, chooseBackground: /choose a background/i.test(oracle) }
-                    : { ok: false, reason: 'Invalid commander selected.' };
+                result = commanderEligibilityFromCard(await res.json());
             }
         } catch (e) {
             result = { ok: true, unverified: true };

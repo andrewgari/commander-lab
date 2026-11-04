@@ -38,4 +38,9 @@ ignore_imports = [
     "src.server.domain.decks.deck_sync -> src.server.infra.providers",
     "src.server.domain.profile.player_profile -> src.server.infra.db.session",
     "src.server.domain.profile.player_profile -> src.server.infra.services.player_profile_service",
+    # Moxfield/Archidekt write tooling (archive/transcribe/collection import) —
+    # debt: inject the writer clients instead of importing providers directly.
+    "src.server.domain.decks.archive -> src.server.infra.providers.moxfield_writer",
+    "src.server.domain.decks.transcribe -> src.server.infra.providers.moxfield_writer",
+    "src.server.domain.inventory.collection -> src.server.infra.providers.archidekt_collection",
 ]

@@ -836,6 +836,135 @@ class TestStructuredOutput(Base):
         self.assertEqual(dv.format_errors_for_prompt(self.check(mk_deck(["Mono Red Guy"]))), "VALID")
 
 
+class TestCommanderEligibilityScryfallAlignment(Base):
+    """can_be_commander mirrors Scryfall is:commander (per oracle t_6ccb9548)."""
+
+    def test_rule1_legendary_vehicle_or_spacecraft_with_pt_is_eligible(self):
+        chariot = CardInfo.from_record({
+            "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        shorikai = CardInfo.from_record({
+            "name": "Shorikai, Genesis Engine", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        hearthhull = CardInfo.from_record({
+            "name": "Hearthhull, the Worldseed",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "power": "3", "toughness": "4"})
+        elevator = CardInfo.from_record({
+            "name": "The Eternity Elevator", "type_line": "Legendary Artifact \u2014 Spacecraft"})
+        for c in (chariot, shorikai, hearthhull):
+            self.assertTrue(c.can_be_commander, c.name)
+        self.assertFalse(elevator.can_be_commander)
+
+    def test_rule2_front_face_only(self):
+        brisela = CardInfo.from_record({
+            "name": "Brisela, Voice of Nightmares", "type_line": "Legendary Creature \u2014 Eldrazi Angel",
+            "layout": "meld", "meld_result": True})
+        akki = CardInfo.from_record({
+            "name": "Akki Lavarunner // Tok-Tok, Volcano Born",
+            "type_line": "Creature \u2014 Goblin Warrior // Legendary Creature \u2014 Goblin Shaman"})
+        front_legend = CardInfo.from_record({
+            "name": "Grist, Voracious Larva // The Plague Swarm",
+            "type_line": "Legendary Creature \u2014 Insect // Legendary Planeswalker \u2014 Grist"})
+        self.assertFalse(brisela.can_be_commander)
+        self.assertFalse(akki.can_be_commander)
+        self.assertTrue(front_legend.can_be_commander)
+
+    def test_rule3_can_be_your_commander_text(self):
+        pw = CardInfo.from_record({
+            "name": "Will Kenrith", "type_line": "Legendary Planeswalker \u2014 Will",
+            "oracle_text": "Will Kenrith can be your commander."})
+        self.assertTrue(pw.can_be_commander)
+
+    def test_rule4_grist_the_hunger_tide(self):
+        grist = CardInfo.from_record({
+            "name": "Grist, the Hunger Tide", "type_line": "Legendary Planeswalker \u2014 Grist",
+            "types": ["Creature"], "oracle_text": "As long as Grist isn't on the battlefield, "
+            "it's a 1/1 Insect creature in addition to its other types."})
+        self.assertTrue(grist.can_be_commander)
+
+    def test_rule5_background_only_as_second_slot_beside_chooser(self):
+        bg = next(c for c in CARDS if c.name == "Cult Background")
+        chooser = next(c for c in CARDS if c.name == "Bg Chooser")
+        self.assertFalse(bg.can_be_commander)
+        solo = self.check(mk_deck(["Cult Background"], n_filler=99))
+        self.assertIn(RuleCode.COMMANDER_ILLEGAL, codes(solo))
+        pair = self.check(mk_deck(["Bg Chooser", "Cult Background"], n_filler=98))
+        self.assertNotIn(RuleCode.COMMANDER_ILLEGAL, codes(pair))
+        self.assertNotIn(RuleCode.PARTNER_INVALID, codes(pair))
+        self.assertIsNone(dv.check_partner_pair(chooser, bg))
+
+
+class TestCommanderEligibilityRecordShapes(Base):
+    """Rule 1/2 through the real production record shapes, not hand-built dicts."""
+
+    def test_sync_shaped_record_vehicle_with_pt(self):
+        # Shape written by workers/sync.py upsert_card (Archidekt oracleCard keys).
+        oc = {"name": "Esika's Chariot", "types": ["Artifact"], "superTypes": ["Legendary"],
+              "subTypes": ["Vehicle"], "power": 4, "toughness": 4, "layout": "normal",
+              "text": "Crew 4", "legalities": {"commander": "legal"}}
+        rec = {"oracle_id": "x", "name": oc["name"], "type": "Artifact", "super_types": oc["superTypes"],
+               "sub_types": oc["subTypes"], "keywords": [], "oracle_text": oc["text"],
+               "types": oc["types"], "commander_legality": "legal",
+               "power": oc["power"], "toughness": oc["toughness"], "layout": oc["layout"]}
+        self.assertTrue(CardInfo.from_record(rec).can_be_commander)
+        rec_no_pt = dict(rec, name="The Eternity Elevator", power=None, toughness=None)
+        self.assertFalse(CardInfo.from_record(rec_no_pt).can_be_commander)
+
+    def test_real_sync_stores_pt_and_layout_that_drive_eligibility(self):
+        from unittest import mock
+        import src.server.workers.sync as sync
+        from src.server.domain.inventory import cards as card_store
+        from tests.test_instances import FakeRedis
+        r = FakeRedis()
+
+        def oc(uid, name, subs, **kw):
+            return {"quantity": 1, "categories": [], "card": {"oracleCard": dict({
+                "uid": uid, "name": name, "types": ["Artifact"], "superTypes": ["Legendary"],
+                "subTypes": subs, "colorIdentity": [], "text": "", "layout": "normal",
+                "legalities": {"commander": "legal"}}, **kw)}}
+
+        def fake_get(url, *a, **k):
+            resp = mock.Mock()
+            resp.raise_for_status = lambda: None
+            if "users" in url:
+                resp.json = lambda: {"results": [{"id": 1}]}
+            elif "v3" in url:
+                resp.json = lambda: {"results": [{"id": 5, "name": "D", "colors": {},
+                                                  "parentFolderId": 45665, "theorycrafted": False}]}
+            else:
+                resp.json = lambda: {"description": "", "cards": [
+                    oc("11111111-1111-1111-1111-111111111111", "Esika's Chariot", ["Vehicle"], power=4, toughness=4),
+                    oc("22222222-2222-2222-2222-222222222222", "The Eternity Elevator", ["Spacecraft"])]}
+            return resp
+
+        with mock.patch.object(sync, "r", r), mock.patch.object(sync.requests, "get", fake_get), \
+                mock.patch.object(sync.time, "sleep", lambda s: None):
+            sync.sync_inventory()
+        self.assertTrue(CardInfo.from_record(card_store.get_card(r, "11111111-1111-1111-1111-111111111111")).can_be_commander)
+        self.assertFalse(CardInfo.from_record(card_store.get_card(r, "22222222-2222-2222-2222-222222222222")).can_be_commander)
+
+    def test_sync_shaped_record_meld_result(self):
+        rec = {"oracle_id": "y", "name": "Brisela, Voice of Nightmares", "type": "Creature",
+               "types": ["Creature"], "super_types": ["Legendary"], "sub_types": ["Eldrazi", "Angel"],
+               "oracle_text": "Flying", "layout": "meld"}
+        self.assertFalse(CardInfo.from_record(rec).can_be_commander)
+        half = dict(rec, name="Bruna, the Fading Light",
+                    oracle_text="Flying\n(Melds with Gisela, the Broken Blade.)")
+        self.assertTrue(CardInfo.from_record(half).can_be_commander)
+
+    def test_search_query_facts_carry_pt_and_layout(self):
+        from src.server.domain.cards import search_query as sq
+        facts = sq.facts_from_scryfall({
+            "oracle_id": "z", "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4", "layout": "normal", "oracle_text": "Crew 4",
+            "legalities": {"commander": "legal"}})
+        self.assertTrue(sq.card_info(facts).can_be_commander)
+        facts2 = sq.facts_from_scryfall({
+            "oracle_id": "w", "name": "The Eternity Elevator",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "layout": "normal"})
+        self.assertFalse(sq.card_info(facts2).can_be_commander)
+
+
 class TestAdapters(Base):
     def test_from_builder_draft_strips_commander_entries(self):
         draft = {
