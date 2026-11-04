@@ -30,6 +30,7 @@
 	let input: HTMLInputElement;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let seq = 0;
+	let busy = false;
 	const listId = untrack(() => `${id}-list`);
 
 	export function focus() {
@@ -71,10 +72,10 @@
 
 	function onInput() {
 		clearTimeout(timer);
+		seq++; // any in-flight response is now stale
 		note = '';
 		const term = autocompleteTerm(value);
 		if (!canSuggest(term)) {
-			seq++;
 			phase = 'idle';
 			open = false;
 			items = [];
@@ -91,14 +92,24 @@
 			note = parsed.reason === 'multiline' ? 'Paste a list via Import' : parsed.reason === 'bad_qty' ? 'Quantity must be 1 or more' : '';
 			return;
 		}
-		if (!card) return;
-		const ok = await onpick(card, parsed.qty);
-		if (ok) {
-			value = '';
-			items = [];
-			phase = 'idle';
-			open = false;
-			highlight = -1;
+		if (!card || busy) return;
+		if (!card.oracle_id) {
+			// §5.3: an unresolved suggestion never commits; the text stays so the user can retry.
+			note = 'That card is not available to add yet';
+			return;
+		}
+		busy = true;
+		try {
+			const ok = await onpick(card, parsed.qty);
+			if (ok) {
+				value = '';
+				items = [];
+				phase = 'idle';
+				open = false;
+				highlight = -1;
+			}
+		} finally {
+			busy = false;
 		}
 		input?.focus(); // focus stays so the next card can be typed straight away
 	}
@@ -114,6 +125,10 @@
 			e.preventDefault();
 			if (e.isComposing) return;
 			clearTimeout(timer);
+			if (phase === 'error') {
+				await suggest(autocompleteTerm(value)); // Enter on a failed search retries; it never commits
+				return;
+			}
 			let list = items;
 			// Enter before the debounce fired: fetch now and take the top row.
 			if (phase === 'loading' || (phase === 'idle' && canSuggest(autocompleteTerm(value)))) list = await suggest(autocompleteTerm(value));
@@ -129,18 +144,37 @@
 		} else if (e.key === 'Escape') {
 			if (open) {
 				e.preventDefault();
+				clearTimeout(timer);
+				seq++;
+				if (phase === 'loading') phase = 'idle';
 				open = false;
 			} else if (value) {
 				e.preventDefault();
+				clearTimeout(timer);
+				seq++;
 				value = '';
 				items = [];
 				phase = 'idle';
 			}
 		}
 	}
+
+	function onPaste(e: ClipboardEvent) {
+		const text = e.clipboardData?.getData('text') ?? '';
+		if (/[\r\n]/.test(text.trim())) {
+			e.preventDefault(); // a single-line input would flatten the list into one search
+			note = 'Paste a list via Import';
+		}
+	}
 </script>
 
-<div class="quick-add">
+<div
+	class="quick-add"
+	role="presentation"
+	onfocusout={(e) => {
+		if (!e.currentTarget.contains(e.relatedTarget as Node | null)) open = false;
+	}}
+>
 	<input
 		bind:this={input}
 		bind:value
@@ -162,7 +196,7 @@
 		onfocus={() => {
 			if (phase !== 'idle') open = true;
 		}}
-		onblur={() => setTimeout(() => (open = false), 120)}
+		onpaste={onPaste}
 	/>
 	{#if note}<p class="qa-note" role="status">{note}</p>{/if}
 	<ul id={listId} class="qa-list" role="listbox" aria-label="Card suggestions" hidden={!open}>

@@ -21,12 +21,14 @@
 		fixedQty?: 1;
 		fetcher?: typeof fetch;
 		idPrefix?: string;
+		status?: string;
+		statusErr?: boolean;
 		onclose: () => void;
 		onadd: (card: CardHit, qty: number) => void;
 	}
 	let {
 		open, filters = $bindable(), commanderLocked = false, clearTo, boards, board = $bindable(), identity, inList, preset, fixedQty,
-		fetcher = fetch, idPrefix = 'cs', onclose, onadd
+		fetcher = fetch, idPrefix = 'cs', status = '', statusErr = false, onclose, onadd
 	}: Props = $props();
 
 	let results = $state<CardHit[]>([]);
@@ -71,13 +73,18 @@
 		if (!open) return;
 		const key = JSON.stringify(filters); // tracked: any filter change reruns
 		void key;
+		// Invalidate immediately: stale responses are dropped and Load more can't mix queries.
+		seq++;
+		results = [];
+		page = 1;
+		hasMore = false;
+		total = null;
+		error = '';
 		if (untrack(() => empty)) {
-			seq++;
-			results = [];
 			loading = false;
-			error = '';
 			return;
 		}
+		loading = true;
 		const t = setTimeout(() => void load(1), PANEL.debounceMs);
 		return () => clearTimeout(t);
 	});
@@ -86,19 +93,54 @@
 		if (open) void tick().then(() => heading?.focus());
 	});
 
+	let panelEl = $state<HTMLDivElement>();
+	let narrow = $state(false);
+	$effect(() => {
+		const mq = window.matchMedia('(max-width: 1023.98px)');
+		narrow = mq.matches;
+		const on = () => (narrow = mq.matches);
+		mq.addEventListener('change', on);
+		return () => mq.removeEventListener('change', on);
+	});
+	// Full-screen sheet is modal: everything outside it is inert so focus can't land behind it.
+	$effect(() => {
+		if (!open || !narrow || !panelEl) return;
+		const inerted: Element[] = [];
+		for (let n: Element | null = panelEl; n && n !== document.body; n = n.parentElement) {
+			for (const sib of n.parentElement?.children ?? []) {
+				if (sib !== n && !sib.hasAttribute('inert')) {
+					sib.setAttribute('inert', '');
+					inerted.push(sib);
+				}
+			}
+		}
+		return () => inerted.forEach((s) => s.removeAttribute('inert'));
+	});
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			e.stopPropagation();
 			onclose();
+		} else if (e.key === 'Tab' && narrow && panelEl) {
+			const f = [...panelEl.querySelectorAll<HTMLElement>('button, select, input, a[href], [tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+			if (!f.length) return;
+			const first = f[0], last = f[f.length - 1];
+			if (e.shiftKey && (document.activeElement === first || document.activeElement === panelEl || document.activeElement === heading)) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
 		}
 	}
 </script>
 
 {#if open}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<div class="panel" role="dialog" tabindex="-1" aria-modal="false" aria-labelledby="{idPrefix}-title" onkeydown={onKeydown}>
+	<div class="panel" role="dialog" tabindex="-1" bind:this={panelEl} aria-modal={narrow} aria-labelledby="{idPrefix}-title" onkeydown={onKeydown}>
 		<header class="p-head">
 			<h2 id="{idPrefix}-title" tabindex="-1" bind:this={heading}>Card search</h2>
+			{#if status}<span class="meta status" class:err={statusErr} role="status">{status}</span>{/if}
 			<span class="meta" aria-live="polite">{#if total !== null && !empty}{total} cards{/if}</span>
 			<button type="button" class="p-close" onclick={onclose} aria-label="Close card search"><Icon name="close" size="1.25rem" /></button>
 		</header>
@@ -166,6 +208,8 @@
 	.board-pick label { font-size: var(--text-xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--color-muted); }
 	select { min-height: var(--touch-min); padding: 0 var(--space-3); font: inherit; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border-control); border-radius: var(--radius-sm); }
 	.p-results { display: flex; flex-direction: column; gap: var(--space-4); }
+	.status { color: var(--color-success); }
+	.status.err { color: var(--color-danger); }
 	.hint { color: var(--color-muted); margin: 0; }
 	.more { align-self: center; justify-content: center; }
 	.skeleton { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--space-4); }

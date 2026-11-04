@@ -71,7 +71,7 @@
 
 	function openPanel() {
 		const typed = quickTerm();
-		if (typed && !filters.name) filters.name = typed;
+		if (typed) filters.name = typed; // §4: a non-empty quick-add term seeds the filter on every opening
 		panelOpen = true;
 	}
 	function quickTerm() {
@@ -132,6 +132,8 @@
 	{preset}
 	fixedQty={config.fixedQty}
 	{fetcher}
+	{status}
+	{statusErr}
 	onclose={closePanel}
 	onadd={(c, q) => void add(c, q)}
 />
