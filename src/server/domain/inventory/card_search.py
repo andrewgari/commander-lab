@@ -40,6 +40,49 @@ DEFAULT_LIMIT = 8
 MAX_LIMIT = 20
 
 
+# Upstream backoff. A 429/5xx from Scryfall is an outage, not "no match":
+# raise so callers take the degraded local path (never cached), and remember
+# the Retry-After window so later keystrokes skip Scryfall instead of
+# hammering it. The cooldown is bounded so a bogus header cannot disable
+# remote search for long.
+COOLDOWN_DEFAULT_SECONDS = 15.0
+COOLDOWN_MAX_SECONDS = 60.0
+_cooldown_until = 0.0
+
+
+class ScryfallUnavailable(Exception):
+    """Scryfall is rate-limiting or failing; treat the answer as untrusted."""
+
+
+def _reset_cooldown():
+    global _cooldown_until
+    _cooldown_until = 0.0
+
+
+def _note_unavailable(resp):
+    global _cooldown_until
+    wait = COOLDOWN_DEFAULT_SECONDS
+    try:
+        wait = float((getattr(resp, "headers", None) or {}).get("Retry-After"))
+    except (TypeError, ValueError):
+        pass
+    wait = max(1.0, min(wait, COOLDOWN_MAX_SECONDS))
+    _cooldown_until = time.monotonic() + wait
+
+
+def _get(url, **kwargs):
+    """httpx.get that raises ScryfallUnavailable on 429/5xx or during a
+    Retry-After cooldown. Other statuses (200, 404, ...) are returned as-is."""
+    if time.monotonic() < _cooldown_until:
+        raise ScryfallUnavailable("cooldown")
+    resp = httpx.get(url, **kwargs)
+    status = getattr(resp, "status_code", None)
+    if isinstance(status, int) and (status == 429 or status >= 500):
+        _note_unavailable(resp)
+        raise ScryfallUnavailable(f"scryfall status {status}")
+    return resp
+
+
 def _headers(scope):
     return {"User-Agent": f"commander-lab/{scope}", "Accept": "application/json"}
 
@@ -196,7 +239,7 @@ async def search_commanders(r, query, limit=None):
         while url and fetched < 40 and pages_fetched < 20 and url not in page_urls:
             page_urls.add(url)
             pages_fetched += 1
-            resp = httpx.get(url, params=params, headers=headers, timeout=8.0)
+            resp = _get(url, params=params, headers=headers, timeout=8.0)
             params = None
             if resp.status_code != 200:
                 break
@@ -224,7 +267,7 @@ async def search_commanders(r, query, limit=None):
             # broad pools, so every candidate is re-ranked by edit similarity
             # against the user's ORIGINAL spelling below (no per-name special
             # cases; the mechanism is fully general).
-            fuzzy = httpx.get(
+            fuzzy = _get(
                 SCRYFALL_NAMED,
                 params={"fuzzy": query}, headers=headers, timeout=8.0,
             )
@@ -243,7 +286,7 @@ async def search_commanders(r, query, limit=None):
                 while len(prefix) > 3:
                     prefix = prefix[:-1]
                     await asyncio.sleep(0.1)  # stay under Scryfall rate limits
-                    retry = httpx.get(
+                    retry = _get(
                         SCRYFALL_SEARCH,
                         params={"q": f'name:"{prefix}" is:commander legal:commander',
                                 "unique": "cards", "order": "name"},
@@ -267,7 +310,7 @@ async def search_commanders(r, query, limit=None):
                 if fuzzy_names:
                     clauses = " or ".join(
                         '!"%s"' % n.replace("\\", "").replace('"', "") for n in fuzzy_names)
-                    rescue = httpx.get(
+                    rescue = _get(
                         SCRYFALL_SEARCH,
                         params={"q": f"({clauses}) is:commander legal:commander",
                                 "unique": "cards", "order": "name"},
@@ -365,7 +408,7 @@ def _enrich_from_scryfall(names, headers):
     if not names:
         return {}
     clauses = ['!"%s"' % n.replace("\\", "").replace('"', "") for n in names]
-    resp = httpx.get(
+    resp = _get(
         SCRYFALL_SEARCH,
         params={"q": " or ".join(clauses), "unique": "cards", "order": "name"},
         headers=headers, timeout=8.0,
@@ -457,7 +500,7 @@ async def search_cards(r, query, limit=DEFAULT_LIMIT):
 
     headers = _headers(scope)
     try:
-        resp = httpx.get(
+        resp = _get(
             SCRYFALL_AUTOCOMPLETE,
             params={"q": query}, headers=headers, timeout=8.0,
         )
