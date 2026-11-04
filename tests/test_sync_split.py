@@ -208,7 +208,7 @@ class TestUpdate(ServiceCase):
 class TestPush(ServiceCase):
     def test_push_sends_local_cards_and_records_timestamp(self):
         for name, prov in (("archidekt", self.arch), ("moxfield", self.mox)):
-            res = deck_sync.push_deck(self.r, "archidekt:42", name)
+            res = deck_sync.push_deck(self.r, "archidekt:42", name, dry_run=False)
             self.assertTrue(res["success"])
             self.assertEqual((res["operation"], res["direction"]), ("push", "local_to_external"))
             ident, cards, commanders = prov.push_calls[-1]
@@ -226,7 +226,7 @@ class TestPush(ServiceCase):
     def test_push_not_configured_is_explicit_error(self):
         self.mox.configured = False
         with self.assertRaises(PushUnsupported) as ctx:
-            deck_sync.push_deck(self.r, "archidekt:42", "moxfield")
+            deck_sync.push_deck(self.r, "archidekt:42", "moxfield", dry_run=False)
         self.assertEqual((ctx.exception.code, ctx.exception.status), ("push_not_configured", 501))
         self.assertEqual(self.mox.push_calls, [])
         self.assertNotIn("last_pushed_at", self.deck())
@@ -239,22 +239,28 @@ class TestPush(ServiceCase):
         self.assertEqual(self.arch.push_calls, [])
         self.assertNotIn("last_pushed_at", self.deck())
 
+    def test_bare_push_defaults_to_dry_run_and_writes_nothing(self):
+        res = deck_sync.push_deck(self.r, "archidekt:42", "archidekt")
+        self.assertTrue(res["dry_run"])
+        self.assertEqual(self.arch.push_calls, [])
+        self.assertNotIn("last_pushed_at", self.deck())
+
     def test_push_provider_rejection(self):
         self.arch.push_error = PushError("token expired")
         with self.assertRaises(ProviderFailure):
-            deck_sync.push_deck(self.r, "archidekt:42", "archidekt")
+            deck_sync.push_deck(self.r, "archidekt:42", "archidekt", dry_run=False)
         self.assertNotIn("last_pushed_at", self.deck())
 
     def test_push_requires_provider_and_link(self):
         with self.assertRaises(DeckSyncError):
-            deck_sync.push_deck(self.r, "archidekt:42", None)
+            deck_sync.push_deck(self.r, "archidekt:42", None, dry_run=False)
         with self.assertRaises(DeckSyncError):
-            deck_sync.push_deck(self.r, "archidekt:42", "commandersalt")
+            deck_sync.push_deck(self.r, "archidekt:42", "commandersalt", dry_run=False)
 
     def test_unsupported_provider_reports_push_unsupported(self):
         with patch.object(deck_sync, "PUSH_PROVIDERS", {"archidekt"}):
             with self.assertRaises(PushUnsupported) as ctx:
-                deck_sync.push_deck(self.r, "archidekt:42", "moxfield")
+                deck_sync.push_deck(self.r, "archidekt:42", "moxfield", dry_run=False)
         self.assertEqual(ctx.exception.code, "push_unsupported")
 
     def test_status_reports_capabilities_without_network(self):
@@ -293,23 +299,29 @@ class TestRoutes(RouteCase):
         self.assertEqual(sorted(res.json()["providers"]), ["archidekt", "moxfield"])
 
     def test_push_route_and_errors(self):
-        ok = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield"})
+        ok = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield", "dry_run": False})
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.json()["direction"], "local_to_external")
 
         self.arch.configured = False
-        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt"})
+        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt", "dry_run": False})
         self.assertEqual(res.status_code, 501)
         self.assertEqual(res.json()["code"], "push_not_configured")
         self.assertFalse(res.json()["success"])
 
         self.assertEqual(self.client.post("/api/decks/archidekt:42/sync/push", json={}).status_code, 400)
-        missing = self.client.post("/api/decks/nope:1/sync/push", json={"provider": "archidekt"})
+        missing = self.client.post("/api/decks/nope:1/sync/push", json={"provider": "archidekt", "dry_run": False})
         self.assertEqual((missing.status_code, missing.json()["code"]), (404, "deck_not_found"))
 
         self.mox.error = RuntimeError("moxfield down")
-        bad = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield"})
+        bad = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield", "dry_run": False})
         self.assertEqual((bad.status_code, bad.json()["code"]), (502, "provider_error"))
+
+    def test_push_route_defaults_to_dry_run(self):
+        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()["dry_run"])
+        self.assertEqual(self.arch.push_calls, [])
 
     def test_status_route(self):
         res = self.client.get("/api/decks/archidekt:42/sync/status")

@@ -75,7 +75,7 @@ def _resolve_providers(requested: Optional[Iterable[str]]) -> list:
 
 def export_decklist(name: str, cards: Iterable[dict], commanders: Optional[list] = None,
                     providers_requested: Optional[Iterable[str]] = None,
-                    description: str = "", private: bool = True, dry_run: bool = False) -> dict:
+                    description: str = "", private: bool = True, dry_run: bool = True) -> dict:
     """Create the deck on each requested provider.
 
     Returns {"success": bool (all ok), "dry_run", "deck": normalized, "results":
@@ -111,7 +111,7 @@ def export_decklist(name: str, cards: Iterable[dict], commanders: Optional[list]
 
 
 def export_draft(r: Any, session_id: str, draft_index: int, providers_requested=None,
-                 description: str = "", private: bool = True, dry_run: bool = False) -> dict:
+                 description: str = "", private: bool = True, dry_run: bool = True) -> dict:
     """Export one Reconstruct draft by index. Raises ExportError (bad session/index)."""
     import src.server.domain.draft.reconstruct as reconstruct
     try:
