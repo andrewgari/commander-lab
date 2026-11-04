@@ -265,7 +265,7 @@ class TestReconcileDryRun(CollectionTestBase):
 class TestImportCollection(CollectionTestBase):
     def test_import_records_sync_metadata(self):
         result = collection.import_collection(
-            self.r, username="CovaDax", fetcher=lambda u: [row(quantity=2)]
+            self.r, username="CovaDax", fetcher=lambda u: [row(quantity=2)], dry_run=False
         )
         self.assertEqual(result["username"], "CovaDax")
         self.assertEqual(result["report"]["created"], 2)
@@ -281,19 +281,27 @@ class TestImportCollection(CollectionTestBase):
         )
         self.assertIsNone(collection.last_sync(self.r))
 
+    def test_bare_call_defaults_to_dry_run_and_writes_nothing(self):
+        result = collection.import_collection(
+            self.r, username="CovaDax", fetcher=lambda u: [row(quantity=2)]
+        )
+        self.assertTrue(result["report"]["dry_run"])
+        self.assertEqual(self.owned("Sol Ring"), [])
+        self.assertIsNone(collection.last_sync(self.r))
+
     def test_missing_username_raises(self):
         with unittest.mock.patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(collection.CollectionImportError):
-                collection.import_collection(self.r, fetcher=lambda u: [])
+                collection.import_collection(self.r, fetcher=lambda u: [], dry_run=False)
 
     def test_username_defaults_to_env(self):
         with unittest.mock.patch.dict(os.environ, {"ARCHIDEKT_USERNAME": "CovaDax"}, clear=True):
-            result = collection.import_collection(self.r, fetcher=lambda u: [row()])
+            result = collection.import_collection(self.r, fetcher=lambda u: [row()], dry_run=False)
         self.assertEqual(result["username"], "CovaDax")
 
     def test_empty_collection_is_not_an_error(self):
         result = collection.import_collection(
-            self.r, username="CovaDax", fetcher=lambda u: []
+            self.r, username="CovaDax", fetcher=lambda u: [], dry_run=False
         )
         self.assertEqual(result["report"]["created"], 0)
         self.assertEqual(result["report"]["remote_copies"], 0)

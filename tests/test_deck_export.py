@@ -43,9 +43,9 @@ class TestExportDecklist(unittest.TestCase):
 
     def test_unknown_provider(self):
         with self.assertRaises(ExportError):
-            deck_export.export_decklist("n", self.cards, providers_requested=["foo"])
+            deck_export.export_decklist("n", self.cards, providers_requested=["foo"], dry_run=False)
         with self.assertRaises(ExportError):
-            deck_export.export_decklist("n", self.cards, providers_requested=[])
+            deck_export.export_decklist("n", self.cards, providers_requested=[], dry_run=False)
 
     def test_dry_run_no_network(self):
         with patch.object(providers, "create_deck") as cd, patch.object(providers, "push_configured", return_value=True):
@@ -54,6 +54,12 @@ class TestExportDecklist(unittest.TestCase):
         self.assertTrue(out["success"])
         self.assertEqual(out["results"]["moxfield"]["status"], "dry_run")
 
+    def test_bare_call_defaults_to_dry_run_and_makes_no_network_call(self):
+        with patch.object(providers, "create_deck") as cd, patch.object(providers, "push_configured", return_value=True):
+            out = deck_export.export_decklist("n", self.cards)
+        cd.assert_not_called()
+        self.assertTrue(out["dry_run"])
+
     def test_isolated_failures(self):
         def fake(provider, *a, **k):
             if provider == "moxfield":
@@ -61,21 +67,21 @@ class TestExportDecklist(unittest.TestCase):
             return {"url": "https://archidekt.com/decks/1", "source_id": "1"}
         with patch.object(providers, "create_deck", side_effect=fake), \
              patch.object(providers, "push_configured", return_value=True):
-            out = deck_export.export_decklist("n", self.cards)
+            out = deck_export.export_decklist("n", self.cards, dry_run=False)
         self.assertFalse(out["success"])
         self.assertEqual(out["results"]["moxfield"]["status"], "failed")
         self.assertEqual(out["results"]["archidekt"]["status"], "created")
 
     def test_not_configured(self):
         with patch.object(providers, "push_configured", return_value=False):
-            out = deck_export.export_decklist("n", self.cards, providers_requested=["archidekt"])
+            out = deck_export.export_decklist("n", self.cards, providers_requested=["archidekt"], dry_run=False)
         self.assertEqual(out["results"]["archidekt"]["status"], "not_configured")
         self.assertFalse(out["success"])
 
     def test_unexpected_exception_contained(self):
         with patch.object(providers, "create_deck", side_effect=RuntimeError("net")), \
              patch.object(providers, "push_configured", return_value=True):
-            out = deck_export.export_decklist("n", self.cards, providers_requested=["archidekt"])
+            out = deck_export.export_decklist("n", self.cards, providers_requested=["archidekt"], dry_run=False)
         self.assertEqual(out["results"]["archidekt"]["status"], "failed")
 
 
