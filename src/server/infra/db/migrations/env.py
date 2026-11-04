@@ -15,7 +15,8 @@ from sqlalchemy import engine_from_config, pool
 # env.py lives at src/server/infra/db/migrations/ -> repo root is 5 levels up.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
-from src.server.infra.db.config import get_settings, normalize_url  # noqa: E402
+from src.server.infra.db.app_schema import relocate_app_objects  # noqa: E402
+from src.server.infra.db.config import PG_CONNECT_ARGS, get_settings, normalize_url  # noqa: E402
 from src.server.infra.db.orm_models import Base  # noqa: E402
 
 config = context.config
@@ -28,6 +29,9 @@ if database_url:
 target_metadata = Base.metadata
 
 
+VERSION_TABLE_SCHEMA = "public"
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
@@ -36,6 +40,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_paramstyle="named",
+        version_table_schema=VERSION_TABLE_SCHEMA,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -47,12 +52,17 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=(dict(PG_CONNECT_ARGS)
+                      if config.get_main_option("sqlalchemy.url", "").startswith("postgresql") else {}),
     )
     with connectable.connect() as connection:
+        relocate_app_objects(connection)
+        connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            version_table_schema=VERSION_TABLE_SCHEMA,
         )
         with context.begin_transaction():
             context.run_migrations()

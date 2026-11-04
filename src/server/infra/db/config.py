@@ -17,6 +17,11 @@ def normalize_url(url: str) -> str:
     return url
 
 
+# App connections pin their own search_path so tables land in ``public`` even
+# when the database default leads with ``ag_catalog`` (docker/db/init/00-extensions.sql).
+PG_CONNECT_ARGS = {"options": '-csearch_path="$user",public'}
+
+
 @dataclass(frozen=True)
 class DbSettings:
     url: str
