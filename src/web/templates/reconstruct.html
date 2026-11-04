@@ -1249,34 +1249,50 @@
         host.insertAdjacentElement('afterend', hint);
     }
 
-    // Returns {ok: bool, unverified?: bool, reason?: string}. A name is a valid
-    // commander if it is a Legendary Creature, a Background, or says it can be
-    // your commander. Falls back to "unverified but allowed" if Scryfall is down.
-    async function checkCommanderLegal(name) {
+    // Returns {ok: bool, unverified?: bool, reason?: string, background?: bool}.
+    // Mirrors Scryfall is:commander on FRONT-face characteristics: a legendary
+    // creature, a legendary Vehicle/Spacecraft with printed P/T, or text saying
+    // it can be your commander. Meld results are never eligible. Backgrounds
+    // pass with background:true and are only accepted in the second slot.
+    // Falls back to "unverified but allowed" if Scryfall is down.
+    function commanderEligibilityFromCard(card) {
+        const faces = card.card_faces && card.card_faces.length ? card.card_faces : [card];
+        const front = faces[0];
+        const typeLine = front.type_line || card.type_line || '';
+        const oracle = front.oracle_text || (faces.length === 1 ? card.oracle_text : '') || '';
+        const isMeldResult = (card.all_parts || []).some(p => p.component === 'meld_result' && p.name === card.name);
+        if (isMeldResult || !typeLine.includes('Legendary')) return { ok: false };
+        if (typeLine.includes('Background')) return { ok: true, background: true };
+        const hasPT = (front.power != null && front.power !== '') && (front.toughness != null && front.toughness !== '')
+            || (card.power != null && card.power !== '' && card.toughness != null && card.toughness !== '');
+        const ok = typeLine.includes('Creature')
+            || ((typeLine.includes('Vehicle') || typeLine.includes('Spacecraft')) && hasPT)
+            || /can be your commander/i.test(oracle);
+        return { ok };
+    }
+
+    async function checkCommanderLegal(name, isSecondSlot) {
         const key = name.toLowerCase();
-        if (commanderCheckCache[key]) return commanderCheckCache[key];
-        let result;
-        try {
-            const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-            if (res.status === 404) {
-                result = { ok: false, reason: 'Invalid commander selected.' };
-            } else if (!res.ok) {
+        let result = commanderCheckCache[key];
+        if (!result) {
+            try {
+                const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+                if (res.status === 404) {
+                    result = { ok: false };
+                } else if (!res.ok) {
+                    result = { ok: true, unverified: true };
+                } else {
+                    result = commanderEligibilityFromCard(await res.json());
+                }
+            } catch (e) {
                 result = { ok: true, unverified: true };
-            } else {
-                const card = await res.json();
-                const faces = card.card_faces && card.card_faces.length ? card.card_faces : [card];
-                const typeLine = (card.type_line || faces[0].type_line || '');
-                const oracle = faces.map(f => f.oracle_text || '').join(' ') + ' ' + (card.oracle_text || '');
-                const legal = (typeLine.includes('Legendary') && typeLine.includes('Creature'))
-                    || typeLine.includes('Background')
-                    || /can be your commander/i.test(oracle);
-                result = legal ? { ok: true } : { ok: false, reason: 'Invalid commander selected.' };
             }
-        } catch (e) {
-            result = { ok: true, unverified: true };
+            if (!result.unverified) commanderCheckCache[key] = result;
         }
-        if (!result.unverified) commanderCheckCache[key] = result;
-        return result;
+        if (result.ok && result.background && !isSecondSlot) {
+            return { ok: false, reason: 'A Background can only be a second commander next to a Choose a Background commander.' };
+        }
+        return result.ok ? result : { ok: false, reason: 'Invalid commander selected.' };
     }
 
     // Synchronous validation; returns list of {id, msg}.
@@ -1324,7 +1340,7 @@
             for (const id of ids) {
                 const val = document.getElementById(id).value.trim();
                 if (!val) continue;
-                const res = await checkCommanderLegal(val);
+                const res = await checkCommanderLegal(val, id.startsWith('pref_partner_cmdr_'));
                 if (!res.ok) errors.push({ id, msg: res.reason || 'Invalid commander selected.' });
             }
         }

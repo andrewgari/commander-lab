@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected.
 - Web app: Deck, Game, Draft, Home and Profile pages show a clear error message (with a way back) when the API returns incomplete data, instead of a blank server error page.
 - Web app: a thin progress bar appears under the top of the page while a slow navigation is loading.
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.

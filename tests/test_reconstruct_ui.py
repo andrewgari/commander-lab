@@ -233,6 +233,14 @@ class TestReconstructPageTemplate(unittest.TestCase):
         self.assertIn("Could not generate a legal deck with these preferences", html)
         self.assertIn("function esc(", html)
 
+    def test_commander_check_mirrors_scryfall_is_commander(self):
+        html = self.client.get("/reconstruct").text
+        self.assertIn("function commanderEligibilityFromCard", html)
+        self.assertIn("'meld_result'", html)
+        self.assertIn("'Spacecraft'", html)
+        self.assertIn("A Background can only be a second commander", html)
+        self.assertIn("checkCommanderLegal(val, id.startsWith('pref_partner_cmdr_'))", html)
+
     def test_inline_script_is_valid_javascript(self):
         import shutil
         import subprocess

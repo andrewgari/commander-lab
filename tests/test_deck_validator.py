@@ -836,6 +836,64 @@ class TestStructuredOutput(Base):
         self.assertEqual(dv.format_errors_for_prompt(self.check(mk_deck(["Mono Red Guy"]))), "VALID")
 
 
+class TestCommanderEligibilityScryfallAlignment(Base):
+    """can_be_commander mirrors Scryfall is:commander (per oracle t_6ccb9548)."""
+
+    def test_rule1_legendary_vehicle_or_spacecraft_with_pt_is_eligible(self):
+        chariot = CardInfo.from_record({
+            "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        shorikai = CardInfo.from_record({
+            "name": "Shorikai, Genesis Engine", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        hearthhull = CardInfo.from_record({
+            "name": "Hearthhull, the Worldseed",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "power": "3", "toughness": "4"})
+        elevator = CardInfo.from_record({
+            "name": "The Eternity Elevator", "type_line": "Legendary Artifact \u2014 Spacecraft"})
+        for c in (chariot, shorikai, hearthhull):
+            self.assertTrue(c.can_be_commander, c.name)
+        self.assertFalse(elevator.can_be_commander)
+
+    def test_rule2_front_face_only(self):
+        brisela = CardInfo.from_record({
+            "name": "Brisela, Voice of Nightmares", "type_line": "Legendary Creature \u2014 Eldrazi Angel",
+            "layout": "meld", "meld_result": True})
+        akki = CardInfo.from_record({
+            "name": "Akki Lavarunner // Tok-Tok, Volcano Born",
+            "type_line": "Creature \u2014 Goblin Warrior // Legendary Creature \u2014 Goblin Shaman"})
+        front_legend = CardInfo.from_record({
+            "name": "Grist, Voracious Larva // The Plague Swarm",
+            "type_line": "Legendary Creature \u2014 Insect // Legendary Planeswalker \u2014 Grist"})
+        self.assertFalse(brisela.can_be_commander)
+        self.assertFalse(akki.can_be_commander)
+        self.assertTrue(front_legend.can_be_commander)
+
+    def test_rule3_can_be_your_commander_text(self):
+        pw = CardInfo.from_record({
+            "name": "Will Kenrith", "type_line": "Legendary Planeswalker \u2014 Will",
+            "oracle_text": "Will Kenrith can be your commander."})
+        self.assertTrue(pw.can_be_commander)
+
+    def test_rule4_grist_the_hunger_tide(self):
+        grist = CardInfo.from_record({
+            "name": "Grist, the Hunger Tide", "type_line": "Legendary Planeswalker \u2014 Grist",
+            "types": ["Creature"], "oracle_text": "As long as Grist isn't on the battlefield, "
+            "it's a 1/1 Insect creature in addition to its other types."})
+        self.assertTrue(grist.can_be_commander)
+
+    def test_rule5_background_only_as_second_slot_beside_chooser(self):
+        bg = next(c for c in CARDS if c.name == "Cult Background")
+        chooser = next(c for c in CARDS if c.name == "Bg Chooser")
+        self.assertFalse(bg.can_be_commander)
+        solo = self.check(mk_deck(["Cult Background"], n_filler=99))
+        self.assertIn(RuleCode.COMMANDER_ILLEGAL, codes(solo))
+        pair = self.check(mk_deck(["Bg Chooser", "Cult Background"], n_filler=98))
+        self.assertNotIn(RuleCode.COMMANDER_ILLEGAL, codes(pair))
+        self.assertNotIn(RuleCode.PARTNER_INVALID, codes(pair))
+        self.assertIsNone(dv.check_partner_pair(chooser, bg))
+
+
 class TestAdapters(Base):
     def test_from_builder_draft_strips_commander_entries(self):
         draft = {
