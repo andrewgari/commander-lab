@@ -13,6 +13,11 @@ taste profile that evolves over time, inventory (have/buy), and reviews that
 exist both as a styled document and a live dashboard rendered from the same
 stored data.
 
+> **Amended 2026-10-29** by `docs/architecture/decision-review-2026-10-29.md`:
+> Apache AGE is dropped; the graph index is plain edge tables + recursive CTEs
+> behind `src/server/infra/graph/`, and app tables live in `public`. Layout,
+> Postgres-as-truth and pgvector are unchanged.
+
 ## 0. Ratified decisions (Andrew)
 
 These are inputs, not open questions:
@@ -251,6 +256,9 @@ is a scripted one-time job in Slice 1–2, not this task.
   Never hand-edited; treat as a cache with a build step.
 
 ### 4.4 Graph index (Apache AGE) — what and how it rebuilds
+
+> **Superseded**: AGE dropped; see `docs/architecture/decision-review-2026-10-29.md` §4.
+> The consumers below stay; they are served by edge tables + recursive CTEs.
 
 - **Vertices**: `Card`, `Deck`, `Player` (one row today), `Tag`, `Game`,
   `Instance`.
