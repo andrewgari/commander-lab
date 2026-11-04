@@ -249,6 +249,13 @@
                 if (pick) commit(pick);
             }
         }
+        function onBlur(ev) {
+            // Keyboard focus left the field (Tab etc). Option mousedown calls
+            // preventDefault so clicks never blur the input; still ignore focus
+            // moving into the list itself.
+            if (ev.relatedTarget && listEl.contains(ev.relatedTarget)) return;
+            closeList();
+        }
         function onDocDown(ev) {
             if (!inputEl.contains(ev.target) && !listEl.contains(ev.target)) closeList();
         }
@@ -256,6 +263,7 @@
         inputEl.addEventListener("input", onInput);
         inputEl.addEventListener("focus", onFocus);
         inputEl.addEventListener("keydown", onKeydown);
+        inputEl.addEventListener("blur", onBlur);
         document.addEventListener("mousedown", onDocDown);
         document.addEventListener("touchstart", onDocDown, { passive: true });
 
@@ -270,6 +278,7 @@
                 inputEl.removeEventListener("input", onInput);
                 inputEl.removeEventListener("focus", onFocus);
                 inputEl.removeEventListener("keydown", onKeydown);
+                inputEl.removeEventListener("blur", onBlur);
                 document.removeEventListener("mousedown", onDocDown);
                 document.removeEventListener("touchstart", onDocDown);
                 if (ownsList && listEl.parentNode) listEl.parentNode.removeChild(listEl);
