@@ -2,7 +2,7 @@
 // The API is the mock in tests/e2e/mock; its `draft-1` starts with Atraxa (commander), Command Tower (main)
 // and one staged donor move (Sol Ring out of "Sliver Swarm").
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectNoAxeViolations, draftPosts, DRAFT, VIEWPORTS } from './fixtures';
+import { test, expect, expectNoAxeViolations, draftPosts, DRAFT, VIEWPORTS, settleAnimations } from './fixtures';
 
 /** The production build hydrates after the first paint; wait for it so typed input is not lost. */
 async function openDraft(page: Page) {
@@ -302,6 +302,7 @@ test.describe('§2.9-11 axe', () => {
 				await trigger.click();
 				const dlg = page.getByRole(role, { name });
 				await expect(dlg).toBeVisible();
+				await settleAnimations(page); // dlg-in fades in; axe reads mid-fade colours as contrast failures
 				await expectNoAxeViolations(page);
 				await dlg.getByRole('button', { name: 'Cancel' }).click();
 				await expect(dlg).toBeHidden();
