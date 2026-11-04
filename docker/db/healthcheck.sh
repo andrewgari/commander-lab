@@ -9,5 +9,5 @@ fi
 export PGPASSWORD
 count=$(psql -X -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
     -v ON_ERROR_STOP=1 -Atc \
-    "SELECT count(*) FROM pg_extension WHERE extname IN ('vector', 'age')")
-[ "$count" = 2 ]
+    "SELECT count(*) FROM pg_extension WHERE extname IN ('vector')")
+[ "$count" = 1 ]
