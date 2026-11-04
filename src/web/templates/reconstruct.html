@@ -1267,7 +1267,8 @@
             || (card.power != null && card.power !== '' && card.toughness != null && card.toughness !== '');
         const ok = typeLine.includes('Creature')
             || ((typeLine.includes('Vehicle') || typeLine.includes('Spacecraft')) && hasPT)
-            || /can be your commander/i.test(oracle);
+            || /can be your commander/i.test(oracle)
+            || /isn't on the battlefield, it's an? [^.]*creature/i.test(oracle);
         return { ok };
     }
 

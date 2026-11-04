@@ -299,6 +299,9 @@ class CardInfo:
             return True
         if self.is_creature:
             return True
+        # Grist-style: a creature in every zone except the battlefield.
+        if re.search(r"isn't on the battlefield, it's an? [^.]*creature", (self.oracle_text or "").casefold()):
+            return True
         # Vehicles/Spacecraft count only with a printed power/toughness.
         is_vehicle = self._has(self.subtypes, "Vehicle") or self._has(self.subtypes, "Spacecraft")
         return is_vehicle and self.power is not None and self.toughness is not None
