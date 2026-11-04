@@ -35,6 +35,10 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         import src.server.app.main as app_module
         self.app_module = app_module
         self.r = FakeRedis()
+        from src.server.domain.inventory import card_search
+        self.card_search = card_search
+        card_search._reset_cooldown()
+        self.addCleanup(card_search._reset_cooldown)
         self.patch = patch.object(app_module, "r", self.r)
         self.patch.start()
         self.client = TestClient(app_module.app)
@@ -219,6 +223,102 @@ class TestCardAutocompleteAPI(unittest.TestCase):
             res = self.client.get("/api/cards/autocomplete?q=emptyfresh")
         self.assertEqual(get.call_count, 0)
         self.assertEqual(res.json()["results"], [])
+
+    # -- upstream rate limiting / outage (429, 5xx) --------------------------
+    def _seed_spider_commanders(self):
+        for n in ("Spider-Man, Web-Slinger", "Spider-Gwen, Ghost-Spider"):
+            self.r.set(f"card_meta:{n}", json.dumps({"type": "Legendary Creature — Spider Hero"}))
+        self.r.set("card_meta:Spider Spawning", json.dumps({"type": "Sorcery"}))
+
+    def _status(self, code, retry_after=None):
+        headers = {"Retry-After": str(retry_after)} if retry_after is not None else {}
+        return Mock(status_code=code, headers=headers, json=lambda: {})
+
+    def test_429_commanders_falls_back_to_local_degraded_and_uncached(self):
+        self._seed_spider_commanders()
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 60)):
+            res = self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+        payload = res.json()
+        self.assertIs(payload["degraded"], True)
+        self.assertEqual(payload["source"], "local")
+        self.assertEqual([r["name"] for r in payload["results"]],
+                         ["Spider-Gwen, Ghost-Spider", "Spider-Man, Web-Slinger"])
+        self.assertIsNone(self.r.get("cards:autocomplete:commanders:spid"))
+
+    def test_5xx_commanders_falls_back_to_local_degraded_and_uncached(self):
+        self._seed_spider_commanders()
+        for code in (500, 503):
+            self.card_search._reset_cooldown()
+            with patch.object(self.app_module.httpx, "get", return_value=self._status(code)):
+                res = self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+            self.assertIs(res.json()["degraded"], True)
+            self.assertEqual(len(res.json()["results"]), 2)
+        self.assertIsNone(self.r.get("cards:autocomplete:commanders:spid"))
+
+    def test_429_default_scope_falls_back_to_local_degraded(self):
+        self._seed_spider_commanders()
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429)):
+            res = self.client.get("/api/cards/autocomplete?q=spid")
+        self.assertIs(res.json()["degraded"], True)
+        self.assertGreaterEqual(len(res.json()["results"]), 2)
+        self.assertIsNone(self.r.get("cards:autocomplete:cards:spid"))
+
+    def test_retry_after_backs_off_without_hammering_scryfall(self):
+        self._seed_spider_commanders()
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 30)) as get:
+            self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+            first = get.call_count
+            res = self.client.get("/api/cards/autocomplete?q=spide&commanders_only=true")
+        self.assertEqual(first, 1)
+        self.assertEqual(get.call_count, 1)  # cooldown: no further upstream call
+        self.assertIs(res.json()["degraded"], True)
+        self.assertEqual(len(res.json()["results"]), 2)
+
+    def test_backoff_is_bounded_and_recovers(self):
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 99999)):
+            self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+        remaining = self.card_search._cooldown_until - time.monotonic()
+        self.assertLessEqual(remaining, self.card_search.COOLDOWN_MAX_SECONDS + 1)
+        # Cooldown elapsed -> Scryfall is used again and the success is cached.
+        self.card_search._cooldown_until = time.monotonic() - 1
+        ok = Mock(status_code=200, headers={}, json=lambda: {
+            "data": [_card("Spider-Man, Web-Slinger")], "has_more": False})
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            res = self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+        self.assertIs(res.json()["degraded"], False)
+        self.assertEqual([r["name"] for r in res.json()["results"]], ["Spider-Man, Web-Slinger"])
+        self.assertIsNotNone(self.r.get("cards:autocomplete:commanders:spid"))
+
+    def test_retry_after_http_date_is_honored(self):
+        from email.utils import format_datetime
+        from datetime import datetime, timedelta, timezone
+        when = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=45), usegmt=True)
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, when)):
+            self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+        remaining = self.card_search._cooldown_until - time.monotonic()
+        self.assertGreater(remaining, 30)
+        self.assertLessEqual(remaining, 46)
+
+    def test_catalog_429_is_degraded_cooldown_and_uncached(self):
+        self._seed_spider_commanders()
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/catalog/card-names"):
+                return self._status(429, 30)
+            return Mock(status_code=404, headers={}, json=lambda: {})
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            res = self.client.get("/api/cards/autocomplete?q=spidr&commanders_only=true")
+        self.assertIs(res.json()["degraded"], True)
+        self.assertIsNone(self.r.get("cards:autocomplete:commanders:spidr"))
+        self.assertGreater(self.card_search._cooldown_until, time.monotonic())
+
+    def test_genuine_empty_is_not_degraded(self):
+        # Scryfall answers 404 for every probe: a real "no match", not an outage.
+        notfound = Mock(status_code=404, headers={}, json=lambda: {})
+        with patch.object(self.app_module.httpx, "get", return_value=notfound):
+            res = self.client.get("/api/cards/autocomplete?q=zzzzqq&commanders_only=true")
+        self.assertEqual(res.json()["results"], [])
+        self.assertIs(res.json()["degraded"], False)
 
     # -- degraded path -------------------------------------------------------
     def test_degraded_path_substring_matches_local_card_meta(self):

@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected. Grist, the Hunger Tide is accepted.
+- Brew commander search: when Scryfall is rate-limiting or erroring, the picker now falls back to your local card data instead of showing "No commanders match", and no longer remembers that false empty result.
 - Draft page: a failed action now shows a dismissible error message next to the button you used (Stage move, unstage) instead of a plain red line at the top of the page or an error page, and those buttons show progress and ignore a second click while saving.
 - Confirm dialogs (Commit/Abandon): on small screens the scrolling message area can now be reached and scrolled with the keyboard.
 - Brew result page: the card list no longer gets replaced by "Availability report unavailable" after a successful brew, and the Make physical dialog now lists what would move. A failed brew now shows only the failure (with Retry) instead of also showing the "Brewing…" progress panel, and a brew in progress no longer shows an empty "Brew failed" panel.
