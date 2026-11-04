@@ -21,9 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Changed
+- Brew pages: visual refresh. Panels now have proper padding, the Details step is a tidier two-column form with a readable 1–5 power selector, donor rows show status chips and colour pips, the Summary panel puts the reason Generate is disabled right under the button, and the result page has one clear main action (Make physical) with Re-brew and Export as secondary and Abandon as a quiet last option. Stat tiles stack 2×2 on phones without sideways scrolling.
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Brew result page: the card list no longer gets replaced by "Availability report unavailable" after a successful brew, and the Make physical dialog now lists what would move. A failed brew now shows only the failure (with Retry) instead of also showing the "Brewing…" progress panel, and a brew in progress no longer shows an empty "Brew failed" panel.
+- Brew page: donor decks and the Summary now show their status chips and colour pips on first load.
 - Web app: Deck, Game, Draft, Home and Profile pages show a clear error message (with a way back) when the API returns incomplete data, instead of a blank server error page.
 - Web app: a thin progress bar appears under the top of the page while a slow navigation is loading.
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
