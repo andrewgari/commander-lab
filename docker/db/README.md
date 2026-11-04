@@ -6,19 +6,15 @@ The latter belongs in `src/server/infra/db/` after the repo reorg.
 ## Contract
 
 - PostgreSQL **17** (official Debian bookworm image, pinned by digest),
-  pgvector **0.8.2** and Apache AGE **1.6.0**, compiled from pinned upstream
-  commits in a multi-stage build. AGE's upstream PG17 release tag is named
-  `PG17/v1.6.0-rc0`; the installed extension version is `1.6.0`.
+  pgvector **0.8.2**, compiled from a pinned upstream commit in a multi-stage
+  build. Apache AGE was dropped (see docs/architecture/decision-review-2026-10-29.md §4).
 - One `db` service / `commander-lab-db` container, no published host port.
   Stack services will use `db:5432`, database/user `commander_lab`.
 - No app DB wiring, ORM schema, data import, or Redis cutover in this slice.
   Redis and existing app/worker behavior stay unchanged.
-- AGE is preloaded for all sessions via the image CMD. Init enables both
-  extensions in `POSTGRES_DB` and sets its persistent search path to
-  `ag_catalog, "$user", public` (pgvector remains in `public`).
+- Init enables pgvector in `public`; `search_path` is the PostgreSQL default.
 - Init runs **only on empty PGDATA**. New databases created later must run
-  `00-extensions.sql` explicitly as a superuser. `CREATE EXTENSION` alone
-  does not set the AGE session hooks/search path on arbitrary other servers.
+  `00-extensions.sql` explicitly as a superuser.
 - The stock `POSTGRES_USER` is a bootstrap **superuser**. Do not expose it
   publicly or treat it as a future least-privilege application role; create
   restricted roles/grants alongside the application migrations.
@@ -51,7 +47,7 @@ flow for app/worker is unchanged. Before the merged compose is deployed:
    of the merged repo), then build on Tower's daemon:
 
    ```sh
-   docker build -t commander-lab-db:pg17-vector0.8.2-age1.6.0 docker/db
+   docker build -t commander-lab-db:pg17-vector0.8.2 docker/db
    ```
 
 2. On Tower, prepare a **new empty** direct-cache directory and root-only
