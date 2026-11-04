@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Brew: a new `/brew/<session>` page on the new interface lists the brewed deck by tier (donor, inventory, buy) and lets you add cards with the quick-add box or the Card search panel, and remove them. Accept, export and abandon stay on the classic brew page, linked from the new one.
 - Home page: a dashboard of six figures (decks, ready to play, collection, games, open drafts, power level) and a list of recently played decks with colour pips, build status and cards to buy. If one source fails, only its tiles show an error with a Try again button.
 - Draft page: adding a card and staging a move now use search boxes. Type a card name to find a card (or one of your physical copies, shown with its set, condition and where it is) and pick it with the mouse or keyboard; you no longer paste an oracle ID or instance ID.
 - Web app: every page now has a shared header with primary navigation (Home, Decks, Inventory, Games, Drafts, Profile) that marks the current page, and a "Skip to content" link for keyboard users. The header is hidden when printing.
