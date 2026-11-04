@@ -7,7 +7,7 @@ The latter belongs in `src/server/infra/db/` after the repo reorg.
 
 - PostgreSQL **17** (official Debian bookworm image, pinned by digest),
   pgvector **0.8.2**, compiled from a pinned upstream commit in a multi-stage
-  build. Apache AGE was dropped (see docs/architecture/decision-review-2026-10-29.md §4).
+  build. Apache AGE was dropped.
 - One `db` service / `commander-lab-db` container, no published host port.
   Stack services will use `db:5432`, database/user `commander_lab`.
 - No app DB wiring, ORM schema, data import, or Redis cutover in this slice.
@@ -97,7 +97,7 @@ unset COMMANDER_DB_PASSWORD
 ```
 
 `verify.sh` checks boot/health, extension versions, vector distance + HNSW,
-Cypher vertex/edge creation + traversal, reapplying init safely, and committed
+reapplying init safely, and committed
 data surviving restart. The SQL smoke check rolls back all its artifacts.
 The restart probe is test-only: do not run this lifecycle script on production.
 A failed probe may leave a test table; discard only the disposable test volume
@@ -111,5 +111,5 @@ docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" 
 ```
 
 Reconnect after setting the database search path. The health check requires
-TCP password auth **and both extensions**, so a missing init on existing data
+TCP password auth **and the pgvector extension**, so a missing init on existing data
 is unhealthy rather than a misleading successful `pg_isready` result.
