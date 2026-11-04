@@ -99,15 +99,15 @@ API:
 ```
 GET  /api/transcribe/moxfield   -> {folder, visibility, eligible, decks[]}
 POST /api/transcribe/moxfield   -> {success, report}
-     body: {"folder": str?, "visibility": str?, "force": bool?, "dry_run": bool?}
+     body: {"folder": str?, "visibility": str?, "force": bool?, "dry_run": bool? (default true; pass false to write)}
 ```
 
 CLI:
 
 ```
 python scripts/transcribe_to_moxfield.py --dry-run
-python scripts/transcribe_to_moxfield.py
-python scripts/transcribe_to_moxfield.py --folder "Paper Decks" --force
+python scripts/transcribe_to_moxfield.py --live
+python scripts/transcribe_to_moxfield.py --folder "Paper Decks" --force --live
 ```
 
 ## What each deck gets
@@ -171,3 +171,9 @@ cleanup.
 - `scripts/setup_auth.py` — session capture (now also saves the Moxfield userId)
 - `tests/test_moxfield_writer.py`, `tests/test_transcribe.py`,
   `tests/test_transcribe_routes.py`
+
+## Dry-run is the default
+
+Every write path (HTTP `dry_run` field, CLI without `--live`) previews only.
+Pass `"dry_run": false` or `--live` to perform real writes. Applies equally
+to the archive, collection-import, export and `sync/push` routes.
