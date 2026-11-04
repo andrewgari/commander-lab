@@ -48,7 +48,8 @@ MAX_LIMIT_COMMANDERS = 100  # commander picker shows every match, not a page of 
 # own ("atraxa") matched nothing. The pool is refreshed in the background
 # after every healthy search and has no TTL, so it outlives a 429 window.
 POOL_KEY = "cards:commander_pool:names"
-POOL_REFRESHED_KEY = "cards:commander_pool:refreshed_at"
+POOL_REFRESHED_KEY = "cards:commander_pool:refreshed_at"  # last COMPLETE pull
+POOL_ATTEMPT_KEY = "cards:commander_pool:attempted_at"  # last try, ok or not
 POOL_REFRESH_AFTER_SECONDS = 7 * 24 * 60 * 60
 POOL_RETRY_SECONDS = 300
 POOL_MAX_PAGES = 40
@@ -285,14 +286,20 @@ def _refresh_pool(r):
         age = time.time() - at
         if _read_pool(r) and age < POOL_REFRESH_AFTER_SECONDS:
             return
-        if at and age < POOL_RETRY_SECONDS:
+        try:
+            tried = float(_text(r.get(POOL_ATTEMPT_KEY) or 0))
+        except Exception:
+            tried = 0.0
+        if tried and time.time() - tried < POOL_RETRY_SECONDS:
             return  # a recent attempt (success or failure) already ran
         # Record the attempt first so a failing upstream is retried every
         # POOL_RETRY_SECONDS, not on every keystroke.
-        r.set(POOL_REFRESHED_KEY, str(time.time()))
+        r.set(POOL_ATTEMPT_KEY, str(time.time()))
         names = _pull_pool_names()
         if names:
             r.set(POOL_KEY, json.dumps(sorted(set(names), key=str.casefold)))
+            # Freshness only advances after a complete pool is stored.
+            r.set(POOL_REFRESHED_KEY, str(time.time()))
     except Exception:
         pass
     finally:
@@ -411,7 +418,7 @@ async def search_commanders(r, query, limit=None):
     pages_fetched = 0
     page_urls = set()
     try:
-        while url and fetched < 40 and pages_fetched < 20 and url not in page_urls:
+        while url and fetched < MAX_LIMIT_COMMANDERS and pages_fetched < 20 and url not in page_urls:
             page_urls.add(url)
             pages_fetched += 1
             resp = _get(url, params=params, headers=headers, timeout=8.0)
@@ -424,9 +431,9 @@ async def search_commanders(r, query, limit=None):
                 if cid:
                     candidates[cid] = card
                     fetched += 1
-                    if fetched >= 40:
+                    if fetched >= MAX_LIMIT_COMMANDERS:
                         break
-            url = payload.get("next_page") if payload.get("has_more") and fetched < 40 else None
+            url = payload.get("next_page") if payload.get("has_more") and fetched < MAX_LIMIT_COMMANDERS else None
         if url:
             params = None  # Scryfall next_page is a complete URL
 

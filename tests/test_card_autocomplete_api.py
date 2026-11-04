@@ -314,7 +314,33 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 60)):
             self.card_search._refresh_pool(self.r)
         self.assertEqual(self.card_search._read_pool(self.r), [])
-        self.assertIsNotNone(self.r.get("cards:commander_pool:refreshed_at"))
+        self.assertIsNotNone(self.r.get("cards:commander_pool:attempted_at"))
+        self.assertIsNone(self.r.get("cards:commander_pool:refreshed_at"))
+
+    def test_failed_refresh_of_stale_pool_retries_after_backoff_not_a_week(self):
+        import time as _t
+        self.r.set(self.card_search.POOL_KEY, json.dumps(["Old Commander"]))
+        stale = str(_t.time() - self.card_search.POOL_REFRESH_AFTER_SECONDS - 10)
+        self.r.set(self.card_search.POOL_REFRESHED_KEY, stale)
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 60)):
+            self.card_search._refresh_pool(self.r)
+        # failure must not advance freshness
+        self.assertEqual(self.r.get(self.card_search.POOL_REFRESHED_KEY), stale)
+        # ...and a retry after the backoff window runs again
+        self.r.set(self.card_search.POOL_ATTEMPT_KEY, str(_t.time() - 301))
+        self.card_search._reset_cooldown()
+        page = {"data": [_card("New Commander")], "has_more": False}
+        ok = Mock(status_code=200, headers={}, json=lambda: page)
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            self.card_search._refresh_pool(self.r)
+        self.assertEqual(self.card_search._read_pool(self.r), ["New Commander"])
+
+    def test_healthy_commander_search_returns_more_than_40(self):
+        cards = [_card(f"Bulk Fixture {i:03d}") for i in range(60)]
+        ok = Mock(status_code=200, headers={}, json=lambda: {"data": cards, "has_more": False})
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            res = self.client.get("/api/brew/commanders?q=bulk&limit=100")
+        self.assertEqual(len(res.json()["results"]), 60)
 
     def test_commanders_limit_above_20_is_honoured(self):
         cards = [_card(f"Spider Fixture {i:02d}") for i in range(35)]
