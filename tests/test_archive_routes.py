@@ -56,7 +56,7 @@ class TestArchiveRoute(unittest.TestCase):
         self.assertEqual(kwargs["prefix"], "[Archived] ")
         self.assertEqual(kwargs["visibility"], "private")
         self.assertTrue(kwargs["skip_transcribed"])
-        self.assertFalse(kwargs["dry_run"])
+        self.assertTrue(kwargs["dry_run"])  # default is a dry run
 
     @patch("src.server.app.main.archive")
     def test_empty_body_is_accepted(self, mock_a):
