@@ -10,11 +10,11 @@ Companion to `docs/redis-postgres-key-mapping.md`. Rebuilt from the live instanc
 
 Blockers are **durable** patterns (user- or lab-owned data that cannot be rebuilt) with no fully typed PG target. Derived, cache and ops keys do not block; they can be rebuilt after cutover.
 
-33 patterns / 200 keys are durable and not yet mapped:
+38 patterns / 5824 keys are durable and not yet mapped:
 
 | # | Pattern | Keys | Type | Closest PG table | Status | Note |
 |---|---|---|---|---|---|---|
-| B1 | `decks` | 1 | string | decks + deck_cards + deck_links | partial | Single JSON blob; typed tables exist, no importer. See open question 1. |
+| B1 | `decks` | 1 | string | decks + deck_cards + deck_links | partial | Single JSON blob; typed tables exist. `scripts/migrate_collection_to_pg.py` already imports it with status overrides; coverage gaps unverified. See open question 1. |
 | B2 | `deck_status:{deck id}` | 58 | string | decks.status | partial | Bare numeric Archidekt ids; the PG decks.id is `archidekt:{id}`. |
 | B3 | `deck_status:moxfield:{id}` | 32 | string | decks.status | partial | Moxfield-sourced decks; id form needs a decision (decks.id has no moxfield prefix convention in the ORM docstring). |
 | B4 | `lab_tags` | 1 | string | card_tags | partial | card_tags is keyed by oracle_id: needs name→oracle via idx:card_name_to_oracle. |
@@ -47,15 +47,22 @@ Blockers are **durable** patterns (user- or lab-owned data that cannot be rebuil
 | B31 | `reconstruct:session:{id}` | 3 | string | — | unmapped |  |
 | B32 | `reconstruct:sessions` | 1 | set | — | unmapped |  |
 | B33 | `linked_accounts` | 1 | string | users / deck_links | unmapped | Account links; confirm target. |
+| B34 | `instance:{uuid}` | 5610 | string | card_instances | partial | Importer omits `pending_removal`; see mapping doc. |
+| B35 | `idx:instances_pending_removal:{deck id}` | 4 | set | — | unmapped | Rebuildable only after `pending_removal` is preserved. |
+| B36 | `deck_card_tags:{deck id}` | 4 | string | — | unmapped | Holds user-added tags (`source="user"`). |
+| B37 | `deck_tags:{deck id}` | 4 | string | — | unmapped | Holds user-added tags (`source="user"`). |
+| B38 | `deck_genre:{archetypes/genres}` | 2 | string | — | unmapped | User-edited vocabulary registries. |
 
 Of these, the ones that block the most others are:
 
-1. **`decks`** (single 270 KB JSON blob, 58 decks). `decks`/`deck_cards`/`deck_links` tables exist but nothing imports the blob. Almost every per-deck pattern keys off the deck id, so this goes first.
+1. **`decks`** (single 270 KB JSON blob, 58 decks). `decks`/`deck_cards`/`deck_links` tables exist and `scripts/migrate_collection_to_pg.py` already imports the blob; remaining coverage/cutover gaps are unverified. Almost every per-deck pattern keys off the deck id, so this goes first.
 2. **`lab_tags` / `lab_tags_source`** (106 KB). `card_tags` exists but is oracle_id-keyed; import needs name→oracle resolution through `idx:card_name_to_oracle:*`.
 3. **`deck_status:*`** (90 keys, two id forms: bare Archidekt number and `moxfield:<id>`). Folds into `decks.status` once id normalisation is decided.
 4. **`review:*`** (19 keys): two candidate target tables (`reviews`, `review_documents`).
 5. **Registries with no table:** `archetypes`, `genres`, `categories:global`, `staple_themes`, `role_tags`, `role_targets`, `autotag:tags`, `sim:focus:*`, `linked_accounts`. Small, editable, seeded; need a schema call (one generic `registry(name, data jsonb)` table would cover them all).
-6. **Per-deck user output with no table:** `journal:*`, `tunerec:*`, `theory:*`, `primer:*`, `reconstruct:*`, `deck:sim:*`, `archetype_sel:*`, `deck_categories:*`.
+6. **User-added deck tags and genre registries:** `deck_tags:*`, `deck_card_tags:*`, `deck_genre:*` hold user entries and are not droppable. Their `*_version:*` sets stay derived.
+7. **`instance:*` importer gap:** `pending_removal` is not carried over.
+8. **Per-deck user output with no table:** `journal:*`, `tunerec:*`, `theory:*`, `primer:*`, `reconstruct:*`, `deck:sim:*`, `archetype_sel:*`, `deck_categories:*`.
 
 ## Not blockers (rebuildable), by key count
 
@@ -91,19 +98,16 @@ Of these, the ones that block the most others are:
 | `interaction_graph:deck:{deck id}` | 58 | derived |
 | `interaction_graph:collection` | 1 | derived |
 | `interactions:engine_names` | 1 | derived |
-| `deck_card_tags:{deck id}` | 4 | derived |
 | `deck_card_tags_version:{deck id}:{card}` | 225 | derived |
-| `deck_tags:{deck id}` | 4 | derived |
 | `deck_tags_version:{deck id}` | 3 | derived |
-| `deck_genre:{archetypes|genres}` | 2 | derived |
 | `tuner:count:{deck id}` | 17 | cache |
 | `tuner:prose:{deck id}` | 15 | cache |
 
 Notes:
 - `card_meta:*` is partly covered by `cards` (Scryfall mirror) and is refetchable.
 - `interaction_graph:*` is 11.8 MB and `spellbook:fmc:*` 13 MB, so most of the dataset by bytes is derived. Skipping them keeps the migration small.
-- `instance:*` (5,610) is the largest durable group and is **mapped** (`card_instances`); `scripts/migrate_instances_to_pg.py` exists.
-- Mapped durable: `instance:*`, `comp:presets`, `comp:deck:*` (0 live keys).
+- `instance:*` (5,610) is the largest durable group and is **partial** (`card_instances`; `scripts/migrate_instances_to_pg.py` exists but drops `pending_removal`).
+- Mapped durable: `comp:presets`, `comp:deck:*` (0 live keys).
 
 ## Previous claims corrected
 
