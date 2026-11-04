@@ -168,6 +168,7 @@ _NUMBER_WORDS = {
 _SINGLETON_TEXT_RE = re.compile(
     r"a deck can have (?:(any number of)|up to (\w+)) cards? named", re.IGNORECASE
 )
+_OFF_BATTLEFIELD_CREATURE_RE = re.compile(r"isn't on the battlefield, [^.]*\bcreature\b")
 _SUPERTYPES = {"basic", "legendary", "snow", "world", "ongoing", "elite", "host"}
 
 
@@ -222,6 +223,9 @@ class CardInfo:
     keywords: Tuple[str, ...] = ()
     oracle_text: str = ""
     commander_legality: Optional[str] = None  # "legal" | "banned" | "not_legal" | None
+    power: Optional[str] = None  # printed, front face
+    toughness: Optional[str] = None  # printed, front face
+    meld_result: bool = False
 
     @classmethod
     def from_record(cls, rec: Mapping[str, Any]) -> "CardInfo":
@@ -229,8 +233,12 @@ class CardInfo:
         types = list(rec.get("types") or [])
         supertypes = list(rec.get("super_types") or rec.get("supertypes") or [])
         subtypes = list(rec.get("sub_types") or rec.get("subtypes") or [])
-        if rec.get("type_line"):
-            left, _, right = str(rec["type_line"]).partition("\u2014")
+        faces = rec.get("card_faces") or []
+        front = faces[0] if faces and isinstance(faces[0], Mapping) else {}
+        if rec.get("type_line") or front.get("type_line"):
+            # Only the front face counts off the battlefield.
+            type_line = str(front.get("type_line") or rec["type_line"])
+            left, _, right = type_line.split(" // ")[0].partition("\u2014")
             for word in left.split():
                 (supertypes if word.casefold() in _SUPERTYPES else types).append(word)
             subtypes += right.split()
@@ -242,6 +250,14 @@ class CardInfo:
         if legality is None and isinstance(rec.get("legalities"), Mapping):
             legality = rec["legalities"].get("commander")
         color = rec.get("color_identity", rec.get("color"))
+        text = front.get("oracle_text") or rec.get("oracle_text") or rec.get("text") or ""
+        power = front.get("power", rec.get("power"))
+        toughness = front.get("toughness", rec.get("toughness"))
+        meld_result = any(
+            isinstance(part, Mapping) and part.get("component") == "meld_result"
+            and part.get("name") == rec["name"]
+            for part in (rec.get("all_parts") or ())
+        )
         return cls(
             name=rec["name"],
             color_identity=parse_color_identity(color),
@@ -249,8 +265,11 @@ class CardInfo:
             supertypes=tuple(dict.fromkeys(supertypes)),
             subtypes=tuple(subtypes),
             keywords=tuple(rec.get("keywords") or ()),
-            oracle_text=rec.get("oracle_text") or rec.get("text") or "",
+            oracle_text=text,
             commander_legality=(str(legality).casefold() if legality else None),
+            power=(str(power) if power not in (None, "") else None),
+            toughness=(str(toughness) if toughness not in (None, "") else None),
+            meld_result=meld_result,
         )
 
     def _has(self, seq: Sequence[str], word: str) -> bool:
@@ -270,9 +289,22 @@ class CardInfo:
 
     @property
     def can_be_commander(self) -> bool:
-        if "can be your commander" in (self.oracle_text or "").casefold():
+        """Mirrors Scryfall `is:commander`. Backgrounds are never eligible here;
+        they are only valid in the second slot via the pairing logic."""
+        if self.meld_result or self._has(self.subtypes, "Background"):
+            return False
+        if not self.is_legendary:
+            return False
+        text = (self.oracle_text or "").casefold()
+        if "can be your commander" in text:
             return True
-        return self.is_legendary and self.is_creature
+        if self.is_creature:
+            return True
+        if _OFF_BATTLEFIELD_CREATURE_RE.search(text):
+            return True
+        if self._has(self.subtypes, "Vehicle") or self._has(self.subtypes, "Spacecraft"):
+            return self.power is not None and self.toughness is not None
+        return False
 
 
 def _builtin_basic(name: str) -> Optional[CardInfo]:
