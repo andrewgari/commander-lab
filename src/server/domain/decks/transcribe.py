@@ -164,7 +164,7 @@ def transcribe_deck(
     folder_name: str = DEFAULT_FOLDER_NAME,
     visibility: str = DEFAULT_VISIBILITY,
     force: bool = False,
-    dry_run: bool = False,
+    dry_run: bool = True,
 ) -> dict:
     """Transcribe one deck. Returns a per-deck result dict with `action` one of
     skipped_not_physical / skipped_already / created / would_create / failed.
@@ -239,7 +239,7 @@ def transcribe_all(
     folder_name: str = DEFAULT_FOLDER_NAME,
     visibility: str = DEFAULT_VISIBILITY,
     force: bool = False,
-    dry_run: bool = False,
+    dry_run: bool = True,
     client=None,
 ) -> dict:
     """Transcribe every physical deck to Moxfield.

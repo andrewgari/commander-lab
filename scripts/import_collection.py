@@ -2,7 +2,7 @@
 """Import the Archidekt card collection into Commander Lab instances.
 
     python scripts/import_collection.py --dry-run
-    python scripts/import_collection.py
+    python scripts/import_collection.py --live
 
 Requires ARCHIDEKT_SESSION + ARCHIDEKT_CSRF (Archidekt has no public
 collection API) and ARCHIDEKT_USERNAME, or pass --username.
@@ -26,8 +26,11 @@ load_dotenv(override=True)
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--username", default=None, help="Archidekt username (default: $ARCHIDEKT_USERNAME)")
-    parser.add_argument("--dry-run", action="store_true", help="report the diff without writing instances")
+    parser.add_argument("--live", action="store_true",
+                        help="perform real writes (default is a dry run)")
+    parser.add_argument("--dry-run", action="store_true", help="explicit dry run (this is the default)")
     args = parser.parse_args()
+    args.dry_run = not args.live
 
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
 

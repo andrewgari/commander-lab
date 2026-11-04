@@ -219,7 +219,7 @@ def _record_sync(r, username: str, report: dict) -> dict:
 def import_collection(
     r,
     username: Optional[str] = None,
-    dry_run: bool = False,
+    dry_run: bool = True,
     fetcher=None,
 ) -> dict:
     """Fetch the Archidekt collection for `username` and reconcile it into
