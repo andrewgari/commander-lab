@@ -413,8 +413,13 @@
             hide($("brewDeck")); hide($("brewNotFound"));
             show($("brewBuilding"));
             var failed = session.status === "failed";
+            var buildName = ((session.preferences || [])[0] || {}).name || session.commander || "Brew";
             $("brewFailed").hidden = !failed;
-            $("brewBuildName").textContent = ((session.preferences || [])[0] || {}).name || session.commander || "Brew";
+            // A failed brew must not keep showing the "Brewing…" panel with its
+            // sweeping progress bar and Cancel button.
+            $("brewBuildPanel").hidden = failed;
+            $("brewBuildName").textContent = buildName;
+            $("brewFailedName").textContent = failed ? buildName : "";
             if (failed) {
                 $("brewFailedMsg").textContent = session.error || "The brew failed.";
                 $("brewBackBtn").href = "/brew?resume=" + encodeURIComponent(sessionId);
@@ -599,6 +604,7 @@
 
             // Brew inputs
             var mode = session.build_mode === "best_build" ? "Best build" : "Owned-first";
+            var pl = String(session.power_level || "");
             var themes = (session.themes || []).map(function (t) { return window.HUD ? HUD.chip(t, "ghost") : esc(t); }).join(" ");
             $("brewInputsKv").innerHTML =
                 "<dt>Build mode</dt><dd>" + esc(mode) + "</dd>" +
@@ -636,6 +642,7 @@
         });
         $("brewRetryBtn").addEventListener("click", function () {
             $("brewFailed").hidden = true;
+            $("brewBuildPanel").hidden = false;
             postJSON("/api/brew/" + encodeURIComponent(sessionId) + "/build", {}).catch(function () {});
             pollStart = Date.now();
             fetchJSON("/api/brew/" + encodeURIComponent(sessionId)).then(function (b) { route(b.session); });
@@ -677,6 +684,14 @@
         });
     }
 
-    if ($("brewGenerate")) initConsole();
-    else if ($("brewRoot")) initSession();
+    // base.html loads hud.js with `defer`, so window.HUD (pips, status chips,
+    // chip builders) does not exist while this plain script is parsed. Boot on
+    // DOMContentLoaded (runs after deferred scripts) so donor rows, the summary
+    // colour pips and the result-page chips render with the HUD kit.
+    function boot() {
+        if ($("brewGenerate")) initConsole();
+        else if ($("brewRoot")) initSession();
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+    else boot();
 })();
