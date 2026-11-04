@@ -164,32 +164,59 @@ class TestDonorAutocomplete(unittest.TestCase):
 
 
 class TestBrewAssetCacheBusting(unittest.TestCase):
-    """brew.js must load with the shared ?v={{ version }} cache-buster.
+    """brew.js must load with a CONTENT-based cache-buster.
 
-    Regression pin for t_4f7ebd86: every other static asset in base.html is
-    versioned, but brew.html loaded brew.js bare. With no Cache-Control header
-    from the static mount, browsers heuristically cache the bare URL, so a
-    deploy could ship a new brew.js while clients kept running the stale file
-    (the live commander autocomplete never appeared). Deleting the version
-    parameter turns this test red.
+    History: t_4f7ebd86 added ?v={{ version }}, but __version__ is a frozen
+    constant, so a deploy that changed brew.js kept the same URL and browsers
+    kept the stale file (the commander autocomplete fix shipped but never
+    reached the user's browser). The query string must now be the hash of the
+    file's bytes, so any edit to brew.js changes the URL.
     """
 
-    def test_brew_js_script_tag_is_versioned(self):
-        m = re.search(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>',
-                      BREW_HTML)
-        self.assertIsNotNone(m, "brew.js script tag not found in brew.html")
-        self.assertIn("?v={{ version }}", m.group(1),
-                      "brew.js must be loaded with ?v={{ version }} like base.html assets")
+    TAG = re.compile(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>')
 
-    def test_brew_deck_js_script_tag_is_versioned(self):
-        # brew_deck.html loads the same brew.js; it got the url_for form but
-        # missed the ?v= query param, reintroducing the stale-cache risk the
-        # brew.html fix (PR #324 pattern) closed.
-        m = re.search(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>',
-                      BREW_DECK_HTML)
-        self.assertIsNotNone(m, "brew.js script tag not found in brew_deck.html")
-        self.assertIn("?v={{ version }}", m.group(1),
-                      "brew.js on the brew deck page must be loaded with ?v={{ version }} like base.html assets")
+    def test_brew_js_script_tags_use_content_hash(self):
+        for name, html in (("brew.html", BREW_HTML), ("brew_deck.html", BREW_DECK_HTML)):
+            m = self.TAG.search(html)
+            self.assertIsNotNone(m, f"brew.js script tag not found in {name}")
+            self.assertIn("?v={{ static_hash('js/brew.js') }}", m.group(1),
+                          f"{name}: brew.js must be cache-busted by content hash, not the frozen app version")
+            self.assertNotIn("{{ version }}", m.group(1))
+
+    def test_static_hash_follows_file_content(self):
+        import hashlib
+        import tempfile
+        from src.server.app import main as app_module
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "js"))
+            f = os.path.join(d, "js", "x.js")
+            with open(f, "wb") as fh:
+                fh.write(b"one")
+            a = app_module.static_hash("js/x.js", static_dir=d)
+            self.assertEqual(a, hashlib.sha256(b"one").hexdigest()[:12])
+            with open(f, "wb") as fh:
+                fh.write(b"two")
+            b = app_module.static_hash("js/x.js", static_dir=d)
+            self.assertNotEqual(a, b, "editing the file must change the cache-bust token")
+
+    def test_rendered_brew_pages_carry_current_content_hash(self):
+        import hashlib
+        from unittest import mock
+        from fastapi.testclient import TestClient
+        from src.server.app import main as app_module
+        want = hashlib.sha256(read("src/web/static/js/brew.js").encode("utf-8")).hexdigest()[:12]
+        fake_r = mock.MagicMock()
+        fake_r.get.return_value = None
+        with mock.patch.object(app_module, "r", fake_r), \
+                mock.patch.object(app_module.github_sync, "update_github_data", mock.AsyncMock()):
+            html = TestClient(app_module.app).get("/brew").text
+        self.assertIn(f"/static/js/brew.js?v={want}", html)
+
+
+class TestBrewPageHooks(unittest.TestCase):
+    def test_brew_template_has_autocomplete_and_generate_ids(self):
+        for hid in ("brewCmdSearch", "brewCmdResults", "brewGenerate", "brewGenerateHint"):
+            self.assertIn(f'id="{hid}"', BREW_HTML)
 
 
 class TestMobileLayout(unittest.TestCase):
