@@ -15,8 +15,13 @@ import os
 import re
 
 import pytest
-from playwright.sync_api import expect
 
+# Optional E2E deps: skip the module (don't break collection) when absent.
+pytest.importorskip("playwright.sync_api")
+pytest.importorskip("fakeredis")
+pytest.importorskip("uvicorn")
+
+from playwright.sync_api import expect  # noqa: E402
 from tests.e2e.test_card_autocomplete_inputs_e2e import live_url, base_url  # noqa: F401
 
 pytestmark = pytest.mark.e2e
