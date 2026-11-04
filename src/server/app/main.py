@@ -145,6 +145,31 @@ templates = Jinja2Templates(directory=os.path.join(_WEB_DIR, "templates"))
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
 
+# Content-based cache-buster for static assets: __version__ is a frozen
+# constant, so ?v={{ version }} never changes between deploys and browsers keep
+# serving a stale file (the /brew autocomplete fix shipped but never reached
+# the browser). static_hash() keys the URL to the file's bytes instead.
+_STATIC_DIR = os.path.join(_WEB_DIR, "static")
+_static_hash_cache: dict = {}
+
+
+def static_hash(path: str, static_dir: str = _STATIC_DIR) -> str:
+    full = os.path.join(static_dir, path)
+    try:
+        st = os.stat(full)
+    except OSError:
+        return __version__
+    key = (full, st.st_mtime_ns, st.st_size)
+    h = _static_hash_cache.get(key)
+    if h is None:
+        with open(full, "rb") as f:
+            h = hashlib.sha256(f.read()).hexdigest()[:12]
+        _static_hash_cache[key] = h
+    return h
+
+
+templates.env.globals["static_hash"] = static_hash
+
 # Deck groups in the sidebar "Commander Decks" menu: each opens /decks filtered
 # to one existing status value (registry.VALID_STATUSES). Labels only; the
 # status values and their labels elsewhere in the app are unchanged.
