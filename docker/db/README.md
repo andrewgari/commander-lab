@@ -6,19 +6,15 @@ The latter belongs in `src/server/infra/db/` after the repo reorg.
 ## Contract
 
 - PostgreSQL **17** (official Debian bookworm image, pinned by digest),
-  pgvector **0.8.2** and Apache AGE **1.6.0**, compiled from pinned upstream
-  commits in a multi-stage build. AGE's upstream PG17 release tag is named
-  `PG17/v1.6.0-rc0`; the installed extension version is `1.6.0`.
+  pgvector **0.8.2**, compiled from a pinned upstream commit in a multi-stage
+  build. Apache AGE was dropped.
 - One `db` service / `commander-lab-db` container, no published host port.
   Stack services will use `db:5432`, database/user `commander_lab`.
 - No app DB wiring, ORM schema, data import, or Redis cutover in this slice.
   Redis and existing app/worker behavior stay unchanged.
-- AGE is preloaded for all sessions via the image CMD. Init enables both
-  extensions in `POSTGRES_DB` and sets its persistent search path to
-  `ag_catalog, "$user", public` (pgvector remains in `public`).
+- Init enables pgvector in `public`; `search_path` is the PostgreSQL default.
 - Init runs **only on empty PGDATA**. New databases created later must run
-  `00-extensions.sql` explicitly as a superuser. `CREATE EXTENSION` alone
-  does not set the AGE session hooks/search path on arbitrary other servers.
+  `00-extensions.sql` explicitly as a superuser.
 - The stock `POSTGRES_USER` is a bootstrap **superuser**. Do not expose it
   publicly or treat it as a future least-privilege application role; create
   restricted roles/grants alongside the application migrations.
@@ -51,7 +47,7 @@ flow for app/worker is unchanged. Before the merged compose is deployed:
    of the merged repo), then build on Tower's daemon:
 
    ```sh
-   docker build -t commander-lab-db:pg17-vector0.8.2-age1.6.0 docker/db
+   docker build -t commander-lab-db:pg17-vector0.8.2 docker/db
    ```
 
 2. On Tower, prepare a **new empty** direct-cache directory and root-only
@@ -83,7 +79,23 @@ Major version upgrades require dump/restore or a planned `pg_upgrade`,
 never just swapping an image tag against existing PGDATA. Rebuild the local
 image deliberately for security/extension updates; update pins and rerun
 verification before deploying. Back up canonical data with `pg_dump` to
-storage outside the repository; graph/vector indexes remain rebuildable.
+storage outside the repository; vector indexes remain rebuildable.
+
+## Upgrading a database that was initialized with Apache AGE
+
+Recreating the container keeps PGDATA, so a database created on the old image
+still has AGE and an `ag_catalog` search path; the init scripts do not rerun.
+Before switching images, while the **old** image is still running:
+
+1. Back up: `pg_dump -Fc commander_lab > commander_lab-pre-age-drop.dump`.
+2. Check dependencies: `SELECT * FROM pg_depend d JOIN pg_extension e ON d.refobjid = e.oid WHERE e.extname = 'age' AND d.deptype = 'n';` and list any
+   application objects in `ag_catalog` (`\dt ag_catalog.*`); move or recreate
+   anything you need to keep.
+3. Remove AGE: `DROP EXTENSION age CASCADE;`.
+4. Reset the search path: `ALTER DATABASE commander_lab RESET search_path;`
+   (and `ALTER ROLE ... RESET search_path` if it was set per role).
+5. Recreate the container on the new image. Dumps taken before step 3 contain
+   `CREATE EXTENSION age` and cannot be restored into the new image.
 
 ## Repeatable isolated acceptance check
 
@@ -101,7 +113,7 @@ unset COMMANDER_DB_PASSWORD
 ```
 
 `verify.sh` checks boot/health, extension versions, vector distance + HNSW,
-Cypher vertex/edge creation + traversal, reapplying init safely, and committed
+reapplying init safely, and committed
 data surviving restart. The SQL smoke check rolls back all its artifacts.
 The restart probe is test-only: do not run this lifecycle script on production.
 A failed probe may leave a test table; discard only the disposable test volume
@@ -115,5 +127,5 @@ docker compose exec -T db sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" 
 ```
 
 Reconnect after setting the database search path. The health check requires
-TCP password auth **and both extensions**, so a missing init on existing data
+TCP password auth **and the pgvector extension**, so a missing init on existing data
 is unhealthy rather than a misleading successful `pg_isready` result.

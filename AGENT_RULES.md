@@ -6,7 +6,8 @@ if that link is missing, treat this file as authoritative anyway.)
 
 ## Target architecture (approved plan)
 Python + FastAPI + Postgres (source of truth) + SvelteKit UI; pgvector +
-Apache AGE as **derived, rebuildable** indexes; thin vertical slices touching
+relational edge tables as **derived, rebuildable** indexes (Apache AGE dropped,
+see `docs/architecture/decision-review-2026-10-29.md`); app tables in `public`; thin vertical slices touching
 decks+inventory+profile together. Target layout:
 `src/server/{app,domain,infra,workers}`, `src/web/`, `docs/`, `tests/`.
 

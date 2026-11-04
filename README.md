@@ -71,7 +71,7 @@ All existing fields (`id`, `name`, `color`, `commanders`, `status`, `folder_id`)
 ## Tech Stack & Architecture
 
 - **Backend**: Python 3.11+, FastAPI, Uvicorn (`src/server/`: `app/` = HTTP, `domain/` = logic, `infra/` = Postgres/Redis/LLM/providers, `workers/` = sync & index jobs)
-- **Storage**: Postgres 17 (source of truth, with pgvector + Apache AGE as rebuildable indexes); Redis for cache/queues only
+- **Storage**: Postgres 17 (source of truth, with pgvector + relational edge tables as rebuildable indexes; see `docs/architecture/decision-review-2026-10-29.md`); Redis for cache/queues only
 - **Frontend**: SvelteKit (`src/web/`) — the replacement UI; the legacy Jinja HUD is being phased out per `docs/ui-cutover-order.md`
 - **Containerization**: Docker & Docker Compose
 
