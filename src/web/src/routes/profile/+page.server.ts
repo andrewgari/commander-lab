@@ -9,6 +9,8 @@ import {
 	type ProfileLatestResponse,
 	type ProfileOverridesResponse
 } from '#lib/api.ts';
+import { ApiError } from '#lib/api.ts';
+import { cleanForSend, formToValues, mapServerReason, validate } from '#lib/profile/taste-form.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const PLAYER = 'andrew';
@@ -18,6 +20,10 @@ export const load: PageServerLoad = async () => {
 	let playerError: string | null = null;
 	try {
 		player = await apiGet<PlayerProfileResponse>(`/api/v2/profile/player/${PLAYER}`);
+		if (player === null || typeof player !== 'object') {
+			player = null;
+			playerError = 'unexpected response';
+		}
 	} catch (e) {
 		playerError = e instanceof Error ? e.message : 'unavailable';
 	}
@@ -27,7 +33,27 @@ export const load: PageServerLoad = async () => {
 			apiGet<ProfileHistoryResponse>('/api/v2/profile/history?limit=50'),
 			apiGet<ProfileOverridesResponse>('/api/v2/profile/overrides')
 		]);
-		return { latest, history: history.snapshots, overrides, player, playerError, error: null as string | null };
+		// Partial payloads are normalised here so the page never reads an undefined field.
+		const normLatest: ProfileLatestResponse = {
+			available: latest?.available === true,
+			reason: latest?.reason ?? null,
+			snapshot: latest?.snapshot ?? null
+		};
+		const normOverrides: ProfileOverridesResponse = {
+			overrides: overrides?.overrides ?? {},
+			known_keys: overrides?.known_keys ?? {}
+		};
+		const normHistory = Array.isArray(history?.snapshots) ? history.snapshots : [];
+		const normPlayer: PlayerProfileResponse | null = player
+			? {
+					...player,
+					profile: player.profile ?? {},
+					provenance: player.provenance ?? {},
+					versions: player.versions ?? [],
+					pending_proposals: player.pending_proposals ?? []
+				}
+			: null;
+		return { latest: normLatest, history: normHistory, overrides: normOverrides, player: normPlayer, playerError, error: null as string | null };
 	} catch (e) {
 		return {
 			latest: { available: false, reason: 'unavailable', snapshot: null },
@@ -91,17 +117,27 @@ export const actions: Actions = {
 	},
 	savePlayer: async ({ request }) => {
 		const form = await request.formData();
-		let values: unknown;
+		// The form is the whole editable surface; name and metadata pass through from hidden fields unchanged.
+		let metadata: Record<string, unknown> = {};
 		try {
-			values = JSON.parse(String(form.get('values') ?? ''));
+			const raw = String(form.get('metadata') ?? '{}');
+			metadata = JSON.parse(raw) ?? {};
 		} catch {
-			return fail(422, { playerError: 'profile JSON is not valid JSON' });
+			return fail(422, { playerError: 'The saved profile metadata was unreadable. Reload the page and try again.' });
 		}
+		const values = formToValues(form, { name: String(form.get('name') ?? PLAYER), metadata });
+		const fieldErrors = validate(values);
+		if (fieldErrors.length) return fail(422, { fieldErrors, playerError: null as string | null });
 		try {
-			await apiPut(`/api/v2/profile/player/${PLAYER}`, { values });
-			return { playerOk: 'saved (your edits are recorded as stated)' };
+			await apiPut(`/api/v2/profile/player/${PLAYER}`, { values: cleanForSend(values) });
+			return { playerOk: 'Saved. Your edits are recorded as Stated.' };
 		} catch (e) {
-			return fail(422, { playerError: e instanceof Error ? e.message : 'save failed' });
+			if (e instanceof ApiError && e.status === 422) {
+				const { fields, unmapped } = mapServerReason(e.message);
+				return fail(422, { fieldErrors: fields, playerError: unmapped.length ? unmapped.join('; ') : fields.length ? null : e.message });
+			}
+			const status = e instanceof ApiError && e.status >= 500 ? e.status : 502;
+			return fail(status, { playerError: e instanceof Error ? e.message : 'save failed' });
 		}
 	},
 	generateProposals: async () => {
@@ -118,7 +154,7 @@ export const actions: Actions = {
 			await apiPost(`/api/v2/profile/player/${PLAYER}/proposals/${id}/confirm`, {});
 			return { playerOk: 'confirmed and applied as learned_from_feedback' };
 		} catch (e) {
-			return fail(409, { playerError: e instanceof Error ? e.message : 'confirm failed' });
+			return fail(409, { proposalError: { id, message: e instanceof ApiError && e.status === 409 ? "You already set this yourself; the suggestion can't overwrite it." : e instanceof Error ? e.message : 'confirm failed' } });
 		}
 	},
 	dismissProposal: async ({ request }) => {

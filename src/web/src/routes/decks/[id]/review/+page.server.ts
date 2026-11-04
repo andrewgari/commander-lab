@@ -7,6 +7,7 @@ import {
 	type SwapFeedback
 } from '#lib/api.ts';
 import type { ReviewDocument } from '#lib/components/review/types.js';
+import type { Part } from '#lib/review/reviewState.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, url }) => {
@@ -29,24 +30,26 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		}
 	}
 
-	let list: ReviewDocumentList;
-	try {
-		list = await apiGet<ReviewDocumentList>(`/api/v2/decks/${encodeURIComponent(params.id)}/review-documents`);
-	} catch (e) {
-		if (e instanceof ApiError && e.status === 404) error(404, 'Deck not found');
-		error(503, e instanceof Error ? e.message : 'Reviews unavailable');
-	}
-	const viewId = doc ?? list.documents.find((d) => d.status === 'ok')?.id ?? list.documents[0]?.id ?? null;
-	let row: ReviewDocumentResponse | null = null;
-	let feedback: Record<string, SwapFeedback> = {};
-	if (viewId) {
+	// Only a missing deck stops the page. Every other failure is a per-part result the page renders (spec §5.3).
+	const part = async <T>(path: string): Promise<Part<T>> => {
 		try {
-			row = await apiGet<ReviewDocumentResponse>(`/api/v2/review-documents/${viewId}`);
-			if (row.status === 'ok') {
-				feedback = (await apiGet<{ feedback: Record<string, SwapFeedback> }>(`/api/v2/review-documents/${viewId}/feedback`)).feedback;
-			}
+			return { ok: true, value: await apiGet<T>(path) };
 		} catch (e) {
-			if (!(e instanceof ApiError && e.status === 404)) error(503, e instanceof Error ? e.message : 'Review unavailable');
+			if (e instanceof ApiError) return { ok: false, reason: e.message, status: e.status };
+			return { ok: false, reason: e instanceof Error ? e.message : 'unavailable' };
+		}
+	};
+	const list = await part<ReviewDocumentList>(`/api/v2/decks/${encodeURIComponent(params.id)}/review-documents`);
+	if (!list.ok && list.status === 404) error(404, 'Deck not found');
+	const documents = list.ok ? list.value.documents : [];
+	const viewId = doc ?? documents.find((d) => d.status === 'ok')?.id ?? documents[0]?.id ?? null;
+	let row: Part<ReviewDocumentResponse> | null = null;
+	let feedback: Part<Record<string, SwapFeedback>> | null = null;
+	if (viewId) {
+		row = await part<ReviewDocumentResponse>(`/api/v2/review-documents/${viewId}`);
+		if (row.ok && row.value.status === 'ok') {
+			const f = await part<{ feedback: Record<string, SwapFeedback> }>(`/api/v2/review-documents/${viewId}/feedback`);
+			feedback = f.ok ? { ok: true, value: f.value.feedback } : f;
 		}
 	}
 	return {
@@ -54,7 +57,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		deckId: params.id,
 		list,
 		row,
-		document: (row?.status === 'ok' ? row.doc : null) as unknown as ReviewDocument | null,
+		document: (row?.ok && row.value.status === 'ok' ? row.value.doc : null) as unknown as ReviewDocument | null,
 		feedback
 	};
 };

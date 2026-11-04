@@ -93,6 +93,11 @@ services:
       - "8011:3000"
     environment:
       - COMMANDER_API_URL=http://app:8000
+      # adapter-node ignores ORIGIN here and assumes https for its own origin, so form POSTs (Games import)
+      # served over plain http are rejected with 403. When a reverse proxy fronts this container, have it send
+      # X-Forwarded-Proto / X-Forwarded-Host and uncomment these two:
+      # - PROTOCOL_HEADER=x-forwarded-proto
+      # - HOST_HEADER=x-forwarded-host
     depends_on:
       - app
     networks:

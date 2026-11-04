@@ -647,3 +647,30 @@ class ReviewSwapFeedback(BaseModel):
 
 class ReviewFeedbackResponse(BaseModel):
     feedback: dict[str, ReviewSwapFeedback] = Field(description="latest decision per swap id")
+
+
+class CardSearchHit(BaseModel):
+    """One result of GET /api/v2/cards/search (docs/ui/card-search.md §2.1)."""
+    oracle_id: str
+    name: str
+    mana_cost: str = ""
+    cmc: float = 0
+    type_line: str = ""
+    color_identity: list[str] = Field(default_factory=list)
+    rarity: str = ""
+    oracle_text: str = ""
+    image: str = ""
+    owned_qty: int = 0      # in_collection + in_deck + in_mail; never not_owned
+    free_qty: int = 0       # in_collection
+    can_be_commander: bool = False
+    pairing: Optional[str] = None
+
+
+class CardSearchResponse(BaseModel):
+    results: list[CardSearchHit]
+    page: int
+    has_more: bool
+    total: Optional[int] = None
+    query: str
+    source: str             # scryfall | cache | local
+    degraded: bool = False

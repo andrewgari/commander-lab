@@ -304,6 +304,152 @@ def abandon_brew(r: Any, session_id: str, reason: str = "") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Draft editing (add / remove one card on the brewed list)
+# ---------------------------------------------------------------------------
+
+class BrewEditError(ValueError):
+    """A refused draft edit. `code` is a stable machine-readable reason and
+    `status` the HTTP status the route should answer with."""
+
+    def __init__(self, code: str, message: str, status: int):
+        super().__init__(message)
+        self.code = code
+        self.status = status
+
+
+def _editable_draft(session: Optional[dict], session_id: str) -> dict:
+    if not session:
+        raise BrewEditError("session_not_found", f"session not found: {session_id}", 404)
+    drafts = session.get("drafts") or []
+    if session.get("status") != STATUS_DRAFTS_READY or not drafts:
+        raise BrewEditError(
+            "brew_not_editable",
+            f"cards can only be edited while the session is '{STATUS_DRAFTS_READY}' "
+            f"(status is '{session.get('status')}')",
+            409,
+        )
+    return drafts[0]
+
+
+def _catalog_name(r: Any, oracle_id: str) -> Optional[str]:
+    """Name of the `card:{oracle_id}` catalog record, if there is one."""
+    raw = r.get(f"card:{oracle_id}")
+    if not raw:
+        return None
+    try:
+        rec = json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+    name = rec.get("name") if isinstance(rec, dict) else None
+    return name if isinstance(name, str) and name.strip() else None
+
+
+def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
+    """Re-tier and re-cost every draft card against the CURRENT pools and
+    refresh the draft totals (the same step the builder ends with). Each card
+    keeps its other fields (rationale, oracle_id, ...)."""
+    cards = draft.get("cards") or []
+    pools = _build_pools(r, session)
+    costed = reconstruct_pools.compute_deck_cost(
+        cards, pools, price_lookup=reconstruct_pools.redis_price_lookup(r)
+    )
+    # compute_deck_cost works on the merged-by-name list; draft names are unique.
+    by_key = {reconstruct_pools.norm_name(cc.name): cc for cc in costed.cards}
+    merged = []
+    for card in cards:
+        cc = by_key.get(reconstruct_pools.norm_name(card.get("name", "")))
+        merged.append({**card, **cc.to_draft_card(rationale=card.get("rationale", ""))} if cc else card)
+    draft["cards"] = merged
+    draft["total_new_cost"] = costed.total_new_cost
+    draft["is_complete"] = costed.is_complete
+    draft["unpriced_cards"] = list(costed.unpriced_cards)
+
+
+def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:
+    """Add `qty` copies of a card to the brew draft and re-tier from pools.
+
+    Singleton: a non-basic card already in the draft (matched on oracle_id or
+    name) is refused (409), and so is qty > 1 of a non-basic. Basic lands stack.
+    Returns the updated draft. Only a `drafts_ready` session is editable."""
+    session = get_session(r, session_id)
+    draft = _editable_draft(session, session_id)
+    assert session is not None
+
+    oracle_id, name = (oracle_id or "").strip(), (name or "").strip()
+    if not oracle_id or not name:
+        raise BrewEditError("invalid_card", "oracle_id and name are required", 422)
+    if not isinstance(qty, int) or qty < 1:
+        raise BrewEditError("invalid_card", "qty must be a positive integer", 422)
+    name = _catalog_name(r, oracle_id) or name  # the catalog is the source of truth for a name
+    key = reconstruct_pools.norm_name(name)
+
+    cards = draft.setdefault("cards", [])
+    existing = next(
+        (c for c in cards
+         if c.get("oracle_id") == oracle_id or reconstruct_pools.norm_name(c.get("name", "")) == key),
+        None,
+    )
+    is_basic = name in reconstruct_pools.BASIC_LAND_NAMES
+    if not is_basic:
+        if existing is not None:
+            raise BrewEditError("duplicate_card", f"{name} is already in the brew (singleton)", 409)
+        if qty > 1:
+            raise BrewEditError(
+                "duplicate_card", f"{name} is not a basic land: only 1 copy is allowed (singleton)", 409
+            )
+
+    if existing is not None:
+        existing["quantity"] = int(existing.get("quantity", 1) or 0) + qty
+        existing.setdefault("oracle_id", oracle_id)
+    else:
+        cards.append({
+            "name": name, "quantity": qty, "oracle_id": oracle_id,
+            "tier": 3, "tier_label": "new", "cost": 0.0,
+            "rationale": "Added by hand",
+        })
+    _recompute_draft(r, session, draft)
+    session["drafts"][0] = draft
+    session["updated_at"] = _now()
+    _save_session(r, session)
+    return draft
+
+
+def remove_draft_card(r: Any, session_id: str, oracle_id: str) -> dict:
+    """Remove a card (the whole line, any quantity) from the brew draft and
+    re-tier from pools. The commander cannot be removed. Returns the draft."""
+    session = get_session(r, session_id)
+    draft = _editable_draft(session, session_id)
+    assert session is not None
+
+    oracle_id = (oracle_id or "").strip()
+    cards = draft.get("cards") or []
+    catalog_key = None
+    match = next((c for c in cards if c.get("oracle_id") == oracle_id), None)
+    if match is None:
+        # Builder-written cards carry no oracle_id: resolve it to a name instead.
+        catalog_name = _catalog_name(r, oracle_id)
+        catalog_key = reconstruct_pools.norm_name(catalog_name) if catalog_name else None
+        match = next(
+            (c for c in cards
+             if catalog_key and reconstruct_pools.norm_name(c.get("name", "")) == catalog_key),
+            None,
+        )
+    if match is None:
+        raise BrewEditError("card_not_in_draft", f"no card with oracle_id {oracle_id!r} in the brew", 404)
+
+    commanders = {reconstruct_pools.norm_name(c) for c in (draft.get("commanders") or session.get("commanders") or [])}
+    if reconstruct_pools.norm_name(match.get("name", "")) in commanders:
+        raise BrewEditError("cannot_remove_commander", f"{match.get('name')} is the commander", 409)
+
+    draft["cards"] = [c for c in cards if c is not match]
+    _recompute_draft(r, session, draft)
+    session["drafts"][0] = draft
+    session["updated_at"] = _now()
+    _save_session(r, session)
+    return draft
+
+
+# ---------------------------------------------------------------------------
 # Pools
 # ---------------------------------------------------------------------------
 
