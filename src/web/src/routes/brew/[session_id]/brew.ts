@@ -1,4 +1,5 @@
 // Pure helpers for the brew construct page (docs/ui/card-search.md §6).
+import type { Color } from '#lib/card-search/types.ts';
 import type { BrewLine } from './+page.server.ts';
 
 export interface TierGroup {
@@ -37,4 +38,17 @@ export function inListByOracle(cards: readonly BrewLine[]): Map<string, number> 
 
 export function isCommander(line: BrewLine, commanders: readonly string[]): boolean {
 	return commanders.some((n) => n.toLowerCase() === line.name.toLowerCase());
+}
+
+/** A known colorless identity is `[]`, which the search module reads as "no restriction"; send `C` instead. Unknown stays unrestricted. */
+export function searchIdentity(identity: Color[] | undefined): Color[] | undefined {
+	return identity && identity.length === 0 ? ['C'] : identity;
+}
+
+/** Classic (Jinja) brew page. Without a configured origin, the compose layout puts the web app on :8011 and the app on :8010. */
+export function legacyHref(origin: string, here: { protocol: string; hostname: string; port: string }, sessionId: string): string {
+	const path = `/brew/${encodeURIComponent(sessionId)}`;
+	if (origin) return origin + path;
+	if (here.port === '8011') return `${here.protocol}//${here.hostname}:8010${path}`;
+	return path;
 }

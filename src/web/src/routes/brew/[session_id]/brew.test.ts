@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByTier, inListByOracle, isCommander } from './brew.ts';
+import { groupByTier, inListByOracle, isCommander, legacyHref, searchIdentity } from './brew.ts';
 
 const L = (name: string, tier: number, quantity = 1, oracle_id: string | null = `o-${name}`) => ({ name, tier, tier_label: '', quantity, oracle_id });
 
@@ -21,5 +21,15 @@ describe('brew helpers', () => {
 	it('recognises the commander case-insensitively', () => {
 		expect(isCommander(L('Atraxa', 1), ['atraxa'])).toBe(true);
 		expect(isCommander(L('Sol Ring', 2), ['Atraxa'])).toBe(false);
+	});
+	it('colorless identity searches as C; unknown stays unrestricted', () => {
+		expect(searchIdentity([])).toEqual(['C']);
+		expect(searchIdentity(undefined)).toBeUndefined();
+		expect(searchIdentity(['G'])).toEqual(['G']);
+	});
+	it('legacy link: configured origin wins, compose ports are mapped, else relative', () => {
+		expect(legacyHref('https://old.example', new URL('http://h:8011/brew/s'), 's')).toBe('https://old.example/brew/s');
+		expect(legacyHref('', new URL('http://h:8011/brew/s'), 's')).toBe('http://h:8010/brew/s');
+		expect(legacyHref('', new URL('http://h/brew/s'), 's')).toBe('/brew/s');
 	});
 });

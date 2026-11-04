@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
+vi.mock('$app/state', () => ({ page: { url: new URL('http://x:8011/brew/s1') } }));
 vi.mock('$app/forms', () => ({
 	deserialize: (text: string) => JSON.parse(text)
 }));
@@ -11,7 +12,7 @@ const L = (name: string, tier: number, oracle_id: string) => ({ name, quantity: 
 const base = [L('Atraxa', 1, 'o-atraxa'), L('Sol Ring', 2, 'o-sol')];
 const data = (status = 'drafts_ready') => ({
 	sessionId: 's1', status, name: 'Atraxa brew', commanders: ['Atraxa'], ownedDefault: 'owned', identity: ['W', 'U', 'B', 'G'],
-	cards: base, legacyUrl: '/brew/s1'
+	cards: base, legacyOrigin: ''
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mount = (d = data()) => render(Page as any, { data: d });
@@ -28,7 +29,7 @@ describe('brew page', () => {
 		expect(screen.getByTestId('tier-2').textContent).toContain('Sol Ring');
 		expect(screen.queryByRole('button', { name: 'Remove Atraxa' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Remove Sol Ring' })).toBeTruthy();
-		expect(screen.getByTestId('legacy-link').getAttribute('href')).toBe('/brew/s1');
+		expect(screen.getByTestId('legacy-link').getAttribute('href')).toBe('http://x:8010/brew/s1');
 	});
 	it('remove posts to ?/remove and renders the recomputed list', async () => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ type: 'success', status: 200, data: { cards: [base[0]] } })));

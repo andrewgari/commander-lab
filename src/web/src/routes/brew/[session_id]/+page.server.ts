@@ -20,7 +20,7 @@ export interface BrewSession {
 	commanders?: string[];
 	build_mode?: string;
 	color_identity?: string[];
-	drafts?: { cards?: BrewLine[]; commanders?: string[] }[];
+	drafts?: { name?: string; cards?: BrewLine[]; commanders?: string[] }[];
 }
 
 const COLORS = ['W', 'U', 'B', 'R', 'G', 'C'];
@@ -62,12 +62,13 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 	return {
 		sessionId: params.session_id,
 		status: session.status,
-		name: session.name ?? '',
+		name: session.name ?? draft?.name ?? '',
 		commanders,
 		ownedDefault: session.build_mode === 'best_build' ? ('any' as const) : ('owned' as const),
 		identity,
 		cards: (draft?.cards ?? []) as BrewLine[],
-		legacyUrl: `${process.env.COMMANDER_LEGACY_URL ?? ''}/brew/${encodeURIComponent(params.session_id)}`
+		// Origin of the classic (Jinja) app. Empty = derive in the browser (compose: web :8011 -> app :8010).
+		legacyOrigin: (process.env.COMMANDER_LEGACY_URL ?? '').replace(/\/$/, '')
 	};
 };
 
