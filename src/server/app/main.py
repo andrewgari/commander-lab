@@ -878,7 +878,7 @@ async def export_deck_api(request: Request):
             deck_export.export_decklist, data.get("name"), data.get("cards") or [],
             data.get("commanders") or [], data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -893,7 +893,7 @@ async def export_reconstruct_draft(session_id: str, draft_index: int, request: R
         out = await asyncio.to_thread(
             deck_export.export_draft, r, session_id, draft_index, data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -1474,7 +1474,7 @@ async def deck_sync_push(deck_id: str, request: Request):
     credential env var is unset. Explicit user action only."""
     data = await _sync_body(request)
     provider = data.get("provider") or None
-    dry_run = bool(data.get("dry_run"))
+    dry_run = bool(data.get("dry_run", True))
     try:
         return await asyncio.to_thread(deck_sync.push_deck, r, deck_id, provider, dry_run)
     except DeckSyncError as e:
@@ -6365,7 +6365,7 @@ async def import_collection(request: Request):
         data = {}
 
     username = (data or {}).get("username")
-    dry_run = bool((data or {}).get("dry_run", False))
+    dry_run = bool((data or {}).get("dry_run", True))
 
     try:
         result = collection.import_collection(r, username=username, dry_run=dry_run)
@@ -6425,7 +6425,7 @@ async def run_transcribe(request: Request):
             folder_name=data.get("folder", transcribe.DEFAULT_FOLDER_NAME),
             visibility=data.get("visibility", transcribe.DEFAULT_VISIBILITY),
             force=bool(data.get("force", False)),
-            dry_run=bool(data.get("dry_run", False)),
+            dry_run=bool(data.get("dry_run", True)),
         )
     except MoxfieldAuthError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
@@ -6461,7 +6461,7 @@ async def run_archive(request: Request):
             prefix=data.get("prefix", archive.DEFAULT_PREFIX),
             visibility=data.get("visibility", archive.DEFAULT_VISIBILITY),
             skip_transcribed=bool(data.get("skip_transcribed", True)),
-            dry_run=bool(data.get("dry_run", False)),
+            dry_run=bool(data.get("dry_run", True)),
         )
     except MoxfieldAuthError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})

@@ -121,7 +121,7 @@ def archive_all(
     prefix: str = DEFAULT_PREFIX,
     visibility: Optional[str] = DEFAULT_VISIBILITY,
     skip_transcribed: bool = True,
-    dry_run: bool = False,
+    dry_run: bool = True,
     client=None,
 ) -> dict:
     """Rename + re-file every existing Moxfield deck into an archive folder.
