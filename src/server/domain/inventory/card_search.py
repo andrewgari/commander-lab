@@ -40,6 +40,20 @@ TTL_EMPTY_SECONDS = 60               # an empty result recovers fast
 
 DEFAULT_LIMIT = 8
 MAX_LIMIT = 20
+MAX_LIMIT_COMMANDERS = 100  # commander picker shows every match, not a page of 8
+
+# Durable local commander-name pool (the offline fallback's dataset). The
+# prod incident: the fallback only searched card_meta:* (owned cards, ~2.4k),
+# and the 24h commander-eligible set had expired, so any commander you do not
+# own ("atraxa") matched nothing. The pool is refreshed in the background
+# after every healthy search and has no TTL, so it outlives a 429 window.
+POOL_KEY = "cards:commander_pool:names"
+POOL_REFRESHED_KEY = "cards:commander_pool:refreshed_at"  # last COMPLETE pull
+POOL_ATTEMPT_KEY = "cards:commander_pool:attempted_at"  # last try, ok or not
+POOL_REFRESH_AFTER_SECONDS = 7 * 24 * 60 * 60
+POOL_RETRY_SECONDS = 300
+POOL_MAX_PAGES = 40
+_pool_refreshing = False
 
 
 # Upstream backoff. A 429/5xx from Scryfall is an outage, not "no match":
@@ -143,14 +157,14 @@ def _write_cache(r, scope, query, results):
         pass
 
 
-def _clamp_limit(limit):
+def _clamp_limit(limit, cap=MAX_LIMIT):
     if limit is None:
         return None
     try:
         n = int(limit)
     except (TypeError, ValueError):
         return DEFAULT_LIMIT
-    return max(1, min(n, MAX_LIMIT))
+    return max(1, min(n, cap))
 
 
 def _shape_card(c):
@@ -218,6 +232,164 @@ def _local_matches(r, query, limit, legendary_only=False):
     return out
 
 
+# ---------------------------------------------------------------------------
+# local commander pool (offline fallback for the commander scope)
+# ---------------------------------------------------------------------------
+
+def _text(v):
+    return v.decode() if isinstance(v, bytes) else str(v)
+
+
+def _read_pool(r):
+    """Durable snapshot of commander-eligible card names ([] when unseeded)."""
+    try:
+        raw = r.get(POOL_KEY)
+        if raw:
+            names = json.loads(_text(raw))
+            if isinstance(names, list):
+                return [n for n in names if isinstance(n, str)]
+    except Exception:
+        pass
+    return []
+
+
+def _pull_pool_names():
+    """Page Scryfall for every commander-legal commander. Blocking; raises on
+    any failure so a partial pull is never written."""
+    names = []
+    params = {"q": commander_set.ELIGIBLE_QUERY, "unique": "cards", "order": "name"}
+    url = SCRYFALL_SEARCH
+    for _ in range(POOL_MAX_PAGES):
+        resp = _get(url, params=params, headers=_headers("commanders"), timeout=8.0)
+        params = None
+        if resp.status_code != 200:
+            raise ValueError(f"pool pull status {resp.status_code}")
+        payload = resp.json()
+        names.extend(c.get("name") for c in payload.get("data") or [] if c.get("name"))
+        if not payload.get("has_more"):
+            return names
+        url = payload.get("next_page")
+        if not url:
+            return names
+        time.sleep(0.1)  # Scryfall's 10 req/s guidance
+    raise ValueError("pool pull did not terminate")
+
+
+def _refresh_pool(r):
+    """Rebuild the durable pool if missing/stale. Never raises."""
+    global _pool_refreshing
+    try:
+        try:
+            at = float(_text(r.get(POOL_REFRESHED_KEY) or 0))
+        except Exception:
+            at = 0.0
+        age = time.time() - at
+        if _read_pool(r) and age < POOL_REFRESH_AFTER_SECONDS:
+            return
+        try:
+            tried = float(_text(r.get(POOL_ATTEMPT_KEY) or 0))
+        except Exception:
+            tried = 0.0
+        if tried and time.time() - tried < POOL_RETRY_SECONDS:
+            return  # a recent attempt (success or failure) already ran
+        # Record the attempt first so a failing upstream is retried every
+        # POOL_RETRY_SECONDS, not on every keystroke.
+        r.set(POOL_ATTEMPT_KEY, str(time.time()))
+        names = _pull_pool_names()
+        if names:
+            r.set(POOL_KEY, json.dumps(sorted(set(names), key=str.casefold)))
+            # Freshness only advances after a complete pool is stored.
+            r.set(POOL_REFRESHED_KEY, str(time.time()))
+    except Exception:
+        pass
+    finally:
+        _pool_refreshing = False
+
+
+def _schedule_pool_refresh(r):
+    """Fire-and-forget refresh after a healthy search; the user's request does
+    not wait for it."""
+    global _pool_refreshing
+    if _pool_refreshing:
+        return
+    try:
+        if _read_pool(r):
+            at = float(_text(r.get(POOL_REFRESHED_KEY) or 0))
+            if time.time() - at < POOL_REFRESH_AFTER_SECONDS:
+                return
+        loop = asyncio.get_running_loop()
+    except Exception:
+        return
+    _pool_refreshing = True
+    loop.create_task(asyncio.to_thread(_refresh_pool, r))
+
+
+def _commander_pool(r):
+    """Every commander name we can offer offline: the durable snapshot, the
+    catalog names that the (24h) eligible set vouches for, and eligible
+    owned cards from card_meta. Proper-cased, de-duplicated."""
+    seen = {}
+    for n in _read_pool(r):
+        seen.setdefault(n.casefold(), n)
+    try:
+        eligible = {_text(m) for m in r.smembers(commander_set.NAMES_KEY)}
+    except Exception:
+        eligible = set()
+    if eligible:
+        try:
+            raw = r.get(CATALOG_KEY)
+            catalog = json.loads(_text(raw)) if raw else []
+        except Exception:
+            catalog = []
+        for n in catalog:
+            if isinstance(n, str) and (n.casefold() in eligible
+                                       or n.casefold().split(" // ")[0] in eligible):
+                seen.setdefault(n.casefold(), n)
+    return seen
+
+
+def _name_similarity(query, name):
+    """Best alignment of the query against the whole name or any one word
+    ("gitrg" aligns with "gitrog" inside "The Gitrog Monster")."""
+    import difflib
+    import re
+
+    name_cf = name.casefold()
+    best = difflib.SequenceMatcher(None, query, name_cf).ratio()
+    for word in re.split(r"[^a-z0-9']+", name_cf):
+        if word:
+            best = max(best, difflib.SequenceMatcher(None, query, word).ratio())
+    return best
+
+
+def _local_commander_matches(r, query, limit):
+    """Offline commander search: substring matches first (shortest/alphabetical),
+    then, only when nothing contains the query, typo-tolerant matches ranked by
+    per-word edit similarity (same 0.7 floor / 0.15 band as the online path).
+    Owned-card rows keep their card_meta enrichment. Never raises."""
+    ql = query.casefold()
+    pool = _commander_pool(r)
+    # Eligible owned cards (and their richer card_meta shape) join the pool.
+    owned = {}
+    for row in _local_matches(r, query, None, legendary_only=True):
+        owned[row["name"].casefold()] = row
+        pool.setdefault(row["name"].casefold(), row["name"])
+
+    def shape(name):
+        return owned.get(name.casefold()) or _shape_local(name, _local_meta(r, name))
+
+    hits = sorted((n for k, n in pool.items() if ql in k), key=lambda n: n.casefold())
+    if not hits and len(ql) >= 3:
+        scored = sorted(((_name_similarity(ql, n), n) for n in pool.values()),
+                        key=lambda t: (-t[0], t[1].casefold()))
+        if scored and scored[0][0] >= 0.7:
+            floor = max(0.7, scored[0][0] - 0.15)
+            hits = [n for sc, n in scored if sc >= floor]
+    if limit is not None:
+        hits = hits[:limit]
+    return [shape(n) for n in hits]
+
+
 async def search_commanders(r, query, limit=None):
     """Scryfall-backed, ranked commander search with a short-lived cache.
 
@@ -230,7 +402,7 @@ async def search_commanders(r, query, limit=None):
     shared autocomplete policy.
     """
     scope = "commanders"
-    limit = _clamp_limit(limit)
+    limit = _clamp_limit(limit, MAX_LIMIT_COMMANDERS)
 
     cached = _read_cache(r, scope, query)
     if cached is not None:
@@ -246,7 +418,7 @@ async def search_commanders(r, query, limit=None):
     pages_fetched = 0
     page_urls = set()
     try:
-        while url and fetched < 40 and pages_fetched < 20 and url not in page_urls:
+        while url and fetched < MAX_LIMIT_COMMANDERS and pages_fetched < 20 and url not in page_urls:
             page_urls.add(url)
             pages_fetched += 1
             resp = _get(url, params=params, headers=headers, timeout=8.0)
@@ -259,9 +431,9 @@ async def search_commanders(r, query, limit=None):
                 if cid:
                     candidates[cid] = card
                     fetched += 1
-                    if fetched >= 40:
+                    if fetched >= MAX_LIMIT_COMMANDERS:
                         break
-            url = payload.get("next_page") if payload.get("has_more") and fetched < 40 else None
+            url = payload.get("next_page") if payload.get("has_more") and fetched < MAX_LIMIT_COMMANDERS else None
         if url:
             params = None  # Scryfall next_page is a complete URL
 
@@ -386,9 +558,11 @@ async def search_commanders(r, query, limit=None):
     if failed:
         # Degraded path: never cache a failure-derived result, never raise.
         return {
-            "results": _local_matches(r, query, limit, legendary_only=True),
+            "results": _local_commander_matches(r, query, limit),
             "source": "local", "degraded": True,
         }
+
+    _schedule_pool_refresh(r)
 
     def relevant(card):
         text = f"{card.get('name', '')} {card.get('type_line', '')}".casefold()

@@ -245,6 +245,112 @@ class TestCardAutocompleteAPI(unittest.TestCase):
                          ["Spider-Gwen, Ghost-Spider", "Spider-Man, Web-Slinger"])
         self.assertIsNone(self.r.get("cards:autocomplete:commanders:spid"))
 
+    # -- offline commander pool (P0: local fallback returned 0 rows) ---------
+    COMMANDER_POOL = [
+        "Atraxa, Praetors' Voice", "Atraxa, Grand Unifier", "Krenko, Mob Boss",
+        "Muldrotha, the Gravetide", "Kenrith, the Returned King",
+        "The Gitrog Monster", "Spider-Man, Web-Slinger", "Spider-Gwen, Ghost-Spider",
+        "Spiderling Swarm Lord",
+    ] + [f"Spider Fixture {i}" for i in range(12)]
+
+    def _seed_pool(self):
+        # Nothing in card_meta, no eligible set: only the durable pool exists.
+        self.r.set("cards:commander_pool:names", json.dumps(self.COMMANDER_POOL))
+
+    def _offline(self, q, status=429):
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(status, 60)):
+            res = self.client.get(f"/api/brew/commanders?q={q}")
+        return res.json()
+
+    def test_offline_exact_names_return_matches_from_local_pool(self):
+        self._seed_pool()
+        for q, expect in (("atraxa", "Atraxa, Praetors' Voice"), ("krenko", "Krenko, Mob Boss"),
+                          ("muldrotha", "Muldrotha, the Gravetide")):
+            self.card_search._reset_cooldown()
+            payload = self._offline(q)
+            self.assertEqual(payload["source"], "local", q)
+            self.assertIs(payload["degraded"], True, q)
+            self.assertIn(expect, [x["name"] for x in payload["results"]], q)
+            self.assertIsNone(self.r.get(f"cards:autocomplete:commanders:{q}"))
+
+    def test_offline_typos_find_the_right_family(self):
+        self._seed_pool()
+        for q, expect in (("spidr", "Spider-Man, Web-Slinger"), ("atrxa", "Atraxa, Grand Unifier"),
+                          ("gitrg", "The Gitrog Monster"), ("kenith", "Kenrith, the Returned King")):
+            self.card_search._reset_cooldown()
+            names = [x["name"] for x in self._offline(q)["results"]]
+            self.assertIn(expect, names, (q, names))
+        self.card_search._reset_cooldown()
+        self.assertEqual(self._offline("zzqxvwk")["results"], [])
+
+    def test_offline_returns_every_match_not_just_eight(self):
+        self._seed_pool()
+        payload = self._offline("spider")
+        self.assertGreater(len(payload["results"]), 8)
+        self.assertEqual(len(payload["results"]), 15)
+
+    def test_offline_pool_rows_are_selectable_contract_rows(self):
+        self._seed_pool()
+        row = self._offline("krenko")["results"][0]
+        self.assertEqual(row["name"], "Krenko, Mob Boss")
+        for key in ("uid", "oracle_id", "image", "type_line", "color_identity",
+                    "colors", "keywords", "mana_cost"):
+            self.assertIn(key, row)
+
+    def test_healthy_search_seeds_the_pool_without_blocking_the_request(self):
+        self.assertEqual(self.card_search._read_pool(self.r), [])
+        self.card_search._pool_refreshing = False
+        page = {"data": [_card("Atraxa, Praetors' Voice"), _card("Krenko, Mob Boss")], "has_more": False}
+        ok = Mock(status_code=200, headers={}, json=lambda: page)
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            res = self.client.get("/api/brew/commanders?q=atraxa")
+            self.assertEqual(res.json()["source"], "scryfall")
+            # TestClient loop is closed after the request; run the refresh directly.
+            self.card_search._refresh_pool(self.r)
+        self.assertEqual(self.card_search._read_pool(self.r),
+                         ["Atraxa, Praetors' Voice", "Krenko, Mob Boss"])
+
+    def test_failed_pool_refresh_writes_nothing_and_backs_off(self):
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 60)):
+            self.card_search._refresh_pool(self.r)
+        self.assertEqual(self.card_search._read_pool(self.r), [])
+        self.assertIsNotNone(self.r.get("cards:commander_pool:attempted_at"))
+        self.assertIsNone(self.r.get("cards:commander_pool:refreshed_at"))
+
+    def test_failed_refresh_of_stale_pool_retries_after_backoff_not_a_week(self):
+        import time as _t
+        self.r.set(self.card_search.POOL_KEY, json.dumps(["Old Commander"]))
+        stale = str(_t.time() - self.card_search.POOL_REFRESH_AFTER_SECONDS - 10)
+        self.r.set(self.card_search.POOL_REFRESHED_KEY, stale)
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, 60)):
+            self.card_search._refresh_pool(self.r)
+        # failure must not advance freshness
+        self.assertEqual(self.r.get(self.card_search.POOL_REFRESHED_KEY), stale)
+        # ...and a retry after the backoff window runs again
+        self.r.set(self.card_search.POOL_ATTEMPT_KEY, str(_t.time() - 301))
+        self.card_search._reset_cooldown()
+        page = {"data": [_card("New Commander")], "has_more": False}
+        ok = Mock(status_code=200, headers={}, json=lambda: page)
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            self.card_search._refresh_pool(self.r)
+        self.assertEqual(self.card_search._read_pool(self.r), ["New Commander"])
+
+    def test_healthy_commander_search_returns_more_than_40(self):
+        cards = [_card(f"Bulk Fixture {i:03d}") for i in range(60)]
+        ok = Mock(status_code=200, headers={}, json=lambda: {"data": cards, "has_more": False})
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            res = self.client.get("/api/brew/commanders?q=bulk&limit=100")
+        self.assertEqual(len(res.json()["results"]), 60)
+
+    def test_commanders_limit_above_20_is_honoured(self):
+        cards = [_card(f"Spider Fixture {i:02d}") for i in range(35)]
+        ok = Mock(status_code=200, headers={}, json=lambda: {"data": cards, "has_more": False})
+        with patch.object(self.app_module.httpx, "get", return_value=ok):
+            res = self.client.get("/api/brew/commanders?q=spider")
+            res2 = self.client.get("/api/cards/autocomplete?q=spider&commanders_only=true&limit=100")
+        self.assertEqual(len(res.json()["results"]), 35)
+        self.assertEqual(len(res2.json()["results"]), 35)
+
     def test_5xx_commanders_falls_back_to_local_degraded_and_uncached(self):
         self._seed_spider_commanders()
         for code in (500, 503):
