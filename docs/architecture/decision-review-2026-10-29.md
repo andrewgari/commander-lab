@@ -114,15 +114,16 @@ The new design is in the same spirit as the AGE plan:
 
 ## 5. Schema placement: change
 
-Live finding on the dev database (`commander-lab-db` on the Framework): all
+Historical finding (since fixed, see follow-up 1) on the dev database (`commander-lab-db` on the Framework): all
 14 app tables, including `alembic_version`, `decks`, `cards` and
 `card_instances`, were created in **`ag_catalog`**. That's because
 `00-extensions.sql` sets the database `search_path` to
 `ag_catalog, "$user", public`, and Alembic creates tables in the first
-schema on that path. `docs/DERIVED_INDEXES.md` notes this without fixing it.
-CI runs `postgres:16-alpine`, which has no AGE, so the same migrations
-create the tables in `public` there. Dev and CI therefore have different
-schemas.
+schema on that path. `docs/DERIVED_INDEXES.md` originally noted this without fixing it.
+CI then ran `postgres:16-alpine`, which has no AGE, so the same migrations
+created the tables in `public` there; dev and CI had different schemas.
+Both are now fixed in code (follow-ups 1 and 3); deployment verification
+on dev is tracked separately.
 
 Problems:
 
@@ -142,20 +143,16 @@ becomes a data migration.
 
 These are listed in order, and all must land before the prod `PG_CUTOVER`.
 
-1. **coder**: write a migration that moves app tables from `ag_catalog` to
-   `public` where they exist (`ALTER TABLE … SET SCHEMA public`, a no-op
-   when they're already in `public`). Pin the schema explicitly in Alembic
-   (`version_table_schema="public"`) and make connections use
-   `"$user", public`. Update `docs/DERIVED_INDEXES.md`.
+1. **coder** (implemented: migration `a012_app_tables_to_public`, Alembic pins `public.alembic_version`, connections pin `"$user", public`, `docs/DERIVED_INDEXES.md` updated): move app tables from `ag_catalog` to `public`. Deployment verification on dev remains a separate step.
 2. **tower**: rebuild the db image without AGE. That means pgvector only,
    or the stock `pgvector/pgvector:pg17` image. Drop
    `shared_preload_libraries=age` and the `ag_catalog` `search_path` line in
-   `docker/db/init/00-extensions.sql`. Run `DROP EXTENSION age` on the dev
+   `docker/db/init/00-extensions.sql` (this only affects new databases,
+   since init runs on empty PGDATA only). On each existing dev/prod database also run
+   `ALTER DATABASE commander_lab SET search_path TO "$user", public`. Run `DROP EXTENSION age` on the dev
    and prod databases, which are empty of graphs. This must come after #1
    on dev.
-3. **coder**: change the CI Postgres service from `postgres:16-alpine` to
-   `pgvector/pgvector:pg17` so the pgvector tests run in CI instead of
-   being skipped.
+3. **coder** (implemented: `.github/workflows/ci.yml` uses a digest-pinned `pgvector/pgvector:pg17` and fails the derived-index job if pgvector tests are skipped).
 4. **coder** (when the graph features in Slice 6 PR2 are picked up): build
    `src/server/infra/graph/` with recursive CTEs as described in §4, plus
    the `index_rebuild graph` edge rebuild.
