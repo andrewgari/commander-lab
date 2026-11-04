@@ -39,7 +39,7 @@ Two guarantees, both enforced in code and covered by tests:
 
 ```
 python scripts/archive_moxfield_decks.py --dry-run   # always do this first
-python scripts/archive_moxfield_decks.py
+python scripts/archive_moxfield_decks.py --live
 ```
 
 Options:
