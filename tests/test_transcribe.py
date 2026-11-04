@@ -332,6 +332,27 @@ class TestTranscribeWrites(TranscribeTestBase):
         self.assertIn("description_error", result)
         self.assertIsNotNone(transcribe.get_mapping(self.r, "archidekt:1"))
 
+    def test_mapping_saved_before_description_so_retry_does_not_duplicate(self):
+        self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
+
+        class Boom(Exception):
+            pass
+
+        client = FakeMoxfieldClient()
+
+        def explode(*a, **k):
+            raise Boom()
+
+        client.update_deck_description = explode
+        with self.assertRaises(Boom):
+            transcribe.transcribe_all(self.r, client=client, dry_run=False)
+        self.assertIsNotNone(transcribe.get_mapping(self.r, "archidekt:1"))
+
+        retry = FakeMoxfieldClient()
+        report = transcribe.transcribe_all(self.r, client=retry, dry_run=False)
+        self.assertEqual(retry.created, [])
+        self.assertEqual(report["results"][0]["action"], "skipped_already")
+
     def test_empty_decklist_is_reported_not_pushed(self):
         self.set_decks([deck("Empty", cards=[], commanders=(), registry_id="archidekt:1")])
         report = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)

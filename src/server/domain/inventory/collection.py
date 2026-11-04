@@ -112,8 +112,11 @@ def reconcile(r, rows: list, dry_run: bool = False) -> dict:
         if not row.get("card_name") or row.get("quantity", 0) <= 0:
             continue
         sig = printing_signature(row)
-        entry = wanted.setdefault(sig, {"row": row, "quantity": 0})
+        entry = wanted.setdefault(sig, {"row": row, "quantity": 0, "copies": []})
         entry["quantity"] += row["quantity"]
+        # One entry per physical copy, so each keeps its own row's
+        # condition / price / acquisition date.
+        entry["copies"].extend([row] * row["quantity"])
 
     card_names = {sig[0] for sig in wanted}
     local = _index_local_by_signature(r, card_names)
@@ -129,8 +132,12 @@ def reconcile(r, rows: list, dry_run: bool = False) -> dict:
         "dry_run": dry_run,
     }
 
+    # Dry-run mirror of _promote_placeholder: how many not_owned placeholders
+    # each card still has, so the preview reports promoted vs created exactly
+    # as the live import would.
+    placeholders_left = {}
+
     for sig, entry in wanted.items():
-        row = entry["row"]
         want = entry["quantity"]
         have = len(local.get(sig, []))
         report["already_present"] += min(have, want)
@@ -140,10 +147,18 @@ def reconcile(r, rows: list, dry_run: bool = False) -> dict:
             continue
 
         if dry_run:
-            report["created"] += shortfall
+            name = entry["row"]["card_name"]
+            if name not in placeholders_left:
+                placeholders_left[name] = len(instance_store.list_instances(
+                    r, card_name=name, ownership_status="not_owned"
+                ))
+            promote = min(shortfall, placeholders_left[name])
+            placeholders_left[name] -= promote
+            report["promoted"] += promote
+            report["created"] += shortfall - promote
             continue
 
-        for _ in range(shortfall):
+        for row in entry["copies"][have:have + shortfall]:
             promoted = _promote_placeholder(r, row["card_name"])
             if promoted:
                 instance_store.update_instance_fields(

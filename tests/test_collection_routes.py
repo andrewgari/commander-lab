@@ -169,3 +169,23 @@ class TestCollectionImportRoute(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestImportRunsOffEventLoop(unittest.TestCase):
+    @patch("src.server.app.main.collection")
+    def test_sync_import_runs_in_worker_thread(self, mock_collection):
+        import asyncio
+        seen = {}
+
+        def fake_import(*args, **kwargs):
+            try:
+                asyncio.get_running_loop()
+                seen["on_loop"] = True
+            except RuntimeError:
+                seen["on_loop"] = False
+            return {"username": "u", "report": REPORT, "synced_at": None}
+
+        mock_collection.import_collection.side_effect = fake_import
+        response = TestClient(app).post("/api/collection/import", json={"dry_run": True})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(seen["on_loop"], "blocking import must not run on the event loop")

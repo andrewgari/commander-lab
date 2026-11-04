@@ -224,6 +224,33 @@ class TestReconcilePlaceholders(CollectionTestBase):
         self.assertEqual(len(self.owned("Sol Ring")), 3)
 
 
+class TestCollapsedPrintingsKeepPerCopyDetails(CollectionTestBase):
+    def test_each_copy_keeps_its_own_condition_and_price(self):
+        rows = [
+            row(quantity=1, condition="NM", price_paid=1.0, date_acquired="2024-01-01"),
+            row(quantity=1, condition="LP", price_paid=9.0, date_acquired="2025-06-06"),
+        ]
+        collection.reconcile(self.r, rows)
+        got = sorted(
+            (i["condition"], i["price_paid"], i["date_acquired"])
+            for i in self.owned("Sol Ring")
+        )
+        self.assertEqual(got, [("LP", 9.0, "2025-06-06"), ("NM", 1.0, "2024-01-01")])
+
+
+class TestDryRunMatchesLiveWithPlaceholders(CollectionTestBase):
+    def test_preview_counts_wishlist_promotion_like_live(self):
+        instance_store.create_instance(
+            self.r, card_name="Sol Ring", ownership_status="not_owned"
+        )
+        preview = collection.reconcile(self.r, [row(quantity=3)], dry_run=True)
+        self.assertEqual(self.owned("Sol Ring"), [])
+        live = collection.reconcile(self.r, [row(quantity=3)])
+        for key in ("promoted", "created", "already_present"):
+            self.assertEqual(preview[key], live[key], key)
+        self.assertEqual((live["promoted"], live["created"]), (1, 2))
+
+
 class TestReconcileSurplus(CollectionTestBase):
     def test_local_only_copies_are_reported_not_deleted(self):
         collection.reconcile(self.r, [row(quantity=3)])

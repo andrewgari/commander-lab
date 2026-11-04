@@ -6368,7 +6368,9 @@ async def import_collection(request: Request):
     dry_run = bool((data or {}).get("dry_run", True))
 
     try:
-        result = collection.import_collection(r, username=username, dry_run=dry_run)
+        result = await asyncio.to_thread(
+            collection.import_collection, r, username=username, dry_run=dry_run
+        )
     except archidekt_collection.CollectionAuthError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     except (archidekt_collection.CollectionFetchError, collection.CollectionImportError) as e:
@@ -6387,7 +6389,7 @@ async def import_collection(request: Request):
 @app.get("/api/transcribe/moxfield")
 async def get_transcribe_status():
     """Which physical decks are eligible, and which are already on Moxfield."""
-    decks = transcribe.eligible_decks(r)
+    decks = await asyncio.to_thread(transcribe.eligible_decks, r)
     return {
         "folder": transcribe.DEFAULT_FOLDER_NAME,
         "visibility": transcribe.DEFAULT_VISIBILITY,
@@ -6420,7 +6422,8 @@ async def run_transcribe(request: Request):
     data = data or {}
 
     try:
-        report = transcribe.transcribe_all(
+        report = await asyncio.to_thread(
+            transcribe.transcribe_all,
             r,
             folder_name=data.get("folder", transcribe.DEFAULT_FOLDER_NAME),
             visibility=data.get("visibility", transcribe.DEFAULT_VISIBILITY),
@@ -6455,7 +6458,8 @@ async def run_archive(request: Request):
     data = data or {}
 
     try:
-        report = archive.archive_all(
+        report = await asyncio.to_thread(
+            archive.archive_all,
             r,
             folder_name=data.get("folder", archive.DEFAULT_ARCHIVE_FOLDER),
             prefix=data.get("prefix", archive.DEFAULT_PREFIX),
@@ -6476,7 +6480,7 @@ async def restore_archived_deck(deck_id: str):
     """Undo one deck's archive: original name and visibility back from the
     recorded backup."""
     try:
-        result = archive.restore(r, deck_id)
+        result = await asyncio.to_thread(archive.restore, r, deck_id)
     except MoxfieldAuthError as e:
         return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
     except archive.ArchiveError as e:

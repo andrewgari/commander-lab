@@ -85,6 +85,15 @@ def save_backup(r, deck: dict, folder_name: str) -> dict:
     return record
 
 
+def mark_folder_moved(r, deck_id: str, moved: bool) -> None:
+    """Record whether the folder move succeeded, so a deck that was renamed
+    but never filed is retried on the next run instead of treated as done."""
+    backup = get_backup(r, str(deck_id))
+    if backup:
+        backup["folder_moved"] = moved
+        r.set(_backup_key(str(deck_id)), json.dumps(backup))
+
+
 def transcribed_public_ids(r) -> set:
     """publicIds of decks this app created via transcribe.py, so archiving
     leaves them alone."""
@@ -179,6 +188,31 @@ def archive_all(
             continue
 
         if is_archived(name, prefix):
+            backup = get_backup(r, deck_id)
+            if backup and backup.get("folder_moved") is False:
+                # Renamed on an earlier run but the folder move failed:
+                # retry only the move.
+                if dry_run:
+                    report["results"].append({
+                        "deck_id": deck_id, "name": name,
+                        "action": "would_retry_folder_move", "folder": folder_name,
+                    })
+                    continue
+                try:
+                    client.add_deck_to_folder(deck_id, folder_id)
+                    moxfield_writer.throttle()
+                    mark_folder_moved(r, deck_id, True)
+                    report["results"].append({
+                        "deck_id": deck_id, "name": name,
+                        "action": "folder_move_retried", "folder": folder_name,
+                    })
+                except MoxfieldWriteError as exc:
+                    report["failed"] += 1
+                    report["results"].append({
+                        "deck_id": deck_id, "name": name,
+                        "action": "failed", "error": str(exc),
+                    })
+                continue
             report["skipped_already"] += 1
             report["results"].append({
                 "deck_id": deck_id, "name": name, "action": "skipped_already",
@@ -214,8 +248,10 @@ def archive_all(
             try:
                 client.add_deck_to_folder(deck_id, folder_id)
                 moxfield_writer.throttle()
+                mark_folder_moved(r, deck_id, True)
             except MoxfieldWriteError as exc:
                 folder_error = str(exc)
+                mark_folder_moved(r, deck_id, False)
 
             report["archived"] += 1
             result = {

@@ -155,6 +155,21 @@ class TestAuth(ClientTestBase):
         self.assertEqual(mock_req.call_count, 2)
         self.assertEqual(client.access_token, "tok-2")
 
+    def test_401_replay_keeps_extra_headers(self):
+        client = self.make_client()
+        unauthorized = MagicMock(status_code=401, text="nope")
+        ok = MagicMock(status_code=200, text="{}")
+        extra = {"X-Public-Deck-ID": "pub1", "X-Deck-Version": "3"}
+
+        with patch.object(mw.requests, "request", side_effect=[unauthorized, ok]) as mock_req, \
+             patch.object(mw.requests, "post", return_value=token_response("tok-2")):
+            client._request("PUT", "/v3/decks/d1", extra_headers=extra, json={})
+
+        for call in mock_req.call_args_list:
+            self.assertEqual(call.kwargs["headers"]["X-Public-Deck-ID"], "pub1")
+            self.assertEqual(call.kwargs["headers"]["X-Deck-Version"], "3")
+        self.assertEqual(mock_req.call_args_list[1].kwargs["headers"]["Authorization"], "Bearer tok-2")
+
     def test_repeated_401_does_not_loop_forever(self):
         client = self.make_client()
         unauthorized = MagicMock(status_code=401, text="nope")

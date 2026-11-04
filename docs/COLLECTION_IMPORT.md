@@ -51,8 +51,8 @@ POST /api/collection/import        -> {success, username, report, synced_at}
 CLI:
 
 ```
-python scripts/import_collection.py --dry-run --live
-python scripts/import_collection.py
+python scripts/import_collection.py            # dry run (default)
+python scripts/import_collection.py --live     # real import
 ```
 
 ## Data model

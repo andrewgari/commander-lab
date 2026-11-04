@@ -210,6 +210,11 @@ def transcribe_deck(
         )
         moxfield_writer.throttle()
 
+        # Persist the mapping BEFORE the description PUT: if that call dies,
+        # a retry must see this deck as already transcribed instead of
+        # creating a duplicate on Moxfield.
+        record = save_mapping(r, registry_id, created, folder_name)
+
         # Description is a separate PUT: /v3/decks create has no description
         # field (confirmed in Moxfield's own CREATE_DECK payload). A failure
         # here must not lose the deck we just made, so it's reported on an
@@ -221,7 +226,6 @@ def transcribe_deck(
         except MoxfieldWriteError as exc:
             description_error = str(exc)
 
-        record = save_mapping(r, registry_id, created, folder_name)
         result = {
             "registry_id": registry_id, "name": name, "action": "created",
             "moxfield_url": record["moxfield_url"], "visibility": visibility,

@@ -248,10 +248,11 @@ class MoxfieldClient:
         return headers
 
     def _request(self, method: str, path: str, *, retry_auth: bool = True, **kwargs):
+        extra_headers = kwargs.pop("extra_headers", None)
         res = requests.request(
             method,
             f"{API_BASE}{path}",
-            headers=self._headers(kwargs.pop("extra_headers", None)),
+            headers=self._headers(extra_headers),
             cookies=self.cookies,
             timeout=60,
             **kwargs,
@@ -259,7 +260,9 @@ class MoxfieldClient:
         if res.status_code == 401 and retry_auth:
             # Token expired mid-run: refresh once and replay.
             self.refresh()
-            return self._request(method, path, retry_auth=False, **kwargs)
+            return self._request(
+                method, path, retry_auth=False, extra_headers=extra_headers, **kwargs
+            )
         return res
 
     # -- folders ---------------------------------------------------------

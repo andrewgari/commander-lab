@@ -228,6 +228,28 @@ class TestVisibilityAndFolder(ArchiveTestBase):
         self.assertEqual(client.updates[0]["name"], "[Archived] Kyra Fireball")
 
 
+    def test_rename_then_failed_folder_move_is_retried_next_run(self):
+        decks = [mox_deck("Kyra Fireball", "d1")]
+        first = FakeMoxfieldClient(decks, fail_folder_for={"Kyra Fireball"})
+        archive.archive_all(self.r, client=first, dry_run=False)
+        self.assertEqual(first.folder_moves, [])
+
+        # Second run: the deck is already renamed, but was never filed.
+        renamed = [dict(d) for d in first.decks]
+        second = FakeMoxfieldClient(renamed)
+        report = archive.archive_all(self.r, client=second, dry_run=False)
+
+        self.assertEqual(second.folder_moves, [{"deck_id": "d1", "folder_id": "folder-1"}])
+        self.assertEqual(second.updates, [])  # no second rename
+        self.assertEqual(report["results"][0]["action"], "folder_move_retried")
+
+        # Third run: now genuinely done.
+        third = FakeMoxfieldClient(renamed)
+        report = archive.archive_all(self.r, client=third, dry_run=False)
+        self.assertEqual(third.folder_moves, [])
+        self.assertEqual(report["results"][0]["action"], "skipped_already")
+
+
 class TestTranscribedDecksAreProtected(ArchiveTestBase):
     def _mark_transcribed(self, public_id):
         self.r.set(
