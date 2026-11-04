@@ -250,6 +250,9 @@ def card_info(facts: Mapping[str, Any]) -> CardInfo:
         "oracle_text": facts.get("oracle_text") or "",
         "keywords": facts.get("_keywords") or [],
         "color_identity": facts.get("color_identity") or [],
+        "power": facts.get("_power"),
+        "toughness": facts.get("_toughness"),
+        "layout": facts.get("_layout"),
     })
 
 
@@ -289,6 +292,9 @@ def facts_from_scryfall(card: Mapping[str, Any]) -> dict:
         "oracle_text": text or "",
         "image": iu.get("art_crop") or iu.get("small") or "",
         "_keywords": card.get("keywords") or [],
+        "_power": card.get("power") if card.get("power") is not None else front.get("power"),
+        "_toughness": card.get("toughness") if card.get("toughness") is not None else front.get("toughness"),
+        "_layout": card.get("layout") or "",
         "_legal": (card.get("legalities") or {}).get("commander", ""),
     }
 

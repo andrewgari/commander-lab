@@ -894,6 +894,77 @@ class TestCommanderEligibilityScryfallAlignment(Base):
         self.assertIsNone(dv.check_partner_pair(chooser, bg))
 
 
+class TestCommanderEligibilityRecordShapes(Base):
+    """Rule 1/2 through the real production record shapes, not hand-built dicts."""
+
+    def test_sync_shaped_record_vehicle_with_pt(self):
+        # Shape written by workers/sync.py upsert_card (Archidekt oracleCard keys).
+        oc = {"name": "Esika's Chariot", "types": ["Artifact"], "superTypes": ["Legendary"],
+              "subTypes": ["Vehicle"], "power": 4, "toughness": 4, "layout": "normal",
+              "text": "Crew 4", "legalities": {"commander": "legal"}}
+        rec = {"oracle_id": "x", "name": oc["name"], "type": "Artifact", "super_types": oc["superTypes"],
+               "sub_types": oc["subTypes"], "keywords": [], "oracle_text": oc["text"],
+               "types": oc["types"], "commander_legality": "legal",
+               "power": oc["power"], "toughness": oc["toughness"], "layout": oc["layout"]}
+        self.assertTrue(CardInfo.from_record(rec).can_be_commander)
+        rec_no_pt = dict(rec, name="The Eternity Elevator", power=None, toughness=None)
+        self.assertFalse(CardInfo.from_record(rec_no_pt).can_be_commander)
+
+    def test_real_sync_stores_pt_and_layout_that_drive_eligibility(self):
+        from unittest import mock
+        import src.server.workers.sync as sync
+        from src.server.domain.inventory import cards as card_store
+        from tests.test_instances import FakeRedis
+        r = FakeRedis()
+
+        def oc(uid, name, subs, **kw):
+            return {"quantity": 1, "categories": [], "card": {"oracleCard": dict({
+                "uid": uid, "name": name, "types": ["Artifact"], "superTypes": ["Legendary"],
+                "subTypes": subs, "colorIdentity": [], "text": "", "layout": "normal",
+                "legalities": {"commander": "legal"}}, **kw)}}
+
+        def fake_get(url, *a, **k):
+            resp = mock.Mock()
+            resp.raise_for_status = lambda: None
+            if "users" in url:
+                resp.json = lambda: {"results": [{"id": 1}]}
+            elif "v3" in url:
+                resp.json = lambda: {"results": [{"id": 5, "name": "D", "colors": {},
+                                                  "parentFolderId": 45665, "theorycrafted": False}]}
+            else:
+                resp.json = lambda: {"description": "", "cards": [
+                    oc("11111111-1111-1111-1111-111111111111", "Esika's Chariot", ["Vehicle"], power=4, toughness=4),
+                    oc("22222222-2222-2222-2222-222222222222", "The Eternity Elevator", ["Spacecraft"])]}
+            return resp
+
+        with mock.patch.object(sync, "r", r), mock.patch.object(sync.requests, "get", fake_get), \
+                mock.patch.object(sync.time, "sleep", lambda s: None):
+            sync.sync_inventory()
+        self.assertTrue(CardInfo.from_record(card_store.get_card(r, "11111111-1111-1111-1111-111111111111")).can_be_commander)
+        self.assertFalse(CardInfo.from_record(card_store.get_card(r, "22222222-2222-2222-2222-222222222222")).can_be_commander)
+
+    def test_sync_shaped_record_meld_result(self):
+        rec = {"oracle_id": "y", "name": "Brisela, Voice of Nightmares", "type": "Creature",
+               "types": ["Creature"], "super_types": ["Legendary"], "sub_types": ["Eldrazi", "Angel"],
+               "oracle_text": "Flying", "layout": "meld"}
+        self.assertFalse(CardInfo.from_record(rec).can_be_commander)
+        half = dict(rec, name="Bruna, the Fading Light",
+                    oracle_text="Flying\n(Melds with Gisela, the Broken Blade.)")
+        self.assertTrue(CardInfo.from_record(half).can_be_commander)
+
+    def test_search_query_facts_carry_pt_and_layout(self):
+        from src.server.domain.cards import search_query as sq
+        facts = sq.facts_from_scryfall({
+            "oracle_id": "z", "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4", "layout": "normal", "oracle_text": "Crew 4",
+            "legalities": {"commander": "legal"}})
+        self.assertTrue(sq.card_info(facts).can_be_commander)
+        facts2 = sq.facts_from_scryfall({
+            "oracle_id": "w", "name": "The Eternity Elevator",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "layout": "normal"})
+        self.assertFalse(sq.card_info(facts2).can_be_commander)
+
+
 class TestAdapters(Base):
     def test_from_builder_draft_strips_commander_entries(self):
         draft = {

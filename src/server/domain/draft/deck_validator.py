@@ -212,6 +212,12 @@ def singleton_limit_from_text(oracle_text: str) -> Tuple[bool, Optional[int]]:
 # Local types
 # --------------------------------------------------------------------------
 
+def is_meld_result(layout: Any, oracle_text: Any) -> bool:
+    """Archidekt/Scryfall layout 'meld' covers both halves and the result; only
+    the halves say 'Melds with'."""
+    return str(layout or "").casefold() == "meld" and "melds with" not in str(oracle_text or "").casefold()
+
+
 def _printed_stat(value: Any) -> Optional[str]:
     return None if value is None or str(value).strip() == "" else str(value)
 
@@ -262,7 +268,8 @@ class CardInfo:
             commander_legality=(str(legality).casefold() if legality else None),
             power=_printed_stat(rec.get("power")),
             toughness=_printed_stat(rec.get("toughness")),
-            meld_result=bool(rec.get("meld_result")),
+            meld_result=bool(rec.get("meld_result")) or is_meld_result(
+                rec.get("layout"), rec.get("oracle_text") or rec.get("text")),
         )
 
     def _has(self, seq: Sequence[str], word: str) -> bool:
