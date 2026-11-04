@@ -168,6 +168,24 @@ class TestRunModes(Base):
         doc = ss.load_latest(self.r, self.deck)
         self.assertEqual([d["name"] for d in doc["report"]["params"]["pod"]["decks"]], ["Opp Deck 2", "Precon B"])
 
+    def test_standard_mode_three_chosen_opponents_reach_the_run(self):
+        sim = FakeSim()
+        svc.save_pod(self.r, ["user_902", "precon_a", "user_903"], sim)
+        job = run_sync(self.r, self.deck, {"opponent_mode": "standard"}, sim, FakeOracle(good_reply))
+        self.assertEqual(job["status"], "done", job.get("error"))
+        self.assertEqual(sim.payloads[0]["opponents"], ["user_902", "precon_a", "user_903"])
+        self.assertEqual([d["id"] for d in job["params"]["pod"]["decks"]], ["user_902", "precon_a", "user_903"])
+
+    def test_standard_mode_empty_pick_does_not_fall_back_to_preset(self):
+        sim = FakeSim()
+        with self.assertRaises(svc.SimParamError):
+            svc.save_pod(self.r, [], sim)  # empty picks rejected; saved pod untouched
+        self.assertEqual([d["id"] for d in svc.get_pod(self.r)["decks"]], ["user_901"])
+        svc.clear_pod(self.r)
+        with self.assertRaises(svc.SimParamError):
+            svc.begin_run(self.r, self.deck, {"opponent_mode": "standard"}, sim)
+        self.assertEqual(sim.payloads, [])  # no Forge preset was submitted
+
     def test_standard_mode_flags_deleted_deck_before_run(self):
         sim = FakeSim()
         svc.save_pod(self.r, ["user_901", "user_902"], sim)
@@ -427,6 +445,27 @@ class TestApi(Base):
         self.assertEqual((body["success"], body["exists"], body["sim"]), (True, False, None))
         self.assertEqual(body["meta"], {"exists": False, "stale": False, "stale_reason": None, "created_at": None})
         self.assertTrue({"precon", "user_deck"} <= {o["source"] for o in body["opponent_pool"]})
+
+    def test_standard_pod_three_opponents_persist_and_drive_run(self):
+        ids = ["user_901", "precon_b", "user_902"]
+        res = self.client.put("/api/sim/standard-pod", json={"decks": ids})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual([d["id"] for d in res.json()["decks"]], ids)
+        self.assertIsNotNone(self.r.get(svc.POD_KEY))  # persisted in Redis, not request-scoped
+        # a fresh read (separate request) returns the same saved pod, and the deck sim view carries it
+        self.assertEqual([d["id"] for d in self.client.get("/api/sim/standard-pod").json()["decks"]], ids)
+        self.assertEqual([d["id"] for d in self.client.get(f"/api/decks/{RID}/sim").json()["standard_pod"]["decks"]], ids)
+        job_id = self.client.post(f"/api/decks/{RID}/sim/run", json={"opponent_mode": "standard"}).json()["job_id"]
+        self.assertEqual(self.wait_job(job_id)["status"], "done")
+        self.assertEqual(self.sim.payloads[0]["opponents"], ids)
+
+    def test_standard_pod_empty_put_rejected_and_delete_clears(self):
+        self.assertEqual(self.client.put("/api/sim/standard-pod", json={"decks": []}).status_code, 422)
+        self.assertEqual(self.client.get("/api/sim/standard-pod").json()["status"], "ok")  # still the setUp pod
+        self.assertEqual(self.client.delete("/api/sim/standard-pod").json()["status"], "empty")
+        res = self.client.post(f"/api/decks/{RID}/sim/run", json={"opponent_mode": "standard"})
+        self.assertGreaterEqual(res.status_code, 400)
+        self.assertEqual(self.sim.payloads, [])
 
     def test_get_unknown_deck_404(self):
         with patch("src.server.app.main._find_deck_any", return_value=None):
