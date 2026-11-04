@@ -2,7 +2,7 @@
 """Transcribe physical Archidekt decks to Moxfield.
 
     python scripts/transcribe_to_moxfield.py --dry-run
-    python scripts/transcribe_to_moxfield.py
+    python scripts/transcribe_to_moxfield.py --live
     python scripts/transcribe_to_moxfield.py --folder "Paper Decks" --force
 
 Only decks with registry status "physical" are transcribed. They are created
@@ -34,9 +34,11 @@ def main() -> int:
                         help="deck visibility on Moxfield (default: private)")
     parser.add_argument("--force", action="store_true",
                         help="re-transcribe decks already pushed to Moxfield")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="show what would be created without calling Moxfield")
+    parser.add_argument("--live", action="store_true",
+                        help="perform real writes (default is a dry run)")
+    parser.add_argument("--dry-run", action="store_true", help="explicit dry run (this is the default)")
     args = parser.parse_args()
+    args.dry_run = not args.live
 
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
 

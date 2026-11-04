@@ -2,8 +2,8 @@
 """Archive existing Moxfield decks: rename + re-file. Never deletes anything.
 
     python scripts/archive_moxfield_decks.py --dry-run
-    python scripts/archive_moxfield_decks.py
-    python scripts/archive_moxfield_decks.py --folder "Old Decks" --keep-visibility
+    python scripts/archive_moxfield_decks.py --live
+    python scripts/archive_moxfield_decks.py --folder "Old Decks" --keep-visibility --live
 
 Every deck's original name and visibility are saved to Redis
 (`moxfield_archive:{deck_id}`) BEFORE anything is changed, so the rename is
@@ -35,11 +35,13 @@ def main() -> int:
                         help="don't change deck visibility (default: set private)")
     parser.add_argument("--include-transcribed", action="store_true",
                         help="also archive decks this app created via transcribe")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="show what would change without modifying anything")
+    parser.add_argument("--live", action="store_true",
+                        help="perform real writes (default is a dry run)")
+    parser.add_argument("--dry-run", action="store_true", help="explicit dry run (this is the default)")
     parser.add_argument("--restore", metavar="DECK_ID",
                         help="undo one deck's archive (original name + visibility)")
     args = parser.parse_args()
+    args.dry_run = not args.live
 
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
 

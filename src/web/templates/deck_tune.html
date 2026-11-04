@@ -749,7 +749,7 @@ document.addEventListener("DOMContentLoaded", function () {
     $("extList").addEventListener("click", function (e) {
         var b = e.target.closest("[data-push]"); if (!b) return;
         var p = b.getAttribute("data-push"); b.disabled = true; $("extState").textContent = "Updating " + p + "…";
-        fetch(API + "/sync/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: p }) })
+        fetch(API + "/sync/push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: p, dry_run: false }) })
             .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.success === false) throw new Error(j.error || ("HTTP " + r.status)); return j; }); })
             .then(function () { $("extState").textContent = "Updated " + p + "."; })
             .catch(function (err) { b.disabled = false; $("extState").textContent = "Update failed: " + err.message; });
