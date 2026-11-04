@@ -79,7 +79,7 @@ class TestCollectionImportRoute(unittest.TestCase):
         self.assertEqual(data["report"]["created"], 3)
         self.assertEqual(data["synced_at"], "t1")
         kwargs = mock_collection.import_collection.call_args.kwargs
-        self.assertFalse(kwargs["dry_run"])
+        self.assertTrue(kwargs["dry_run"])  # default is a dry run
 
     @patch("src.server.app.main.collection")
     def test_empty_body_is_accepted(self, mock_collection):

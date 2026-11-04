@@ -172,7 +172,7 @@ class TestEligibility(TranscribeTestBase):
             deck("Physical One", status="physical", registry_id="archidekt:1"),
             deck("Brewing", status="testing", registry_id="archidekt:2"),
         ])
-        report = transcribe.transcribe_all(self.r, client=self.client)
+        report = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
         self.assertEqual(report["eligible"], 1)
         self.assertEqual(report["created"], 1)
         self.assertEqual([c["name"] for c in self.client.created], ["Physical One"])
@@ -260,7 +260,7 @@ class TestDescription(unittest.TestCase):
 class TestTranscribeWrites(TranscribeTestBase):
     def test_decks_are_created_private_in_the_folder(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        report = transcribe.transcribe_all(self.r, client=self.client)
+        report = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
 
         self.assertEqual(self.client.folders, ["Physical"])
         created = self.client.created[0]
@@ -272,19 +272,19 @@ class TestTranscribeWrites(TranscribeTestBase):
 
     def test_folder_name_and_visibility_are_configurable(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        transcribe.transcribe_all(self.r, folder_name="Paper Decks", visibility="unlisted", client=self.client)
+        transcribe.transcribe_all(self.r, folder_name="Paper Decks", visibility="unlisted", client=self.client, dry_run=False)
         self.assertEqual(self.client.folders, ["Paper Decks"])
         self.assertEqual(self.client.created[0]["visibility"], "unlisted")
 
     def test_description_is_set_after_creation(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        transcribe.transcribe_all(self.r, client=self.client)
+        transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
         self.assertEqual(len(self.client.descriptions), 1)
         self.assertIn("Kaalia of the Vast", self.client.descriptions[0]["description"])
 
     def test_mapping_is_recorded_for_idempotency(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        transcribe.transcribe_all(self.r, client=self.client)
+        transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
         mapping = transcribe.get_mapping(self.r, "archidekt:1")
         self.assertEqual(mapping["moxfield_public_id"], "pub-mx1")
         self.assertEqual(mapping["folder"], "Physical")
@@ -292,8 +292,8 @@ class TestTranscribeWrites(TranscribeTestBase):
 
     def test_rerun_skips_already_transcribed_decks(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        transcribe.transcribe_all(self.r, client=self.client)
-        second = transcribe.transcribe_all(self.r, client=self.client)
+        transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
+        second = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
 
         self.assertEqual(second["created"], 0)
         self.assertEqual(second["skipped_already"], 1)
@@ -301,8 +301,8 @@ class TestTranscribeWrites(TranscribeTestBase):
 
     def test_force_retranscribes(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
-        transcribe.transcribe_all(self.r, client=self.client)
-        report = transcribe.transcribe_all(self.r, force=True, client=self.client)
+        transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
+        report = transcribe.transcribe_all(self.r, force=True, client=self.client, dry_run=False)
         self.assertEqual(report["created"], 1)
         self.assertEqual(len(self.client.created), 2)
 
@@ -313,7 +313,7 @@ class TestTranscribeWrites(TranscribeTestBase):
             deck("Good Two", registry_id="archidekt:3"),
         ])
         client = FakeMoxfieldClient(fail_on_names={"Bad One"})
-        report = transcribe.transcribe_all(self.r, client=client)
+        report = transcribe.transcribe_all(self.r, client=client, dry_run=False)
 
         self.assertEqual(report["created"], 2)
         self.assertEqual(report["failed"], 1)
@@ -324,7 +324,7 @@ class TestTranscribeWrites(TranscribeTestBase):
     def test_description_failure_still_keeps_the_created_deck(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
         client = FakeMoxfieldClient(fail_description_for={"Kaalia"})
-        report = transcribe.transcribe_all(self.r, client=client)
+        report = transcribe.transcribe_all(self.r, client=client, dry_run=False)
 
         self.assertEqual(report["created"], 1)
         result = report["results"][0]
@@ -334,7 +334,7 @@ class TestTranscribeWrites(TranscribeTestBase):
 
     def test_empty_decklist_is_reported_not_pushed(self):
         self.set_decks([deck("Empty", cards=[], commanders=(), registry_id="archidekt:1")])
-        report = transcribe.transcribe_all(self.r, client=self.client)
+        report = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
         self.assertEqual(report["failed"], 1)
         self.assertEqual(self.client.created, [])
 
@@ -350,6 +350,31 @@ class TestDryRun(TranscribeTestBase):
         self.assertEqual(self.client.folders, [])
         self.assertIsNone(transcribe.get_mapping(self.r, "archidekt:1"))
 
+    def test_bare_call_defaults_to_dry_run_and_makes_no_writes(self):
+        self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
+        report = transcribe.transcribe_all(self.r, client=self.client)
+        self.assertTrue(report["dry_run"])
+        self.assertEqual(self.client.created, [])
+        self.assertEqual(self.client.folders, [])
+        self.assertIsNone(transcribe.get_mapping(self.r, "archidekt:1"))
+
+    def test_cli_defaults_to_dry_run_and_live_is_opt_in(self):
+        import importlib.util
+        import sys
+        import unittest.mock as um
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "transcribe_to_moxfield.py")
+        spec = importlib.util.spec_from_file_location("transcribe_cli", path)
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        import collections
+        report = collections.defaultdict(int, results=[], folder="F", visibility="private")
+        for argv, expected in ((["x"], True), (["x", "--dry-run"], True), (["x", "--live"], False)):
+            with um.patch.object(sys, "argv", argv), \
+                 um.patch.object(cli.redis, "from_url", return_value=self.r), \
+                 um.patch.object(cli.transcribe, "transcribe_all", return_value=report) as m:
+                cli.main()
+            self.assertIs(m.call_args.kwargs["dry_run"], expected, argv)
+
     def test_dry_run_includes_the_generated_description(self):
         self.set_decks([deck("Kaalia", registry_id="archidekt:1")])
         report = transcribe.transcribe_all(self.r, dry_run=True, client=self.client)
@@ -357,7 +382,7 @@ class TestDryRun(TranscribeTestBase):
 
     def test_no_physical_decks_is_an_empty_report_not_an_error(self):
         self.set_decks([deck("Brewing", status="testing", registry_id="archidekt:2")])
-        report = transcribe.transcribe_all(self.r, client=self.client)
+        report = transcribe.transcribe_all(self.r, client=self.client, dry_run=False)
         self.assertEqual(report["eligible"], 0)
         self.assertEqual(report["created"], 0)
         self.assertEqual(self.client.folders, [])
