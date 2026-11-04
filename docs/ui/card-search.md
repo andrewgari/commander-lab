@@ -237,7 +237,10 @@ order:
 1. **Eligible set** (primary). Redis set `cards:commander_eligible` of
    `oracle_id`s, built by paging `is:commander legal:commander game:paper`
    (about 20 pages of 175; one `unique=cards` pull with the 100 ms spacing).
-   TTL 24 h, rebuilt lazily on first use after it expires. A partial pull
+   TTL 24 h. A missing or expired set is **never rebuilt on the search request
+   path**: the request uses step 2 immediately (marked `degraded: true`) and
+   enqueues a background rebuild, so one search never costs ~20 Scryfall
+   requests. A partial pull
    (any page fails) is **never** written. That is the same "failure is never
    cached" rule as §5.1.
 2. **Predicate** (only when the set is missing and cannot be built). A new
@@ -434,8 +437,14 @@ panel's results carry `oracle_id`. The existing autocomplete returns only
 `uid`, the Scryfall **printing** id. So CS-1 also adds `oracle_id` to the
 autocomplete `_shape_card` output. That is an additive field: the Jinja
 consumers ignore unknown keys, and `/api/brew/commanders` is unchanged. Until
-that ships, quick-add resolves a picked name to a `CardHit` with
-`/api/card-search?name=<exact>&page_size=1`.
+that ships, quick-add does not commit a suggestion that lacks `oracle_id`.
+
+The autocomplete row must also be a complete `CardHit` (`oracle_id`,
+`can_be_commander`, `pairing`, `cmc`, `rarity`, `oracle_text`, `owned_qty`,
+`free_qty`), because the commander gate and the partner picker read those
+fields. CS-1 therefore extends the autocomplete shape to a full `CardHit`.
+Quick-add never resolves a name with a first-hit `name=` search, which is
+not exact under §3's name semantics and could pick a different card.
 
 ---
 
@@ -459,7 +468,7 @@ SvelteKit shows the commander, the brewed card list grouped by type (qty, tier
 chip owned-donor / owned-inventory / buy, remove), and `<CardSearch>` with:
 
 ```svelte
-<CardSearch boards={['main', 'maybeboard']} identity={session.color_identity}
+<CardSearch boards={['main']} identity={session.color_identity}
   inList={byOracleId(draft.cards)} ownedDefault="owned" onadd={addToBrew} />
 ```
 
@@ -541,7 +550,7 @@ keep `card_autocomplete.js` until each page is ported.
 | CS-1 | coder | `GET /api/v2/cards/search` (§5) incl. `cmdr`/`pair` (§3.1) + `oracle_id` added to the autocomplete shape + the `cards:commander_eligible` set and `is_commander_eligible` fallback; the autocomplete's commander-scope local fallback uses them | pytest: translation table in §3 (one case per row + combos); `cmdr=1` → `is:commander`, absent → no `is:commander` in `query`; one `pair` case per §3.1.3 row, plus the 400s (`pair` without `cmdr`, first card with no pairing ability); `pair` results pass `check_partner_pair` (plain Partner never returns a Partner—group card); `can_be_commander` and `pairing` set on every hit with `cmdr` off; owned mode + `cmdr=1` returns an owned Esika's Chariot and an owned Background and excludes an owned Brisela and an owned non-legendary creature (fixture); a partial eligible-set pull is not written; owned/not_owned/any against fixture Postgres; Scryfall failure → `degraded:true`, nothing cached; ownership never cached |
 | CS-2 | coder | `query.ts` + `presets.ts` + `quickAdd.ts` + `types.ts` + the two SvelteKit proxy routes | `node:test` for Filters↔params round-trip (incl. `cmdr`, `pair`), the qty grammar (`2 x`, `2x`, `2X`, bare, `0` rejected), and presets: no preset → `cmdr` absent; `commander` → `cmdr=1`, `ci_mode=exact`, boards `['commander']`; an explicit prop overrides the preset; Clear filters under the preset keeps `cmdr=1`; `npm run check` green |
 | CS-3 | coder | `CardSearch` components (§2, §4) + a `/dev/card-search` harness page with a fixture `onadd`, showing **two** instances: one plain, one `preset="commander"` | screenshots at 1440 and 390 attached to the card, both instances; keyboard path (Ctrl+' → type → Enter → focus stays) works in the harness; the commander instance shows the pressed **Can be commander** chip in the bar, one click turns it off and the panel's toggle follows; the plain instance has no chip in the bar and its panel toggle is off; quick-add `2x Atraxa` in the commander instance adds 1 |
-| CS-4 | coder | brew draft card add/remove: `POST /api/v2/brew/{session_id}/cards` `{oracle_id, name, qty}` and `DELETE …/cards/{oracle_id}`; recompute the tier from pools; reject non-basic duplicates (409) | pytest over a Redis fixture session; accept_draft still produces the same deck for an unedited session |
+| CS-4 | coder | brew draft card add/remove (main board only; `AddRequest.board` is ignored because `accept_draft` copies every entry into one list), plus `color_identity` (the commanders' combined identity, saved by `_pool_config`) on the session read response: `POST /api/v2/brew/{session_id}/cards` `{oracle_id, name, qty}` and `DELETE …/cards/{oracle_id}`; recompute the tier from pools; reject non-basic duplicates (409) | pytest over a Redis fixture session; accept_draft still produces the same deck for an unedited session |
 | CS-5 | coder | pilot routes `/brew/new` (§6.1) and `/brew/[session_id]` (§6) | **/brew/new**: the Can be commander chip is on at load; picking Atraxa and starting lands on `/brew/[id]` with Atraxa as commander; Shorikai (Vehicle) and Grist are findable and pickable; Brisela and Sol Ring are not offered with the chip on, and are rejected inline with it off; Akiri → partner search shows only Partner cards; Abdel Adrian → partner search shows only Backgrounds; a lone Background cannot start. **/brew/[id]**: no commander chip in the bar, and the panel toggle is off (a non-legendary card such as Sol Ring is found); add 3 cards via quick-add and 2 via panel on a real session; they appear in the list with correct tiers; Accept on the legacy page includes them |
 | CS-6 | tester | live verification of the pilot at 1440 and 390 | pass/fail report with screenshots: every filter changes the results; owned/not-owned are correct against inventory; error/degraded states shown |
 | CS-7 | coder | deck management adoption: v2 deck add-card endpoint + `/decks/[id]` bar | after CS-6 passes and #379 lands |
