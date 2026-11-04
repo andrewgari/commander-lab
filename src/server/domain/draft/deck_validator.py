@@ -293,7 +293,7 @@ class CardInfo:
         minus Backgrounds, which are only legal as a second commander."""
         if self.meld_result or not self.is_legendary:
             return False
-        if self._has(self.subtypes, "Background"):
+        if self._has(self.subtypes, "Background") and not self.is_creature:
             return False
         if "can be your commander" in (self.oracle_text or "").casefold():
             return True

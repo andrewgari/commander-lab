@@ -1262,7 +1262,7 @@
         const oracle = front.oracle_text || (faces.length === 1 ? card.oracle_text : '') || '';
         const isMeldResult = (card.all_parts || []).some(p => p.component === 'meld_result' && p.name === card.name);
         if (isMeldResult || !typeLine.includes('Legendary')) return { ok: false };
-        if (typeLine.includes('Background')) return { ok: true, background: true };
+        if (typeLine.includes('Background') && !typeLine.includes('Creature')) return { ok: true, background: true };
         const hasPT = (front.power != null && front.power !== '') && (front.toughness != null && front.toughness !== '')
             || (card.power != null && card.power !== '' && card.toughness != null && card.toughness !== '');
         const ok = typeLine.includes('Creature')
