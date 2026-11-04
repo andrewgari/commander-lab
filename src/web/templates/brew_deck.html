@@ -5,35 +5,77 @@
 
 {% block extra_css %}
 <style>
-    /* Brew result / building layout (BREW-DESIGNER §3-4). Components in hud.css. */
-    .brewd-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--sp-6); align-items: start; margin-top: var(--sp-6); }
+    /* Brew result / building layout (BREW-DESIGNER §3-4). Components in hud.css.
+       Hierarchy on the result page: one primary action (Make physical), two
+       secondary (Re-brew, Export), one quiet destructive (Abandon). Panels
+       always use .hud-panel-body so content never touches the border. */
+    .brewd-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--sp-8); align-items: start; margin-top: var(--sp-8); }
     .brewd-rail > * + * { margin-top: var(--sp-4); }
     .brewd-strip { margin-top: var(--sp-4); }
-    .brewd-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-    .brewd-statusrow { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-1); }
-    .brewd-cmdstrip { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
-    .brewd-cmdstrip img { width: 48px; height: 36px; object-fit: cover; border: var(--hairline) solid var(--line); }
+    .brewd-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+    .brewd-abandon { color: var(--text-3); }
+    .brewd-abandon:hover { color: var(--danger); background: var(--danger-dim); border-color: var(--danger); }
+    .brewd-statusrow { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+    .brewd-statusrow:empty { display: none; }
+    .brewd-cmdrow { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; margin: 0 0 var(--sp-4); }
+    #brewCmdStrip { font-size: var(--fs-md); font-weight: var(--fw-semibold); }
     .brewd-buyrows { margin: 0; padding: 0; list-style: none; }
-    .brewd-buyrows li { display: flex; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
+    .brewd-buyrows li { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-2) 0; font-size: var(--fs-sm); min-width: 0; }
+    .brewd-buyrows li:first-child { padding-top: 0; }
     .brewd-buyrows li + li { border-top: var(--hairline) solid var(--line); }
-    .brewd-buyrows .qty { font-family: var(--font-mono); color: var(--text-3); }
-    .brewd-buyrows .price { margin-left: auto; font-family: var(--font-mono); }
+    .brewd-buyrows .qty { font-family: var(--font-mono); color: var(--text-3); min-width: 1.5ch; }
+    .brewd-buyrows .hud-card-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brewd-buyrows .price { margin-left: auto; font-family: var(--font-mono); color: var(--text-1); }
     .brewd-buyrows .price.is-unknown { color: var(--text-3); }
-    .brewd-impact p { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+    #brewBuyPanel .hud-btn--sm { margin-top: var(--sp-3); }
+    #brewBuyCart { margin-top: var(--sp-4); }
+    #brewBuyCart:empty { display: none; }
+    .brewd-impact p { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); line-height: var(--lh-base); }
     .brewd-impact ul { margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
-    .brewd-impact li { padding: var(--sp-1) 0; }
+    .brewd-impact li { padding: var(--sp-2) 0; color: var(--text-1); font-family: var(--font-card); font-weight: var(--fw-semibold); }
+    .brewd-impact li:last-child { padding-bottom: 0; }
     .brewd-impact li + li { border-top: var(--hairline) solid var(--line); }
-    .brewd-impact .mono { font-family: var(--font-mono); color: var(--text-2); }
-    .brewd-building { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: var(--sp-4); align-items: start; margin-top: var(--sp-6); }
+    .brewd-impact .mono { display: block; margin-top: var(--sp-1); font-family: var(--font-mono); font-weight: var(--fw-regular); font-size: var(--fs-xs); color: var(--text-3); }
+    .brewd-inputs-link { margin-top: var(--sp-4); }
+    #brewTabs { margin-bottom: var(--sp-4); }
+    #brewTableWrap { overflow-x: auto; }
+    /* Card names stay readable on phones: the table scrolls inside its wrapper instead of wrapping one word per line. */
+    #brewTableWrap td:nth-child(2) { min-width: 9rem; }
+    #brewTableWrap th:last-child, #brewTableWrap td:last-child { text-align: right; font-family: var(--font-mono); }
+    #brewTableWrap tr.is-commander .hud-card-name { color: var(--signal); }
+    .brewd-building { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+    .brewd-building:has(.brew-art:empty) { grid-template-columns: minmax(0, 1fr); }
     .brewd-building .brew-art { aspect-ratio: 626 / 457; background: var(--surface-2); border: var(--hairline) solid var(--line); overflow: hidden; }
+    .brewd-building .brew-art:empty { display: none; }
     .brewd-building .brew-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .brewd-progress-note { color: var(--text-3); font-size: var(--fs-xs); margin: var(--sp-2) 0; }
+    .brewd-title { margin: var(--sp-1) 0 var(--sp-4); font-size: var(--fs-xl); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); }
+    .brewd-building .hud-progress-line { margin-bottom: var(--sp-3); }
+    .brewd-progress-note { color: var(--text-3); font-size: var(--fs-xs); margin: 0 0 var(--sp-3); }
+    .brewd-building .brewd-actions { margin-top: var(--sp-4); }
+    .brewd-stale { margin: var(--sp-3) 0 0; }
+    #brewBuilding > * + * { margin-top: var(--sp-4); }
+    .brewd-failed { border-left-color: var(--danger); }
+    .brewd-failed .hud-panel-title { color: var(--danger); }
+    .brewd-failed .hud-panel-meta { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+    .brewd-failed p { margin: 0 0 var(--sp-4); font-size: var(--fs-sm); color: var(--text-1); }
     .brewd-notfound { margin-top: var(--sp-8); }
+    .brewd-modal-body { display: grid; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
+    .brewd-modal-body p { margin: 0; }
+    .brewd-modal-warn { border: var(--hairline) solid var(--danger); background: var(--danger-dim); padding: var(--sp-2) var(--sp-3); color: var(--danger); font-size: var(--fs-sm); margin: 0; }
+    .brewd-modal-actions { justify-content: flex-end; margin-top: var(--sp-2); }
     @media (max-width: 900px) {
-        .brewd-grid { grid-template-columns: minmax(0, 1fr); }
+        .brewd-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
         .brewd-rail { display: flex; flex-direction: column; }
         .brewd-rail .brewd-buypanel { order: -1; }
         .brewd-building { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 520px) {
+        /* Stat strip: 2x2, smaller value so "≥ $1,234.00" never forces horizontal scroll. */
+        .brewd-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .brewd-strip .hud-stat-value { font-size: var(--fs-lg); overflow: hidden; text-overflow: ellipsis; }
+        .brewd-strip .hud-stat { padding: var(--sp-3); }
+        .brewd-actions--head { width: 100%; }
+        .brewd-actions--head .hud-btn--primary { flex: 1 0 100%; height: 2.5rem; }
     }
 </style>
 {% endblock %}
@@ -48,43 +90,50 @@
 
     <!-- S2: building / failed -->
     <div id="brewBuilding" hidden>
-        <div class="hud-panel">
-            <div class="brewd-building">
-                <div class="brew-art" id="brewBuildArt"></div>
-                <div>
-                    {{ hud.label("Brewing") }}
-                    <h2 id="brewBuildName" style="margin:var(--sp-1) 0 var(--sp-3)"></h2>
-                    <div class="hud-progress-line" role="progressbar" aria-label="Brew progress"><span></span></div>
-                    <p class="brewd-progress-note" id="brewProgressNote" aria-live="polite">Brewing…</p>
-                    <p class="brewd-progress-note" id="brewLongNote" hidden>Taking longer than usual — the brew keeps running. <button type="button" class="hud-btn hud-btn--sm" id="brewRefreshBtn">Refresh</button></p>
-                    <button type="button" class="hud-btn hud-btn--ghost" id="brewCancelBtn">Cancel brew</button>
+        <div class="hud-panel" id="brewBuildPanel">
+            <div class="hud-panel-body">
+                <div class="brewd-building">
+                    <div class="brew-art" id="brewBuildArt"></div>
+                    <div>
+                        {{ hud.label("Brewing") }}
+                        <h2 class="brewd-title" id="brewBuildName"></h2>
+                        <div class="hud-progress-line" role="progressbar" aria-label="Brew progress"><span></span></div>
+                        <p class="brewd-progress-note" id="brewProgressNote" aria-live="polite">Brewing…</p>
+                        <p class="brewd-progress-note" id="brewLongNote" hidden>Taking longer than usual — the brew keeps running. <button type="button" class="hud-btn hud-btn--sm" id="brewRefreshBtn">Refresh</button></p>
+                        <div class="brewd-actions">
+                            <button type="button" class="hud-btn" id="brewCancelBtn">Cancel brew</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="hud-panel hud-panel--signal" id="brewFailed" hidden>
-            <div class="hud-panel-head"><h3>Brew failed</h3></div>
-            <p id="brewFailedMsg" style="margin:0 0 var(--sp-3);font-size:var(--fs-sm)"></p>
-            <div class="brewd-actions">
-                <button type="button" class="hud-btn hud-btn--primary" id="brewRetryBtn">Retry brew</button>
-                <a class="hud-btn hud-btn--ghost" id="brewBackBtn" href="/brew">Back to console</a>
+        <div class="hud-panel hud-panel--signal brewd-failed" id="brewFailed" role="alert" hidden>
+            <div class="hud-panel-head"><h3 class="hud-panel-title">Brew failed</h3><span class="hud-panel-meta" id="brewFailedName"></span></div>
+            <div class="hud-panel-body">
+                <p id="brewFailedMsg"></p>
+                <div class="brewd-actions">
+                    <button type="button" class="hud-btn hud-btn--primary" id="brewRetryBtn">Retry brew</button>
+                    <a class="hud-btn" id="brewBackBtn" href="/brew">Back to console</a>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- S3: virtual deck + availability report -->
     <div id="brewDeck" hidden>
-        {{ hud.page_head("", eyebrow="Virtual brew") }}
+        {% call hud.page_head("", eyebrow="Virtual brew") %}
+        <div class="brewd-actions brewd-actions--head">
+            <button type="button" class="hud-btn hud-btn--primary" id="brewMakePhysical">Make physical</button>
+            <a class="hud-btn" id="brewRebrew" href="/brew">Re-brew</a>
+            <button type="button" class="hud-btn" id="brewExport">Export list</button>
+            <button type="button" class="hud-btn hud-btn--ghost brewd-abandon" id="brewAbandon">Abandon brew</button>
+        </div>
+        {% endcall %}
         <div class="brewd-statusrow">
             <span id="brewDeckStatus">{{ hud.status_chip("testing", "Virtual") }}</span>
             <span id="brewDeckPips"></span>
             <span id="brewDeckPower"></span>
             <span class="hud-freshness" id="brewFreshness"></span>
-            <span class="brewd-actions" style="margin-left:auto">
-                <button type="button" class="hud-btn hud-btn--primary" id="brewMakePhysical">Make physical</button>
-                <a class="hud-btn hud-btn--ghost" id="brewRebrew" href="/brew">Re-brew</a>
-                <button type="button" class="hud-btn hud-btn--ghost" id="brewExport">Export list</button>
-                <button type="button" class="hud-btn hud-btn--ghost" id="brewAbandon">Abandon brew</button>
-            </span>
         </div>
 
         <div class="hud-stat-strip brewd-strip" id="brewStats">
@@ -94,30 +143,39 @@
             {{ hud.stat("Est. buy cost", "$0.00") }}
         </div>
         <div class="hud-prov-bar" id="brewProvBar" role="img" aria-label="Provenance breakdown"></div>
-        <p class="brewd-progress-note" id="brewStaleNote" hidden>Donors changed since this brew — some claimed copies may no longer be available.</p>
+        <p class="brewd-progress-note brewd-stale" id="brewStaleNote" hidden>Donors changed since this brew — some claimed copies may no longer be available.</p>
 
         <div class="brewd-grid">
             <div>
-                <div class="brewd-cmdstrip" id="brewCmdStrip"></div>
+                <div class="brewd-cmdrow">
+                    {{ hud.label("Commander") }}
+                    <span id="brewCmdStrip"></span>
+                </div>
                 <nav class="hud-tabs" aria-label="Card groups" id="brewTabs"></nav>
                 <div id="brewTableWrap"></div>
             </div>
             <aside class="brewd-rail">
                 <div class="hud-panel brewd-buypanel" id="brewBuyPanel">
-                    <div class="hud-panel-head"><h3>Buy list</h3><span class="hud-panel-meta" id="brewBuyMeta"></span></div>
-                    <ul class="brewd-buyrows" id="brewBuyRows"></ul>
-                    <div id="brewBuyEmpty" hidden></div>
-                    <div style="margin-top:var(--sp-3)" id="brewBuyCart"></div>
+                    <div class="hud-panel-head"><h3 class="hud-panel-title">Buy list</h3><span class="hud-panel-meta" id="brewBuyMeta"></span></div>
+                    <div class="hud-panel-body">
+                        <ul class="brewd-buyrows" id="brewBuyRows"></ul>
+                        <div id="brewBuyEmpty" hidden></div>
+                        <div id="brewBuyCart"></div>
+                    </div>
                 </div>
                 <div class="hud-panel brewd-impact">
-                    <div class="hud-panel-head"><h3>Donor impact</h3><span class="hud-panel-meta">Projected — not applied</span></div>
-                    <p><b>Nothing has moved.</b> These donors are untouched. If you make this deck physical, the cards marked <i>From &lt;deck&gt;</i> leave that deck and it goes short.</p>
-                    <ul id="brewImpactRows"></ul>
+                    <div class="hud-panel-head"><h3 class="hud-panel-title">Donor impact</h3><span class="hud-panel-meta">Projected — not applied</span></div>
+                    <div class="hud-panel-body">
+                        <p><b>Nothing has moved.</b> These donors are untouched. If you make this deck physical, the cards marked <i>From &lt;deck&gt;</i> leave that deck and it goes short.</p>
+                        <ul id="brewImpactRows"></ul>
+                    </div>
                 </div>
                 <div class="hud-panel">
-                    <div class="hud-panel-head"><h3>Brew inputs</h3></div>
-                    <dl class="hud-kv" id="brewInputsKv"></dl>
-                    <div style="margin-top:var(--sp-2)"><a id="brewEditRebrew" href="/brew">Edit &amp; re-brew</a></div>
+                    <div class="hud-panel-head"><h3 class="hud-panel-title">Brew inputs</h3></div>
+                    <div class="hud-panel-body">
+                        <dl class="hud-kv" id="brewInputsKv"></dl>
+                        <a class="hud-btn hud-btn--sm brewd-inputs-link" id="brewEditRebrew" href="/brew">Edit &amp; re-brew</a>
+                    </div>
                 </div>
             </aside>
         </div>
@@ -127,12 +185,14 @@
 <!-- Make physical: sketch only (BREW-DESIGNER §5) — no backend call. -->
 <div class="hud-modal" id="brewPhysicalModal" aria-hidden="true">
     <section class="hud-panel hud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="brewPhysicalTitle">
-        <div class="hud-panel-head"><h3 id="brewPhysicalTitle">Make physical?</h3></div>
-        <div id="brewPhysicalBody" style="font-size:var(--fs-sm)"></div>
-        <p style="border:var(--hairline) solid var(--danger);padding:var(--sp-2) var(--sp-3);color:var(--danger);font-size:var(--fs-sm)">Donor decks go short. They are NOT retired automatically.</p>
-        <div class="brewd-actions" style="margin-top:var(--sp-3)">
-            <button type="button" class="hud-btn" id="brewPhysicalCancel">Cancel</button>
-            <button type="button" class="hud-btn hud-btn--primary" disabled aria-disabled="true" title="Coming in a later phase">Make physical — later phase</button>
+        <div class="hud-panel-head"><h3 class="hud-panel-title" id="brewPhysicalTitle">Make physical?</h3></div>
+        <div class="hud-panel-body brewd-modal-body">
+            <div class="brewd-modal-body" id="brewPhysicalBody"></div>
+            <p class="brewd-modal-warn">Donor decks go short. They are NOT retired automatically.</p>
+            <div class="brewd-actions brewd-modal-actions">
+                <button type="button" class="hud-btn" id="brewPhysicalCancel">Cancel</button>
+                <button type="button" class="hud-btn hud-btn--primary" disabled aria-disabled="true" title="Coming in a later phase">Make physical — later phase</button>
+            </div>
         </div>
     </section>
 </div>
