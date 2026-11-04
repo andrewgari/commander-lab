@@ -131,6 +131,14 @@ button:disabled { opacity: 1; color: var(--color-muted); border-color: var(--col
   --color-info-bg: #212c36;
 }
 
+/* ---- dialog tokens (DC-4) ---- */
+:root {
+  /* 12% of --color-accent over --color-surface */
+  --color-accent-bg: #2e2b22;
+  --color-backdrop: rgb(8 10 13 / 0.78);
+  --dialog-max: 40rem;
+}
+
 .meta { color: var(--color-muted); font-size: var(--text-sm); }
 
 /* One button system for <a> and <button>. Disabled-while-busy is aria-disabled, never opacity. */

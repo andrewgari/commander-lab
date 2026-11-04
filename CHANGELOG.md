@@ -21,10 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Changed
+- Draft page: Commit now shows a summary of what will happen (new deck, cards per board, commanders, colours, copies pulled from other decks, warnings) in a dialog before anything changes, Abandon has its own confirmation, and a successful commit opens the new deck.
+- Draft page: staged cards are grouped by board and you can change a card's quantity in place.
+- Draft page: add cards by typing a name in an owned-cards search box (Enter adds the top match, `2x` sets quantity); adding a card that's already staged increases its count, and Maybeboard now works. Works without JavaScript too.
+- Draft page: the header, copy moves and suggestions show deck names and a status badge instead of internal ids.
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
 - Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected.
+- Confirm dialogs (Commit/Abandon): on small screens the scrolling message area can now be reached and scrolled with the keyboard.
 - Web app: Deck, Game, Draft, Home and Profile pages show a clear error message (with a way back) when the API returns incomplete data, instead of a blank server error page.
 - Web app: a thin progress bar appears under the top of the page while a slow navigation is loading.
 - Web app: every page now has a single main landmark and a "Skip to content" link for keyboard and screen-reader users, and the Profile page's secondary text is readable and its error messages are announced.
