@@ -46,6 +46,15 @@ def main() -> int:
     r = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
 
     if args.restore:
+        if args.dry_run:
+            backup = archive.get_backup(r, str(args.restore))
+            if not backup:
+                print(f"error: no archive backup recorded for deck {args.restore}", file=sys.stderr)
+                return 1
+            print("(dry run -- nothing was modified; pass --live to restore)")
+            print(f"Would restore {args.restore} -> {backup['original_name']!r} "
+                  f"(visibility {backup.get('original_visibility')})")
+            return 0
         try:
             result = archive.restore(r, args.restore)
         except (MoxfieldAuthError, MoxfieldWriteError, archive.ArchiveError) as exc:

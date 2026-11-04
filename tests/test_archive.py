@@ -286,6 +286,27 @@ class TestDryRun(ArchiveTestBase):
                 cli.main()
             self.assertIs(m.call_args.kwargs["dry_run"], expected, argv)
 
+    def test_cli_restore_without_live_makes_no_client_calls(self):
+        import importlib.util
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts", "archive_moxfield_decks.py")
+        spec = importlib.util.spec_from_file_location("archive_cli_restore", path)
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        archive.archive_all(self.r, client=FakeMoxfieldClient([mox_deck("Kyra", "d1")]), dry_run=False)
+        with unittest.mock.patch.object(sys, "argv", ["x", "--restore", "d1"]), \
+             unittest.mock.patch.object(cli.redis, "from_url", return_value=self.r), \
+             unittest.mock.patch.object(cli.archive, "restore") as restore, \
+             unittest.mock.patch.object(cli.archive.moxfield_writer, "MoxfieldClient") as client_cls:
+            rc = cli.main()
+        self.assertEqual(rc, 0)
+        restore.assert_not_called()
+        client_cls.assert_not_called()
+        with unittest.mock.patch.object(sys, "argv", ["x", "--restore", "d1", "--live"]), \
+             unittest.mock.patch.object(cli.redis, "from_url", return_value=self.r), \
+             unittest.mock.patch.object(cli.archive, "restore", return_value={"deck_id": "d1", "restored_name": "Kyra", "restored_visibility": "private"}) as restore:
+            cli.main()
+        restore.assert_called_once()
+
     def test_dry_run_shows_the_new_names(self):
         client = FakeMoxfieldClient([mox_deck("Kyra Fireball", "d1")])
         report = archive.archive_all(self.r, dry_run=True, client=client)
