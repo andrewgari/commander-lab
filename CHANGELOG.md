@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Brew pages: visual refresh. Panels now have proper padding, the Details step is a tidier two-column form with a readable 1–5 power selector, donor rows show status chips and colour pips, the Summary panel puts the reason Generate is disabled right under the button, and the result page has one clear main action (Make physical) with Re-brew and Export as secondary and Abandon as a quiet last option. Stat tiles stack 2×2 on phones without sideways scrolling.
+- Database image: the bundled Postgres image now ships only pgvector; the unused Apache AGE extension is removed. Existing installs must recreate the database container on the new image.
 - Draft page: Commit now shows a summary of what will happen (new deck, cards per board, commanders, colours, copies pulled from other decks, warnings) in a dialog before anything changes, Abandon has its own confirmation, and a successful commit opens the new deck.
 - Draft page: staged cards are grouped by board and you can change a card's quantity in place.
 - Draft page: add cards by typing a name in an owned-cards search box (Enter adds the top match, `2x` sets quantity); adding a card that's already staged increases its count, and Maybeboard now works. Works without JavaScript too.
@@ -29,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Draft page: a failed action now shows a dismissible error message next to the button you used (Stage move, unstage) instead of a plain red line at the top of the page or an error page, and those buttons show progress and ignore a second click while saving.
 - Confirm dialogs (Commit/Abandon): on small screens the scrolling message area can now be reached and scrolled with the keyboard.
 - Brew result page: the card list no longer gets replaced by "Availability report unavailable" after a successful brew, and the Make physical dialog now lists what would move. A failed brew now shows only the failure (with Retry) instead of also showing the "Brewing…" progress panel, and a brew in progress no longer shows an empty "Brew failed" panel.
 - Brew page: donor decks and the Summary now show their status chips and colour pips on first load.

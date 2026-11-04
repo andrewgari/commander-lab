@@ -81,6 +81,13 @@
 
 	const groups = $derived(groupByBoard(data.state.cards));
 	let rowMessage = $state('');
+	const unstaging = createPending({ key: (fd) => String(fd.get('instance_id')) });
+	const staging = createPending();
+	/** form.action is page-wide; remember which unstage row was submitted so only that row shows the banner. */
+	let lastUnstage = $state<string | null>(null);
+	/** Actions whose error is shown in-form; anything else falls back to the page-level banner. */
+	const INLINE_ACTIONS = ['stage_move', 'unstage_move'];
+	const pageError = $derived(form?.actionError && !INLINE_ACTIONS.includes(String(form.action)) ? form.actionError : null);
 	const removing = createPending({ key: (fd) => String(fd.get('oracle_id')) + String(fd.get('board')) });
 
 	let pickedCopy = $state<ComboOption<string> | null>(null);
@@ -117,7 +124,9 @@
 {#if data.deckNames === null}<p class="meta" role="status">Deck names unavailable</p>{/if}
 {#if draft.notes}<p class="meta">{draft.notes}</p>{/if}
 
-{#if form?.actionError}<p class="error" role="alert">{form.actionError}</p>{/if}
+{#if pageError}
+	{#key form}<ErrorBanner message="Couldn't complete that action" detail={pageError} dismissible />{/key}
+{/if}
 
 {#if open && form?.needsConfirm === 'commit'}
 	<section class="confirm-inline" aria-labelledby="confirm-h">
@@ -217,9 +226,19 @@
 		{#snippet cell(row, column)}
 			{#if column.key === 'actions'}
 				{#if open}
-					<form method="POST" action="?/unstage_move">
+					<form
+						method="POST"
+						action="?/unstage_move"
+						use:enhance={(input) => {
+							lastUnstage = row.instanceId;
+							return unstaging.enhance(input);
+						}}
+					>
 						<input type="hidden" name="instance_id" value={row.instanceId} />
-						<button type="submit" class="link" aria-label={`Unstage ${row.displayName} from ${row.from}`}>unstage</button>
+						<SubmitButton variant="link-danger" pending={unstaging.submitting} busy={unstaging.key === row.instanceId} pendingLabel="Unstaging…" aria-label={`Unstage ${row.displayName} from ${row.from}`}>unstage</SubmitButton>
+						{#if lastUnstage === row.instanceId && (unstaging.transientError || (form?.action === 'unstage_move' && form.actionError))}
+							{#key form}<ErrorBanner message="Couldn't unstage this move" detail={unstaging.transientError ?? form?.actionError} dismissible />{/key}
+						{/if}
 					</form>
 				{/if}
 			{:else if column.key === 'cardName'}
@@ -233,13 +252,19 @@
 		{/snippet}
 	</ScrollTable>
 	{#if open}
-		<form method="POST" action="?/stage_move" class="inline">
-			<CopyPicker action={moveAction} bind:selected={pickedCopy} />
-			<select name="move_action" aria-label="Move action" bind:value={moveAction}>
-				<option value="assign">assign into result deck</option>
-				<option value="unassign">unassign back to collection</option>
-			</select>
-			<button type="submit">Stage move</button>
+		<form method="POST" action="?/stage_move" use:enhance={staging.enhance}>
+			<fieldset class="inline" disabled={staging.submitting}>
+				<legend class="visually-hidden">Stage a copy move</legend>
+				<CopyPicker action={moveAction} bind:selected={pickedCopy} />
+				<select name="move_action" aria-label="Move action" bind:value={moveAction}>
+					<option value="assign">assign into result deck</option>
+					<option value="unassign">unassign back to collection</option>
+				</select>
+				<SubmitButton variant="secondary" pending={staging.submitting} pendingLabel="Staging…">Stage move</SubmitButton>
+			</fieldset>
+			{#if staging.transientError || (form?.action === 'stage_move' && form.actionError)}
+				{#key form}<ErrorBanner message="Couldn't stage that move" detail={staging.transientError ?? form?.actionError} dismissible />{/key}
+			{/if}
 		</form>
 	{/if}
 </section>
@@ -346,7 +371,14 @@
 			display: none;
 		}
 	}
-	form.inline {
+	fieldset.inline {
+		border: 0;
+		margin: 0;
+		padding: 0;
+		min-width: 0;
+	}
+	form.inline,
+	fieldset.inline {
 		display: flex;
 		gap: 0.4rem;
 		flex-wrap: wrap;
@@ -354,19 +386,6 @@
 	}
 	form.inline input[name='qty'] {
 		width: 4rem;
-	}
-	button.link {
-		background: none;
-		border: none;
-		padding: 0.4rem 0.6rem;
-		min-height: var(--touch-min, 2.75rem);
-		min-width: var(--touch-min, 2.75rem);
-		display: inline-flex;
-		align-items: center;
-		color: var(--color-danger);
-		cursor: pointer;
-		font-size: inherit;
-		text-decoration: underline;
 	}
 	.commit-bar {
 		position: sticky;
@@ -399,7 +418,7 @@
 		border-color: var(--color-danger);
 	}
 	.commit-bar :global(.btn[aria-disabled='true']) {
-		opacity: 0.6;
+		color: var(--color-muted);
 		cursor: not-allowed;
 		border-style: dashed;
 	}
@@ -424,8 +443,5 @@
 	.meta {
 		font-size: 0.85rem;
 		color: var(--color-muted);
-	}
-	.error {
-		color: var(--color-danger);
 	}
 </style>

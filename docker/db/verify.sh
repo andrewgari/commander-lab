@@ -25,4 +25,4 @@ docker compose "$@" exec -T db sh -c \
     'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP TABLE public.infra_restart_probe"'
 docker compose "$@" exec -T db sh -c \
     'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /usr/local/share/commander-db/smoke.sql'
-printf '%s\n' 'PASS: boot, health, extensions, vector/HNSW, Cypher, idempotent init, restart/persistence'
+printf '%s\n' 'PASS: boot, health, extensions, vector/HNSW, idempotent init, restart/persistence'
