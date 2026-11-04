@@ -1,7 +1,7 @@
 services:
   # Slice 0 foundation only: app stays on Redis until the migration slice.
   db:
-    image: commander-lab-db:pg17-vector0.8.2-age1.6.0
+    image: commander-lab-db:pg17-vector0.8.2
     build:
       context: ./docker/db
     container_name: commander-lab-db

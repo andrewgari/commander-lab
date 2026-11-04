@@ -293,6 +293,10 @@ def sync_inventory():
                     # Consumed by deck_validator.CardInfo.from_record.
                     "types": card_types,
                     "commander_legality": (oracle_card.get("legalities") or {}).get("commander"),
+                    # Commander eligibility: Vehicle/Spacecraft need printed P/T; meld results never qualify.
+                    "power": oracle_card.get("power"),
+                    "toughness": oracle_card.get("toughness"),
+                    "layout": oracle_card.get("layout"),
                 })
             
             for _ in range(quantity):

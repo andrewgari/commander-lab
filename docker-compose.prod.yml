@@ -2,7 +2,7 @@ services:
   # Prebuild on Tower (docker/db/README.md). Never reuse an existing PGDATA.
   # This adds no application DB wiring or Redis->Postgres cutover in slice 0.
   db:
-    image: commander-lab-db:pg17-vector0.8.2-age1.6.0
+    image: commander-lab-db:pg17-vector0.8.2
     pull_policy: never
     container_name: commander-lab-db
     restart: unless-stopped

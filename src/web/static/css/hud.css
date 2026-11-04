@@ -3761,6 +3761,11 @@ form.sm-form { display: flex; flex-direction: column; gap: var(--sp-5); }
    line, provenance stack bar.
    ========================================================================== */
 
+/* `.hud-panel` sets display:flex, which beats the UA `[hidden]` rule: panels
+   toggled with the hidden attribute (brew failed/building, recent brews) stayed
+   visible. */
+.hud-panel[hidden] { display: none; }
+
 /* Large selectable radio cards (build mode). Selected: --indicator left bar
    + --signal title; unselected --text-2. Keyboard focus keeps the HUD ring. */
 .hud-radio-card {
