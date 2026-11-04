@@ -274,3 +274,36 @@ def test_brew_mobile_390_no_overflow_and_reason_visible(page, base_url):
     inp.press("Enter")
     expect(page.locator("#brewGenerateMobile")).to_be_enabled()
     assert page.evaluate("document.documentElement.scrollWidth") <= 390
+
+
+def _local_rows(names):
+    return {"results": [{"name": n, "uid": "", "oracle_id": "", "image": "",
+                         "type_line": "Legendary Creature", "color_identity": [],
+                         "colors": [], "keywords": [], "mana_cost": ""} for n in names],
+            "source": "local", "degraded": True}
+
+
+def test_brew_local_degraded_rows_are_all_shown_scroll_and_selectable(page, base_url):
+    """Scryfall rate-limited: local rows still render (more than 8), the list
+    scrolls instead of growing the page, and both click and ArrowDown+Enter pick."""
+    names = [f"Spider Fixture {i:02d}" for i in range(15)]
+    page.route("**/api/cards/autocomplete*", lambda route: route.fulfill(
+        status=200, content_type="application/json", body=json.dumps(_local_rows(names))))
+    inp, lst = _open_brew(page, base_url)
+    inp.click()
+    inp.press_sequentially("spider", delay=20)
+    options = lst.locator("[role=option]")
+    expect(options.first).to_be_visible(timeout=8000)
+    assert options.count() == 15
+    assert page.evaluate("el => el.scrollHeight > el.clientHeight", lst.element_handle())
+    assert not page.evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
+    options.nth(3).click()
+    expect(page.locator("#brewGenerate")).to_be_enabled()
+    assert "Spider Fixture 03" in page.locator("#brewCmdNames").inner_text()
+    page.locator("#brewCmdRemove").click()
+    inp.click()
+    inp.press_sequentially("spider", delay=20)
+    expect(options.first).to_be_visible(timeout=8000)
+    inp.press("ArrowDown")
+    inp.press("Enter")
+    expect(page.locator("#brewGenerate")).to_be_enabled()

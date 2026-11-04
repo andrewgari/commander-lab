@@ -24,6 +24,11 @@ class TestBrewAPI(unittest.TestCase):
     def setUp(self):
         import src.server.app.main as app_module
         self.app_module = app_module
+        # The background offline-pool refresh is covered in test_card_autocomplete_api;
+        # keep it out of these exact httpx call-count assertions.
+        _p = patch("src.server.domain.inventory.card_search._schedule_pool_refresh")
+        _p.start()
+        self.addCleanup(_p.stop)
         self.r = FakeRedis()
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.deck2 = make_deck(deck_id=43, name="Urza Artifacts", status="digital",
