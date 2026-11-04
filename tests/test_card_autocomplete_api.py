@@ -289,6 +289,29 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         self.assertEqual([r["name"] for r in res.json()["results"]], ["Spider-Man, Web-Slinger"])
         self.assertIsNotNone(self.r.get("cards:autocomplete:commanders:spid"))
 
+    def test_retry_after_http_date_is_honored(self):
+        from email.utils import format_datetime
+        from datetime import datetime, timedelta, timezone
+        when = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=45), usegmt=True)
+        with patch.object(self.app_module.httpx, "get", return_value=self._status(429, when)):
+            self.client.get("/api/cards/autocomplete?q=spid&commanders_only=true")
+        remaining = self.card_search._cooldown_until - time.monotonic()
+        self.assertGreater(remaining, 30)
+        self.assertLessEqual(remaining, 46)
+
+    def test_catalog_429_is_degraded_cooldown_and_uncached(self):
+        self._seed_spider_commanders()
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/catalog/card-names"):
+                return self._status(429, 30)
+            return Mock(status_code=404, headers={}, json=lambda: {})
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            res = self.client.get("/api/cards/autocomplete?q=spidr&commanders_only=true")
+        self.assertIs(res.json()["degraded"], True)
+        self.assertIsNone(self.r.get("cards:autocomplete:commanders:spidr"))
+        self.assertGreater(self.card_search._cooldown_until, time.monotonic())
+
     def test_genuine_empty_is_not_degraded(self):
         # Scryfall answers 404 for every probe: a real "no match", not an outage.
         notfound = Mock(status_code=404, headers={}, json=lambda: {})

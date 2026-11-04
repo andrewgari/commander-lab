@@ -21,6 +21,8 @@ keeps only commander-eligible cards: the Redis eligible set when present
 import asyncio
 import json
 import time
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 
 import httpx
 
@@ -62,10 +64,18 @@ def _reset_cooldown():
 def _note_unavailable(resp):
     global _cooldown_until
     wait = COOLDOWN_DEFAULT_SECONDS
+    raw = (getattr(resp, "headers", None) or {}).get("Retry-After")
     try:
-        wait = float((getattr(resp, "headers", None) or {}).get("Retry-After"))
+        wait = float(raw)
     except (TypeError, ValueError):
-        pass
+        # Retry-After may also be an HTTP-date.
+        try:
+            when = parsedate_to_datetime(str(raw))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            wait = (when - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, IndexError):
+            pass
     wait = max(1.0, min(wait, COOLDOWN_MAX_SECONDS))
     _cooldown_until = time.monotonic() + wait
 
@@ -428,7 +438,8 @@ def _enrich_from_scryfall(names, headers):
 
 def _catalog_names(r, headers):
     """Scryfall's card-name catalog (~35k names), cached 7 days in Redis.
-    Returns [] on any failure and never caches a failure."""
+    Returns [] on a non-200/parse failure, raises ScryfallUnavailable on
+    429/5xx/cooldown, and never caches a failure."""
     try:
         raw = r.get(CATALOG_KEY)
         if raw:
@@ -438,10 +449,13 @@ def _catalog_names(r, headers):
     except Exception:
         pass
     try:
-        resp = httpx.get(SCRYFALL_CATALOG_NAMES, headers=headers, timeout=15.0)
+        resp = _get(SCRYFALL_CATALOG_NAMES, headers=headers, timeout=15.0)
         if resp.status_code != 200:
             return []
         names = [n for n in (resp.json().get("data") or []) if isinstance(n, str)]
+    except ScryfallUnavailable:
+        # Outage, not "no match": let the caller take the degraded path.
+        raise
     except Exception:
         return []
     if names:
