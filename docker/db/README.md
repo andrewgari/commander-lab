@@ -81,6 +81,22 @@ image deliberately for security/extension updates; update pins and rerun
 verification before deploying. Back up canonical data with `pg_dump` to
 storage outside the repository; vector indexes remain rebuildable.
 
+## Upgrading a database that was initialized with Apache AGE
+
+Recreating the container keeps PGDATA, so a database created on the old image
+still has AGE and an `ag_catalog` search path; the init scripts do not rerun.
+Before switching images, while the **old** image is still running:
+
+1. Back up: `pg_dump -Fc commander_lab > commander_lab-pre-age-drop.dump`.
+2. Check dependencies: `SELECT * FROM pg_depend d JOIN pg_extension e ON d.refobjid = e.oid WHERE e.extname = 'age' AND d.deptype = 'n';` and list any
+   application objects in `ag_catalog` (`\dt ag_catalog.*`); move or recreate
+   anything you need to keep.
+3. Remove AGE: `DROP EXTENSION age CASCADE;`.
+4. Reset the search path: `ALTER DATABASE commander_lab RESET search_path;`
+   (and `ALTER ROLE ... RESET search_path` if it was set per role).
+5. Recreate the container on the new image. Dumps taken before step 3 contain
+   `CREATE EXTENSION age` and cannot be restored into the new image.
+
 ## Repeatable isolated acceptance check
 
 Run on a Docker host (Tower can build without Framework's sudo/FIDO prompt).
