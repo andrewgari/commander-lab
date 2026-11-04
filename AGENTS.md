@@ -30,11 +30,14 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 - **Physical Deck Statuses**: `Have` (physically assembled), `Virtual`, `Pending`, `Possible`.
 - **Structural Categories**: `Commander`, `Sideboard`, `Maybeboard`, `Considering` (structural categories are preserved and excluded from thematic tag learning).
 - **Active Physical Folder**: Folder ID `588380` contains primary active physical decks.
-- **Redis Keys**:
-  - `decks`: JSON array of all synced decks.
-  - `inventory`: JSON dict of card inventory and deck appearances.
-  - `deck_status:{deck_id}`: Physical status string.
-  - `card_tags:{card_name}`: Learned and manual card tags.
+- **Redis Keys** (live `commander-lab-redis` db0, 24,698 keys at 2026-11-04; full table in `docs/redis-postgres-key-mapping.md`):
+  - `decks`: single JSON string of all synced decks (58).
+  - `deck_status:{deck_id}` / `deck_status:moxfield:{id}`: physical status string.
+  - `instance:{uuid}`: one physical card copy; `idx:*`: sets/strings indexing instances and `card_name_to_oracle`.
+  - `card_meta:{oracle_id|name}`: Scryfall card facts; `price:card:{name}`; `card_interactions:{name}`.
+  - `lab_tags`, `lab_tags_source`: single JSON strings, `{card_name: [tags]}` and provenance. `tag_vocabulary`: JSON string.
+  - There is no `inventory` key and no `card_tags:*` keys (0 observed). Inventory is computed from `instance:*` + `lab_tags`.
+  - Only `cards:catalog:names` has a TTL.
 
 ## Changelog entries (Keep a Changelog 1.1.0)
 `CHANGELOG.md` is the single source of release notes. The release workflow publishes the entries a merge adds under `## [Unreleased]` as the GitHub Release body; it never uses commit logs, PR titles/bodies or generated notes. Releases with no new entries say "Maintenance release, no user-facing changes."
