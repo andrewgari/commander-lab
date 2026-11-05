@@ -13,6 +13,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Callable, Iterable, Optional
 
 USER_AGENT = "commander-lab/1.0 (+https://github.com/andrewgari/commander-lab)"
@@ -23,6 +24,7 @@ EDHREC_MIN_INTERVAL_S = 0.6
 FORBIDDEN_HOSTS = ("commandersalt.com",)
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9\s-]")
+_SAFE_SLUG = re.compile(r"[a-z0-9][a-z0-9-]*")
 _SLUG_WS = re.compile(r"[\s-]+")
 
 Opener = Callable[[urllib.request.Request], bytes]
@@ -63,8 +65,8 @@ class Fetcher:
         self.requests = 0
 
     def _get(self, url: str) -> bytes:
-        host = url.split("/")[2] if "//" in url else ""
-        if any(host.endswith(h) for h in FORBIDDEN_HOSTS):
+        host = (urlparse(url).hostname or "").lower()
+        if any(host == h or host.endswith("." + h) for h in FORBIDDEN_HOSTS):
             raise CalibrationCacheError(f"refusing to call {host}")
         for attempt in range(self.retries + 1):
             if self._last is not None:
@@ -86,7 +88,9 @@ class Fetcher:
 
     def _cached(self, rel: str, url: str) -> Optional[Path]:
         """Fetch url to cache/rel unless present. Returns None on 404."""
-        dest = self.cache / rel
+        dest = (self.cache / rel).resolve()
+        if not dest.is_relative_to(self.cache.resolve()):
+            raise CalibrationCacheError(f"path escapes cache dir: {rel}")
         if dest.exists() and dest.stat().st_size > 0:
             return dest
         try:
@@ -108,6 +112,8 @@ class Fetcher:
     def edhrec_commander(self, name_or_slug: str, *, slug: bool = False) -> dict:
         """Base page + 5 bracket pages. Returns {page: Path|None}."""
         s = name_or_slug if slug else slugify(name_or_slug)
+        if not _SAFE_SLUG.fullmatch(s or ""):
+            raise CalibrationCacheError(f"invalid slug: {s!r}")
         out = {"base": self._cached(f"edhrec/{s}/base.json", f"{EDHREC_BASE}/commanders/{s}.json")}
         for b in BRACKET_PAGES:
             out[b] = self._cached(f"edhrec/{s}/{b}.json", f"{EDHREC_BASE}/commanders/{s}/{b}.json")

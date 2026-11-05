@@ -71,3 +71,19 @@ def test_retry_on_429(tmp_path):
 
     fx = f.Fetcher(tmp_path, opener=opener, sleep=lambda s: None)
     assert fx.edhrec_year().read_bytes() == b"ok"
+
+
+@pytest.mark.parametrize("url", ["https://API.COMMANDERSALT.COM/x", "https://api.commandersalt.com:443/x", "https://commandersalt.com/x"])
+def test_commandersalt_variants_refused(tmp_path, url):
+    fx, calls = make(tmp_path, {})
+    with pytest.raises(f.CalibrationCacheError):
+        fx._get(url)
+    assert calls == []
+
+
+@pytest.mark.parametrize("slug", ["../../escaped", "a/b", "", "A b"])
+def test_bad_slug_rejected(tmp_path, slug):
+    fx, calls = make(tmp_path, {})
+    with pytest.raises(f.CalibrationCacheError):
+        fx.edhrec_commander(slug, slug=True)
+    assert calls == []
