@@ -237,7 +237,8 @@ def _redis_status_for(entry: dict, overrides: dict) -> str:
 
 def apply(r, factory: sessionmaker, fetcher: Optional[Callable] = None,
           live: bool = True, sleep_seconds: float = 0.0,
-          progress: Optional[Callable[[str], None]] = None) -> dict:
+          progress: Optional[Callable[[str], None]] = None,
+          skip_unresolved: bool = False) -> dict:
     """Migrate the full collection. Idempotent: re-running after a partial run
     inserts nothing twice (instances keyed by id, decks by registry id,
     snapshots only on content change)."""
@@ -284,11 +285,15 @@ def apply(r, factory: sessionmaker, fetcher: Optional[Callable] = None,
 
     # -- phase 2: instances (+ provenance events seeded from Redis state) ----
     pairs, stats = load_redis_instances(r)
-    if stats["unresolved"]:
+    if stats["unresolved"] and not skip_unresolved:
         raise RuntimeError(
             f"refusing to migrate instances: {len(stats['unresolved'])} unresolved "
-            f"card names (run --dry-run); fix idx:card_name_to_oracle first"
+            f"card names (run --dry-run); fix idx:card_name_to_oracle first "
+            f"(or pass skip_unresolved / --skip-unresolved to skip them)"
         )
+    if stats["unresolved"]:
+        note(f"skipping {len(stats['unresolved'])} unresolved instance record(s): "
+             f"{', '.join(stats['unresolved'])}")
     inserted = skipped = 0
     with session_scope(factory) as session:
         existing_deck_ids = {d["id"] for d in repo.list_decks(session, include_archived=True)}
@@ -357,6 +362,8 @@ def apply(r, factory: sessionmaker, fetcher: Optional[Callable] = None,
             "redis_records": stats["redis_records"],
             "inserted": inserted,
             "already_present": skipped,
+            "skipped_unresolved": len(stats["unresolved"]),
+            "skipped_unresolved_names": list(stats["unresolved"]),
             "rebound": len(rebound),
         },
     }
