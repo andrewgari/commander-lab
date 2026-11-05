@@ -79,6 +79,9 @@ class Combo(unittest.TestCase):
         self.assertIsNone(s.combo("A", {"A"}, None, 1000))
         self.assertEqual(s.combo("A", {"A", "B"}, [({"A", "B"}, "E", 5000)], 1000), 1.0)
 
+    def test_zero_p99_is_missing(self):
+        self.assertIsNone(s.combo("A", {"A", "B"}, [({"A", "B"}, "E", 50)], 0))
+
     def test_custom_weights(self):
         r = s.combo("A", {"A", "B"}, [({"A", "B"}, "E", 1000)], 1000, {"E": 0.5})
         self.assertAlmostEqual(r, 0.5)

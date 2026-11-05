@@ -119,13 +119,13 @@ def combo(card: str, deck: Collection[str], variants: Optional[Iterable[tuple]],
         return None
     tw = DEFAULT_COMBO_TAG_WEIGHTS if tag_weights is None else tag_weights
     denom = math.log1p(max(p99_popularity, 0.0))
+    if denom <= 0:
+        return None  # normalisation unavailable: drop the signal, don't score it 0
     deck_set = set(deck)
     best = 0.0
     for pieces, tag, popularity in variants:
         pieces = set(pieces)
         if card not in pieces or not pieces <= deck_set:
-            continue
-        if denom <= 0:
             continue
         v = tw.get(tag, 0.0) * math.log1p(max(popularity or 0.0, 0.0)) / denom
         best = max(best, v)
