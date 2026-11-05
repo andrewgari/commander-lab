@@ -1,5 +1,10 @@
 # Role tags as user-defined Scryfall queries
 
+> **Superseded in part (2026-11-04)** by [role-targets-spec.md](role-targets-spec.md): the facet
+> model (IS/TALKS/MAKES/AMPLIFIES/FREE), the §3.2 "scores identically" migration claim and the
+> §2.6 oversize cap are replaced there. "One tag = one Scryfall query" and the cache design
+> still hold.
+
 **Status:** spec (no code) · **Owner:** Andrew · **Card:** ARCH-2
 **Supersedes:** the fixed 15-resource `produces:*` / `consumes:*` role vocabulary
 (`analytics/interactions/vocab.py`) as the thing archetypes score against.
