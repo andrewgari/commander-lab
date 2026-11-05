@@ -1,0 +1,363 @@
+{
+ "job": {
+  "job_id": "e5f52c6c19d4",
+  "deck_id": "archidekt:1",
+  "card": "Blasphemous Act",
+  "rounds": 2,
+  "status": "done",
+  "stage": "done",
+  "events": [
+   {
+    "stage": "evaluated",
+    "strength": 34.0,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "round_start",
+    "round": 1,
+    "of": 2,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "turn",
+    "side": "remove",
+    "round": 1,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "turn",
+    "side": "keep",
+    "round": 1,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "round_start",
+    "round": 2,
+    "of": 2,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "turn",
+    "side": "remove",
+    "round": 2,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "turn",
+    "side": "keep",
+    "round": 2,
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "judging",
+    "at": "2026-10-16T20:05:10+00:00"
+   },
+   {
+    "stage": "replacements",
+    "at": "2026-10-16T20:05:10+00:00"
+   }
+  ],
+  "transcript": [
+   {
+    "side": "remove",
+    "round": 1,
+    "claims": [
+     {
+      "id": "RM-1.1",
+      "tier": "spirit",
+      "claimed_tier": "x",
+      "text": "Cuts against the pillar.",
+      "evidence": [
+       "J2"
+      ]
+     }
+    ],
+    "rebuttals": [],
+    "concede": false,
+    "discarded": []
+   },
+   {
+    "side": "keep",
+    "round": 1,
+    "claims": [
+     {
+      "id": "KP-1.1",
+      "tier": "popularity",
+      "claimed_tier": "x",
+      "text": "It is a staple.",
+      "evidence": [
+       "E1"
+      ]
+     }
+    ],
+    "rebuttals": [],
+    "concede": false,
+    "discarded": []
+   },
+   {
+    "side": "remove",
+    "round": 2,
+    "claims": [
+     {
+      "id": "RM-2.1",
+      "tier": "spirit",
+      "claimed_tier": "x",
+      "text": "Cuts against the pillar.",
+      "evidence": [
+       "J2"
+      ]
+     }
+    ],
+    "rebuttals": [],
+    "concede": false,
+    "discarded": []
+   },
+   {
+    "side": "keep",
+    "round": 2,
+    "claims": [
+     {
+      "id": "KP-2.1",
+      "tier": "popularity",
+      "claimed_tier": "x",
+      "text": "It is a staple.",
+      "evidence": [
+       "E1"
+      ]
+     }
+    ],
+    "rebuttals": [],
+    "concede": false,
+    "discarded": []
+   }
+  ],
+  "created_at": "2026-10-16T20:05:10+00:00",
+  "updated_at": "2026-10-16T20:05:10+00:00",
+  "started_at": "2026-10-16T20:05:10+00:00",
+  "result": {
+   "card": {
+    "name": "Blasphemous Act",
+    "oracle_id": "oid-card",
+    "type_line": "Sorcery",
+    "oracle_text": "Deals 13 damage to each creature.",
+    "color_identity": "R",
+    "legal": true
+   },
+   "rubric": {
+    "strength": 34.0,
+    "band": "cut_candidate",
+    "p_keep_prior": 0.12,
+    "breakdown": {
+     "inclusion": 0.62,
+     "synergy": 0.4,
+     "role_confidence": null,
+     "role_need": 0.2
+    }
+   },
+   "roles": {
+    "primary": "board_wipe",
+    "secondary": [],
+    "sources": {
+     "board_wipe": "heuristic"
+    }
+   },
+   "transcript": [
+    {
+     "side": "remove",
+     "round": 1,
+     "claims": [
+      {
+       "id": "RM-1.1",
+       "tier": "spirit",
+       "claimed_tier": "x",
+       "text": "Cuts against the pillar.",
+       "evidence": [
+        "J2"
+       ]
+      }
+     ],
+     "rebuttals": [],
+     "concede": false,
+     "discarded": []
+    },
+    {
+     "side": "keep",
+     "round": 1,
+     "claims": [
+      {
+       "id": "KP-1.1",
+       "tier": "popularity",
+       "claimed_tier": "x",
+       "text": "It is a staple.",
+       "evidence": [
+        "E1"
+       ]
+      }
+     ],
+     "rebuttals": [],
+     "concede": false,
+     "discarded": []
+    },
+    {
+     "side": "remove",
+     "round": 2,
+     "claims": [
+      {
+       "id": "RM-2.1",
+       "tier": "spirit",
+       "claimed_tier": "x",
+       "text": "Cuts against the pillar.",
+       "evidence": [
+        "J2"
+       ]
+      }
+     ],
+     "rebuttals": [],
+     "concede": false,
+     "discarded": []
+    },
+    {
+     "side": "keep",
+     "round": 2,
+     "claims": [
+      {
+       "id": "KP-2.1",
+       "tier": "popularity",
+       "claimed_tier": "x",
+       "text": "It is a staple.",
+       "evidence": [
+        "E1"
+       ]
+      }
+     ],
+     "rebuttals": [],
+     "concede": false,
+     "discarded": []
+    }
+   ],
+   "discarded": [],
+   "replacement_brief": {
+    "mode": "like_for_like",
+    "target_roles": [
+     "board_wipe"
+    ],
+    "avoid": []
+   },
+   "replacements": [
+    {
+     "card": "Anger of the Gods",
+     "oracle_id": "o1",
+     "role": "board_wipe",
+     "like_for_like": true,
+     "rationale": "Same job as Blasphemous Act (board_wipe). 30% of Krenko, Mob Boss decks, synergy +0.20",
+     "score": 67.9,
+     "score_breakdown": {
+      "RoleFit": 100.0,
+      "PillarFit": 60.0,
+      "E_c": 61.9,
+      "Own": 0.0,
+      "penalties": []
+     },
+     "tier": "buy",
+     "owned": null,
+     "flags": []
+    },
+    {
+     "card": "Chaos Warp",
+     "oracle_id": "o2",
+     "role": "targeted_removal",
+     "like_for_like": false,
+     "rationale": "Changes the slot to targeted_removal (deck needs board_wipe). 30% of Krenko, Mob Boss decks, synergy +0.20",
+     "score": 30.4,
+     "score_breakdown": {
+      "RoleFit": 0.0,
+      "PillarFit": 60.0,
+      "E_c": 61.9,
+      "Own": 0.0,
+      "penalties": []
+     },
+     "tier": "buy",
+     "owned": null,
+     "flags": []
+    },
+    {
+     "card": "Gempalm Incinerator",
+     "oracle_id": "o3",
+     "role": "targeted_removal",
+     "like_for_like": false,
+     "rationale": "Changes the slot to targeted_removal (deck needs board_wipe). 30% of Krenko, Mob Boss decks, synergy +0.20",
+     "score": 30.4,
+     "score_breakdown": {
+      "RoleFit": 0.0,
+      "PillarFit": 60.0,
+      "E_c": 61.9,
+      "Own": 0.0,
+      "penalties": []
+     },
+     "tier": "buy",
+     "owned": null,
+     "flags": []
+    }
+   ],
+   "flags": [
+    "like_for_like pool too small; topped up from the other group"
+   ],
+   "provisional": false,
+   "fallback": false,
+   "gate": null,
+   "rounds": 2,
+   "warnings": [],
+   "data_as_of": {
+    "generated": "2026-10-16"
+   },
+   "verdict": "remove",
+   "confidence": 0.89,
+   "key_reasons": [
+    "It fights the goblin pillar. [J2, S1]",
+    "Strength is low. [S1]"
+   ],
+   "deciding_tier": "spirit",
+   "winning_claims": [
+    "RM-1.1"
+   ],
+   "packet": {
+    "C1": "Blasphemous Act; Sorcery; colour identity R; Commander legal: yes; oracle text: Deals 13 damage to each creature.",
+    "C2": "Commander(s): Krenko, Mob Boss",
+    "J1": "Goblin swarm",
+    "J2": "Pillars: Goblin swarm: go wide",
+    "E1": "16,733 decks = 37.5% of krenko-mob-boss decks (EDHREC, 44,579 sampled)",
+    "E2": "EDHREC synergy -0.10 with krenko-mob-boss",
+    "R1": "Roles: board_wipe (heuristic, 0.70)",
+    "R2": "Role need 0.20 (1.00 = the deck lacks this role, 0.00 = the role is saturated)",
+    "S1": "Strength 34.0/100, band cut candidate; components: inclusion 0.62, synergy 0.40, role confidence n/a, role need 0.20",
+    "P1": "digital deck"
+   },
+   "replacement_meta": {
+    "mode": "like_for_like",
+    "target_roles": [
+     "board_wipe"
+    ],
+    "pool_exhausted": false,
+    "dropped": [
+     {
+      "card": "Cultivate",
+      "reason": "outside the commander's colour identity"
+     },
+     {
+      "card": "Banned Card",
+      "reason": "not legal in Commander"
+     },
+     {
+      "card": "Already Here",
+      "reason": "already in the deck"
+     },
+     {
+      "card": "Renamed Copy",
+      "reason": "already in the deck"
+     }
+    ]
+   }
+  },
+  "finished_at": "2026-10-16T20:05:10+00:00"
+ }
+}

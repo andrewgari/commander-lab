@@ -1,0 +1,33 @@
+{% import "partials/hud.html" as hud %}
+{#- curve_tempo: {commander_on_curve, mana{lands,ramp,nonland,per_turn[{turn,mana,spend,unspent}],unspent_avg_t2_t6}, active_share{value}, durdle_tax{value,cards,by_reason}, flex{value}, durdle_cards[{name,qty,reasons}]} -#}
+{%- set d = section.data %}
+{%- set m = d.mana or {} %}
+{%- set c = d.commander_on_curve %}
+<div class="hud-grid hud-grid--auto hud-rv-stats">
+    {%- if c %}{{ hud.stat("Commander on curve", rv.pct(c.p_with_ramp, 1), foot=(c.commander or "") ~ " · cmc " ~ c.cmc ~ " · lands only " ~ rv.pct(c.p_lands_only, 1)) }}{% endif %}
+    {%- if m.get("unspent_avg_t2_t6") is not none %}{{ hud.stat("Unspent mana", rv.num(m.unspent_avg_t2_t6), unit="/turn", foot="avg T2–T6") }}{% endif %}
+    {%- if d.active_share %}{{ hud.stat("Active share", rv.pct(d.active_share.value), foot=d.active_share.active ~ " of " ~ d.active_share.nonland ~ " nonland") }}{% endif %}
+    {%- if d.durdle_tax %}{{ hud.stat("Durdle tax", rv.pct(d.durdle_tax.value), foot=d.durdle_tax.cards ~ " cards") }}{% endif %}
+    {%- if d.flex %}{{ hud.stat("Flex", rv.pct(d.flex.value), foot="instant speed") }}{% endif %}
+</div>
+{%- if m.per_turn %}
+<div class="hud-panel hud-panel--flush hud-rv-block">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Mana by turn</h3><span class="hud-panel-meta">{{ m.lands }} lands · {{ m.ramp }} ramp</span></header>
+    <div class="hud-table-wrap"><table class="hud-table hud-rv-table">
+        <thead><tr><th scope="col">Turn</th><th scope="col" class="is-num">Mana</th><th scope="col" class="is-num">Spent</th><th scope="col" class="is-num">Unspent</th></tr></thead>
+        <tbody>{%- for t in m.per_turn %}<tr><td class="is-primary">T{{ t.turn }}</td><td class="is-num">{{ rv.num(t.mana) }}</td><td class="is-num">{{ rv.num(t.spend) }}</td><td class="is-num">{{ rv.num(t.unspent) }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+</div>
+{%- endif %}
+{%- if d.durdle_cards %}
+<div class="hud-panel hud-panel--flush hud-rv-block">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">Durdle cards</h3><span class="hud-panel-meta">{{ d.durdle_cards | length }}</span></header>
+    <ul class="hud-tcards hud-tcards--panel hud-panel-body">
+        {%- for card in d.durdle_cards if card is mapping %}
+        <li class="hud-tcard"><span class="hud-tcard-qty">{{ card.qty or 1 }}</span><span class="hud-card-name hud-cp-name" {{ card_preview_attrs(card.name) }}>{{ card.name }}</span><span></span><span></span>
+            {%- if card.reasons %}<span class="hud-tcard-note">{{ card.reasons | map("replace", "_", " ") | join(", ") }}</span>{% endif %}</li>
+        {%- endfor %}
+    </ul>
+</div>
+{%- endif %}
+{%- if m.why %}<p class="hud-rv-why">{{ m.why }}</p>{% endif %}

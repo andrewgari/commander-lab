@@ -1,0 +1,17 @@
+{
+  "deck_vision": {
+    "intent": "tune_up"
+  },
+  "target_power_level": {
+    "scale": 7
+  },
+  "budget_constraints": {
+    "no_budget": false
+  },
+  "preferred_win_conditions": {
+    "primary": "combat"
+  },
+  "archetype_preferences": {
+    "primary_archetype": "midrange"
+  }
+}

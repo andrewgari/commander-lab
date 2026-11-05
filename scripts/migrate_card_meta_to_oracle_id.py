@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import redis
 import requests
 
-import cards as card_store
+import src.server.domain.inventory.cards as card_store
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 SCRYFALL_NAMED_URL = "https://api.scryfall.com/cards/named"
@@ -49,8 +49,12 @@ def resolve_oracle_id(card_name: str):
     return data.get("oracle_id")
 
 
-def migrate(apply: bool):
-    r = redis.from_url(REDIS_URL, decode_responses=True)
+def migrate(apply: bool, r=None):
+    """Run the backfill. `r` is an optional injected redis-like client
+    (used by tests to avoid a real Redis connection); defaults to a real
+    connection built from REDIS_URL when not supplied."""
+    if r is None:
+        r = redis.from_url(REDIS_URL, decode_responses=True)
 
     meta_keys = r.keys("card_meta:*")
     print(f"Found {len(meta_keys)} legacy card_meta:* records.")
@@ -118,6 +122,14 @@ def migrate(apply: bool):
     if not apply:
         print("\nDry run only — no data written. Re-run with --apply to write "
               "card:{oracle_id} records + the name index.")
+
+    unresolved.sort()
+    return {
+        "found": len(meta_keys),
+        "migrated": migrated,
+        "already_indexed": already_indexed,
+        "unresolved": unresolved,
+    }
 
 
 if __name__ == "__main__":

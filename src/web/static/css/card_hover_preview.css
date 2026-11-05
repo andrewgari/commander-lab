@@ -1,0 +1,169 @@
+/* ==========================================================================
+   Commander Lab: card hover preview (.hud-cp)
+   Spec: docs/design/hover-preview/SPEC.md   Behaviour: static/js/card_hover_preview.js
+   Load after hud.css (uses its tokens, with fallbacks so it also works alone).
+   Kit rules: flat, hairline edges, no blur shadow, no gradient, no
+   backdrop-filter; only transform + opacity animate.
+   ========================================================================== */
+
+:root {
+    --cp-w:         420px;   /* single face            -> 420 x 585 */
+    --cp-w-dfc:     360px;   /* each DFC face          -> 2 x 360 + 8 = 728 */
+    --cp-w-min:     280px;   /* face floor before falling back to Flip */
+    --cp-face-gap:  8px;
+    --cp-cap-h:     28px;    /* caption plate under the art */
+    --cp-gap:       12px;    /* anchor -> popover */
+    --cp-margin:    8px;     /* popover -> viewport edge */
+    --cp-sheet-w:   360px;   /* touch sheet max width */
+    --cp-radius:    4.76% / 3.41%;   /* 3 mm corner of a 63 x 88 mm card, at any size */
+    --cp-in:        140ms;   /* entrance: opacity + 6px slide up */
+    --cp-out:       100ms;   /* exit: opacity only */
+    --cp-slide:     6px;
+    --cp-scrim:     rgba(0, 0, 0, 0.5);
+    --z-preview:    1050;    /* above modals (1000) and sticky headers (5), below toasts (1100) */
+}
+
+/* ---- Triggers ------------------------------------------------------------ */
+/* Text names get a dotted underline so the affordance is discoverable. */
+[data-card-preview].hud-cp-name {
+    text-decoration: underline dotted var(--text-4, #5d6872);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    cursor: default;
+}
+[data-card-preview].hud-cp-name:hover,
+[data-card-preview].hud-cp-name.is-cp-open {
+    text-decoration-color: var(--signal, #f0a63a);
+    color: var(--signal-strong, #ffc266);
+}
+/* No iOS callout / text selection fighting the long-press. */
+@media (pointer: coarse) {
+    [data-card-preview] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
+
+/* ---- Popover shell ------------------------------------------------------- */
+.hud-cp {
+    position: fixed;
+    top: 0; left: 0;                       /* positioned with transform only */
+    z-index: var(--z-preview);
+    pointer-events: none;                  /* never steals the hover: no flicker loop */
+    will-change: transform, opacity;
+    opacity: 0;
+    transition: opacity var(--cp-out) var(--ease, ease-out);
+}
+.hud-cp[hidden] { display: none; }
+.hud-cp.is-open { opacity: 1; }
+.hud-cp.is-interactive { pointer-events: auto; }        /* DFC flip mode: Flip button reachable */
+.hud-cp.is-open .hud-cp-inner { animation: hud-cp-in var(--cp-in) var(--ease, ease-out) both; }
+.hud-cp.is-swap .hud-cp-inner { animation: none; }      /* warm swap: no re-entrance */
+@keyframes hud-cp-in {
+    from { opacity: 0; transform: translateY(var(--cp-slide)); }
+    to   { opacity: 1; transform: none; }
+}
+
+.hud-cp-inner { display: flex; flex-direction: column; }
+.hud-cp-faces { display: flex; gap: var(--cp-face-gap); }
+
+/* ---- Card face (skeleton + image share one card-shaped box) -------------- */
+.hud-cp-face {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    aspect-ratio: var(--card-ratio, 488 / 680);
+    border-radius: var(--cp-radius);
+    overflow: hidden;                      /* clips Scryfall's black JPEG corners */
+    background: var(--surface-2, #1a2128);
+    box-shadow: 0 0 0 var(--hairline, 1px) var(--text-3, #8a96a2);
+}
+.hud-cp-face img {
+    display: block; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity var(--dur-base, 120ms) var(--ease, ease-out);
+}
+.hud-cp-face[data-state="ok"] img { opacity: 1; }
+.hud-cp-face[data-state="error"] img { display: none; }
+
+.hud-cp-ph {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-2, 8px); padding: var(--sp-6, 24px);
+    text-align: center; color: var(--text-3, #8a96a2);
+}
+.hud-cp-face[data-state="ok"] .hud-cp-ph { display: none; }
+.hud-cp-ph-name {
+    font-family: var(--font-card, serif); font-weight: var(--fw-semibold, 600);
+    font-size: var(--fs-lg, 18px); line-height: var(--lh-tight, 1.2); color: var(--text-2, #c3ccd4);
+    overflow-wrap: anywhere;
+}
+.hud-cp-ph-lbl {
+    font-family: var(--font-mono, monospace); font-size: var(--fs-micro, 10px);
+    letter-spacing: var(--tracking-label, 0.08em); text-transform: uppercase;
+}
+.hud-cp-face[data-state="error"] .hud-cp-ph-lbl { color: var(--danger, #ee6a61); }
+
+/* Loading: a 2px signal bar sweeps the top edge. Transform only. */
+.hud-cp-face[data-state="loading"]::after {
+    content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 2px;
+    background: var(--signal, #f0a63a); transform-origin: 0 50%;
+    animation: hud-cp-sweep 1100ms var(--ease, ease-out) infinite;
+}
+@keyframes hud-cp-sweep {
+    0%   { transform: translateX(-100%) scaleX(0.35); }
+    100% { transform: translateX(100%)  scaleX(0.35); }
+}
+
+/* ---- Caption plate --------------------------------------------------------- */
+.hud-cp-cap {
+    display: flex; align-items: center; gap: var(--sp-2, 8px);
+    height: var(--cp-cap-h); margin-top: 4px; padding: 0 var(--sp-2, 8px);
+    background: var(--surface-3, #222b33); border: var(--stroke-strong, 1px solid #3a4550);
+    border-radius: var(--radius-1, 2px);
+    font-family: var(--font-mono, monospace); font-size: var(--fs-xs, 11px); color: var(--text-1, #e8edf1);
+    white-space: nowrap; overflow: hidden; box-sizing: border-box;
+}
+.hud-cp-cap-set    { text-transform: uppercase; letter-spacing: var(--tracking-label, 0.08em); }
+.hud-cp-cap-set:empty, .hud-cp-cap-status:empty { display: none; }
+.hud-cp-cap-name   { color: var(--text-3, #8a96a2); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hud-cp-cap-status { color: var(--danger, #ee6a61); }
+.hud-cp-cap .hud-chip { margin-left: auto; flex: none; }
+.hud-cp-cap .hud-chip[hidden], .hud-cp-flip[hidden] { display: none; }
+.hud-cp-flip {
+    all: unset; box-sizing: border-box; cursor: pointer; flex: none; margin-left: auto;
+    padding: 0 var(--sp-2, 8px); height: 20px; display: inline-flex; align-items: center;
+    border: var(--stroke-strong, 1px solid #3a4550); border-radius: var(--radius-1, 2px);
+    color: var(--text-1, #e8edf1); font: inherit;
+}
+.hud-cp-cap .hud-chip:not([hidden]) + .hud-cp-flip { margin-left: 0; }
+.hud-cp-flip:focus-visible { outline: var(--focus-ring, 2px solid #f0a63a); outline-offset: var(--focus-offset, 2px); }
+
+/* ---- Touch sheet ------------------------------------------------------------ */
+.hud-cp-scrim {
+    position: fixed; inset: 0; z-index: var(--z-preview);
+    background: var(--cp-scrim);
+    opacity: 0; transition: opacity var(--cp-out) var(--ease, ease-out);
+}
+.hud-cp-scrim.is-open { opacity: 1; }
+.hud-cp-scrim[hidden] { display: none; }
+.hud-cp.is-sheet {
+    pointer-events: auto;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) !important;   /* JS clears the anchored transform */
+    max-height: calc(100dvh - 2 * var(--cp-margin));
+}
+.hud-cp.is-sheet .hud-cp-faces { justify-content: center; max-width: min(calc(100vw - 32px), var(--cp-sheet-w)); }
+.hud-cp-sheet-bar { display: none; gap: var(--sp-2, 8px); margin-top: var(--sp-2, 8px); }
+.hud-cp.is-sheet .hud-cp-sheet-bar { display: flex; }
+.hud-cp-sheet-bar button {                /* 44 x 44 minimum touch target */
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center;
+    background: var(--surface-3, #222b33); border: var(--stroke-strong, 1px solid #3a4550);
+    border-radius: var(--radius-1, 2px);
+    color: var(--text-1, #e8edf1); font: var(--fw-medium, 500) var(--fs-sm, 13px) var(--font-sans, sans-serif);
+}
+.hud-cp-sheet-bar button:focus-visible { outline: var(--focus-ring, 2px solid #f0a63a); outline-offset: var(--focus-offset, 2px); }
+
+/* ---- Reduced motion: opacity only (no slide, no sweep) ---------------------- */
+@media (prefers-reduced-motion: reduce) {
+    @keyframes hud-cp-in { from { opacity: 0; } to { opacity: 1; } }
+    .hud-cp-face[data-state="loading"]::after { animation: none; opacity: 0.5; }
+}

@@ -1,0 +1,27 @@
+{% import "partials/hud.html" as hud %}
+{#- genre: {primary{id,name,coverage,roles_hit[{tag,have,min_count}],roles_missing[]}|null, secondary[], ranking[{name,coverage}], registry_version, why} -#}
+{%- set d = section.data %}
+{%- macro genre_panel(g, kind) %}
+<section class="hud-panel hud-rv-genre{% if kind == "primary" %} hud-panel--signal{% endif %}" data-genre="{{ g.id }}" data-kind="{{ kind }}">
+    <header class="hud-panel-head"><h3 class="hud-panel-title">{{ g.name }}</h3><span class="hud-panel-meta">{{ kind }} · {{ rv.pct(g.coverage) }} coverage</span></header>
+    <div class="hud-panel-body">
+        <div class="hud-chips">
+            {%- for role in g.roles_hit or [] if role is mapping %}{{ hud.chip(rv.role_tag(role.tag) ~ " " ~ role.have ~ "/" ~ role.min_count, "ok") }}{% endfor %}
+            {%- for role in g.roles_missing or [] %}{{ hud.chip(rv.role_tag(role.tag if role is mapping else role) ~ " missing", "danger") }}{% endfor %}
+        </div>
+    </div>
+</section>
+{%- endmacro %}
+{%- if d.primary %}
+<div class="hud-rv-stack">
+    {{ genre_panel(d.primary, "primary") }}
+    {%- for g in d.secondary or [] %}{{ genre_panel(g, "secondary") }}{% endfor %}
+</div>
+{%- else %}
+{{ hud.empty("No tag reached the coverage threshold.") }}
+{%- endif %}
+{%- if d.ranking %}
+<p class="hud-rv-meta">Scored:
+    {%- for g in d.ranking %} {{ g.name }} {{ rv.pct(g.coverage) }}{{ " ·" if not loop.last }}{% endfor %}</p>
+{%- endif %}
+{%- if d.why %}<p class="hud-rv-why">{{ d.why }}</p>{% endif %}

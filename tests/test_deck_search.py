@@ -3,15 +3,15 @@ import unittest
 from unittest.mock import patch
 import json
 
-from app import app
+from src.server.app.main import app
 
 
 class TestDeckSearch(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_matches_case_insensitive_substring(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123", "name": "Test Deck"}
         mock_redis.keys.return_value = [
@@ -23,7 +23,7 @@ class TestDeckSearch(unittest.TestCase):
             "card_meta:Sol Ring": json.dumps({"type": "Artifact", "cmc": 1}),
             "card_meta:Solemn Simulacrum": json.dumps({"type": "Artifact Creature", "cmc": 4}),
             "card_meta:Lightning Bolt": json.dumps({"type": "Instant", "cmc": 1}),
-        }[key]
+        }.get(key)
 
         response = self.client.get("/api/decks/archidekt:123/search?q=sol")
 
@@ -37,8 +37,8 @@ class TestDeckSearch(unittest.TestCase):
             self.assertIn("type", card)
             self.assertIn("cmc", card)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_no_matches(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.keys.return_value = ["card_meta:Sol Ring"]
@@ -49,8 +49,8 @@ class TestDeckSearch(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"], [])
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_empty_query_returns_empty_results(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
 
@@ -61,8 +61,8 @@ class TestDeckSearch(unittest.TestCase):
         self.assertEqual(data["results"], [])
         mock_redis.keys.assert_not_called()
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_whitespace_only_query_returns_empty_results(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
 
@@ -71,7 +71,7 @@ class TestDeckSearch(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"], [])
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_search_missing_deck_returns_404(self, mock_find_deck):
         mock_find_deck.return_value = None
 
@@ -79,8 +79,8 @@ class TestDeckSearch(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_result_limit(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         keys = [f"card_meta:Card {i:03d}" for i in range(75)]
@@ -93,15 +93,15 @@ class TestDeckSearch(unittest.TestCase):
         data = response.json()
         self.assertLessEqual(len(data["results"]), 50)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_search_skips_malformed_json(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.keys.return_value = ["card_meta:Sol Ring", "card_meta:Broken Card"]
         mock_redis.get.side_effect = lambda key: {
             "card_meta:Sol Ring": json.dumps({"type": "Artifact", "cmc": 1}),
             "card_meta:Broken Card": "not valid json",
-        }[key]
+        }.get(key)
 
         response = self.client.get("/api/decks/archidekt:123/search?q=card")
 

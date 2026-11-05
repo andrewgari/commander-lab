@@ -1,0 +1,119 @@
+Mulligan: Ai(2)-Cavalry Charge [MOC] [2023] has mulliganed down to 7 cards.
+Mulligan: Ai(2)-Cavalry Charge [MOC] [2023] has mulliganed down to 6 cards.
+Mulligan: Ai(1)-user_417707 has kept a hand of 7 cards
+Mulligan: Ai(2)-Cavalry Charge [MOC] [2023] has kept a hand of 6 cards
+Mulligan: Ai(3)-Explorers of the Deep [LCC] [2023] has kept a hand of 7 cards
+Mulligan: Ai(4)-Endless Punishment [DSC] [2024] has kept a hand of 7 cards
+Turn: Turn 1 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Rugged Prairie (47)
+Turn: Turn 2 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Command Tower (184)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Sol Ring
+Turn: Turn 3 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Mosswort Bridge (225)
+Turn: Turn 4 (Ai(4)-Endless Punishment [DSC] [2024])
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Sulfurous Springs (326)
+Turn: Turn 5 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Swamp (57)
+Add To Stack: Ai(1)-user_417707 cast Arcane Signet
+Turn: Turn 6 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Prairie Stream (200)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Commander's Sphere
+Turn: Turn 7 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Island (213)
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Explore
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Island (216)
+Turn: Turn 8 (Ai(4)-Endless Punishment [DSC] [2024])
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Blackcleave Cliffs (352)
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Harsh Mentor
+Turn: Turn 9 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Mountain (87)
+Add To Stack: Ai(1)-user_417707 cast Firemane Commando
+Turn: Turn 10 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Arcane Sanctum (165)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Pull from Tomorrow
+Turn: Turn 11 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Thassa, God of the Sea
+Turn: Turn 12 (Ai(4)-Endless Punishment [DSC] [2024])
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Mountain (371)
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Vial Smasher the Fierce
+Turn: Turn 13 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Terramorphic Expanse (99)
+Add To Stack: Ai(1)-user_417707 cast Helm of the Host
+Turn: Turn 14 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Temple of Deceit (105)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Vanquisher's Banner
+Turn: Turn 15 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Island (217)
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Hakbal of the Surging Soul
+Turn: Turn 16 (Ai(4)-Endless Punishment [DSC] [2024])
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Theater of Horrors
+Turn: Turn 17 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Reliquary Tower (61)
+Turn: Turn 18 (Ai(2)-Cavalry Charge [MOC] [2023])
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Sidar Jabari of Zhalfir
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Swords to Plowshares targeting [Firemane Commando (408)]
+Turn: Turn 19 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Forest (265)
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Surgespanner
+Turn: Turn 20 (Ai(4)-Endless Punishment [DSC] [2024])
+Turn: Turn 21 (Ai(1)-user_417707)
+Add To Stack: Ai(1)-user_417707 cast Mortify targeting [Sidar Jabari of Zhalfir (201)]
+Land: Ai(1)-user_417707 played Smoldering Marsh (75)
+Add To Stack: Ai(1)-user_417707 cast Kaalia of the Vast
+Turn: Turn 22 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Island (174)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Sidar Jabari of Zhalfir
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Path to Exile targeting [Firemane Commando (410)]
+Turn: Turn 23 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Coralhelm Commander
+Turn: Turn 24 (Ai(4)-Endless Punishment [DSC] [2024])
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Basilisk Collar
+Turn: Turn 25 (Ai(1)-user_417707)
+Land: Ai(1)-user_417707 played Battlefield Forge (78)
+Add To Stack: Ai(1)-user_417707 cast Akroma, Angel of Wrath
+Turn: Turn 26 (Ai(2)-Cavalry Charge [MOC] [2023])
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Return to Dust targeting [Helm of the Host (22)]
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Xerex Strobe-Knight
+Turn: Turn 27 (Ai(3)-Explorers of the Deep [LCC] [2023])
+Land: Ai(3)-Explorers of the Deep [LCC] [2023] played Island (214)
+Add To Stack: Ai(3)-Explorers of the Deep [LCC] [2023] cast Prime Speaker Zegana
+Turn: Turn 28 (Ai(4)-Endless Punishment [DSC] [2024])
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Mountain (334)
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Valgavoth, Harrower of Souls
+Turn: Turn 29 (Ai(1)-user_417707)
+Add To Stack: Ai(1)-user_417707 cast Crackling Doom
+Land: Ai(1)-user_417707 played Mountain (88)
+Add To Stack: Ai(1)-user_417707 cast Animate Dead targeting [Firemane Commando (14)]
+Add To Stack: Ai(1)-user_417707 cast Quicksilver Amulet
+Turn: Turn 30 (Ai(2)-Cavalry Charge [MOC] [2023])
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Distant Melody
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Thriving Isle (189)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Knight Exemplar
+Turn: Turn 31 (Ai(4)-Endless Punishment [DSC] [2024])
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Lightning Greaves
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Terramorphic Expanse (344)
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Kederekt Parasite
+Turn: Turn 32 (Ai(1)-user_417707)
+Turn: Turn 33 (Ai(2)-Cavalry Charge [MOC] [2023])
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Sigiled Sword of Valeron
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Island (175)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Exsanguinator Cavalry
+Turn: Turn 34 (Ai(4)-Endless Punishment [DSC] [2024])
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast The Lord of Pain
+Turn: Turn 35 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Path of Ancestry (145)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Josu Vess, Lich Knight
+Turn: Turn 36 (Ai(4)-Endless Punishment [DSC] [2024])
+Land: Ai(4)-Endless Punishment [DSC] [2024] played Witch's Clinic (308)
+Add To Stack: Ai(4)-Endless Punishment [DSC] [2024] cast Valgavoth, Harrower of Souls
+Turn: Turn 37 (Ai(2)-Cavalry Charge [MOC] [2023])
+Land: Ai(2)-Cavalry Charge [MOC] [2023] played Swamp (155)
+Add To Stack: Ai(2)-Cavalry Charge [MOC] [2023] cast Sidar Jabari of Zhalfir
+Game Outcome: Match Duration 0m : 44s
+Game Outcome: Turn 19
+Game Outcome: Ai(1)-user_417707 has lost because life total reached 0
+Game Outcome: Ai(2)-Cavalry Charge [MOC] [2023] has lost because life total reached 0
+Game Outcome: Ai(3)-Explorers of the Deep [LCC] [2023] has lost because life total reached 0
+Game Outcome: Ai(4)-Endless Punishment [DSC] [2024] has won because all opponents have lost
+Game Result: Game 1 ended in 45496 ms. Ai(4)-Endless Punishment [DSC] [2024] has won!

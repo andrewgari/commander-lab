@@ -25,21 +25,11 @@ Visit `/tags` to:
 - Search and filter cards by tag
 - See tag confidence for each card (e.g., "Ramp 8/10")
 - Add or remove tags from cards
-- Choose which decks to apply tags to
 
-### 3. Sync Back to Archidekt
-
-After editing tags in the Lab, run:
-
-```bash
-python sync_to_archidekt.py
-```
-
-This:
-- Reads your Lab inventory (source of truth for categories)
-- Updates each deck on Archidekt with the Lab's categories
-- Preserves structural categories (Commander, Sideboard, Maybeboard)
-- Only syncs thematic/gameplay tags (Ramp, Draw, Removal, etc.)
+Lab Tags are card-level and global: a tag added to a card applies to that
+card everywhere it appears, across all your decks. The `/tags` page has no
+per-deck selection controls — there is no way to scope a tag to only some
+decks.
 
 ## Setup
 
@@ -50,16 +40,14 @@ Add to your `.env`:
 ```bash
 # Required for syncing FROM Archidekt
 ARCHIDEKT_USERNAME=your_username
-
-# Required for syncing TO Archidekt
-ARCHIDEKT_SESSION=your_sessionid_cookie
-ARCHIDEKT_CSRF=your_csrftoken_cookie
 ```
 
-To get session and CSRF tokens:
-1. Log into Archidekt in your browser
-2. Open DevTools (F12) → Application/Storage → Cookies
-3. Copy the values for `sessionid` and `csrftoken`
+> **Note:** Cmdr Lab no longer pushes tag changes back to Archidekt. The
+> outward sync (`scripts/sync_to_archidekt.py`, `POST /api/sync-tags`, and
+> the "Sync to Archidekt" UI buttons) has been removed. `ARCHIDEKT_SESSION`
+> and `ARCHIDEKT_CSRF` are no longer read by the app; if you previously set
+> them in your `.env`, they can be removed manually (not touched by this
+> change).
 
 ## Workflow
 
@@ -84,9 +72,7 @@ uvicorn app:app --reload
 1. **View/Edit Tags**: Visit http://localhost:8000/tags
 2. **Tag a Card**: 
    - Click "Edit" on any card
-   - Add or remove tags
-   - Choose which decks to apply to
-3. **Sync to Archidekt**: `python sync_to_archidekt.py`
+   - Add or remove tags (applies globally to that card, not per-deck)
 
 ### Re-sync from Archidekt
 
@@ -128,5 +114,4 @@ The system distinguishes between:
 
 - Tags are tracked at the **oracle card level** (all printings share tags)
 - The Lab is the source of truth for categories
-- Archidekt sync preserves structural categories and only updates thematic tags
-- Rate limiting: 1 second delay between deck updates to avoid 429s
+- Archidekt push sync has been removed; tags are managed in the Lab only

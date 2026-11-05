@@ -1,0 +1,7 @@
+# Golden rubric. Owner-supplied fields come from Andrew (via kanban card comments). Machine-drafted known_flaws/known_strengths lines Andrew did not confirm were removed.
+must_mention:
+  - "Utility equipment deck: Lara reanimates/recurs equipment from the graveyard, and the deck prioritizes legendary permanents."
+must_not_recommend: []
+known_strengths: []
+known_flaws: []
+owner_would_reject: []

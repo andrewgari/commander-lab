@@ -1,0 +1,35 @@
+{
+  "deck_vision": {
+    "intent": "tune_up",
+    "description": "Upgrading an existing Prosper, Tome-Bound deck to be more resilient and competitive in a high-powered casual pod without feeling oppressive.",
+    "target_turn_win": 7
+  },
+  "target_power_level": {
+    "scale": 8,
+    "tier": "optimized"
+  },
+  "budget_constraints": {
+    "no_budget": false,
+    "total_budget": 150.0,
+    "max_card_price": 35.0,
+    "currency": "USD"
+  },
+  "preferred_win_conditions": {
+    "primary": "attrition",
+    "secondary": ["burn", "combat"],
+    "disliked_or_excluded": ["lockout"],
+    "custom_win_conditions": ["Marionette Master treasure drain", "Revel in Riches treasure hoard"]
+  },
+  "archetype_preferences": {
+    "primary_archetype": "spellslinger",
+    "secondary_archetypes": ["aristocrats", "midrange"],
+    "excluded_archetypes": ["stax", "group_hug"],
+    "custom_themes": ["Exile-cast impulse synergy", "Treasure generation"]
+  },
+  "freeform_notes": "Rule 0: Pod avoids infinite combos with fewer than 3 pieces and avoids fast mana like Mana Crypt/Jeweled Lotus. Heavy artifact removal is common in our meta.",
+  "metadata": {
+    "client": "commander-lab-cli",
+    "deck_id": "prosper-exile-burn-v2",
+    "requested_by": "andrew"
+  }
+}
