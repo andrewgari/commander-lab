@@ -116,7 +116,7 @@ def load_redis_instances(r) -> tuple[list[tuple[dict, str]], dict]:
             continue
         oid = rec.get("oracle_id") or oracle_for(rec.get("card_name", ""))
         if not oid:
-            unresolved.append(rec.get("card_name", rec.get("id", "?")))
+            unresolved.append(str(rec.get("card_name") or rec.get("id") or "?"))
             continue
         mapped += 1
         out.append((rec, oid))
@@ -293,7 +293,7 @@ def apply(r, factory: sessionmaker, fetcher: Optional[Callable] = None,
         )
     if stats["unresolved"]:
         note(f"skipping {len(stats['unresolved'])} unresolved instance record(s): "
-             f"{', '.join(stats['unresolved'])}")
+             f"{', '.join(map(str, stats['unresolved']))}")
     inserted = skipped = 0
     with session_scope(factory) as session:
         existing_deck_ids = {d["id"] for d in repo.list_decks(session, include_archived=True)}
