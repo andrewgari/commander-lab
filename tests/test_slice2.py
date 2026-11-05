@@ -306,6 +306,32 @@ class MigrationTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(report["families"]["instances"]["unresolved"], ["Ghost Card"])
 
+    def test_apply_refuses_unresolved_by_default(self):
+        instances = [_instance("i1"), _instance("i9", name="Ghost Card", oracle_id=None)]
+        r = self._redis(decks=[], instances=instances)
+        with self.assertRaises(RuntimeError):
+            cm.apply(r, self.factory, live=False)
+        with session_scope(self.factory) as s:
+            self.assertEqual(len(repo.list_instances(s)), 0)
+
+    def test_apply_skip_unresolved_migrates_rest(self):
+        instances = [_instance("i1"), _instance("i9", name="Ghost Card", oracle_id=None)]
+        r = self._redis(decks=[], instances=instances)
+        report = cm.apply(r, self.factory, live=False, skip_unresolved=True)
+        self.assertEqual(report["instances"]["inserted"], 1)
+        self.assertEqual(report["instances"]["skipped_unresolved"], 1)
+        self.assertEqual(report["instances"]["skipped_unresolved_names"], ["Ghost Card"])
+        with session_scope(self.factory) as s:
+            self.assertEqual([i["id"] for i in repo.list_instances(s)], ["i1"])
+        self.assertTrue(cm.verify(r, self.factory)["ok"])
+
+    def test_apply_skip_unresolved_null_card_name(self):
+        instances = [_instance("i1"), _instance("i9", name=None, oracle_id=None)]
+        r = self._redis(decks=[], instances=instances)
+        report = cm.apply(r, self.factory, live=False, skip_unresolved=True)
+        self.assertEqual(report["instances"]["inserted"], 1)
+        self.assertEqual(report["instances"]["skipped_unresolved"], 1)
+
     def test_apply_live_then_verify(self):
         decks = [_deck_entry(5054882, "ROTK", "physical"),
                  _deck_entry(42, "Brew", "testing")]
