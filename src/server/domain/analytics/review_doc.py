@@ -405,7 +405,7 @@ def _journal(r, deck: Mapping) -> dict:
 
 def build_review(r, deck: Mapping, client_factory: Callable[[], Any], metrics: Optional[dict] = None) -> dict:
     """Metrics -> oracle prose -> saved doc. Oracle trouble degrades to the offline/invalid note."""
-    from .oracle_client import OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMError, LLMUnavailable
 
     deck = dict(deck)
     rid = deck.get("registry_id") or _rid(deck)
@@ -423,11 +423,11 @@ def build_review(r, deck: Mapping, client_factory: Callable[[], Any], metrics: O
         prose, stripped = clean_prose(parsed, metrics)
         if not prose.get("oracle_summary"):
             status, note = "invalid", "summary held only numbers that are not in the metrics"
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         status, note = "offline", (exc.detail or "")[:200]
     except ReviewParseError as exc:
         status, note = "invalid", str(exc)[:300]
-    except OracleError as exc:
+    except LLMError as exc:
         status, note = "invalid", f"{type(exc).__name__}: {str(exc)[:250]}"
     if status != "ok":
         prose = None
