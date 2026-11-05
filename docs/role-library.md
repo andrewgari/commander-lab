@@ -1,5 +1,9 @@
 # Starter role-tag library
 
+> **Library v2 planned (2026-11-04)**: see [role-targets-spec.md](role-targets-spec.md) §7.2. The 21
+> per-target IS/TALKS/MAKES tags below are retired in favour of generated "Makes X" / "X Matters"
+> roles; the 43 FREE tags are kept.
+
 `analytics/interactions/role_library.json` is the starter library of role tags described in [role-tags-spec.md](role-tags-spec.md) (record shape in section 1.2). It is data only: no code reads it yet. Facets used: **IS** (is X), **TALKS** (mentions X, deliberately overlapping IS), **MAKES** (creates X), **FREE** (functional cuts and concepts).
 
 Each entry carries `label`, `facet`, `target_id`, `query` (exact Scryfall string), `scryfall_count` (total cards returned by the Scryfall API on the `count_checked` date), `example_match` (a card the query returns) and `example_no_match` (a card it excludes). Counts drift as sets release; the queries are the durable part.
