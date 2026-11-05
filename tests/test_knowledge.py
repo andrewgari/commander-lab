@@ -94,3 +94,10 @@ def test_schemas_parse_and_no_provenance():
 def test_no_external_profile_reads():
     for f in ROOT.rglob("*.py"):
         assert ".hermes" not in f.read_text(encoding="utf-8")
+
+
+def test_schema_in_static_block_and_changes_hash():
+    msgs, _ = k.build_messages("personality_read")
+    t = msgs[0]["content"][0]["text"]
+    assert "## Output schema" in t and '"schema_version"' in t
+    assert "## Output schema" not in k.build_messages("card_review")[0][0]["content"][0]["text"]

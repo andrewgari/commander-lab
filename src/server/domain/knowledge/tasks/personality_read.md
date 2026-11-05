@@ -28,6 +28,8 @@ A JSON request with:
 5. **Melvin (Rules architecture, mechanical purity & intricate game mechanics)**: Playing to appreciate the rules engine: complex stack interactions, state-based actions, layers, phase manipulation, time travel, counters, or clean mechanical execution.
 
 ### Task rules
+Exception to "never compute a number": the 0-100 axis scores, `delta` (final score minus rulebook score) and the schema's required `summary` and `scores` fields are your own output for this task. Every other number must come from FACTS or the input.
+
 1. **Output ends with exactly ONE fenced ```json block** matching the schema. Nothing comes after it. Any prose goes before it and stays at 15 lines or fewer.
 2. **All 5 axes scored 0-100**: `timmy`, `johnny`, `spike`, `vorthos`, `melvin` must all receive integer scores from 0 to 100.
 3. **Per-axis justification**: every axis score must include a concise, clear `justification` citing specific cards from the deck and/or specific journal lines (thesis, pillars, pets). Cite exact card names in the `cards` array.

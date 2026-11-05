@@ -28,6 +28,11 @@ def read_task(name: str) -> str | None:
     return p.read_text(encoding="utf-8").strip() if p.is_file() else None
 
 
+def read_schema(name: str) -> str | None:
+    p = SCHEMAS_DIR / f"{name}.schema.json"
+    return p.read_text(encoding="utf-8").strip() if p.is_file() else None
+
+
 def render_brackets() -> str:
     lines = [f"## Brackets", f"Official Commander Brackets as of {br.RULES_AS_OF}. Hard rules decide placement; "
              "advisory rows are shown, never used to place a deck."]

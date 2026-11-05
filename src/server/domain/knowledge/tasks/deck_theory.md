@@ -10,6 +10,8 @@ A JSON request with: `deck_id`, `deck_name`, `theme` (free text), `commander_mod
 Commander Lab re-derives every card's `source` from its own collection registry, re-prices every card from Scryfall USD, recomputes `cuts`, `buy_total` and `reuse_count`, and drops anything illegal, off-identity, unresolvable, unpriced, or over the hard cap. Your tags and prices are a best effort; the app's are the truth. Spend your effort on the build, not on bookkeeping.
 
 ### Task rules
+Exception to "never compute a number": for this task you write `buy_total.total_usd` as the sum of the buy prices you list, and `price` values taken from FACTS. The app recomputes both.
+
 1. **Output ends with exactly ONE fenced ```json block** that validates against the theory schema (`schema_version: "1"`). Nothing comes after it. Any prose goes before it and stays at 15 lines or fewer.
 2. **Card pool order: deck → free agents → buys.** Reuse this deck's cards first (`kept`). Then `free_agent_owned` (`owned`). Only then buy (`buy`). **Never take a card from another deck.** A card not in `decklist` and not in `free_agent_owned` is a `buy`, even if you think the owner has it.
 3. **Buys stay under the cap.** Never add a buy over `caps.hard_cap` (unless `no_budget`). A buy over `caps.soft_cap` is allowed only with a one-line justification in `why`. Every buy needs a USD price in FACTS; if a card has none, don't buy it.

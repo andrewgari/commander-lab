@@ -55,6 +55,9 @@ def static_parts(task: str) -> list[str]:
     text = render.read_task(task_file) if task_file else None
     if text:
         parts.append(text)
+    schema = render.read_schema(SCHEMAS[task]) if task in SCHEMAS else None
+    if schema:
+        parts.append("## Output schema (JSON Schema)\n```json\n" + schema + "\n```")
     return parts
 
 
