@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional, Protocol
 
+from src.server.domain.llm.port import ChatClient
+
 Role = str  # "remove" | "keep" | "judge"
 
 
@@ -15,9 +17,9 @@ class OracleLLM:
     """Production adapter: the `oracle` Hermes profile via analytics.oracle_client.OracleClient.
     Oracle fixes its own sampling, so `temperature` is advisory and not forwarded."""
 
-    def __init__(self, client_factory: Callable[[], object]):
+    def __init__(self, client_factory: Callable[[], ChatClient]):
         self._factory = client_factory
-        self._client: Optional[object] = None
+        self._client: Optional[ChatClient] = None
 
     def complete(self, role: Role, system: str, user: str, *, temperature: float = 0.0) -> str:
         if self._client is None:
