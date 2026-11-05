@@ -14,6 +14,7 @@ export const SEARCH_PARAMS = [
 	'oracle',
 	'owned',
 	'cmdr',
+	'solo',
 	'pair',
 	'page',
 	'page_size'

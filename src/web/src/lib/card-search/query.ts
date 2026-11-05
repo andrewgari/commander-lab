@@ -122,6 +122,8 @@ export function toParams(filters: Partial<Filters>): URLSearchParams {
 	if (f.oracle) p.set('oracle', f.oracle);
 	if (f.owned !== DEFAULT_OWNED) p.set('owned', f.owned);
 	if (f.commander) p.set('cmdr', '1');
+	// A solo commander pick never offers Backgrounds; a partner search (`pair`) needs them.
+	if (f.commander && !f.pair) p.set('solo', '1');
 	if (f.pair) p.set('pair', f.pair);
 	return p;
 }

@@ -92,6 +92,7 @@ def cards_search(
     oracle: str = Query(default=""),
     owned: str = Query(default="any"),
     cmdr: bool = Query(default=False),
+    solo: bool = Query(default=False),
     pair: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1, le=1000),
     page_size: int = Query(default=60, ge=1, le=100),
@@ -104,7 +105,7 @@ def cards_search(
     try:
         filters = parse_filters(name=name, ci=ci, ci_mode=ci_mode, type=type_,
                                 type_text=type_text, mv=mv, rarity=rarity, oracle=oracle,
-                                owned=owned, cmdr=cmdr, pair=pair)
+                                owned=owned, cmdr=cmdr, pair=pair, solo=solo)
     except SearchParamError as e:
         raise HTTPException(status_code=400, detail={"error": "invalid_search", "reason": str(e)})
     if filters.pair and not filters.cmdr:

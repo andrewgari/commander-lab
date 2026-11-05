@@ -84,6 +84,9 @@ describe("Filters <-> params", () => {
   test("cmdr is absent when off and 1 when on", () => {
     assert.equal(toParams({ ...emptyFilters(), commander: false }).has("cmdr"), false);
     assert.equal(toParams({ ...emptyFilters(), commander: true }).get("cmdr"), "1");
+    // solo pick (no pair) excludes Backgrounds; a partner search keeps them
+    assert.equal(toParams({ ...emptyFilters(), commander: true }).get("solo"), "1");
+    assert.equal(toParams({ ...emptyFilters(), commander: true, pair: FIRST }).has("solo"), false);
     assert.equal(fromParams("cmdr=0").commander, false);
     assert.equal(fromParams("cmdr=true").commander, false);
     assert.equal(fromParams("cmdr=1").commander, true);

@@ -51,6 +51,7 @@ class SearchFilters:
     owned: str = "any"
     cmdr: bool = False
     pair: Optional[str] = None       # oracle_id of the first commander
+    solo: bool = False               # solo commander pick: no Backgrounds (they need a partner)
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ def _one_of(values, allowed, label) -> Tuple[str, ...]:
 def parse_filters(*, name: str = "", ci: str = "", ci_mode: str = "within", type: str = "",
                   type_text: str = "", mv: str = "", rarity: str = "", oracle: str = "",
                   owned: str = "any", cmdr: bool = False,
-                  pair: Optional[str] = None) -> SearchFilters:
+                  pair: Optional[str] = None, solo: bool = False) -> SearchFilters:
     mode = (ci_mode or "within").lower()
     if mode not in CI_MODES:
         raise SearchParamError(f"ci_mode must be one of {sorted(CI_MODES)}")
@@ -121,6 +122,7 @@ def parse_filters(*, name: str = "", ci: str = "", ci_mode: str = "within", type
         owned=owned_mode,
         cmdr=bool(cmdr),
         pair=(pair or None),
+        solo=bool(solo),
     )
 
 
@@ -166,6 +168,10 @@ def build_scryfall_query(f: SearchFilters, pair_clause: Optional[str] = None) ->
     parts += [_bare_or_quoted("o:", t) for t in f.oracle_terms]
     if f.cmdr:
         parts.append("is:commander")
+        if f.solo and not pair_clause:
+            # A Background is legal only beside a Choose a Background commander,
+            # so it is never a solo pick.
+            parts.append("-t:background")
     if pair_clause:
         parts.append(pair_clause)
     return " ".join(parts)
