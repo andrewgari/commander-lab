@@ -262,7 +262,9 @@ def execute_build(r: Any, session_id: str) -> dict:
         drafts = builder.build(session, r)
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
-        session["drafts"] = drafts[:1]  # brew produces exactly one draft
+        # The single gate: nothing is stored or returned unless it is a
+        # complete, legal, fully-named 100-card deck (brew_gate).
+        session["drafts"] = [_gate_built_draft(r, session, drafts[0])]
         session["status"] = STATUS_DRAFTS_READY
         session.pop("error", None)
         session.pop("error_message", None)
@@ -277,6 +279,31 @@ def execute_build(r: Any, session_id: str) -> dict:
         session["updated_at"] = _now()
         _save_session(r, session)
         raise
+
+
+def _gate_built_draft(r: Any, session: dict, draft: dict) -> dict:
+    """Run a builder's draft through brew_gate: repair/fill to exactly 100 legal
+    named cards, re-tier/re-cost, then re-verify. Raises BrewInvalidDeckError if
+    the deck cannot be made valid."""
+    from src.server.domain.draft import brew_gate
+    from src.server.domain.draft.deck_validator import catalog_from_redis
+
+    if not draft.get("commanders"):
+        draft = {**draft, "commanders": list(session.get("commanders") or [])}
+    candidates: list = []
+    try:  # synergy / owned / buy pools; any of them may be empty or unavailable
+        pools = _build_pools(r, session)
+        candidates = [c.name for c in (*pools.tier1, *pools.tier2, *pools.tier3)]
+    except Exception:
+        candidates = []
+    gated = brew_gate.gate_draft(r, draft, candidates)
+    try:
+        _recompute_draft(r, session, gated)
+    except Exception:
+        pass  # tier/cost refresh is best-effort; legality is re-verified below
+    names = list(gated.get("commanders") or []) + [c.get("name") for c in gated.get("cards") or []]
+    brew_gate.verify_draft(gated, catalog_from_redis(r, [n for n in names if isinstance(n, str)]))
+    return gated
 
 
 def get_drafts(r: Any, session_id: str) -> list[dict]:
@@ -456,7 +483,21 @@ def remove_draft_card(r: Any, session_id: str, oracle_id: str) -> dict:
 def _pool_config(r: Any, session: dict) -> reconstruct_pools.PoolConfig:
     """Tier 3 filtered by the commander's color identity."""
     catalog = reconstruct_pools.RedisCardCatalog(r)
-    identity = reconstruct_pools.identity_of_cards(session.get("commanders") or [], catalog)
+    commanders = session.get("commanders") or []
+    identity = reconstruct_pools.identity_of_cards(commanders, catalog)
+    if not identity:
+        # An empty identity is only real if every commander resolved. A commander
+        # missing from the catalog used to collapse Tier 3 to colourless; fall
+        # back to the name index (diacritics / DFC) and otherwise apply no
+        # colour filter (the brew gate enforces identity authoritatively).
+        from src.server.domain.draft.deck_validator import catalog_from_redis
+
+        vcat = catalog_from_redis(r, commanders)
+        infos = [vcat.get(c) for c in commanders]
+        if commanders and all(i is not None for i in infos):
+            identity = frozenset().union(*(i.color_identity for i in infos))  # type: ignore[union-attr]
+        elif commanders:
+            return reconstruct_pools.PoolConfig(color_identity=None)
     return reconstruct_pools.PoolConfig(color_identity=identity)
 
 
@@ -644,6 +685,13 @@ def accept_draft(r: Any, session_id: str, draft_index: int = 0) -> dict:
         raise ValueError(f"invalid draft index: {draft_index}")
 
     draft = drafts[draft_index]
+    # Same gate on the way out: hand edits can leave 99/101 cards or an
+    # illegal card. The accepted deck is repaired (extra cards displace basics
+    # first, shortfalls are topped up) and verified; if it still cannot be made
+    # a legal 100-card deck, BrewInvalidDeckError (a ValueError) is raised.
+    from src.server.domain.draft import brew_gate
+
+    draft = brew_gate.gate_draft(r, draft)
     normalized = {
         "source": "brew",
         "source_id": f"{session_id}_{draft_index}",

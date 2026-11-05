@@ -321,6 +321,23 @@ class DeckCost:
 # ---------------------------------------------------------------------------
 
 
+_UUID_RE = re.compile(
+    r"^\{?[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\}?$", re.IGNORECASE)
+
+
+def _name_from_record(r: Any, oracle_id: str) -> Optional[str]:
+    """Name of `card:{oracle_id}` or None (never a GUID)."""
+    if r is None:
+        return None
+    try:
+        raw = r.get(f"card:{oracle_id}")
+        rec = json.loads(raw) if raw else None
+    except Exception:
+        return None
+    name = rec.get("name") if isinstance(rec, dict) else None
+    return name.strip() if isinstance(name, str) and name.strip() and not _UUID_RE.match(name.strip()) else None
+
+
 def norm_name(name: str) -> str:
     """Case-insensitive key; double-faced 'A // B' matches 'A'."""
     return (name or "").split(" // ")[0].strip().casefold()
@@ -652,6 +669,12 @@ def build_candidate_pools(
         prev = merged.get(k)
         merged[k] = (prev[0] if prev else name, (prev[1] if prev else 0) + n)
     for k, (name, n) in sorted(merged.items(), key=lambda kv: kv[1][0].casefold()):
+        if _UUID_RE.match(name.strip()):
+            # An instance whose card_name is a GUID: resolve to the real name or skip.
+            real = _name_from_record(r, name.strip())
+            if not real:
+                continue
+            name = real
         n -= tier1_qty.get(k, 0)
         if n <= 0:
             continue

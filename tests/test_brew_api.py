@@ -17,6 +17,7 @@ import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.decks.registry as registry
 from fastapi.testclient import TestClient
 
+from tests.brew_catalog import seed_brew_catalog
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 
@@ -42,6 +43,8 @@ class TestBrewAPI(unittest.TestCase):
 
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup({"Lightning Greaves": 3.50})
+        seed_brew_catalog(self.r, "Atraxa, Praetors' Voice", names=[
+            "Sol Ring", "Mana Crypt", "Demonic Tutor", "Lightning Greaves"])
         brew_builder.set_builder(brew_builder.StubBrewBuilder())
 
         self.patch = patch.object(app_module, "r", self.r)

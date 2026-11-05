@@ -46,7 +46,10 @@ class StubBrewBuilder(BaseBrewBuilder):
         pref = (session.get("preferences") or [{}])[0]
         build_mode = session.get("build_mode", "owned_first")
 
-        pools = brew._build_pools(r, session) if r is not None else None
+        try:  # pools can fail (catalog / price sources down); the gate still completes the deck
+            pools = brew._build_pools(r, session) if r is not None else None
+        except Exception:
+            pools = None
 
         donor_cards: List[str] = []
         for sd in session.get("donor_decks") or []:
@@ -83,14 +86,18 @@ class StubBrewBuilder(BaseBrewBuilder):
             used.add(norm_name(name))
             return True
 
+        # Caps only shape the mix; they never truncate the deck. The deck is
+        # always carried to commander + 99 (the old owned_first caps of 25/10/3
+        # stopped at ~38 cards). Any remainder is topped up by brew_gate.
+        room = 100 - len(commanders)
         if build_mode == "best_build":
-            tier1_cap, tier2_cap, tier3_cap = 6, 2, 12
+            tier1_cap, tier2_cap, tier3_cap = 6, 2, room
         else:  # owned_first
-            tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
+            tier1_cap, tier2_cap, tier3_cap = room, room, room
 
         added = 0
         for name in donor_cards:
-            if added >= tier1_cap:
+            if added >= tier1_cap or len(cards) >= 100:
                 break
             if add(name, 1, "previous_deck", 0.0, "Available from a named donor deck"):
                 added += 1
@@ -98,14 +105,14 @@ class StubBrewBuilder(BaseBrewBuilder):
         added = 0
         if pools is not None:
             for pc in pools.tier2:
-                if added >= tier2_cap:
+                if added >= tier2_cap or len(cards) >= 100:
                     break
                 if add(pc.name, 2, "owned", 0.0, "Available from free inventory"):
                     added += 1
         elif r is not None:
             try:
                 for inst in instance_store.list_instances(r, ownership_status="in_collection"):
-                    if added >= tier2_cap:
+                    if added >= tier2_cap or len(cards) >= 100:
                         break
                     cname = inst.get("card_name")
                     if cname and add(cname, 2, "owned", 0.0, "Available from free inventory"):
@@ -116,7 +123,7 @@ class StubBrewBuilder(BaseBrewBuilder):
         added = 0
         if pools is not None:
             for pc in pools.tier3:
-                if added >= tier3_cap:
+                if added >= tier3_cap or len(cards) >= 100:
                     break
                 price = pc.unit_price if pc.unit_price is not None else 0.0
                 if add(pc.name, 3, "new", float(price), "Buy to complete the brew"):

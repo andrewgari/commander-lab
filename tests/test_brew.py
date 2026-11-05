@@ -17,6 +17,7 @@ import src.server.domain.inventory.instances as instances
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.decks.registry as registry
+from tests.brew_catalog import seed_brew_catalog
 
 
 class FakePipe:
@@ -133,6 +134,9 @@ class TestBrewCore(unittest.TestCase):
         self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact — Equipment"}))
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup({"Lightning Greaves": 3.50})
+
+        seed_brew_catalog(self.r, "Atraxa, Praetors' Voice", names=[
+            "Sol Ring", "Mana Crypt", "Mox Opal", "Demonic Tutor", "Lightning Greaves"])
 
         brew_builder.set_builder(brew_builder.StubBrewBuilder())
 
