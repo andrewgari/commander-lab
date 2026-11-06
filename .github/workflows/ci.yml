@@ -91,7 +91,7 @@ jobs:
           INTERACTIONS_DISABLED: "1"
         run: |
           set -o pipefail
-          python -m pytest -q -rs tests/test_brew_verification_matrix.py tests/test_brew_harness_smoke.py | tee brew-matrix.log
+          python -m pytest -q -rs tests/test_brew_verification_matrix.py tests/test_brew_production_matrix.py tests/test_brew_harness_smoke.py | tee brew-matrix.log
           ! grep -qi "skipped" brew-matrix.log
 
       # The pgvector determinism/freshness/endpoint tests skip when the DB or the
