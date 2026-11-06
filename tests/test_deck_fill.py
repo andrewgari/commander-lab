@@ -202,3 +202,11 @@ def test_banned_or_unknown_legality_commander_rejected():
     for bad in ("Banned Legend", "Unknown Legend"):
         with pytest.raises(ValueError, match="legal"):
             fill_deck(bad, [], None, cat, staples=STAPLES)
+
+
+def test_variant_type_commander_rejected_by_commander_slot_gate():
+    cat = build_catalog()
+    # legal + legendary creature (so eligibility passes) but also a Scheme: only the slot gate stops it
+    cat.add(card("Scheme Legend", "R", ("Creature", "Scheme"), ("Legendary",)))
+    with pytest.raises(ValueError, match="commander slot"):
+        fill_deck("Scheme Legend", [], None, cat, staples=STAPLES)
