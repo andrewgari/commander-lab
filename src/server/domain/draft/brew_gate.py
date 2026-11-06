@@ -127,6 +127,18 @@ def _sanitise(draft: dict, r: Any) -> dict:
     return out
 
 
+def _canonicalise(draft: dict, catalog: CardCatalog) -> None:
+    """Rename every card/commander to the catalog's canonical `CardInfo.name`
+    so DFC front-face / diacritic variants share one singleton key."""
+    def canon(n: Any) -> Any:
+        info = catalog.get(n) if isinstance(n, str) else None
+        return info.name if info is not None else n
+
+    draft["commanders"] = [canon(c) for c in draft.get("commanders") or []]
+    for card in draft.get("cards") or []:
+        card["name"] = canon(card.get("name"))
+
+
 def _fill(deck: DraftDeck, catalog: CardCatalog, candidates: Iterable[str],
           staples: Iterable[str]) -> DraftDeck:
     """Top up to DECK_SIZE: candidates -> staples -> basics. Legal on-colour only."""
@@ -208,6 +220,7 @@ def finalize_draft(draft: dict, catalog: CardCatalog, *, r: Any = None,
     BrewInvalidDeckError. Returns a new draft dict (input untouched)."""
     candidates, staples = list(candidates), list(staples)
     work = _sanitise(draft, r)
+    _canonicalise(work, catalog)
     originals: Dict[str, dict] = {}
     for card in work["cards"]:
         originals.setdefault(normalize_name(card["name"]), card)
@@ -248,6 +261,27 @@ def finalize_draft(draft: dict, catalog: CardCatalog, *, r: Any = None,
     return out
 
 
+def _add_by_oracle_id(r: Any, draft: dict, catalog: CardCatalog) -> None:
+    """Cards whose name misses the name index but carry an oracle_id (hand-added,
+    Scryfall-sourced commander) are loaded from `card:{oracle_id}`. Genuinely
+    unknown cards stay absent and are still rejected."""
+    from src.server.domain.draft.deck_validator import CardInfo
+
+    for card in draft.get("cards") or []:
+        name, oid = card.get("name"), card.get("oracle_id")
+        if not (isinstance(name, str) and isinstance(oid, str) and oid) or catalog.get(name) is not None:
+            continue
+        try:
+            raw = r.get(f"card:{oid}")
+            if isinstance(raw, bytes):
+                raw = raw.decode()
+            rec = json.loads(raw) if raw else None
+            if isinstance(rec, dict) and rec.get("name"):
+                catalog.add(CardInfo.from_record(rec))
+        except Exception:
+            continue
+
+
 def gate_draft(r: Any, draft: dict, candidates: Iterable[str] = ()) -> dict:
     """finalize_draft with the catalog loaded from Redis. The Brew entry point."""
     candidates = [c for c in candidates if isinstance(c, str)][:MAX_CANDIDATES]
@@ -258,4 +292,5 @@ def gate_draft(r: Any, draft: dict, candidates: Iterable[str] = ()) -> dict:
             names.append(resolve_card_name(r, n.strip()) or n.strip() if is_uuid_like(n) else n.strip())
     names += candidates + list(STAPLES)
     catalog = catalog_from_redis(r, [n for n in names if not is_uuid_like(n)])
+    _add_by_oracle_id(r, draft, catalog)
     return finalize_draft(draft, catalog, r=r, candidates=candidates)

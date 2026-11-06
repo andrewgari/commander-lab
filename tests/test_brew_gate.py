@@ -395,3 +395,66 @@ def test_accept_refuses_a_draft_that_cannot_be_made_legal(env):
     brew._save_session(env, session)
     with pytest.raises(brew_gate.BrewInvalidDeckError):
         brew.accept_draft(env, sid)
+
+
+# --------------------------------------------------------------------------
+# Review follow-ups: canonical names, oracle_id catalog load, cost honesty
+# --------------------------------------------------------------------------
+
+def test_dfc_variants_canonicalised_to_one_card():
+    delver = CardInfo(name="Delver of Secrets // Insectile Aberration", color_identity=frozenset("U"),
+                      types=("Creature",), commander_legality="legal")
+    cat = make_catalog([delver])
+    d = draft_of(["Delver of Secrets"])
+    out = brew_gate.finalize_draft(d, cat, candidates=["Delver of Secrets // Insectile Aberration"])
+    names = [c["name"] for c in out["cards"]]
+    assert sum(1 for n in names if n.startswith("Delver of Secrets")) == 1
+    assert_legal(out, cat)
+
+
+def test_gate_loads_card_by_oracle_id_when_name_index_misses():
+    r = _FakeRW()
+    oid = str(uuid.uuid4())
+    r.set(f"card:{oid}", json.dumps({"name": "Obscure Gem", "oracle_id": oid, "color_identity": "",
+                                      "type_line": "Artifact", "commander_legality": "legal"}))
+    from src.server.domain.draft.deck_validator import CardCatalog as C
+    cat = C()
+    d = {"commanders": [], "cards": [{"name": "Obscure Gem", "oracle_id": oid, "quantity": 1}]}
+    brew_gate._add_by_oracle_id(r, d, cat)
+    assert cat.get("Obscure Gem") is not None
+    d2 = {"cards": [{"name": "Totally Unknown", "oracle_id": str(uuid.uuid4()), "quantity": 1}]}
+    cat2 = C()
+    brew_gate._add_by_oracle_id(r, d2, cat2)
+    assert cat2.get("Totally Unknown") is None
+
+
+class _FakeRW(FakeR):
+    def set(self, k, v):
+        self.store[k] = v
+
+
+def test_refresh_costs_marks_incomplete_when_pools_fail(monkeypatch):
+    from src.server.domain.draft import brew
+
+    def boom(*a, **k):
+        raise RuntimeError("pools down")
+
+    monkeypatch.setattr(brew, "_recompute_draft", boom)
+    draft = {"is_complete": True, "unpriced_cards": [], "total_new_cost": 5.0, "cards": [
+        {"name": "Auto Card", "quantity": 1, "tier": 3, "cost": 0.0},
+        {"name": "Forest", "quantity": 30, "tier": 3, "cost": 0.0},
+        {"name": "Owned Card", "quantity": 1, "tier": 2, "cost": 0.0},
+    ]}
+    brew._refresh_costs(None, {}, draft)
+    assert draft["is_complete"] is False
+    assert draft["unpriced_cards"] == ["Auto Card"]
+    assert draft["cards"][0]["cost"] is None
+
+
+def test_pools_resolve_guid_owned_names_before_merge():
+    from src.server.domain.draft import reconstruct_pools as rp
+    oid = str(uuid.uuid4())
+    r = _FakeRW()
+    r.set(f"card:{oid}", json.dumps({"name": "Sol Ring"}))
+    assert rp._name_from_record(r, oid) == "Sol Ring"
+    assert rp._name_from_record(r, str(uuid.uuid4())) is None

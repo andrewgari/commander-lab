@@ -297,13 +297,31 @@ def _gate_built_draft(r: Any, session: dict, draft: dict) -> dict:
     except Exception:
         candidates = []
     gated = brew_gate.gate_draft(r, draft, candidates)
-    try:
-        _recompute_draft(r, session, gated)
-    except Exception:
-        pass  # tier/cost refresh is best-effort; legality is re-verified below
+    _refresh_costs(r, session, gated)
     names = list(gated.get("commanders") or []) + [c.get("name") for c in gated.get("cards") or []]
-    brew_gate.verify_draft(gated, catalog_from_redis(r, [n for n in names if isinstance(n, str)]))
+    vcat = catalog_from_redis(r, [n for n in names if isinstance(n, str)])
+    brew_gate._add_by_oracle_id(r, gated, vcat)
+    brew_gate.verify_draft(gated, vcat)
     return gated
+
+
+def _refresh_costs(r: Any, session: dict, draft: dict) -> None:
+    """Re-tier / re-cost a gated draft. If pools are unavailable, keep the legal
+    deck but never claim complete pricing: zero/stale costs become unknown."""
+    try:
+        _recompute_draft(r, session, draft)
+        return
+    except Exception:
+        pass
+    cards = draft.get("cards") or []
+    unpriced = [c["name"] for c in cards if c.get("tier", 3) == 3 and c.get("name")
+                and c["name"] not in reconstruct_pools.BASIC_LAND_NAMES]
+    for c in cards:
+        if c.get("name") in unpriced:
+            c["cost"] = None
+    draft["unpriced_cards"] = unpriced
+    draft["is_complete"] = False
+    draft["total_new_cost"] = round(sum(c.get("cost") or 0.0 for c in cards), 2)
 
 
 def get_drafts(r: Any, session_id: str) -> list[dict]:
@@ -692,6 +710,7 @@ def accept_draft(r: Any, session_id: str, draft_index: int = 0) -> dict:
     from src.server.domain.draft import brew_gate
 
     draft = brew_gate.gate_draft(r, draft)
+    _refresh_costs(r, session, draft)  # totals must match the repaired list
     normalized = {
         "source": "brew",
         "source_id": f"{session_id}_{draft_index}",

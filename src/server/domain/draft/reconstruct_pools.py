@@ -672,16 +672,17 @@ def build_candidate_pools(
     tier2: List[PoolCard] = []
     merged: Dict[str, Tuple[str, int]] = {}
     for name, n in owned.items():
+        if _UUID_RE.match(name.strip()):
+            # An instance whose card_name is a GUID: resolve to the real name
+            # BEFORE keying, so Tier 1 subtraction and merging see one card.
+            real = _name_from_record(r, name.strip())
+            if not real:
+                continue  # unresolvable: never emitted
+            name = real
         k = norm_name(name)
         prev = merged.get(k)
         merged[k] = (prev[0] if prev else name, (prev[1] if prev else 0) + n)
     for k, (name, n) in sorted(merged.items(), key=lambda kv: kv[1][0].casefold()):
-        if _UUID_RE.match(name.strip()):
-            # An instance whose card_name is a GUID: resolve to the real name or skip.
-            real = _name_from_record(r, name.strip())
-            if not real:
-                continue
-            name = real
         n -= tier1_qty.get(k, 0)
         if n <= 0:
             continue
