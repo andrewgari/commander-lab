@@ -55,6 +55,9 @@ def main() -> int:
                     help="never fetch Archidekt; every deck uses the Redis fallback")
     ap.add_argument("--sleep", type=float, default=0.0,
                     help="seconds to wait between live Archidekt fetches")
+    ap.add_argument("--skip-unresolved", action="store_true",
+                    help="with --apply: skip (and report) instance records whose card "
+                         "name has no oracle_id instead of aborting")
     args = ap.parse_args()
 
     r = _redis_client()
@@ -68,8 +71,12 @@ def main() -> int:
         report = cm.apply(
             r, factory, live=not args.no_live, sleep_seconds=args.sleep,
             progress=lambda msg: print(msg, file=sys.stderr),
+            skip_unresolved=args.skip_unresolved,
         )
         _print_report(report)
+        inst = report["instances"]
+        print(f"instances: inserted={inst['inserted']} "
+              f"skipped_unresolved={inst['skipped_unresolved']}", file=sys.stderr)
         return 0
 
     report = cm.verify(r, factory)

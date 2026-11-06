@@ -216,8 +216,8 @@ class ReconstructBuilder(reconstruct.BaseReconstructBuilder):
                 validation_errors = [{"code": "MALFORMED_OUTPUT", "message": str(exc), "cards": []}]
                 continue
             except Exception as exc:
-                from src.server.domain.analytics.oracle_client import OracleUnavailable
-                if isinstance(exc, OracleUnavailable):
+                from src.server.domain.llm.port import LLMUnavailable
+                if isinstance(exc, LLMUnavailable):
                     last_error_summary = f"Oracle timeout: {exc}"
                     if attempt > self.max_retries:
                         raise ReconstructBuildError(

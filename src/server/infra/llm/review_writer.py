@@ -13,10 +13,8 @@ import json
 from typing import Mapping, Optional
 
 from src.server.domain.review.doc import WRITER_SECTIONS
-from src.server.infra.llm.client import (
-    OracleClient,
-    OracleNotConfigured,
-)
+from src.server.domain.llm.port import LLMNotConfigured
+from src.server.infra.llm.client import OracleClient
 
 SYSTEM_PROMPT = (
     "You are the Commander Lab review writer. You explain a Commander deck "
@@ -57,5 +55,5 @@ def default_writer() -> Optional[ReviewWriter]:
     (offline degradation is a normal path, not an error)."""
     try:
         return ReviewWriter.from_env()
-    except OracleNotConfigured:
+    except LLMNotConfigured:
         return None

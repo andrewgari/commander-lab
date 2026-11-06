@@ -24,38 +24,45 @@ from typing import Dict, List, Mapping, Optional
 
 import httpx
 
+from src.server.domain.llm.port import (
+    LLMAuthError,
+    LLMError,
+    LLMNotConfigured,
+    LLMResponseError,
+    LLMUnavailable,
+)
+
 DEFAULT_TIMEOUT_S = 600.0
 DEFAULT_MODEL = "oracle"
 SECRETS_DIR_DEFAULT = "/run/commander-lab-secrets"
 OFFLINE_MESSAGE = "oracle offline, try again later"
 
 
-class OracleError(Exception):
+class OracleError(LLMError):
     """Base class for every oracle client failure."""
 
 
-class OracleUnavailable(OracleError):
+class OracleUnavailable(OracleError, LLMUnavailable):
     """Oracle can't be reached right now (down, timed out, overloaded, not configured)."""
 
     def __init__(self, detail: str = ""):
         self.detail = detail
-        super().__init__(f"{OFFLINE_MESSAGE}" + (f" ({detail})" if detail else ""))
+        Exception.__init__(self, f"{OFFLINE_MESSAGE}" + (f" ({detail})" if detail else ""))
 
 
-class OracleNotConfigured(OracleUnavailable):
+class OracleNotConfigured(OracleUnavailable, LLMNotConfigured):
     """ORACLE_URL or ORACLE_KEY is missing."""
 
 
-class OracleAuthError(OracleError):
+class OracleAuthError(OracleError, LLMAuthError):
     """Oracle rejected the key (401/403). A config problem, not an outage."""
 
 
-class OracleResponseError(OracleError):
+class OracleResponseError(OracleError, LLMResponseError):
     """Oracle answered, but with a client error or a reply we can't parse."""
 
     def __init__(self, message: str, status: Optional[int] = None):
-        self.status = status
-        super().__init__(message)
+        LLMResponseError.__init__(self, message, status)
 
 
 def _normalize_base(url: str) -> str:
@@ -157,6 +164,6 @@ if __name__ == "__main__":  # one-off smoke test: python -m analytics.oracle_cli
     import sys
     try:
         print(OracleClient.from_env().ask(" ".join(sys.argv[1:]) or "Reply with exactly: oracle online"))
-    except OracleError as err:
+    except LLMError as err:
         print(f"{type(err).__name__}: {err}", file=sys.stderr)
         sys.exit(1)
