@@ -67,6 +67,35 @@ def test_space_slots_are_spaced(monkeypatch):
     assert all(g >= svc.SPACING_SECONDS - 1e-9 for g in gaps)
 
 
+def test_space_reserves_slot_atomically_with_forced_overlap(monkeypatch):
+    """Deterministic. `_last_call + SPACING_SECONDS` sits between the slot read
+    and the slot write, so a SPACING_SECONDS stand-in whose __radd__ is a
+    rendezvous forces two callers into that window together. With the lock the
+    second caller can never get there (rendezvous times out, serialising them);
+    without it both read the same _last_call and reserve the same slot."""
+    real = svc.SPACING_SECONDS
+    waits = []
+    rendezvous = threading.Barrier(2, timeout=0.3)
+
+    class Spacing:
+        def __radd__(self, last):
+            try:
+                rendezvous.wait()
+            except threading.BrokenBarrierError:
+                pass
+            return last + real
+
+    monkeypatch.setattr(svc, "SPACING_SECONDS", Spacing())
+    monkeypatch.setattr(svc, "_clock", lambda: 5.0)
+    monkeypatch.setattr(svc, "_sleep", lambda d: waits.append(d))
+    monkeypatch.setattr(svc, "_last_call", 0.0)
+    ts = [threading.Thread(target=svc._space) for _ in range(2)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    # first caller: slot == now (no wait); second: one full SPACING later.
+    assert waits == [pytest.approx(real)]
+
+
 def _seed(factory):
     seed(factory, [_card("o-np", "No Printing Elf"), _card("o-pr", "Printed Common")],
          instances=[("o-np", "in_collection"), ("o-pr", "in_collection")],
