@@ -52,6 +52,7 @@ from typing import (
 
 import src.server.domain.inventory.cards as card_store
 import src.server.domain.inventory.instances as instance_store
+from src.server.domain.draft.card_resolution import resolve_card
 
 log = logging.getLogger("commander_lab.reconstruct_pools")
 
@@ -348,14 +349,19 @@ def parse_identity(value: Any) -> Optional[frozenset]:
     return frozenset(out)
 
 
-def identity_of_cards(names: Iterable[str], catalog: CardCatalog) -> frozenset:
-    """Union of the colour identities of `names` (e.g. the target deck's commanders)."""
+def identity_of_cards(names: Iterable[str], catalog: CardCatalog) -> Optional[frozenset]:
+    """Union of the colour identities of `names` (e.g. the target deck's commanders).
+
+    Returns None (= "unknown, do not filter") when ANY name is missing from the
+    catalog: an empty set would mean "colourless" and silently starve Tier 3.
+    """
     by_name = {norm_name(c.name): c for c in catalog.iter_cards()}
     out: set = set()
     for n in names:
         c = by_name.get(norm_name(n))
-        if c:
-            out |= set(c.color_identity)
+        if c is None:
+            return None
+        out |= set(c.color_identity)
     return frozenset(out)
 
 
@@ -655,6 +661,11 @@ def build_candidate_pools(
     tier2: List[PoolCard] = []
     merged: Dict[str, Tuple[str, int]] = {}
     for name, n in owned.items():
+        resolved = resolve_card(name, r)  # instance card_name may be an oracle-id UUID
+        if resolved is None:
+            log.warning("pools: dropped unresolvable owned card %r", name)
+            continue
+        name = resolved.name
         k = norm_name(name)
         prev = merged.get(k)
         merged[k] = (prev[0] if prev else name, (prev[1] if prev else 0) + n)
