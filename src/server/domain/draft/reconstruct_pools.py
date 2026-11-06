@@ -401,6 +401,9 @@ class RedisCardCatalog:
         leg = (rec.get("legalities") or {}).get("commander")
         if leg is not None:
             return leg == "legal"
+        cl = rec.get("commander_legality")  # flat form (card_meta / test fixtures)
+        if isinstance(cl, str) and cl:
+            return cl == "legal"
         return None
 
     def _to_card(self, name: str, rec: Mapping) -> CatalogCard:
