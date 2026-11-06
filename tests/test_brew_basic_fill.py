@@ -18,3 +18,18 @@ def test_fill_basics_colorless_uses_wastes_and_stacks_existing():
     cards = [{"name": "Wastes", "quantity": 2}]
     _fill_basics(cards, 5, [])
     assert cards == [{"name": "Wastes", "quantity": 7}]
+
+
+def test_fill_basics_does_not_stack_onto_pool_supplied_basic():
+    cards = [{"name": "Mountain", "quantity": 3, "tier": 2}]
+    _fill_basics(cards, 10, ["R", "G"])
+    by = {c["name"]: c for c in cards}
+    assert by["Mountain"]["quantity"] == 3 and by["Mountain"]["tier"] == 2
+    assert by["Forest"]["quantity"] == 10 and by["Forest"]["tier"] == 3
+
+
+def test_fill_basics_separate_tier3_entry_when_all_colors_pooled():
+    cards = [{"name": "Mountain", "quantity": 3, "tier": 1}]
+    _fill_basics(cards, 4, ["R"])
+    assert cards[0]["quantity"] == 3
+    assert cards[1] == {**cards[1], "name": "Mountain", "quantity": 4, "tier": 3}
