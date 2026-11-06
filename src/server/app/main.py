@@ -1122,6 +1122,8 @@ async def get_brew_availability(session_id: str):
     """Availability report: owned (donors / free inventory) vs buy list."""
     try:
         report = brew.get_availability(r, session_id)
+    except brew.BrewGateError as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(e)})
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
