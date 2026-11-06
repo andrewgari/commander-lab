@@ -38,7 +38,7 @@ _TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by po
               "released drafts do not follow low/mid/high. Measured on the draft's own estimated_power / "
               "bracket / Game Changers: low power has Game Changers (alesha, korvold, meren, wort), "
               "bracket is flat (thrasios_tymna 4/4/4), draft estimate is flat or non-monotonic "
-              "(wort 6.3/7.5/7.2). Remove this marker when power-aware picking lands.")
+              "(kozilek 8.4/8.4/8.4, wort 6.3/7.5/7.2). Remove this marker when power-aware picking lands.")
 # cell-id -> reason. All 210 legality cells pass on production; every power-trend cell fails.
 KNOWN_FAILURES: dict = {
     f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}": _TREND_BUG
