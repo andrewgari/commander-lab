@@ -41,16 +41,34 @@ def _cached_edhrec(r: Any, commanders: List[str]) -> dict:
         return {}
 
 
-def _card_record(r: Any, name: str) -> dict:
-    """Candidate dict for scoring; tags/oracle text come from card_meta when present."""
+def _load_lab_tags(r: Any) -> dict:
+    try:
+        raw = r.get("lab_tags") if r is not None else None
+        data = json.loads(raw) if raw else {}
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
+    """Candidate dict for scoring: canonical card record first, then legacy card_meta;
+    tags are the synced lab_tags merged with any record tags."""
     rec: dict = {}
     if r is not None:
         try:
-            raw = r.get(f"card_meta:{name}")
-            rec = json.loads(raw) if raw else {}
+            from src.server.domain.inventory import cards as card_store
+
+            rec = card_store.get_card_by_name(r, name) or {}
         except Exception:
             rec = {}
-    return {"name": name, "tags": rec.get("tags") or [], "oracle_text": rec.get("oracle_text") or "",
+        if not rec:
+            try:
+                raw = r.get(f"card_meta:{name}")
+                rec = json.loads(raw) if raw else {}
+            except Exception:
+                rec = {}
+    tags = list(rec.get("tags") or []) + list((lab_tags or {}).get(name) or [])
+    return {"name": name, "tags": tags, "oracle_text": rec.get("oracle_text") or "",
             "type_line": rec.get("type_line") or rec.get("type") or ""}
 
 
@@ -63,13 +81,14 @@ class _Scorer:
         self.commander = (session.get("commanders") or [""])[0]
         self.themes = tuple(session.get("themes") or [])
         self.skeleton = config.skeleton()
+        self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
 
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
         ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec)
-        chosen = brew_scoring.select_cards([_card_record(self.r, n) for n in names], ctx, cap, self.config)
+        chosen = brew_scoring.select_cards([_card_record(self.r, n, self.lab_tags) for n in names], ctx, cap, self.config)
         for c in chosen:
             for k in set(brew_scoring._matching(c, self.skeleton)):
                 self.counts[k] = self.counts.get(k, 0) + 1

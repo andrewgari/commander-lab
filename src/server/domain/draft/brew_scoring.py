@@ -166,16 +166,15 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
     sk = context.skeleton
     while remaining and len(picked) < limit:
         ctx = ScoreContext(context.commander, context.themes, counts, sk, context.edhrec)
-        deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if counts.get(k, 0) < r.low}
         slots = limit - len(picked)
-        pool_now = remaining
+        deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if counts.get(k, 0) < r.low}
+
+        def capped(c):
+            return any(counts.get(k, 0) >= sk[k].high for k in _matching(c, sk))
+
+        pool_now = [c for c in remaining if not capped(c)] or remaining
         if deficit and slots <= sum(deficit.values()):
-            forced = [c for c in remaining if any(k in deficit for k in _matching(c, sk))]
-            pool_now = forced or remaining
-        else:
-            under_cap = [c for c in pool_now
-                         if not (_matching(c, sk) and all(counts.get(k, 0) >= sk[k].high for k in _matching(c, sk)))]
-            pool_now = under_cap or pool_now
+            pool_now = _floor_feasible(pool_now, deficit, slots, sk) or pool_now
         best = min(pool_now, key=lambda c: (-score_card(c, ctx, cfg, extra_terms).total, _name_key(c.get("name", ""))))
         picked.append(best)
         remaining.remove(best)
@@ -183,3 +182,37 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
             counts[k] = counts.get(k, 0) + 1
     return picked
 
+
+
+def _cover_size(deficit: Mapping[str, int], cards: Sequence[Mapping[str, Any]], sk, cap: int) -> int:
+    """Greedy count of cards needed to clear `deficit` (cap+1 if it cannot be done within cap)."""
+    need = {k: v for k, v in deficit.items() if v > 0}
+    pool = list(cards)
+    used = 0
+    while need:
+        if used >= cap or not pool:
+            return cap + 1
+        gain = lambda c: sum(1 for k in set(_matching(c, sk)) if k in need)
+        best = max(pool, key=gain)
+        if gain(best) == 0:
+            return cap + 1
+        for k in set(_matching(best, sk)):
+            if k in need:
+                need[k] -= 1
+                if need[k] <= 0:
+                    del need[k]
+        pool.remove(best)
+        used += 1
+    return used
+
+
+def _floor_feasible(cands, deficit, slots, sk):
+    """Candidates that keep every outstanding floor fillable in the slots left after taking them."""
+    ok = []
+    for c in cands:
+        hit = set(_matching(c, sk))
+        after = {k: v - (1 if k in hit else 0) for k, v in deficit.items()}
+        rest = [x for x in cands if x is not c]
+        if _cover_size(after, rest, sk, slots - 1) <= slots - 1:
+            ok.append(c)
+    return ok

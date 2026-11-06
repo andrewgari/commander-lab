@@ -71,6 +71,16 @@ class BrewScoringConfig:
         if isinstance(data.get("power_level"), dict):
             clean["power_level"] = {str(k): float(v) for k, v in data["power_level"].items()
                                     if isinstance(v, (int, float))}
+        # Reject overrides that would make a normalisation divide by zero / invert.
+        if "inclusion_full" in clean and clean["inclusion_full"] <= 0:
+            del clean["inclusion_full"]
+        floor = clean.get("synergy_floor", cls.synergy_floor)
+        ceil = clean.get("synergy_ceil", cls.synergy_ceil)
+        if ceil <= floor:
+            clean.pop("synergy_floor", None)
+            clean.pop("synergy_ceil", None)
+        if clean.get("synergy_saturation", 1) < 1:
+            del clean["synergy_saturation"]
         return cls(**clean)
 
     def skeleton(self) -> Dict[str, SkeletonRange]:

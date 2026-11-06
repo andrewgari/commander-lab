@@ -201,3 +201,40 @@ class TestBuilderWiring(unittest.TestCase):
             del os.environ["BREW_SCORING_WEIGHTS"]
         mains = [c["name"] for c in draft["cards"] if c["name"] != cmd]
         self.assertEqual(mains[0], "Card 00")
+
+
+class TestReviewFixes(unittest.TestCase):
+    def test_overlapping_floors_prefer_dual_card(self):
+        skel = {"ramp": SkeletonRange(1, 5), "draw": SkeletonRange(1, 5)}
+        pool = [card("A ramp", tags=["ramp"]), card("B dual", tags=["ramp", "draw"])]
+        picked = bs.select_cards(pool, ctx(skeleton=skel), 1)
+        self.assertEqual(picked[0]["name"], "B dual")
+
+    def test_card_touching_any_capped_category_is_avoided(self):
+        skel = {"ramp": SkeletonRange(0, 1), "draw": SkeletonRange(0, 5)}
+        pool = [card("A dual", tags=["ramp", "draw"]), card("B draw", tags=["draw"])]
+        c = ctx(skeleton=skel, deck_counts={"ramp": 1},
+                edhrec={"a dual": {"inclusion": 0.9, "synergy": 0.5}})
+        self.assertEqual(bs.select_cards(pool, c, 1)[0]["name"], "B draw")
+
+    def test_invalid_normalisation_overrides_are_dropped(self):
+        for bad in ({"inclusion_full": 0}, {"synergy_floor": 0.5, "synergy_ceil": 0.5}, {"synergy_saturation": 0}):
+            cfg = BrewScoringConfig.from_env({"BREW_SCORING_WEIGHTS": json.dumps(bad)})
+            r = bs.score_card(card("A", oracle_text="proliferate"),
+                              ctx(edhrec={"a": {"inclusion": 0.5, "synergy": 0.1}}), cfg)
+            self.assertIsInstance(r.total, float)
+
+    def test_builder_reads_canonical_record_and_lab_tags(self):
+        from src.server.domain.draft import brew_builder
+        r = FakeRedis()
+        r.set("lab_tags", json.dumps({"Rampy": ["ramp"]}))
+        rec = brew_builder._card_record(r, "Rampy", json.loads(r.get("lab_tags")))
+        self.assertEqual(rec["tags"], ["ramp"])
+        from src.server.domain.inventory import cards as card_store
+        orig = card_store.get_card_by_name
+        card_store.get_card_by_name = lambda rr, n: {"oracle_text": "proliferate", "type_line": "Artifact"}
+        try:
+            rec = brew_builder._card_record(r, "Rampy")
+        finally:
+            card_store.get_card_by_name = orig
+        self.assertEqual(rec["oracle_text"], "proliferate")
