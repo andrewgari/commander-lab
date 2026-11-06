@@ -45,24 +45,42 @@ CHECKS = ("size", "singleton", "identity", "banned", "names", "must_exclude",
 
 
 class TrapFirstBuilder(ReferenceBrewBuilder):
-    """Offers every trap / must-allow card via a donor deck BEFORE normal selection."""
+    """Offers every trap / must-allow card BEFORE normal selection, through a channel that
+    does not depend on deck sources: the EDHREC page (prepended) so sources=False cells keep
+    an EMPTY donor list. When EDHREC is down the page is replaced by a traps-only page and the
+    error is recorded on `edhrec_error` (so the traps are still offered)."""
 
     def __init__(self, catalog, row: Row):
         super().__init__(catalog)
         self.row = row
 
-    def build(self, session, r):
+    def _offered(self, session):
         offered = [n for n in (*self.row.must_exclude, *self.row.banned_traps,
                                *self.row.soft_exclude, *self.row.must_allow)
                    if not gc_mod.is_game_changer(n, GC_SNAPSHOT)]  # GC count is power-driven only
-        # Reference builder fills 100 from EDHREC/donors before its own GC step in wide
-        # identities, so the power-level GCs are seeded first (0 / 2 / 4 for low / mid / high).
+        # Power-level GCs are offered first (0 / 2 / 4 for low / mid / high).
         want = bh._GAME_CHANGERS_BY_POWER[str(session.get("power_level"))]
-        offered = list(self.row.gc_picks[:want]) + offered
-        s = dict(session)
-        s["donor_decks"] = [{"cards": [{"name": n} for n in offered]},
-                            *(session.get("donor_decks") or [])]
-        return super().build(s, r)
+        return list(self.row.gc_picks[:want]) + offered
+
+    def build(self, session, r):
+        real = bh.edhrec_data.get_page
+        offered = self._offered(session)
+
+        def get_page(rr, commanders, *a, **kw):
+            extra = {n: {"name": n} for n in offered}
+            try:
+                page = real(rr, commanders, *a, **kw)
+            except bh.EDHRecError as exc:
+                self._err = str(exc)
+                return {"cards": extra}
+            self._err = None
+            return {**page, "cards": {**extra, **page["cards"]}}
+
+        self._err = None
+        with mock.patch.object(bh.edhrec_data, "get_page", get_page):
+            out = super().build(session, r)
+        self.edhrec_error = self._err
+        return out
 
 
 @dataclass
@@ -105,11 +123,9 @@ def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str 
         bad = [n for n in (*row.must_exclude, *row.banned_traps) if dv.normalize_name(n) in names]
         assert not bad, bad
 
-    def must_allow():  # in-identity allowed cards that appeared must satisfy the validator
-        info = [cat.get(n) for n in row.must_allow]
-        assert all(i is not None and i.color_identity <= row.identity for i in info), "fixture"
-        present = [n for n in row.must_allow if dv.normalize_name(n) in names]
-        assert present, "no MUST_ALLOW card made it into the deck"
+    def must_allow():  # each allowed card is accepted by the validator, independent of selection
+        for n in row.must_allow:
+            assert_allowed(cat, row, n)
 
     def validator():
         out = dv.validate_deck(dv.DraftDeck.from_builder_draft(deck), cat)
@@ -131,6 +147,27 @@ def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str 
     return Cell(row, power, sources, state_label(state, kind), res.estimated_power,
                 res.estimated_bracket, res.power_source,
                 da.total_cards(deck), _gc_count(deck), checks, notes)
+
+
+_CARD_RULES = {dv.RuleCode.COLOR_IDENTITY, dv.RuleCode.SINGLETON, dv.RuleCode.BANNED,
+               dv.RuleCode.NOT_LEGAL, dv.RuleCode.UNKNOWN_LEGALITY, dv.RuleCode.UNKNOWN_CARD,
+               dv.RuleCode.INVALID_QUANTITY}
+
+
+def assert_allowed(cat, row: Row, name: str) -> None:
+    """Probe deck = commander(s) + the card (x7 for Seven Dwarves). Deck-size and other
+    whole-deck errors are expected for a probe; any per-card legality error is a failure."""
+    qty = 7 if name == "Seven Dwarves" else 1
+    res = dv.validate_deck(dv.DraftDeck(list(row.commanders), [dv.DraftCard(name, qty)]), cat)
+    bad = [e for e in res.errors if str(getattr(e.code, "value", e.code)) in
+           {c.value for c in _CARD_RULES} and (not e.cards or name in e.cards)]
+    assert not bad, [e.to_dict() for e in bad]
+
+
+def test_must_allow_probe_rejects_a_bad_card():
+    assert_allowed(matrix_catalog(), ROWS["krenko"], "Gut Shot")
+    with pytest.raises(AssertionError):
+        assert_allowed(matrix_catalog(), ROWS["krenko"], "Kitchen Finks")
 
 
 def _eq(a, b):
@@ -273,10 +310,15 @@ def test_F3_hybrid_list_form_not_dropped():
     assert dv.parse_color_identity(["R/G"]) == frozenset("RG")
 
 
-@pytest.mark.xfail(strict=True, reason="F4: identity_of_cards silently ignores a partner missing from the catalog")
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="F4: identity_of_cards silently ignores a partner missing from the catalog")
 def test_F4_partial_partner_identity_not_silent():
-    got = rp.identity_of_cards(["Thrasios, Triton Hero", "No Such Partner"], CAT)
-    assert got is None or got == frozenset("GU") and False  # must signal incompleteness, not a partial union
+    pool_cat = rp.InMemoryCatalog([rp.CatalogCard("Thrasios, Triton Hero", frozenset("GU"))])
+    try:
+        got = rp.identity_of_cards(["Thrasios, Triton Hero", "No Such Partner"], pool_cat)
+    except (KeyError, ValueError):
+        return  # fixed: signals the incomplete commander set
+    assert got is None, f"partial union {sorted(got)} returned silently"
 
 
 # --------------------------------------------------------------------------
