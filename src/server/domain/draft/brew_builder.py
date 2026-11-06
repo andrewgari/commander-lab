@@ -14,12 +14,66 @@ reconstruct_builder.ReconstructBuilder) via brew_builder.set_builder().
 """
 from __future__ import annotations
 
+import json
 from typing import Any, List
 
+import src.server.domain.draft.brew_scoring as brew_scoring
+from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 import src.server.domain.inventory.instances as instance_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 from src.server.domain.draft.reconstruct_pools import norm_name
+
+
+def _cached_edhrec(r: Any, commanders: List[str]) -> dict:
+    """EDHREC {name_key: {inclusion, synergy}} from the cache only (never fetches); {} if absent."""
+    if r is None or not commanders:
+        return {}
+    try:
+        from src.server.domain.analytics.card_eval.edhrec_data import CACHE_PREFIX
+        from src.server.domain.analytics.providers.edhrec import commander_slug
+
+        raw = r.get(CACHE_PREFIX + commander_slug(commanders))
+        page = json.loads(raw) if raw else {}
+        return {k: {"inclusion": v.get("inclusion"), "synergy": v.get("synergy")}
+                for k, v in (page.get("cards") or {}).items()}
+    except Exception:
+        return {}
+
+
+def _card_record(r: Any, name: str) -> dict:
+    """Candidate dict for scoring; tags/oracle text come from card_meta when present."""
+    rec: dict = {}
+    if r is not None:
+        try:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else {}
+        except Exception:
+            rec = {}
+    return {"name": name, "tags": rec.get("tags") or [], "oracle_text": rec.get("oracle_text") or "",
+            "type_line": rec.get("type_line") or rec.get("type") or ""}
+
+
+class _Scorer:
+    """Shared scoring state for one build: category counts persist across tiers."""
+
+    def __init__(self, r: Any, session: dict, config: BrewScoringConfig):
+        self.r, self.config = r, config
+        self.counts: dict = {}
+        self.commander = (session.get("commanders") or [""])[0]
+        self.themes = tuple(session.get("themes") or [])
+        self.skeleton = config.skeleton()
+        self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+
+    def pick(self, names: List[str], cap: int) -> List[str]:
+        if cap <= 0:
+            return []
+        ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec)
+        chosen = brew_scoring.select_cards([_card_record(self.r, n) for n in names], ctx, cap, self.config)
+        for c in chosen:
+            for k in set(brew_scoring._matching(c, self.skeleton)):
+                self.counts[k] = self.counts.get(k, 0) + 1
+        return [c["name"] for c in chosen]
 
 
 class BaseBrewBuilder(reconstruct.BaseReconstructBuilder):
@@ -88,45 +142,33 @@ class StubBrewBuilder(BaseBrewBuilder):
         else:  # owned_first
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
-        added = 0
-        for name in donor_cards:
-            if added >= tier1_cap:
-                break
-            if add(name, 1, "previous_deck", 0.0, "Available from a named donor deck"):
-                added += 1
+        scorer = _Scorer(r, session, BrewScoringConfig.from_env())
 
-        added = 0
+        def fresh(names):
+            return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
+
+        for name in scorer.pick(fresh(donor_cards), tier1_cap):
+            add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")
+
+        tier2_names: List[str] = []
         if pools is not None:
-            for pc in pools.tier2:
-                if added >= tier2_cap:
-                    break
-                if add(pc.name, 2, "owned", 0.0, "Available from free inventory"):
-                    added += 1
+            tier2_names = [pc.name for pc in pools.tier2]
         elif r is not None:
             try:
-                for inst in instance_store.list_instances(r, ownership_status="in_collection"):
-                    if added >= tier2_cap:
-                        break
-                    cname = inst.get("card_name")
-                    if cname and add(cname, 2, "owned", 0.0, "Available from free inventory"):
-                        added += 1
+                tier2_names = [inst.get("card_name") for inst in
+                               instance_store.list_instances(r, ownership_status="in_collection")
+                               if inst.get("card_name")]
             except Exception:
-                pass
+                tier2_names = []
+        for name in scorer.pick(fresh(tier2_names), tier2_cap):
+            add(name, 2, "owned", 0.0, "Available from free inventory")
 
-        added = 0
         if pools is not None:
-            for pc in pools.tier3:
-                if added >= tier3_cap:
-                    break
-                price = pc.unit_price if pc.unit_price is not None else 0.0
-                if add(pc.name, 3, "new", float(price), "Buy to complete the brew"):
-                    added += 1
+            prices = {pc.name: (pc.unit_price if pc.unit_price is not None else 0.0) for pc in pools.tier3}
         else:
-            for cname, price in [("Arcane Signet", 1.25), ("Command Tower", 0.50), ("Sol Ring", 1.50)]:
-                if added >= tier3_cap:
-                    break
-                if add(cname, 3, "new", price, "Buy to complete the brew"):
-                    added += 1
+            prices = {"Arcane Signet": 1.25, "Command Tower": 0.50, "Sol Ring": 1.50}
+        for name in scorer.pick(fresh(list(prices)), tier3_cap):
+            add(name, 3, "new", float(prices[name]), "Buy to complete the brew")
 
         # Re-tier and cost against the pools so provenance/cost stay truthful.
         if pools is not None:
