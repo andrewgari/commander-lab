@@ -113,3 +113,36 @@ def test_combined_validator_flags_bad_deck(good):
     bad = _mutate(good, lambda d: d["cards"][-1].update(name="Mana Crypt"))
     with pytest.raises(da.DeckAssertionError):
         da.assert_valid_brew_deck(bad, good.catalog)
+
+
+def test_malformed_quantities_rejected(good):
+    for q in (0, -1, 1.0, True, "1"):
+        bad = _mutate(good, lambda d, q=q: d["cards"][5].update(quantity=q))
+        with pytest.raises(da.DeckAssertionError, match="quantit"):
+            da.assert_deck_size(bad)
+    # commander at quantity 0 + 100 basics must not pass
+    bad = {"commanders": [ATRAXA], "cards": [{"name": ATRAXA, "quantity": 0}, {"name": "Plains", "quantity": 100}]}
+    with pytest.raises(da.DeckAssertionError):
+        da.assert_deck_size(bad)
+
+
+def test_singleton_canonicalizes_dfc_names():
+    from tests.support.brew_harness import _info
+    cat = build_fixture_catalog()
+    cat.add(_info("Bala Ged Recovery // Bala Ged Sanctuary", "G", ("Sorcery",)))
+    deck = {"commanders": [], "cards": [{"name": "Bala Ged Recovery", "quantity": 1},
+                                        {"name": "Bala Ged Recovery // Bala Ged Sanctuary", "quantity": 1}]}
+    with pytest.raises(da.DeckAssertionError, match="singleton"):
+        da.assert_singleton(deck, cat)
+
+
+def test_fixture_partners_are_a_legal_pair_and_redis_seeded():
+    from src.server.domain.draft.deck_validator import check_partner_pair, catalog_from_redis
+    from tests.support.brew_harness import FakeRedis, seed_catalog
+    cat = build_fixture_catalog()
+    assert check_partner_pair(cat.get(PAIR[0]), cat.get(PAIR[1])) is None
+    r = FakeRedis()
+    seed_catalog(r, cat)
+    seeded = catalog_from_redis(r, [PAIR[0], "Mana Crypt", "Fixture W Card 01"])
+    assert seeded.get("Mana Crypt").commander_legality == "banned"
+    assert seeded.get(PAIR[0]).color_identity == frozenset("WB")

@@ -58,13 +58,24 @@ def _info(name, ident="", types=("Creature",), supers=(), legality="legal", text
                     supertypes=tuple(supers), commander_legality=legality, oracle_text=text)
 
 
+def seed_catalog(r, catalog: CardCatalog) -> None:
+    """Write catalog cards into (fake) Redis as card_meta:{name} so production
+    pool building / validation (catalog_from_redis) sees the same cards."""
+    for info in {id(c): c for c in catalog._by_key.values()}.values():
+        r.set(f"card_meta:{info.name}", json.dumps({
+            "name": info.name, "color": "".join(sorted(info.color_identity)),
+            "types": list(info.types), "super_types": list(info.supertypes),
+            "oracle_text": info.oracle_text, "commander_legality": info.commander_legality,
+        }))
+
+
 def build_fixture_catalog() -> CardCatalog:
     cat = CardCatalog()
     legend = ("Legendary",)
     for c in [
         _info("Atraxa, Praetors' Voice", "WUBG", supers=legend),
-        _info("Tymna the Weaver", "WB", supers=legend),
-        _info("Thrasios, Triton Hero", "UG", supers=legend),
+        _info("Tymna the Weaver", "WB", supers=legend, text="Partner"),
+        _info("Thrasios, Triton Hero", "UG", supers=legend, text="Partner"),
         _info("Krenko, Mob Boss", "R", supers=legend),
         _info("Sol Ring", "", ("Artifact",)),
         _info("Arcane Signet", "", ("Artifact",)),
@@ -271,6 +282,7 @@ def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bo
     r = FakeRedis()
     donors = _donor_decks(cmds, catalog) if sources else []
     r.set("decks", json.dumps(donors))
+    seed_catalog(r, catalog)
     full = [n for n in (f"Fixture {c} Card {i:02d}" for c in _COLORS for i in range(11, 31))]
     payload = {"full": edhrec_payload(full), "partial": edhrec_payload(full, partial=True)}
     session_http = FaultSession(edhrec, payload, degraded_kind)

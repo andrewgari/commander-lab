@@ -44,11 +44,21 @@ def _qty(card: Mapping[str, Any]) -> int:
     return q if isinstance(q, int) and not isinstance(q, bool) else 0
 
 
+def assert_quantities_valid(deck: Mapping[str, Any]) -> None:
+    """Every quantity is a positive int (not bool/float/str/zero/negative)."""
+    bad = [(c.get("name"), c.get("quantity", 1)) for c in _cards(deck)
+           if not (isinstance(c.get("quantity", 1), int)
+                   and not isinstance(c.get("quantity", 1), bool) and c.get("quantity", 1) >= 1)]
+    if bad:
+        raise DeckAssertionError(f"invalid card quantities: {bad}")
+
+
 def total_cards(deck: Mapping[str, Any]) -> int:
     return sum(_qty(c) for c in _cards(deck))
 
 
 def assert_deck_size(deck: Mapping[str, Any], size: int = DECK_SIZE) -> None:
+    assert_quantities_valid(deck)
     n = total_cards(deck)
     if n != size:
         raise DeckAssertionError(f"deck has {n} cards, expected exactly {size}")
@@ -91,10 +101,13 @@ def _copy_limit(name: str, catalog: Optional[CardCatalog]) -> Optional[int]:
 def assert_singleton(deck: Mapping[str, Any], catalog: Optional[CardCatalog] = None) -> None:
     counts: dict = {}
     names: dict = {}
+    assert_quantities_valid(deck)
     for c in _cards(deck):
-        k = normalize_name(c.get("name"))
+        info = catalog.get(c.get("name") or "") if catalog is not None else None
+        canon = info.name if info is not None else c.get("name")
+        k = normalize_name(canon)
         counts[k] = counts.get(k, 0) + _qty(c)
-        names.setdefault(k, c.get("name"))
+        names.setdefault(k, canon)
     bad = []
     for k, n in counts.items():
         limit = _copy_limit(names[k], catalog)
