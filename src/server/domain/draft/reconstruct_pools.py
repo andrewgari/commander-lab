@@ -324,23 +324,6 @@ class DeckCost:
 # ---------------------------------------------------------------------------
 
 
-_UUID_RE = re.compile(
-    r"^\{?[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\}?$", re.IGNORECASE)
-
-
-def _name_from_record(r: Any, oracle_id: str) -> Optional[str]:
-    """Name of `card:{oracle_id}` or None (never a GUID)."""
-    if r is None:
-        return None
-    try:
-        raw = r.get(f"card:{oracle_id}")
-        rec = json.loads(raw) if raw else None
-    except Exception:
-        return None
-    name = rec.get("name") if isinstance(rec, dict) else None
-    return name.strip() if isinstance(name, str) and name.strip() and not _UUID_RE.match(name.strip()) else None
-
-
 def norm_name(name: str) -> str:
     """Case-insensitive key; double-faced 'A // B' matches 'A'."""
     return (name or "").split(" // ")[0].strip().casefold()
@@ -418,6 +401,9 @@ class RedisCardCatalog:
         leg = (rec.get("legalities") or {}).get("commander")
         if leg is not None:
             return leg == "legal"
+        cl = rec.get("commander_legality")  # flat form (card_meta / test fixtures)
+        if isinstance(cl, str) and cl:
+            return cl == "legal"
         return None
 
     def _to_card(self, name: str, rec: Mapping) -> CatalogCard:

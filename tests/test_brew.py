@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -18,6 +19,7 @@ import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.decks.registry as registry
 from tests.brew_catalog import seed_brew_catalog
+from tests.support.brew_gate_seed import GATE_CORE, pin_gate_fill, seed_gate_catalog
 
 
 class FakePipe:
@@ -106,6 +108,8 @@ def static_price_lookup(prices):
 class TestBrewCore(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
+        seed_gate_catalog(self.r, only=GATE_CORE)
+        pin_gate_fill(self)
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.deck2 = make_deck(
             deck_id=43, name="Urza Artifacts", status="testing",
@@ -131,7 +135,7 @@ class TestBrewCore(unittest.TestCase):
         instances.create_instance(self.r, "Demonic Tutor", ownership_status="in_collection")
 
         # Catalog + prices (deterministic; no network)
-        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact — Equipment"}))
+        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact — Equipment", "commander_legality": "legal"}))
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup({"Lightning Greaves": 3.50})
 
@@ -312,6 +316,21 @@ class TestBrewCore(unittest.TestCase):
 
     # -- availability -----------------------------------------------------
 
+    def test_availability_buy_list_uses_resolved_display_name(self):
+        session = self._built_session()
+        calls = []
+
+        def fake_display(r, name):
+            calls.append(name)
+            return "RESOLVED " + name
+
+        with unittest.mock.patch.object(brew, "_display_name", fake_display):
+            rep = brew.get_availability(self.r, session["session_id"])
+        self.assertTrue(rep["buy_list"])
+        self.assertTrue(calls)
+        for b in rep["buy_list"]:
+            self.assertTrue(b["name"].startswith("RESOLVED "), b["name"])
+
     def test_availability_report(self):
         session = self._built_session()
         sid = session["session_id"]
@@ -368,3 +387,17 @@ class TestBrewCore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_display_name_resolves_legacy_uuid_names():
+    import json as _json
+    oid = "005ee549-1bf5-478f-bc3f-3e791bd7eecf"
+
+    class R:
+        def __init__(self, d): self.d = d
+        def get(self, k): return self.d.get(k)
+
+    assert brew._display_name(R({f"card_meta:{oid}": _json.dumps({"name": "Sol Ring"})}), oid) == "Sol Ring"
+    assert brew._display_name(R({f"card:{oid}": _json.dumps({"name": "Arcane Signet"})}), oid) == "Arcane Signet"
+    assert brew._display_name(R({}), oid) == oid
+    assert brew._display_name(R({}), "Sol Ring") == "Sol Ring"

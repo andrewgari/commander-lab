@@ -17,7 +17,7 @@ import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.decks.registry as registry
 from fastapi.testclient import TestClient
 
-from tests.brew_catalog import seed_brew_catalog
+from tests.support.brew_gate_seed import pin_gate_fill, seed_gate_catalog
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 
@@ -31,6 +31,8 @@ class TestBrewAPI(unittest.TestCase):
         _p.start()
         self.addCleanup(_p.stop)
         self.r = FakeRedis()
+        seed_gate_catalog(self.r)
+        pin_gate_fill(self)
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.deck2 = make_deck(deck_id=43, name="Urza Artifacts", status="digital",
                                commanders=["Urza, Lord High Artificer"],
@@ -39,12 +41,10 @@ class TestBrewAPI(unittest.TestCase):
         instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
                                   deck_id="archidekt:42", deck_name="Atraxa Superfriends")
         instances.create_instance(self.r, "Demonic Tutor", ownership_status="in_collection")
-        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact"}))
+        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact", "commander_legality": "legal"}))
 
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup({"Lightning Greaves": 3.50})
-        seed_brew_catalog(self.r, "Atraxa, Praetors' Voice", names=[
-            "Sol Ring", "Mana Crypt", "Demonic Tutor", "Lightning Greaves"])
         brew_builder.set_builder(brew_builder.StubBrewBuilder())
 
         self.patch = patch.object(app_module, "r", self.r)

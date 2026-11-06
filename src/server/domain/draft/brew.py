@@ -25,8 +25,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.cards as card_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+import src.server.domain.draft.brew_gate as brew_gate
+from src.server.domain.draft.brew_gate import BrewGateError
 
 BREW_SESSION_PREFIX = "brew:session:"
 BREW_SESSIONS_INDEX = "brew:sessions"
@@ -95,6 +98,9 @@ def start_brew(
     commanders = pref["commanders"]
     if not commanders:
         raise ValueError("a commander is required to brew a deck")
+    from src.server.domain.draft.brew_power import parse_power_level
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    target_power = parse_power_level(power_level, BrewScoringConfig.from_env().power)  # ValueError if out of range; default if absent
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -157,6 +163,7 @@ def start_brew(
         "source_decks": snapshots,
         "build_mode": build_mode,
         "power_level": str(power_level or ""),
+        "target_power": target_power,
         "deck_idea": (deck_idea or "").strip() if isinstance(deck_idea, str) else str(deck_idea),
         "themes": pref["themes"],
         "notes": pref["notes"],
@@ -193,7 +200,7 @@ def list_sessions(r: Any, limit: int = 50) -> list[dict]:
         if s:
             sessions.append(s)
     sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    return sessions[:limit]
+    return [release_session(r, s) for s in sessions[:limit]]
 
 
 def submit_preferences(r: Any, session_id: str, preference: Any) -> dict:
@@ -262,9 +269,8 @@ def execute_build(r: Any, session_id: str) -> dict:
         drafts = builder.build(session, r)
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
-        # The single gate: nothing is stored or returned unless it is a
-        # complete, legal, fully-named 100-card deck (brew_gate).
-        session["drafts"] = [_gate_built_draft(r, session, drafts[0])]
+        # THE gate: nothing illegal / incomplete is stored or returned (brew_gate).
+        session["drafts"] = [release_draft(r, session, drafts[0])]  # exactly one draft
         session["status"] = STATUS_DRAFTS_READY
         session.pop("error", None)
         session.pop("error_message", None)
@@ -281,55 +287,46 @@ def execute_build(r: Any, session_id: str) -> dict:
         raise
 
 
-def _gate_built_draft(r: Any, session: dict, draft: dict) -> dict:
-    """Run a builder's draft through brew_gate: repair/fill to exactly 100 legal
-    named cards, re-tier/re-cost, then re-verify. Raises BrewInvalidDeckError if
-    the deck cannot be made valid."""
-    from src.server.domain.draft import brew_gate
-    from src.server.domain.draft.deck_validator import catalog_from_redis
-
-    if not draft.get("commanders"):
-        draft = {**draft, "commanders": list(session.get("commanders") or [])}
-    candidates: list = []
-    try:  # synergy / owned / buy pools; any of them may be empty or unavailable
-        pools = _build_pools(r, session)
-        candidates = [c.name for c in (*pools.tier1, *pools.tier2, *pools.tier3)]
-    except Exception:
-        candidates = []
-    gated = brew_gate.gate_draft(r, draft, candidates)
-    _refresh_costs(r, session, gated)
-    names = list(gated.get("commanders") or []) + [c.get("name") for c in gated.get("cards") or []]
-    vcat = catalog_from_redis(r, [n for n in names if isinstance(n, str)])
-    brew_gate._add_by_oracle_id(r, gated, vcat)
-    brew_gate.verify_draft(gated, vcat)
-    return gated
+def release_draft(r: Any, session: Optional[dict], draft: dict, **kw: Any) -> dict:
+    """The single output gate for a Brew draft (see brew_gate.release_draft)."""
+    if session is not None and "recompute" not in kw:
+        kw["recompute"] = lambda d: _recompute_draft(r, session, d)
+    return brew_gate.release_draft(draft, r, session=session, **kw)
 
 
-def _refresh_costs(r: Any, session: dict, draft: dict) -> None:
-    """Re-tier / re-cost a gated draft. If pools are unavailable, keep the legal
-    deck but never claim complete pricing: zero/stale costs become unknown."""
+def _release_and_persist(r: Any, session: dict) -> list[dict]:
+    """Gate every stored draft; persist repairs so availability / edit
+    consumers see the same cards as the response."""
+    original = session.get("drafts", [])
+    released = [release_draft(r, session, d) for d in original]
+    if released != original and session.get("session_id"):
+        session["drafts"] = released
+        _save_session(r, session)
+    return released
+
+
+def release_session(r: Any, session: Optional[dict]) -> Optional[dict]:
+    """Copy of `session` safe to return from any read path: its drafts go
+    through the gate. A draft that cannot be made legal is withheld and the
+    session reported failed (never returned as-is)."""
+    if not session or not session.get("drafts"):
+        return session
+    out = dict(session)
     try:
-        _recompute_draft(r, session, draft)
-        return
-    except Exception:
-        pass
-    cards = draft.get("cards") or []
-    unpriced = [c["name"] for c in cards if c.get("tier", 3) == 3 and c.get("name")
-                and c["name"] not in reconstruct_pools.BASIC_LAND_NAMES]
-    for c in cards:
-        if c.get("name") in unpriced:
-            c["cost"] = None
-    draft["unpriced_cards"] = unpriced
-    draft["is_complete"] = False
-    draft["total_new_cost"] = round(sum(c.get("cost") or 0.0 for c in cards), 2)
+        out["drafts"] = _release_and_persist(r, dict(session))
+    except BrewGateError as exc:
+        out["drafts"] = []
+        out["status"] = STATUS_FAILED
+        out["error"] = out["error_message"] = str(exc)
+    return out
 
 
 def get_drafts(r: Any, session_id: str) -> list[dict]:
-    """Fetch the generated draft for a Brew session."""
+    """Fetch the generated draft for a Brew session (gated; raises BrewGateError)."""
     session = get_session(r, session_id)
     if not session:
         raise ValueError(f"session not found: {session_id}")
-    return session.get("drafts", [])
+    return _release_and_persist(r, session)
 
 
 def abandon_brew(r: Any, session_id: str, reason: str = "") -> dict:
@@ -389,6 +386,23 @@ def _catalog_name(r: Any, oracle_id: str) -> Optional[str]:
     return name if isinstance(name, str) and name.strip() else None
 
 
+def _display_name(r: Any, name: str) -> str:
+    """Drafts built before the catalog fix may carry a raw oracle id as the card
+    name; resolve it to the real name (card:{id} then card_meta:{id}) for display."""
+    if not card_store.is_oracle_id(name or ""):
+        return name
+    real = _catalog_name(r, name)
+    if not real:
+        try:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+            cand = rec.get("name") if isinstance(rec, dict) else None
+            real = cand if isinstance(cand, str) and cand.strip() else None
+        except (ValueError, TypeError):
+            real = None
+    return real or name
+
+
 def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     """Re-tier and re-cost every draft card against the CURRENT pools and
     refresh the draft totals (the same step the builder ends with). Each card
@@ -411,6 +425,9 @@ def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     if "missing_slots" in draft:
         total = sum(int(c.get("quantity", 1) or 0) for c in merged)
         draft["missing_slots"] = max(100 - total, 0)
+    from src.server.domain.draft.brew_builder import apply_power_estimate
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    apply_power_estimate(r, session, draft, BrewScoringConfig.from_env())
 
 
 def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:
@@ -456,6 +473,11 @@ def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int 
             "rationale": "Added by hand",
         })
     _recompute_draft(r, session, draft)
+    draft["user_edited"] = True
+    try:  # an edit that would make the deck illegal is refused, not stored
+        draft = release_draft(r, session, draft, repair=False)
+    except BrewGateError as exc:
+        raise BrewEditError("illegal_card", str(exc), 422)
     session["drafts"][0] = draft
     session["updated_at"] = _now()
     _save_session(r, session)
@@ -491,6 +513,11 @@ def remove_draft_card(r: Any, session_id: str, oracle_id: str) -> dict:
 
     draft["cards"] = [c for c in cards if c is not match]
     _recompute_draft(r, session, draft)
+    draft["user_edited"] = True
+    try:  # an edit that would make the deck illegal is refused, not stored
+        draft = release_draft(r, session, draft, repair=False)
+    except BrewGateError as exc:
+        raise BrewEditError("illegal_card", str(exc), 422)
     session["drafts"][0] = draft
     session["updated_at"] = _now()
     _save_session(r, session)
@@ -506,7 +533,7 @@ def _pool_config(r: Any, session: dict) -> reconstruct_pools.PoolConfig:
     catalog = reconstruct_pools.RedisCardCatalog(r)
     commanders = session.get("commanders") or []
     identity = reconstruct_pools.identity_of_cards(commanders, catalog)
-    if not identity:
+    if identity is None:
         # An empty identity is only real if every commander resolved. A commander
         # missing from the catalog used to collapse Tier 3 to colourless; fall
         # back to the name index (diacritics / DFC) and otherwise apply no
@@ -641,7 +668,7 @@ def get_availability(r: Any, session_id: str) -> dict:
         if source == "buy":
             cc = next((c for c in cost.cards if reconstruct_pools.norm_name(c.name) == reconstruct_pools.norm_name(t.name)), None)
             buy_list.append({
-                "name": t.name,
+                "name": _display_name(r, t.name),
                 "quantity": t.quantity,
                 "needs_purchase": True,
                 "unit_price": (cc.unit_price if cc else None),
@@ -705,15 +732,9 @@ def accept_draft(r: Any, session_id: str, draft_index: int = 0) -> dict:
     if not isinstance(draft_index, int) or draft_index < 0 or draft_index >= len(drafts):
         raise ValueError(f"invalid draft index: {draft_index}")
 
-    draft = drafts[draft_index]
-    # Same gate on the way out: hand edits can leave 99/101 cards or an
-    # illegal card. The accepted deck is repaired (extra cards displace basics
-    # first, shortfalls are topped up) and verified; if it still cannot be made
-    # a legal 100-card deck, BrewInvalidDeckError (a ValueError) is raised.
-    from src.server.domain.draft import brew_gate
-
-    draft = brew_gate.gate_draft(r, draft)
-    _refresh_costs(r, session, draft)  # totals must match the repaired list
+    # Gate: only a complete, legal 100 is ever accepted (a hand-edited draft
+    # is made whole first: basics trimmed / lands added, picks kept).
+    draft = release_draft(r, session, drafts[draft_index], allow_incomplete=False)
     normalized = {
         "source": "brew",
         "source_id": f"{session_id}_{draft_index}",

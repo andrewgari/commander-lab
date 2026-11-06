@@ -88,9 +88,10 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.category_need, 9)
         self.assertEqual(BrewScoringConfig.from_env({"BREW_SCORING_WEIGHTS": "not json"}), BrewScoringConfig())
 
-    def test_placeholder_blocks_exist_and_default_off(self):
+    def test_placeholder_blocks_exist_and_source_bias_bounded(self):
         cfg = BrewScoringConfig()
-        self.assertEqual(cfg.source_bias, 0.0)
+        self.assertGreater(cfg.source_bias, 0.0)
+        self.assertLess(cfg.source_bias, 1.0)
         self.assertEqual(cfg.power_level, {})
 
     def test_no_numeric_literal_weights_in_scoring_module(self):

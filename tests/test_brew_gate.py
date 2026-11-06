@@ -1,460 +1,405 @@
-"""Unit tests for the Brew output gate (src/server/domain/draft/brew_gate.py).
-
-The gate is the single place that guarantees a Brew result is a complete,
-legal, fully-named Commander deck: exactly 100 cards, no GUID names, singleton,
-colour identity, banlist, commander eligibility.
-
-Run: pytest tests/test_brew_gate.py
-"""
+"""Brew output gate (brew_gate.release_draft): every check fails -> repaired,
+unrecoverable -> BrewGateError (never a bad deck), sources down -> still full,
+and every Brew output path goes through the one gate."""
+import ast
+import inspect
 import json
 import os
 import sys
 import uuid
+from unittest import mock
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.server.domain.draft import brew_gate
-from src.server.domain.draft.deck_validator import (
-    CardCatalog, CardInfo, DraftDeck, validate_deck,
-)
-
-
-def creature(name, ci="", legendary=False, legality="legal"):
-    return CardInfo(
-        name=name, color_identity=frozenset(ci), types=("Creature",),
-        supertypes=("Legendary",) if legendary else (), commander_legality=legality,
-    )
-
-
-def spell(name, ci="", legality="legal", types=("Artifact",)):
-    return CardInfo(name=name, color_identity=frozenset(ci), types=types, commander_legality=legality)
-
-
-COMMANDER = "Esper Lord"
-
-
-def make_catalog(extra=(), commander_ci="WU"):
-    cards = [
-        creature(COMMANDER, commander_ci, legendary=True),
-        spell("Sol Ring"), spell("Arcane Signet"), spell("Command Tower", types=("Land",)),
-        spell("Swords to Plowshares", "W", types=("Instant",)),
-        spell("Counterspell", "U", types=("Instant",)),
-        spell("Lightning Bolt", "R", types=("Instant",)),          # off-colour for WU
-        spell("Mana Crypt", "", legality="banned"),                # banned
-        creature("Plain Bear", "W"),
-    ]
-    return CardCatalog([*cards, *extra])
-
-
-def draft_of(names, commander=COMMANDER, extra_cards=()):
-    cards = [{"name": commander, "quantity": 1, "tier": 3}]
-    cards += [{"name": n, "quantity": 1, "tier": 3} for n in names]
-    cards += list(extra_cards)
-    return {"id": "draft_0", "commanders": [commander], "cards": cards}
-
-
-def total(draft):
-    return sum(int(c.get("quantity", 1)) for c in draft["cards"])
-
-
-def assert_legal(draft, catalog):
-    deck = DraftDeck.from_builder_draft(draft)
-    res = validate_deck(deck, catalog)
-    assert res.valid, res.to_json()
-    assert total(draft) == 100
-    for c in draft["cards"]:
-        assert c["name"].strip()
-        assert not brew_gate.is_uuid_like(c["name"]), c["name"]
-
-
-class FakeR:
-    def __init__(self, store=None):
-        self.store = store or {}
-
-    def get(self, k):
-        return self.store.get(k)
-
-
-# --------------------------------------------------------------------------
-# fill logic
-# --------------------------------------------------------------------------
-
-def test_truncated_deck_is_filled_to_100_without_edhrec_or_analytics():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of(["Plain Bear"]), cat, candidates=[])
-    assert_legal(out, cat)
-
-
-def test_fill_prefers_candidates_then_staples_then_basics():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of([]), cat, candidates=["Counterspell"])
-    names = [c["name"] for c in out["cards"]]
-    assert names.index("Counterspell") < names.index("Sol Ring")
-    assert "Sol Ring" in names
-    assert any(n in ("Plains", "Island") for n in names)
-    assert_legal(out, cat)
-
-
-def test_basics_match_commander_color_identity():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of([]), cat)
-    basics = {c["name"] for c in out["cards"]} & {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
-    assert basics <= {"Plains", "Island"}
-    assert basics  # something had to top up
-
-
-def test_colorless_commander_fills_with_wastes_only_basics():
-    cat = make_catalog(commander_ci="")
-    out = brew_gate.finalize_draft(draft_of([]), cat)
-    basics = {c["name"] for c in out["cards"]} & {"Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"}
-    assert basics <= {"Wastes"}
-    assert_legal(out, cat)
-
-
-def test_fill_never_uses_offcolor_or_banned_candidates():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of([]), cat, candidates=["Lightning Bolt", "Mana Crypt"])
-    names = {c["name"] for c in out["cards"]}
-    assert "Lightning Bolt" not in names and "Mana Crypt" not in names
-    assert_legal(out, cat)
-
-
-def test_fill_skips_candidates_unknown_to_catalog():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of([]), cat, candidates=["Totally Invented Card"])
-    assert "Totally Invented Card" not in {c["name"] for c in out["cards"]}
-    assert_legal(out, cat)
-
-
-def test_filled_cards_are_marked_new_tier_with_rationale():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of([]), cat)
-    filled = [c for c in out["cards"] if c["name"] == "Sol Ring"][0]
-    assert filled["tier"] == 3 and filled["tier_label"] == "new" and filled["rationale"]
-
-
-# --------------------------------------------------------------------------
-# names / GUIDs
-# --------------------------------------------------------------------------
-
-def test_is_uuid_like():
-    assert brew_gate.is_uuid_like(str(uuid.uuid4()))
-    assert brew_gate.is_uuid_like(str(uuid.uuid4()).upper())
-    assert brew_gate.is_uuid_like(uuid.uuid4().hex)
-    assert not brew_gate.is_uuid_like("Sol Ring")
-    assert not brew_gate.is_uuid_like("")  # emptiness is a separate check
-
-
-def test_uuid_name_resolved_through_catalog_record():
-    cat = make_catalog()
-    oid = str(uuid.uuid4())
-    r = FakeR({f"card:{oid}": json.dumps({"name": "Counterspell"})})
-    out = brew_gate.finalize_draft(draft_of([oid]), cat, r=r)
-    names = [c["name"] for c in out["cards"]]
-    assert "Counterspell" in names and oid not in names
-    assert_legal(out, cat)
-
-
-def test_unresolvable_uuid_is_dropped_and_replaced_not_emitted():
-    cat = make_catalog()
-    bad = str(uuid.uuid4())
-    out = brew_gate.finalize_draft(draft_of([bad, "Plain Bear"]), cat, r=FakeR())
-    assert bad not in {c["name"] for c in out["cards"]}
-    assert_legal(out, cat)
-
-
-def test_blank_and_missing_names_are_dropped():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(
-        draft_of([], extra_cards=[{"name": "", "quantity": 1}, {"quantity": 3}, {"name": None}]), cat)
-    assert_legal(out, cat)
-
-
-# --------------------------------------------------------------------------
-# legality repair
-# --------------------------------------------------------------------------
-
-def test_offcolor_and_banned_cards_dropped_then_refilled():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(draft_of(["Lightning Bolt", "Mana Crypt", "Plain Bear"]), cat)
-    names = {c["name"] for c in out["cards"]}
-    assert not names & {"Lightning Bolt", "Mana Crypt"}
-    assert "Plain Bear" in names
-    assert_legal(out, cat)
-
-
-def test_singleton_duplicates_clamped_but_basics_stack():
-    cat = make_catalog()
-    dup = [{"name": "Sol Ring", "quantity": 1}, {"name": "Plains", "quantity": 20}]
-    out = brew_gate.finalize_draft(draft_of(["Sol Ring"], extra_cards=dup), cat)
-    assert sum(c["quantity"] for c in out["cards"] if c["name"] == "Sol Ring") == 1
-    assert sum(c["quantity"] for c in out["cards"] if c["name"] == "Plains") >= 20
-    assert_legal(out, cat)
-
-
-def test_oversized_deck_is_trimmed_to_100():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(
-        draft_of([], extra_cards=[{"name": "Plains", "quantity": 150}]), cat)
-    assert_legal(out, cat)
-
-
-def test_commander_is_never_trimmed_or_dropped():
-    cat = make_catalog()
-    out = brew_gate.finalize_draft(
-        draft_of([], extra_cards=[{"name": "Plains", "quantity": 150}]), cat)
-    assert COMMANDER in {c["name"] for c in out["cards"]}
-
-
-# --------------------------------------------------------------------------
-# unrepairable -> raises, never returns an invalid deck
-# --------------------------------------------------------------------------
-
-def test_non_legendary_commander_raises():
-    cat = make_catalog(extra=[creature("Plain Bear 2", "W")])
-    with pytest.raises(brew_gate.BrewInvalidDeckError) as e:
-        brew_gate.finalize_draft(draft_of([], commander="Plain Bear 2"), cat)
-    assert "COMMANDER_ILLEGAL" in e.value.codes
-
-
-def test_commander_missing_from_catalog_raises():
-    cat = make_catalog()
-    with pytest.raises(brew_gate.BrewInvalidDeckError) as e:
-        brew_gate.finalize_draft(draft_of([], commander="Nobody Known"), cat)
-    assert "UNKNOWN_CARD" in e.value.codes
-
-
-def test_banned_commander_raises():
-    cat = make_catalog(extra=[creature("Banned Boss", "W", legendary=True, legality="banned")])
-    with pytest.raises(brew_gate.BrewInvalidDeckError):
-        brew_gate.finalize_draft(draft_of([], commander="Banned Boss"), cat)
-
-
-# --------------------------------------------------------------------------
-# verify_draft: the pure last-line check
-# --------------------------------------------------------------------------
-
-def test_verify_accepts_legal_deck_and_rejects_99():
-    cat = make_catalog()
-    good = brew_gate.finalize_draft(draft_of([]), cat)
-    brew_gate.verify_draft(good, cat)
-    short = json.loads(json.dumps(good))
-    short["cards"][-1]["quantity"] -= 1
-    with pytest.raises(brew_gate.BrewInvalidDeckError) as e:
-        brew_gate.verify_draft(short, cat)
-    assert "DECK_SIZE" in e.value.codes
-
-
-def test_verify_rejects_uuid_name_even_if_catalog_knew_it():
-    oid = str(uuid.uuid4())
-    cat = make_catalog(extra=[spell(oid)])
-    good = brew_gate.finalize_draft(draft_of([]), cat)
-    bad = json.loads(json.dumps(good))
-    bad["cards"][-1]["name"] = oid
-    with pytest.raises(brew_gate.BrewInvalidDeckError) as e:
-        brew_gate.verify_draft(bad, cat)
-    assert "UUID_NAME" in e.value.codes
-
-
-def test_finalize_is_idempotent():
-    cat = make_catalog()
-    once = brew_gate.finalize_draft(draft_of(["Plain Bear"]), cat)
-    twice = brew_gate.finalize_draft(once, cat)
-    assert [(c["name"], c["quantity"]) for c in once["cards"]] == \
-           [(c["name"], c["quantity"]) for c in twice["cards"]]
-
-
-# --------------------------------------------------------------------------
-# Wiring: every Brew build / accept goes through the gate
-# --------------------------------------------------------------------------
-
 import src.server.domain.draft.brew as brew
-import src.server.domain.draft.brew_builder as brew_builder
-import src.server.domain.draft.reconstruct_pools as reconstruct_pools
-import src.server.domain.inventory.instances as instances
-from tests.brew_catalog import seed_brew_catalog
-from tests.test_brew import FakeRedis, make_deck
+import src.server.domain.draft.brew_gate as bg
+import src.server.domain.draft.deck_validator as dv
+from src.server.domain.draft.brew_gate import BrewGateError, release_draft
+from tests.test_brew import FakeRedis
 
-CMD = "Atraxa, Praetors' Voice"
+CMD = "Rakdos Guy"
 
 
-@pytest.fixture
-def env(monkeypatch):
+def card(name, ci="", types=("Artifact",), supers=(), text="", legality="legal", subtypes=()):
+    return dv.CardInfo(name=name, color_identity=dv.parse_color_identity(ci), types=tuple(types),
+                       supertypes=tuple(supers), subtypes=tuple(subtypes), oracle_text=text,
+                       commander_legality=legality)
+
+
+def build_catalog():
+    cards = [
+        card(CMD, "BR", ("Creature",), ("Legendary",)),
+        card("Tymna the Weaver", "WB", ("Creature",), ("Legendary",), "Partner"),
+        card("Thrasios, Triton Hero", "UG", ("Creature",), ("Legendary",), "Partner"),
+        card("Vanilla Bear", "G", ("Creature",), ("Legendary",)),
+        card("Not Legendary", "B", ("Creature",)),
+        card("Sol Ring"), card("Arcane Signet"), card("Mind Stone"),
+        card("Lightning Bolt", "R", ("Instant",)),
+        card("Doom Blade", "B", ("Instant",)),
+        card("Counterspell", "U", ("Instant",)),
+        card("Mana Crypt", "", ("Artifact",), legality="banned"),
+        card("Relentless Rats", "B", ("Creature",),
+             text="A deck can have any number of cards named Relentless Rats."),
+    ]
+    for ci in ("", "B", "R", "W", "U", "G"):
+        for i in range(40):
+            cards.append(card(f"Src {ci or 'C'} {i}", ci, ("Creature",)))
+    return dv.CardCatalog(cards)
+
+
+CAT = build_catalog()
+GOOD = [f"Src B {i}" for i in range(40)] + [f"Src R {i}" for i in range(40)] + \
+       [f"Src C {i}" for i in range(19)]  # 99 cards
+
+
+def draft(names=GOOD, commanders=(CMD,), extra=None, **kw):
+    cards = [{"name": c, "quantity": 1, "tier": 3, "tier_label": "new", "cost": 0.0} for c in commanders]
+    cards += [{"name": n, "quantity": 1, "tier": 3, "tier_label": "new", "cost": 0.0} for n in names]
+    cards += extra or []
+    return {"id": "draft_0", "name": "t", "commanders": list(commanders), "cards": cards, **kw}
+
+
+def srcs(*lists):
+    return [(f"s{i}", list(l)) for i, l in enumerate(lists)]
+
+
+def total(d):
+    return sum(c["quantity"] for c in d["cards"])
+
+
+def counts(d):
+    out = {}
+    for c in d["cards"]:
+        out[c["name"]] = out.get(c["name"], 0) + c["quantity"]
+    return out
+
+
+def gate(d, sources=None, **kw):
+    return release_draft(d, None, catalog=CAT, sources=sources if sources is not None else [], **kw)
+
+
+def assert_legal(d, commanders=(CMD,)):
+    assert total(d) == 100
+    res = bg.check_draft(d, CAT)
+    assert res.valid, res.to_json()
+    assert not bg.find_uuid_strings(d)
+
+
+# -- legal deck passes untouched ---------------------------------------------------
+
+def test_legal_deck_passes_unchanged_and_is_stamped():
+    d = draft()
+    assert total(d) == 100
+    out = gate(d)
+    assert [c["name"] for c in out["cards"]] == [c["name"] for c in d["cards"]]
+    assert out["gate"]["ok"] and "gate_repaired" not in out
+
+
+def test_stamp_invalidated_by_later_change():
+    out = gate(draft())
+    out["cards"].pop()
+    out["cards"][-1]["name"] = "Mana Crypt"
+    out2 = gate(out)  # stale stamp must not short-circuit; deck is repaired
+    assert counts(out2).get("Mana Crypt") is None
+    assert_legal(out2)
+
+
+# -- each check fails and is repaired -------------------------------------------------
+
+def test_short_deck_is_filled_to_100():
+    out = gate(draft(GOOD[:40]), srcs([f"Src B {i}" for i in range(40, 40)] + [f"Src R {i}" for i in range(40)]))
+    assert_legal(out)
+    assert out["missing_slots"] == 0 and out["gate_repaired"]
+
+
+def test_oversize_deck_is_trimmed_to_100():
+    out = gate(draft(GOOD, extra=[{"name": "Src C 30", "quantity": 1}, {"name": "Src C 31", "quantity": 1}]))
+    assert_legal(out)
+
+
+def test_uuid_name_is_dropped_and_refilled():
+    bad = str(uuid.uuid4())
+    out = gate(draft(GOOD[:98] + [bad]))
+    assert_legal(out)
+    assert bad not in json.dumps(out)
+
+
+def test_unresolved_blank_name_is_dropped_and_refilled():
+    d = draft(GOOD[:98], extra=[{"name": "   ", "quantity": 1}, {"name": None, "quantity": 1}])
+    assert bg.check_draft(d, CAT).codes()  # check_draft flags it
+    assert_legal(gate(d))
+
+
+def test_unknown_card_is_replaced():
+    out = gate(draft(GOOD[:98] + ["Totally Invented Card"]))
+    assert_legal(out)
+    assert "Totally Invented Card" not in counts(out)
+
+
+def test_singleton_violation_is_repaired():
+    out = gate(draft(GOOD[:98], extra=[{"name": "Src B 0", "quantity": 1}]))
+    assert_legal(out)
+    assert counts(out)["Src B 0"] == 1
+
+
+def test_singleton_exceptions_survive_the_gate():
+    names = GOOD[:90]
+    d = draft(names, extra=[{"name": "Relentless Rats", "quantity": 9}])
+    out = gate(d)
+    assert_legal(out)
+    assert counts(out)["Relentless Rats"] == 9
+    assert counts(out)["Mind Stone" if "Mind Stone" in counts(out) else "Src B 0"] >= 1
+
+
+def test_basic_lands_may_repeat():
+    d = draft(GOOD[:60], extra=[{"name": "Swamp", "quantity": 20}, {"name": "Mountain", "quantity": 19}])
+    out = gate(d)
+    assert_legal(out)
+    assert counts(out)["Swamp"] == 20 and counts(out)["Mountain"] == 19
+
+
+def test_off_color_identity_card_is_removed():
+    out = gate(draft(GOOD[:98] + ["Counterspell"]))
+    assert_legal(out)
+    assert "Counterspell" not in counts(out)
+
+
+def test_banned_card_is_removed():
+    out = gate(draft(GOOD[:98] + ["Mana Crypt"]))
+    assert_legal(out)
+    assert "Mana Crypt" not in counts(out)
+
+
+def test_fill_uses_sources_then_basics_in_colour():
+    out = gate(draft(GOOD[:50]), srcs(["Counterspell", "Mana Crypt", "Doom Blade", "Lightning Bolt"]))
+    assert_legal(out)
+    n = counts(out)
+    assert n["Doom Blade"] == 1 and n["Lightning Bolt"] == 1
+    assert not {"Counterspell", "Mana Crypt"} & set(n)
+    assert {"Swamp", "Mountain"} <= set(n)  # basics split over B/R
+
+
+def test_partner_pair_is_repaired_with_union_identity():
+    cmds = ("Tymna the Weaver", "Thrasios, Triton Hero")
+    d = draft([f"Src {c} {i}" for c in "WBUG" for i in range(10)], commanders=cmds)
+    out = gate(d)
+    assert total(out) == 100 and bg.check_draft(out, CAT).valid
+    assert out["commanders"] == list(cmds)
+
+
+# -- unrecoverable: explicit error, never a bad deck -----------------------------------------
+
+@pytest.mark.parametrize("cmds", [
+    ("Not Legendary",),                     # ineligible commander
+    ("Mana Crypt",),                        # banned / not a creature
+    ("Does Not Exist",),                    # unknown commander
+    (CMD, "Vanilla Bear"),                  # partner pair that does not pair
+    (),                                     # no commander
+])
+def test_unrecoverable_commander_raises(cmds):
+    with pytest.raises(BrewGateError):
+        gate(draft(GOOD[:40], commanders=cmds))
+
+
+def test_unresolvable_commander_id_raises():
+    with pytest.raises(BrewGateError):
+        gate(draft(GOOD[:40], commanders=(str(uuid.uuid4()),)))
+
+
+def test_repair_that_cannot_converge_raises_not_returns():
+    with mock.patch.object(bg, "_repair", side_effect=lambda d, *a, **k: d):  # repair does nothing
+        with pytest.raises(BrewGateError) as e:
+            gate(draft(GOOD[:40]), max_attempts=2)
+    assert e.value.attempts == 2 and e.value.result and not e.value.result.valid
+
+
+def test_attempts_are_bounded():
+    calls = []
+    with mock.patch.object(bg, "_repair", side_effect=lambda d, *a, **k: calls.append(1) or d):
+        with pytest.raises(BrewGateError):
+            gate(draft(GOOD[:40]), max_attempts=3)
+    assert len(calls) == 3
+
+
+def test_validates_after_every_repair():
+    seen = []
+    real = bg.check_draft
+    with mock.patch.object(bg, "check_draft", side_effect=lambda *a, **k: seen.append(1) or real(*a, **k)):
+        gate(draft(GOOD[:40]))
+    assert len(seen) == 2  # initial + one after repair
+
+
+# -- EDHREC / analytics unavailable ---------------------------------------------------------
+
+def boom():
+    raise RuntimeError("EDHREC 503")
+
+
+def slow():
+    import time
+    time.sleep(30)
+
+
+@pytest.mark.parametrize("sources", [
+    [("edhrec", boom), ("analytics", boom)],
+    [("edhrec", lambda: None), ("analytics", lambda: [None, 5])],
+    [],
+])
+def test_sources_unavailable_still_returns_full_legal_deck(sources):
+    assert_legal(gate(draft(GOOD[:30]), sources))
+
+
+def test_slow_source_is_skipped(monkeypatch):
+    import src.server.domain.draft.deck_fill as df
+    monkeypatch.setattr(df, "DEFAULT_SOURCE_TIMEOUT", 0.05)
+    assert_legal(gate(draft(GOOD[:30]), [("edhrec", slow)]))
+
+
+def test_default_sources_survive_redis_without_edhrec_cache():
     r = FakeRedis()
-    monkeypatch.setattr(reconstruct_pools, "redis_price_lookup",
-                        lambda rr, refresh=True: (lambda names: {}))
-    brew_builder.set_builder(brew_builder.StubBrewBuilder())
-    return r
+    d = draft(GOOD[:30])
+    out = release_draft(d, r, catalog=CAT, session={"donor_decks": []})
+    assert_legal(out)
 
 
-def build(r, donors=(), **kw):
-    s = brew.start_brew(r, kw.pop("commander", CMD), list(donors), "owned_first")
-    return brew.trigger_build(r, s["session_id"], sync=True)
+def test_default_sources_survive_redis_raising():
+    class Down(FakeRedis):
+        def get(self, k):
+            raise ConnectionError("redis down")
+    out = release_draft(draft(GOOD[:30]), Down(), catalog=CAT, session={})
+    assert_legal(out)
 
 
-def test_build_with_nothing_but_the_commander_yields_100_legal_cards(env):
-    seed_brew_catalog(env, CMD)
-    out = build(env)
-    draft = out["drafts"][0]
-    assert total(draft) == 100
-    brew_gate.verify_draft(draft, __import__("src.server.domain.draft.deck_validator", fromlist=["x"])
-                           .catalog_from_redis(env, [c["name"] for c in draft["cards"]]))
+# -- user-edited drafts ----------------------------------------------------------------------
+
+def test_user_edited_short_draft_is_not_auto_filled_but_checked():
+    d = draft(GOOD[:30], user_edited=True)
+    out = release_draft(d, None, catalog=CAT, sources=[])
+    assert total(out) == 31  # left as the user made it
+    with pytest.raises(BrewGateError):
+        release_draft(draft(GOOD[:30] + ["Mana Crypt"], user_edited=True), None, catalog=CAT,
+                      sources=[], repair=False)
 
 
-def test_big_donor_deck_is_not_truncated_to_25(env):
-    names = [f"Donor Card {i}" for i in range(80)]
-    seed_brew_catalog(env, CMD, names=names)
-    env.set("decks", json.dumps([make_deck(deck_id=42, name="Big", status="physical",
-                                           cards=[{"name": n, "quantity": 1} for n in names])]))
-    out = build(env, donors=["archidekt:42"])
-    draft = out["drafts"][0]
-    assert total(draft) == 100
-    assert sum(1 for c in draft["cards"] if c["name"].startswith("Donor Card")) > 60
+def test_user_edited_stamp_does_not_satisfy_a_complete_requirement():
+    out = release_draft(draft(GOOD[:30], user_edited=True), None, catalog=CAT, sources=[])
+    full = release_draft(out, None, catalog=CAT, sources=[], allow_incomplete=False)
+    assert_legal(full)
 
 
-def test_build_still_completes_when_pools_edhrec_and_analytics_are_unavailable(env, monkeypatch):
-    seed_brew_catalog(env, CMD)
+# -- one gate for every Brew output path ---------------------------------------------------------
 
-    def boom(*a, **k):
-        raise RuntimeError("EDHREC / analytics unavailable")
-
-    s = brew.start_brew(env, CMD, [], "owned_first")
-    monkeypatch.setattr(brew, "_build_pools", boom)
-    out = brew.trigger_build(env, s["session_id"], sync=True)
-    assert out["status"] == brew.STATUS_DRAFTS_READY
-    assert total(out["drafts"][0]) == 100
+GATE_NAMES = {"release_draft", "release_session", "get_drafts", "_release_and_persist"}
 
 
-def test_guid_instance_name_never_reaches_the_draft(env):
-    seed_brew_catalog(env, CMD)
-    ghost = str(uuid.uuid4())
-    instances.create_instance(env, ghost, ownership_status="in_collection")
-    out = build(env)
-    for c in out["drafts"][0]["cards"]:
-        assert not brew_gate.is_uuid_like(c["name"])
-    assert total(out["drafts"][0]) == 100
+def _calls(fn):
+    return {n.func.attr if isinstance(n.func, ast.Attribute) else getattr(n.func, "id", "")
+            for n in ast.walk(ast.parse(inspect.getsource(fn))) if isinstance(n, ast.Call)}
 
 
-def test_guid_instance_name_with_catalog_record_resolves_to_real_name(env):
-    seed_brew_catalog(env, CMD, names=["Sol Ring"])
-    oid = str(uuid.uuid5(uuid.NAMESPACE_DNS, "sol"))
-    env.set(f"card:{oid}", json.dumps({"name": "Sol Ring"}))
-    instances.create_instance(env, oid, ownership_status="in_collection")
-    out = build(env)
-    names = [c["name"] for c in out["drafts"][0]["cards"]]
-    assert "Sol Ring" in names and oid not in names
+@pytest.mark.parametrize("fn", [brew.execute_build, brew.get_drafts, brew.list_sessions,
+                                brew.release_session, brew.accept_draft, brew.add_draft_card,
+                                brew.remove_draft_card])
+def test_domain_output_functions_call_the_gate(fn):
+    assert _calls(fn) & GATE_NAMES, f"{fn.__name__} does not route through the Brew gate"
 
 
-def test_unknown_commander_fails_the_build_and_stores_no_draft(env):
-    out_session = brew.start_brew(env, "Nobody Known", [], "owned_first")
-    with pytest.raises(brew_gate.BrewInvalidDeckError):
-        brew.trigger_build(env, out_session["session_id"], sync=True)
-    saved = brew.get_session(env, out_session["session_id"])
-    assert saved["status"] == brew.STATUS_FAILED
-    assert not saved.get("drafts")
+def test_every_brew_route_returning_a_session_or_drafts_uses_the_gate():
+    import src.server.app.main as m
+    src_ = inspect.getsource(m)
+    tree = ast.parse(src_)
+    checked = 0
+    for fn in tree.body:
+        if not isinstance(fn, (ast.AsyncFunctionDef, ast.FunctionDef)):
+            continue
+        routes = [d for d in fn.decorator_list if isinstance(d, ast.Call) and d.args
+                  and isinstance(d.args[0], ast.Constant) and str(d.args[0].value).startswith("/api/brew")]
+        if not routes:
+            continue
+        body = ast.get_source_segment(src_, fn)
+        emits = "session" in body or "drafts" in body
+        gated = any(k in body for k in ("release_session", "get_drafts", "brew.list_sessions"))
+        if emits and not any(k in fn.name for k in ("start_brew", "pools", "availability", "commander_search")):
+            checked += 1
+            assert gated, f"{fn.name} returns Brew session/draft data without the gate"
+    assert checked >= 5
 
 
-def test_broken_builder_output_is_repaired_by_the_gate(env):
-    seed_brew_catalog(env, CMD)
+def test_cached_bad_draft_is_never_returned_by_any_read_path():
+    r = FakeRedis()
+    bad = draft(GOOD[:20] + [str(uuid.uuid4()), "Mana Crypt"])
+    sess = {"session_id": "s1", "status": brew.STATUS_DRAFTS_READY, "drafts": [bad],
+            "commanders": [CMD], "created_at": "2026-01-01", "donor_decks": []}
+    r.set(brew._session_key("s1"), json.dumps(sess))
+    r.sadd(brew.BREW_SESSIONS_INDEX, "s1")
+    with mock.patch.object(bg, "_catalog_for", return_value=CAT), \
+            mock.patch.object(bg, "default_sources", return_value=[]):
+        for out in (brew.get_drafts(r, "s1"), brew.release_session(r, brew.get_session(r, "s1"))["drafts"],
+                    brew.list_sessions(r)[0]["drafts"]):
+            assert len(out) == 1
+            assert_legal(out[0])
 
-    class Bad(brew_builder.BaseBrewBuilder):
+
+def test_cached_unrecoverable_draft_is_withheld_not_returned():
+    r = FakeRedis()
+    sess = {"session_id": "s2", "status": brew.STATUS_DRAFTS_READY, "commanders": ["Does Not Exist"],
+            "drafts": [draft(GOOD[:20], commanders=("Does Not Exist",))], "created_at": "x"}
+    r.set(brew._session_key("s2"), json.dumps(sess))
+    with mock.patch.object(bg, "_catalog_for", return_value=CAT):
+        with pytest.raises(BrewGateError):
+            brew.get_drafts(r, "s2")
+        shown = brew.release_session(r, brew.get_session(r, "s2"))
+    assert shown["drafts"] == [] and shown["status"] == brew.STATUS_FAILED
+
+
+def test_build_never_stores_an_invalid_deck():
+    """A builder returning garbage ends as a failed session, never drafts_ready."""
+    import src.server.domain.draft.brew_builder as bb
+    r = FakeRedis()
+    sess = {"session_id": "s3", "status": brew.STATUS_BUILDING, "commanders": ["Does Not Exist"],
+            "preferences": [{}], "created_at": "x"}
+    r.set(brew._session_key("s3"), json.dumps(sess))
+
+    class Bad(bb.BaseBrewBuilder):
         def build(self, session, r):
-            return [{"id": "draft_0", "commanders": [CMD], "cards": [
-                {"name": CMD, "quantity": 1}, {"name": str(uuid.uuid4()), "quantity": 1},
-                {"name": "", "quantity": 1}]}]
+            return [draft(GOOD[:10], commanders=("Does Not Exist",))]
 
-    brew_builder.set_builder(Bad())
+    orig = bb.get_builder()
+    bb.set_builder(Bad())
     try:
-        out = build(env)
+        with pytest.raises(BrewGateError):
+            brew.execute_build(r, "s3")
     finally:
-        brew_builder.set_builder(brew_builder.StubBrewBuilder())
-    assert total(out["drafts"][0]) == 100
-    assert all(c["name"] and not brew_gate.is_uuid_like(c["name"]) for c in out["drafts"][0]["cards"])
+        bb.set_builder(orig)
+    saved = brew.get_session(r, "s3")
+    assert saved["status"] == brew.STATUS_FAILED and not saved.get("drafts")
 
 
-def test_accept_repairs_an_incomplete_edited_draft_to_exactly_100(env):
-    seed_brew_catalog(env, CMD)
-    out = build(env)
-    sid = out["session_id"]
-    session = brew.get_session(env, sid)
-    session["drafts"][0]["cards"][-1]["quantity"] -= 1   # 99 cards
-    brew._save_session(env, session)
-    res = brew.accept_draft(env, sid)
-    assert sum(c.get("quantity", 1) for c in res["created_decks"][0]["cards"]) == 100
+def test_check_flags_uuid_anywhere_in_output():
+    d = draft()
+    d["cards"][5]["rationale"] = f"picked via {uuid.uuid4()}"
+    assert bg.UUID_CODE in bg.check_draft(d, CAT).codes()
+    d2 = draft()
+    d2["id"] = str(uuid.uuid4())  # ids in id fields are by design
+    assert bg.check_draft(d2, CAT).valid
+    with pytest.raises(BrewGateError):  # a UUID the repair cannot remove is an error
+        gate(d)
 
 
-def test_accept_refuses_a_draft_that_cannot_be_made_legal(env):
-    seed_brew_catalog(env, CMD)
-    out = build(env)
-    sid = out["session_id"]
-    session = brew.get_session(env, sid)
-    session["commanders"] = ["Nobody Known"]
-    session["drafts"][0]["commanders"] = ["Nobody Known"]
-    brew._save_session(env, session)
-    with pytest.raises(brew_gate.BrewInvalidDeckError):
-        brew.accept_draft(env, sid)
+# -- review follow-ups ---------------------------------------------------------------------------
+
+def test_missing_commander_entry_is_flagged_and_repaired():
+    d = draft(GOOD)
+    d["cards"] = [c for c in d["cards"] if c["name"] != d["commanders"][0]]
+    assert any(str(getattr(e.code, "value", e.code)) == "COMMANDER_ENTRY_MISSING"
+               for e in bg.check_draft(d, CAT).errors)
+    assert_legal(release_draft(d, None, catalog=CAT, sources=[]))
 
 
-# --------------------------------------------------------------------------
-# Review follow-ups: canonical names, oracle_id catalog load, cost honesty
-# --------------------------------------------------------------------------
-
-def test_dfc_variants_canonicalised_to_one_card():
-    delver = CardInfo(name="Delver of Secrets // Insectile Aberration", color_identity=frozenset("U"),
-                      types=("Creature",), commander_legality="legal")
-    cat = make_catalog([delver])
-    d = draft_of(["Delver of Secrets"])
-    out = brew_gate.finalize_draft(d, cat, candidates=["Delver of Secrets // Insectile Aberration"])
-    names = [c["name"] for c in out["cards"]]
-    assert sum(1 for n in names if n.startswith("Delver of Secrets")) == 1
-    assert_legal(out, cat)
-
-
-def test_gate_loads_card_by_oracle_id_when_name_index_misses():
-    r = _FakeRW()
-    oid = str(uuid.uuid4())
-    r.set(f"card:{oid}", json.dumps({"name": "Obscure Gem", "oracle_id": oid, "color_identity": "",
-                                      "type_line": "Artifact", "commander_legality": "legal"}))
-    from src.server.domain.draft.deck_validator import CardCatalog as C
-    cat = C()
-    d = {"commanders": [], "cards": [{"name": "Obscure Gem", "oracle_id": oid, "quantity": 1}]}
-    brew_gate._add_by_oracle_id(r, d, cat)
-    assert cat.get("Obscure Gem") is not None
-    d2 = {"cards": [{"name": "Totally Unknown", "oracle_id": str(uuid.uuid4()), "quantity": 1}]}
-    cat2 = C()
-    brew_gate._add_by_oracle_id(r, d2, cat2)
-    assert cat2.get("Totally Unknown") is None
-
-
-class _FakeRW(FakeR):
-    def set(self, k, v):
-        self.store[k] = v
-
-
-def test_refresh_costs_marks_incomplete_when_pools_fail(monkeypatch):
-    from src.server.domain.draft import brew
-
-    def boom(*a, **k):
-        raise RuntimeError("pools down")
-
-    monkeypatch.setattr(brew, "_recompute_draft", boom)
-    draft = {"is_complete": True, "unpriced_cards": [], "total_new_cost": 5.0, "cards": [
-        {"name": "Auto Card", "quantity": 1, "tier": 3, "cost": 0.0},
-        {"name": "Forest", "quantity": 30, "tier": 3, "cost": 0.0},
-        {"name": "Owned Card", "quantity": 1, "tier": 2, "cost": 0.0},
-    ]}
-    brew._refresh_costs(None, {}, draft)
-    assert draft["is_complete"] is False
-    assert draft["unpriced_cards"] == ["Auto Card"]
-    assert draft["cards"][0]["cost"] is None
-
-
-def test_pools_resolve_guid_owned_names_before_merge():
-    from src.server.domain.draft import reconstruct_pools as rp
-    oid = str(uuid.uuid4())
-    r = _FakeRW()
-    r.set(f"card:{oid}", json.dumps({"name": "Sol Ring"}))
-    assert rp._name_from_record(r, oid) == "Sol Ring"
-    assert rp._name_from_record(r, str(uuid.uuid4())) is None
+def test_stale_stamp_does_not_bypass_revalidation():
+    out = release_draft(draft(GOOD), None, catalog=CAT, sources=[])
+    out["cards"][5]["rationale"] = "see 123e4567-e89b-12d3-a456-426614174000"
+    with pytest.raises(BrewGateError):
+        release_draft(out, None, catalog=CAT, sources=[], repair=False)

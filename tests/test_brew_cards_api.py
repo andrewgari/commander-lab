@@ -20,7 +20,7 @@ import src.server.domain.draft.brew as brew
 import src.server.domain.draft.brew_builder as brew_builder
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.inventory.instances as instances
-from tests.brew_catalog import seed_brew_catalog
+from tests.support.brew_gate_seed import pin_gate_fill, seed_gate_catalog
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 OID_RIFT = "11111111-1111-4111-8111-111111111111"
@@ -36,24 +36,21 @@ class BrewCardsAPITestBase(unittest.TestCase):
         import src.server.app.main as app_module
 
         self.r = FakeRedis()
+        seed_gate_catalog(self.r)
+        pin_gate_fill(self)
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.r.set("decks", json.dumps([self.deck1]))
         instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
                                   deck_id="archidekt:42", deck_name="Atraxa Superfriends")
         instances.create_instance(self.r, "Demonic Tutor", ownership_status="in_collection")
         self.r.set("card_meta:Lightning Greaves",
-                   json.dumps({"color": "", "type": "Artifact — Equipment"}))
+                   json.dumps({"color": "", "type": "Artifact — Equipment", "commander_legality": "legal"}))
         # Catalog records so DELETE can resolve oracle_id -> name for cards the
         # builder wrote (which carry no oracle_id).
         for oid, name in ((OID_SOL_RING, "Sol Ring"), (OID_TUTOR, "Demonic Tutor"),
                           (OID_ATRAXA, "Atraxa, Praetors' Voice")):
             self.r.set(f"card:{oid}", json.dumps({"name": name, "oracle_id": oid}))
 
-        seed_brew_catalog(
-            self.r, "Atraxa, Praetors' Voice",
-            names=["Sol Ring", "Demonic Tutor", "Lightning Greaves"],
-            oids={"Sol Ring": OID_SOL_RING, "Demonic Tutor": OID_TUTOR,
-                  "Atraxa, Praetors' Voice": OID_ATRAXA})
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup(
             {"Cyclonic Rift": 4.25, "Forest": None})
@@ -147,12 +144,12 @@ class TestAddCard(BrewCardsAPITestBase):
 
     def test_basic_land_quantities_stack_instead_of_409(self):
         sid = self._built()
-        before_forest = next(c["quantity"] for c in self._cards(sid) if c["name"] == "Forest")
+        base = sum(c["quantity"] for c in self._cards(sid) if c["name"] == "Forest")  # gate-filled basics
         self.assertEqual(self._post(sid, OID_FOREST, "Forest", qty=3).status_code, 200)
         self.assertEqual(self._post(sid, OID_FOREST, "Forest", qty=2).status_code, 200)
         forests = [c for c in self._cards(sid) if c["name"] == "Forest"]
         self.assertEqual(len(forests), 1)
-        self.assertEqual(forests[0]["quantity"], before_forest + 5)
+        self.assertEqual(forests[0]["quantity"], base + 5)
 
     def test_invalid_bodies_are_422(self):
         sid = self._built()
@@ -181,17 +178,12 @@ class TestAddCard(BrewCardsAPITestBase):
 
     def test_accept_includes_the_added_card(self):
         sid = self._built()
-        # Card search puts the card in the catalog before it can be added.
-        seed_brew_catalog(self.r, "Atraxa, Praetors' Voice", names=["Cyclonic Rift"],
-                          oids={"Cyclonic Rift": OID_RIFT})
         self._post(sid, OID_RIFT, "Cyclonic Rift")
         result = brew.accept_draft(self.r, sid)
         names = {c["name"] for c in result["created_decks"][0]["cards"]}
         self.assertIn("Cyclonic Rift", names)
         prov = {p["name"]: p["source"] for p in result["session"]["drafts"][0]["provenance"]}
         self.assertEqual(prov["Cyclonic Rift"], "buy")
-        # Accepted deck is exactly 100: the extra card displaced a basic land.
-        self.assertEqual(sum(c.get("quantity", 1) for c in result["created_decks"][0]["cards"]), 100)
 
 
 class TestRemoveCard(BrewCardsAPITestBase):

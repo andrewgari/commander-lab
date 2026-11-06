@@ -8,8 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
+- Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
 
 ### Added
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Games page: the list of imported games now comes first as a table with result badges; the Forge log import is a collapsed section that opens by itself when there are no games or an import fails. Games and decks load independently, so one failing does not blank the page.
 
 ### Fixed
+- Brew: the Buy list now shows card names instead of raw card IDs, and Owned card search fills in rarity for cards with no printing data (it appears after the first lookup).
 - Brew commander search: typing a commander you don't own (e.g. Atraxa, Krenko) now still shows a selectable list while Scryfall is rate-limited or offline, including for small typos, and the list shows every match instead of the first 8 (it scrolls).
 - Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected. Grist, the Hunger Tide is accepted.
 - Brew commander search: when Scryfall is rate-limiting or erroring, the picker now falls back to your local card data instead of showing "No commanders match", and no longer remembers that false empty result.
