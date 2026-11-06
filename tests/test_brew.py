@@ -336,3 +336,17 @@ class TestBrewCore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_display_name_resolves_legacy_uuid_names():
+    import json as _json
+    oid = "005ee549-1bf5-478f-bc3f-3e791bd7eecf"
+
+    class R:
+        def __init__(self, d): self.d = d
+        def get(self, k): return self.d.get(k)
+
+    assert brew._display_name(R({f"card_meta:{oid}": _json.dumps({"name": "Sol Ring"})}), oid) == "Sol Ring"
+    assert brew._display_name(R({f"card:{oid}": _json.dumps({"name": "Arcane Signet"})}), oid) == "Arcane Signet"
+    assert brew._display_name(R({}), oid) == oid
+    assert brew._display_name(R({}), "Sol Ring") == "Sol Ring"

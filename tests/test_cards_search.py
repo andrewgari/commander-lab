@@ -276,6 +276,7 @@ def scry(monkeypatch):
     fake = FakeScryfall()
     monkeypatch.setattr(svc.httpx, "get", fake)
     monkeypatch.setattr(svc, "_sleep", lambda s: None)
+    monkeypatch.setattr(svc, "_schedule_rarity_backfill", lambda r, ids: None)  # no bg thread
     return fake
 
 
@@ -775,3 +776,19 @@ def test_autocomplete_commander_fallback_predicate_when_set_missing():
           json.dumps({"type": "Legendary Enchantment — Background"}))
     out = cs._local_matches(r, "e", 8, legendary_only=True)
     assert sorted(c["name"] for c in out) == ["Agent of the Iron Throne", "Esika's Chariot"]
+
+
+def test_owned_rarity_read_from_cache_and_backfill_fills_it(client, scry, factory, redis, monkeypatch):
+    seed(factory, cards=[_card("o-np", "No Printing Elf")], instances=[("o-np", "in_collection")])
+    assert get(client, owned="owned").json()["results"][0]["rarity"] == ""
+    assert scry.search_calls() == []              # request path never searches Scryfall for rarity
+    scry.pages[1] = ([sf("No Printing Elf", "o-np", rarity="rare")], False, 1)
+    svc.backfill_rarities(redis, ["o-np"])
+    assert redis.get("cards:rarity:o-np") == "rare"
+    assert get(client, owned="owned").json()["results"][0]["rarity"] == "rare"
+
+
+def test_rarity_backfill_swallows_upstream_failure(scry, redis):
+    scry.fail = True
+    svc.backfill_rarities(redis, ["o-x"])         # must not raise
+    assert redis.get("cards:rarity:o-x") is None

@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.cards as card_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 
@@ -344,6 +345,23 @@ def _catalog_name(r: Any, oracle_id: str) -> Optional[str]:
     return name if isinstance(name, str) and name.strip() else None
 
 
+def _display_name(r: Any, name: str) -> str:
+    """Drafts built before the catalog fix may carry a raw oracle id as the card
+    name; resolve it to the real name (card:{id} then card_meta:{id}) for display."""
+    if not card_store.is_oracle_id(name or ""):
+        return name
+    real = _catalog_name(r, name)
+    if not real:
+        try:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+            cand = rec.get("name") if isinstance(rec, dict) else None
+            real = cand if isinstance(cand, str) and cand.strip() else None
+        except (ValueError, TypeError):
+            real = None
+    return real or name
+
+
 def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     """Re-tier and re-cost every draft card against the CURRENT pools and
     refresh the draft totals (the same step the builder ends with). Each card
@@ -579,7 +597,7 @@ def get_availability(r: Any, session_id: str) -> dict:
         if source == "buy":
             cc = next((c for c in cost.cards if reconstruct_pools.norm_name(c.name) == reconstruct_pools.norm_name(t.name)), None)
             buy_list.append({
-                "name": t.name,
+                "name": _display_name(r, t.name),
                 "quantity": t.quantity,
                 "needs_purchase": True,
                 "unit_price": (cc.unit_price if cc else None),

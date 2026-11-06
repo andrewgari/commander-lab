@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from typing import Optional
 
@@ -134,6 +135,62 @@ def _write_cache(r, query: str, page: int, env: dict) -> None:
               json.dumps({"cached_at": time.time(), **env}), ex=ttl)
     except Exception:
         pass
+
+
+RARITY_TTL_SECONDS = 30 * 24 * 60 * 60
+RARITY_CHUNK = 20
+_rarity_inflight: set = set()
+_rarity_lock = threading.Lock()
+
+
+def backfill_rarities(r, oracle_ids: list) -> None:
+    """Fetch rarities from Scryfall (20 ids per call) into ``cards:rarity:{id}``.
+    Best effort: any upstream failure stops quietly. Runs off the request path."""
+    try:
+        for i in range(0, len(oracle_ids), RARITY_CHUNK):
+            part = oracle_ids[i:i + RARITY_CHUNK]
+            q = " or ".join(f"oracleid:{o}" for o in part)
+            try:
+                body = _get({"q": q, "unique": "cards", "order": "name"}, BUILD_TIMEOUT_SECONDS)
+            except UpstreamError:
+                return
+            for c in body.get("data") or []:
+                if isinstance(c, dict) and c.get("oracle_id") and c.get("rarity"):
+                    try:
+                        r.set(f"cards:rarity:{c['oracle_id']}", c["rarity"], ex=RARITY_TTL_SECONDS)
+                    except Exception:
+                        pass
+    finally:
+        with _rarity_lock:
+            _rarity_inflight.difference_update(oracle_ids)
+
+
+def _schedule_rarity_backfill(r, oracle_ids: list) -> None:
+    with _rarity_lock:
+        fresh = [o for o in oracle_ids if o not in _rarity_inflight]
+        _rarity_inflight.update(fresh)
+    if fresh:
+        threading.Thread(target=backfill_rarities, args=(r, fresh), daemon=True).start()
+
+
+def _fill_missing_rarities(r, chunk: list) -> None:
+    """Owned results for cards with no ``printings`` row have rarity "". Fill from
+    the Redis cache; schedule a background Scryfall backfill for the rest so the
+    request itself never calls Scryfall (docs/ui/card-search.md §3.1.2)."""
+    need = []
+    for h in chunk:
+        if h.get("rarity"):
+            continue
+        try:
+            raw = r.get(f"cards:rarity:{h['oracle_id']}")
+        except Exception:
+            raw = None
+        if raw:
+            h["rarity"] = raw.decode() if isinstance(raw, bytes) else raw
+        else:
+            need.append(h["oracle_id"])
+    if need:
+        _schedule_rarity_backfill(r, need)
 
 
 def _eligible_page_fetcher():
@@ -253,6 +310,7 @@ def _local(session, r, f, query, page, page_size, pair_first_info, hints, respon
         cands = _legal_pairs(pair_first_info, cands)
     start = (page - 1) * page_size
     chunk = cands[start:start + page_size]
+    _fill_missing_rarities(r, chunk)
     results = _finish(chunk, session=session, elig=elig, owned_mode="any",
                       pair_first_info=None, pair_oid=None)
     return response(results, has_more=start + page_size < len(cands),

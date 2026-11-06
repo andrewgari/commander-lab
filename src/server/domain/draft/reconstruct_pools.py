@@ -425,13 +425,21 @@ class RedisCardCatalog:
         for key in self.r.keys("card_meta:*"):
             key = key.decode() if isinstance(key, bytes) else key
             name = key[len("card_meta:"):]
-            if norm_name(name) in seen:
+            keyed_by_oracle = card_store.is_oracle_id(name)
+            if not keyed_by_oracle and norm_name(name) in seen:
                 continue
             raw = self.r.get(key)
             try:
                 rec = json.loads(raw) if raw else None
             except (ValueError, TypeError):
                 rec = None
+            if keyed_by_oracle:
+                # card_meta:{oracle_id} records: the key is a UUID, never a card name.
+                real = rec.get("name") if isinstance(rec, dict) else None
+                if not (isinstance(real, str) and real.strip()) or norm_name(real) in seen:
+                    continue
+                name = real
+                seen.add(norm_name(name))
             if rec:
                 yield self._to_card(name, rec)
 
