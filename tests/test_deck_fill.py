@@ -181,3 +181,24 @@ def test_hung_sources_do_not_spawn_unbounded_threads():
                   source_timeout=0.01)
     assert threading.active_count() - before <= 4
     ev.set()
+
+
+def test_scheme_card_from_source_never_enters_mainboard():
+    cat = build_catalog()
+    cat.add(card("Evil Scheme", "", ("Scheme",), ("Ongoing",)))
+    out = fill_deck("Atraxa", ["Evil Scheme"], [("s", ["Evil Scheme"])], cat, staples=["Evil Scheme"])
+    assert "Evil Scheme" not in out and len(out) == 100
+
+
+def test_commander_in_cards_or_sources_is_not_duplicated():
+    out = fill_deck("Atraxa", ["Atraxa"], [("s", ["Atraxa", "atraxa"])], CAT, staples=["Atraxa"])
+    assert out.count("Atraxa") == 1 and len(out) == 100
+
+
+def test_banned_or_unknown_legality_commander_rejected():
+    cat = build_catalog()
+    cat.add(card("Banned Legend", "R", ("Creature",), ("Legendary",), legality="banned"))
+    cat.add(card("Unknown Legend", "R", ("Creature",), ("Legendary",), legality=None))
+    for bad in ("Banned Legend", "Unknown Legend"):
+        with pytest.raises(ValueError, match="legal"):
+            fill_deck(bad, [], None, cat, staples=STAPLES)
