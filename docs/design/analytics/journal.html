@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal · Holy Hellfire · Commander Lab mockup (AN-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="analytics.css">
+<style>
+    .jr-modes { margin-bottom: var(--sp-6); }
+    .jr-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-10); }
+    .jr-anchor { display: flex; gap: var(--sp-4); flex-wrap: wrap; position: sticky; top: 0; z-index: 4; padding: var(--sp-2) 0; background: var(--surface-0); border-bottom: var(--stroke); }
+    .jr-anchor a { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; text-decoration: none; }
+    .jr-anchor a:hover, .jr-anchor a.is-on { color: var(--signal); }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+
+    <!-- ===== MODE A: Review check-in (shown when opening Review on a deck that has a Journal) ===== -->
+    <section aria-labelledby="ciTitle">
+        <div class="hud-checkin-head">
+            <div>
+                <span class="hud-label">Review · since 2026-09-14 · 28 days</span>
+                <h2 id="ciTitle">Is this still true?</h2>
+                <div class="hud-since">
+                    <div><span class="hud-label">Cards</span><b><span class="up">+6</span> / <span class="down">−6</span></b></div>
+                    <div><span class="hud-label">Power est.</span><b>6.5 → <span class="up">7.2</span></b></div>
+                    <div><span class="hud-label">Price</span><b>$412 → $468</b></div>
+                    <div><span class="hud-label">On-plan</span><b>64% → <span class="up">71%</span></b></div>
+                </div>
+            </div>
+            <div class="hud-progress" aria-live="polite">
+                <span class="hud-label">3 of 8 answered</span>
+                <div class="hud-progress-bar" aria-hidden="true"><i class="is-done"></i><i class="is-done"></i><i class="is-changed"></i><i></i><i></i><i></i><i></i><i></i></div>
+                <span class="hud-freshness"><span class="hud-kbd">y</span> still true · <span class="hud-kbd">c</span> change · <span class="hud-kbd">j</span>/<span class="hud-kbd">k</span> move</span>
+            </div>
+        </div>
+
+        <ol class="hud-checklist" aria-label="Check-in fields">
+            <li class="hud-check is-done">
+                <span class="hud-check-field">Vision</span>
+                <span class="hud-check-value">Tune-up. Kaalia cheats a fatty in every combat; the table should fear her swing, not the stack.</span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="true">✓ Still true</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Change</button></span>
+            </li>
+            <li class="hud-check is-done">
+                <span class="hud-check-field">Win cons</span>
+                <span class="hud-check-value">Combat (primary) · commander damage<span class="was">Unchanged</span></span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="true">✓ Still true</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Change</button></span>
+            </li>
+            <li class="hud-check is-done">
+                <span class="hud-check-field">Target power</span>
+                <span class="hud-check-value">7 · optimized <span class="was">was 6 · focused. Changed just now.</span></span>
+                <span class="hud-check-actions"><span class="hud-chip hud-chip--signal">Changed</span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Undo</button></span>
+            </li>
+            <li class="hud-check is-current" tabindex="-1">
+                <span class="hud-check-field">Budget</span>
+                <span class="hud-check-value">$500 total · per-card hard $40 / soft $15
+                    <span class="hud-check-evidence">⚠ Deck is $468, 94% of budget. 2 cards over soft cap (Necropotence $31, Teferi's Protection $24).</span></span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="false">✓ Still true</button><button class="hud-btn hud-btn--sm" type="button">Change</button></span>
+            </li>
+            <li class="hud-check">
+                <span class="hud-check-field">Pet cards</span>
+                <span class="hud-check-value"><span class="hud-chip hud-chip--ghost">Platinum Angel</span> <span class="hud-chip hud-chip--ghost">Lord of the Void</span> <span class="hud-chip hud-chip--ghost">Rising of the Day</span>
+                    <span class="hud-check-evidence">Platinum Angel has 0 edges and is your lowest fit. Still a pet? (Pets are never suggested as cuts.)</span></span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="false">✓ Still true</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Change</button></span>
+            </li>
+            <li class="hud-check">
+                <span class="hud-check-field">Novelties</span>
+                <span class="hud-check-value">Win with a Dragon Tempest + Utvara swarm once.</span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="false">✓ Still true</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Change</button></span>
+            </li>
+            <li class="hud-check">
+                <span class="hud-check-field">Pillars</span>
+                <span class="hud-check-value">Payoffs worth cheating · Swing twice · Keep her alive
+                    <span class="hud-check-evidence">Re-sync proposed a new one: "Life is a resource".</span></span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="false">✓ Still true</button><a class="hud-btn hud-btn--sm hud-btn--ghost" href="pillars.html">Open Identity</a></span>
+            </li>
+            <li class="hud-check">
+                <span class="hud-check-field">Card changes</span>
+                <span class="hud-check-value">+ Isshin, Dragon Tempest, Strionic Resonator, Helm of the Host, Grand Abolisher, Deflecting Swat<br>− Reliquary Tower, Temple of the False God, …4 more
+                    <span class="was">From Archidekt sync diffs. Nothing to answer, it's context.</span></span>
+                <span class="hud-check-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="false">✓ Seen</button></span>
+            </li>
+        </ol>
+        <div class="hud-savebar" style="position:static">
+            <span class="hud-freshness">Answers save as you go · <b>finish to unlock Tune suggestions for this review</b></span>
+            <button class="hud-btn hud-btn--ghost" type="button">Skip check-in</button>
+            <a class="hud-btn hud-btn--primary" href="tuner.html">Finish → Tune</a>
+        </div>
+    </section>
+
+    <!-- ===== MODE B: The form itself (Journal tab, or "Change" from check-in) ===== -->
+    <div class="hud-section-head" style="margin-top:var(--sp-12)"><span class="hud-section-id">02</span><h2>Deck journal · the form</h2></div>
+    <nav class="jr-anchor" aria-label="Journal sections"><a href="#j-vision" class="is-on">Vision</a><a href="#j-win">Win cons</a><a href="#j-power">Target power</a><a href="#j-budget">Budget</a><a href="#j-pets">Pets &amp; novelties</a></nav>
+
+    <form class="hud-form" onsubmit="return false">
+        <section class="hud-form-section" id="j-vision">
+            <header><h2>Vision</h2><p>One or two sentences. What does a good game with this deck look like?</p></header>
+            <div>
+                <div class="hud-field"><span class="hud-field-label" id="intentL">Intent</span>
+                    <span class="hud-seg" role="radiogroup" aria-labelledby="intentL">
+                        <input type="radio" name="intent" id="i1"><label for="i1">New build</label>
+                        <input type="radio" name="intent" id="i2" checked><label for="i2">Tune-up</label>
+                        <input type="radio" name="intent" id="i3"><label for="i3">Overhaul</label>
+                    </span></div>
+                <div class="hud-field"><label for="vision">Vision</label>
+                    <textarea id="vision">Tune-up. Kaalia cheats a fatty in every combat; the table should fear her swing, not the stack.</textarea>
+                    <span class="hud-field-hint">Feeds the thesis generator. Your words beat the draft.</span></div>
+                <div class="hud-field" style="max-width:12rem"><label for="ttw">Target win turn <span class="hud-field-hint">(optional)</span></label><input id="ttw" type="number" min="3" max="20" value="8" style="font-family:var(--font-mono)"></div>
+            </div>
+        </section>
+
+        <section class="hud-form-section" id="j-win">
+            <header><h2>Win cons</h2><p>Primary is one choice. Secondary can be several. Excluded means the tuner will never push you toward it.</p></header>
+            <div>
+                <div class="hud-field"><span class="hud-field-label" id="wcP">Primary</span>
+                    <span class="hud-seg" role="radiogroup" aria-labelledby="wcP">
+                        <input type="radio" name="wcp" id="w1" checked><label for="w1">Combat</label>
+                        <input type="radio" name="wcp" id="w2"><label for="w2">Combo</label>
+                        <input type="radio" name="wcp" id="w3"><label for="w3">Attrition</label>
+                        <input type="radio" name="wcp" id="w4"><label for="w4">Cmdr dmg</label>
+                        <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost hud-seg-more" aria-expanded="false" aria-controls="wcMore" onclick="var m=document.getElementById('wcMore');m.hidden=!m.hidden;this.setAttribute('aria-expanded',String(!m.hidden));this.textContent=m.hidden?'More… 4':'Less'">More… 4</button>
+                        <span id="wcMore" class="hud-seg-rest" hidden>
+                        <input type="radio" name="wcp" id="w5"><label for="w5">Alt win</label>
+                        <input type="radio" name="wcp" id="w6"><label for="w6">Burn</label>
+                        <input type="radio" name="wcp" id="w7"><label for="w7">Lockout</label>
+                        <input type="radio" name="wcp" id="w8"><label for="w8">Mill</label></span>
+                    </span></div>
+                <div class="hud-field-row">
+                    <div class="hud-field"><span class="hud-field-label" id="wcS">Secondary</span>
+                        <span class="hud-seg hud-seg--multi" role="group" aria-labelledby="wcS">
+                            <input type="checkbox" id="s1" checked><label for="s1">Cmdr dmg</label>
+                            <input type="checkbox" id="s2"><label for="s2">Burn</label>
+                            <input type="checkbox" id="s3"><label for="s3">Attrition</label>
+                        </span></div>
+                    <div class="hud-field"><span class="hud-field-label" id="wcX">Excluded</span>
+                        <span class="hud-seg hud-seg--multi hud-seg--exclude" role="group" aria-labelledby="wcX">
+                            <input type="checkbox" id="x1" checked><label for="x1">Combo</label>
+                            <input type="checkbox" id="x2" checked><label for="x2">Lockout</label>
+                            <input type="checkbox" id="x3"><label for="x3">Mill</label>
+                        </span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="hud-form-section" id="j-power">
+            <header><h2>Target power</h2><p>The 1–10 scale. The tier is derived, so you don't pick it twice.</p></header>
+            <div>
+                <div class="hud-field"><span class="hud-field-label" id="pwL">Power · <span style="color:var(--signal);font-family:var(--font-mono)">7 · optimized</span></span>
+                    <span class="hud-seg hud-seg--scale" role="radiogroup" aria-labelledby="pwL">
+                        <input type="radio" name="pw" id="p1"><label for="p1">1</label><input type="radio" name="pw" id="p2"><label for="p2">2</label>
+                        <input type="radio" name="pw" id="p3"><label for="p3">3</label><input type="radio" name="pw" id="p4"><label for="p4">4</label>
+                        <input type="radio" name="pw" id="p5"><label for="p5">5</label><input type="radio" name="pw" id="p6"><label for="p6">6</label>
+                        <input type="radio" name="pw" id="p7" checked><label for="p7">7</label><input type="radio" name="pw" id="p8"><label for="p8">8</label>
+                        <input type="radio" name="pw" id="p9"><label for="p9">9</label><input type="radio" name="pw" id="p10"><label for="p10">10</label>
+                    </span>
+                    <div class="hud-scale-tiers" aria-hidden="true"><span>Casual</span><span>Focused</span><span class="is-on">Optimized</span><span>cEDH</span></div>
+                    <span class="hud-field-hint">Current estimate: 7.2 (computed). The tuner won't suggest cards that push you past 8.</span></div>
+            </div>
+        </section>
+
+        <section class="hud-form-section" id="j-budget">
+            <header><h2>Budget</h2><p>Per-card caps drive the tuner. Hard = never suggested. Soft = allowed, flagged, needs a reason.</p></header>
+            <div>
+                <label class="hud-toggle"><input type="checkbox"> No budget (ignore all caps)</label>
+                <div class="hud-field-row">
+                    <div class="hud-field"><label for="tb">Deck total</label><div class="hud-money"><span>$</span><input id="tb" inputmode="decimal" value="500"></div><span class="hud-field-hint">Now $468</span></div>
+                    <div class="hud-field"><label for="hc">Hard cap / card</label><div class="hud-money"><span>$</span><input id="hc" inputmode="decimal" value="40"></div><span class="hud-field-hint">Global default $30 · overridden</span></div>
+                    <div class="hud-field"><label for="sc">Soft cap / card</label><div class="hud-money"><span>$</span><input id="sc" inputmode="decimal" value="15"></div><span class="hud-field-hint">Global default $10 · overridden</span></div>
+                </div>
+                <span class="hud-field-hint">Prices: Scryfall USD, nonfoil, refreshed on sync. Owned cards cost $0 against the budget.</span>
+            </div>
+        </section>
+
+        <section class="hud-form-section" id="j-pets">
+            <header><h2>Pets &amp; novelties</h2><p>Pets are never suggested as cuts. Novelties are things you want to see happen, scored as a bonus.</p></header>
+            <div>
+                <div class="hud-field"><label for="pets">Pet cards</label>
+                    <div class="hud-picker">
+                        <span class="hud-chip hud-chip--ghost">Platinum Angel<button class="hud-chip-remove" type="button" aria-label="Remove Platinum Angel">×</button></span>
+                        <span class="hud-chip hud-chip--ghost">Lord of the Void<button class="hud-chip-remove" type="button" aria-label="Remove Lord of the Void">×</button></span>
+                        <span class="hud-chip hud-chip--ghost">Rising of the Day<button class="hud-chip-remove" type="button" aria-label="Remove Rising of the Day">×</button></span>
+                        <input id="pets" placeholder="Add a card in this deck…" role="combobox" aria-expanded="false" aria-autocomplete="list">
+                    </div>
+                    <span class="hud-field-hint">Autocomplete from this deck's list only.</span></div>
+                <div class="hud-field"><label for="nov">Novelties</label><textarea id="nov">Win with a Dragon Tempest + Utvara swarm once.</textarea></div>
+                <div class="hud-field"><label for="notes">Notes</label><textarea id="notes" placeholder="Anything else. Freeform, never parsed."></textarea></div>
+            </div>
+        </section>
+    </form>
+    <div class="hud-savebar is-dirty">
+        <span class="hud-freshness"><b>Unsaved</b> · power 6 → 7</span>
+        <button class="hud-btn hud-btn--ghost" type="button">Discard</button>
+        <button class="hud-btn hud-btn--primary" type="button">Save journal</button>
+    </div>
+    <div class="mock-note">Mockup · AN-D · fields map 1:1 to schemas/user_intent.schema.json (+ pets, novelties, caps: new fields)</div>
+</main>
+<script src="../../../static/js/hud.js"></script>
+<script src="mock.js"></script>
+<script>
+    MOCK.shell();
+    document.getElementById("deckhead").innerHTML = MOCK.deckhead("journal", '<span class="hud-freshness">Review in progress · <b>3 / 8</b></span>');
+    // j/k + y/c on the checklist (reference behaviour; UX_SPEC §4).
+    (function () {
+        var items = Array.from(document.querySelectorAll(".hud-check"));
+        var cur = items.findIndex(function (x) { return x.classList.contains("is-current"); });
+        function go(i) { items.forEach(function (x) { x.classList.remove("is-current"); }); cur = Math.max(0, Math.min(items.length - 1, i)); items[cur].classList.add("is-current"); items[cur].focus({ preventScroll: false }); }
+        document.addEventListener("keydown", function (e) {
+            var t = e.target.tagName; if (t === "INPUT" || t === "TEXTAREA") return;
+            if (e.key === "j") go(cur + 1); else if (e.key === "k") go(cur - 1);
+            else if (e.key === "y") { var b = items[cur].querySelector('[aria-pressed]'); if (b) { b.setAttribute("aria-pressed", "true"); items[cur].classList.add("is-done"); go(cur + 1); } }
+        });
+    })();
+</script>
+</body>
+</html>

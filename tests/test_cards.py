@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import cards as card_store
+import src.server.domain.inventory.cards as card_store
 
 
 class FakeRedis:

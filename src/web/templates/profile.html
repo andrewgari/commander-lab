@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Player profile | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Player profile"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="psFresh" class="hud-freshness">Loading…</span>{% endblock %}
+
+{% block content %}
+{#- PS-4 /profile: player review from every deck's ability scores
+    (docs/design/personality/UX_SPEC.md §5). Rendered by static/js/personality.js
+    from GET /api/profile/personality?scope=physical|all. -#}
+<article class="hud-ps-prof" id="psProf" data-scope="{{ scope }}" aria-live="polite"></article>
+<noscript>{{ hud.empty("The player profile needs JavaScript.") }}</noscript>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/personality.js?v={{ version }}" defer></script>
+<script>
+    let psScope = {{ scope | tojson }};
+    let psSeq = 0;  // only the newest request may render (a late All must not overwrite Physical)
+    function psFresh(p) {
+        const times = (p.decks || []).map(d => d.computed_at).filter(Boolean).sort();
+        const last = times[times.length - 1];
+        document.getElementById('psFresh').textContent = last ? 'Scores updated ' + PSUI.ago(last) : '';
+    }
+    async function psLoad() {
+        const root = document.getElementById('psProf');
+        const seq = ++psSeq;
+        const url = '/api/profile/personality?scope=' + encodeURIComponent(psScope);
+        if (!root.innerHTML.trim()) root.innerHTML = PSUI.profileHtml('loading');
+        let res, data;
+        try {
+            res = await fetch(url);
+            data = await res.json().catch(() => ({}));
+        } catch (e) {
+            res = null; data = { error: e.message || 'network error' };
+        }
+        if (seq !== psSeq) return;
+        if (!res || !res.ok || !data.profile) {
+            const line = res ? 'GET ' + url + ' returned ' + res.status + (data.error ? ' (' + data.error + ')' : '') + '.'
+                : 'GET ' + url + ' failed: ' + data.error + '.';
+            root.innerHTML = PSUI.profileHtml('error', null, { status_line: line });
+            document.getElementById('psFresh').textContent = '';
+            PSUI.bindProfile(root, {}, { onRetry: psLoad });
+            return;
+        }
+        const p = data.profile;
+        root.innerHTML = PSUI.profileHtml('ok', p);
+        psFresh(p);
+        PSUI.bindProfile(root, p, {
+            onRetry: psLoad,
+            onScope: (s) => {
+                psScope = s;
+                history.replaceState(null, '', s === 'physical' ? '/profile' : '/profile?scope=' + s);
+                psLoad();
+            },
+            onRescore: async (id, btn) => {
+                btn.disabled = true;
+                let ok = false;
+                try {
+                    const r = await fetch('/api/decks/' + encodeURIComponent(id) + '/personality', { method: 'POST' });
+                    ok = r.ok;
+                } catch (e) { ok = false; }
+                // Same id in the table and the phone list: update both.
+                document.querySelectorAll('[data-ps-rescore="' + CSS.escape(id) + '"]').forEach(b => {
+                    b.textContent = ok ? 'Queued' : 'Retry failed · try again';
+                    b.disabled = ok;  // a failed POST (network or non-2xx) stays retryable
+                });
+            }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', psLoad);
+</script>
+{% endblock %}

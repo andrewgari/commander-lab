@@ -1,0 +1,70 @@
+{
+  "container": {
+    "json_dict": {
+      "cardlists": [
+        {
+          "tag": "highsynergycards",
+          "header": "High Synergy Cards",
+          "cardviews": [
+            {
+              "name": "Deepglow Skate",
+              "sanitized": "deepglow-skate",
+              "synergy": 0.58,
+              "num_decks": 4200,
+              "potential_decks": 43941
+            },
+            {
+              "name": "Inexorable Tide",
+              "sanitized": "inexorable-tide",
+              "synergy": 0.49,
+              "num_decks": 12000,
+              "potential_decks": 43941
+            }
+          ]
+        },
+        {
+          "tag": "topcards",
+          "header": "Top Cards",
+          "cardviews": [
+            {
+              "name": "Sol Ring",
+              "sanitized": "sol-ring",
+              "synergy": 0.02,
+              "num_decks": 43000,
+              "potential_decks": 43941
+            },
+            {
+              "name": "Evolution Sage",
+              "sanitized": "evolution-sage",
+              "synergy": 0.31,
+              "num_decks": 8000,
+              "potential_decks": 43941
+            }
+          ]
+        },
+        {
+          "tag": "newcards",
+          "header": "New Cards",
+          "cardviews": [
+            {
+              "name": "Deepglow Skate",
+              "sanitized": "deepglow-skate",
+              "synergy": 0.4,
+              "num_decks": 4200,
+              "potential_decks": 43941
+            }
+          ]
+        }
+      ],
+      "card": {
+        "name": "Atraxa, Praetors' Voice",
+        "sanitized": "atraxa-praetors-voice",
+        "salt": 1.7227891156462585,
+        "rank": 4,
+        "num_decks": 43941,
+        "is_commander": true,
+        "legal_commander": true
+      }
+    }
+  }
+}

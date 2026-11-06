@@ -1,0 +1,18 @@
+{% import "partials/hud.html" as hud %}
+{#- Generic renderer for section types with no partial of their own (TH-3).
+    `section` = {type, title, data}; analytics.theory_view.fallback_view() picks the shape.
+    The title is the section head (deck_theory.html); this shows the data. -#}
+{%- set fv = tv.fallback_view(section.data) %}
+<div class="hud-doc-fallback" data-fallback="{{ fv.kind }}">
+{%- if fv.kind == "text" %}
+    {%- for p in fv.paragraphs %}<p class="hud-doc-prose">{{ p }}</p>{% endfor %}
+{%- elif fv.kind == "kv" %}
+    <div class="hud-panel"><div class="hud-panel-body">{{ hud.kv(fv.pairs) }}</div></div>
+{%- elif fv.kind == "list" %}
+    <ul class="hud-doc-list">{% for i in fv["items"] %}<li>{{ i }}</li>{% endfor %}</ul>
+{%- elif fv.kind == "json" %}
+    <pre class="hud-doc-pre">{{ fv.text }}</pre>
+{%- else %}
+    {{ hud.empty("No content") }}
+{%- endif %}
+</div>

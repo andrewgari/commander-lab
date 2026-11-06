@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --nav-bg: #0a0a0a;
+            --text-main: #d1d5db;
+            --text-muted: #6b7280;
+            --text-heading: #ffffff;
+            --border: #1f2937;
+            --accent: #3b82f6;
+            --accent-hover: #60a5fa;
+            --danger: #ef4444;
+            --danger-hover: #f87171;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-color); color: var(--text-main); padding: 2rem; }
+        
+        .footer-controls {
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--nav-bg);
+            color: var(--text-main);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn:hover:not(:disabled) {
+            background: #111827;
+            border-color: var(--text-muted);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-update {
+            color: var(--accent);
+            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(59, 130, 246, 0.05);
+        }
+        .btn-update:hover:not(:disabled) {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent);
+        }
+        
+        .btn-push {
+            color: var(--warning);
+            border-color: rgba(245, 158, 11, 0.3);
+            background: rgba(245, 158, 11, 0.05);
+        }
+        .btn-push:hover:not(:disabled) {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        .btn svg {
+            width: 16px; height: 16px;
+        }
+        
+        .sync-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+        .sync-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        /* Modal */
+        .modal {
+            background: var(--nav-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            max-width: 400px;
+            margin-top: 2rem;
+        }
+        .modal h3 { margin: 0 0 1rem 0; color: var(--text-heading); }
+        .modal p { font-size: 0.875rem; margin-bottom: 1.5rem; line-height: 1.5; }
+        .diff-summary {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 1.5rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        .diff-add { color: var(--success); }
+        .diff-sub { color: var(--danger); }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="footer-controls">
+        <div class="sync-group">
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-update">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Update from Archidekt
+                </button>
+                <button class="btn btn-push">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Push to Archidekt
+                </button>
+            </div>
+            <div class="sync-meta">Last synced: 2 hours ago</div>
+        </div>
+    </div>
+    
+    <br>
+    <div class="footer-controls">
+        <div class="sync-group">
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-update" disabled title="Moxfield API does not support reading">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                    No External Deck
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal">
+        <h3>Overwrite local deck?</h3>
+        <p>This will pull the latest changes from <strong>Archidekt</strong> into commander.lab. Any local changes you haven't pushed will be permanently lost.</p>
+        <div class="diff-summary">
+            <div><span class="diff-add">+1</span> Rhystic Study</div>
+            <div><span class="diff-sub">-1</span> Cancel</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn">Cancel</button>
+            <button class="btn btn-update">Update from Archidekt</button>
+        </div>
+    </div>
+    
+    <div class="modal">
+        <h3>Overwrite Archidekt deck?</h3>
+        <p>This will replace your external <strong>Archidekt</strong> list with your current commander.lab deck. External-only changes will be lost.</p>
+        <div class="diff-summary">
+            <div><span class="diff-add">+2</span> cards</div>
+            <div><span class="diff-sub">-0</span> cards</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn">Cancel</button>
+            <button class="btn btn-push">Push to Archidekt</button>
+        </div>
+    </div>
+
+</body>
+</html>

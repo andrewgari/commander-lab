@@ -1,0 +1,491 @@
+/* ==========================================================================
+   Commander Lab: AN mockups, the analytics / review / tuner kit additions.
+   Docs only, NOT app code. The mockups load the REAL static/css/hud.css first,
+   so everything not defined here is the shipped HUD kit.
+
+   Coders: every rule in this file is a proposal for hud.css section 7
+   ("Analytics II"). Port it as-is (class names are final). Rules:
+     - Tokens in :root below are NEW. They move into the hud.css token block.
+     - Every class is hud- prefixed like the rest of the kit.
+     - Only transform and opacity animate. Every animation stops under
+       prefers-reduced-motion.
+   See UX_SPEC.md section 2 for the full token table.
+   ========================================================================== */
+
+:root {
+    /* --- Token fixes from DESIGN_REVIEW.md §1 (AA contrast). REQUIRED. ---- */
+    --text-3: #8a96a2;   /* was #76828e: 4.47:1 on surface-1, fails AA at 11-13px */
+    --danger: #ee6a61;   /* was #e5584f: 4.45:1 on danger-dim */
+
+    /* --- NEW: type + motion -------------------------------------------- */
+    --fs-display: 4.5rem;     /* 72px thesis / pillar-1 hero (Identity Lab) */
+    --dur-slow:   320ms;      /* entrances */
+    --stagger:    40ms;       /* per-item entrance delay */
+
+    /* --- NEW: graph ---------------------------------------------------- */
+    --graph-h:        36rem;  /* 576px plot height, desktop */
+    --graph-node-min: 5;      /* px radius, degree 1 (unitless: read by JS) */
+    --graph-node-max: 18;     /* px radius, hub */
+    --graph-edge:     var(--line-strong);
+    --graph-dim:      0.14;   /* opacity of non-neighbours while focusing */
+
+    /* --- NEW: tuner / review ------------------------------------------- */
+    --gap-worth:  0.10;       /* buy beats best owned by >= this -> "worth it" (doc only; JS constant) */
+    --rail-check: 2.5rem;     /* check-in control column */
+}
+
+/* --- Mock-only chrome (not part of the design) ------------------------- */
+.mock-note { display: inline-block; margin: var(--sp-8) 0 0; padding: var(--sp-1) var(--sp-2); background: var(--surface-3); border: var(--stroke-strong); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* =======================================================================
+   0. Deck sub-navigation. One header for every deck surface.
+   ======================================================================= */
+.hud-deckhead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-4); align-items: end; padding-bottom: var(--sp-4); }
+.hud-deckhead-art { width: 5.5rem; aspect-ratio: var(--art-ratio); border: var(--stroke); border-radius: var(--radius-2); overflow: hidden; background: var(--surface-2); }
+.hud-deckhead-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hud-deckhead h1 { margin: var(--sp-1) 0 0; font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); color: var(--text-1); }
+.hud-deckhead-meta { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-2); }
+.hud-deckhead-actions { display: flex; gap: var(--sp-2); align-items: center; }
+.hud-deck-tabs { margin-bottom: var(--sp-6); }
+.hud-kbd { display: inline-block; min-width: 1.25rem; padding: 0 var(--sp-1); border: var(--stroke-strong); border-bottom-width: 2px; border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-micro)/1.4 var(--font-mono); text-align: center; }
+.hud-freshness { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap; }
+.hud-freshness b { color: var(--text-2); font-weight: var(--fw-medium); }
+
+/* =======================================================================
+   1. Interaction graph
+   ======================================================================= */
+.hud-graph { display: grid; grid-template-columns: 14rem minmax(0, 1fr) 17rem; min-height: var(--graph-h); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-graph > * { min-width: 0; }
+.hud-graph-engines { border-right: var(--stroke); display: flex; flex-direction: column; }
+.hud-graph-engines ol { list-style: none; margin: 0; padding: 0; }
+.hud-engine { display: grid; grid-template-columns: 0.375rem minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; width: 100%; padding: var(--sp-3) var(--sp-4) var(--sp-3) 0; background: none; border: 0; border-bottom: var(--stroke-faint); color: var(--text-2); text-align: left; cursor: pointer; transition: background-color var(--dur-fast) var(--ease); }
+.hud-engine::before { content: ""; align-self: stretch; background: transparent; }
+.hud-engine:hover { background: var(--surface-2); }
+.hud-engine[aria-pressed="true"] { background: var(--surface-2); }
+.hud-engine[aria-pressed="true"]::before { background: var(--signal); }
+.hud-engine-name { display: block; color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-semibold); line-height: var(--lh-snug); }
+.hud-engine-flow { display: block; margin-top: 2px; color: var(--text-3); font: var(--fs-micro)/1.4 var(--font-mono); letter-spacing: 0.02em; }
+.hud-engine-n { color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.hud-engine[aria-pressed="true"] .hud-engine-n { color: var(--signal); }
+.hud-engine .hud-chip { margin-top: var(--sp-1); }
+
+.hud-graph-stage { position: relative; display: flex; flex-direction: column; }
+.hud-graph-toolbar { display: flex; gap: var(--sp-2); align-items: center; height: var(--panel-head-h); padding: 0 var(--sp-3); border-bottom: var(--stroke); }
+.hud-graph-toolbar input { width: 13rem; height: 1.75rem; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.hud-graph-toolbar .hud-freshness { margin-left: auto; }
+.hud-graph-svg { flex: 1; width: 100%; min-height: 0; display: block; }
+.hud-graph-svg:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
+.hud-graph-legend { display: flex; gap: var(--sp-4); flex-wrap: wrap; padding: var(--sp-2) var(--sp-3); border-top: var(--stroke); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-graph-legend span { display: inline-flex; gap: var(--sp-1); align-items: center; }
+.hud-graph-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+
+/* SVG parts. Fills/strokes are tokens, never literals. */
+.g-edge { stroke: var(--graph-edge); stroke-linecap: round; fill: none; transition: opacity var(--dur-base) var(--ease); }
+.g-edge.is-engine { stroke: var(--signal-line); }
+.g-edge.is-hot { stroke: var(--signal); }
+.g-node { cursor: pointer; transition: opacity var(--dur-base) var(--ease); }
+.g-node circle { fill: var(--surface-3); stroke: var(--line-strong); stroke-width: 1.5; transition: transform var(--dur-fast) var(--ease); transform-box: fill-box; transform-origin: center; }
+.g-node.is-engine circle { fill: var(--data-dim); stroke: var(--data); }
+.g-node.is-hot circle { fill: var(--signal-dim); stroke: var(--signal); }
+.g-node.is-commander circle { fill: var(--signal); stroke: var(--signal-strong); }
+.g-node.is-selected circle { stroke: var(--text-1); stroke-width: 2.5; }
+.g-node:hover circle, .g-node:focus-visible circle { transform: scale(1.18); }
+.g-node:focus { outline: none; }
+.g-node:focus-visible circle { stroke: var(--signal); stroke-width: 2.5; }
+.g-node text { fill: var(--text-2); font: 600 11px var(--font-card); paint-order: stroke; stroke: var(--surface-1); stroke-width: 3px; pointer-events: none; }
+.g-node.is-label-off text { opacity: 0; }
+.g-node.is-commander text { fill: var(--text-1); font-size: 13px; }
+.g-elabel { fill: var(--signal-strong); font: 500 10px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; paint-order: stroke; stroke: var(--surface-1); stroke-width: 3px; pointer-events: none; opacity: 0; transition: opacity var(--dur-base) var(--ease); }
+.g-elabel.is-on { opacity: 1; }
+.hud-graph-svg.is-focusing .g-node:not(.is-near), .hud-graph-svg.is-focusing .g-edge:not(.is-near) { opacity: var(--graph-dim); }
+@keyframes g-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+.g-node-in.is-entering { animation: g-pop var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * 12ms); transform-box: fill-box; transform-origin: center; }
+
+/* Inspector (right column) */
+.hud-inspector { border-left: var(--stroke); display: flex; flex-direction: column; }
+.hud-inspector-body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); overflow-y: auto; }
+.hud-inspector .hud-art { max-width: 100%; }
+.hud-io { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); align-items: baseline; font-size: var(--fs-xs); }
+.hud-io dt { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-io dd { margin: 0; display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.hud-edgelist { list-style: none; margin: 0; padding: 0; }
+.hud-edgelist li { display: grid; grid-template-columns: 1rem minmax(0, 1fr); gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-xs); }
+.hud-edgelist li:last-child { border-bottom: 0; }
+.hud-edgelist .dir { color: var(--text-3); font-family: var(--font-mono); }
+.hud-edgelist button { all: unset; cursor: pointer; color: var(--text-1); font: 600 var(--fs-sm) var(--font-card); }
+.hud-edgelist button:hover { color: var(--signal-strong); }
+.hud-edgelist button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.hud-edgelist .why { display: block; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: 0.02em; text-transform: uppercase; }
+
+/* Isolated-cards tray under the graph */
+.hud-isolated { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; padding: var(--sp-3) var(--sp-4); border: var(--stroke); border-top: 0; background: var(--surface-1); }
+.hud-isolated .hud-label { margin-right: var(--sp-2); }
+.hud-cardlink { all: unset; cursor: pointer; padding: 0 var(--sp-2); height: var(--chip-h); display: inline-flex; align-items: center; border: var(--stroke); border-radius: var(--radius-1); color: var(--text-2); font: 600 var(--fs-xs) var(--font-card); }
+.hud-cardlink:hover { border-color: var(--line-strong); color: var(--text-1); }
+.hud-cardlink:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+
+/* =======================================================================
+   2. Composition vs template
+   ======================================================================= */
+.hud-comp { list-style: none; margin: 0; padding: 0; }
+.hud-comp-row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) 3.5rem 4.5rem; gap: var(--sp-3); align-items: center; min-height: 2.5rem; border-bottom: var(--stroke-faint); }
+.hud-comp-row:last-child { border-bottom: 0; }
+.hud-comp-row > button { all: unset; cursor: pointer; display: contents; }
+.hud-comp-name { color: var(--text-1); font-size: var(--fs-sm); }
+.hud-comp-track { position: relative; height: 0.625rem; background: var(--surface-2); }
+.hud-comp-fill { position: absolute; inset: 0 auto 0 0; background: var(--data); transform-origin: left; }
+.hud-comp-row.is-under .hud-comp-fill { background: var(--signal); }
+.hud-comp-target { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text-1); }
+.hud-comp-target::after { content: none; } /* target is in the value column; floating tick labels collided */
+.hud-comp-val { color: var(--text-1); font: var(--fs-sm) var(--font-mono); text-align: right; }
+.hud-comp-val small { color: var(--text-3); font-size: var(--fs-micro); }
+.hud-comp-row .hud-chip { justify-self: end; }
+@keyframes comp-grow { from { transform: scaleX(0); } to { transform: none; } }
+.hud-comp-fill { animation: comp-grow var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.hud-template-edit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.hud-template-edit label { display: flex; flex-direction: column; gap: var(--sp-1); }
+.hud-template-edit input { font-family: var(--font-mono); width: 100%; }
+
+/* =======================================================================
+   3. Pillar fit meter + pillar tiles
+   ======================================================================= */
+.hud-meter { display: flex; height: 0.625rem; background: var(--surface-2); }
+.hud-meter > span { display: block; height: 100%; }
+.hud-meter-legend { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin-top: var(--sp-2); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-meter-legend b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-meter-legend i { display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-1); vertical-align: 0; }
+
+.hud-pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-pillar { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-height: 15rem; padding: var(--sp-5); background: var(--surface-1); transition: transform var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease); }
+.hud-pillar:focus-within { background: var(--surface-2); }
+.hud-pillar-top { display: flex; align-items: center; gap: var(--sp-2); }
+.hud-pillar-top .hud-label { margin-right: auto; }
+.hud-pillar h3 { margin: 0; color: var(--text-1); font-size: var(--fs-lg); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); }
+.hud-pillar p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-pillar-n { color: var(--text-1); font: var(--fw-medium) var(--fs-stat)/1 var(--font-mono); letter-spacing: var(--tracking-tight); }
+.hud-pillar-n small { color: var(--text-3); font-size: var(--fs-xs); letter-spacing: 0; }
+.hud-pillar-cards { color: var(--text-3); font-size: var(--fs-xs); }
+.hud-pillar-cards b { color: var(--text-2); font: 600 var(--fs-sm) var(--font-card); }
+.hud-pillar-actions { display: flex; gap: var(--sp-1); margin-top: auto; padding-top: var(--sp-3); border-top: var(--stroke-faint); }
+.hud-pillar-actions .hud-btn:last-child { margin-left: auto; }
+/* States */
+.hud-pillar.is-hero { grid-column: span 2; background: var(--signal); }
+.hud-pillar.is-hero, .hud-pillar.is-hero h3, .hud-pillar.is-hero p, .hud-pillar.is-hero .hud-label, .hud-pillar.is-hero .hud-pillar-n, .hud-pillar.is-hero .hud-pillar-n small, .hud-pillar.is-hero .hud-pillar-cards, .hud-pillar.is-hero .hud-pillar-cards b { color: var(--text-on-signal); }
+.hud-pillar.is-hero .hud-pillar-actions { border-top-color: var(--signal-line); }
+.hud-pillar.is-hero .hud-btn { background: transparent; border-color: var(--text-on-signal); color: var(--text-on-signal); }
+.hud-pillar.is-hero .hud-btn:hover { background: var(--signal-strong); }
+.hud-pillar.is-hero h3 { font-size: var(--fs-xl); }
+.hud-pillar.is-draft { background: var(--surface-0); outline: 1px dashed var(--line-strong); outline-offset: -1px; }
+.hud-pillar.is-pinned::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--indicator); background: var(--signal); }
+.hud-pillar.is-hero.is-pinned::after { background: var(--text-on-signal); }
+.hud-pillar.is-editing { background: var(--surface-2); }
+.hud-pillar.is-editing input, .hud-pillar.is-editing textarea { width: 100%; }
+.hud-pillar.is-editing textarea { min-height: 4.5rem; resize: vertical; }
+.hud-pillar-delta { color: var(--signal); font: var(--fs-xs) var(--font-mono); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.hud-enter { animation: rise var(--dur-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+
+.hud-thesis { display: grid; grid-template-columns: 0.375rem minmax(0, 1fr); gap: var(--sp-6); padding: var(--sp-6) 0 var(--sp-8); }
+.hud-thesis-bar { display: flex; flex-direction: column; }
+.hud-thesis-bar span { flex: 1; }
+.hud-thesis blockquote { margin: var(--sp-2) 0 0; max-width: 40ch; color: var(--text-1); font: var(--fw-medium) clamp(var(--fs-lg), 3.2vw, 2.25rem)/1.2 var(--font-sans); letter-spacing: var(--tracking-tight); }
+.hud-thesis blockquote em { font-style: normal; color: var(--signal); }
+.hud-thesis textarea { width: 100%; max-width: 48rem; min-height: 6rem; margin-top: var(--sp-2); font: var(--fw-medium) var(--fs-lg)/1.35 var(--font-sans); }
+.hud-thesis-meta { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; margin-top: var(--sp-4); }
+
+.hud-tray { border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-0); }
+.hud-tray > summary { display: flex; gap: var(--sp-3); align-items: center; min-height: var(--panel-head-h); padding: 0 var(--sp-4); cursor: pointer; color: var(--text-2); font: var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; list-style: none; }
+.hud-tray > summary::-webkit-details-marker { display: none; }
+.hud-tray > summary::before { content: "▸"; color: var(--text-3); transition: transform var(--dur-fast) var(--ease); }
+.hud-tray[open] > summary::before { transform: rotate(90deg); }
+.hud-tray-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-4); border-top: var(--stroke-faint); }
+.hud-tray-row s { color: var(--text-3); text-decoration-color: var(--text-4); }
+
+/* =======================================================================
+   4. Forms: Journal
+   ======================================================================= */
+.hud-form { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 0; border-top: var(--stroke); }
+.hud-form-section { display: contents; }
+.hud-form-section > header { padding: var(--sp-6) var(--sp-6) var(--sp-6) 0; border-bottom: var(--stroke); }
+.hud-form-section > header h2 { margin: 0; color: var(--text-1); font-size: var(--fs-md); }
+.hud-form-section > header p { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.hud-form-section > div { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6) 0; border-bottom: var(--stroke); min-width: 0; }
+.hud-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.hud-field > label, .hud-field > .hud-field-label { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.hud-field-hint { color: var(--text-3); font-size: var(--fs-xs); }
+.hud-field textarea { min-height: 5.5rem; resize: vertical; line-height: var(--lh-base); }
+.hud-field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-4); }
+.hud-money { display: flex; align-items: stretch; }
+.hud-money span { display: grid; place-items: center; padding: 0 var(--sp-2); border: var(--stroke); border-right: 0; border-radius: var(--radius-1) 0 0 var(--radius-1); background: var(--surface-2); color: var(--text-3); font: var(--fs-sm) var(--font-mono); }
+.hud-money input { flex: 1; border-radius: 0 var(--radius-1) var(--radius-1) 0; font-family: var(--font-mono); width: 100%; }
+/* Segmented control: radios styled as a joined strip. Native radios = free keyboard support. */
+.hud-seg { display: inline-flex; flex-wrap: wrap; border: var(--stroke-strong); border-radius: var(--radius-1); width: max-content; max-width: 100%; }
+.hud-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.hud-seg label { display: inline-flex; align-items: center; height: 2rem; padding: 0 var(--sp-3); border-right: var(--stroke); color: var(--text-2); font: var(--fw-medium) var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; cursor: pointer; transition: background-color var(--dur-fast) var(--ease); }
+.hud-seg label:last-of-type { border-right: 0; }
+.hud-seg label:hover { background: var(--surface-2); color: var(--text-1); }
+.hud-seg input:checked + label { background: var(--signal); color: var(--text-on-signal); }
+.hud-seg input:focus-visible + label { outline: var(--focus-ring); outline-offset: -3px; }
+.hud-seg--scale label { width: 2.5rem; justify-content: center; padding: 0; }
+.hud-seg--multi input:checked + label { background: var(--data-dim); color: var(--data-strong); }
+.hud-scale-tiers { display: grid; grid-template-columns: 4fr 2fr 2fr 2fr; width: 25rem; max-width: 100%; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-scale-tiers span { padding-top: var(--sp-1); border-top: 2px solid var(--line); }
+.hud-scale-tiers span.is-on { border-top-color: var(--signal); color: var(--signal); }
+/* Card picker (tags input) */
+.hud-picker { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; min-height: 2.5rem; padding: var(--sp-1) var(--sp-2); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-picker:focus-within { border-color: var(--signal); }
+.hud-picker input { flex: 1; min-width: 10rem; border: 0; padding: var(--sp-1); background: transparent; }
+.hud-picker .hud-chip { font-family: var(--font-card); font-size: var(--fs-xs); text-transform: none; letter-spacing: 0; }
+.hud-toggle { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-2); font-size: var(--fs-sm); cursor: pointer; }
+.hud-toggle input { width: 1rem; height: 1rem; accent-color: var(--signal); }
+
+/* Save bar (sticky, appears when dirty) */
+.hud-savebar { position: sticky; bottom: 0; z-index: 5; display: flex; gap: var(--sp-3); align-items: center; padding: var(--sp-3) 0; background: var(--surface-0); border-top: var(--stroke); }
+.hud-savebar .hud-freshness { margin-right: auto; }
+.hud-savebar.is-dirty { border-top: var(--indicator) solid var(--signal); }
+
+/* Check-in */
+.hud-checkin-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-6); align-items: end; padding: var(--sp-6); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); margin-bottom: var(--sp-6); }
+.hud-checkin-head h2 { margin: var(--sp-1) 0 var(--sp-3); color: var(--text-1); font-size: var(--fs-xl); letter-spacing: var(--tracking-tight); }
+.hud-since { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
+.hud-since div { display: flex; flex-direction: column; gap: 2px; }
+.hud-since b { color: var(--text-1); font: var(--fw-medium) var(--fs-lg) var(--font-mono); }
+.hud-since .up { color: var(--ok); } .hud-since .down { color: var(--signal); }
+.hud-progress { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-end; }
+.hud-progress-bar { display: flex; gap: 2px; }
+.hud-progress-bar i { width: 1.25rem; height: 0.375rem; background: var(--surface-3); }
+.hud-progress-bar i.is-done { background: var(--ok); }
+.hud-progress-bar i.is-changed { background: var(--signal); }
+.hud-checklist { list-style: none; margin: 0; padding: 0; border: var(--stroke); border-radius: var(--radius-1); background: var(--surface-1); }
+.hud-check { display: grid; grid-template-columns: 9rem minmax(0, 1fr) auto; gap: var(--sp-4); align-items: start; padding: var(--sp-4); border-bottom: var(--stroke-faint); transition: background-color var(--dur-fast) var(--ease); }
+.hud-check:last-child { border-bottom: 0; }
+.hud-check.is-current { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-check-field { color: var(--text-3); font: var(--fs-micro)/1.6 var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-check-value { color: var(--text-1); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-check-value .was { display: block; margin-top: var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); }
+.hud-check-value .hud-chip { font-family: var(--font-card); text-transform: none; letter-spacing: 0; font-size: var(--fs-xs); }
+.hud-check-evidence { display: block; margin-top: var(--sp-2); color: var(--signal); font: var(--fs-xs) var(--font-mono); }
+.hud-check-actions { display: flex; gap: var(--sp-1); }
+.hud-check-actions .hud-btn[aria-pressed="true"] { background: var(--ok-dim); border-color: var(--ok); color: var(--ok); }
+.hud-check.is-done .hud-check-value { color: var(--text-2); }
+
+/* =======================================================================
+   5. Tuner
+   ======================================================================= */
+.hud-tune { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--sp-6); align-items: start; }
+.hud-filterbar { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.hud-filterbar .hud-freshness { margin-left: auto; }
+.hud-fix { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; gap: var(--sp-4); align-items: center; padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+.hud-fix:last-child { border-bottom: 0; }
+.hud-fix-gap { color: var(--signal); font: var(--fw-medium) var(--fs-md) var(--font-mono); }
+.hud-fix-gap small { display: block; color: var(--text-3); font-size: var(--fs-micro); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+/* Swap row: OUT · arrow · IN (owned vs buy) · verdict · actions */
+.hud-swaps { list-style: none; margin: 0; padding: 0; }
+.hud-swap { display: grid; grid-template-columns: minmax(0, 1fr) 1.5rem minmax(0, 1.6fr) 6.5rem; gap: var(--sp-4); align-items: start; padding: var(--sp-4); border-bottom: var(--stroke-faint); transition: background-color var(--dur-fast) var(--ease); }
+.hud-swap:last-child { border-bottom: 0; }
+.hud-swap.is-current { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.hud-swap.is-accepted { background: var(--ok-dim); }
+.hud-swap.is-dismissed { opacity: 0.45; }
+.hud-swap-arrow { padding-top: var(--sp-1); color: var(--text-4); font-family: var(--font-mono); text-align: center; }
+.hud-swap-out .hud-card-name { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-4); }
+.hud-why { margin-top: var(--sp-2); display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.25rem; gap: var(--sp-1) var(--sp-2); align-items: center; font: var(--fs-micro) var(--font-mono); color: var(--text-3); letter-spacing: 0.02em; text-transform: uppercase; }
+.hud-why .t { height: 4px; background: var(--surface-3); }
+.hud-why .t i { display: block; height: 100%; background: var(--text-3); }
+.hud-why .v { color: var(--text-2); text-align: right; }
+.hud-why .is-low i { background: var(--signal); }
+.hud-why .is-low + .v { color: var(--signal); }
+.hud-opts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--hairline); background: var(--line); border: var(--stroke); border-radius: var(--radius-1); }
+.hud-opt { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3); background: var(--surface-1); min-width: 0; }
+.hud-opt.is-pick { background: var(--surface-2); box-shadow: inset 0 var(--indicator) 0 var(--ok); }
+.hud-opt.is-pick.is-buy { box-shadow: inset 0 var(--indicator) 0 var(--signal); }
+.hud-opt.is-empty { color: var(--text-3); font-size: var(--fs-xs); justify-content: center; }
+.hud-opt .hud-card-name { font-size: var(--fs-md); line-height: var(--lh-tight); }
+.hud-opt-src { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-opt-src b { font-weight: var(--fw-medium); color: var(--ok); }
+.hud-opt-score { display: flex; gap: var(--sp-2); align-items: baseline; color: var(--text-1); font: var(--fs-sm) var(--font-mono); }
+.hud-opt-score small { color: var(--text-3); font-size: var(--fs-micro); }
+.hud-opt .hud-chip { align-self: flex-start; }
+.hud-gapline { grid-column: 1 / -1; display: flex; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); background: var(--surface-0); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-gapline b { color: var(--text-1); font-weight: var(--fw-medium); }
+.hud-gapline .hud-chip { margin-left: auto; }
+.hud-justify { grid-column: 1 / -1; padding: var(--sp-2) var(--sp-3); background: var(--signal-dim); color: var(--signal-strong); font-size: var(--fs-xs); line-height: var(--lh-base); border-top: var(--hairline) solid var(--signal-line); }
+.hud-swap-act { display: flex; flex-direction: column; gap: var(--sp-1); }
+.hud-swap-act .hud-btn { width: 100%; }
+
+/* Change list (right column) */
+.hud-changes { position: sticky; top: var(--sp-6); }
+.hud-changes ol { list-style: none; margin: 0; padding: 0; }
+.hud-changes li { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: var(--stroke-faint); font-size: var(--fs-xs); align-items: baseline; }
+.hud-changes li .op { font-family: var(--font-mono); }
+.hud-changes li .op.out { color: var(--text-3); } .hud-changes li .op.in { color: var(--ok); }
+.hud-changes .hud-card-name { font-size: var(--fs-sm); }
+.hud-caps { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hairline); background: var(--line); border: var(--stroke); }
+.hud-caps div { padding: var(--sp-3); background: var(--surface-1); display: flex; flex-direction: column; gap: 2px; }
+.hud-caps b { color: var(--text-1); font: var(--fw-medium) var(--fs-lg) var(--font-mono); }
+
+/* =======================================================================
+   6. Shared: combos, EDHREC histogram footnotes
+   ======================================================================= */
+.hud-combos { list-style: none; margin: 0; padding: 0; }
+.hud-combo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: var(--stroke-faint); }
+.hud-combo:last-child { border-bottom: 0; }
+.hud-combo-pieces { display: flex; gap: var(--sp-1); flex-wrap: wrap; align-items: center; }
+.hud-combo-pieces .plus { color: var(--text-4); font-family: var(--font-mono); }
+.hud-combo-pieces .is-missing { border-style: dashed; border-color: var(--signal-line); color: var(--signal-strong); }
+.hud-combo-result { grid-column: 1 / -1; color: var(--text-3); font-size: var(--fs-xs); }
+.hud-combo-group { padding: var(--sp-2) var(--sp-4); background: var(--surface-0); border-bottom: var(--stroke); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+
+.hud-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-4); }
+.hud-stack-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
+
+/* =======================================================================
+   Responsive. 900px = existing HUD tablet breakpoint; 640px = phone.
+   ======================================================================= */
+@media (max-width: 1380px) {
+    .hud-graph { grid-template-columns: 13rem minmax(0, 1fr); }
+    .hud-inspector { grid-column: 1 / -1; border-left: 0; border-top: var(--stroke); }
+    .hud-inspector-body { display: grid; grid-template-columns: 12rem minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+@media (max-width: 1180px) { .hud-tune { grid-template-columns: minmax(0, 1fr); } .hud-changes { position: static; } }
+@media (max-width: 900px) {
+    .hud-stack-3 { grid-template-columns: minmax(0, 1fr); }
+    .hud-split { grid-template-columns: minmax(0, 1fr); }
+    .hud-form { grid-template-columns: minmax(0, 1fr); }
+    .hud-form-section > header { padding: var(--sp-6) 0 0; border-bottom: 0; }
+    .hud-pillar.is-hero { grid-column: auto; }
+}
+@media (max-width: 640px) {
+    /* Phone: no force graph. Engines become the primary list, the graph is
+       replaced by the Connections list (same data, readable at 390px). */
+    .hud-graph { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+    .hud-graph-engines { border-right: 0; border-bottom: var(--stroke); }
+    .hud-graph-stage .hud-graph-svg, .hud-graph-stage .hud-graph-legend { display: none; }
+    .hud-graph-stage [data-view="list"] { display: block !important; }
+    .hud-inspector-body { display: flex; }
+    .hud-deckhead { grid-template-columns: auto minmax(0, 1fr); }
+    .hud-deckhead-actions { grid-column: 1 / -1; }
+    .hud-comp-row { grid-template-columns: 7rem minmax(0, 1fr) 3rem; }
+    .hud-comp-row .hud-chip { display: none; }
+    .hud-swap { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+    .hud-swap-arrow { display: none; }
+    .hud-swap-act { flex-direction: row; }
+    .hud-opts { grid-template-columns: minmax(0, 1fr); }
+    .hud-check { grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
+    .hud-checkin-head { grid-template-columns: minmax(0, 1fr); }
+    .hud-progress { align-items: flex-start; }
+    .hud-fix { grid-template-columns: minmax(0, 1fr) auto; }
+    .hud-fix > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+    .hud-template-edit { grid-template-columns: 1fr 1fr; }
+    .hud-scale-tiers { width: 100%; }
+    .hud-seg--scale { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); width: 100%; }
+    .hud-seg--scale label { width: auto; border-right: var(--stroke); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hud-enter, .hud-comp-fill, .g-node-in.is-entering { animation: none !important; }
+    .hud-pillar, .g-node circle, .g-edge, .g-node, .g-elabel, .hud-engine, .hud-swap, .hud-check, .hud-tray > summary::before { transition: none !important; }
+}
+
+/* =======================================================================
+   7. Kit fixes found while mocking (port into hud.css sections 3 / 6)
+   ======================================================================= */
+/* Base inputs have padding + width:100% in forms; without this they overflow. */
+input, select, textarea { box-sizing: border-box; }
+/* Compact rank list: names get the room, the track shrinks. Use inside narrow
+   panels (inspector, 3-up rows). Wrap HUD.rankList() output in .hud-rank-compact. */
+.hud-rank-compact .hud-rank-item { grid-template-columns: 1.25rem minmax(0, 1fr) 3.5rem 2.75rem; gap: var(--sp-2); }
+.hud-rank-compact .hud-rank-pos:empty { display: none; }
+.hud-rank-compact .hud-rank-item:has(.hud-rank-pos:empty) { grid-template-columns: minmax(0, 1fr) 3.5rem 2.75rem; }
+.hud-rank-compact .hud-rank-label { font-family: var(--font-card); font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.hud-nowrap { white-space: nowrap; }
+.hud-engine-kind { color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.hud-engine-meta { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-1); }
+.hud-engine-meta .hud-chip { margin-top: 0; }
+.hud-members { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+/* Graph label legibility: focused nodes always show names; dimmed ones never do. */
+.hud-graph-svg.is-focusing .g-node.is-near.is-label-off text { opacity: 1; }
+.hud-graph-svg.is-focusing .g-node:not(.is-near) text { opacity: 0; }
+.g-elabel { stroke-width: 5px; stroke-linejoin: round; }
+.g-node text { stroke-width: 4px; stroke-linejoin: round; }
+/* BUG in shipped hud.css: .hud-rank-fill is an inline <span>, so width:% is
+   ignored and every ranked bar renders as an empty track (also on the live
+   deck page). One-line fix, port to hud.css: */
+.hud-rank-fill { display: block; }
+.hud-rank-track { display: block; }
+
+/* =======================================================================
+   8. Fixes from mock review round 2
+   ======================================================================= */
+/* Pillars: 3-col grid. Hero spans 2, so row 1 = hero + P2, row 2 = P3 + P4 + add. */
+.hud-pillar { min-height: 0; }
+.hud-pillar-add { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-5); background: var(--surface-0); color: var(--text-3); cursor: pointer; transition: background-color var(--dur-fast) var(--ease); }
+.hud-pillar-add h3 { margin: 0; color: var(--text-2); font-size: var(--fs-lg); }
+.hud-pillar-add p { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); }
+.hud-pillar-add:hover { background: var(--surface-1); color: var(--text-2); }
+.hud-pillar-add:hover h3 { color: var(--signal-strong); }
+.hud-pillar-add:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.hud-pillar.is-draft { outline: 0; background: var(--surface-0); box-shadow: inset 0 0 0 1px var(--data); }
+.hud-pillar-actions .hud-btn--ghost:last-child { border-color: var(--line-strong); }
+
+/* Journal: excluded multi-select reads as negative, not as another "selected". */
+.hud-seg--exclude input:checked + label { background: var(--danger-dim); color: var(--danger); text-decoration: line-through; }
+.hud-scale-tiers { grid-template-columns: 4fr 2fr 2fr 2fr; width: 25rem; }
+.hud-check-actions { justify-content: flex-end; min-width: 13rem; }
+.hud-checkin-head .hud-since { gap: var(--sp-10); }
+main.main-content { padding-bottom: var(--sp-16); }
+
+/* Tuner */
+.hud-swap-arrow { align-self: center; padding: 0; }
+.hud-gapline { flex-wrap: wrap; }
+.hud-gapline .hud-chip { white-space: nowrap; }
+@media (max-width: 1380px) and (min-width: 641px) {
+    .hud-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .hud-pillars { grid-template-columns: minmax(0, 1fr); }
+    .hud-check-actions { min-width: 0; justify-content: flex-start; }
+}
+
+/* =======================================================================
+   9. Phone pass (≤ 640px). Shell: the existing HUD 56px icon rail stays
+   (base.html behaviour at ≤ 900px). A bottom bar is Phase 1 shell work,
+   not this card.
+   ======================================================================= */
+@media (max-width: 640px) {
+    .app-topbar-meta { display: none; }
+    .hud-crumbs { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+    .hud-deckhead .hud-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hud-deckhead-actions { flex-wrap: wrap; }
+    .hud-deckhead-actions .hud-btn { flex: 1 1 auto; }
+    .hud-deck-tabs { scrollbar-width: none; }
+    .hud-stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hud-graph-toolbar { flex-wrap: wrap; height: auto; padding: var(--sp-2) var(--sp-3); }
+    .hud-graph-toolbar input { width: 100%; flex: 1 1 100%; }
+    .hud-graph-toolbar .hud-kbd { display: none; }
+    .hud-panel-head { flex-wrap: wrap; padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+    .hud-panel-meta { margin-left: 0; }
+    .hud-comp-row { grid-template-columns: minmax(0, 1fr) 3.5rem; row-gap: var(--sp-1); padding: var(--sp-2) 0; }
+    .hud-comp-row .hud-comp-track { grid-column: 1 / -1; grid-row: 2; }
+    .hud-savebar { flex-wrap: wrap; }
+    .hud-savebar .hud-freshness { flex: 1 1 100%; white-space: normal; }
+    .hud-template-edit > div { flex-wrap: wrap; }
+    .hud-filterbar .hud-freshness { margin-left: 0; white-space: normal; }
+    .hud-seg { width: 100%; }
+    .hud-seg label { flex: 1 1 auto; justify-content: center; }
+    .hud-swap-act .hud-btn { flex: 1 1 0; }
+    .hud-tray-row { grid-template-columns: minmax(0, 1fr); }
+    .hud-swap[style] { grid-template-columns: minmax(0, 1fr) !important; }
+    /* Weak table: keep Card + Weak score + action; drop the three inputs. */
+    #weak .hud-table th:nth-child(2), #weak .hud-table td:nth-child(2),
+    #weak .hud-table th:nth-child(3), #weak .hud-table td:nth-child(3),
+    #weak .hud-table th:nth-child(4), #weak .hud-table td:nth-child(4) { display: none; }
+    .hud-btn, .hud-seg label { min-height: 2.25rem; } /* touch: 36px min, buttons are full-row so the hit area is wider */
+    .hud-btn--sm { min-height: 2rem; }
+}
+.hud-pillar.is-hero .hud-chip { --chip-fg: var(--text-on-signal); --chip-bg: transparent; --chip-line: var(--text-on-signal); color: var(--text-on-signal); background: transparent; border-color: var(--text-on-signal); }
+@media (max-width: 640px) { .hud-stat-foot { white-space: normal; } }
+/* "More…" inside a segmented control: the overflow options join the strip when expanded. */
+.hud-seg-rest:not([hidden]) { display: contents; }
+.hud-seg-rest[hidden] { display: none; }
+.hud-seg .hud-seg-more { height: 2rem; border: 0; border-left: var(--stroke); border-radius: 0; }

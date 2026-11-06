@@ -1,0 +1,3370 @@
+FORGELOG|MULLIGAN|Ai(1)-Deck1 has kept a hand of 7 cards
+FORGELOG|MULLIGAN|Ai(2)-Deck2 has kept a hand of 7 cards
+FORGELOG|TURN|Turn 1 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (81)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 2 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (185)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 3 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (46)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 4 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (198)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 5 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (44)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 6 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (172)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 7 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (45)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|MANA|Mountain (46) - {T}: Add {R}.
+FORGELOG|MANA|Mountain (44) - {T}: Add {R}.
+FORGELOG|MANA|Mountain (45) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Purphoros, God of the Forge
+FORGELOG|STACK_RESOLVE|Purphoros, God of the Forge - Creature 6 / 5
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 8 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (141)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 9 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (64)
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (4) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (4) - Lightning Bolt (4) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 10 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (156)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 11 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (59)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 12 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (187)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (39) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (39) - Lightning Bolt (39) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 13 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (99)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 14 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (194)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 15 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (65)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 16 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (145)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 17 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (26) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (26) - Lightning Bolt (26) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 18 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (164)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (46) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (18) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 40 > 37
+FORGELOG|STACK_RESOLVE|Lightning Bolt (18) - Lightning Bolt (18) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 19 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (96)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 20 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (162)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (22) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 37 > 34
+FORGELOG|STACK_RESOLVE|Lightning Bolt (22) - Lightning Bolt (22) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|MANA|Mountain (46) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (15) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (15) - Lightning Bolt (15) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 21 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (43)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 22 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (196)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 23 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (82)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 24 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (167)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 25 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (6) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (6) - Lightning Bolt (6) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (90)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 26 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (127).
+FORGELOG|TURN|Turn 27 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (86)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 28 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (168)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 29 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 30 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (174)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (29) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (29) - Lightning Bolt (29) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 31 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (54)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 32 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (121).
+FORGELOG|TURN|Turn 33 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 34 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (150)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 35 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (74)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 36 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (169)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (12) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (12) - Lightning Bolt (12) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 37 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 38 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (117).
+FORGELOG|TURN|Turn 39 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (48)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 40 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (154)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 41 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (42)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 42 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (118).
+FORGELOG|TURN|Turn 43 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (57)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 44 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (119).
+FORGELOG|TURN|Turn 45 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (87)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 46 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (140).
+FORGELOG|TURN|Turn 47 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (93)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 48 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (134).
+FORGELOG|TURN|Turn 49 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (77)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 50 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (153)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (21) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (21) - Lightning Bolt (21) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 51 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 52 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (193)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 53 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (53)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 54 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (171)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (31) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (31) - Lightning Bolt (31) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 55 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (94)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 56 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (137).
+FORGELOG|TURN|Turn 57 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (49)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 58 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (175)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 59 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 60 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (191)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (10) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (10) - Lightning Bolt (10) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 61 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (63)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 62 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (152)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 63 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (84)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 64 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (114).
+FORGELOG|TURN|Turn 65 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (83)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 66 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (110).
+FORGELOG|TURN|Turn 67 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 68 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (109).
+FORGELOG|TURN|Turn 69 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 70 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (189)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (33) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (33) - Lightning Bolt (33) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 71 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 72 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (146)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 73 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 74 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (143)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (1) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (1) - Lightning Bolt (1) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 75 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 76 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (147)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 77 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (56)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 78 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (151)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (11) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (11) - Lightning Bolt (11) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 79 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 80 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (197)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (3) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 34 > 31
+FORGELOG|STACK_RESOLVE|Lightning Bolt (3) - Lightning Bolt (3) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 81 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (72)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 82 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (186)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (13) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (13) - Lightning Bolt (13) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 83 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 84 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (173)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 85 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (60)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 86 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (166)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (7) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (7) - Lightning Bolt (7) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 87 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (51)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 88 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (176)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 89 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (98)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 90 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (182)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (16) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (16) - Lightning Bolt (16) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 91 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 92 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (138).
+FORGELOG|TURN|Turn 93 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (70)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 94 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (183)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 95 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 96 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (139).
+FORGELOG|TURN|Turn 97 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 98 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (9) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 31 > 28
+FORGELOG|STACK_RESOLVE|Lightning Bolt (9) - Lightning Bolt (9) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (135).
+FORGELOG|TURN|Turn 99 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (85)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 100 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (163)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 101 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (20) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (20) - Lightning Bolt (20) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (67)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 102 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (116).
+FORGELOG|TURN|Turn 103 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 104 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (190)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 105 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (58)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 106 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (161)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (17) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (17) - Lightning Bolt (17) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 107 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 108 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (158)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 109 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (62)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 110 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (103).
+FORGELOG|TURN|Turn 111 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 112 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (128).
+FORGELOG|TURN|Turn 113 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (88)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 114 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (24) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 28 > 25
+FORGELOG|STACK_RESOLVE|Lightning Bolt (24) - Lightning Bolt (24) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (124).
+FORGELOG|TURN|Turn 115 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 116 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (180)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|MANA|Island (158) - {T}: Add {U}.
+FORGELOG|MANA|Island (180) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (5) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 25 > 22
+FORGELOG|STACK_RESOLVE|Lightning Bolt (5) - Lightning Bolt (5) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|MANA|Mountain (46) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (23) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (23) - Lightning Bolt (23) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 117 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (55)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 118 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (113).
+FORGELOG|TURN|Turn 119 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 120 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (108).
+FORGELOG|TURN|Turn 121 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 122 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (159)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (2) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 22 > 19
+FORGELOG|STACK_RESOLVE|Lightning Bolt (2) - Lightning Bolt (2) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 123 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 124 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (34) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 19 > 16
+FORGELOG|STACK_RESOLVE|Lightning Bolt (34) - Lightning Bolt (34) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (133).
+FORGELOG|TURN|Turn 125 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (73)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 126 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (125).
+FORGELOG|TURN|Turn 127 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 128 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (8) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 16 > 13
+FORGELOG|STACK_RESOLVE|Lightning Bolt (8) - Lightning Bolt (8) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (126).
+FORGELOG|TURN|Turn 129 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (76)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 130 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (123).
+FORGELOG|TURN|Turn 131 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (79)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 132 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (136).
+FORGELOG|TURN|Turn 133 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (61)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 134 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (192)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|MANA|Island (158) - {T}: Add {U}.
+FORGELOG|MANA|Island (180) - {T}: Add {U}.
+FORGELOG|MANA|Island (159) - {T}: Add {U}.
+FORGELOG|MANA|Island (192) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (25) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (25) - Lightning Bolt (25) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 135 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 136 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (165)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 137 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (41)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 138 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (142)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|MANA|Island (158) - {T}: Add {U}.
+FORGELOG|MANA|Island (180) - {T}: Add {U}.
+FORGELOG|MANA|Island (159) - {T}: Add {U}.
+FORGELOG|MANA|Island (192) - {T}: Add {U}.
+FORGELOG|MANA|Island (165) - {T}: Add {U}.
+FORGELOG|MANA|Island (142) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (35) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (35) - Lightning Bolt (35) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 139 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 140 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (177)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 141 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (71)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 142 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (131).
+FORGELOG|TURN|Turn 143 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (68)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 144 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (102).
+FORGELOG|TURN|Turn 145 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 146 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (184)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|MANA|Island (158) - {T}: Add {U}.
+FORGELOG|MANA|Island (180) - {T}: Add {U}.
+FORGELOG|MANA|Island (159) - {T}: Add {U}.
+FORGELOG|MANA|Island (192) - {T}: Add {U}.
+FORGELOG|MANA|Island (165) - {T}: Add {U}.
+FORGELOG|MANA|Island (142) - {T}: Add {U}.
+FORGELOG|MANA|Island (177) - {T}: Add {U}.
+FORGELOG|MANA|Island (184) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 147 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Talrand, Sky Summoner (201)]
+FORGELOG|DAMAGE|Lightning Bolt (38) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|STACK_RESOLVE|Lightning Bolt (38) - Lightning Bolt (38) deals 3 damage to Talrand, Sky Summoner (201).
+FORGELOG|ZONE_CHANGE|Talrand, Sky Summoner (201) was put into Graveyard from Battlefield.
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 148 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (157)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|MANA|Mountain (46) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (27) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 13 > 10
+FORGELOG|STACK_RESOLVE|Lightning Bolt (27) - Lightning Bolt (27) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|MANA|Mountain (44) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (28) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 10 > 7
+FORGELOG|STACK_RESOLVE|Lightning Bolt (28) - Lightning Bolt (28) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|MANA|Mountain (45) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (37) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 7 > 4
+FORGELOG|STACK_RESOLVE|Lightning Bolt (37) - Lightning Bolt (37) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 149 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (14) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 4 > 1
+FORGELOG|STACK_RESOLVE|Lightning Bolt (14) - Lightning Bolt (14) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 150 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (179)
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|MANA|Island (185) - {T}: Add {U}.
+FORGELOG|MANA|Island (198) - {T}: Add {U}.
+FORGELOG|MANA|Island (172) - {T}: Add {U}.
+FORGELOG|MANA|Island (141) - {T}: Add {U}.
+FORGELOG|MANA|Island (156) - {T}: Add {U}.
+FORGELOG|MANA|Island (187) - {T}: Add {U}.
+FORGELOG|MANA|Island (194) - {T}: Add {U}.
+FORGELOG|MANA|Island (145) - {T}: Add {U}.
+FORGELOG|MANA|Island (164) - {T}: Add {U}.
+FORGELOG|MANA|Island (162) - {T}: Add {U}.
+FORGELOG|MANA|Island (196) - {T}: Add {U}.
+FORGELOG|MANA|Island (167) - {T}: Add {U}.
+FORGELOG|MANA|Island (168) - {T}: Add {U}.
+FORGELOG|MANA|Island (174) - {T}: Add {U}.
+FORGELOG|MANA|Island (150) - {T}: Add {U}.
+FORGELOG|MANA|Island (169) - {T}: Add {U}.
+FORGELOG|MANA|Island (154) - {T}: Add {U}.
+FORGELOG|MANA|Island (153) - {T}: Add {U}.
+FORGELOG|MANA|Island (193) - {T}: Add {U}.
+FORGELOG|MANA|Island (171) - {T}: Add {U}.
+FORGELOG|MANA|Island (175) - {T}: Add {U}.
+FORGELOG|MANA|Island (191) - {T}: Add {U}.
+FORGELOG|MANA|Island (152) - {T}: Add {U}.
+FORGELOG|MANA|Island (189) - {T}: Add {U}.
+FORGELOG|MANA|Island (146) - {T}: Add {U}.
+FORGELOG|MANA|Island (143) - {T}: Add {U}.
+FORGELOG|MANA|Island (147) - {T}: Add {U}.
+FORGELOG|MANA|Island (151) - {T}: Add {U}.
+FORGELOG|MANA|Island (197) - {T}: Add {U}.
+FORGELOG|MANA|Island (186) - {T}: Add {U}.
+FORGELOG|MANA|Island (173) - {T}: Add {U}.
+FORGELOG|MANA|Island (166) - {T}: Add {U}.
+FORGELOG|MANA|Island (176) - {T}: Add {U}.
+FORGELOG|MANA|Island (182) - {T}: Add {U}.
+FORGELOG|MANA|Island (183) - {T}: Add {U}.
+FORGELOG|MANA|Island (163) - {T}: Add {U}.
+FORGELOG|MANA|Island (190) - {T}: Add {U}.
+FORGELOG|MANA|Island (161) - {T}: Add {U}.
+FORGELOG|MANA|Island (158) - {T}: Add {U}.
+FORGELOG|MANA|Island (180) - {T}: Add {U}.
+FORGELOG|MANA|Island (159) - {T}: Add {U}.
+FORGELOG|MANA|Island (192) - {T}: Add {U}.
+FORGELOG|MANA|Island (165) - {T}: Add {U}.
+FORGELOG|MANA|Island (142) - {T}: Add {U}.
+FORGELOG|MANA|Island (177) - {T}: Add {U}.
+FORGELOG|MANA|Island (184) - {T}: Add {U}.
+FORGELOG|MANA|Island (157) - {T}: Add {U}.
+FORGELOG|MANA|Island (179) - {T}: Add {U}.
+FORGELOG|STACK_ADD|Ai(2)-Deck2 cast Talrand, Sky Summoner
+FORGELOG|STACK_RESOLVE|Talrand, Sky Summoner - Creature 2 / 2
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 151 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (95)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 152 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 40 > 38
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (149)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 153 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (69)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 154 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 38 > 36
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (170)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 155 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (66)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 156 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 36 > 34
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (105).
+FORGELOG|TURN|Turn 157 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (47)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 158 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 34 > 32
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (148)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 159 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (80)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 160 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 32 > 30
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (199)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 161 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (97)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 162 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 30 > 28
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (178)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 163 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (75)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 164 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 28 > 26
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (195)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 165 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (52)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 166 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 26 > 24
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|LAND|Ai(2)-Deck2 played Island (155)
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|TURN|Turn 167 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, precombat
+FORGELOG|LAND|Ai(1)-Deck1 played Mountain (92)
+FORGELOG|PHASE|Ai(1)-Deck1's Beginning of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Attackers Step
+FORGELOG|PHASE|Ai(1)-Deck1's Declare Blockers Step
+FORGELOG|PHASE|Ai(1)-Deck1's First Strike Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's Combat Damage Step
+FORGELOG|PHASE|Ai(1)-Deck1's End of Combat Step
+FORGELOG|PHASE|Ai(1)-Deck1's Main phase, postcombat
+FORGELOG|PHASE|Ai(1)-Deck1's End step
+FORGELOG|PHASE|Ai(1)-Deck1's Cleanup step
+FORGELOG|TURN|Turn 168 (Ai(2)-Deck2)
+FORGELOG|PHASE|Ai(2)-Deck2's Untap step
+FORGELOG|PHASE|Ai(2)-Deck2's Upkeep step
+FORGELOG|PHASE|Ai(2)-Deck2's Draw step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, precombat
+FORGELOG|PHASE|Ai(2)-Deck2's Beginning of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Attackers Step
+FORGELOG|COMBAT|Ai(2)-Deck2 assigned Talrand, Sky Summoner (201) to attack Ai(1)-Deck1.
+FORGELOG|PHASE|Ai(2)-Deck2's Declare Blockers Step
+FORGELOG|COMBAT|Ai(1)-Deck1 didn't block Talrand, Sky Summoner (201).
+FORGELOG|PHASE|Ai(2)-Deck2's First Strike Damage Step
+FORGELOG|PHASE|Ai(2)-Deck2's Combat Damage Step
+FORGELOG|DAMAGE|Talrand, Sky Summoner (201) deals 2 combat damage to Ai(1)-Deck1.
+FORGELOG|LIFE|Life: Ai(1)-Deck1 24 > 22
+FORGELOG|PHASE|Ai(2)-Deck2's End of Combat Step
+FORGELOG|PHASE|Ai(2)-Deck2's Main phase, postcombat
+FORGELOG|PHASE|Ai(2)-Deck2's End step
+FORGELOG|PHASE|Ai(2)-Deck2's Cleanup step
+FORGELOG|DISCARD|Ai(2)-Deck2 discards Divination (132).
+FORGELOG|TURN|Turn 169 (Ai(1)-Deck1)
+FORGELOG|PHASE|Ai(1)-Deck1's Untap step
+FORGELOG|PHASE|Ai(1)-Deck1's Upkeep step
+FORGELOG|PHASE|Ai(1)-Deck1's Draw step
+FORGELOG|MANA|Mountain (81) - {T}: Add {R}.
+FORGELOG|STACK_ADD|Ai(1)-Deck1 cast Lightning Bolt targeting [Ai(2)-Deck2]
+FORGELOG|DAMAGE|Lightning Bolt (19) deals 3 non-combat damage to Ai(2)-Deck2.
+FORGELOG|LIFE|Life: Ai(2)-Deck2 1 > -2
+FORGELOG|STACK_RESOLVE|Lightning Bolt (19) - Lightning Bolt (19) deals 3 damage to Ai(2)-Deck2.
+FORGELOG|PLAYER_CONTROL|Ai(1)-Deck1 has restored control over themself
+FORGELOG|PLAYER_CONTROL|Ai(2)-Deck2 has restored control over themself
+FORGELOG|GAME_OUTCOME|Turn 85
+FORGELOG|GAME_OUTCOME|Ai(1)-Deck1 has won because all opponents have lost
+FORGELOG|GAME_OUTCOME|Ai(2)-Deck2 has lost because life total reached 0
+FORGELOG|MATCH_RESULTS|Ai(1)-Deck1: 1 Ai(2)-Deck2: 0 
+Game Result: Game 1 ended in 52663 ms. Ai(1)-Deck1 has won!

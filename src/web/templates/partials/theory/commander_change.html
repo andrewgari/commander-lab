@@ -1,0 +1,14 @@
+{% import "partials/hud.html" as hud %}
+{#- commander_change: {old_commanders, new_commanders, reason, reuse_count, pets_lost} (only when swapped) -#}
+{%- set d = section.data %}
+<div class="hud-callout" role="note">
+    <div>
+        <span class="hud-label">Commander change</span>
+        <p class="hud-callout-swap"><s>{{ (d.old_commanders or []) | join(" + ") or "current commander" }}</s> → {{ (d.new_commanders or []) | join(" + ") }}</p>
+        {%- if d.reason %}<p>{{ d.reason }}</p>{% endif %}
+        {%- if d.pets_lost %}<p>Pets that leave (off the new colour identity): {{ d.pets_lost | join(", ") }}</p>{% endif %}
+    </div>
+    {%- if d.reuse_count is not none %}
+    <div class="hud-callout-n"><span class="hud-label">Reused</span><b>{{ d.reuse_count }}</b><span class="hud-freshness">cards from this deck</span></div>
+    {%- endif %}
+</div>

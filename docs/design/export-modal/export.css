@@ -1,0 +1,511 @@
+/* Decklist Export (EX-D): UI buttons and export modal for generated/reconstructed decklists.
+ * Spec: docs/design/export-modal/UX_SPEC.md.
+ * Tokens only (hud.css); no new colours, radii, shadows or gradients.
+ * Class prefix: `ex-`. Only transform and opacity animate; stops under prefers-reduced-motion.
+ */
+
+/* ---- Entry-point trigger bars ------------------------------------------ */
+.ex-bar {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+/* Trigger button with provider chips or status */
+.ex-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    max-width: 100%;
+    min-width: 0;
+}
+.ex-trigger > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.ex-trigger svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* Exported badge link on the draft card / doc header once created */
+.ex-ext-links {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.ex-ext-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    height: var(--chip-h);
+    padding: 0 var(--sp-2);
+    background: var(--ok-dim);
+    border: var(--hairline) solid var(--ok);
+    border-radius: var(--radius-1);
+    color: var(--ok);
+    font: var(--fw-medium) var(--fs-micro) var(--font-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.ex-ext-link:hover {
+    color: var(--text-1);
+    border-color: var(--text-1);
+}
+.ex-ext-link:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
+}
+
+/* ---- Modal Dialog ------------------------------------------------------ */
+.ex-modal .hud-modal-dialog {
+    max-width: 42rem;
+}
+
+.ex-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+}
+
+/* Deck Summary Strip (top of modal) */
+.ex-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2) var(--sp-4);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-0);
+    border: var(--stroke);
+    border-left: var(--indicator) solid var(--signal);
+    border-radius: var(--radius-1);
+}
+.ex-summary-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ex-summary-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-3);
+    font: var(--fs-micro) var(--font-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.ex-summary-title {
+    margin: 0;
+    color: var(--text-1);
+    font: var(--fw-semibold) var(--fs-md)/var(--lh-tight) var(--font-sans);
+    overflow-wrap: anywhere;
+}
+.ex-summary-cmdr {
+    color: var(--text-2);
+    font: var(--fw-semibold) var(--fs-sm) var(--font-card);
+}
+.ex-summary-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-1);
+}
+
+/* Draft selector tabs (when Reconstruct has 2 drafts) */
+.ex-draft-picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+/* ---- Target Provider Multi-Select Tiles -------------------------------- */
+.ex-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.ex-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    width: 100%;
+    padding: 0;
+    margin-bottom: var(--sp-1);
+    color: var(--text-1);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+}
+.ex-legend-hint {
+    color: var(--text-3);
+    font: var(--fw-regular) var(--fs-xs) var(--font-mono);
+}
+
+.ex-targets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-3);
+}
+.ex-target {
+    position: relative;
+    min-width: 0;
+}
+.ex-target input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.ex-target label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    height: 100%;
+    box-sizing: border-box;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.ex-target label:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+}
+.ex-target input:checked + label {
+    background: var(--signal-dim);
+    border-color: var(--signal-line);
+    box-shadow: inset var(--indicator) 0 0 var(--signal);
+}
+.ex-target input:focus-visible + label {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
+}
+.ex-target.is-unconfigured label {
+    background: var(--surface-0);
+    border-style: dashed;
+}
+
+.ex-target-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+}
+.ex-target-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-1);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+}
+.ex-target-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    background: var(--surface-3);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-1);
+    font: var(--fw-semibold) var(--fs-xs) var(--font-mono);
+}
+.ex-target input:checked + label .ex-target-badge {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: var(--text-on-signal);
+}
+.ex-target-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: var(--stroke-strong);
+    border-radius: var(--radius-0);
+    background: var(--surface-0);
+    color: transparent;
+    font: var(--fw-semibold) var(--fs-xs)/1 var(--font-mono);
+}
+.ex-target input:checked + label .ex-target-check {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: var(--text-on-signal);
+}
+.ex-target-account {
+    color: var(--text-2);
+    font: var(--fs-xs) var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ex-target-desc {
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-snug);
+}
+.ex-target-foot {
+    margin-top: auto;
+    padding-top: var(--sp-1);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    min-width: 0;
+}
+.ex-target-foot .hud-chip {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Options Form Grid ------------------------------------------------- */
+.ex-options {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--sp-4);
+}
+.ex-field-full {
+    grid-column: 1 / -1;
+}
+.ex-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-5);
+    padding-top: var(--sp-1);
+}
+
+/* ---- Per-Provider Execution & Results List ----------------------------- */
+.ex-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hairline);
+    background: var(--line);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.ex-result-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--sp-2) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-1);
+}
+.ex-result-row.is-ok {
+    border-left: var(--indicator) solid var(--ok);
+}
+.ex-result-row.is-err {
+    border-left: var(--indicator) solid var(--danger);
+}
+.ex-result-row.is-warn {
+    border-left: var(--indicator) solid var(--signal);
+}
+.ex-result-row.is-busy {
+    border-left: var(--indicator) solid var(--data);
+}
+.ex-result-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.ex-result-name {
+    color: var(--text-1);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.ex-result-detail {
+    color: var(--text-3);
+    font: var(--fs-xs) var(--font-mono);
+    overflow-wrap: anywhere;
+}
+.ex-result-row.is-err .ex-result-detail {
+    color: var(--danger);
+}
+.ex-result-row.is-warn .ex-result-detail {
+    color: var(--signal);
+}
+.ex-result-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+/* ---- Manual Copy & Paste Fallback Tray --------------------------------- */
+.ex-fallback {
+    background: var(--surface-0);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+}
+.ex-fallback > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-1) var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    cursor: pointer;
+    list-style: none;
+    color: var(--text-2);
+    font: var(--fw-medium) var(--fs-xs) var(--font-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+}
+.ex-fallback > summary .hud-freshness {
+    white-space: normal;
+}
+.ex-fallback > summary::-webkit-details-marker {
+    display: none;
+}
+.ex-fallback > summary::before {
+    content: "▸ ";
+    color: var(--signal);
+}
+.ex-fallback[open] > summary::before {
+    content: "▾ ";
+}
+.ex-fallback[open] > summary {
+    border-bottom: var(--stroke);
+    color: var(--text-1);
+}
+.ex-fallback-body {
+    padding: var(--sp-3) var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+.ex-fallback-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+}
+.ex-fallback-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+}
+.ex-decklist-box {
+    margin: 0;
+    padding: var(--sp-3);
+    max-height: 11rem;
+    overflow-y: auto;
+    background: var(--surface-1);
+    border: var(--stroke);
+    border-radius: var(--radius-1);
+    color: var(--text-2);
+    font: var(--fs-xs)/1.45 var(--font-mono);
+    white-space: pre;
+    tab-size: 2;
+}
+.ex-copy-feedback {
+    color: var(--ok);
+    font: var(--fs-xs) var(--font-mono);
+}
+
+/* ---- Modal Footer Actions ---------------------------------------------- */
+.ex-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding-top: var(--sp-4);
+    border-top: var(--stroke);
+    flex-wrap: wrap;
+}
+.ex-foot-left {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-3);
+    font: var(--fs-xs) var(--font-mono);
+}
+.ex-foot-right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-left: auto;
+}
+
+/* ---- Responsive (Tablet & Phone <=640px) ------------------------------- */
+@media (max-width: 640px) {
+    .ex-modal {
+        padding: 0;
+        align-items: stretch;
+    }
+    .ex-modal .hud-modal-dialog {
+        max-width: none;
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+    .ex-modal .hud-panel-head {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--surface-1);
+    }
+    .ex-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ex-summary-meta {
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+    }
+    .ex-targets {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ex-options {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ex-result-row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+    .ex-result-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+    .ex-foot {
+        position: sticky;
+        bottom: 0;
+        background: var(--surface-1);
+        padding: var(--sp-3) 0;
+    }
+    .ex-foot-right {
+        width: 100%;
+        min-width: 0;
+    }
+    .ex-foot-right .hud-btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        min-width: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ex-target label,
+    .ex-ext-link {
+        transition: none;
+    }
+}

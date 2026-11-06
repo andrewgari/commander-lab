@@ -1,0 +1,29 @@
+{
+ "db": 0,
+ "dbsize": 4,
+ "keys": {
+  "lab_tags": {
+   "type": "string",
+   "pttl": null,
+   "value": "{\"a\":[\"x\"]}"
+  },
+  "comp:presets": {
+   "type": "string",
+   "pttl": null,
+   "value": "[]"
+  },
+  "interactions:runs": {
+   "type": "list",
+   "pttl": null,
+   "value": [
+    "{\"run_id\":\"r1\"}",
+    "{\"run_id\":\"r2\"}"
+   ]
+  },
+  "tmp:ttl": {
+   "type": "string",
+   "pttl": 60000,
+   "value": "h\u00e9llo"
+  }
+ }
+}

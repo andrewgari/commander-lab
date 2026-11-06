@@ -1,0 +1,93 @@
+# The world is slowly ebbing away... (Archidekt 13958290, owner CovaDax)
+# Commander:
+1 Celes, Rune Knight
+
+# Mainboard:
+1 Abdel Adrian, Gorion's Ward
+1 Alesha, Who Laughs at Fate
+1 Altar of Dementia
+1 Anguished Unmaking
+1 Animate Dead
+1 Arcane Signet
+1 Ashnod's Altar
+1 Battlefield Forge
+1 Beseech the Mirror
+1 Black Market Connections
+1 Blasting Station
+1 Blood Crypt
+1 Bolas's Citadel
+1 Buried Alive
+1 Caves of Koilos
+1 Clifftop Retreat
+1 Cloudshift
+1 Command Tower
+1 Culling the Weak
+1 Damn
+1 Dark Ritual
+1 Deadly Dispute
+1 Deflecting Swat
+1 Demonic Tutor
+1 Diabolic Intent
+1 Dragonskull Summit
+1 Dualcaster Mage
+1 Entomb
+1 Ephemerate
+1 Esper Sentinel
+1 Exotic Orchard
+1 Faithless Looting
+1 Fellwar Stone
+1 Fetid Heath
+1 Gamble
+1 Goblin Bombardment
+1 Godless Shrine
+1 Grand Abolisher
+1 Graven Cairns
+1 High Market
+1 Imperial Recruiter
+1 Isolated Chapel
+1 Lesser Masticore
+1 Lively Dirge
+1 Locke, Treasure Hunter
+1 Lotho, Corrupt Shirriff
+1 Luminous Broodmoth
+1 Luxury Suite
+1 Mayhem Devil
+3 Mountain
+1 Murderous Redcap
+1 Necromancy
+1 Nomad Outpost
+1 Orcish Bowmasters
+1 Path to Exile
+1 Phyrexian Altar
+5 Plains
+1 Priest of Fell Rites
+1 Putrid Goblin
+1 Pyroblast
+1 Rakdos Signet
+1 Ranger-Captain of Eos
+1 Reanimate
+1 Red Elemental Blast
+1 Rejoin the Fight
+1 Reliquary Tower
+1 Ruinous Ultimatum
+1 Sacred Foundry
+1 Savai Triome
+1 Saw in Half
+1 Sevinne's Reclamation
+1 Silence
+1 Simian Spirit Guide
+1 Smoldering Marsh
+1 Sol Ring
+1 Spectator Seating
+6 Swamp
+1 Swords to Plowshares
+1 Talisman of Conviction
+1 Talisman of Hierarchy
+1 Talisman of Indulgence
+1 Terra, Herald of Hope
+1 Twinflame
+1 Vandalblast
+1 Vault of Champions
+1 Viscera Seer
+1 Voice of Victory
+1 Warren Soultrader

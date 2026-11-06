@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Identity · Holy Hellfire · Commander Lab mockup (AN-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="analytics.css">
+<style>
+    .id-top { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: var(--sp-6); align-items: start; }
+    .id-fit { padding: var(--sp-5); background: var(--surface-1); border: var(--stroke); border-radius: var(--radius-1); margin-top: var(--sp-6); }
+    .id-fit .hud-stat-value { font-size: var(--fs-hero); }
+    .id-proposal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4); align-items: center; margin: var(--sp-6) 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--data); border-radius: var(--radius-1); }
+    .id-proposal p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); }
+    .id-proposal b { color: var(--text-1); }
+    .id-pillars-head { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-8) 0 var(--sp-3); }
+    .id-pillars-head .hud-section-head { margin: 0; flex: 1; }
+    @media (max-width: 900px) { .id-top { grid-template-columns: minmax(0, 1fr); } .id-fit { margin-top: 0; } }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+
+    <div class="id-top">
+        <!-- Thesis -->
+        <section class="hud-thesis" aria-labelledby="thesisLabel">
+            <div class="hud-thesis-bar" aria-hidden="true"><span style="background:var(--mana-w)"></span><span style="background:var(--mana-b)"></span><span style="background:var(--mana-r)"></span></div>
+            <div id="thesis">
+                <span class="hud-label" id="thesisLabel">Thesis · pinned · edited by you 3d ago</span>
+                <blockquote>Swing with Kaalia, cheat a <em>seven-drop Angel, Demon or Dragon</em> in sideways, and make sure she lives to do it again.</blockquote>
+                <div class="hud-thesis-meta">
+                    <button class="hud-btn hud-btn--sm" type="button" id="thesisEdit">Edit <span class="hud-kbd">e</span></button>
+                    <button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Show generated draft</button>
+                    <span class="hud-freshness">Generated draft from <b>sync 2026-10-11</b> · Gemini</span>
+                </div>
+            </div>
+        </section>
+        <aside class="id-fit" aria-label="Deck fit">
+            <span class="hud-label">On-plan</span>
+            <div class="hud-stat-value" style="color:var(--signal)">71<span class="hud-stat-unit">%</span></div>
+            <div class="hud-meter" role="img" aria-label="Pillar 46, glue 42, generic 12" style="margin-top:var(--sp-3)">
+                <span style="width:46%;background:var(--signal)"></span><span style="width:42%;background:var(--data-2)"></span><span style="width:12%;background:var(--text-4)"></span></div>
+            <div class="hud-meter-legend"><span><i style="background:var(--signal)"></i><b>46</b> pillar</span><span><i style="background:var(--data-2)"></i><b>42</b> glue</span><span><i style="background:var(--text-4)"></i><b>12</b> generic</span></div>
+            <p class="hud-field-hint" style="margin:var(--sp-3) 0 0">Glue = lands, ramp, interaction (composition rows). Generic = fits no pillar and isn't glue. Scores recompute when you save.</p>
+        </aside>
+    </div>
+
+    <!-- Re-sync proposal banner (only when a sync proposed something new) -->
+    <div class="id-proposal" role="status">
+        <p><b>Re-sync proposed 1 new pillar.</b> Your 3 pinned pillars and the thesis were not touched. Proposals are drafts until you keep them.</p>
+        <a class="hud-btn hud-btn--sm" href="#p-draft">Review proposal ↓</a>
+    </div>
+
+    <div class="id-pillars-head">
+        <div class="hud-section-head"><span class="hud-section-id">01</span><h2>Pillars · 4 of 5 max</h2></div>
+        <span class="hud-freshness"><span class="hud-kbd">n</span> new · <span class="hud-kbd">e</span> edit · <span class="hud-kbd">p</span> pin/keep · <span class="hud-kbd">x</span> reject · <span class="hud-kbd">⇧↑↓</span> reorder</span>
+    </div>
+    <div class="hud-pillars" id="pillars" role="list"></div>
+
+    <details class="hud-tray" style="margin-top:var(--sp-4)">
+        <summary>Rejected · 2 <span class="hud-freshness" style="margin-left:auto">never re-proposed</span></summary>
+        <div class="hud-tray-row"><span><s>Tribal Angels</s> <span class="hud-field-hint">· rejected 2026-10-09 · "angels are a means, not the point"</span></span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Restore</button></div>
+        <div class="hud-tray-row"><span><s>Big mana</s> <span class="hud-field-hint">· rejected 2026-10-09</span></span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Restore</button></div>
+    </details>
+
+    <div class="hud-savebar is-dirty" id="savebar">
+        <span class="hud-freshness"><b>1 unsaved change</b> · pillar 2 description edited</span>
+        <button class="hud-btn hud-btn--ghost" type="button">Discard</button>
+        <button class="hud-btn hud-btn--primary" type="button">Save &amp; rescore <span class="hud-kbd" style="border-color:var(--text-on-signal);color:var(--text-on-signal)">⌘↵</span></button>
+    </div>
+
+    <div class="mock-note">Mockup · AN-D · pillars, scores and drafts illustrative · card names real</div>
+</main>
+<script src="../../../static/js/hud.js"></script>
+<script src="mock.js"></script>
+<script>
+(function () {
+    "use strict";
+    var M = MOCK; M.shell();
+    document.getElementById("deckhead").innerHTML = M.deckhead("identity", '<a class="hud-btn" href="stats.html">See fit on Stats</a>');
+    var P = [
+        { id: "p1", state: "pinned hero", n: 24, name: "Payoffs worth cheating", desc: "Angels, Demons and Dragons at 6+ that win the game or wreck the board the turn they land. This is the deck.", cards: ["Hellkite Tyrant", "Angel of Serenity", "Razaketh"], delta: "" },
+        { id: "p2", state: "pinned editing", n: 9, name: "Swing twice", desc: "Extra combats and trigger doublers: every attack is two cheat-ins.", cards: ["Aurelia", "Isshin", "Hellkite Charger"], delta: "" },
+        { id: "p3", state: "pinned", n: 8, name: "Keep her alive", desc: "Haste, shroud, protection and safe-attack effects. Kaalia has to connect.", cards: ["Lightning Greaves", "Mother of Runes", "Grand Abolisher"], delta: "thin: 8, aim 10" },
+        { id: "p-draft", state: "draft", n: 5, name: "Life is a resource", desc: "Pay life for cards: Necropotence, Vilis, Bloodgift. Proposed by re-sync 2026-10-11.", cards: ["Vilis", "Necropotence", "Bloodgift Demon"], delta: "new" }
+    ];
+    function pillar(p, i) {
+        var hero = p.state.indexOf("hero") !== -1, pinned = p.state.indexOf("pinned") !== -1, draft = p.state === "draft", editing = p.state.indexOf("editing") !== -1;
+        var cls = "hud-pillar hud-enter" + (hero ? " is-hero" : "") + (pinned ? " is-pinned" : "") + (draft ? " is-draft" : "") + (editing ? " is-editing" : "");
+        var label = (i === 0 ? "Pillar 1 · the engine" : "Pillar " + (i + 1)) + (draft ? " · draft" : "");
+        var head = '<div class="hud-pillar-top"><span class="hud-label">' + label + "</span>" +
+            (draft ? HUD.chip("proposed", "data") : pinned ? HUD.chip("pinned", hero ? "ghost" : "signal") : "") + "</div>";
+        var body = editing
+            ? '<label class="hud-label" for="pn' + i + '">Name</label><input id="pn' + i + '" value="Swing twice" maxlength="40">' +
+              '<label class="hud-label" for="pd' + i + '">What belongs here</label><textarea id="pd' + i + '">Extra combats and trigger doublers: every attack is two cheat-ins.</textarea>' +
+              '<span class="hud-field-hint">Describe it in words: cards are scored against this text (embeddings), not tags.</span>'
+            : "<h3>" + p.name + "</h3><p>" + p.desc + "</p>";
+        var meta = '<div class="hud-pillar-n">' + p.n + ' <small>cards' + (p.delta ? ' · <span class="hud-pillar-delta"' + (hero ? ' style="color:inherit"' : "") + ">" + p.delta + "</span>" : "") + "</small></div>" +
+            '<div class="hud-pillar-cards">Top fit: ' + p.cards.map(function (c) { return "<b>" + c + "</b>"; }).join(", ") + "</div>";
+        var actions = editing
+            ? '<div class="hud-pillar-actions"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button">Done</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Cancel</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" aria-label="Move pillar">↑↓ Move</button></div>'
+            : draft
+            ? '<div class="hud-pillar-actions"><button class="hud-btn hud-btn--sm hud-btn--primary" type="button">Keep</button><button class="hud-btn hud-btn--sm" type="button">Edit</button><button class="hud-btn hud-btn--sm hud-btn--danger" type="button">Reject</button></div>'
+            : '<div class="hud-pillar-actions"><button class="hud-btn hud-btn--sm" type="button" aria-pressed="true">Unpin</button><button class="hud-btn hud-btn--sm" type="button">Edit</button><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" aria-label="Reject pillar">Reject</button></div>';
+        return '<article class="' + cls + '" role="listitem" tabindex="0" id="' + p.id + '" style="--i:' + i + '" aria-label="' + label + ": " + p.name + '">' + head + body + (editing ? "" : meta) + actions + "</article>";
+    }
+    document.getElementById("pillars").innerHTML = P.map(pillar).join("") +
+        '<button class="hud-pillar hud-pillar-add hud-enter" type="button" style="--i:4"><span class="hud-label">Slot 5 of 5</span><h3>+ Add pillar</h3><p>Write it yourself, or ask for a draft from the cards that fit no pillar (12 generic).</p></button>';
+})();
+</script>
+</body>
+</html>

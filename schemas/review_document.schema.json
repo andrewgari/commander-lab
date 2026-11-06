@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commander-lab.local/schemas/review_document.schema.json",
+  "title": "review_document v1",
+  "description": "Pipeline <-> renderer contract (CONTRACT section 5, as amended by DECISIONS.md). Cross-reference rules JSON Schema cannot express (unique ids, *_id resolution) live in tests/review_document_refs.py:check_references.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "meta", "verdict", "deck_identity", "scorecard", "strengths", "problems", "top_changes", "swaps", "cuts_to_consider", "bracket", "mana", "questions_for_owner", "charts", "omitted"],
+  "properties": {
+    "schema_version": {"const": "review_document.v1"},
+    "meta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["deck_id", "deck_name", "commanders", "generated_at", "pipeline_version", "prompt_versions", "models", "fact_pack_hash"],
+      "properties": {
+        "deck_id": {"type": "string", "minLength": 1},
+        "deck_name": {"type": "string", "minLength": 1},
+        "commanders": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"$ref": "#/$defs/card_ref"}},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "pipeline_version": {"type": "string", "minLength": 1},
+        "prompt_versions": {"description": "pass name (A..E, critic) -> prompt version, e.g. 'v1'", "type": "object", "additionalProperties": {"type": "string", "pattern": "^v[0-9]+$"}, "minProperties": 1},
+        "models": {"description": "pass name -> pinned model id", "type": "object", "additionalProperties": {"type": "string", "minLength": 1}, "minProperties": 1},
+        "fact_pack_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "verdict": {
+      "type": "object", "additionalProperties": false,
+      "required": ["headline", "summary", "grade", "confidence"],
+      "properties": {
+        "headline": {"type": "string", "minLength": 1, "description": "<= 20 words (enforced by word_limits in the ref checker)"},
+        "summary": {"type": "string", "minLength": 1, "description": "<= 80 words (enforced by word_limits in the ref checker)"},
+        "grade": {"$ref": "#/$defs/grade"},
+        "confidence": {"$ref": "#/$defs/unit"}
+      }
+    },
+    "deck_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["what_it_does", "win_paths", "success_criteria", "intentional_quirks"],
+      "properties": {
+        "what_it_does": {"type": "string", "minLength": 1},
+        "win_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "success_criteria": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "intentional_quirks": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "scorecard": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["axis", "score", "one_line", "finding_ids"],
+        "properties": {
+          "axis": {"type": "string", "minLength": 1},
+          "score": {"type": "integer", "minimum": 1, "maximum": 10},
+          "one_line": {"type": "string", "minLength": 1},
+          "finding_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}}
+        }
+      }
+    },
+    "strengths": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "problems": {"description": "Ordered by severity, most severe first (checked by the ref checker).", "type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "top_changes": {
+      "description": "Null when verification removed this selection or fewer than one verified swap remains; otherwise lists up to three verified swaps without padding.",
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["swap_ids", "why_these_first"],
+          "properties": {
+            "swap_ids": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+            "why_these_first": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "swaps": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "cut", "add", "resolves_finding_id", "tradeoff", "bracket_effect", "budget_effect", "owned"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "cut": {"$ref": "#/$defs/card_ref"},
+          "add": {"$ref": "#/$defs/card_ref"},
+          "resolves_finding_id": {"$ref": "#/$defs/id"},
+          "tradeoff": {"type": "string", "minLength": 1},
+          "bracket_effect": {"enum": ["none", "raises", "lowers"]},
+          "budget_effect": {"type": "string", "minLength": 1},
+          "alternative": {"anyOf": [{"$ref": "#/$defs/card_ref"}, {"type": "null"}]},
+          "owned": {"type": "boolean"},
+          "price": {"description": "USD for the added card; null when Scryfall has no price.", "anyOf": [{"type": "number", "minimum": 0}, {"type": "null"}]}
+        }
+      }
+    },
+    "cuts_to_consider": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["card", "reason", "evidence"],
+        "properties": {
+          "card": {"$ref": "#/$defs/card_ref"},
+          "reason": {"type": "string", "minLength": 1},
+          "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "bracket": {
+      "type": "object", "additionalProperties": false,
+      "required": ["estimated", "target", "reasons"],
+      "properties": {
+        "estimated": {"type": "integer", "minimum": 1, "maximum": 5},
+        "target": {"anyOf": [{"type": "integer", "minimum": 1, "maximum": 5}, {"type": "null"}]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "mana": {
+      "type": "object", "additionalProperties": false,
+      "required": ["summary", "issues"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1},
+        "issues": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "questions_for_owner": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "question", "why_asked"],
+        "properties": {
+          "id": {"$ref": "#/$defs/id"},
+          "question": {"type": "string", "minLength": 1},
+          "why_asked": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "charts": {
+      "description": "Copied from the fact pack by code, never produced by an LLM. The renderer may rely on every field below.",
+      "type": "object", "additionalProperties": false,
+      "required": ["curve", "pips_vs_sources", "roles", "synergy_clusters"],
+      "properties": {
+        "curve": {
+          "type": "object", "additionalProperties": false,
+          "required": ["buckets", "average_mv"],
+          "properties": {
+            "buckets": {
+              "description": "One entry per mana-value bucket 0..7, in order; 7 means 7+. Lands excluded.",
+              "type": "array", "minItems": 8, "maxItems": 8,
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["mv", "count", "label"],
+                "properties": {
+                  "mv": {"type": "integer", "minimum": 0, "maximum": 7},
+                  "count": {"type": "integer", "minimum": 0},
+                  "label": {"type": "string", "enum": ["0", "1", "2", "3", "4", "5", "6", "7+"]}
+                }
+              }
+            },
+            "average_mv": {"type": "number", "minimum": 0}
+          }
+        },
+        "pips_vs_sources": {
+          "description": "One row per color the deck cares about (WUBRG order).",
+          "type": "array", "minItems": 1, "maxItems": 5,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["color", "pips", "sources", "recommended_sources"],
+            "properties": {
+              "color": {"enum": ["W", "U", "B", "R", "G"]},
+              "pips": {"type": "integer", "minimum": 0},
+              "sources": {"type": "integer", "minimum": 0},
+              "recommended_sources": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "roles": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["role", "count", "target_min", "target_max"],
+            "properties": {
+              "role": {"type": "string", "minLength": 1},
+              "count": {"type": "integer", "minimum": 0},
+              "target_min": {"type": "integer", "minimum": 0},
+              "target_max": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "synergy_clusters": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "cards", "strength"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "cards": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/card_ref"}},
+              "strength": {"$ref": "#/$defs/unit"}
+            }
+          }
+        }
+      }
+    },
+    "forge": {
+      "description": "Optional on-demand game-log evidence. Absent from the document means 'not requested'; status 'unavailable' means explicit unavailability with a reason.",
+      "type": "object", "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["available", "unavailable"]},
+        "reason": {"type": "string", "minLength": 1},
+        "games": {"type": "integer", "minimum": 0},
+        "win_rate": {"anyOf": [{"$ref": "#/$defs/unit"}, {"type": "null"}]},
+        "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "unavailable"}}}, "then": {"required": ["reason"]}},
+        {"if": {"properties": {"status": {"const": "available"}}}, "then": {"required": ["games"]}}
+      ]
+    },
+    "omitted": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "item", "reason"],
+        "properties": {
+          "kind": {"enum": ["swap", "finding", "cut", "claim"]},
+          "item": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+    "unit": {"type": "number", "minimum": 0, "maximum": 1},
+    "grade": {"enum": ["A", "B", "C", "D", "F"]},
+    "severity": {"enum": ["low", "med", "high", "critical"]},
+    "card_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "oracle_id"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "oracle_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"}
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "axis", "claim", "evidence", "severity", "confidence"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "axis": {"type": "string", "minLength": 1},
+        "claim": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["cards", "fact_keys"],
+          "properties": {
+            "cards": {"type": "array", "items": {"$ref": "#/$defs/card_ref"}},
+            "fact_keys": {"type": "array", "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "severity": {"$ref": "#/$defs/severity"},
+        "confidence": {"$ref": "#/$defs/unit"}
+      }
+    }
+  }
+}

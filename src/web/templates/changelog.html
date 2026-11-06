@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Changelog | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .changelog-header {
+        margin-bottom: 2rem;
+    }
+
+    .changelog-subtitle {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-top: -1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .changelog-container {
+        max-width: 800px;
+    }
+
+    .changelog-scrollable {
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+        padding-right: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    /* Custom scrollbar matching base theme */
+    .changelog-scrollable::-webkit-scrollbar {
+        width: 8px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-track {
+        background: var(--bg-color);
+        border-radius: 4px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+    }
+    .changelog-scrollable::-webkit-scrollbar-thumb:hover {
+        background: #374151;
+    }
+
+    .release-entry {
+        background: var(--nav-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .release-entry:hover {
+        border-color: rgba(59, 130, 246, 0.4);
+        transform: translateY(-1px);
+    }
+
+    .release-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .release-tags {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .version-tag {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #93c5fd;
+        background: #172554;
+        border: 1px solid #1e40af;
+        border-radius: 4px;
+        padding: 0.2rem 0.6rem;
+        letter-spacing: 0.02em;
+    }
+
+    .badge-prerelease {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        background: #713f12;
+        color: #fef3c7;
+        border: 1px solid #854d0e;
+    }
+
+    .release-date {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .release-name {
+        font-family: 'EB Garamond', serif;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin: 0 0 0.5rem 0;
+    }
+
+    .release-description {
+        color: var(--text-main);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .release-description ul,
+    .release-description ol {
+        margin: 0.5rem 0 0.5rem 1.25rem;
+        padding: 0;
+    }
+
+    .release-description li {
+        margin-bottom: 0.25rem;
+    }
+
+    .release-description h1,
+    .release-description h2,
+    .release-description h3,
+    .release-description h4 {
+        color: var(--text-heading);
+        margin: 0.75rem 0 0.4rem 0;
+        font-size: 1rem;
+    }
+
+    .release-description p {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .release-description code {
+        background: var(--bg-color);
+        border-radius: 3px;
+        padding: 0.1rem 0.3rem;
+        font-size: 0.85em;
+    }
+
+    .changelog-alert {
+        background: rgba(127, 29, 29, 0.15);
+        border: 1px solid #991b1b;
+        border-radius: 8px;
+        padding: 1.5rem;
+        color: #fca5a5;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .changelog-alert svg {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        color: #ef4444;
+    }
+
+    .changelog-empty {
+        background: var(--nav-bg);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 3rem 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="changelog-container">
+    <div class="changelog-header">
+        <h1>Changelog</h1>
+        <div class="changelog-subtitle">Version history and release notes for Commander Lab</div>
+    </div>
+
+    {% if error_msg %}
+    <div class="changelog-alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ error_msg }}</span>
+    </div>
+    {% elif not releases %}
+    <div class="changelog-empty">
+        <p>No releases found yet.</p>
+    </div>
+    {% else %}
+    <div class="changelog-scrollable">
+        {% for release in releases %}
+        <article class="release-entry">
+            <div class="release-header">
+                <div class="release-tags">
+                    <span class="version-tag">{{ release.tag_name }}</span>
+                    {% if release.prerelease %}
+                    <span class="badge-prerelease">Pre-release</span>
+                    {% endif %}
+                </div>
+                <time class="release-date"{% if release.published_at %} datetime="{{ release.published_at }}" data-rel{% endif %} title="{{ release.release_date or (release.published_at or '')[:10] }}">{{ release.release_date or release.published_at[:10] }}</time>
+            </div>
+            {% if release.name and release.name != release.tag_name %}
+            <h2 class="release-name">{{ release.name }}</h2>
+            {% endif %}
+            <div class="release-description">{{ (release.body_html or release.body or "No description provided.") | safe }}</div>
+        </article>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<script>
+(function () {
+  var DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+  // Timestamp: minutes / hours / yesterday / days / last week; older -> "".
+  function agoTimestamp(d) {
+    var now = new Date();
+    var secs = Math.max(0, (now.getTime() - d.getTime()) / 1000);
+    var mins = Math.floor(secs / 60), hrs = Math.floor(secs / 3600);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + " min ago";
+    if (hrs < 24) return hrs + (hrs === 1 ? " hour ago" : " hours ago");
+    return agoDays(calendarDays(d, now));
+  }
+
+  function calendarDays(d, now) {
+    var a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var b = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((b - a) / 86400000);
+  }
+
+  function agoDays(n) {
+    if (n < 0) return "";
+    if (n === 0) return "today";
+    if (n === 1) return "yesterday";
+    if (n < 7) return n + " days ago";
+    if (n < 14) return "last week";
+    return "";
+  }
+
+  document.querySelectorAll("time[data-rel]").forEach(function (t) {
+    var raw = (t.getAttribute("datetime") || "").trim();
+    var dateOnly = DATE_ONLY.test(raw);
+    var d;
+    if (dateOnly) {
+      var p = raw.split("-");
+      d = new Date(+p[0], +p[1] - 1, +p[2]);  // local midnight, no time claimed
+    } else {
+      d = new Date(raw);
+    }
+    if (isNaN(d.getTime())) return;
+    // Date-only values never get minute/hour precision.
+    var rel = dateOnly ? agoDays(calendarDays(d, new Date())) : agoTimestamp(d);
+    if (!rel) return;
+    // textContent only: no HTML parsing of injected data.
+    t.textContent = rel + " \u00b7 " + t.textContent;
+  });
+})();
+</script>
+{% endblock %}

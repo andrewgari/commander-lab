@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Review · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Page layout only (REVIEW_SPEC). Components are hud.css section 13. */
+    .rv-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
+    .rv-error:empty { display: none; }
+    .rv-job { margin-bottom: var(--sp-4); }
+    .rv-empty { display: flex; flex-direction: column; gap: var(--sp-4); align-items: flex-start; }
+
+    /* Ultrawide "Deep Review" index | body | dock (SPEC.md §4). Both tiers
+       use the 3-column layout: index rail 176px (UW1) / 208px (UW2); dock
+       352px (UW1) / 400px (UW2), matching §2's rail table. Below 1921px
+       the index/dock would just be extra stacked blocks above a 960px doc,
+       so they stay out of the DOM order entirely narrow (rv-index duplicates
+       the in-body sticky doc_index; rv-dock has no selection plumbing worth
+       showing at that width). The dock itself still follows the generic
+       [data-hud-dock] collapse rule in hud.css (default expanded >=1920px,
+       collapsible 44px rail at any width the grid applies). */
+    .rv-index, .rv-dock { display: none; }
+    @media (min-width: 1921px) {
+        .rv-grid { display: grid; grid-template-columns: 176px minmax(0, 1fr) 352px; gap: var(--sp-6); align-items: start; }
+        .rv-index, .rv-body, .rv-dock { min-width: 0; }
+        .rv-index { display: block; position: sticky; top: calc(var(--topbar-h, 0px) + var(--sp-4)); }
+        .rv-dock { display: block; }
+        .rv-body .hud-doc-index { display: none; }
+    }
+    @media (min-width: 2800px) {
+        .rv-grid { grid-template-columns: 208px minmax(0, 1fr) 400px; gap: var(--sp-8); }
+    }
+    /* .hud-doc's 960px reading-measure cap is for plain document pages; the
+       Review body column needs the width the grid gives it, not a second
+       cap fighting it. Lifted only here (classified ultrawide Review). */
+    @media (min-width: 1921px) {
+        .rv-body .hud-doc { max-width: none; }
+    }
+    .rv-dock-empty { color: var(--text-3); font-size: var(--fs-xs); padding: var(--sp-3); }
+    .rv-dock-card { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
+    .rv-dock-card img { width: 100%; display: block; }
+    .rv-dock-card h3 { margin: 0; font-size: var(--fs-md); }
+    .rv-dock-card .rv-dock-meta { color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Review") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <button class="hud-btn hud-btn--primary" type="button" id="rebuildBtn">{{ "Rebuild review" if meta.exists else "Build review" }}</button>
+{% endcall %}
+
+<section class="hud-job rv-job" id="job" aria-live="polite" hidden>
+    <div class="hud-job-head"><span class="hud-label" id="jobLabel">Building</span><span class="hud-job-clock" id="jobClock">0:00</span></div>
+    <p class="hud-job-title" id="jobTitle">Deep Review</p>
+    <div class="hud-job-track" aria-hidden="true"><i></i></div>
+    <p class="hud-job-msg" id="jobMsg">Computing the numbers, then oracle writes the prose. You can leave this page: the review is saved when it finishes.</p>
+    <button class="hud-btn hud-btn--sm hud-btn--ghost" type="button" id="jobDismiss" hidden>Dismiss</button>
+</section>
+<p class="rv-error" id="rvError" role="alert"></p>
+
+{%- if load_error %}
+<div class="hud-panel"><div class="hud-panel-body">{{ hud.empty("Couldn't load the review. Try again later.") }}</div></div>
+{%- elif not meta.exists %}
+<article class="hud-doc" id="doc" data-state="empty">
+    <div class="hud-panel hud-panel--signal"><div class="hud-panel-body rv-empty">
+        {{ hud.empty("No review yet. Build one to see your deck tags, curve and tempo, how the deck wins, strong cards and stragglers.") }}
+        <button class="hud-btn hud-btn--primary" type="button" id="buildBtn">Build review</button>
+        <span class="hud-rv-why">Numbers are computed by the app and the same list always gives the same numbers. oracle only writes the prose. It never rebuilds on its own.</span>
+    </div></div>
+</article>
+{%- else %}
+<div class="rv-grid">
+{%- if sections | length > 1 %}
+<nav class="rv-index">{{ hud.doc_index(rv.doc_index(sections)) }}</nav>
+{%- endif %}
+<div class="rv-body">
+<article class="hud-doc" id="doc" data-state="{{ "stale" if meta.stale else "fresh" }}" data-doc="{{ meta.doc_id }}">
+    <header class="hud-doc-head">
+        <div>
+            <span class="hud-label">Deep Review · saved</span>
+            <h2>{{ head.name }}</h2>
+            <div class="hud-doc-facts">
+                <time class="hud-freshness" id="createdAt" datetime="{{ meta.created_iso }}" title="{{ meta.created }}">{{ meta.created }}</time>
+                {%- if meta.stale %}{{ hud.chip("Stale", "signal", dot=true, title=meta.stale_reason) }}
+                {%- else %}{{ hud.chip("Up to date", "ok", dot=true) }}{% endif %}
+                {%- if meta.oracle_label %}{{ hud.chip(meta.oracle_label, meta.oracle_tone) }}{% endif %}
+            </div>
+        </div>
+    </header>
+    {%- if meta.stale %}
+    <div class="hud-panel hud-panel--signal rv-stale" id="staleNote" role="status"><div class="hud-panel-body">
+        <b>This review is out of date.</b> {{ meta.stale_reason }}. Press <i>Rebuild review</i> to refresh it.
+    </div></div>
+    {%- endif %}
+
+    {%- if sections | length > 1 %}{{ hud.doc_index(rv.doc_index(sections)) }}{% endif %}
+
+    {%- for item in sections %}
+    {%- set section = item.section %}
+    {%- set code = "%02d" | format(loop.index) %}
+    <section class="hud-doc-section" data-type="{{ section.type }}" aria-labelledby="sec{{ loop.index }}">
+        <div class="hud-section-head"><span class="hud-section-id">{{ code }}</span><h2 id="sec{{ loop.index }}">{{ item.title }}</h2></div>
+        {%- if item.prose %}<div class="hud-rv-prose" data-prose="{{ section.type }}">
+            {%- for b in rv.md_blocks(item.prose) %}
+            {%- if b.kind == "h" %}<h3 class="hud-rv-h">{{ b.text }}</h3>
+            {%- elif b.kind == "ul" %}<ul class="hud-doc-list">{% for i in b["items"] %}<li>{{ i }}</li>{% endfor %}</ul>
+            {%- else %}<p class="hud-doc-prose">{{ b.text }}</p>{% endif %}
+            {%- endfor %}
+        </div>{% endif %}
+        {% include item.template %}
+    </section>
+    {%- else %}
+    <div class="hud-doc-section">{{ hud.empty("This review has no sections.") }}</div>
+    {%- endfor %}
+</article>
+</div>
+<aside class="rv-dock" data-hud-dock="review" id="reviewDock" aria-label="Selected card">
+    <button type="button" class="hud-btn hud-btn--sm hud-btn--ghost" data-hud-dock-toggle title="Collapse / expand">⟷</button>
+    <div class="hud-panel"><div class="hud-panel-body" id="reviewDockBody">
+        <p class="rv-dock-empty" id="reviewDockEmpty">Click a card name in the review to inspect it here.</p>
+    </div></div>
+</aside>
+</div>
+{%- endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var DECK_ID = {{ deck_id | tojson }};
+    var API = "/api/decks/" + encodeURIComponent(DECK_ID) + "/review";
+    var STORE = "reviewJob:" + DECK_ID;
+    var POLL_MS = 2500, STALE_MS = 15 * 60 * 1000;
+    var $ = function (id) { return document.getElementById(id); };
+    var timer = null, clock = null;
+
+    var created = $("createdAt");
+    if (created) {
+        var d = new Date(created.getAttribute("datetime"));
+        if (!isNaN(d)) {
+            var abs = d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+            var rel = window.DeckAnalytics && window.DeckAnalytics.age ? window.DeckAnalytics.age(created.getAttribute("datetime")) : "";
+            created.textContent = rel ? "Built " + rel : "Built " + abs;
+            created.title = abs;
+        }
+    }
+
+    function friendly(status, body) {
+        if (body && body.error_kind === "busy") return "A review is already being built. Following it.";
+        if (body && body.error && status < 500) return String(body.error).slice(0, 300);
+        return status >= 500 ? "The server had a problem (HTTP " + status + "). Try again later." : "Request failed (HTTP " + status + ").";
+    }
+    function call(method, url) {
+        return fetch(url, { method: method }).then(function (r) {
+            return r.text().then(function (t) {
+                var j = null; try { j = JSON.parse(t); } catch (e) { j = null; }
+                if (!r.ok || (j && j.success === false)) { var err = new Error(friendly(r.status, j)); err.status = r.status; err.body = j; throw err; }
+                return j || {};
+            });
+        }, function () { var err = new Error("Couldn't reach Commander Lab. Check the connection and try again."); err.status = 0; throw err; });
+    }
+    function remember(j) { try { localStorage.setItem(STORE, JSON.stringify(j)); } catch (e) { /* private mode */ } }
+    function forget() { try { localStorage.removeItem(STORE); } catch (e) { /* ignore */ } }
+    function saved() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
+    function mmss(ms) { var s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+    function busy(on) {
+        [$("rebuildBtn"), $("buildBtn")].forEach(function (b) { if (b) b.disabled = on; });
+        var main = $("rebuildBtn");
+        if (main) main.textContent = on ? "Building…" : (document.getElementById("doc").dataset.state === "empty" ? "Build review" : "Rebuild review");
+    }
+    function showJob(state, j, msg) {
+        var card = $("job");
+        card.hidden = false;
+        card.classList.toggle("is-failed", state === "failed");
+        card.classList.toggle("is-done", state === "done");
+        $("jobLabel").textContent = { queued: "Queued", running: "Building", done: "Done", failed: "Failed" }[state] || state;
+        if (msg) $("jobMsg").textContent = msg;
+        $("jobDismiss").hidden = state !== "failed";
+        clearInterval(clock);
+        var t0 = Date.parse(j.started) || Date.now();
+        var tick = function () { $("jobClock").textContent = mmss(Date.now() - t0); };
+        tick();
+        if (state === "queued" || state === "running") clock = setInterval(tick, 1000);
+    }
+    function fail(j, msg) { clearTimeout(timer); forget(); busy(false); showJob("failed", j, msg); }
+
+    function poll(j) {
+        clearTimeout(timer);
+        call("GET", API + "/jobs/" + encodeURIComponent(j.job_id)).then(function (res) {
+            var job = res.job || {};
+            if (job.created_at && !j.started) { j.started = job.created_at; remember(j); }
+            if (job.status === "done") {
+                forget(); showJob("done", j, "Done. Loading the review…");
+                location.reload();
+                return;
+            }
+            if (job.status === "failed") return fail(j, "Couldn't build the review: " + String(job.error || "unknown error").slice(0, 300));
+            var seen = Date.parse(job.updated_at || job.created_at || j.started);
+            if (isFinite(seen) && Date.now() - seen > STALE_MS) return fail(j, "This job stopped responding (the app probably restarted). Build it again.");
+            showJob(job.status || "running", j);
+            timer = setTimeout(function () { poll(j); }, POLL_MS);
+        }).catch(function (e) {
+            if (e.status === 404) return fail(j, "This job is gone (it expired or the app restarted). Build it again.");
+            showJob("running", j, "Lost contact; retrying… (" + e.message + ")");
+            timer = setTimeout(function () { poll(j); }, POLL_MS * 3);
+        });
+    }
+    function start() {
+        $("rvError").textContent = "";
+        busy(true);
+        call("POST", API + "/rebuild").then(function (res) {
+            var j = { job_id: res.job_id, started: new Date().toISOString() };
+            remember(j); showJob("queued", j); poll(j);
+        }).catch(function (err) {
+            var m = err.status === 409 && /\(job ([0-9a-f]+)\)/.exec((err.body && err.body.error) || "");
+            if (m) { var j = { job_id: m[1] }; remember(j); showJob("running", j, "A review for this deck is already being built; following it."); poll(j); return; }
+            busy(false);
+            $("rvError").textContent = err.message;
+        });
+    }
+    [$("rebuildBtn"), $("buildBtn")].forEach(function (b) { if (b) b.addEventListener("click", start); });
+    $("jobDismiss").addEventListener("click", function () { $("job").hidden = true; });
+    var pending = saved();
+    if (pending && pending.job_id) { busy(true); showJob("running", pending); poll(pending); }
+
+    // Ultrawide Review dock (SPEC.md §4): click a card-preview trigger inside
+    // the doc to pin its hover-preview data (image + name + set) into the
+    // right-hand inspector, instead of a one-off popover. Reuses
+    // CardHoverPreview's own resolver (ScryfallImage) via modelFor -- no new
+    // API, no new card data source.
+    var doc = $("doc"), dockBody = $("reviewDockBody");
+    if (doc && dockBody && window.CardHoverPreview) {
+        doc.addEventListener("click", function (e) {
+            var t = window.CardHoverPreview.findTrigger(e.target);
+            if (!t) return;
+            var cp = window.CardHoverPreview.init();
+            var m = cp.modelFor(t);
+            var face = m.faces && m.faces[0];
+            var img = face && face.url ? '<img src="' + face.url + '" alt="' + (face.name || m.name || "Card").replace(/"/g, "&quot;") + '">' : "";
+            var meta = m.set ? (m.set.toUpperCase() + (m.cn ? " · " + m.cn : "")) : "";
+            dockBody.innerHTML = '<div class="rv-dock-card">' + img +
+                "<h3>" + (m.name || "Card").replace(/</g, "&lt;") + "</h3>" +
+                (meta ? '<span class="rv-dock-meta">' + meta + "</span>" : "") +
+                "</div>";
+        });
+    }
+});
+</script>
+{% endblock %}

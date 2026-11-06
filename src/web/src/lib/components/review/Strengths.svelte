@@ -1,0 +1,1 @@
+<script lang="ts">import Section from './Section.svelte'; import Finding from './Finding.svelte'; import type { ReviewDocument } from './types'; let { findings }: { findings: ReviewDocument['strengths'] } = $props();</script><Section title="What works" code="03">{#each findings as finding}<Finding {finding}/>{:else}<p>No strengths recorded.</p>{/each}</Section>

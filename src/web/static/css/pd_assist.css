@@ -1,0 +1,78 @@
+/* Pillar description assist (PD). Page-level additions only: every component is hud.css.
+   Tokens only: no new colours, radii, shadows, gradients. Animates transform + opacity.
+   Selectors are pd-*; they sit inside the existing .hud-pillar.is-editing tile. */
+
+
+/* ---- Description field: label row carries count + the assist button --------------------- */
+.pd-f { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.pd-lab { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); min-height: 1.5rem; }
+.pd-lab > label { margin-right: auto; }                       /* label hard-left, everything else hard-right */
+.pd-src { font: var(--fw-medium) var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
+.pd-src[hidden] { display: none; }
+.pd-src[data-src="draft"] { color: var(--data); }
+.pd-src[data-src="yours"] { color: var(--signal); }
+.pd-count { color: var(--text-3); font: var(--fs-xs) var(--font-mono); font-variant-numeric: tabular-nums; }
+.pd-count.is-over { color: var(--danger); }
+
+/* Provenance rule on the field: cyan = drafted (taken from a suggestion), amber = yours. */
+.pd-f[data-src="draft"] textarea { border-left: 2px solid var(--data); }
+.pd-f[data-src="yours"] textarea { border-left: 2px solid var(--signal); }
+
+/* The button. Ghost-weight at rest (the primary action of the tile is Done), cyan on hover. */
+.pd-gen { gap: var(--sp-1); color: var(--data); border-color: var(--data-2); background: transparent; }
+.pd-gen:hover { color: var(--data-strong); border-color: var(--data); background: var(--data-dim); }
+.pd-gen-g { font-family: var(--font-mono); line-height: 1; }
+.pd-gen[aria-disabled="true"] { opacity: 1; color: var(--text-3); border-color: var(--line); background: transparent; cursor: not-allowed; }
+.pd-gen[aria-disabled="true"]:hover { color: var(--text-3); border-color: var(--line); background: transparent; }
+.pd-gen[aria-busy="true"] { cursor: progress; color: var(--data-strong); border-color: var(--data); background: var(--data-dim); }
+.pd-gen[aria-busy="true"] .pd-gen-g { animation: pd-pulse 0.9s var(--ease) infinite alternate; }
+@keyframes pd-pulse { from { opacity: 1; } to { opacity: 0.25; } }
+
+/* Hint line under the field: one sentence, swaps with state. */
+.hud-pillar .pd-hint, .pd-hint { margin: 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-base); }
+.pd-hint-dyn { display: block; margin-top: var(--sp-1); color: var(--text-2); }
+.pd-hint-dyn.is-warn { color: var(--signal); }
+
+/* Suggestion row: a ghost proposal. Nothing lands in the field until Use. */
+.pd-sugg { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2) var(--sp-3); align-items: start; padding: var(--sp-2) var(--sp-3); border: var(--hairline) dashed var(--data-2); border-radius: var(--radius-1); background: transparent; animation: pd-pop var(--dur-base) var(--ease) both; }
+.pd-sugg[hidden] { display: none; }
+.pd-sugg-g { color: var(--data); font-family: var(--font-mono); line-height: var(--lh-base); }
+.hud-pillar .pd-sugg-t, .pd-sugg-t { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-base); }
+.hud-pillar .pd-sugg-meta, .pd-sugg-meta { margin: var(--sp-1) 0 0; color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.pd-sugg-a { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.pd-sugg-a .pd-sugg-end { margin-left: auto; }
+.pd-sugg .hud-btn--primary .hud-kbd { border-color: currentColor; color: inherit; background: transparent; }
+@keyframes pd-pop { from { opacity: 0; transform: translateY(3px); } }
+
+/* Loading: two pulsing lines, buttons that can't act are hidden rather than greyed. */
+.pd-skel { display: none; height: 0.75rem; margin: 0.3rem 0; background: var(--line-strong); animation: pd-pulse 0.9s var(--ease) infinite alternate; }
+.pd-skel + .pd-skel { width: 62%; }
+.pd-sugg.is-busy .pd-skel { display: block; }
+.pd-sugg.is-busy .pd-sugg-t, .pd-sugg.is-busy .pd-act-use, .pd-sugg.is-busy .pd-act-more { display: none; }
+.pd-sugg.is-busy .pd-sugg-meta { margin-top: 0; }
+
+/* Error: same row, danger rule on the left instead of the dashed cyan. */
+.pd-sugg.is-err { border: var(--hairline) solid var(--danger-dim); border-left: 2px solid var(--danger); background: var(--danger-dim); }
+.pd-sugg.is-err .pd-sugg-g { color: var(--danger); }
+.pd-sugg.is-err .pd-sugg-t { color: var(--text-1); }
+
+/* After Use on an Improve: the old text is one click away. */
+.pd-undo { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border-left: 2px solid var(--data); background: var(--data-dim); color: var(--text-2); font-size: var(--fs-xs); animation: pd-pop var(--dur-base) var(--ease) both; }
+.pd-undo[hidden] { display: none; }
+.pd-undo .hud-btn { margin-left: auto; }
+
+/* No keyboard, no shortcut hints. */
+@media (hover: none) { .pd-sugg .hud-kbd { display: none; } }
+
+/* ---- Touch ------------------------------------------------------------------------------ */
+@media (max-width: 640px) {
+    .pd-gen, .pd-sugg .hud-btn, .pd-undo .hud-btn { height: 2.5rem; padding: 0 var(--sp-3); }
+    .pd-lab { min-height: 2.5rem; }
+    .pd-sugg-a .pd-sugg-end { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pd-sugg, .pd-undo { animation: none !important; transition: none !important; }
+    .pd-skel { opacity: 0.7; }
+    .pd-gen[aria-busy="true"] .pd-gen-g { opacity: 0.6; }   /* static, still distinct from rest */
+}

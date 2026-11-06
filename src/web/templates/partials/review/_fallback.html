@@ -1,0 +1,21 @@
+{% import "partials/hud.html" as hud %}
+{#- Generic renderer for review section types with no partial of their own (a future type, or a
+    known type with an unexpected data shape). Strings are rendered as markdown blocks; anything
+    else goes through theory_view.fallback_view() (kv / list / pretty JSON). -#}
+{%- set data = section.data %}
+<div class="hud-doc-fallback" data-fallback="{{ "markdown" if data is string else tv.fallback_view(data).kind }}">
+{%- if data is string and data.strip() %}
+    {%- for b in rv.md_blocks(data) %}
+    {%- if b.kind == "h" %}<h3 class="hud-rv-h">{{ b.text }}</h3>
+    {%- elif b.kind == "ul" %}<ul class="hud-doc-list">{% for i in b["items"] %}<li>{{ i }}</li>{% endfor %}</ul>
+    {%- else %}<p class="hud-doc-prose">{{ b.text }}</p>{% endif %}
+    {%- endfor %}
+{%- else %}
+    {%- set fv = tv.fallback_view(data) %}
+    {%- if fv.kind == "text" %}{% for p in fv.paragraphs %}<p class="hud-doc-prose">{{ p }}</p>{% endfor %}
+    {%- elif fv.kind == "kv" %}<div class="hud-panel"><div class="hud-panel-body">{{ hud.kv(fv.pairs) }}</div></div>
+    {%- elif fv.kind == "list" %}<ul class="hud-doc-list">{% for i in fv["items"] %}<li>{{ i }}</li>{% endfor %}</ul>
+    {%- elif fv.kind == "json" %}<pre class="hud-doc-pre">{{ fv.text }}</pre>
+    {%- else %}{{ hud.empty("No content") }}{% endif %}
+{%- endif %}
+</div>

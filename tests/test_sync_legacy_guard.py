@@ -36,7 +36,7 @@ class FakeRedis:
 
 class TestSyncLegacyKeyGuard(unittest.TestCase):
     def setUp(self):
-        import cards as card_store
+        import src.server.domain.inventory.cards as card_store
         self.card_store = card_store
         self.r = FakeRedis()
 

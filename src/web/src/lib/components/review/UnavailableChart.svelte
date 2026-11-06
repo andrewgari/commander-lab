@@ -1,0 +1,1 @@
+<script lang="ts">let { reason }: { reason: string } = $props();</script><p class="unavailable"><strong>Unavailable</strong><br/>{reason}</p>

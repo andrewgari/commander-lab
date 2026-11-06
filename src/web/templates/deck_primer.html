@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+{% import "partials/deck_head.html" as dh %}
+
+{% block title %}Primer · {{ deck_name }} | Commander Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Primer tab (NAV_IA_PROPOSAL.md §3.2, D5): a distinguished reading surface —
+       the deck's story gets a calm, centred column instead of a mid-page panel.
+       Layout only; components are hud.css. */
+    .primer-stage { max-width: 76ch; margin: 0 auto; }
+    .primer-surface .hud-panel-body { padding: var(--sp-8) var(--sp-8); }
+    .primer-read { color: var(--text-1); font-size: var(--fs-lg); line-height: 1.8; }
+    .primer-read > :first-child { margin-top: 0; }
+    .primer-read > :last-child { margin-bottom: 0; }
+    .primer-read h3, .primer-read h4 {
+        font-family: 'EB Garamond', serif;
+        color: var(--text-heading);
+        margin: var(--sp-8) 0 var(--sp-3);
+        padding-bottom: var(--sp-2);
+        border-bottom: var(--stroke-faint);
+    }
+    .primer-read h3 { font-size: var(--fs-2xl, 1.6rem); }
+    .primer-read h4 { font-size: var(--fs-xl); border-bottom: 0; }
+    .primer-read p { margin: 0 0 var(--sp-4); color: var(--text-1); }
+    .primer-read ul, .primer-read ol { margin: 0 0 var(--sp-4); padding-left: var(--sp-6); color: var(--text-2); }
+    .primer-read li { margin-bottom: var(--sp-1); }
+    .primer-read code { font-family: var(--font-mono); font-size: 0.85em; }
+    .primer-empty { text-align: center; padding: var(--sp-10) var(--sp-6); }
+    .primer-empty p { color: var(--text-3); max-width: 46ch; margin: 0 auto var(--sp-5); }
+    .primer-empty .hud-btn { margin: 0 var(--sp-1); }
+    .primer-edit textarea {
+        box-sizing: border-box; width: 100%; min-height: 24rem;
+        font-family: var(--font-mono); font-size: var(--fs-xs);
+    }
+    .primer-edit-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+    @media (max-width: 640px) {
+        .primer-surface .hud-panel-body { padding: var(--sp-5) var(--sp-4); }
+        .primer-read { font-size: var(--fs-base); }
+    }
+</style>
+{% endblock %}
+
+{% block crumbs %}{{ dh.crumbs(head, "Primer") }}{% endblock %}
+{% block topbar_meta %}{{ dh.freshness() }}{% endblock %}
+
+{% block content %}
+{% call dh.header(head, tab) %}
+    <a class="hud-btn hud-btn--primary" id="primerBuildBtn" href="/deck/{{ deck_name | urlencode }}/primer/build">Build with guide</a>
+    <button type="button" class="hud-btn" id="primerEditBtn" hidden>Edit</button>
+{% endcall %}
+
+<div class="primer-stage">
+    <section class="hud-panel primer-surface" aria-labelledby="primerTitle">
+        <header class="hud-panel-head">
+            <h3 class="hud-panel-title" id="primerTitle">Primer</h3>
+            <div class="hud-panel-meta"><span class="hud-freshness">The deck's story, worth reading</span></div>
+        </header>
+        <div class="hud-panel-body">
+            <div id="primerView" class="primer-read"><p class="hud-muted">Loading primer…</p></div>
+            <div id="primerEdit" class="primer-edit" hidden>
+                <textarea id="primerTextarea" aria-label="Primer HTML"></textarea>
+                <div class="primer-edit-actions">
+                    <button type="button" class="hud-btn hud-btn--sm" id="primerCancelBtn">Cancel</button>
+                    <button type="button" class="hud-btn hud-btn--sm hud-btn--primary" id="primerSaveBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="pf-toast" id="primerToast" role="status" hidden></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    "use strict";
+    var DECK_API_ID = {{ (head.registry_id or deck_name) | tojson }};
+    var DECK_API = "/api/decks/" + encodeURIComponent(DECK_API_ID);
+    var BUILD_URL = "/deck/{{ deck_name | urlencode }}/primer/build";
+    var esc = function (s) { return window.HUD ? window.HUD.esc(s) : String(s); };
+    var $ = function (id) { return document.getElementById(id); };
+
+    var primerRec = null, editing = false;
+
+    function toast(msg, undoFn) {
+        var t = $("primerToast");
+        t.hidden = false;
+        t.innerHTML = "<span>" + esc(msg) + "</span>" + (undoFn ? '<button type="button" class="hud-btn hud-btn--sm" id="primerToastUndo">Undo</button>' : "");
+        if (undoFn) $("primerToastUndo").onclick = function () { undoFn(); t.hidden = true; };
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function () { t.hidden = true; }, 8000);
+    }
+
+    function render() {
+        var view = $("primerView");
+        if (primerRec && primerRec.html) {
+            view.innerHTML = primerRec.html;  // sanitised server-side on save
+            $("primerEditBtn").hidden = false;
+            $("primerBuildBtn").textContent = "Rebuild with guide";
+        } else {
+            $("primerEditBtn").hidden = true;
+            $("primerBuildBtn").textContent = "Build with guide";
+            view.innerHTML = '<div class="primer-empty"><p>No primer yet. Answer a few questions and let the guide draft one, or write it by hand.</p>' +
+                '<p><a class="hud-btn hud-btn--primary" href="' + BUILD_URL + '">Build with guide</a> ' +
+                '<button type="button" class="hud-btn" id="primerEmptyEdit">Write by hand</button></p></div>';
+            $("primerEmptyEdit").addEventListener("click", function () { setEditing(true); });
+        }
+    }
+
+    function setEditing(on) {
+        editing = on;
+        var view = $("primerView"), edit = $("primerEdit"), btn = $("primerEditBtn");
+        if (on) {
+            $("primerTextarea").value = primerRec && primerRec.html ? primerRec.html : "";
+            view.hidden = true; edit.hidden = false; btn.textContent = "Cancel";
+            $("primerTextarea").focus();
+        } else {
+            view.hidden = false; edit.hidden = true; btn.textContent = "Edit";
+        }
+    }
+
+    async function load() {
+        try {
+            var res = await fetch(DECK_API + "/primer");
+            var data = await res.json();
+            primerRec = data.success ? data.primer : null;
+        } catch (e) { primerRec = null; }
+        render();
+        if (location.hash === "#edit" && !editing) setEditing(true);
+    }
+
+    async function save() {
+        var val = $("primerTextarea").value;
+        try {
+            var res = await fetch(DECK_API + "/primer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html: val }) });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) throw new Error(data.error || "Save failed (" + res.status + ").");
+            primerRec = Object.assign({}, primerRec || {}, { html: data.html, version: data.version });
+            setEditing(false);
+            render();
+            toast("Primer saved." + (data.has_undo ? " Previous version kept." : ""), data.has_undo ? async function () {
+                var u = await fetch(DECK_API + "/primer/undo", { method: "POST" });
+                var ud = await u.json().catch(function () { return {}; });
+                if (u.ok && ud.success) { primerRec = Object.assign({}, primerRec, { html: ud.html, version: ud.version }); render(); }
+            } : null);
+        } catch (e) {
+            toast("Could not save the primer: " + e.message);
+        }
+    }
+
+    $("primerEditBtn").addEventListener("click", function () { setEditing(!editing); });
+    $("primerCancelBtn").addEventListener("click", function () { setEditing(false); });
+    $("primerSaveBtn").addEventListener("click", save);
+    load();
+});
+</script>
+{% endblock %}

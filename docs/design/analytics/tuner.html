@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tune · Holy Hellfire · Commander Lab mockup (AN-D)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
+<link rel="stylesheet" href="../../../static/css/hud.css">
+<link rel="stylesheet" href="analytics.css">
+<style>
+    .tn-section + .tn-section { margin-top: var(--sp-8); }
+    .tn-section .hud-section-head { margin-top: 0; }
+</style>
+</head>
+<body>
+<main class="main-content" id="main">
+    <div id="deckhead"></div>
+
+    <div class="hud-filterbar">
+        <span class="hud-seg" role="radiogroup" aria-label="Source preference">
+            <input type="radio" name="src" id="sr1" checked><label for="sr1">Owned first</label>
+            <input type="radio" name="src" id="sr2"><label for="sr2">Owned only</label>
+            <input type="radio" name="src" id="sr3"><label for="sr3">Best regardless</label>
+        </span>
+        <label class="hud-toggle"><input type="checkbox" checked> Include sleeved-elsewhere</label>
+        <span class="hud-freshness">Caps <b>hard $40 · soft $15</b> (deck override) · prices <b>Scryfall 23h</b></span>
+    </div>
+
+    <div class="hud-tune">
+        <div>
+            <!-- 1. Composition fixes -->
+            <section class="tn-section" aria-labelledby="fixT">
+                <div class="hud-section-head"><span class="hud-section-id">01</span><h2 id="fixT">Shape fixes · 3</h2></div>
+                <div class="hud-panel hud-panel--flush"><div class="hud-panel-body" id="fixes"></div></div>
+            </section>
+
+            <!-- 2. Swaps -->
+            <section class="tn-section" aria-labelledby="swT">
+                <div class="hud-section-head"><span class="hud-section-id">02</span><h2 id="swT">Swaps · cut → add · 5</h2></div>
+                <div class="hud-panel hud-panel--flush"><ul class="hud-swaps hud-panel-body" id="swaps"></ul></div>
+            </section>
+
+            <!-- 3. Weak performers -->
+            <section class="tn-section" id="weak" aria-labelledby="wkT">
+                <div class="hud-section-head"><span class="hud-section-id">03</span><h2 id="wkT">Weak performers · computed</h2></div>
+                <section class="hud-panel hud-panel--flush">
+                    <div class="hud-table-wrap"><table class="hud-table" data-hud-sortable>
+                        <thead><tr><th data-sort="text">Card</th><th data-sort="num" class="is-num">Edges</th><th data-sort="num" class="is-num">Pillar fit</th><th data-sort="num" class="is-num">EDHREC</th><th data-sort="num" class="is-num">Weak score</th><th class="is-shrink"></th></tr></thead>
+                        <tbody id="weakRows"></tbody>
+                    </table></div>
+                    <footer class="hud-panel-foot">Weak = few edges + off-pillar + low EDHREC, equally weighted. No game logs. Pets (♥) are listed but never suggested as cuts.</footer>
+                </section>
+            </section>
+        </div>
+
+        <!-- Right: running change list -->
+        <aside class="hud-changes" aria-label="Pending changes">
+            <section class="hud-panel">
+                <header class="hud-panel-head"><h3 class="hud-panel-title">Change list</h3><span class="hud-panel-meta">1 swap</span></header>
+                <div class="hud-panel-body">
+                    <ol>
+                        <li><span class="op out">−</span><span class="hud-card-name">Ob Nixilis, Unshackled</span><span class="hud-freshness"></span></li>
+                        <li><span class="op in">+</span><span class="hud-card-name">Combat Celebrant</span><span class="hud-freshness">from Dawnbringer</span></li>
+                    </ol>
+                    <div class="hud-caps" style="margin-top:var(--sp-4)">
+                        <div><span class="hud-label">Spend</span><b>$0.00</b><span class="hud-freshness">owned</span></div>
+                        <div><span class="hud-label">On-plan</span><b style="color:var(--ok)">71% → 73%</b><span class="hud-freshness">projected</span></div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-4)">
+                        <button class="hud-btn hud-btn--primary" type="button">Apply to Archidekt list</button>
+                        <button class="hud-btn" type="button">Copy as text</button>
+                        <span class="hud-field-hint">Physical moves (pull Celebrant from Dawnbringer) appear in Manage after apply.</span>
+                    </div>
+                </div>
+            </section>
+            <section class="hud-panel" style="margin-top:var(--sp-4)">
+                <header class="hud-panel-head"><h3 class="hud-panel-title">Keys</h3></header>
+                <div class="hud-panel-body hud-kv" style="font-size:var(--fs-xs)">
+                    <dt><span class="hud-kbd">j</span> <span class="hud-kbd">k</span></dt><dd>Next / previous suggestion</dd>
+                    <dt><span class="hud-kbd">a</span></dt><dd>Accept (picked option)</dd>
+                    <dt><span class="hud-kbd">b</span></dt><dd>Accept the buy instead</dd>
+                    <dt><span class="hud-kbd">x</span></dt><dd>Dismiss (won't return this review)</dd>
+                    <dt><span class="hud-kbd">h</span></dt><dd>Mark cut card as pet</dd>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <div class="mock-note">Mockup · AN-D · scores, prices and ownership illustrative · card names real</div>
+</main>
+<script src="../../../static/js/hud.js"></script>
+<script src="mock.js"></script>
+<script>
+(function () {
+    "use strict";
+    var M = MOCK; M.shell();
+    document.getElementById("deckhead").innerHTML = M.deckhead("tune", '<span class="hud-freshness">Review <b>2026-10-12</b> · check-in done</span><button class="hud-btn" type="button">Recompute</button>');
+
+    // ---- Shape fixes ------------------------------------------------------
+    var FIX = [
+        ["Lands", "35 / 38", "−3", "Add 2 lands, or count Sol Ring + 3 Signets as land-equivalent? CZ allows 1 land per 2 cheap rocks.", "Add 2 lands"],
+        ["Ramp", "7 / 10", "−3", "Kaalia is a 4-drop that wants to attack on 4. Owned, free: Talisman of Indulgence, Mind Stone, Fellwar Stone.", "See 3 owned"],
+        ["Mass disruption", "4 / 6", "−2", "Avacyn + a wipe is a one-sided win. Owned, free: Damnation (in box), Blasphemous Act (in Mabel).", "See 2 owned"]
+    ];
+    document.getElementById("fixes").innerHTML = FIX.map(function (f) {
+        return '<div class="hud-fix"><div><span class="hud-label">' + f[0] + '</span><span class="hud-fix-gap">' + f[2] + "<small>" + f[1] + "</small></span></div>" +
+            '<p style="margin:0;font-size:var(--fs-sm);color:var(--text-2)">' + f[3] + '</p><button class="hud-btn hud-btn--sm" type="button">' + f[4] + "</button></div>";
+    }).join("");
+
+    // ---- Swaps ----------------------------------------------------------
+    function why(edges, fit, edh) {
+        var row = function (k, v, max, low, disp) { return "<span>" + k + '</span><span class="t' + (low ? " is-low" : "") + '"><i style="width:' + Math.round(v / max * 100) + '%"></i></span><span class="v">' + disp + "</span>"; };
+        return '<div class="hud-why">' + row("Edges", edges, 10, edges <= 1, edges) + row("Fit", fit, 1, fit < 0.35, fit.toFixed(2)) + row("EDHREC", edh, 100, edh < 10, edh + "%") + "</div>";
+    }
+    function opt(o, pick, hardHidden) {
+        if (!o) return '<div class="hud-opt is-empty">' + (hardHidden ? 'Best buy hidden: over your hard cap.' : 'No buy beats the owned pick by ≥ 0.10.<br>Good enough: keep it free.') + '</div>';
+        var src = o.buy ? '<span class="hud-opt-src">Buy · <b style="color:var(--text-1)">$' + o.price.toFixed(2) + "</b></span>"
+                        : '<span class="hud-opt-src"><b>Owned</b> · ' + o.where + "</span>";
+        return '<div class="hud-opt' + (pick ? " is-pick" : "") + (o.buy ? " is-buy" : "") + '">' + src +
+            '<span class="hud-card-name">' + o.name + "</span>" +
+            '<span class="hud-opt-score">' + o.score.toFixed(2) + " <small>score</small></span>" + (o.pillar ? '<span class="hud-opt-src">' + o.pillar + "</span>" : "") +
+            (o.cap ? HUD.chip(o.cap[0], o.cap[1]) : "") + "</div>";
+    }
+    var SW = [
+        { cut: "Phyrexian Arena", w: [1, 0.21, 31], own: { name: "Sword of Feast and Famine", where: "box · free", score: 0.81, pillar: "Swing twice" },
+          buy: null, pick: "own", hiddenGap: 0.03 },
+        { cut: "Ob Nixilis, Unshackled", w: [1, 0.41, 18], own: { name: "Combat Celebrant", where: "in Dawnbringer", score: 0.77, pillar: "Swing twice" },
+          buy: null, pick: "own" },
+        { cut: "Angelic Arbiter", w: [0, 0.27, 4], own: { name: "Aurelia's Fury", where: "box · free", score: 0.52, pillar: "Payoffs" },
+          buy: { name: "Moraug, Fury of Akoum", buy: true, price: 6.40, score: 0.79, pillar: "Swing twice" }, pick: "buy", gap: 0.27 },
+        { cut: "Platinum Angel", petLocked: true },
+        { cut: "Steel Hellkite", w: [1, 0.33, 12], own: { name: "Scourge of the Throne", where: "box · free", score: 0.70, pillar: "Swing twice" },
+          buy: { name: "Neheb, the Eternal", buy: true, price: 18.50, score: 0.88, pillar: "Swing twice", cap: ["over soft cap $15", "signal"] }, pick: "own", gap: 0.18, soft: true },
+        { cut: "Bloodthirster", w: [1, 0.36, 9], own: { name: "Hellkite Charger", where: "already in deck", score: 0, pillar: "" },
+          buy: null, pick: "own", hard: true }
+    ];
+    document.getElementById("swaps").innerHTML = SW.map(function (s, i) {
+        if (s.petLocked) return '<li class="hud-swap" style="grid-template-columns:minmax(0,1fr) auto"><span><span class="hud-card-name" style="color:var(--text-2)">♥ ' + s.cut + '</span> <span class="hud-field-hint">· pet · weakest card in the deck (0 edges, fit 0.24) but pets are never cut. Shown once so you know it was considered.</span></span><a class="hud-btn hud-btn--sm hud-btn--ghost" href="journal.html#j-pets">Edit pets</a></li>';
+        if (s.hard) { s.buy = null; }
+        var gapLine = s.gap != null ? '<div class="hud-gapline">Gap <b>' + (s.gap >= 0 ? "+" : "") + s.gap.toFixed(2) + "</b> buy vs owned" +
+            (s.pick === "buy" ? HUD.chip("worth buying", "signal") : HUD.chip("owned is good enough", "ok")) + "</div>" : "";
+        var just = s.soft ? '<div class="hud-justify"><b>Soft cap:</b> Neheb, the Eternal ($18.50) beats the owned Scourge by 0.18: post-combat mana for the next cheat-in. Shown because the gap is big; picked owned because you set soft $15.</div>' : "";
+        var hard = s.hard ? '<div class="hud-gapline">1 better buy hidden <b>· over hard cap $40</b>' + HUD.chip("hard cap", "neutral") + "</div>" : "";
+        var ownOpt = s.own.score ? opt(s.own, s.pick === "own") : '<div class="hud-opt is-empty">No owned card scores ≥ 0.50 for this slot.</div>';
+        return '<li class="hud-swap' + (i === 0 ? " is-current" : "") + (i === 1 ? " is-accepted" : "") + '" tabindex="-1">' +
+            '<div class="hud-swap-out"><span class="hud-label">Cut</span><span class="hud-card-name">' + s.cut + "</span>" + why(s.w[0], s.w[1], s.w[2]) + "</div>" +
+            '<span class="hud-swap-arrow" aria-hidden="true">→</span>' +
+            '<div class="hud-opts">' + ownOpt + opt(s.buy, s.pick === "buy", s.hard) + gapLine + just + hard + "</div>" +
+            '<div class="hud-swap-act">' + (i === 1 ? '<span class="hud-chip hud-chip--ok">Accepted</span><button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Undo</button>'
+                : '<button class="hud-btn hud-btn--sm hud-btn--primary" type="button">Accept</button>' + (s.buy && s.pick !== "buy" ? '<button class="hud-btn hud-btn--sm" type="button">Buy instead</button>' : "") +
+                  '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Dismiss</button>') + "</div></li>";
+    }).join("");
+
+    // ---- Weak performers ---------------------------------------------------
+    var WK = [["Platinum Angel", 0, 0.24, 6, 0.91, true], ["Angelic Arbiter", 0, 0.27, 4, 0.90], ["Phyrexian Arena", 1, 0.21, 31, 0.74], ["Lord of the Void", 1, 0.31, 4, 0.78, true],
+              ["Steel Hellkite", 1, 0.33, 12, 0.71], ["Bloodthirster", 1, 0.36, 9, 0.70], ["Ob Nixilis, Unshackled", 1, 0.41, 18, 0.62]];
+    document.getElementById("weakRows").innerHTML = WK.sort(function (a, b) { return b[4] - a[4]; }).map(function (w, i) {
+        return '<tr' + (i === 0 ? ' class="is-selected"' : "") + '><td class="is-primary"><span class="hud-card-name">' + (w[5] ? "♥ " : "") + w[0] + '</span></td><td class="is-num">' + w[1] +
+            '</td><td class="is-num">' + w[2].toFixed(2) + '</td><td class="is-num">' + w[3] + '%</td><td class="is-num" data-value="' + w[4] + '"><span style="color:' + (w[4] > 0.8 ? "var(--signal)" : "var(--text-1)") + '">' + w[4].toFixed(2) + "</span></td>" +
+            '<td class="is-shrink">' + (w[5] ? HUD.chip("pet", "ghost") : '<button class="hud-btn hud-btn--sm hud-btn--ghost" type="button">Find swap</button>') + "</td></tr>";
+    }).join("");
+    if (HUD.initSortable) HUD.initSortable();
+})();
+</script>
+</body>
+</html>
