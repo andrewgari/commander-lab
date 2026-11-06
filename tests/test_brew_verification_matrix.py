@@ -297,7 +297,6 @@ def test_snow_covered_basic_illegal_under_colorless_commander():
 # document REAL defects (verified failing today); they flip to XPASS->fail when
 # fixed so the marker must then be removed.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(strict=True, reason="F2: identity ignores rules-text mana symbols when color_identity missing")
 def test_F2_identity_from_rules_text_when_field_missing():
     info = dv.CardInfo.from_record({"name": "Alesha", "mana_cost": "{2}{R}",
                                     "type_line": "Legendary Creature — Human",

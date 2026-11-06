@@ -193,6 +193,20 @@ def _strip_reminder(text: str) -> str:
     return re.sub(r"\([^)]*\)", "", text or "")
 
 
+_MANA_SYMBOL_RE = re.compile(r"\{([^{}]+)\}")
+
+
+def color_identity_from_text(mana_cost: Any, oracle_text: Any) -> frozenset:
+    """Derive identity from mana symbols (hybrid/phyrexian included) in the cost
+    and rules text (reminder text excluded). Fallback for records lacking a
+    color_identity field."""
+    out = set()
+    for blob in (str(mana_cost or ""), _strip_reminder(str(oracle_text or ""))):
+        for sym in _MANA_SYMBOL_RE.findall(blob):
+            out.update(c for c in sym.upper().split("/") if c in tuple(COLORS))
+    return frozenset(out)
+
+
 def singleton_limit_from_text(oracle_text: str) -> Tuple[bool, Optional[int]]:
     """(found, limit). limit None = any number. Parses the deck-building clause."""
     m = _SINGLETON_TEXT_RE.search(oracle_text or "")
@@ -257,9 +271,12 @@ class CardInfo:
         if legality is None and isinstance(rec.get("legalities"), Mapping):
             legality = rec["legalities"].get("commander")
         color = rec.get("color_identity", rec.get("color"))
+        oracle = rec.get("oracle_text") or rec.get("text") or ""
+        identity = (parse_color_identity(color) if color is not None
+                    else color_identity_from_text(rec.get("mana_cost"), oracle))
         return cls(
             name=rec["name"],
-            color_identity=parse_color_identity(color),
+            color_identity=identity,
             types=tuple(types),
             supertypes=tuple(dict.fromkeys(supertypes)),
             subtypes=tuple(subtypes),
