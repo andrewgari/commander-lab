@@ -186,6 +186,10 @@ def parse_color_identity(value: Any) -> frozenset:
             out.add(_COLOR_NAMES[token.casefold()])
         elif token.upper() in tuple(COLORS):
             out.add(token.upper())
+        elif "/" in token:  # hybrid symbol, e.g. 'R/G' or '{R/G}'
+            out.update(
+                part for part in token.strip("{}").upper().split("/") if part in tuple(COLORS)
+            )
     return frozenset(out)
 
 
