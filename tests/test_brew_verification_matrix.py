@@ -110,12 +110,14 @@ def _verdict(fn) -> bool:
         return False
 
 
-def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow") -> Cell:
+def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow",
+             inject_commandersalt: bool = False) -> Cell:
     cat = matrix_catalog()
     builder = TrapFirstBuilder(cat, row)
     with mock.patch.object(bh, "GAME_CHANGER_NAMES", []):
         res = run_brew(list(row.commanders), power, sources=sources, edhrec=state,
-                       degraded_kind=kind, builder=builder, catalog=cat)
+                       degraded_kind=kind, builder=builder, catalog=cat,
+                       inject_commandersalt=inject_commandersalt)
     deck = res.deck
     names = {dv.normalize_name(c["name"]) for c in deck["cards"]}
 
@@ -203,7 +205,7 @@ def test_power_trend(key, sources, state, kind):
 
 def test_power_source_follows_analytics_state():
     for key in ROWS:
-        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE)
+        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE, inject_commandersalt=True)
         down = run_cell(ROWS[key], "mid", False, EdhrecState.UNAVAILABLE)
         assert ok.power_source == "commandersalt" and down.power_source == "bracket_band"
 

@@ -102,6 +102,9 @@ class PowerConfig:
 class BrewScoringConfig:
     # --- component weights (PLACEHOLDER values) ---
     commander_synergy: float = 1.0
+    # NOTE: skeleton category COUNTS are guaranteed by select_cards' range hard
+    # guarantees, so this weight only shifts WHICH cards fill a category and the
+    # ordering within it, not how many. Intentional; zeroing it leaves counts intact.
     category_need: float = 2.0
     edhrec_inclusion: float = 1.0
     edhrec_synergy: float = 0.5
