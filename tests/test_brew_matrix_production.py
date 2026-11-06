@@ -29,10 +29,10 @@ from tests.support.brew_harness import EdhrecState
 from tests.support.brew_matrix import ROWS
 from tests.test_brew_verification_matrix import CASES, POWERS, STATES, run_cell, state_label
 
-_TREND_BUG = ("PENDING BUG: production StubBrewBuilder ignores session power_level, so the deck "
-              "(and its Game Changers / estimated power / bracket) is identical across low/mid/high; "
-              "the power-trend assertions cannot hold (e.g. korvold low has 2 GCs, krenko est 9.0 "
-              "== 9.0 and bracket 4/4/4). Remove this marker when power-aware picking lands.")
+_TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by power_level, so deck "
+              "contents (Game Changers, bracket) do not follow low/mid/high: e.g. korvold low has "
+              "2 GCs, krenko bracket is 4/4/4 and est 9.0 == 9.0 when analytics are unavailable. "
+              "Remove this marker when power-aware picking lands.")
 # cell-id -> reason. All 210 legality cells pass on production; every power-trend cell fails.
 KNOWN_FAILURES: dict = {
     f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}": _TREND_BUG
