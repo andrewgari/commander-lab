@@ -95,8 +95,11 @@ def local_candidates(session: Session, f: SearchFilters, *, owned_mode: str = "a
                          else CardRow.cmc == int(chip))
         stmt = stmt.where(or_(*conds))
     if f.rarities:
-        stmt = stmt.where(CardRow.oracle_id.in_(
-            select(PrintingRow.oracle_id).where(PrintingRow.rarity.in_(list(f.rarities)))))
+        # Cards with no printings row pass here; the service checks their cached rarity.
+        stmt = stmt.where(or_(
+            CardRow.oracle_id.in_(
+                select(PrintingRow.oracle_id).where(PrintingRow.rarity.in_(list(f.rarities)))),
+            CardRow.oracle_id.not_in(select(PrintingRow.oracle_id))))
     for term in f.oracle_terms:
         stmt = stmt.where(_like(CardRow.oracle_text, term))
     if pair_hints:

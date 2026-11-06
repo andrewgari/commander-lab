@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Card search: the Rare/Mythic chips now include owned cards whose rarity is only known from the cache, and Scryfall requests stay spaced 100 ms apart while rarities load in the background.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
