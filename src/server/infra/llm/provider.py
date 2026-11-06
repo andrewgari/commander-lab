@@ -92,10 +92,11 @@ def _post(client: httpx.Client, url: str, headers: dict, body: dict, *, retries:
 
 
 class OpenRouterClient:
-    def __init__(self, api_key: str, *, client: httpx.Client | None = None, timeout: float = 600.0, retries: int = 2):
+    def __init__(self, api_key: str, *, client: httpx.Client | None = None, timeout: float = 600.0, retries: int = 2,
+                 base_url: str | None = None):
         self._key, self._retries = api_key, retries
         self._http = client or httpx.Client(timeout=timeout)
-        base = (os.environ.get("OPENROUTER_BASE_URL") or "").strip().rstrip("/")
+        base = (base_url or "").strip().rstrip("/")
         self._url = base + "/chat/completions" if base else OPENROUTER_URL
 
     def complete(self, request: LLMRequest) -> LLMResponse:
@@ -437,7 +438,7 @@ class RoutingClient:
         if k := _gemini_key(env):
             clients["gemini"] = GeminiClient(k)
         if k := _secret("OPENROUTER_API_KEY", env):
-            clients["openrouter"] = OpenRouterClient(k)
+            clients["openrouter"] = OpenRouterClient(k, base_url=env.get("OPENROUTER_BASE_URL"))
         if k := _secret("ANTHROPIC_API_KEY", env):
             clients["anthropic"] = AnthropicClient(k)
         return cls(clients)

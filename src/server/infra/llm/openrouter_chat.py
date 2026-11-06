@@ -5,6 +5,7 @@ Authorization header; it is never logged and never part of an error message.
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
@@ -73,10 +74,16 @@ class OpenRouterChat:
                 raise LLMAuthError("OpenRouter rejected the API key; check OPENROUTER_API_KEY") from None
             if exc.status == 402:
                 raise LLMUnavailable("OpenRouter credits exhausted") from None
-            raise LLMUnavailable(str(exc)[:200]) from None
+            raise LLMUnavailable(self._redact(str(exc))[:200]) from None
         except LLMTransportError as exc:
-            raise LLMResponseError(str(exc)[:300]) from None
+            raise LLMResponseError(self._redact(str(exc))[:300]) from None
         return self._parse(data)
+
+    def _redact(self, text: str) -> str:
+        """Remove the API key (and any bearer token) from upstream/transport text before it reaches an error."""
+        if self._key:
+            text = text.replace(self._key, "***")
+        return re.sub(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+", "Bearer ***", text)
 
     def _parse(self, data: Dict[str, Any]) -> str:
         try:
@@ -84,18 +91,27 @@ class OpenRouterChat:
             content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError):
             raise LLMResponseError("OpenRouter reply had no message content") from None
-        if isinstance(content, list):
-            content = "".join(p.get("text") or "" for p in content if isinstance(p, dict))
-        text = content or ""
+        if content is None:
+            content = ""
+        elif isinstance(content, list):
+            content = "".join(p["text"] for p in content
+                              if isinstance(p, dict) and isinstance(p.get("text"), str))
+        elif not isinstance(content, str):
+            raise LLMResponseError("OpenRouter reply content had an unexpected type")
         u = data.get("usage") or {}
-        det = u.get("prompt_tokens_details") or {}
-        self.last_usage = LLMUsage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0),
-                                   int(det.get("cached_tokens") or 0), u.get("cost"))
-        if not text.strip():
-            if choice.get("finish_reason") == "length":
-                raise LLMResponseError("reply truncated at max_tokens")
+        try:
+            det = u.get("prompt_tokens_details") or {}
+            cost = u.get("cost")
+            self.last_usage = LLMUsage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0),
+                                       int(det.get("cached_tokens") or 0),
+                                       float(cost) if cost is not None else None)
+        except (AttributeError, TypeError, ValueError):
+            raise LLMResponseError("OpenRouter reply had malformed usage") from None
+        if choice.get("finish_reason") == "length":
+            raise LLMResponseError("reply truncated at max_tokens")
+        if not content.strip():
             raise LLMResponseError("empty reply")
-        return text
+        return content
 
     def ask(self, prompt: str, *, system: Optional[str] = None, **extra) -> str:
         msgs: List[Dict[str, Any]] = []

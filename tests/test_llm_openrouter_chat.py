@@ -103,6 +103,27 @@ class Chat(unittest.TestCase):
         with self.assertRaisesRegex(LLMResponseError, "empty reply"):
             make(stop).ask("q")
 
+    def test_truncated_nonempty_reply_raises(self):
+        def h(req):
+            return httpx.Response(200, json={"choices": [{"message": {"content": "partial"}, "finish_reason": "length"}]})
+        with self.assertRaisesRegex(LLMResponseError, "truncated"):
+            make(h).ask("q")
+
+    def test_malformed_reply_is_response_error(self):
+        for payload in ({"choices": [{"message": {"content": 5}}]},
+                        {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": "abc"}},
+                        {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens_details": 3}}):
+            with self.assertRaises(LLMResponseError):
+                make(lambda r, p=payload: httpx.Response(200, json=p)).ask("q")
+        out = make(lambda r: httpx.Response(200, json={"choices": [{"message": {"content": [{"text": 7}, {"text": "z"}]}}]})).ask("q")
+        self.assertEqual(out, "z")
+
+    def test_key_redacted_from_errors(self):
+        for code in (400, 503):
+            with self.assertRaises((LLMResponseError, LLMUnavailable)) as cm:
+                make(lambda r, c=code: httpx.Response(c, text=f"echo Authorization: Bearer {KEY}"), retries=0).ask("q")
+            self.assertNotIn(KEY, str(cm.exception))
+
     def test_error_mapping(self):
         for code in (401, 403):
             with self.assertRaises(LLMAuthError) as cm:
