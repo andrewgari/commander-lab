@@ -305,7 +305,6 @@ def test_F2_identity_from_rules_text_when_field_missing():
     assert info.color_identity == frozenset("WBR")
 
 
-@pytest.mark.xfail(strict=True, reason="F3: hybrid in list form ['R/G'] is dropped")
 def test_F3_hybrid_list_form_not_dropped():
     assert dv.parse_color_identity(["R/G"]) == frozenset("RG")
 
