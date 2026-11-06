@@ -21,6 +21,11 @@ EDHREC_BASE = "https://json.edhrec.com/pages"
 SPELLBOOK_VARIANTS_URL = "https://json.commanderspellbook.com/variants.json.gz"
 BRACKET_PAGES = ("exhibition", "core", "upgraded", "optimized", "cedh")
 EDHREC_MIN_INTERVAL_S = 0.6
+SCRYFALL_BULK_INDEX = "https://api.scryfall.com/bulk-data"
+ARCHIDEKT_LIST = "https://archidekt.com/api/decks/v3/"
+ARCHIDEKT_DECK = "https://archidekt.com/api/decks/{id}/"
+ARCHIDEKT_MIN_INTERVAL_S = 1.0
+MIN_DECK_CARDS = 95
 FORBIDDEN_HOSTS = ("commandersalt.com",)
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9\s-]")
@@ -64,19 +69,20 @@ class Fetcher:
         self._last = None
         self.requests = 0
 
-    def _get(self, url: str) -> bytes:
+    def _get(self, url: str, min_interval_s: Optional[float] = None) -> bytes:
+        interval = self.min_interval_s if min_interval_s is None else min_interval_s
         host = (urlparse(url).hostname or "").lower()
         if any(host == h or host.endswith("." + h) for h in FORBIDDEN_HOSTS):
             raise CalibrationCacheError(f"refusing to call {host}")
         for attempt in range(self.retries + 1):
             if self._last is not None:
-                wait = self.min_interval_s - (self._clock() - self._last)
+                wait = interval - (self._clock() - self._last)
                 if wait > 0:
                     self._sleep(wait)
             self._last = self._clock()
             self.requests += 1
             try:
-                return self._opener(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}))
+                return self._opener(urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json, */*"}))
             except urllib.error.HTTPError as exc:
                 if exc.code == 404 or attempt >= self.retries or exc.code not in (429, 500, 502, 503, 504):
                     raise
@@ -86,7 +92,7 @@ class Fetcher:
             self._sleep(2 ** attempt)
         raise AssertionError("unreachable")
 
-    def _cached(self, rel: str, url: str) -> Optional[Path]:
+    def _cached(self, rel: str, url: str, min_interval_s: Optional[float] = None) -> Optional[Path]:
         """Fetch url to cache/rel unless present. Returns None on 404."""
         dest = (self.cache / rel).resolve()
         if not dest.is_relative_to(self.cache.resolve()):
@@ -94,7 +100,7 @@ class Fetcher:
         if dest.exists() and dest.stat().st_size > 0:
             return dest
         try:
-            body = self._get(url)
+            body = self._get(url, min_interval_s)
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 return None
@@ -125,6 +131,56 @@ class Fetcher:
     # -- Commander Spellbook ----------------------------------------------
     def spellbook_variants(self) -> Optional[Path]:
         return self._cached("spellbook/variants.json.gz", SPELLBOOK_VARIANTS_URL)
+
+
+    # -- Scryfall bulk -------------------------------------------------------
+    def scryfall_bulk(self, kind: str = "oracle_cards") -> Optional[Path]:
+        """Download the Scryfall bulk file of ``kind`` into the cache (once)."""
+        if not _SAFE_SLUG.fullmatch(kind.replace("_", "-")):
+            raise CalibrationCacheError(f"invalid bulk kind: {kind!r}")
+        index = self._cached("scryfall/bulk-data.json", SCRYFALL_BULK_INDEX, 0.2)
+        if index is None:
+            return None
+        entry = next((e for e in json.loads(index.read_text()).get("data", []) if e.get("type") == kind), None)
+        url = (entry or {}).get("download_uri") or (entry or {}).get("jsonl_download_uri")
+        if not url:
+            return None
+        ext = "jsonl.gz" if url.endswith(".jsonl.gz") else ("json.gz" if url.endswith(".gz") else "json")
+        return self._cached(f"scryfall/{kind}.{ext}", url, 0.2)
+
+    # -- Archidekt held-out decks (D15: cache only, never republished) --------
+    def archidekt_heldout(self, bracket: int, limit: int = 150, exclude_ids: Iterable[int] = ()) -> list:
+        """Cache up to ``limit`` public labelled decks for ``bracket`` (1-5).
+
+        Lists decks with ``edhBracket=bracket`` at >=1 req/s, keeps those with
+        >= MIN_DECK_CARDS cards, and caches each deck JSON under
+        ``archidekt/b{bracket}/{id}.json``. Returns the cached paths.
+        """
+        if bracket not in (1, 2, 3, 4, 5):
+            raise CalibrationCacheError(f"invalid bracket: {bracket!r}")
+        skip = {int(i) for i in exclude_ids}
+        out: list = []
+        page = 1
+        while len(out) < limit:
+            url = f"{ARCHIDEKT_LIST}?formats=3&edhBracket={bracket}&pageSize=50&page={page}"
+            listing = json.loads(self._get(url, ARCHIDEKT_MIN_INTERVAL_S))
+            results = listing.get("results") or []
+            for d in results:
+                did = d.get("id")
+                if not isinstance(did, int) or did in skip or d.get("edhBracket") != bracket:
+                    continue
+                if (d.get("size") or 0) < MIN_DECK_CARDS or d.get("private") or d.get("unlisted"):
+                    continue
+                p = self._cached(f"archidekt/b{bracket}/{did}.json", ARCHIDEKT_DECK.format(id=did),
+                                 ARCHIDEKT_MIN_INTERVAL_S)
+                if p is not None:
+                    out.append(p)
+                if len(out) >= limit:
+                    break
+            if not results or not listing.get("next"):
+                break
+            page += 1
+        return out
 
 
 def write_manifest(cache: Path, data: dict) -> Path:
