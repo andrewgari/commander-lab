@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -96,6 +96,8 @@ class Cell:
     gcs: int
     checks: Dict[str, bool]
     notes: List[str]
+    draft_est: Optional[float] = None   # released draft's own estimated_power (not the analytics estimate)
+    builder: object = None
 
 
 def _gc_count(deck) -> int:
@@ -149,7 +151,8 @@ def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str 
              for n in row.soft_exclude if dv.normalize_name(n) in names]
     return Cell(row, power, sources, state_label(state, kind), res.estimated_power,
                 res.estimated_bracket, res.power_source,
-                da.total_cards(deck), _gc_count(deck), checks, notes)
+                da.total_cards(deck), _gc_count(deck), checks, notes,
+                draft_est=deck.get("estimated_power"), builder=builder)
 
 
 _CARD_RULES = {dv.RuleCode.COLOR_IDENTITY, dv.RuleCode.SINGLETON, dv.RuleCode.BANNED,

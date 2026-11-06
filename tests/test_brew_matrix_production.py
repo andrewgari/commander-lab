@@ -22,17 +22,23 @@ not that the filter rejects offered traps.
 """
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+
 import pytest
 
-from src.server.domain.draft.brew_builder import StubBrewBuilder
-from tests.support.brew_harness import EdhrecState
+from src.server.domain.analytics.card_eval import edhrec_data
+from src.server.domain.analytics.providers.edhrec import commander_slug
+from src.server.domain.draft.brew_builder import StubBrewBuilder, _cached_edhrec
+from tests.support.brew_harness import _COLORS, EdhrecState, edhrec_payload
 from tests.support.brew_matrix import ROWS
 from tests.test_brew_verification_matrix import CASES, POWERS, STATES, run_cell, state_label
 
-_TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by power_level, so deck "
-              "contents (Game Changers, bracket) do not follow low/mid/high: e.g. korvold low has "
-              "2 GCs, krenko bracket is 4/4/4 and est 9.0 == 9.0 when analytics are unavailable. "
-              "Remove this marker when power-aware picking lands.")
+_TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by power_level, so the "
+              "released drafts do not follow low/mid/high. Measured on the draft's own estimated_power / "
+              "bracket / Game Changers: low power has Game Changers (alesha, korvold, meren, wort), "
+              "bracket is flat (thrasios_tymna 4/4/4), draft estimate is flat or non-monotonic "
+              "(wort 6.3/7.5/7.2). Remove this marker when power-aware picking lands.")
 # cell-id -> reason. All 210 legality cells pass on production; every power-trend cell fails.
 KNOWN_FAILURES: dict = {
     f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}": _TREND_BUG
@@ -40,8 +46,35 @@ KNOWN_FAILURES: dict = {
 }
 
 
-def _prod(cat, row):
-    return StubBrewBuilder()
+class ProdBuilder(StubBrewBuilder):
+    """Production builder. The production path (builder + gate) reads EDHREC ONLY from the
+    Redis cache (`card_eval:edhrec:<slug>`), never over HTTP, so the EDHREC state is modelled
+    by what is cached (the harness' patched EDHRecClient is not on this path):
+      available        -> full page cached
+      degraded-partial -> partial page cached
+      unavailable / degraded-slow / degraded-timeout -> nothing cached (fetch failures are
+        invisible to cache-only readers; HTTP retry/timeout is covered at the fetch boundary,
+        tests/test_edhrec_provider.py)."""
+
+    def __init__(self, row, state, kind):
+        self.row, self.state, self.kind = row, state, kind
+        self.cached_edhrec = None
+
+    def build(self, session, r):
+        cmds = list(session["commanders"])
+        full = [f"Fixture {c} Card {i:02d}" for c in _COLORS for i in range(11, 31)]
+        want = {EdhrecState.AVAILABLE: False, (EdhrecState.DEGRADED, "partial"): True}.get(
+            self.state if self.state is EdhrecState.AVAILABLE else (self.state, self.kind))
+        if want is not None:
+            page = edhrec_data.parse_page(edhrec_payload(full, partial=want))
+            rec = {"fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **page}
+            r.set(edhrec_data.CACHE_PREFIX + commander_slug(cmds), json.dumps(rec))
+        self.cached_edhrec = len(_cached_edhrec(r, cmds))
+        return super().build(session, r)
+
+
+def _prod_factory(state, kind):
+    return lambda cat, row: ProdBuilder(row, state, kind)
 
 
 def _cell_id(k, p, s, st, kd):
@@ -61,12 +94,17 @@ def _params():
 
 @pytest.mark.parametrize("key,power,sources,state,kind", _params())
 def test_prod_cell_legality(key, power, sources, state, kind):
-    cell = run_cell(ROWS[key], power, sources, state, kind, builder_factory=_prod)
+    cell = run_cell(ROWS[key], power, sources, state, kind, builder_factory=_prod_factory(state, kind))
     ctx = (f"commander={'+'.join(cell.row.commanders)} power={power} sources={sources} "
            f"edhrec={cell.state}")
     failed = [c for c, ok in cell.checks.items() if not ok]
     assert not failed, f"{ctx}: failed checks {failed}"
     assert cell.cards == 100, f"{ctx}: failing assertion cards==100, got {cell.cards}"
+    # production actually read the state-specific EDHREC cache entry
+    n = cell.builder.cached_edhrec
+    exp = {"available": lambda n: n > 0, "degraded-partial": lambda n: n > 0}.get(
+        cell.state, lambda n: n == 0)
+    assert exp(n), f"{ctx}: production read {n} cached EDHREC cards"
 
 
 def _trend_params():
@@ -83,8 +121,11 @@ def _trend_params():
 
 @pytest.mark.parametrize("key,sources,state,kind", _trend_params())
 def test_prod_power_trend(key, sources, state, kind):
-    lo, mid, hi = (run_cell(ROWS[key], p, sources, state, kind, builder_factory=_prod)
-                   for p in POWERS)
+    lo, mid, hi = (run_cell(ROWS[key], p, sources, state, kind,
+                            builder_factory=_prod_factory(state, kind)) for p in POWERS)
+    # Released draft's own estimated_power (apply_power_estimate), NOT the harness analytics
+    # estimate (fixed 3.0/6.5/8.5 when AVAILABLE, which passes even for identical decks).
+    lo.est, mid.est, hi.est = lo.draft_est, mid.draft_est, hi.draft_est
     ctx = f"commander={key} sources={sources} edhrec={lo.state}"
     assert lo.est <= mid.est <= hi.est, f"{ctx}: est {(lo.est, mid.est, hi.est)}"
     assert hi.est > lo.est, ctx
@@ -99,7 +140,9 @@ def test_prod_power_trend(key, sources, state, kind):
 
 def test_prod_power_source_follows_analytics_state():
     for key in ROWS:
-        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE, builder_factory=_prod)
-        down = run_cell(ROWS[key], "mid", False, EdhrecState.UNAVAILABLE, builder_factory=_prod)
+        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE,
+                      builder_factory=_prod_factory(EdhrecState.AVAILABLE, "slow"))
+        down = run_cell(ROWS[key], "mid", False, EdhrecState.UNAVAILABLE,
+                        builder_factory=_prod_factory(EdhrecState.UNAVAILABLE, "slow"))
         assert ok.power_source == "commandersalt", key
         assert down.power_source == "bracket_band", key
