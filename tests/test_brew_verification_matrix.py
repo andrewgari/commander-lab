@@ -310,15 +310,11 @@ def test_F3_hybrid_list_form_not_dropped():
     assert dv.parse_color_identity(["R/G"]) == frozenset("RG")
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="F4: identity_of_cards silently ignores a partner missing from the catalog")
 def test_F4_partial_partner_identity_not_silent():
+    """F4 (fixed by #468): a partner missing from the catalog yields None (unknown), not a partial union."""
     pool_cat = rp.InMemoryCatalog([rp.CatalogCard("Thrasios, Triton Hero", frozenset("GU"))])
-    try:
-        got = rp.identity_of_cards(["Thrasios, Triton Hero", "No Such Partner"], pool_cat)
-    except (KeyError, ValueError):
-        return  # fixed: signals the incomplete commander set
-    assert got is None, f"partial union {sorted(got)} returned silently"
+    assert rp.identity_of_cards(["Thrasios, Triton Hero", "No Such Partner"], pool_cat) is None
+    assert rp.identity_of_cards(["Thrasios, Triton Hero"], pool_cat) == frozenset("GU")
 
 
 # --------------------------------------------------------------------------
