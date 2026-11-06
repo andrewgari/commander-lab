@@ -342,6 +342,33 @@ def test_cached_bad_draft_is_never_returned_by_any_read_path():
             assert_legal(out[0])
 
 
+def test_availability_never_leaks_an_illegal_draft():
+    r = FakeRedis()
+    guid = str(uuid.uuid4())
+    bad = draft(GOOD[:20] + [guid, "Mana Crypt"])
+    sess = {"session_id": "s4", "status": brew.STATUS_DRAFTS_READY, "drafts": [bad],
+            "commanders": [CMD], "created_at": "2026-01-01", "donor_decks": []}
+    r.set(brew._session_key("s4"), json.dumps(sess))
+    with mock.patch.object(bg, "_catalog_for", return_value=CAT), \
+            mock.patch.object(bg, "default_sources", return_value=[]):
+        try:
+            report = brew.get_availability(r, "s4")
+        except BrewGateError:
+            return
+    assert guid not in json.dumps(report)
+    assert "Mana Crypt" not in json.dumps(report)
+
+
+def test_availability_withholds_unrecoverable_draft():
+    r = FakeRedis()
+    sess = {"session_id": "s5", "status": brew.STATUS_DRAFTS_READY, "commanders": ["Does Not Exist"],
+            "drafts": [draft(GOOD[:20], commanders=("Does Not Exist",))], "created_at": "x"}
+    r.set(brew._session_key("s5"), json.dumps(sess))
+    with mock.patch.object(bg, "_catalog_for", return_value=CAT):
+        with pytest.raises(BrewGateError):
+            brew.get_availability(r, "s5")
+
+
 def test_cached_unrecoverable_draft_is_withheld_not_returned():
     r = FakeRedis()
     sess = {"session_id": "s2", "status": brew.STATUS_DRAFTS_READY, "commanders": ["Does Not Exist"],

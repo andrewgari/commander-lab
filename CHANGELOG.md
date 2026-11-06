@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
 - Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
+- Brew: the availability report no longer shows cards from a draft that fails the final legality check; it returns an error instead.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
 
 ### Added

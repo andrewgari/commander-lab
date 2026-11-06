@@ -636,7 +636,9 @@ def get_availability(r: Any, session_id: str) -> dict:
     drafts = session.get("drafts") or []
     if not drafts:
         raise ValueError("no draft available (build has not completed)")
-    draft = drafts[0]
+    # Final gate: availability emits card names, so it must see the released
+    # (repaired) draft; raises BrewGateError when it cannot be made legal.
+    draft = _release_and_persist(r, session)[0]
 
     pools = _build_pools(r, session)
     tagged = reconstruct_pools.tag_cards(draft.get("cards", []), pools)
