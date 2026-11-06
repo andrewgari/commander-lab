@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
 - Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
