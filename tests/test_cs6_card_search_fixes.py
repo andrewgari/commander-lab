@@ -32,6 +32,18 @@ def _bulk():
     ]
 
 
+def _fetch_printings(oid):
+    """Full printing list: every edition with its own rarity (not one representative)."""
+    base = {"oid": oid}
+    extra = "uncommon" if oid == "o-elf" else "rare"
+    return [
+        {"scryfall_id": f"{oid}-a", "oracle_id": oid, "set_code": "aaa", "collector_number": "1",
+         "rarity": "rare" if oid == "o-hh" else "common", "released_at": "2020-01-01"},
+        {"scryfall_id": f"{oid}-b", "oracle_id": oid, "set_code": "bbb", "collector_number": "2",
+         "rarity": extra, "released_at": "2022-01-01"},
+    ]
+
+
 def _seed_stubs(factory):
     seed(factory, [_stub("o-hh", "Hinterland Harbor"), _stub("o-elf", "Llanowar Elves")],
          instances=[("o-hh", "in_collection"), ("o-elf", "in_collection")])
@@ -46,8 +58,8 @@ def test_owned_filters_are_noops_on_stub_rows(client, factory):
 def test_hydration_makes_every_owned_filter_change_results(client, factory):
     _seed_stubs(factory)
     with session_scope(factory) as s:
-        stats = hydrate_mod.hydrate(s, _bulk())
-    assert stats["hydrated"] == 2 and stats["unmatched"] == [] and stats["printings"] == 2
+        stats = hydrate_mod.hydrate(s, _bulk(), printing_fetcher=_fetch_printings)
+    assert stats["hydrated"] == 2 and stats["unmatched"] == [] and stats["printings"] == 4
 
     def names(**p):
         return sorted(h["name"] for h in get(client, owned="owned", **p).json()["results"])
@@ -56,6 +68,7 @@ def test_hydration_makes_every_owned_filter_change_results(client, factory):
     assert names(type="land") == ["Hinterland Harbor"]
     assert names(type="creature") == ["Llanowar Elves"]
     assert names(rarity="common") == ["Llanowar Elves"]
+    assert names(rarity="uncommon") == ["Llanowar Elves"]   # any printing counts (§5.2)
     assert names(mv="0") == ["Hinterland Harbor"]
     assert names(ci="g", ci_mode="exact") == ["Llanowar Elves"]
     assert names(ci="gu", type="land") == ["Hinterland Harbor"]

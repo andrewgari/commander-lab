@@ -198,19 +198,18 @@ export interface QuickAddSuggestOptions {
 }
 
 /**
- * URL for the quick-add suggestion list (§4). Normal and commander scope use the autocomplete
- * endpoint; a partner search uses `card-search` because the autocomplete has no pairing clause.
+ * URL for the quick-add suggestion list (§4). Normal scope uses the autocomplete
+ * endpoint; commander scope uses `card-search` so the solo/pairing clauses apply.
  */
 export function suggestUrl(term: string, opts: QuickAddSuggestOptions = {}): string {
 	const limit = opts.limit ?? QUICK_ADD.limit;
-	if (opts.commander && opts.pair) {
+	if (opts.commander) {
 		return searchUrl(
-			{ commander: true, pair: opts.pair, name: term },
+			{ commander: true, pair: opts.pair ?? null, name: term },
 			{ page_size: limit }
 		);
 	}
 	const p = new URLSearchParams({ q: term.trim(), limit: String(limit) });
-	if (opts.commander) p.set('commanders_only', 'true');
 	return `${CARD_AUTOCOMPLETE_PATH}?${p.toString()}`;
 }
 

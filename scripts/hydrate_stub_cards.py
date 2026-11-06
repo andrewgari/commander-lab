@@ -6,9 +6,9 @@ color_identity, rarity, cmc 0) for oracle ids no deck import has touched. The
 owned-mode search filters on those columns in SQL (docs/ui/card-search.md
 §5.2), so stubs make every filter a no-op or a miss. This script hydrates them.
 
-Idempotent: only rows with an empty ``type_line`` are touched. It also writes
-one default printing per hydrated card when the card has none, so the rarity
-filter works.
+Idempotent: only rows with an empty ``type_line`` are touched. It also fetches the full printing list
+(all editions, with set/date/rarity) for hydrated cards that have none, so the
+rarity filter matches any printing.
 
 Usage:
     python scripts/hydrate_stub_cards.py [--bulk-file PATH] [--dry-run]
@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import Iterable
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,6 +31,7 @@ from sqlalchemy import select  # noqa: E402
 
 from src.server.infra.db import repositories as repo  # noqa: E402
 from src.server.infra.db.orm_models import CardRow, PrintingRow  # noqa: E402
+from src.server.infra.services import dossier_service  # noqa: E402
 
 BULK_INDEX = "https://api.scryfall.com/bulk-data/oracle-cards"
 _HEADERS = {"User-Agent": "commander-lab/hydrate-stub-cards", "Accept": "application/json"}
@@ -63,7 +65,7 @@ def to_card_dict(sf: dict) -> dict:
     }
 
 
-def hydrate(session, scryfall_cards: Iterable[dict]) -> dict:
+def hydrate(session, scryfall_cards: Iterable[dict], printing_fetcher=None) -> dict:
     """Hydrate every stub row (empty type_line) found in ``scryfall_cards``.
 
     Returns {"stubs", "hydrated", "unmatched": [names], "printings"}.
@@ -83,16 +85,30 @@ def hydrate(session, scryfall_cards: Iterable[dict]) -> dict:
         repo.upsert_card(session, card)
         done.add(oid)
         stats["hydrated"] += 1
-        if oid not in have_printing and sf.get("id") and sf.get("rarity"):
-            repo.upsert_printing(session, {
-                "scryfall_id": sf["id"], "oracle_id": oid,
-                "set_code": sf.get("set", ""), "collector_number": sf.get("collector_number", ""),
-                "rarity": sf["rarity"], "prices": sf.get("prices") or {},
-                "is_default": True,
-            })
-            stats["printings"] += 1
+        if oid not in have_printing and printing_fetcher is not None:
+            try:
+                fetched = printing_fetcher(oid)
+            except Exception:  # noqa: BLE001 - leave to the lazy dossier fill
+                fetched = []
+            if fetched:
+                default_id = dossier_service._choose_default(fetched)
+                repo.clear_default_printing(session, oid)
+                for p in fetched:
+                    repo.upsert_printing(session, {
+                        **p,
+                        "released_at": dossier_service._parse_date(p.get("released_at")),
+                        "is_default": p["scryfall_id"] == default_id,
+                    })
+                stats["printings"] += len(fetched)
     stats["unmatched"] = sorted(n for o, n in stubs.items() if o not in done)
     return stats
+
+
+def _throttled(fetcher):
+    def wrapped(oracle_id):
+        time.sleep(0.1)  # Scryfall courtesy limit
+        return fetcher(oracle_id)
+    return wrapped
 
 
 def _load_bulk(path: str | None) -> list:
@@ -117,7 +133,7 @@ def main(argv=None) -> int:
 
     bulk = _load_bulk(args.bulk_file)
     with session_scope(get_session_factory()) as session:
-        stats = hydrate(session, bulk)
+        stats = hydrate(session, bulk, printing_fetcher=_throttled(dossier_service.default_printing_fetcher))
         if args.dry_run:
             session.rollback()
     print(f"stubs: {stats['stubs']}, hydrated: {stats['hydrated']}, "
