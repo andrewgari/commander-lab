@@ -73,6 +73,36 @@ class TestBuilder(unittest.TestCase):
         with self.assertRaises(ValueError):
             brew_builder.StubBrewBuilder().build({"commanders": [BAD]}, FakeRedis())
 
+    def test_uuid_commander_resolved_before_pools_and_donor_attributed(self):
+        r = FakeRedis()
+        r.set(f"card:{GOOD}", json.dumps({"name": "Sol Ring"}))
+        r.set("card:aaaaaaaa-0000-0000-0000-000000000001", json.dumps({"name": "Cmdr", "color_identity": "G"}))
+        session = {
+            "commanders": ["aaaaaaaa-0000-0000-0000-000000000001"],
+            "donor_decks": [{"name": "D", "cards": [{"name": GOOD, "quantity": 1}], "commanders": []}],
+            "source_decks": [{"name": "D", "cards": [{"name": GOOD, "quantity": 1}], "commanders": []}],
+        }
+        draft = brew_builder.StubBrewBuilder().build(session, r)[0]
+        self.assertEqual(draft["commanders"], ["Cmdr"])
+        sol = next(c for c in draft["cards"] if c["name"] == "Sol Ring")
+        self.assertEqual(sol["tier"], 1)  # donor attribution kept
+
+    def test_dropped_owned_id_reaches_draft_report(self):
+        r = FakeRedis()
+        import src.server.domain.inventory.instances as inst
+        inst.create_instance(r, BAD, ownership_status="in_collection")
+        draft = brew_builder.StubBrewBuilder().build({"commanders": ["Cmdr"]}, r)[0]
+        self.assertIn(BAD, draft["dropped_ids"])
+        self.assertNotIn(BAD, [c["name"] for c in draft["cards"]])
+
+    def test_recompute_refreshes_missing_slots_by_quantity(self):
+        import src.server.domain.draft.brew as brew
+        r = FakeRedis()
+        draft = {"cards": [{"name": "Forest", "quantity": 5}, {"name": "Sol Ring", "quantity": 1}],
+                 "missing_slots": 99}
+        brew._recompute_draft(r, {"commanders": ["Cmdr"]}, draft)
+        self.assertEqual(draft["missing_slots"], 94)
+
 
 if __name__ == "__main__":
     unittest.main()

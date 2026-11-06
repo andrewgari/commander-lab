@@ -25,6 +25,47 @@ from src.server.domain.draft.reconstruct_pools import norm_name
 DECK_SIZE = 100  # commander(s) + the rest; the stub tops up to this
 
 
+def _resolve_session(session: dict, r: Any):
+    """Copy of `session` with every commander / donor card name resolved
+    BEFORE pools are built (so colour filter and donor attribution use real
+    names). Unresolvable donor cards are dropped; an unresolvable commander
+    raises."""
+    report = ResolutionReport()
+    out = dict(session)
+    cmds = []
+    for cmd in session.get("commanders") or []:
+        rc = resolve_card(cmd, r)
+        if rc is None:
+            raise ValueError(f"commander {cmd!r} cannot be resolved to a card name")
+        cmds.append(rc.name)
+    out["commanders"] = cmds
+
+    def fix_deck(sd: dict) -> dict:
+        sd = dict(sd)
+        cards = []
+        for c in sd.get("cards") or []:
+            rc = resolve_card(c.get("name"), r)
+            if rc is None:
+                report.drop(c.get("name"))
+                continue
+            cards.append({**c, "name": rc.name})
+        sd["cards"] = cards
+        sc = []
+        for cmd in sd.get("commanders") or []:
+            rc = resolve_card(cmd, r)
+            if rc is None:
+                report.drop(cmd)
+            else:
+                sc.append(rc.name)
+        sd["commanders"] = sc
+        return sd
+
+    for key in ("donor_decks", "source_decks"):
+        if session.get(key):
+            out[key] = [fix_deck(sd) for sd in session[key]]
+    return out, report
+
+
 class BaseBrewBuilder(reconstruct.BaseReconstructBuilder):
     """Pluggable builder interface for brew. build(session, r) -> [one draft]."""
 
@@ -43,6 +84,7 @@ class StubBrewBuilder(BaseBrewBuilder):
     def build(self, session: dict, r: Any) -> list[dict]:
         import src.server.domain.draft.brew as brew  # local import: brew imports this module lazily too
 
+        session, report = _resolve_session(session, r)
         commanders = list(session.get("commanders") or [])
         if not commanders:
             raise ValueError("a commander is required to brew a deck")
@@ -64,14 +106,6 @@ class StubBrewBuilder(BaseBrewBuilder):
         cards: list[dict] = []
         used = set()
 
-        resolved_cmds = []
-        for cmd in commanders:
-            rc = resolve_card(cmd, r)
-            if rc is None:
-                raise ValueError(f"commander {cmd!r} cannot be resolved to a card name")
-            resolved_cmds.append(rc.name)
-        commanders = resolved_cmds
-
         for cmd in commanders:
             in_donor = any(norm_name(cmd) == norm_name(d) for d in donor_cards)
             cards.append({
@@ -84,7 +118,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             })
             used.add(norm_name(cmd))
 
-        report = ResolutionReport()
+        for v in (pools.dropped if pools is not None else []):
+            report.drop(v)
 
         def add(name, tier, tier_label, cost, rationale):
             # Single resolution point: an unresolvable id is dropped, never emitted.

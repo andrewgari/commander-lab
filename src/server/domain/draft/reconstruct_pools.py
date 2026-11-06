@@ -167,6 +167,8 @@ class CandidatePools:
     config: PoolConfig = field(default_factory=PoolConfig)
     # Tier 3 candidates that passed the filters before the cap was applied.
     tier3_total_candidates: int = 0
+    # Raw owned-card values that could not be resolved to a name (dropped).
+    dropped: List[str] = field(default_factory=list)
 
     @property
     def tier3_truncated(self) -> bool:
@@ -660,10 +662,12 @@ def build_candidate_pools(
     owned = free_owned_counts(owned_instances or [], source_deck_keys=src_keys)
     tier2: List[PoolCard] = []
     merged: Dict[str, Tuple[str, int]] = {}
+    dropped_owned: List[str] = []
     for name, n in owned.items():
         resolved = resolve_card(name, r)  # instance card_name may be an oracle-id UUID
         if resolved is None:
             log.warning("pools: dropped unresolvable owned card %r", name)
+            dropped_owned.append(name)
             continue
         name = resolved.name
         k = norm_name(name)
@@ -720,6 +724,7 @@ def build_candidate_pools(
         target_deck_count=target_deck_count,
         config=config,
         tier3_total_candidates=len(ranked),
+        dropped=dropped_owned,
     )
 
 
