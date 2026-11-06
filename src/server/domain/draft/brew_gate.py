@@ -42,6 +42,7 @@ _ID_KEYS = frozenset({
 })
 UUID_CODE = "UUID_IN_OUTPUT"
 UNRESOLVED_CODE = "UNRESOLVED_NAME"
+COMMANDER_ENTRY_CODE = "COMMANDER_ENTRY_MISSING"
 
 
 class BrewGateError(ValueError):
@@ -98,6 +99,12 @@ def check_draft(draft: dict, catalog: dv.CardCatalog, allow_incomplete: bool = F
              if not isinstance(c.get("name"), str) or not c["name"].strip()]
     if blank:
         errors.append(dv.ValidationError(UNRESOLVED_CODE, [], f"{len(blank)} card(s) have no resolved name.", 0))
+    present = {dv.normalize_name(c["name"]) for c in draft.get("cards") or []
+               if isinstance(c.get("name"), str)}
+    absent = [c for c in draft.get("commanders") or [] if dv.normalize_name(c) not in present]
+    if absent:
+        errors.append(dv.ValidationError(
+            COMMANDER_ENTRY_CODE, absent, "Commander missing from the card list: " + ", ".join(absent), 0))
     res = dv.validate_deck(_to_deck(draft), catalog)
     for e in res.errors:
         if allow_incomplete and str(getattr(e.code, "value", e.code)) == "DECK_SIZE":
@@ -205,7 +212,9 @@ def _repair(draft: dict, catalog: dv.CardCatalog, sources: List[Tuple[str, List[
             cat2, synth = _pair_catalog(catalog, cmds)
             keep = {dv.normalize_name(c) for c in cmds}
             names = [n for n in names if dv.normalize_name(n) not in keep]
-            filled = deck_fill.fill_deck(synth, names, sources, cat2, staples=STAPLES)
+            sources = [(lbl, [n for n in ns if dv.normalize_name(n) not in keep]) for lbl, ns in sources]
+            staples = [n for n in STAPLES if dv.normalize_name(n) not in keep]
+            filled = deck_fill.fill_deck(synth, names, sources, cat2, staples=staples)
             names = filled[1:1 + dv.DECK_SIZE - 2]
         else:
             raise BrewGateError(f"a deck needs 1 or 2 commanders, got {len(cmds)}")
@@ -254,11 +263,8 @@ def release_draft(draft: dict, r: Any = None, *, session: Optional[dict] = None,
     stamped ``gate.ok``; raises BrewGateError if it cannot be made legal."""
     if allow_incomplete is None:
         allow_incomplete = bool(draft.get("user_edited"))
-    stamp = draft.get("gate")
-    if (isinstance(stamp, dict) and stamp.get("ok") and stamp.get("fp") == fingerprint(draft)
-            and bool(stamp.get("inc")) == bool(allow_incomplete)):
-        return draft
-
+    # No stamp short-circuit: catalog facts (bans) and output text can change
+    # after a draft was stamped, so every release re-validates.
     current, dropped = _resolve_names(draft, r)
     changed = bool(dropped)
     own_catalog = catalog is None

@@ -289,7 +289,20 @@ def execute_build(r: Any, session_id: str) -> dict:
 
 def release_draft(r: Any, session: Optional[dict], draft: dict, **kw: Any) -> dict:
     """The single output gate for a Brew draft (see brew_gate.release_draft)."""
+    if session is not None and "recompute" not in kw:
+        kw["recompute"] = lambda d: _recompute_draft(r, session, d)
     return brew_gate.release_draft(draft, r, session=session, **kw)
+
+
+def _release_and_persist(r: Any, session: dict) -> list[dict]:
+    """Gate every stored draft; persist repairs so availability / edit
+    consumers see the same cards as the response."""
+    original = session.get("drafts", [])
+    released = [release_draft(r, session, d) for d in original]
+    if released != original and session.get("session_id"):
+        session["drafts"] = released
+        _save_session(r, session)
+    return released
 
 
 def release_session(r: Any, session: Optional[dict]) -> Optional[dict]:
@@ -300,7 +313,7 @@ def release_session(r: Any, session: Optional[dict]) -> Optional[dict]:
         return session
     out = dict(session)
     try:
-        out["drafts"] = [release_draft(r, session, d) for d in session["drafts"]]
+        out["drafts"] = _release_and_persist(r, dict(session))
     except BrewGateError as exc:
         out["drafts"] = []
         out["status"] = STATUS_FAILED
@@ -313,7 +326,7 @@ def get_drafts(r: Any, session_id: str) -> list[dict]:
     session = get_session(r, session_id)
     if not session:
         raise ValueError(f"session not found: {session_id}")
-    return [release_draft(r, session, d) for d in session.get("drafts", [])]
+    return _release_and_persist(r, session)
 
 
 def abandon_brew(r: Any, session_id: str, reason: str = "") -> dict:

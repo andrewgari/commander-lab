@@ -291,7 +291,7 @@ def test_user_edited_stamp_does_not_satisfy_a_complete_requirement():
 
 # -- one gate for every Brew output path ---------------------------------------------------------
 
-GATE_NAMES = {"release_draft", "release_session", "get_drafts"}
+GATE_NAMES = {"release_draft", "release_session", "get_drafts", "_release_and_persist"}
 
 
 def _calls(fn):
@@ -386,3 +386,20 @@ def test_check_flags_uuid_anywhere_in_output():
     assert bg.check_draft(d2, CAT).valid
     with pytest.raises(BrewGateError):  # a UUID the repair cannot remove is an error
         gate(d)
+
+
+# -- review follow-ups ---------------------------------------------------------------------------
+
+def test_missing_commander_entry_is_flagged_and_repaired():
+    d = draft(GOOD)
+    d["cards"] = [c for c in d["cards"] if c["name"] != d["commanders"][0]]
+    assert any(str(getattr(e.code, "value", e.code)) == "COMMANDER_ENTRY_MISSING"
+               for e in bg.check_draft(d, CAT).errors)
+    assert_legal(release_draft(d, None, catalog=CAT, sources=[]))
+
+
+def test_stale_stamp_does_not_bypass_revalidation():
+    out = release_draft(draft(GOOD), None, catalog=CAT, sources=[])
+    out["cards"][5]["rationale"] = "see 123e4567-e89b-12d3-a456-426614174000"
+    with pytest.raises(BrewGateError):
+        release_draft(out, None, catalog=CAT, sources=[], repair=False)
