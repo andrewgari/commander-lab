@@ -854,16 +854,17 @@ def load_job(r, job_id: str) -> Optional[dict]:
 
 
 def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any], **kw) -> dict:
-    from .oracle_client import OFFLINE_MESSAGE, OracleError, OracleUnavailable
+    from .oracle_client import OFFLINE_MESSAGE
+    from src.server.domain.llm.port import LLMError, LLMUnavailable
 
     job.update(status="running", started_at=_now_iso())
     _save_job(r, job)
     try:
         doc = generate(r, deck, job["theme"], job["commander_mode"], client_factory(), doc_id=job["doc_id"], **kw)
         job.update(status="done", doc_id=doc["doc_id"], summary=summary(doc))
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         job.update(status="failed", error=OFFLINE_MESSAGE, error_kind="oracle_offline", detail=exc.detail)
-    except (OracleError, TheoryError) as exc:
+    except (LLMError, TheoryError) as exc:
         job.update(status="failed", error=str(exc)[:500], error_kind=type(exc).__name__)
     except Exception as exc:  # noqa: BLE001 - a job must always end in a state
         log.exception("theory job %s failed", job["job_id"])
