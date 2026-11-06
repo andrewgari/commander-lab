@@ -21,8 +21,8 @@ for repair: pass the current mainboard names as `cards`.
 """
 from __future__ import annotations
 
-import concurrent.futures
 import logging
+import threading
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
 
 from src.server.domain.decks.deck_slots import DeckSlot
@@ -58,18 +58,46 @@ STAPLES: Tuple[str, ...] = (
 Source = Tuple[str, Union[Iterable[str], Callable[[], Iterable[str]]]]
 
 
+_MAX_SOURCE_THREADS = 4
+_source_slots = threading.BoundedSemaphore(_MAX_SOURCE_THREADS)
+
+
 def _load_source(label: str, src: Any, timeout: float) -> List[str]:
-    """Names from one source; [] (and a log line) on any error or timeout."""
+    """Names from one source; [] (and a log line) on any error or timeout.
+
+    Callables run on a daemon thread, with the iterable fully materialised
+    inside it so the deadline covers fetching too. Worker threads are capped:
+    a hung source holds a slot, and when none is free the source is skipped
+    rather than spawning more threads.
+    """
+    def clean(items: Any) -> List[str]:
+        return [n for n in list(items or []) if isinstance(n, str)]
+
     try:
         if not callable(src):
-            return [n for n in (src or []) if isinstance(n, str)]
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        fut = pool.submit(src)
-        try:
-            result = fut.result(timeout=timeout)
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
-        return [n for n in (result or []) if isinstance(n, str)]
+            return clean(src)
+        if not _source_slots.acquire(blocking=False):
+            log.warning("deck_fill: source %r skipped (worker threads exhausted)", label)
+            return []
+        box: dict = {}
+
+        def run() -> None:
+            try:
+                box["v"] = clean(src())
+            except Exception as exc:  # noqa: BLE001
+                box["e"] = exc
+            finally:
+                _source_slots.release()
+
+        t = threading.Thread(target=run, daemon=True, name=f"deck-fill-{label}")
+        t.start()
+        t.join(timeout)
+        if "e" in box:
+            raise box["e"]
+        if "v" not in box:
+            log.warning("deck_fill: source %r timed out after %ss", label, timeout)
+            return []
+        return box["v"]
     except Exception as exc:  # noqa: BLE001 - a dead source must never break the fill
         log.warning("deck_fill: source %r unavailable (%s: %s)", label, type(exc).__name__, exc)
         return []
@@ -99,6 +127,13 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     cmd_info = catalog.get(commander)
     if cmd_info is None:
         raise ValueError(f"unknown commander {commander!r}; cannot determine colour identity")
+    if cmd_info.commander_legality != "legal":
+        raise ValueError(f"commander {commander!r} is not Commander-legal "
+                         f"(legality: {cmd_info.commander_legality})")
+    if not cmd_info.can_be_commander:
+        raise ValueError(f"{commander!r} is not eligible to be a commander")
+    if not slot_gate(cmd_info, DeckSlot.COMMANDER).legal:
+        raise ValueError(f"{commander!r} is not legal in the commander slot")
     identity = cmd_info.color_identity
     cmd_key = normalize_name(cmd_info.name)
 
@@ -135,7 +170,10 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
             try_add(n)
     for n in staples:
         try_add(n)
-    for b in _basic_split(identity, DECK_SIZE - 1 - len(deck)):
-        try_add(b)
-
-    return [cmd_info.name] + deck
+    # Basics are intrinsically legal and unlimited: use the built-in names
+    # directly so a sparse/odd catalog record can never block the last step.
+    deck += _basic_split(identity, DECK_SIZE - 1 - len(deck))
+    out = [cmd_info.name] + deck
+    if len(out) != DECK_SIZE:  # unreachable by construction; fail loudly, never short
+        raise RuntimeError(f"fill_deck produced {len(out)} cards, expected {DECK_SIZE}")
+    return out

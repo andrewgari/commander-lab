@@ -140,3 +140,44 @@ def test_oversized_input_is_trimmed_and_deterministic():
 def test_unknown_commander_raises():
     with pytest.raises(ValueError):
         fill_deck("Nobody", [], None, CAT, staples=STAPLES)
+
+
+def test_illegal_commanders_rejected():
+    for bad in ("Sol Ring", "Mana Crypt"):
+        with pytest.raises(ValueError):
+            fill_deck(bad, [], None, CAT, staples=STAPLES)
+
+
+def test_basic_record_without_legality_does_not_shorten_deck():
+    cat = build_catalog()
+    cat.add(card("Mountain", "R", ("Land",), ("Basic",), legality=None))
+    out = fill_deck("Mono Red Guy", [], None, cat, staples=[])
+    assert len(out) == 100 and out.count("Mountain") == 99
+
+
+def test_generator_source_is_bounded_by_timeout():
+    def gen():
+        time.sleep(5)
+        yield "Src C 0"
+
+    def lazy():
+        def g():
+            time.sleep(5)
+            yield "Src C 0"
+        return g()
+
+    t = time.time()
+    out = fill_deck("Atraxa", [], [("lazy", lazy)], CAT, staples=STAPLES, source_timeout=0.2)
+    assert time.time() - t < 3
+    assert_legal_100("Atraxa", out)
+
+
+def test_hung_sources_do_not_spawn_unbounded_threads():
+    import threading
+    before = threading.active_count()
+    ev = threading.Event()
+    for _ in range(12):
+        fill_deck("Atraxa", [], [("hung", lambda: ev.wait(10))], CAT, staples=STAPLES,
+                  source_timeout=0.01)
+    assert threading.active_count() - before <= 4
+    ev.set()
