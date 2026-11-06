@@ -118,7 +118,7 @@ def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
         tl = " ".join(str(x) for x in tl)
     if not tl and rec.get("types"):
         tl = " ".join(str(x) for x in rec["types"])
-    out = {"name": name, "tags": tags, "oracle_text": rec.get("oracle_text") or "", "type_line": tl}
+    out = {"name": name, "tags": tags, "oracle_id": rec.get("oracle_id") or "", "oracle_text": rec.get("oracle_text") or "", "type_line": tl}
     mv = rec.get("cmc", rec.get("mana_value"))
     if isinstance(mv, (int, float)) and not isinstance(mv, bool):
         out["cmc"] = mv
@@ -161,11 +161,19 @@ class _Scorer:
         self.skeleton = config.skeleton()
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+        self.source_names: frozenset = frozenset()
+        self.source_oracle_ids: frozenset = frozenset()
+
+    def set_sources(self, names: List[str]) -> None:
+        """Register the user's source cards (donor decks + owned inventory) for the source bonus."""
+        self.source_names, self.source_oracle_ids = brew_scoring.build_source_index(
+            [_card_record(self.r, n) for n in names if n])
 
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
         ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
+                                        source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
                                         target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
         chosen = brew_scoring.select_cards(recs, ctx, cap, self.config)
@@ -259,6 +267,18 @@ class StubBrewBuilder(BaseBrewBuilder):
 
         def fresh(names):
             return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
+
+        tier2_all: List[str] = []
+        if pools is not None:
+            tier2_all = [pc.name for pc in pools.tier2]
+        elif r is not None:
+            try:
+                tier2_all = [inst.get("card_name") for inst in
+                             instance_store.list_instances(r, ownership_status="in_collection")
+                             if inst.get("card_name")]
+            except Exception:
+                tier2_all = []
+        scorer.set_sources(donor_cards + tier2_all)
 
         for name in scorer.pick(fresh(donor_cards), tier1_cap):
             add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")

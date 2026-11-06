@@ -114,7 +114,9 @@ class BrewScoringConfig:
     over_range_penalty: float = 1.0  # need per card above the range top (x category_need)
 
     # --- placeholder blocks filled by later tasks ---
-    source_bias: float = 0.0        # weight of the owned/deck-source bias term
+    source_bias: float = 0.25       # fraction of the median candidate score gap granted to source cards; 0 = off
+    source_bias_max: float = 0.5    # hard ceiling on that fraction
+    source_unit_fallback: float = 0.01  # gap unit when tied / standalone (tie-break only)
     power_level: Mapping[str, float] = field(default_factory=dict)  # legacy/inert; see `power`
     power: PowerConfig = field(default_factory=PowerConfig)
 
