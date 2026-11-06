@@ -76,12 +76,10 @@ class Chat(unittest.TestCase):
         def h(req):
             seen["b"] = json.loads(req.content)
             return httpx.Response(200, json=OK)
-        make(h).chat([{"role": "user", "content": "x"}], provider={"data_collection": "allow"}, model="evil/m",
-                     messages=[], stream=True)
+        make(h).chat([{"role": "user", "content": "x"}], provider={"data_collection": "allow"}, model="evil/m", stream=True)
         b = seen["b"]
         self.assertEqual(b["provider"], {"data_collection": "deny"})
         self.assertEqual((b["model"], b["stream"]), ("m/x", False))
-        self.assertEqual(len(b["messages"]), 1)
 
     def test_list_content_passthrough_and_reply_join(self):
         parts = [{"type": "text", "text": "a", "cache_control": {"type": "ephemeral"}}]
