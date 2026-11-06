@@ -162,6 +162,9 @@ def _edhrec_synergy(card, ctx, cfg) -> float:
     return cfg.edhrec_synergy * _clamp01((syn - cfg.synergy_floor) / (cfg.synergy_ceil - cfg.synergy_floor))
 
 
+SOURCE_BIAS_ABS_MAX = 0.9  # hard code-level ceiling on the gap fraction, regardless of config
+
+
 def _source_bias(card, ctx, cfg) -> float:
     """Bounded bonus for cards in the user's sources.
 
@@ -172,7 +175,8 @@ def _source_bias(card, ctx, cfg) -> float:
     With tied candidates (no gap) or standalone scoring, unit falls back to
     source_unit_fallback, a tie-break-sized constant.
     """
-    frac = max(0.0, min(cfg.source_bias, cfg.source_bias_max))
+    # Absolute bound independent of config: the fraction can never reach one full gap.
+    frac = max(0.0, min(cfg.source_bias, cfg.source_bias_max, SOURCE_BIAS_ABS_MAX))
     if frac <= 0 or not in_sources(card, ctx):
         return 0.0
     unit = ctx.source_unit if ctx.source_unit else cfg.source_unit_fallback

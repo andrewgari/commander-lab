@@ -116,3 +116,13 @@ class TestBuilder(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_runtime_ceiling_cannot_exceed_absolute_bound():
+    from src.server.domain.draft import brew_scoring as bs
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    cfg = BrewScoringConfig(source_bias=99, source_bias_max=2)
+    ctx = bs.ScoreContext("X", [], {}, cfg.skeleton(), {}, frozenset({"a"}), frozenset())
+    ctx = bs.replace(ctx, source_unit=1.0) if hasattr(bs, "replace") else ctx
+    r = bs.score_card({"name": "a"}, ctx, cfg)
+    assert r.components["source_bias"] < 1.0
