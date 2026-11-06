@@ -96,7 +96,8 @@ def start_brew(
     if not commanders:
         raise ValueError("a commander is required to brew a deck")
     from src.server.domain.draft.brew_power import parse_power_level
-    target_power = parse_power_level(power_level)  # ValueError if out of range; default if absent
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    target_power = parse_power_level(power_level, BrewScoringConfig.from_env().power)  # ValueError if out of range; default if absent
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -369,6 +370,9 @@ def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     if "missing_slots" in draft:
         total = sum(int(c.get("quantity", 1) or 0) for c in merged)
         draft["missing_slots"] = max(100 - total, 0)
+    from src.server.domain.draft.brew_builder import apply_power_estimate
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    apply_power_estimate(r, session, draft, BrewScoringConfig.from_env())
 
 
 def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:

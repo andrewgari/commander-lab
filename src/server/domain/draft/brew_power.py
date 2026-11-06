@@ -166,11 +166,14 @@ def estimate_power_level(deck: Any, config: Optional[BrewScoringConfig] = None,
     match the name lists. Returns {"power": float, "breakdown": {...}}.
     """
     p = (config or BrewScoringConfig()).power
-    cards: Sequence[Mapping[str, Any]] = deck.get("cards", []) if isinstance(deck, Mapping) else list(deck or [])
+    cards: Sequence[Mapping[str, Any]] = (deck.get("cards") or []) if isinstance(deck, Mapping) else list(deck or [])
     counts = {s: 0 for s in SIGNALS}
     mvs = []
     for c in cards:
-        qty = c.get("quantity") if isinstance(c.get("quantity"), int) and c.get("quantity") > 0 else 1
+        q = c.get("quantity", 1)
+        qty = q if isinstance(q, int) and not isinstance(q, bool) and q >= 0 else 1
+        if qty == 0:
+            continue
         sig = card_signals(c, game_changers)
         for s in SIGNALS:
             if sig[s]:

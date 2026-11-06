@@ -125,6 +125,28 @@ def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
     return out
 
 
+def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoringConfig,
+                         records: Any = None) -> None:
+    """Set target_power / estimated_power / metadata.estimated_power on a draft from its
+    CURRENT cards. Cards without a scoring record (commanders, edits, LLM picks) are hydrated."""
+    records = dict(records or {})
+    lab_tags = None
+    est_cards = []
+    for c in draft.get("cards") or []:
+        name = c.get("name")
+        rec = records.get(name)
+        if rec is None:
+            if lab_tags is None:
+                lab_tags = _load_lab_tags(r)
+            rec = _card_record(r, name, lab_tags)
+        q = c.get("quantity", 1)
+        est_cards.append({**rec, "quantity": q if isinstance(q, int) else 1})
+    estimate = brew_power.estimate_power_level(est_cards, config)
+    draft["target_power"] = session.get("target_power")
+    draft["estimated_power"] = estimate["power"]
+    draft.setdefault("metadata", {})["estimated_power"] = estimate
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -291,10 +313,6 @@ class StubBrewBuilder(BaseBrewBuilder):
             is_complete = True
             unpriced = []
 
-        est_cards = [{**scorer.records.get(c["name"], {"name": c["name"]}), "quantity": c.get("quantity", 1)}
-                     for c in cards]
-        estimate = brew_power.estimate_power_level(est_cards, scorer.config)
-
         name = pref.get("name") or f"{commanders[0]} brew"
         themes = list(session.get("themes") or pref.get("themes") or [])
         draft = {
@@ -308,8 +326,6 @@ class StubBrewBuilder(BaseBrewBuilder):
             "power_level": session.get("power_level", ""),
             "deck_idea": session.get("deck_idea", ""),
             "target_power": session.get("target_power"),
-            "estimated_power": estimate["power"],
-            "metadata": {"estimated_power": estimate},
             "build_mode": build_mode,
             "cards": cards,
             "total_new_cost": total_new_cost,
@@ -322,6 +338,7 @@ class StubBrewBuilder(BaseBrewBuilder):
                 + (f" — themes: {', '.join(themes)}." if themes else ".")
             ),
         }
+        apply_power_estimate(r, session, draft, scorer.config, scorer.records)
         return [draft]
 
 
@@ -346,8 +363,16 @@ class BrewBuilder(BaseBrewBuilder):
         if prefs:
             prefs[0]["notes"] = " ".join(x for x in [prefs[0].get("notes", ""), note] if x).strip()
         inner_session["preferences"] = prefs
-        drafts = self._inner.build(inner_session, r)
-        return drafts[:1]
+        tp = session.get("target_power")
+        if prefs and tp is not None:
+            prefs[0]["notes"] = (prefs[0].get("notes", "") + f" Target power level {tp:g} on a 1-10 scale: "
+                                 "use fast mana, tutors, combo pieces and Game Changers only if that is high "
+                                 "(7+), avoid them if low (4 or less), and keep a modest average mana value.").strip()
+        drafts = self._inner.build(inner_session, r)[:1]
+        cfg = BrewScoringConfig.from_env()
+        for d in drafts:
+            apply_power_estimate(r, session, d, cfg)
+        return drafts
 
 
 _builder_instance: BaseBrewBuilder = StubBrewBuilder()

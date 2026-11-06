@@ -145,3 +145,31 @@ def test_stub_low_vs_high_differ():
     assert sig(hi, "fast_mana") + sig(hi, "tutor") + sig(hi, "game_changer") > \
         sig(lo, "fast_mana") + sig(lo, "tutor") + sig(lo, "game_changer")
     assert hi["estimated_power"] > lo["estimated_power"]
+
+
+# ---- review-thread regressions ----------------------------------------------
+
+def test_env_power_config_used_by_request_parsing(monkeypatch):
+    from src.server.domain.draft import brew
+    from tests.test_brew import FakeRedis
+    monkeypatch.setenv("BREW_SCORING_WEIGHTS", '{"power": {"default_level": 8}}')
+    r = FakeRedis()
+    r.set("decks", "[]")
+    assert brew.start_brew(r, "Atraxa", [], "owned_first")["target_power"] == 8
+
+
+def test_estimate_edge_cases():
+    assert bp.estimate_power_level({"cards": None})["power"] >= 1.0
+    zero = bp.estimate_power_level([{"name": "Sol Ring", "quantity": 0}])
+    assert zero["breakdown"]["counts"]["fast_mana"] == 0
+
+
+def test_estimate_refreshed_on_draft_edit():
+    res = _run("low")
+    from src.server.domain.draft import brew_builder as bb
+    d = dict(res.deck, cards=list(res.deck["cards"]))
+    before = d["estimated_power"]
+    d["cards"] += [{"name": n, "quantity": 1} for n in ("Mana Vault", "Chrome Mox", "Mox Diamond", "Grim Monolith")]
+    from tests.test_brew import FakeRedis
+    bb.apply_power_estimate(FakeRedis(), res.session, d, BrewScoringConfig())
+    assert d["estimated_power"] > before
