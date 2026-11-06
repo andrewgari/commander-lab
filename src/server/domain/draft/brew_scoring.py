@@ -11,11 +11,11 @@ the breakdown. All weights come from BrewScoringConfig.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from statistics import median
 from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+from src.server.domain.draft import brew_power
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, SkeletonRange
 
 Term = Callable[[Mapping[str, Any], "ScoreContext", BrewScoringConfig], float]
@@ -45,6 +45,10 @@ class ScoreContext:
     source_names: FrozenSet[str] = frozenset()      # name_keys() of cards in the user's sources
     source_oracle_ids: FrozenSet[str] = frozenset()  # oracle ids of cards in the user's sources
     source_unit: Optional[float] = None             # score gap the source bonus is a fraction of (set by select_cards)
+    target_power: Optional[float] = None   # requested power 1-10; None disables the power term
+    mv_sum: float = 0.0                    # mana value total of chosen non-land cards
+    mv_n: int = 0                          # count of chosen non-land cards with a known MV
+    game_changers: Optional[Sequence[str]] = None  # override of the checked-in snapshot
 
 
 @dataclass
@@ -183,12 +187,17 @@ def _source_bias(card, ctx, cfg) -> float:
     return frac * unit
 
 
+def _power_level(card, ctx, cfg) -> float:
+    return brew_power.power_term(card, ctx, cfg)
+
+
 _CORE: Dict[str, Callable] = {
     "commander_synergy": _commander_synergy,
     "category_need": _category_need,
     "edhrec_inclusion": _edhrec_inclusion,
     "edhrec_synergy": _edhrec_synergy,
     "source_bias": _source_bias,
+    "power_level": _power_level,
 }
 
 
@@ -218,6 +227,7 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
     """
     cfg = config or BrewScoringConfig()
     counts = dict(context.deck_counts)
+    mv_sum, mv_n = context.mv_sum, context.mv_n
     pool = {}
     for c in candidates:
         pool.setdefault(_name_key(c.get("name", "")), c)
@@ -225,7 +235,7 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
     picked: List[Mapping[str, Any]] = []
     sk = context.skeleton
     while remaining and len(picked) < limit:
-        ctx = replace(context, deck_counts=counts)
+        ctx = replace(context, deck_counts=counts, mv_sum=mv_sum, mv_n=mv_n)
         slots = limit - len(picked)
         deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if counts.get(k, 0) < r.low}
 
@@ -245,6 +255,9 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
         remaining.remove(best)
         for k in set(_matching(best, sk)):
             counts[k] = counts.get(k, 0) + 1
+        mv = brew_power.mana_value(best)
+        if mv is not None and not brew_power.is_land(best):
+            mv_sum, mv_n = mv_sum + mv, mv_n + 1
     return picked
 
 

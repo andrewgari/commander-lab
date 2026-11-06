@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.cards as card_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 
@@ -95,6 +96,9 @@ def start_brew(
     commanders = pref["commanders"]
     if not commanders:
         raise ValueError("a commander is required to brew a deck")
+    from src.server.domain.draft.brew_power import parse_power_level
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    target_power = parse_power_level(power_level, BrewScoringConfig.from_env().power)  # ValueError if out of range; default if absent
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -157,6 +161,7 @@ def start_brew(
         "source_decks": snapshots,
         "build_mode": build_mode,
         "power_level": str(power_level or ""),
+        "target_power": target_power,
         "deck_idea": (deck_idea or "").strip() if isinstance(deck_idea, str) else str(deck_idea),
         "themes": pref["themes"],
         "notes": pref["notes"],
@@ -344,6 +349,23 @@ def _catalog_name(r: Any, oracle_id: str) -> Optional[str]:
     return name if isinstance(name, str) and name.strip() else None
 
 
+def _display_name(r: Any, name: str) -> str:
+    """Drafts built before the catalog fix may carry a raw oracle id as the card
+    name; resolve it to the real name (card:{id} then card_meta:{id}) for display."""
+    if not card_store.is_oracle_id(name or ""):
+        return name
+    real = _catalog_name(r, name)
+    if not real:
+        try:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+            cand = rec.get("name") if isinstance(rec, dict) else None
+            real = cand if isinstance(cand, str) and cand.strip() else None
+        except (ValueError, TypeError):
+            real = None
+    return real or name
+
+
 def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     """Re-tier and re-cost every draft card against the CURRENT pools and
     refresh the draft totals (the same step the builder ends with). Each card
@@ -366,6 +388,9 @@ def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     if "missing_slots" in draft:
         total = sum(int(c.get("quantity", 1) or 0) for c in merged)
         draft["missing_slots"] = max(100 - total, 0)
+    from src.server.domain.draft.brew_builder import apply_power_estimate
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+    apply_power_estimate(r, session, draft, BrewScoringConfig.from_env())
 
 
 def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:
@@ -582,7 +607,7 @@ def get_availability(r: Any, session_id: str) -> dict:
         if source == "buy":
             cc = next((c for c in cost.cards if reconstruct_pools.norm_name(c.name) == reconstruct_pools.norm_name(t.name)), None)
             buy_list.append({
-                "name": t.name,
+                "name": _display_name(r, t.name),
                 "quantity": t.quantity,
                 "needs_purchase": True,
                 "unit_price": (cc.unit_price if cc else None),

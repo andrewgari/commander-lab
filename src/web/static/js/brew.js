@@ -251,6 +251,14 @@
         });
         $("brewName").addEventListener("input", function () { this.dataset.touched = "1"; });
 
+        /* UI 1-5 -> backend 1-10 power scale (Casual..cEDH-adjacent) */
+        var UI_TO_POWER = { "1": 2, "2": 3.5, "3": 5.5, "4": 8, "5": 10 };
+        function powerToUi(v) {
+            var n = parseFloat(v), best = "3", d = 99;
+            if (isNaN(n)) return best;
+            Object.keys(UI_TO_POWER).forEach(function (k) { var x = Math.abs(UI_TO_POWER[k] - n); if (x < d) { d = x; best = k; } });
+            return best;
+        }
         /* ---- power description ---- */
         var powerDescs = {
             "1": "Casual — janky, fun-first pile.",
@@ -324,7 +332,7 @@
                 donor_deck_ids: state.donors.slice(),
                 build_mode: buildMode(),
                 name: $("brewName").value.trim(),
-                power_level: (document.querySelector('input[name="power"]:checked') || {}).value || "3",
+                power_level: UI_TO_POWER[(document.querySelector('input[name="power"]:checked') || {}).value || "3"],
                 idea: $("brewIdea").value.trim(),
                 themes: state.themes.slice(),
                 notes: $("brewNotes").value.trim(),
@@ -371,7 +379,7 @@
             var mode = resume.build_mode || "owned_first";
             var modeEl = document.querySelector('input[name="build_mode"][value="' + mode + '"]');
             if (modeEl) modeEl.checked = true;
-            var p = String(resume.power_level || "3");
+            var p = powerToUi(resume.power_level || 5.5);
             var pEl = document.querySelector('input[name="power"][value="' + p + '"]');
             if (pEl) { pEl.checked = true; $("brewPowerDesc").textContent = powerDescs[p] || ""; }
             // Commander names: rehydrate as name-only entries; art loads lazily
