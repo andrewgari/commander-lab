@@ -113,14 +113,16 @@ def load_decks(cache: Path, exclude_ids=frozenset()) -> list:
         d = json.loads(f.read_text())
         if d.get("id") in exclude_ids or not isinstance(d.get("edhBracket"), int):
             continue
-        cmd, cards = [], []
+        cmd, cards, copies = [], [], 0
         for c in d.get("cards") or []:
             cats = {x.lower() for x in c.get("categories") or []}
             name = ((c.get("card") or {}).get("oracleCard") or {}).get("name")
             if not name or cats & STRUCTURAL:
                 continue
+            qty = c.get("quantity") if isinstance(c.get("quantity"), int) and c.get("quantity") > 0 else 1
+            copies += qty
             (cmd if "commander" in cats else cards).append(name)
-        if len(cmd) != 1 or len(cards) + 1 < MIN_DECK_CARDS:
+        if len(cmd) != 1 or copies < MIN_DECK_CARDS:
             continue
         decks.append({"id": d["id"], "bracket": d["edhBracket"], "commander": cmd[0], "cards": sorted(set(cards))})
     return decks
@@ -288,7 +290,8 @@ def build_rows(decks, cache, sc, spell, p99, seed):
         deck_all = in_deck | {c}
         for names, y in ((pos, 1), (neg, 0)):
             for n in names:
-                x = card_signals(n, base, brackets, (sc.get(n) or {}).get("rank"), deck_all,
+                # evaluate every candidate as if it were in the deck: no label leak via combo completeness
+                x = card_signals(n, base, brackets, (sc.get(n) or {}).get("rank"), deck_all | {n},
                                  spell.get(n, []) if spell is not None else None, p99)
                 rows.append({"commander": c, "deck": d["id"], "bracket": d["bracket"], "y": y, "x": x})
     return rows, skipped
@@ -339,11 +342,14 @@ def fit(cache: Path, seed=SEED, exclude_ids=frozenset(), n_boot=5) -> dict:
     if not used:
         rep["reason"] = "no signal had a stable positive coefficient"
         return rep
-    tot = sum(coefs.values())
-    weights = {k: round(CARD_SHARE * coefs[k] / tot, 4) if k in coefs else 0.0 for k in KEYS}
+    # standardised coefficient -> raw-signal scale (divide by training sd), then normalise
+    raw = {k: coefs[k] / stats[k][1] for k in coefs}
+    tot = sum(raw.values())
+    weights = {k: round(CARD_SHARE * raw[k] / tot, 6) if k in raw else 0.0 for k in KEYS}
     ys = [r["y"] for r in test]
-    Xt, _ = _prep(test, used, stats)
-    fit_auc = auc([sum(c * v for c, v in zip((coefs[k] for k in used), row)) for row in Xt], ys)
+    # evaluate exactly what is emitted: merit_e over raw signals with the emitted weights
+    fit_scores = [merit_combine.merit_e(r["x"], weights) for r in test]
+    fit_auc = auc([v if v is not None else 0.5 for v in fit_scores], ys)
     cur = [merit_combine.merit_e(r["x"]) for r in test]
     cur_auc = auc([c if c is not None else 0.5 for c in cur], ys)
     single = {}

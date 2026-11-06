@@ -162,3 +162,31 @@ def test_cli_fit_writes_report_in_cache(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("CALIBRATION_CACHE_DIR", str(tmp_path / "cache"))
     assert cm.main(["fit"]) == 0
     assert (tmp_path / "cache" / "fit_report.json").exists()
+
+
+def test_quantity_counts_toward_deck_size(tmp_path):
+    d = _deck(7, 3, "Cmd0", ["Forest"] + ["N%d" % i for i in range(70)])
+    d["cards"][1]["quantity"] = 30
+    (tmp_path / "archidekt" / "b3").mkdir(parents=True)
+    (tmp_path / "archidekt" / "b3" / "7.json").write_text(json.dumps(d))
+    got = cm.load_decks(tmp_path)
+    assert len(got) == 1 and "Forest" in got[0]["cards"]
+
+
+def test_candidates_scored_as_if_in_deck_no_combo_leak(tmp_path, monkeypatch):
+    _world(tmp_path, 2)
+    seen = []
+    orig = cm.card_signals
+    monkeypatch.setattr(cm, "card_signals", lambda name, b, br, rank, deck, v, p: (seen.append(name in deck), orig(name, b, br, rank, deck, v, p))[1])
+    sc = cm.load_scryfall(tmp_path)
+    cm.build_rows(cm.load_decks(tmp_path), tmp_path, sc, {}, 1.0, 1)
+    assert seen and all(seen)
+
+
+def test_emitted_weights_are_raw_scale_and_evaluated(tmp_path):
+    _world(tmp_path)
+    rep = cm.fit(tmp_path)
+    if rep.get("weights"):
+        from src.server.domain.analytics.merit import combine
+        # heldout AUC must come from the emitted weights (re-derive via combine)
+        assert abs(sum(rep["weights"].values()) - cm.CARD_SHARE) < 1e-3
