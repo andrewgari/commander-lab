@@ -792,3 +792,11 @@ def test_rarity_backfill_swallows_upstream_failure(scry, redis):
     scry.fail = True
     svc.backfill_rarities(redis, ["o-x"])         # must not raise
     assert redis.get("cards:rarity:o-x") is None
+
+
+def test_owned_search_schedules_rarity_backfill_for_blank_rarity(client, scry, factory, redis, monkeypatch):
+    scheduled = []
+    monkeypatch.setattr(svc, "_schedule_rarity_backfill", lambda r, ids: scheduled.append(list(ids)))
+    seed(factory, cards=[_card("o-np", "No Printing Elf")], instances=[("o-np", "in_collection")])
+    assert get(client, owned="owned").json()["results"][0]["rarity"] == ""
+    assert scheduled == [["o-np"]]

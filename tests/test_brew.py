@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -279,6 +280,21 @@ class TestBrewCore(unittest.TestCase):
             brew.accept_draft(self.r, session["session_id"])
 
     # -- availability -----------------------------------------------------
+
+    def test_availability_buy_list_uses_resolved_display_name(self):
+        session = self._built_session()
+        calls = []
+
+        def fake_display(r, name):
+            calls.append(name)
+            return "RESOLVED " + name
+
+        with unittest.mock.patch.object(brew, "_display_name", fake_display):
+            rep = brew.get_availability(self.r, session["session_id"])
+        self.assertTrue(rep["buy_list"])
+        self.assertTrue(calls)
+        for b in rep["buy_list"]:
+            self.assertTrue(b["name"].startswith("RESOLVED "), b["name"])
 
     def test_availability_report(self):
         session = self._built_session()
