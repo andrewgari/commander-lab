@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import replace
+from statistics import median
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, SkeletonRange
 
@@ -40,6 +42,9 @@ class ScoreContext:
     deck_counts: Mapping[str, int] = field(default_factory=dict)  # category -> cards already chosen
     skeleton: Mapping[str, SkeletonRange] = field(default_factory=dict)
     edhrec: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)  # lowercased name -> {inclusion, synergy}
+    source_names: FrozenSet[str] = frozenset()      # name_keys() of cards in the user's sources
+    source_oracle_ids: FrozenSet[str] = frozenset()  # oracle ids of cards in the user's sources
+    source_unit: Optional[float] = None             # score gap the source bonus is a fraction of (set by select_cards)
 
 
 @dataclass
@@ -50,6 +55,39 @@ class ScoreResult:
 
 def _name_key(name: str) -> str:
     return (name or "").split(" // ")[0].strip().lower()
+
+
+def name_keys(name: str) -> FrozenSet[str]:
+    """Normalized keys for a card name: the whole name plus each face of a double-faced
+    'Front // Back' name, so any face (or the joined name) matches any other spelling."""
+    from src.server.domain.draft.deck_validator import normalize_name
+
+    full = normalize_name(name)
+    keys = {full} if full else set()
+    keys.update(k for k in (normalize_name(p) for p in str(name or "").split("//")) if k)
+    return frozenset(keys)
+
+
+def build_source_index(cards: Iterable[Any]) -> Tuple[FrozenSet[str], FrozenSet[str]]:
+    """(name keys, oracle ids) from source cards given as names or {name, oracle_id} dicts."""
+    names: set = set()
+    oids: set = set()
+    for c in cards:
+        if isinstance(c, Mapping):
+            names |= name_keys(c.get("name", ""))
+            if c.get("oracle_id"):
+                oids.add(str(c["oracle_id"]))
+        else:
+            names |= name_keys(c)
+    return frozenset(names), frozenset(oids)
+
+
+def in_sources(card: Mapping[str, Any], ctx: "ScoreContext") -> bool:
+    """True if the card matches a source card by oracle id (any printing) or normalized name (any face)."""
+    oid = card.get("oracle_id")
+    if oid and str(oid) in ctx.source_oracle_ids:
+        return True
+    return bool(name_keys(card.get("name", "")) & ctx.source_names)
 
 
 def _clamp01(x: float) -> float:
@@ -124,11 +162,29 @@ def _edhrec_synergy(card, ctx, cfg) -> float:
     return cfg.edhrec_synergy * _clamp01((syn - cfg.synergy_floor) / (cfg.synergy_ceil - cfg.synergy_floor))
 
 
+def _source_bias(card, ctx, cfg) -> float:
+    """Bounded bonus for cards in the user's sources.
+
+    bonus = clamp(source_bias, 0, source_bias_max) * unit, where unit is the median
+    positive gap between candidates' scores (excluding this term), set per round by
+    select_cards. The fraction is < 1, so the bonus is smaller than a typical gap:
+    it breaks ties and nudges near-equal picks but a clearly better card still wins.
+    With tied candidates (no gap) or standalone scoring, unit falls back to
+    source_unit_fallback, a tie-break-sized constant.
+    """
+    frac = max(0.0, min(cfg.source_bias, cfg.source_bias_max))
+    if frac <= 0 or not in_sources(card, ctx):
+        return 0.0
+    unit = ctx.source_unit if ctx.source_unit else cfg.source_unit_fallback
+    return frac * unit
+
+
 _CORE: Dict[str, Callable] = {
     "commander_synergy": _commander_synergy,
     "category_need": _category_need,
     "edhrec_inclusion": _edhrec_inclusion,
     "edhrec_synergy": _edhrec_synergy,
+    "source_bias": _source_bias,
 }
 
 
@@ -165,7 +221,7 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
     picked: List[Mapping[str, Any]] = []
     sk = context.skeleton
     while remaining and len(picked) < limit:
-        ctx = ScoreContext(context.commander, context.themes, counts, sk, context.edhrec)
+        ctx = replace(context, deck_counts=counts)
         slots = limit - len(picked)
         deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if counts.get(k, 0) < r.low}
 
@@ -175,6 +231,11 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
         pool_now = [c for c in remaining if not capped(c)] or remaining
         if deficit and slots <= sum(deficit.values()):
             pool_now = _floor_feasible(pool_now, deficit, slots, sk) or pool_now
+        if (ctx.source_names or ctx.source_oracle_ids) and cfg.source_bias > 0:
+            base_cfg = replace(cfg, source_bias=0.0)
+            ordered = sorted(score_card(c, ctx, base_cfg, extra_terms).total for c in pool_now)
+            gaps = [b - a for a, b in zip(ordered, ordered[1:]) if b - a > 0]
+            ctx = replace(ctx, source_unit=median(gaps) if gaps else None)
         best = min(pool_now, key=lambda c: (-score_card(c, ctx, cfg, extra_terms).total, _name_key(c.get("name", ""))))
         picked.append(best)
         remaining.remove(best)
