@@ -170,6 +170,21 @@ class TestBrewCore(unittest.TestCase):
         pools = brew._build_pools(self.r, session, price_lookup=lambda _: {})
         self.assertIn("Llanowar Elves", [c.name for c in pools.tier3])
 
+    def test_pool_config_commander_resolved_only_via_name_variant_keeps_identity(self):
+        # Catalogued with a diacritic; the session name lacks it. identity_of_cards
+        # (casefold only) misses it, so the name-index fallback must resolve it.
+        seed_brew_catalog(self.r, "Nazg\u00fbl Warden", commander_ci="B")
+        self.r.scan_iter = lambda match="*": iter(self.r.keys(match))
+        cfg = brew._pool_config(self.r, {"commanders": ["Nazgul Warden"]})
+        self.assertEqual(cfg.color_identity, frozenset("B"))
+
+    def test_pool_config_known_and_unknown_partner_applies_no_colour_filter(self):
+        # Colourless known partner => empty identity => the fallback decides; one
+        # unresolved partner must disable the filter (not use the known one alone).
+        seed_brew_catalog(self.r, "Known Partner", commander_ci="")
+        cfg = brew._pool_config(self.r, {"commanders": ["Known Partner", "Nonexistent Partner"]})
+        self.assertIsNone(cfg.color_identity)
+
     # -- lifecycle ------------------------------------------------------
 
     def test_start_brew_snapshots_donors_without_mutating_them(self):
