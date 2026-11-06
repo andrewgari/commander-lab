@@ -147,6 +147,36 @@ def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoring
     draft.setdefault("metadata", {})["estimated_power"] = estimate
 
 
+_BASIC_FOR_COLOR = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
+
+
+def _commander_identity(r: Any, commanders: List[str]) -> List[str]:
+    """Ordered WUBRG colours of the commanders' identity ([] = colourless or unknown)."""
+    if r is None:
+        return []
+    try:
+        ident = reconstruct_pools.identity_of_cards(commanders, reconstruct_pools.RedisCardCatalog(r)) or frozenset()
+    except Exception:
+        return []
+    return [c for c in "WUBRG" if c in ident]
+
+
+def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
+    """Append `need` basic lands (stacked, split evenly over `colors`; Wastes if none)."""
+    basics = [_BASIC_FOR_COLOR[c] for c in colors] or ["Wastes"]
+    per = {b: need // len(basics) + (1 if i < need % len(basics) else 0) for i, b in enumerate(basics)}
+    for b, n in per.items():
+        if not n:
+            continue
+        for c in cards:
+            if norm_name(c["name"]) == norm_name(b):
+                c["quantity"] = int(c.get("quantity") or 1) + n
+                break
+        else:
+            cards.append({"name": b, "quantity": n, "tier": 3, "tier_label": "new", "cost": 0.0,
+                          "rationale": "Basic land to complete the 100-card deck"})
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -319,6 +349,12 @@ class StubBrewBuilder(BaseBrewBuilder):
                 if len(cards) >= DECK_SIZE:
                     break
                 add(*args)
+
+        # Pools exhausted (small in-identity pool): fill the remainder with basics
+        # matching the commander identity (Wastes if colourless).
+        short = DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards)
+        if short > 0:
+            _fill_basics(cards, short, _commander_identity(r, commanders))
         self.last_report = report
 
         # Re-tier and cost against the pools so provenance/cost stay truthful.
@@ -352,7 +388,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             "is_complete": is_complete,
             "unpriced_cards": unpriced,
             "dropped_ids": list(report.dropped),
-            "missing_slots": max(DECK_SIZE - len(cards), 0),  # hook for the fill step
+            "missing_slots": max(DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards), 0),  # hook for the fill step
             "explanation": (
                 f"Brew draft ({build_mode}) for {', '.join(commanders)}"
                 + (f" — themes: {', '.join(themes)}." if themes else ".")
