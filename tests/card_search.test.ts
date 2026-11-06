@@ -84,6 +84,9 @@ describe("Filters <-> params", () => {
   test("cmdr is absent when off and 1 when on", () => {
     assert.equal(toParams({ ...emptyFilters(), commander: false }).has("cmdr"), false);
     assert.equal(toParams({ ...emptyFilters(), commander: true }).get("cmdr"), "1");
+    // solo pick (no pair) excludes Backgrounds; a partner search keeps them
+    assert.equal(toParams({ ...emptyFilters(), commander: true }).get("solo"), "1");
+    assert.equal(toParams({ ...emptyFilters(), commander: true, pair: FIRST }).has("solo"), false);
     assert.equal(fromParams("cmdr=0").commander, false);
     assert.equal(fromParams("cmdr=true").commander, false);
     assert.equal(fromParams("cmdr=1").commander, true);
@@ -163,10 +166,11 @@ describe("quick-add suggestions", () => {
     assert.equal(u.searchParams.has("commanders_only"), false);
   });
 
-  test("commander scope adds commanders_only", () => {
+  test("commander scope uses card-search with solo=1 (no Backgrounds)", () => {
     const u = new URL(suggestUrl("atr", { commander: true }), "http://x");
-    assert.equal(u.pathname, "/api/card-autocomplete");
-    assert.equal(u.searchParams.get("commanders_only"), "true");
+    assert.equal(u.pathname, "/api/card-search");
+    assert.equal(u.searchParams.get("cmdr"), "1");
+    assert.equal(u.searchParams.get("solo"), "1");
   });
 
   test("with a first commander it switches to card-search with cmdr + pair", () => {
