@@ -52,6 +52,8 @@ BUILD_TIMEOUT_SECONDS = 4.0      # the eligible-set pull must not stall a reques
 _HEADERS = {"User-Agent": "commander-lab/card-search", "Accept": "application/json"}
 
 _last_call = 0.0
+_space_lock = threading.Lock()
+_clock = time.monotonic
 _sleep = time.sleep
 
 
@@ -72,11 +74,16 @@ class FirstCardNotFound(LookupError):
 # ---------------------------------------------------------------------------
 
 def _space() -> None:
+    """Reserve the next upstream slot under a lock, then sleep outside it, so
+    concurrent callers (request path + rarity backfill) stay SPACING_SECONDS apart."""
     global _last_call
-    wait = SPACING_SECONDS - (time.monotonic() - _last_call)
+    with _space_lock:
+        now = _clock()
+        slot = max(now, _last_call + SPACING_SECONDS)
+        _last_call = slot
+    wait = slot - now
     if wait > 0:
         _sleep(wait)
-    _last_call = time.monotonic()
 
 
 def _get(params: dict, timeout: float) -> dict:
@@ -191,6 +198,31 @@ def _fill_missing_rarities(r, chunk: list) -> None:
             need.append(h["oracle_id"])
     if need:
         _schedule_rarity_backfill(r, need)
+
+
+def _apply_cached_rarity_filter(r, f, cands: list) -> list:
+    """Cards with no ``printings`` row come back from SQL with rarity "" (the SQL
+    filter lets them through). Keep them only if their cached rarity
+    (``cards:rarity:{id}``) is in the filter, and show that rarity. One MGET."""
+    blank = [h for h in cands if not h.get("rarity")]
+    if not blank:
+        return cands
+    try:
+        vals = r.mget([f"cards:rarity:{h['oracle_id']}" for h in blank])
+    except Exception:
+        vals = [None] * len(blank)
+    cached = {}
+    for h, raw in zip(blank, vals):
+        if raw:
+            cached[h["oracle_id"]] = raw.decode() if isinstance(raw, bytes) else raw
+    out = []
+    for h in cands:
+        if h.get("rarity"):
+            out.append(h)
+        elif cached.get(h["oracle_id"]) in f.rarities:
+            h["rarity"] = cached[h["oracle_id"]]
+            out.append(h)
+    return out
 
 
 def _eligible_page_fetcher():
@@ -310,6 +342,8 @@ def _local(session, r, f, query, page, page_size, pair_first_info, hints, respon
     if pair_first_info is not None:
         cands = [h for h in cands if h["oracle_id"] != f.pair]
         cands = _legal_pairs(pair_first_info, cands)
+    if f.rarities:
+        cands = _apply_cached_rarity_filter(r, f, cands)
     start = (page - 1) * page_size
     chunk = cands[start:start + page_size]
     _fill_missing_rarities(r, chunk)
