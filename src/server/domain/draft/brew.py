@@ -366,6 +366,9 @@ def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     draft["total_new_cost"] = costed.total_new_cost
     draft["is_complete"] = costed.is_complete
     draft["unpriced_cards"] = list(costed.unpriced_cards)
+    if "missing_slots" in draft:
+        total = sum(int(c.get("quantity", 1) or 0) for c in merged)
+        draft["missing_slots"] = max(100 - total, 0)
 
 
 def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:

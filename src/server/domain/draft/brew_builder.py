@@ -23,7 +23,51 @@ from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 import src.server.domain.inventory.instances as instance_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+from src.server.domain.draft.card_resolution import ResolutionReport, resolve_card
 from src.server.domain.draft.reconstruct_pools import norm_name
+
+DECK_SIZE = 100  # commander(s) + the rest; the stub tops up to this
+
+
+def _resolve_session(session: dict, r: Any):
+    """Copy of `session` with every commander / donor card name resolved
+    BEFORE pools are built (so colour filter and donor attribution use real
+    names). Unresolvable donor cards are dropped; an unresolvable commander
+    raises."""
+    report = ResolutionReport()
+    out = dict(session)
+    cmds = []
+    for cmd in session.get("commanders") or []:
+        rc = resolve_card(cmd, r)
+        if rc is None:
+            raise ValueError(f"commander {cmd!r} cannot be resolved to a card name")
+        cmds.append(rc.name)
+    out["commanders"] = cmds
+
+    def fix_deck(sd: dict) -> dict:
+        sd = dict(sd)
+        cards = []
+        for c in sd.get("cards") or []:
+            rc = resolve_card(c.get("name"), r)
+            if rc is None:
+                report.drop(c.get("name"))
+                continue
+            cards.append({**c, "name": rc.name})
+        sd["cards"] = cards
+        sc = []
+        for cmd in sd.get("commanders") or []:
+            rc = resolve_card(cmd, r)
+            if rc is None:
+                report.drop(cmd)
+            else:
+                sc.append(rc.name)
+        sd["commanders"] = sc
+        return sd
+
+    for key in ("donor_decks", "source_decks"):
+        if session.get(key):
+            out[key] = [fix_deck(sd) for sd in session[key]]
+    return out, report
 
 
 def _cached_edhrec(r: Any, commanders: List[str]) -> dict:
@@ -131,6 +175,7 @@ class StubBrewBuilder(BaseBrewBuilder):
     def build(self, session: dict, r: Any) -> list[dict]:
         import src.server.domain.draft.brew as brew  # local import: brew imports this module lazily too
 
+        session, report = _resolve_session(session, r)
         commanders = list(session.get("commanders") or [])
         if not commanders:
             raise ValueError("a commander is required to brew a deck")
@@ -164,7 +209,16 @@ class StubBrewBuilder(BaseBrewBuilder):
             })
             used.add(norm_name(cmd))
 
+        for v in (pools.dropped if pools is not None else []):
+            report.drop(v)
+
         def add(name, tier, tier_label, cost, rationale):
+            # Single resolution point: an unresolvable id is dropped, never emitted.
+            resolved = resolve_card(name, r)
+            if resolved is None:
+                report.drop(name)
+                return False
+            name = resolved.name
             if norm_name(name) in used:
                 return False
             cards.append({
@@ -207,6 +261,24 @@ class StubBrewBuilder(BaseBrewBuilder):
         for name in scorer.pick(fresh(list(prices)), tier3_cap):
             add(name, 3, "new", float(prices[name]), "Buy to complete the brew")
 
+        # Caps above only set the tier mix. Root cause of truncated decks was
+        # stopping there (25+10+3 ~ 39 cards); keep topping up from every pool
+        # (donor, owned, then new) until the deck is full or candidates run out.
+        if len(cards) < DECK_SIZE:
+            extra = [(n, 1, "previous_deck", 0.0, "Available from a named donor deck") for n in donor_cards]
+            if pools is not None:
+                extra += [(pc.name, 2, "owned", 0.0, "Available from free inventory") for pc in pools.tier2]
+                extra += [
+                    (pc.name, 3, "new", float(pc.unit_price if pc.unit_price is not None else 0.0),
+                     "Buy to complete the brew")
+                    for pc in pools.tier3
+                ]
+            for args in extra:
+                if len(cards) >= DECK_SIZE:
+                    break
+                add(*args)
+        self.last_report = report
+
         # Re-tier and cost against the pools so provenance/cost stay truthful.
         if pools is not None:
             costed = reconstruct_pools.compute_deck_cost(cards, pools)
@@ -243,6 +315,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             "total_new_cost": total_new_cost,
             "is_complete": is_complete,
             "unpriced_cards": unpriced,
+            "dropped_ids": list(report.dropped),
+            "missing_slots": max(DECK_SIZE - len(cards), 0),  # hook for the fill step
             "explanation": (
                 f"Brew draft ({build_mode}) for {', '.join(commanders)}"
                 + (f" — themes: {', '.join(themes)}." if themes else ".")
