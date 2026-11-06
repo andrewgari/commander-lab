@@ -110,9 +110,12 @@ def _verdict(fn) -> bool:
         return False
 
 
-def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow") -> Cell:
+def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow",
+             builder_factory=None) -> Cell:
+    """builder_factory(cat, row) -> builder; default is the harness TrapFirstBuilder
+    (reference path). tests/test_brew_matrix_production.py passes the production builder."""
     cat = matrix_catalog()
-    builder = TrapFirstBuilder(cat, row)
+    builder = builder_factory(cat, row) if builder_factory else TrapFirstBuilder(cat, row)
     with mock.patch.object(bh, "GAME_CHANGER_NAMES", []):
         res = run_brew(list(row.commanders), power, sources=sources, edhrec=state,
                        degraded_kind=kind, builder=builder, catalog=cat)
