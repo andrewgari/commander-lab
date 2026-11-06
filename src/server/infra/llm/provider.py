@@ -30,7 +30,8 @@ import httpx
 
 from src.server.domain.analytics.review_pipeline.llm import (LLMRequest, LLMResponse, LLMTransportError, Usage)
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+OPENROUTER_URL = OPENROUTER_BASE_URL + "/chat/completions"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 SPOTON_URL_DEFAULT = "https://ai.spoton.com:14443/anthropic/v1/messages"
@@ -94,6 +95,8 @@ class OpenRouterClient:
     def __init__(self, api_key: str, *, client: httpx.Client | None = None, timeout: float = 600.0, retries: int = 2):
         self._key, self._retries = api_key, retries
         self._http = client or httpx.Client(timeout=timeout)
+        base = (os.environ.get("OPENROUTER_BASE_URL") or "").strip().rstrip("/")
+        self._url = base + "/chat/completions" if base else OPENROUTER_URL
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         model = request.model.split(":", 1)[1]
@@ -111,7 +114,7 @@ class OpenRouterClient:
         }
         if request.temperature is not None:
             body["temperature"] = request.temperature
-        data, ms = _post(self._http, OPENROUTER_URL, {"Authorization": f"Bearer {self._key}"}, body, retries=self._retries)
+        data, ms = _post(self._http, self._url, {"Authorization": f"Bearer {self._key}"}, body, retries=self._retries)
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as exc:
