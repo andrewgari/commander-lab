@@ -95,6 +95,8 @@ def start_brew(
     commanders = pref["commanders"]
     if not commanders:
         raise ValueError("a commander is required to brew a deck")
+    from src.server.domain.draft.brew_power import parse_power_level
+    target_power = parse_power_level(power_level)  # ValueError if out of range; default if absent
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -157,6 +159,7 @@ def start_brew(
         "source_decks": snapshots,
         "build_mode": build_mode,
         "power_level": str(power_level or ""),
+        "target_power": target_power,
         "deck_idea": (deck_idea or "").strip() if isinstance(deck_idea, str) else str(deck_idea),
         "themes": pref["themes"],
         "notes": pref["notes"],

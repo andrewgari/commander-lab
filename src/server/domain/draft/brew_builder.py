@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 from typing import Any, List
 
+import src.server.domain.draft.brew_power as brew_power
 import src.server.domain.draft.brew_scoring as brew_scoring
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 import src.server.domain.inventory.instances as instance_store
@@ -68,8 +69,16 @@ def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
             except Exception:
                 rec = {}
     tags = list(rec.get("tags") or []) + list((lab_tags or {}).get(name) or [])
-    return {"name": name, "tags": tags, "oracle_text": rec.get("oracle_text") or "",
-            "type_line": rec.get("type_line") or rec.get("type") or ""}
+    tl = rec.get("type_line") or rec.get("type") or ""
+    if isinstance(tl, (list, tuple)):
+        tl = " ".join(str(x) for x in tl)
+    if not tl and rec.get("types"):
+        tl = " ".join(str(x) for x in rec["types"])
+    out = {"name": name, "tags": tags, "oracle_text": rec.get("oracle_text") or "", "type_line": tl}
+    mv = rec.get("cmc", rec.get("mana_value"))
+    if isinstance(mv, (int, float)) and not isinstance(mv, bool):
+        out["cmc"] = mv
+    return out
 
 
 class _Scorer:
@@ -78,6 +87,9 @@ class _Scorer:
     def __init__(self, r: Any, session: dict, config: BrewScoringConfig):
         self.r, self.config = r, config
         self.counts: dict = {}
+        self.target_power = session.get("target_power")
+        self.mv_sum, self.mv_n = 0.0, 0
+        self.records: dict = {}
         self.commander = (session.get("commanders") or [""])[0]
         self.themes = tuple(session.get("themes") or [])
         self.skeleton = config.skeleton()
@@ -87,9 +99,15 @@ class _Scorer:
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
-        ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec)
-        chosen = brew_scoring.select_cards([_card_record(self.r, n, self.lab_tags) for n in names], ctx, cap, self.config)
+        ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
+                                        target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
+        recs = [_card_record(self.r, n, self.lab_tags) for n in names]
+        chosen = brew_scoring.select_cards(recs, ctx, cap, self.config)
         for c in chosen:
+            self.records[c["name"]] = c
+            mv = brew_power.mana_value(c)
+            if mv is not None and not brew_power.is_land(c):
+                self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
             for k in set(brew_scoring._matching(c, self.skeleton)):
                 self.counts[k] = self.counts.get(k, 0) + 1
         return [c["name"] for c in chosen]
@@ -201,6 +219,10 @@ class StubBrewBuilder(BaseBrewBuilder):
             is_complete = True
             unpriced = []
 
+        est_cards = [{**scorer.records.get(c["name"], {"name": c["name"]}), "quantity": c.get("quantity", 1)}
+                     for c in cards]
+        estimate = brew_power.estimate_power_level(est_cards, scorer.config)
+
         name = pref.get("name") or f"{commanders[0]} brew"
         themes = list(session.get("themes") or pref.get("themes") or [])
         draft = {
@@ -213,6 +235,9 @@ class StubBrewBuilder(BaseBrewBuilder):
             "notes": session.get("notes", ""),
             "power_level": session.get("power_level", ""),
             "deck_idea": session.get("deck_idea", ""),
+            "target_power": session.get("target_power"),
+            "estimated_power": estimate["power"],
+            "metadata": {"estimated_power": estimate},
             "build_mode": build_mode,
             "cards": cards,
             "total_new_cost": total_new_cost,
