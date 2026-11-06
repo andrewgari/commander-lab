@@ -4981,17 +4981,17 @@ def _oracle_offline(detail: str = ""):
 
 def _oracle_preflight() -> Optional[JSONResponse]:
     """Fail fast (503) when oracle is not configured or not answering /v1/models."""
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     try:
         client = _oracle_client()
         client.timeout = THEORY_PREFLIGHT_TIMEOUT_S
         client.models()
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return _oracle_offline(str(exc)[:200])
     return None
 
@@ -5022,7 +5022,7 @@ async def api_genres_autofill(request: Request):
     """{"theme": str} -> oracle drafts description + roles; the app validates them against the
     tag vocabulary (unknown tags are dropped and listed in `flagged`). Nothing is saved."""
     from src.server.domain.analytics import genres as genres_mod
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     body = await _json_body(request)
     theme = body.get("theme") if isinstance(body, dict) and isinstance(body.get("theme"), str) else ""
@@ -5040,11 +5040,11 @@ async def api_genres_autofill(request: Request):
 
     try:
         reply = await asyncio.to_thread(_ask)
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
     try:
         draft = genres_mod.validate_autofill(theme, genres_mod.parse_oracle_reply(reply))
@@ -5471,7 +5471,7 @@ async def _oracle_call(fn):
     """Run a blocking oracle-backed `fn(ask)` in a thread; map oracle trouble to the standard responses.
     Returns (result, None) or (None, JSONResponse)."""
     from src.server.domain.analytics import deck_writeup
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     def _run():
         client = _oracle_client()
@@ -5482,11 +5482,11 @@ async def _oracle_call(fn):
         return await asyncio.to_thread(_run), None
     except deck_writeup.WriteupError as exc:
         return None, JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": exc.kind})
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return None, _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return None, _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return None, JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
 
 

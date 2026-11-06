@@ -248,6 +248,8 @@ def _local(session, r, f, query, page, page_size, pair_first_info, hints, respon
     elig = lambda h: e.check(eligibility_row(h))                       # noqa: E731
     if f.cmdr:
         cands = [h for h in cands if elig(h)]
+        if f.solo and not f.pair:
+            cands = [h for h in cands if "background" not in (h.get("type_line") or "").casefold()]
     if pair_first_info is not None:
         cands = [h for h in cands if h["oracle_id"] != f.pair]
         cands = _legal_pairs(pair_first_info, cands)

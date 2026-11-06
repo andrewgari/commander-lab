@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
+- Brew: the buy list shows card names instead of raw card ids.
+- Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
+
 ### Added
 - Archidekt collection import: the Instances page has a new Archidekt Collection panel that pulls your Archidekt card collection in as owned cards, with a Preview (differences only) and an Import button; the same is available as `scripts/import_collection.py` (a dry run unless you pass `--live`). It needs your Archidekt login cookies in `.env` (`ARCHIDEKT_USERNAME`, `ARCHIDEKT_SESSION`, `ARCHIDEKT_CSRF`) and says so clearly when they have expired.
 - Moxfield transcribe and archive (experimental): the Decks page has a new panel that copies your physical decks to Moxfield as private decks in one folder, each with a generated description, and can archive existing Moxfield decks (rename, set private, move to a holding folder; nothing is ever deleted and the original names are saved so it can be undone). Also available as `scripts/transcribe_to_moxfield.py` and `scripts/archive_moxfield_decks.py`. Everything is a dry run by default (Preview in the UI, no `--live` on the command line) and contacts nothing; only an explicit live run (`--live` or `dry_run=false`) writes to your Moxfield account. The Moxfield endpoints were read from Moxfield's website code, not from a public API, and are unverified against a live account, so Preview first and expect breakage if Moxfield changes.

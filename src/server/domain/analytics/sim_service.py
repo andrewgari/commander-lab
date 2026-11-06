@@ -749,7 +749,7 @@ def fallback_review(params: Mapping, comparison: Mapping) -> dict:
 def write_review(r, deck: Mapping, params: Mapping, comparison: Mapping,
                  oracle_factory: Optional[Callable[[], Any]] = None) -> tuple:
     """Return (review_dict, source, note); source is "oracle" or "fallback"."""
-    from .oracle_client import OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMError, LLMUnavailable
     from .review_doc import ReviewParseError, allowed_numbers, parse_reply, _card_names
 
     try:
@@ -768,11 +768,11 @@ def write_review(r, deck: Mapping, params: Mapping, comparison: Mapping,
         if not review["headline"] or len(review["actionable_tweaks"]) < TWEAK_RANGE[0]:
             raise ReviewParseError("reply held too many numbers that are not in the run data")
         return review, "oracle", ""
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         note = (exc.detail or "oracle offline")[:200]
     except ReviewParseError as exc:
         note = f"oracle reply invalid: {str(exc)[:250]}"
-    except OracleError as exc:
+    except LLMError as exc:
         note = f"{type(exc).__name__}: {str(exc)[:250]}"
     return fallback_review(params, comparison), "fallback", note
 
