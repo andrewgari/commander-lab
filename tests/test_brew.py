@@ -157,6 +157,19 @@ class TestBrewCore(unittest.TestCase):
         return brew.start_brew(self.r, args.pop("commander"), args.pop("donor_deck_ids"),
                                args.pop("build_mode"), **args)
 
+    # -- identity fallback (commander missing from the catalog) ---------
+
+    def test_pool_config_unknown_commander_applies_no_colour_filter(self):
+        cfg = brew._pool_config(self.r, {"commanders": ["Nonexistent Commander"]})
+        self.assertIsNone(cfg.color_identity)
+
+    def test_tier3_keeps_coloured_cards_when_commander_absent_from_catalog(self):
+        # Green card in the catalog; the commander itself is not.
+        seed_brew_catalog(self.r, "Llanowar Elves", commander_ci="G")
+        session = {"commanders": ["Nonexistent Commander"], "donor_deck_ids": []}
+        pools = brew._build_pools(self.r, session, price_lookup=lambda _: {})
+        self.assertIn("Llanowar Elves", [c.name for c in pools.tier3])
+
     # -- lifecycle ------------------------------------------------------
 
     def test_start_brew_snapshots_donors_without_mutating_them(self):
