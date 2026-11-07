@@ -118,7 +118,7 @@ def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
         tl = " ".join(str(x) for x in tl)
     if not tl and rec.get("types"):
         tl = " ".join(str(x) for x in rec["types"])
-    out = {"name": name, "tags": tags, "oracle_text": rec.get("oracle_text") or "", "type_line": tl}
+    out = {"name": name, "tags": tags, "oracle_id": rec.get("oracle_id") or "", "oracle_text": rec.get("oracle_text") or "", "type_line": tl}
     mv = rec.get("cmc", rec.get("mana_value"))
     if isinstance(mv, (int, float)) and not isinstance(mv, bool):
         out["cmc"] = mv
@@ -147,6 +147,44 @@ def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoring
     draft.setdefault("metadata", {})["estimated_power"] = estimate
 
 
+_BASIC_FOR_COLOR = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
+
+
+def _commander_identity(r: Any, commanders: List[str]) -> List[str]:
+    """Ordered WUBRG colours of the commanders' identity ([] = colourless or unknown)."""
+    if r is None:
+        return []
+    try:
+        ident = reconstruct_pools.identity_of_cards(commanders, reconstruct_pools.RedisCardCatalog(r)) or frozenset()
+    except Exception:
+        return []
+    return [c for c in "WUBRG" if c in ident]
+
+
+def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
+    """Append `need` generated basic lands (Tier 3, free), split evenly over `colors` (Wastes if none).
+
+    Runs AFTER costing so generated copies never inherit a donor/inventory entry's tier or
+    availability: a basic already supplied by a finite Tier 1/2 pool is skipped when another
+    colour is free (else the copies go in a separate Tier 3 entry); a Tier 3 basic is stacked.
+    """
+    basics = [_BASIC_FOR_COLOR[c] for c in colors] or ["Wastes"]
+    pooled = {norm_name(c["name"]) for c in cards if c.get("tier") in (1, 2)}
+    free = [b for b in basics if norm_name(b) not in pooled]
+    targets = free or basics
+    per = {b: need // len(targets) + (1 if i < need % len(targets) else 0) for i, b in enumerate(targets)}
+    for b, n in per.items():
+        if not n:
+            continue
+        for c in cards:
+            if norm_name(c["name"]) == norm_name(b) and c.get("tier") not in (1, 2):
+                c["quantity"] = int(c.get("quantity") or 1) + n
+                break
+        else:
+            cards.append({"name": b, "quantity": n, "tier": 3, "tier_label": "new", "cost": 0.0,
+                          "rationale": "Basic land to complete the 100-card deck"})
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -161,11 +199,19 @@ class _Scorer:
         self.skeleton = config.skeleton()
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+        self.source_names: frozenset = frozenset()
+        self.source_oracle_ids: frozenset = frozenset()
+
+    def set_sources(self, names: List[str]) -> None:
+        """Register the user's source cards (donor decks + owned inventory) for the source bonus."""
+        self.source_names, self.source_oracle_ids = brew_scoring.build_source_index(
+            [_card_record(self.r, n) for n in names if n])
 
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
         ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
+                                        source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
                                         target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
         chosen = brew_scoring.select_cards(recs, ctx, cap, self.config)
@@ -260,6 +306,18 @@ class StubBrewBuilder(BaseBrewBuilder):
         def fresh(names):
             return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
 
+        tier2_all: List[str] = []
+        if pools is not None:
+            tier2_all = [pc.name for pc in pools.tier2]
+        elif r is not None:
+            try:
+                tier2_all = [inst.get("card_name") for inst in
+                             instance_store.list_instances(r, ownership_status="in_collection")
+                             if inst.get("card_name")]
+            except Exception:
+                tier2_all = []
+        scorer.set_sources(donor_cards + tier2_all)
+
         for name in scorer.pick(fresh(donor_cards), tier1_cap):
             add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")
 
@@ -299,6 +357,7 @@ class StubBrewBuilder(BaseBrewBuilder):
                 if len(cards) >= DECK_SIZE:
                     break
                 add(*args)
+
         self.last_report = report
 
         # Re-tier and cost against the pools so provenance/cost stay truthful.
@@ -312,6 +371,12 @@ class StubBrewBuilder(BaseBrewBuilder):
             total_new_cost = round(sum(c.get("cost") or 0.0 for c in cards if c.get("tier") == 3), 2)
             is_complete = True
             unpriced = []
+
+        # Pools exhausted (small in-identity pool): fill the remainder with basics
+        # matching the commander identity (Wastes if colourless).
+        short = DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards)
+        if short > 0:
+            _fill_basics(cards, short, _commander_identity(r, commanders))
 
         name = pref.get("name") or f"{commanders[0]} brew"
         themes = list(session.get("themes") or pref.get("themes") or [])
@@ -332,7 +397,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             "is_complete": is_complete,
             "unpriced_cards": unpriced,
             "dropped_ids": list(report.dropped),
-            "missing_slots": max(DECK_SIZE - len(cards), 0),  # hook for the fill step
+            "missing_slots": max(DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards), 0),  # hook for the fill step
             "explanation": (
                 f"Brew draft ({build_mode}) for {', '.join(commanders)}"
                 + (f" — themes: {', '.join(themes)}." if themes else ".")

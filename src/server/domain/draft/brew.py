@@ -28,6 +28,8 @@ import src.server.domain.decks.registry as registry
 import src.server.domain.inventory.cards as card_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
+import src.server.domain.draft.brew_gate as brew_gate
+from src.server.domain.draft.brew_gate import BrewGateError
 
 BREW_SESSION_PREFIX = "brew:session:"
 BREW_SESSIONS_INDEX = "brew:sessions"
@@ -198,7 +200,7 @@ def list_sessions(r: Any, limit: int = 50) -> list[dict]:
         if s:
             sessions.append(s)
     sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    return sessions[:limit]
+    return [release_session(r, s) for s in sessions[:limit]]
 
 
 def submit_preferences(r: Any, session_id: str, preference: Any) -> dict:
@@ -267,7 +269,8 @@ def execute_build(r: Any, session_id: str) -> dict:
         drafts = builder.build(session, r)
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
-        session["drafts"] = drafts[:1]  # brew produces exactly one draft
+        # THE gate: nothing illegal / incomplete is stored or returned (brew_gate).
+        session["drafts"] = [release_draft(r, session, drafts[0])]  # exactly one draft
         session["status"] = STATUS_DRAFTS_READY
         session.pop("error", None)
         session.pop("error_message", None)
@@ -284,12 +287,46 @@ def execute_build(r: Any, session_id: str) -> dict:
         raise
 
 
+def release_draft(r: Any, session: Optional[dict], draft: dict, **kw: Any) -> dict:
+    """The single output gate for a Brew draft (see brew_gate.release_draft)."""
+    if session is not None and "recompute" not in kw:
+        kw["recompute"] = lambda d: _recompute_draft(r, session, d)
+    return brew_gate.release_draft(draft, r, session=session, **kw)
+
+
+def _release_and_persist(r: Any, session: dict) -> list[dict]:
+    """Gate every stored draft; persist repairs so availability / edit
+    consumers see the same cards as the response."""
+    original = session.get("drafts", [])
+    released = [release_draft(r, session, d) for d in original]
+    if released != original and session.get("session_id"):
+        session["drafts"] = released
+        _save_session(r, session)
+    return released
+
+
+def release_session(r: Any, session: Optional[dict]) -> Optional[dict]:
+    """Copy of `session` safe to return from any read path: its drafts go
+    through the gate. A draft that cannot be made legal is withheld and the
+    session reported failed (never returned as-is)."""
+    if not session or not session.get("drafts"):
+        return session
+    out = dict(session)
+    try:
+        out["drafts"] = _release_and_persist(r, dict(session))
+    except BrewGateError as exc:
+        out["drafts"] = []
+        out["status"] = STATUS_FAILED
+        out["error"] = out["error_message"] = str(exc)
+    return out
+
+
 def get_drafts(r: Any, session_id: str) -> list[dict]:
-    """Fetch the generated draft for a Brew session."""
+    """Fetch the generated draft for a Brew session (gated; raises BrewGateError)."""
     session = get_session(r, session_id)
     if not session:
         raise ValueError(f"session not found: {session_id}")
-    return session.get("drafts", [])
+    return _release_and_persist(r, session)
 
 
 def abandon_brew(r: Any, session_id: str, reason: str = "") -> dict:
@@ -436,6 +473,11 @@ def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int 
             "rationale": "Added by hand",
         })
     _recompute_draft(r, session, draft)
+    draft["user_edited"] = True
+    try:  # an edit that would make the deck illegal is refused, not stored
+        draft = release_draft(r, session, draft, repair=False)
+    except BrewGateError as exc:
+        raise BrewEditError("illegal_card", str(exc), 422)
     session["drafts"][0] = draft
     session["updated_at"] = _now()
     _save_session(r, session)
@@ -471,6 +513,11 @@ def remove_draft_card(r: Any, session_id: str, oracle_id: str) -> dict:
 
     draft["cards"] = [c for c in cards if c is not match]
     _recompute_draft(r, session, draft)
+    draft["user_edited"] = True
+    try:  # an edit that would make the deck illegal is refused, not stored
+        draft = release_draft(r, session, draft, repair=False)
+    except BrewGateError as exc:
+        raise BrewEditError("illegal_card", str(exc), 422)
     session["drafts"][0] = draft
     session["updated_at"] = _now()
     _save_session(r, session)
@@ -589,7 +636,9 @@ def get_availability(r: Any, session_id: str) -> dict:
     drafts = session.get("drafts") or []
     if not drafts:
         raise ValueError("no draft available (build has not completed)")
-    draft = drafts[0]
+    # Final gate: availability emits card names, so it must see the released
+    # (repaired) draft; raises BrewGateError when it cannot be made legal.
+    draft = _release_and_persist(r, session)[0]
 
     pools = _build_pools(r, session)
     tagged = reconstruct_pools.tag_cards(draft.get("cards", []), pools)
@@ -671,7 +720,9 @@ def accept_draft(r: Any, session_id: str, draft_index: int = 0) -> dict:
     if not isinstance(draft_index, int) or draft_index < 0 or draft_index >= len(drafts):
         raise ValueError(f"invalid draft index: {draft_index}")
 
-    draft = drafts[draft_index]
+    # Gate: only a complete, legal 100 is ever accepted (a hand-edited draft
+    # is made whole first: basics trimmed / lands added, picks kept).
+    draft = release_draft(r, session, drafts[draft_index], allow_incomplete=False)
     normalized = {
         "source": "brew",
         "source_id": f"{session_id}_{draft_index}",

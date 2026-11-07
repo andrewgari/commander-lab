@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -96,6 +96,8 @@ class Cell:
     gcs: int
     checks: Dict[str, bool]
     notes: List[str]
+    draft_est: Optional[float] = None   # released draft's own estimated_power (not the analytics estimate)
+    builder: object = None
 
 
 def _gc_count(deck) -> int:
@@ -110,9 +112,12 @@ def _verdict(fn) -> bool:
         return False
 
 
-def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow") -> Cell:
+def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow",
+             builder_factory=None) -> Cell:
+    """builder_factory(cat, row) -> builder; default is the harness TrapFirstBuilder
+    (reference path). tests/test_brew_matrix_production.py passes the production builder."""
     cat = matrix_catalog()
-    builder = TrapFirstBuilder(cat, row)
+    builder = builder_factory(cat, row) if builder_factory else TrapFirstBuilder(cat, row)
     with mock.patch.object(bh, "GAME_CHANGER_NAMES", []):
         res = run_brew(list(row.commanders), power, sources=sources, edhrec=state,
                        degraded_kind=kind, builder=builder, catalog=cat)
@@ -146,7 +151,8 @@ def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str 
              for n in row.soft_exclude if dv.normalize_name(n) in names]
     return Cell(row, power, sources, state_label(state, kind), res.estimated_power,
                 res.estimated_bracket, res.power_source,
-                da.total_cards(deck), _gc_count(deck), checks, notes)
+                da.total_cards(deck), _gc_count(deck), checks, notes,
+                draft_est=deck.get("estimated_power"), builder=builder)
 
 
 _CARD_RULES = {dv.RuleCode.COLOR_IDENTITY, dv.RuleCode.SINGLETON, dv.RuleCode.BANNED,
@@ -304,7 +310,6 @@ def test_F2_identity_from_rules_text_when_field_missing():
     assert info.color_identity == frozenset("WBR")
 
 
-@pytest.mark.xfail(strict=True, reason="F3: hybrid in list form ['R/G'] is dropped")
 def test_F3_hybrid_list_form_not_dropped():
     assert dv.parse_color_identity(["R/G"]) == frozenset("RG")
 
