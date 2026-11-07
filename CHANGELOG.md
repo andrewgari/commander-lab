@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Brew: the deck's estimated power no longer drops from Mid to High; leftover slots are now filled in score order for the requested power level.
+- Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
+- Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
+- Brew: the availability report no longer shows cards from a draft that fails the final legality check; it returns an error instead.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
 
 ### Added

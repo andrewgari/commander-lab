@@ -210,3 +210,11 @@ def test_variant_type_commander_rejected_by_commander_slot_gate():
     cat.add(card("Scheme Legend", "R", ("Creature", "Scheme"), ("Legendary",)))
     with pytest.raises(ValueError, match="commander slot"):
         fill_deck("Scheme Legend", [], None, cat, staples=STAPLES)
+
+
+def test_eligible_scheme_commander_rejected_by_commander_slot_gate():
+    cat = build_catalog()
+    # "can be your commander" makes it eligible; only the COMMANDER slot gate rejects the Scheme type
+    cat.add(card("Scheme Commander", "W", ("Scheme",), ("Legendary",), text="can be your commander"))
+    with pytest.raises(ValueError, match="commander slot"):
+        fill_deck("Scheme Commander", [], None, cat, staples=STAPLES)
