@@ -1,7 +1,7 @@
 services:
   # Slice 0 foundation only: app stays on Redis until the migration slice.
   db:
-    image: commander-lab-db:pg17-vector0.8.2-age1.6.0
+    image: commander-lab-db:pg17-vector0.8.2
     build:
       context: ./docker/db
     container_name: commander-lab-db
@@ -59,9 +59,17 @@ services:
       # returns 501 push_not_configured. See docs/SYNC_UPDATE_PUSH.md.
       - ARCHIDEKT_TOKEN=${ARCHIDEKT_TOKEN:-}
       - MOXFIELD_TOKEN=${MOXFIELD_TOKEN:-}
+      - MOXFIELD_USER_ID=${MOXFIELD_USER_ID:-}
       - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
+      # Deck reviewer card 11: PDF export goes through the optional `pdf` container (docker compose --profile pdf up -d),
+      # which prints the web page; card art is served from the local Scryfall image cache under /data.
+      - PDF_SERVICE_URL=${PDF_SERVICE_URL:-http://pdf:8100}
+      - PDF_WEB_URL=${PDF_WEB_URL:-http://web:3000}
+      - REVIEW_PDF_SECRET=${REVIEW_PDF_SECRET:-}
+      - CARD_IMAGE_CACHE_DIR=/data/card-images
+      - CARD_IMAGE_OFFLINE=${CARD_IMAGE_OFFLINE:-0}
     depends_on:
       redis:
         condition: service_started
@@ -69,6 +77,9 @@ services:
         condition: service_healthy
     volumes:
       - app_data:/data
+      # Moxfield session captured by scripts/setup_auth.py (docs/MOXFIELD_TRANSCRIBE.md).
+      # Read-only: live credentials, gitignored, refreshed out-of-band without a rebuild.
+      - ./.auth:/app/.auth:ro
     command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - internal
@@ -77,7 +88,8 @@ services:
   web:
     image: commander-lab-web:${TAG:-latest}
     build:
-      context: ./src/web
+      context: .
+      dockerfile: src/web/Dockerfile
     container_name: commander-lab-web
     pull_policy: build
     restart: unless-stopped
@@ -85,8 +97,30 @@ services:
       - "8011:3000"
     environment:
       - COMMANDER_API_URL=http://app:8000
+      # adapter-node ignores ORIGIN here and assumes https for its own origin, so form POSTs (Games import)
+      # served over plain http are rejected with 403. When a reverse proxy fronts this container, have it send
+      # X-Forwarded-Proto / X-Forwarded-Host and uncomment these two:
+      # - PROTOCOL_HEADER=x-forwarded-proto
+      # - HOST_HEADER=x-forwarded-host
     depends_on:
       - app
+    networks:
+      - internal
+
+  # Deck reviewer card 11 (DECISIONS D4): Playwright/Chromium that prints the review page to PDF. Optional and off by
+  # default so the stack stays small (the image is ~1.4 GB): docker compose --profile pdf up -d pdf
+  pdf:
+    image: commander-lab-pdf:${TAG:-latest}
+    build:
+      context: ./docker/pdf
+    container_name: commander-lab-pdf
+    profiles: ["pdf"]
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      - PDF_ALLOWED_ORIGIN=http://web:3000
+    depends_on:
+      - web
     networks:
       - internal
 

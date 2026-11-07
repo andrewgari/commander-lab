@@ -116,6 +116,7 @@
             CardAutocomplete.attach(cmdInput, {
                 listEl: $("brewCmdResults"),
                 commandersOnly: true,
+                limit: 100,   // show every match; the list scrolls (hud.css max-height)
                 commitOnEnter: "first",
                 loadingText: "Searching commanders…",
                 emptyText: "No commanders match — check spelling",
@@ -250,6 +251,14 @@
         });
         $("brewName").addEventListener("input", function () { this.dataset.touched = "1"; });
 
+        /* UI 1-5 -> backend 1-10 power scale (Casual..cEDH-adjacent) */
+        var UI_TO_POWER = { "1": 2, "2": 3.5, "3": 5.5, "4": 8, "5": 10 };
+        function powerToUi(v) {
+            var n = parseFloat(v), best = "3", d = 99;
+            if (isNaN(n)) return best;
+            Object.keys(UI_TO_POWER).forEach(function (k) { var x = Math.abs(UI_TO_POWER[k] - n); if (x < d) { d = x; best = k; } });
+            return best;
+        }
         /* ---- power description ---- */
         var powerDescs = {
             "1": "Casual — janky, fun-first pile.",
@@ -307,7 +316,7 @@
                 else b.removeAttribute("title");
             });
             $("brewGenerateHint").textContent = reason;
-            $("brewMobileName").textContent = first ? first.name : "No commander";
+            $("brewMobileName").textContent = first ? first.name : reason;
             $("brewMobilePool").textContent = state.donors.length + " donors";
         }
         document.querySelectorAll('input[name="build_mode"]').forEach(function (r) {
@@ -323,7 +332,7 @@
                 donor_deck_ids: state.donors.slice(),
                 build_mode: buildMode(),
                 name: $("brewName").value.trim(),
-                power_level: (document.querySelector('input[name="power"]:checked') || {}).value || "3",
+                power_level: UI_TO_POWER[(document.querySelector('input[name="power"]:checked') || {}).value || "3"],
                 idea: $("brewIdea").value.trim(),
                 themes: state.themes.slice(),
                 notes: $("brewNotes").value.trim(),
@@ -370,7 +379,7 @@
             var mode = resume.build_mode || "owned_first";
             var modeEl = document.querySelector('input[name="build_mode"][value="' + mode + '"]');
             if (modeEl) modeEl.checked = true;
-            var p = String(resume.power_level || "3");
+            var p = powerToUi(resume.power_level || 5.5);
             var pEl = document.querySelector('input[name="power"][value="' + p + '"]');
             if (pEl) { pEl.checked = true; $("brewPowerDesc").textContent = powerDescs[p] || ""; }
             // Commander names: rehydrate as name-only entries; art loads lazily
@@ -413,8 +422,13 @@
             hide($("brewDeck")); hide($("brewNotFound"));
             show($("brewBuilding"));
             var failed = session.status === "failed";
+            var buildName = ((session.preferences || [])[0] || {}).name || session.commander || "Brew";
             $("brewFailed").hidden = !failed;
-            $("brewBuildName").textContent = ((session.preferences || [])[0] || {}).name || session.commander || "Brew";
+            // A failed brew must not keep showing the "Brewing…" panel with its
+            // sweeping progress bar and Cancel button.
+            $("brewBuildPanel").hidden = failed;
+            $("brewBuildName").textContent = buildName;
+            $("brewFailedName").textContent = failed ? buildName : "";
             if (failed) {
                 $("brewFailedMsg").textContent = session.error || "The brew failed.";
                 $("brewBackBtn").href = "/brew?resume=" + encodeURIComponent(sessionId);
@@ -599,6 +613,7 @@
 
             // Brew inputs
             var mode = session.build_mode === "best_build" ? "Best build" : "Owned-first";
+            var pl = String(session.power_level || "");
             var themes = (session.themes || []).map(function (t) { return window.HUD ? HUD.chip(t, "ghost") : esc(t); }).join(" ");
             $("brewInputsKv").innerHTML =
                 "<dt>Build mode</dt><dd>" + esc(mode) + "</dd>" +
@@ -636,6 +651,7 @@
         });
         $("brewRetryBtn").addEventListener("click", function () {
             $("brewFailed").hidden = true;
+            $("brewBuildPanel").hidden = false;
             postJSON("/api/brew/" + encodeURIComponent(sessionId) + "/build", {}).catch(function () {});
             pollStart = Date.now();
             fetchJSON("/api/brew/" + encodeURIComponent(sessionId)).then(function (b) { route(b.session); });
@@ -677,6 +693,14 @@
         });
     }
 
-    if ($("brewGenerate")) initConsole();
-    else if ($("brewRoot")) initSession();
+    // base.html loads hud.js with `defer`, so window.HUD (pips, status chips,
+    // chip builders) does not exist while this plain script is parsed. Boot on
+    // DOMContentLoaded (runs after deferred scripts) so donor rows, the summary
+    // colour pips and the result-page chips render with the HUD kit.
+    function boot() {
+        if ($("brewGenerate")) initConsole();
+        else if ($("brewRoot")) initSession();
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+    else boot();
 })();

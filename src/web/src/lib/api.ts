@@ -495,3 +495,35 @@ export interface ReviewResponse {
 	created_at: string | null;
 	jobs: ReviewJobRecord[];
 }
+
+// --- Review documents (deck reviewer card 11) -----------------------------------------------------
+
+export interface ReviewDocumentSummary {
+	id: number;
+	deck_id: string;
+	status: 'queued' | 'running' | 'ok' | 'failed';
+	stage: string;
+	error: string | null;
+	grade: string | null;
+	headline: string | null;
+	created_at: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+}
+
+export interface ReviewDocumentResponse extends ReviewDocumentSummary {
+	// The review_document.v1 JSON once status is 'ok' (typed in lib/components/review/types.ts).
+	doc: Record<string, unknown> | null;
+}
+
+export interface ReviewDocumentList {
+	documents: ReviewDocumentSummary[];
+	active: ReviewDocumentSummary | null;
+}
+
+export interface SwapFeedback {
+	cut: string;
+	add: string;
+	decision: 'accepted' | 'rejected' | 'maybe';
+	reason: string;
+}

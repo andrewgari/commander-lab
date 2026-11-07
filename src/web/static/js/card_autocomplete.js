@@ -14,7 +14,7 @@
        endpoint: "/api/cards/autocomplete",  // null = no network (local source only)
        commandersOnly: false,                // adds commanders_only=true
        extraSource: async (q) => [...names], // optional local pool, merged first
-       minChars: 2, debounceMs: 200, limit: 8,
+       minChars: 2, debounceMs: 200, limit: 8,  // brew passes 100
        commitOnEnter: "first",
        onSelect: (card, input) => {},        // default: input.value = card.name
        listEl: existingUl,                   // optional; one is created otherwise
@@ -228,10 +228,11 @@
         }
         function onKeydown(ev) {
             if (ev.key === "Escape") {
-                if (!listEl.hidden) {
-                    ev.preventDefault();
-                    closeList();
-                }
+                // Esc also cancels a pending debounce / in-flight search, so a
+                // keystroke-then-Esc does not re-open the list afterwards.
+                var wasOpen = !listEl.hidden;
+                closeList();
+                if (wasOpen) ev.preventDefault();
                 return;
             }
             if (listEl.hidden || !currentResults.length) return;

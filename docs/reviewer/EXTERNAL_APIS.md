@@ -10,6 +10,7 @@ Checked live on 2026-10-26 (card 05). Clients: `src/server/domain/analytics/fact
 - `POST /cards/collection` (<https://scryfall.com/docs/api/cards/collection>): ≤ 75 identifiers per call; misses come back in `not_found` (we treat them as unavailable, not as errors). Gives `oracle_text`, `type_line`, `cmc`, `color_identity`, `legalities`, `prices.usd`, `produced_mana`, `game_changer`, `oracle_id`.
 - `GET /cards/search`: `q=f:commander id<=wubg usd<=5 otag:ramp`, `order=edhrec`. 404 means "no results". `otag:` (Tagger) is unofficial-but-stable syntax. Prices are strings or null; null price + budget cap ⇒ card excluded.
 - Data policy: don't paywall/republish/proxy Scryfall data; we add analysis.
+- **Card images (card 11):** `infra/services/card_images.py` fetches `image_uris` (small/normal/large) from Scryfall once and serves every later request from disk (`CARD_IMAGE_CACHE_DIR`, default `/data/card-images`), so PDFs render offline. It reuses the ≥ 550 ms spacing, sends a descriptive `User-Agent` and `Accept`, pauses 30 s after a 429, negative-caches misses, and never alters or crops the art (Scryfall image guidelines). `CARD_IMAGE_OFFLINE=1` forbids any Scryfall call.
 
 ## Commander Spellbook — official public API, polite use
 - `POST https://backend.commanderspellbook.com/find-my-combos` with `{"commanders":[{"card":..}],"main":[{"card":..}]}`. OpenAPI: <https://backend.commanderspellbook.com/schema/> (v7.3.1 at time of writing); repo <https://github.com/SpaceCowMedia/commander-spellbook-backend>.

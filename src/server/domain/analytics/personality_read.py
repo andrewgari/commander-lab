@@ -491,7 +491,8 @@ def new_job(r, deck: Mapping) -> dict:
 
 
 def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> dict:
-    from .oracle_client import OFFLINE_MESSAGE, OracleError, OracleUnavailable
+    from .oracle_client import OFFLINE_MESSAGE
+    from src.server.domain.llm.port import LLMError, LLMUnavailable
 
     rid = job["deck_id"]
     try:
@@ -509,9 +510,9 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
         doc = validate_doc(raw_data)
         record = store_read(r, rid, job["input_hash"], doc, payload["rulebook_scores"])
         job.update(status="done", read=doc.model_dump(), record=record)
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         job.update(status="failed", error=OFFLINE_MESSAGE, error_kind="oracle_offline", detail=exc.detail)
-    except (OracleError, PersonalityReadError) as exc:
+    except (LLMError, PersonalityReadError) as exc:
         job.update(status="failed", error=str(exc)[:500], error_kind=type(exc).__name__)
     except Exception as exc:  # noqa: BLE001
         log.exception("personality read job %s failed", job["job_id"])

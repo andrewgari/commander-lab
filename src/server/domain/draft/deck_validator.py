@@ -186,11 +186,29 @@ def parse_color_identity(value: Any) -> frozenset:
             out.add(_COLOR_NAMES[token.casefold()])
         elif token.upper() in tuple(COLORS):
             out.add(token.upper())
+        elif "/" in token:  # hybrid symbol, e.g. 'R/G' or '{R/G}'
+            out.update(
+                part for part in token.strip("{}").upper().split("/") if part in tuple(COLORS)
+            )
     return frozenset(out)
 
 
 def _strip_reminder(text: str) -> str:
     return re.sub(r"\([^)]*\)", "", text or "")
+
+
+_MANA_SYMBOL_RE = re.compile(r"\{([^{}]+)\}")
+
+
+def color_identity_from_text(mana_cost: Any, oracle_text: Any) -> frozenset:
+    """Derive identity from mana symbols (hybrid/phyrexian included) in the cost
+    and rules text (reminder text excluded). Fallback for records lacking a
+    color_identity field."""
+    out = set()
+    for blob in (str(mana_cost or ""), _strip_reminder(str(oracle_text or ""))):
+        for sym in _MANA_SYMBOL_RE.findall(blob):
+            out.update(c for c in sym.upper().split("/") if c in tuple(COLORS))
+    return frozenset(out)
 
 
 def singleton_limit_from_text(oracle_text: str) -> Tuple[bool, Optional[int]]:
@@ -212,6 +230,16 @@ def singleton_limit_from_text(oracle_text: str) -> Tuple[bool, Optional[int]]:
 # Local types
 # --------------------------------------------------------------------------
 
+def is_meld_result(layout: Any, oracle_text: Any) -> bool:
+    """Archidekt/Scryfall layout 'meld' covers both halves and the result; only
+    the halves say 'Melds with'."""
+    return str(layout or "").casefold() == "meld" and "melds with" not in str(oracle_text or "").casefold()
+
+
+def _printed_stat(value: Any) -> Optional[str]:
+    return None if value is None or str(value).strip() == "" else str(value)
+
+
 @dataclass(frozen=True)
 class CardInfo:
     name: str
@@ -222,6 +250,9 @@ class CardInfo:
     keywords: Tuple[str, ...] = ()
     oracle_text: str = ""
     commander_legality: Optional[str] = None  # "legal" | "banned" | "not_legal" | None
+    power: Optional[str] = None  # printed front-face P/T (Vehicle/Spacecraft eligibility)
+    toughness: Optional[str] = None
+    meld_result: bool = False  # back half of a meld pair: never eligible
 
     @classmethod
     def from_record(cls, rec: Mapping[str, Any]) -> "CardInfo":
@@ -230,7 +261,9 @@ class CardInfo:
         supertypes = list(rec.get("super_types") or rec.get("supertypes") or [])
         subtypes = list(rec.get("sub_types") or rec.get("subtypes") or [])
         if rec.get("type_line"):
-            left, _, right = str(rec["type_line"]).partition("\u2014")
+            # Front face only: a back-face supertype must not leak in.
+            front_line = str(rec["type_line"]).split("//")[0]
+            left, _, right = front_line.partition("\u2014")
             for word in left.split():
                 (supertypes if word.casefold() in _SUPERTYPES else types).append(word)
             subtypes += right.split()
@@ -242,15 +275,22 @@ class CardInfo:
         if legality is None and isinstance(rec.get("legalities"), Mapping):
             legality = rec["legalities"].get("commander")
         color = rec.get("color_identity", rec.get("color"))
+        oracle = rec.get("oracle_text") or rec.get("text") or ""
+        identity = (parse_color_identity(color) if color is not None
+                    else color_identity_from_text(rec.get("mana_cost"), oracle))
         return cls(
             name=rec["name"],
-            color_identity=parse_color_identity(color),
+            color_identity=identity,
             types=tuple(types),
             supertypes=tuple(dict.fromkeys(supertypes)),
             subtypes=tuple(subtypes),
             keywords=tuple(rec.get("keywords") or ()),
             oracle_text=rec.get("oracle_text") or rec.get("text") or "",
             commander_legality=(str(legality).casefold() if legality else None),
+            power=_printed_stat(rec.get("power")),
+            toughness=_printed_stat(rec.get("toughness")),
+            meld_result=bool(rec.get("meld_result")) or is_meld_result(
+                rec.get("layout"), rec.get("oracle_text") or rec.get("text")),
         )
 
     def _has(self, seq: Sequence[str], word: str) -> bool:
@@ -270,9 +310,22 @@ class CardInfo:
 
     @property
     def can_be_commander(self) -> bool:
+        """Mirrors Scryfall `is:commander` (front-face characteristics only),
+        minus Backgrounds, which are only legal as a second commander."""
+        if self.meld_result or not self.is_legendary:
+            return False
+        if self._has(self.subtypes, "Background") and not self.is_creature:
+            return False
         if "can be your commander" in (self.oracle_text or "").casefold():
             return True
-        return self.is_legendary and self.is_creature
+        if self.is_creature:
+            return True
+        # Grist-style: a creature in every zone except the battlefield.
+        if re.search(r"isn't on the battlefield, it's an? [^.]*creature", (self.oracle_text or "").casefold()):
+            return True
+        # Vehicles/Spacecraft count only with a printed power/toughness.
+        is_vehicle = self._has(self.subtypes, "Vehicle") or self._has(self.subtypes, "Spacecraft")
+        return is_vehicle and self.power is not None and self.toughness is not None
 
 
 def _builtin_basic(name: str) -> Optional[CardInfo]:

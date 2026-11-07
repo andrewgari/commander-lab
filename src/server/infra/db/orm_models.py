@@ -625,3 +625,27 @@ class ReviewRunStepRow(Base):
     verdict: Mapped[str] = mapped_column(String(16), nullable=False)
     error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     __table_args__ = (UniqueConstraint("run_id", "idx"),)
+
+
+# ---------------------------------------------------------------------------
+# Deck reviewer card 11 (migrations/a011_review_documents; DECISIONS.md D2): stored review_document v1.
+# ---------------------------------------------------------------------------
+
+class ReviewDocumentRow(Base):
+    __tablename__ = "review_documents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    deck_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    stage: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    schema_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    pipeline_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    fact_pack_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    run_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    doc: Mapped[Any] = mapped_column(JsonType, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    started_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

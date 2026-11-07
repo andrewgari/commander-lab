@@ -42,3 +42,17 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 - Never write merge/PR numbers/commit hashes/branch names/task ids/version-bump/CI lines.
 - List deprecations and breaking changes explicitly (prefix breaking ones with `**BREAKING:**` under Changed/Removed).
 - Dated sections are created by `python3 scripts/changelog.py promote vX.Y.Z` (`--dry-run` to preview); check with `python3 scripts/changelog.py validate`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`andrewgari/commander-lab`, via `gh`) are primary; Gitea is a secondary mirror. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.

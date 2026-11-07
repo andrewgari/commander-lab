@@ -11,9 +11,7 @@ state.
   `derived_index_status(store PK, rebuilt_at, source_watermark, row_count)`.
   HNSW index per embedding table (cosine ops). The embedding tables are not
   ORM-mapped (the `vector` type is PostgreSQL-only); all access is raw SQL in
-  `src/server/infra/vector/`. Note: like every app table since slice 0, these
-  land in the first schema on the database-level `search_path`
-  (`ag_catalog, "$user", public`, set by `docker/db/init/00-extensions.sql`).
+  `src/server/infra/vector/`. App connections pin `search_path` to `"$user", public` and Alembic's version table is `public.alembic_version`, so these tables live in `public` even though the database default leads with `ag_catalog`.
 - **Rebuild**: `python -m src.server.workers.index_rebuild vector` truncates
   and re-embeds from `cards`/`decks` in ONE transaction, then upserts
   `derived_index_status(store='vector', rebuilt_at, source_watermark =
@@ -33,8 +31,9 @@ state.
   covers the current max `cards.refreshed_at` / `decks.updated_at`.
 - **Tests**: `tests/test_index_rebuild.py` — pure math/text tests run
   everywhere; the determinism/freshness/endpoint tests need real PostgreSQL
-  with pgvector (skipped on the CI `postgres:16-alpine` service, which lacks
-  the extension; run locally against the `commander-lab-db` image:
+  with pgvector (CI runs them on the digest-pinned `pgvector/pgvector:pg17` service,
+  matching the prod major, and a dedicated step fails the build if any are
+  skipped; run locally against the `commander-lab-db` image:
   `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:55446/commander_lab
   python -m pytest tests/test_index_rebuild.py`). The drop-and-rebuild test
   proves the store is derived: identical embedding rows and identical

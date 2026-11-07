@@ -223,6 +223,29 @@ class CriticFlow(unittest.TestCase):
         self.assertIn("sw-1: the quote 'invented words' does not appear verbatim", repair.messages[-1].content)
         self.assertEqual(res.omitted, [])
 
+    def test_quote_with_ellipsis_or_stitched_sentences_of_the_item_is_accepted(self):
+        text = "Getting Lara down early is well supported. Sol Ring pushes ramp to 17. A turn-3 Lara is routine."
+        self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported... A turn-3 Lara is routine.", text))
+        self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported. A turn-3 Lara is routine.", text))
+        self.assertTrue(d_verify.quote_in("Getting Lara down early is well supported \u2026 Sol Ring pushes ramp to 17", text))
+        protection = "Heroic Intervention is the only instant-speed cover, and the rest of the protection must first be equipped with mana."
+        self.assertTrue(d_verify.quote_in("...the rest of the protection [...] must first be equipped with mana.", protection))
+        self.assertTrue(d_verify.quote_in("...the rest of the protection […] must first be equipped with mana.", protection))
+
+    def test_quote_must_stay_in_order_and_contain_only_the_items_words(self):
+        text = "First sentence here. Second sentence here. Third sentence here."
+        self.assertFalse(d_verify.quote_in("Third sentence here... First sentence here.", text))
+        self.assertFalse(d_verify.quote_in("First sentence here. Invented words. Third sentence here.", text))
+        self.assertFalse(d_verify.quote_in("", text))
+        self.assertFalse(d_verify.quote_in("...", text))
+
+    def test_quote_repair_turn_restates_the_text_under_review(self):
+        obj = {"verdicts": [{"item_id": "x", "verdict": "flag", "category": "generic", "quote": "words from elsewhere", "reason": "r"}]}
+        errs = d_verify.critic_validate(obj, {"x": "The actual text of item x."})
+        self.assertEqual(len(errs), 1)
+        self.assertIn("does not appear verbatim", errs[0])
+        self.assertIn("The actual text of item x.", errs[0])
+
     def test_critic_must_return_one_verdict_per_item(self):
         def h(req):
             ids = list(t.items_in(req))

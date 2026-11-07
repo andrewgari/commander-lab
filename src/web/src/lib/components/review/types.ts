@@ -14,7 +14,7 @@ export interface ReviewDocument {
  deck_identity: { what_it_does: string; win_paths: string[]; success_criteria: string[]; intentional_quirks: string[] };
  scorecard: { axis: string; score: number; one_line: string; finding_ids: string[] }[];
  strengths: Finding[]; problems: Finding[];
- top_changes: { swap_ids: string[]; why_these_first: string };
+ top_changes: { swap_ids: string[]; why_these_first: string } | null;
  swaps: Swap[];
  cuts_to_consider: { card: CardRef; reason: string; evidence: string[] }[];
  bracket: { estimated: number; target: number | null; reasons: string[] };

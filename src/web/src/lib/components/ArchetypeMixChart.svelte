@@ -68,11 +68,11 @@
 	}
 	.value {
 		font-size: 0.75rem;
-		opacity: 0.7;
+		color: var(--text-3, var(--color-muted));
 		white-space: nowrap;
 	}
 	.empty {
-		opacity: 0.7;
+		color: var(--text-3, var(--color-muted));
 		font-size: 0.85rem;
 	}
 </style>

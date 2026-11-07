@@ -38,6 +38,11 @@ from src.server.domain.tags import engine as autotag_engine_mod
 from src.server.domain.tags import tag_registry
 from src.server.infra.providers import fetch_deck, ProviderError
 import src.server.infra.providers.linked_accounts as linked_accounts
+import src.server.domain.inventory.collection as collection
+from src.server.infra.providers import archidekt_collection
+import src.server.domain.decks.transcribe as transcribe
+import src.server.domain.decks.archive as archive
+from src.server.infra.providers.moxfield_writer import MoxfieldAuthError, MoxfieldWriteError
 from src.server.infra.providers.linked_accounts import LinkedAccountError
 import src.server.domain.decks.deck_links as deck_links
 from src.server.domain.decks.deck_links import DeckLinkError
@@ -139,6 +144,31 @@ _WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", 
 templates = Jinja2Templates(directory=os.path.join(_WEB_DIR, "templates"))
 templates.env.globals["app_version"] = __version__
 templates.env.globals["version"] = __version__
+
+# Content-based cache-buster for static assets: __version__ is a frozen
+# constant, so ?v={{ version }} never changes between deploys and browsers keep
+# serving a stale file (the /brew autocomplete fix shipped but never reached
+# the browser). static_hash() keys the URL to the file's bytes instead.
+_STATIC_DIR = os.path.join(_WEB_DIR, "static")
+_static_hash_cache: dict = {}
+
+
+def static_hash(path: str, static_dir: str = _STATIC_DIR) -> str:
+    full = os.path.join(static_dir, path)
+    try:
+        st = os.stat(full)
+    except OSError:
+        return __version__
+    key = (full, st.st_mtime_ns, st.st_size)
+    h = _static_hash_cache.get(key)
+    if h is None:
+        with open(full, "rb") as f:
+            h = hashlib.sha256(f.read()).hexdigest()[:12]
+        _static_hash_cache[key] = h
+    return h
+
+
+templates.env.globals["static_hash"] = static_hash
 
 # Deck groups in the sidebar "Commander Decks" menu: each opens /decks filtered
 # to one existing status value (registry.VALID_STATUSES). Labels only; the
@@ -873,7 +903,7 @@ async def export_deck_api(request: Request):
             deck_export.export_decklist, data.get("name"), data.get("cards") or [],
             data.get("commanders") or [], data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -888,7 +918,7 @@ async def export_reconstruct_draft(session_id: str, draft_index: int, request: R
         out = await asyncio.to_thread(
             deck_export.export_draft, r, session_id, draft_index, data.get("providers"),
             data.get("description") or "", data.get("private", True) is not False,
-            bool(data.get("dry_run")))
+            bool(data.get("dry_run", True)))
     except deck_export.ExportError as e:
         return JSONResponse(status_code=e.status, content={"success": False, "code": e.code, "error": str(e)})
     return JSONResponse(status_code=200 if out["success"] else 207, content=out)
@@ -960,7 +990,7 @@ async def brew_landing_view(request: Request, resume: Optional[str] = Query(None
         for d in decks
         if d.get("status") != "retired" and not d.get("decommissioned_at")
     ]
-    resume_session = brew.get_session(r, resume) if resume else None
+    resume_session = brew.release_session(r, brew.get_session(r, resume)) if resume else None
     return templates.TemplateResponse(
         request=request,
         name="brew.html",
@@ -1060,7 +1090,7 @@ async def start_brew_session(request: Request):
 @app.get("/api/brew/sessions")
 async def list_brew_sessions(limit: int = 50):
     """List recent Brew sessions."""
-    sessions = brew.list_sessions(r, limit=limit)
+    sessions = brew.list_sessions(r, limit=limit)  # gated inside list_sessions
     return {"success": True, "sessions": sessions}
 
 
@@ -1080,7 +1110,11 @@ async def get_brew_drafts(session_id: str):
     session = brew.get_session(r, session_id)
     if not session:
         return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
-    return {"success": True, "status": session["status"], "drafts": session.get("drafts", [])}
+    try:
+        drafts = brew.get_drafts(r, session_id)
+    except brew.BrewGateError as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(e)})
+    return {"success": True, "status": session["status"], "drafts": drafts}
 
 
 @app.get("/api/brew/{session_id}/availability")
@@ -1088,6 +1122,8 @@ async def get_brew_availability(session_id: str):
     """Availability report: owned (donors / free inventory) vs buy list."""
     try:
         report = brew.get_availability(r, session_id)
+    except brew.BrewGateError as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(e)})
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1101,7 +1137,7 @@ async def get_brew_session(session_id: str):
     session = brew.get_session(r, session_id)
     if not session:
         return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
-    return {"success": True, "session": session}
+    return {"success": True, "session": brew.release_session(r, session)}
 
 
 @app.post("/api/brew/{session_id}/build")
@@ -1123,7 +1159,7 @@ async def trigger_brew_build(
     is_sync = sync if sync is not None else bool(body.get("sync", False))
 
     try:
-        session = brew.trigger_build(r, session_id, sync=is_sync)
+        session = brew.release_session(r, brew.trigger_build(r, session_id, sync=is_sync))
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1168,7 +1204,7 @@ async def accept_brew_draft(session_id: str, request: Request):
 
     return {
         "success": True,
-        "session": result["session"],
+        "session": brew.release_session(r, result["session"]),
         "created_decks": result["created_decks"],
     }
 
@@ -1187,7 +1223,7 @@ async def abandon_brew_session(session_id: str, request: Request):
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
         return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
-    return {"success": True, "session": session}
+    return {"success": True, "session": brew.release_session(r, session)}
 
 
 @app.post("/api/reconstruct/{session_id}/abandon")
@@ -1469,7 +1505,7 @@ async def deck_sync_push(deck_id: str, request: Request):
     credential env var is unset. Explicit user action only."""
     data = await _sync_body(request)
     provider = data.get("provider") or None
-    dry_run = bool(data.get("dry_run"))
+    dry_run = bool(data.get("dry_run", True))
     try:
         return await asyncio.to_thread(deck_sync.push_deck, r, deck_id, provider, dry_run)
     except DeckSyncError as e:
@@ -4951,17 +4987,17 @@ def _oracle_offline(detail: str = ""):
 
 def _oracle_preflight() -> Optional[JSONResponse]:
     """Fail fast (503) when oracle is not configured or not answering /v1/models."""
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     try:
         client = _oracle_client()
         client.timeout = THEORY_PREFLIGHT_TIMEOUT_S
         client.models()
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return _oracle_offline(str(exc)[:200])
     return None
 
@@ -4992,7 +5028,7 @@ async def api_genres_autofill(request: Request):
     """{"theme": str} -> oracle drafts description + roles; the app validates them against the
     tag vocabulary (unknown tags are dropped and listed in `flagged`). Nothing is saved."""
     from src.server.domain.analytics import genres as genres_mod
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     body = await _json_body(request)
     theme = body.get("theme") if isinstance(body, dict) and isinstance(body.get("theme"), str) else ""
@@ -5010,11 +5046,11 @@ async def api_genres_autofill(request: Request):
 
     try:
         reply = await asyncio.to_thread(_ask)
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
     try:
         draft = genres_mod.validate_autofill(theme, genres_mod.parse_oracle_reply(reply))
@@ -5441,7 +5477,7 @@ async def _oracle_call(fn):
     """Run a blocking oracle-backed `fn(ask)` in a thread; map oracle trouble to the standard responses.
     Returns (result, None) or (None, JSONResponse)."""
     from src.server.domain.analytics import deck_writeup
-    from src.server.domain.analytics.oracle_client import OracleAuthError, OracleError, OracleUnavailable
+    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     def _run():
         client = _oracle_client()
@@ -5452,11 +5488,11 @@ async def _oracle_call(fn):
         return await asyncio.to_thread(_run), None
     except deck_writeup.WriteupError as exc:
         return None, JSONResponse(status_code=422, content={"success": False, "error": str(exc), "error_kind": exc.kind})
-    except OracleUnavailable as exc:
+    except LLMUnavailable as exc:
         return None, _oracle_offline(exc.detail)
-    except OracleAuthError:
+    except LLMAuthError:
         return None, _oracle_offline("oracle rejected the API key")
-    except OracleError as exc:
+    except LLMError as exc:
         return None, JSONResponse(status_code=502, content={"success": False, "error": str(exc)[:300]})
 
 
@@ -6323,4 +6359,165 @@ async def api_deck_tune_pet(deck_id: str, request: Request):
     except (tuner_mod.TunerError, journal_mod.JournalError) as exc:
         return _bad_request(exc)
     return {"success": True, **out}
+
+
+# ---------------------------------------------------------------------------
+# Collection import — pull the Archidekt card collection into owned instances
+# (see docs/COLLECTION_IMPORT.md). Thin wrappers over collection.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/collection/sync")
+async def get_collection_sync_status():
+    """Last collection import (or null), plus whether credentials are present,
+    so the UI can show a "configure cookies" hint without a failed import."""
+    try:
+        archidekt_collection.credentials()
+        credentialed = True
+    except archidekt_collection.CollectionAuthError:
+        credentialed = False
+
+    return {
+        "credentialed": credentialed,
+        "username": os.getenv("ARCHIDEKT_USERNAME", ""),
+        "last_sync": collection.last_sync(r),
+    }
+
+
+@app.post("/api/collection/import")
+async def import_collection(request: Request):
+    """Import (or preview) the Archidekt collection.
+
+    Body (all optional): {"username": str, "dry_run": bool}
+    dry_run=true returns the same report without writing any instances.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+
+    username = (data or {}).get("username")
+    dry_run = bool((data or {}).get("dry_run", True))
+
+    try:
+        result = await asyncio.to_thread(
+            collection.import_collection, r, username=username, dry_run=dry_run
+        )
+    except archidekt_collection.CollectionAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (archidekt_collection.CollectionFetchError, collection.CollectionImportError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except InstanceError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
+
+
+# ---------------------------------------------------------------------------
+# Transcribe — push physical Archidekt decks to Moxfield
+# (see docs/MOXFIELD_TRANSCRIBE.md). Thin wrappers over transcribe.py.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/transcribe/moxfield")
+async def get_transcribe_status():
+    """Which physical decks are eligible, and which are already on Moxfield."""
+    decks = await asyncio.to_thread(transcribe.eligible_decks, r)
+    return {
+        "folder": transcribe.DEFAULT_FOLDER_NAME,
+        "visibility": transcribe.DEFAULT_VISIBILITY,
+        "eligible": len(decks),
+        "decks": [
+            {
+                "registry_id": registry.registry_id_of(deck),
+                "name": deck.get("name"),
+                "status": deck.get("status"),
+                "cards": transcribe.card_count(deck),
+                "transcribed": transcribe.get_mapping(r, registry.registry_id_of(deck)),
+            }
+            for deck in decks
+        ],
+    }
+
+
+@app.post("/api/transcribe/moxfield")
+async def run_transcribe(request: Request):
+    """Transcribe physical decks to Moxfield.
+
+    Body (all optional): {"folder": str, "visibility": str, "force": bool,
+    "dry_run": bool}. Only decks with registry status "physical" are ever
+    touched; dry_run previews without calling Moxfield at all.
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = await asyncio.to_thread(
+            transcribe.transcribe_all,
+            r,
+            folder_name=data.get("folder", transcribe.DEFAULT_FOLDER_NAME),
+            visibility=data.get("visibility", transcribe.DEFAULT_VISIBILITY),
+            force=bool(data.get("force", False)),
+            dry_run=bool(data.get("dry_run", True)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, transcribe.TranscribeError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
+
+
+# ---------------------------------------------------------------------------
+# Archive — rename + re-file existing Moxfield decks. Never deletes.
+# (see docs/MOXFIELD_ARCHIVE.md). Thin wrappers over archive.py.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/archive/moxfield")
+async def run_archive(request: Request):
+    """Archive existing Moxfield decks: prefix the name, set visibility, and
+    move them into a holding folder. Nothing is ever deleted.
+
+    Body (all optional): {"folder": str, "prefix": str, "visibility": str|null,
+    "skip_transcribed": bool, "dry_run": bool}
+    """
+    try:
+        data = await request.json()
+    except Exception:  # noqa: BLE001 - empty body is a valid "use defaults" call
+        data = {}
+    data = data or {}
+
+    try:
+        report = await asyncio.to_thread(
+            archive.archive_all,
+            r,
+            folder_name=data.get("folder", archive.DEFAULT_ARCHIVE_FOLDER),
+            prefix=data.get("prefix", archive.DEFAULT_PREFIX),
+            visibility=data.get("visibility", archive.DEFAULT_VISIBILITY),
+            skip_transcribed=bool(data.get("skip_transcribed", True)),
+            dry_run=bool(data.get("dry_run", True)),
+        )
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except (MoxfieldWriteError, archive.ArchiveError) as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, "report": report}
+
+
+@app.post("/api/archive/moxfield/{deck_id}/restore")
+async def restore_archived_deck(deck_id: str):
+    """Undo one deck's archive: original name and visibility back from the
+    recorded backup."""
+    try:
+        result = await asyncio.to_thread(archive.restore, r, deck_id)
+    except MoxfieldAuthError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+    except archive.ArchiveError as e:
+        return JSONResponse(status_code=404, content={"success": False, "error": str(e)})
+    except MoxfieldWriteError as e:
+        return JSONResponse(status_code=400, content={"success": False, "error": str(e)})
+
+    return {"success": True, **result}
 

@@ -52,6 +52,7 @@ from typing import (
 
 import src.server.domain.inventory.cards as card_store
 import src.server.domain.inventory.instances as instance_store
+from src.server.domain.draft.card_resolution import resolve_card
 
 log = logging.getLogger("commander_lab.reconstruct_pools")
 
@@ -166,6 +167,8 @@ class CandidatePools:
     config: PoolConfig = field(default_factory=PoolConfig)
     # Tier 3 candidates that passed the filters before the cap was applied.
     tier3_total_candidates: int = 0
+    # Raw owned-card values that could not be resolved to a name (dropped).
+    dropped: List[str] = field(default_factory=list)
 
     @property
     def tier3_truncated(self) -> bool:
@@ -348,14 +351,19 @@ def parse_identity(value: Any) -> Optional[frozenset]:
     return frozenset(out)
 
 
-def identity_of_cards(names: Iterable[str], catalog: CardCatalog) -> frozenset:
-    """Union of the colour identities of `names` (e.g. the target deck's commanders)."""
+def identity_of_cards(names: Iterable[str], catalog: CardCatalog) -> Optional[frozenset]:
+    """Union of the colour identities of `names` (e.g. the target deck's commanders).
+
+    Returns None (= "unknown, do not filter") when ANY name is missing from the
+    catalog: an empty set would mean "colourless" and silently starve Tier 3.
+    """
     by_name = {norm_name(c.name): c for c in catalog.iter_cards()}
     out: set = set()
     for n in names:
         c = by_name.get(norm_name(n))
-        if c:
-            out |= set(c.color_identity)
+        if c is None:
+            return None
+        out |= set(c.color_identity)
     return frozenset(out)
 
 
@@ -393,6 +401,9 @@ class RedisCardCatalog:
         leg = (rec.get("legalities") or {}).get("commander")
         if leg is not None:
             return leg == "legal"
+        cl = rec.get("commander_legality")  # flat form (card_meta / test fixtures)
+        if isinstance(cl, str) and cl:
+            return cl == "legal"
         return None
 
     def _to_card(self, name: str, rec: Mapping) -> CatalogCard:
@@ -425,13 +436,20 @@ class RedisCardCatalog:
         for key in self.r.keys("card_meta:*"):
             key = key.decode() if isinstance(key, bytes) else key
             name = key[len("card_meta:"):]
-            if norm_name(name) in seen:
-                continue
             raw = self.r.get(key)
             try:
                 rec = json.loads(raw) if raw else None
             except (ValueError, TypeError):
                 rec = None
+            if card_store.is_oracle_id(name):
+                # card_meta is keyed by oracle id after the oracle-id migration;
+                # the key is not a card name. Use the record's name, else skip
+                # (a UUID must never reach the buy list as a card name).
+                name = (rec or {}).get("name") if isinstance(rec, dict) else None
+                if not isinstance(name, str) or not name.strip():
+                    continue
+            if norm_name(name) in seen:
+                continue
             if rec:
                 yield self._to_card(name, rec)
 
@@ -647,7 +665,14 @@ def build_candidate_pools(
     owned = free_owned_counts(owned_instances or [], source_deck_keys=src_keys)
     tier2: List[PoolCard] = []
     merged: Dict[str, Tuple[str, int]] = {}
+    dropped_owned: List[str] = []
     for name, n in owned.items():
+        resolved = resolve_card(name, r)  # instance card_name may be an oracle-id UUID
+        if resolved is None:
+            log.warning("pools: dropped unresolvable owned card %r", name)
+            dropped_owned.append(name)
+            continue
+        name = resolved.name
         k = norm_name(name)
         prev = merged.get(k)
         merged[k] = (prev[0] if prev else name, (prev[1] if prev else 0) + n)
@@ -702,6 +727,7 @@ def build_candidate_pools(
         target_deck_count=target_deck_count,
         config=config,
         tier3_total_candidates=len(ranked),
+        dropped=dropped_owned,
     )
 
 

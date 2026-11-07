@@ -599,3 +599,78 @@ class FeedbackRequest(BaseModel):
     add: str
     decision: str = Field(description="accepted | rejected | maybe")
     reason: str = ""
+
+
+# --- Review documents: review_document.v1 jobs, history, PDF, feedback (deck reviewer card 11) -----------
+
+class ReviewDocumentSummary(BaseModel):
+    id: int
+    deck_id: str
+    status: str = Field(description="queued | running | ok | failed")
+    stage: str = Field(description="what a queued/running review is doing right now")
+    schema_version: Optional[str] = None
+    pipeline_version: Optional[str] = None
+    fact_pack_hash: Optional[str] = None
+    error: Optional[str] = None
+    grade: Optional[str] = None
+    headline: Optional[str] = None
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+
+class ReviewDocumentResponse(ReviewDocumentSummary):
+    doc: Optional[dict] = Field(default=None, description="the review_document.v1 JSON, present once status is ok")
+
+
+class ReviewDocumentStartResponse(ReviewDocumentSummary):
+    already_running: bool = False
+
+
+class ReviewDocumentListResponse(BaseModel):
+    documents: list[ReviewDocumentSummary]
+    active: Optional[ReviewDocumentSummary] = None
+
+
+class ReviewSwapFeedbackRequest(BaseModel):
+    swap_id: str
+    decision: str = Field(description="accepted | rejected | maybe")
+    reason: str = ""
+
+
+class ReviewSwapFeedback(BaseModel):
+    cut: str
+    add: str
+    decision: str
+    reason: str = ""
+
+
+class ReviewFeedbackResponse(BaseModel):
+    feedback: dict[str, ReviewSwapFeedback] = Field(description="latest decision per swap id")
+
+
+class CardSearchHit(BaseModel):
+    """One result of GET /api/v2/cards/search (docs/ui/card-search.md §2.1)."""
+    oracle_id: str
+    name: str
+    mana_cost: str = ""
+    cmc: float = 0
+    type_line: str = ""
+    color_identity: list[str] = Field(default_factory=list)
+    rarity: str = ""
+    oracle_text: str = ""
+    image: str = ""
+    owned_qty: int = 0      # in_collection + in_deck + in_mail; never not_owned
+    free_qty: int = 0       # in_collection
+    can_be_commander: bool = False
+    pairing: Optional[str] = None
+
+
+class CardSearchResponse(BaseModel):
+    results: list[CardSearchHit]
+    page: int
+    has_more: bool
+    total: Optional[int] = None
+    query: str
+    source: str             # scryfall | cache | local
+    degraded: bool = False

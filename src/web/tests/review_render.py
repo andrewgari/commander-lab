@@ -10,18 +10,19 @@ import pymupdf
 out=Path(os.environ.get('REVIEW_ARTIFACTS','artifacts/review')); out.mkdir(parents=True,exist_ok=True)
 base=os.environ.get('REVIEW_URL','http://127.0.0.1:5178/dev/review/')
 results=[]; errors=[]; unexpected_external=[]; allowed_images=[]
-def deny_external_except_card_images(route):
- url=route.request.url
- allowed=url.startswith('https://api.scryfall.com/cards/named?exact=') and 'format=image' in url and 'version=small' in url
- if allowed: allowed_images.append(url)
- else: unexpected_external.append(url)
- route.abort()
+PX=bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cf5000000401010068ee7f390000000049454e44ae426082')
+def serve_card_image(route):
+ allowed_images.append(route.request.url)
+ route.fulfill(status=200,content_type='image/png',body=PX)
+def deny_external(route):
+ unexpected_external.append(route.request.url); route.abort()
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True)
  page=browser.new_page(viewport={'width':1440,'height':1000})
  page.on('pageerror',lambda e:errors.append(str(e)))
- # All card image requests are intentionally denied for deterministic offline rendering.
- page.route('https://**/*',deny_external_except_card_images)
+ # Card art comes from the app's own /api/card-image (stubbed here); nothing may reach an external host.
+ page.route('https://**/*',deny_external)
+ page.route('**/api/card-image*',serve_card_image)
  for width in [1440,390]:
   page.set_viewport_size({'width':width,'height':1000})
   for variant in ['example','no-cuts','many-swaps','long-names','unavailable-chart','grade-a']:
@@ -42,7 +43,7 @@ with sync_playwright() as p:
    assert page.locator('.card-image').count() >= 2
    assert page.locator('.card-image img, .image-fallback').count() >= 2
    image_srcs=page.locator('.card-image img').evaluate_all('(els)=>els.map(e=>e.src)')
-   assert all(url.startswith('https://api.scryfall.com/cards/named?exact=') for url in image_srcs)
+   assert all('/api/card-image?name=' in url for url in image_srcs), image_srcs
    if variant=='no-cuts': assert 'No additional cuts suggested' in page.locator('.review-report').inner_text()
    if variant=='many-swaps': assert len(set(page.locator('.swap').evaluate_all('(els)=>els.map(e=>e.id)')))==13
    if variant=='long-names': assert len(page.locator('.swap').nth(0).locator('.swap-card h3').nth(0).inner_text()) >= 20

@@ -1,97 +1,136 @@
 # Redis key patterns with no PostgreSQL target (blockers)
 
-Companion to `docs/redis-postgres-key-mapping.md` (PR #281). That doc covers the 7 keys in the
-exported fixture. This one covers patterns the code reads or writes at runtime that the export
-does not show. Source: `origin/main` @ bd1c12f, grep of module-level key constants and
-`r.get/set/...` call sites. No Redis access; names only.
+Companion to `docs/redis-postgres-key-mapping.md`. Rebuilt from the live instance; the earlier version was based on a 7-key scan of the wrong instance.
 
-## Scope: observed vs code-only
+- **Instance:** `commander-lab-redis`, **db0**. **DBSIZE at scan: 24698**. **Scan date: 2026-11-04.**
+- Read-only (`SCAN` + `TYPE`/`TTL`/size). No values read, nothing written.
+- Full pattern table (all 24698 keys, type, TTL, target, class) is in the mapping doc. This doc only lists what blocks a Redis retirement.
 
-Live check (read-only, 2026-10-23): `commander-lab-redis` has `db0:keys=7` and no other db. Key
-sizes: `comp:presets` 2 B, `lab_tags` 16 B, `lab_tags_source` 2 B, `interaction_graph:collection`
-1366 B, `github_changelog_stale` 26089 B, `github_latest_version_stale` 7 B,
-`interactions:runs` list of 3. `dump.rdb` is 16 KB; used memory 1.93 MB. No `comp:deck:*` keys.
+## What blocks
 
-- **Observed in production Redis (7):** `comp:presets` is mapped to `composition_presets`. The other
-  6 are unmapped: B4 (`lab_tags`, `lab_tags_source`, durable, the real blockers), C1/C2
-  (`interaction_graph:collection`, `interactions:runs`), C5 (the two `github_*_stale` keys).
-- **Code-only (B1-B3, B5-B14):** the code reads or writes these, but none exist in the current
-  production keyspace. They block any environment that writes them, and block retiring Redis.
-  They are not production findings.
-- **`inventory` / `card_tags:{name}`:** named in the task and AGENTS.md. No Redis key and no PG
-  table exist for either. Kept as blockers pending owner confirmation of where this data lives.
-- **Discrepancy:** the backup task t_04ea5f4e reported 23,912 keys and a 22 MB RDB. The live
-  instance holds 7 keys and a 16 KB RDB, and the backup directory it names was not found on this
-  host. Treat that figure as unreliable until someone confirms.
+Blockers are **durable** patterns (user- or lab-owned data that cannot be rebuilt) with no fully typed PG target. Derived, cache and ops keys do not block; they can be rebuilt after cutover.
 
-See `docs/redis-postgres-key-mapping.md` for the 7-key mapping.
+38 patterns / 5824 keys are durable and not yet mapped:
 
-## Current PostgreSQL targets
+| # | Pattern | Keys | Type | Closest PG table | Status | Note |
+|---|---|---|---|---|---|---|
+| B1 | `decks` | 1 | string | decks + deck_cards + deck_links | partial | Single JSON blob; typed tables exist. `scripts/migrate_collection_to_pg.py` already imports it with status overrides; coverage gaps unverified. See open question 1. |
+| B2 | `deck_status:{deck id}` | 58 | string | decks.status | partial | Bare numeric Archidekt ids; the PG decks.id is `archidekt:{id}`. |
+| B3 | `deck_status:moxfield:{id}` | 32 | string | decks.status | partial | Moxfield-sourced decks; id form needs a decision (decks.id has no moxfield prefix convention in the ORM docstring). |
+| B4 | `lab_tags` | 1 | string | card_tags | partial | card_tags is keyed by oracle_id: needs name→oracle via idx:card_name_to_oracle. |
+| B5 | `lab_tags_source` | 1 | string | card_tags.source | partial | Provenance; folds into card_tags.source (missing = learned). |
+| B6 | `review:{deck id}` | 5 | string | reviews / review_documents | partial | Latest review doc per deck. |
+| B7 | `review:doc:{deck id}:{doc id}` | 9 | string | review_documents | partial |  |
+| B8 | `review:index:{deck id}` | 5 | zset | review_documents (order by created_at) | partial | History order. |
+| B9 | `journal:deck:{deck id}` | 11 | string | — | unmapped | Deck journal. No table. |
+| B10 | `journal:review:open:{deck id}` | 3 | string | — | unmapped |  |
+| B11 | `journal:reviews:{deck id}` | 7 | list | — | unmapped |  |
+| B12 | `deck_categories:{registry id}` | 2 | string | — | unmapped | Per-deck category map; tiny today. |
+| B13 | `archetypes` | 1 | string | — | unmapped | Editable registry. |
+| B14 | `archetype_sel:{deck id}` | 2 | string | — | unmapped |  |
+| B15 | `genres` | 1 | string | — | unmapped | Editable registry. |
+| B16 | `categories:global` | 1 | string | — | unmapped |  |
+| B17 | `staple_themes` | 1 | string | — | unmapped |  |
+| B18 | `role_tags` | 1 | string | — | unmapped |  |
+| B19 | `role_targets` | 1 | string | — | unmapped |  |
+| B20 | `autotag:tags` | 1 | string | — | unmapped |  |
+| B21 | `deck:sim:{deck id}` | 3 | string | — | unmapped | Simulation runs. |
+| B22 | `sim:focus:catalog / sim:focus:seeded` | 2 | string | — | unmapped |  |
+| B23 | `tunerec:rec:{id}` | 15 | string | — | unmapped | Saved Tune recommendations. |
+| B24 | `tunerec:index:{deck id}` | 7 | list | — | unmapped |  |
+| B25 | `tunerec:active:{deck id}` | 7 | string | — | unmapped |  |
+| B26 | `theory:{deck id}:{hash}` | 5 | string | — | unmapped |  |
+| B27 | `theory_index:{deck id}` | 3 | zset | — | unmapped |  |
+| B28 | `primer:{deck id}` | 2 | string | — | unmapped | Deck writeup. |
+| B29 | `primer:draft:{deck id}[:...]` | 5 | string | — | unmapped | Writeup drafts (not the PG `drafts` feature). |
+| B30 | `primer:staged_desc:{deck id}` | 2 | string | — | unmapped |  |
+| B31 | `reconstruct:session:{id}` | 3 | string | — | unmapped |  |
+| B32 | `reconstruct:sessions` | 1 | set | — | unmapped |  |
+| B33 | `linked_accounts` | 1 | string | users / deck_links | unmapped | Account links; confirm target. |
+| B34 | `instance:{uuid}` | 5610 | string | card_instances | partial | Importer omits `pending_removal`; see mapping doc. |
+| B35 | `idx:instances_pending_removal:{deck id}` | 4 | set | — | unmapped | Rebuildable only after `pending_removal` is preserved. |
+| B36 | `deck_card_tags:{deck id}` | 4 | string | — | unmapped | Holds user-added tags (`source="user"`). |
+| B37 | `deck_tags:{deck id}` | 4 | string | — | unmapped | Holds user-added tags (`source="user"`). |
+| B38 | `deck_genre:{archetypes/genres}` | 2 | string | — | unmapped | User-edited vocabulary registries. |
 
-| Table | Typed for Redis pattern |
-|---|---|
-| `composition_presets` | `comp:presets` |
-| `deck_compositions` | `comp:deck:{registry_id}` (in `db/orm_models.py`; no such keys in current Redis) |
-| `redis_import` | generic landing for any key (not a typed target) |
+Of these, the ones that block the most others are:
 
-Everything else below has no typed table. `redis_import` is a one-time import landing table and
-should not be counted as a mapping for durable data.
+1. **`decks`** (single 270 KB JSON blob, 58 decks). `decks`/`deck_cards`/`deck_links` tables exist and `scripts/migrate_collection_to_pg.py` already imports the blob; remaining coverage/cutover gaps are unverified. Almost every per-deck pattern keys off the deck id, so this goes first.
+2. **`lab_tags` / `lab_tags_source`** (106 KB). `card_tags` exists but is oracle_id-keyed; import needs name→oracle resolution through `idx:card_name_to_oracle:*`.
+3. **`deck_status:*`** (90 keys, two id forms: bare Archidekt number and `moxfield:<id>`). Folds into `decks.status` once id normalisation is decided.
+4. **`review:*`** (19 keys): two candidate target tables (`reviews`, `review_documents`).
+5. **Registries with no table:** `archetypes`, `genres`, `categories:global`, `staple_themes`, `role_tags`, `role_targets`, `autotag:tags`, `sim:focus:*`, `linked_accounts`. Small, editable, seeded; need a schema call (one generic `registry(name, data jsonb)` table would cover them all).
+6. **User-added deck tags and genre registries:** `deck_tags:*`, `deck_card_tags:*`, `deck_genre:*` hold user entries and are not droppable. Their `*_version:*` sets stay derived.
+7. **`instance:*` importer gap:** `pending_removal` is not carried over.
+8. **Per-deck user output with no table:** `journal:*`, `tunerec:*`, `theory:*`, `primer:*`, `reconstruct:*`, `deck:sim:*`, `archetype_sel:*`, `deck_categories:*`.
 
-## Blockers
+## Not blockers (rebuildable), by key count
 
-Durable or user-facing data with no PostgreSQL table. These need a schema decision before any
-migration.
-
-| # | Pattern | Evidence | Why it blocks |
-|---|---|---|---|
-| B1 | `decks` (JSON array of all decks) | `registry.py:50,130,135`; read/written by ~70 call sites, including `analytics/*`, `scripts/*` | Core deck registry. Everything else keys off deck ids. No `decks` table. Blocks every deck-related mapping. |
-| B2 | `deck_status:{id}` | `app.py`, `scripts/remove_orphan_decks.py`, tests | Physical status (`Have`/`Virtual`/`Pending`/`Possible`). Durable user state. No table. |
-| B3 | `deck_categories:{registry_id}` | `app.py:1331,1358,1373,1673`; `inventory_view.py:123` | Durable per-deck category map. No table. |
-| B4 | `lab_tags` / `lab_tags_source` (already in the export) | `lab_tags.py`, `inventory_view.py:112` | Durable tag data. Already listed as blocker in #281. |
-| B5 | `review:{rid}`, `review:index:{rid}`, `review:doc:{rid}:{doc_id}`, `review:job:{job_id}` | `analytics/review_doc.py:38-41, 274-282` | Saved deck-review docs and history. Durable user output (zset history plus per-doc JSON). The 7-day `review:job:` TTL is the only expiring part. No table. |
-| B6 | `journal:deck:*`, `journal:defaults`, `journal:review:open:*`, `journal:reviews:*` | `analytics/journal.py:45-48` | Deck journal and review history. Durable user notes. No table. |
-| B7 | `personality:deck:*`, `personality:read:*`, `personality_read_job:*` | `analytics/personality_store.py`, `analytics/personality_read.py` | Computed profiles and read output. Durable. No table. |
-| B8 | `deck:sim:*`, `deck:sim:job:*`, `deck:sim:run:*`, `deck:sim:focus:*`, `sim:focus:catalog`, `sim:standard_pod` | `analytics/sim_store.py`, `sim_service.py`, `sim_focus.py` | Simulation runs and saved pods. Durable. No table. |
-| B9 | `card_review:job:*` | `analytics/card_review/jobs.py:13` | Job state for card review. Shape not checked; treat as durable until confirmed. |
-| B10 | `archetypes`, `archetypes:version`, `archetype_sel:{rid}` | `analytics/archetypes.py:36-38` | Archetype definitions and per-deck selections. No table. |
-| B11 | `categories:global`, `categories:version`, `categories:deck:*`, `cat:*` | `analytics/categories.py:30-33` | Category definitions and per-deck assignments. No table. |
-| B12 | `identity:deck:*`, `bracket:eval:*`, `bracket:eval:pending`, `brackets:game_changers` | `analytics/identity.py:42`, `analytics/bracket_worker.py:51-55`, `analytics/brackets.py:235` | Evaluation results. Durable outputs. No table. |
-| B13 | `composition:template:*` | `analytics/composition.py:44` | User-defined composition templates. Durable. No table. Note: `comp:presets` is mapped, but these templates are not. |
-| B14 | `staple_themes`, `staple_themes:seeded`, `genres`, `genres:version` | `analytics/staple_theme_registry.py:35-36`, `analytics/genres.py:29-30` | Reference registries. Seeded once, then editable. Needs a schema call. |
-
-Derived or cache data. Lower risk. No table is needed if the data can be rebuilt, but the
-rebuild path must be confirmed.
-
-| # | Pattern | Why it is derived |
+| Pattern | Keys | Class |
 |---|---|---|
-| C1 | `interaction_graph:deck:*`, `interaction_graph:collection` (already in #281) | Rebuilt by `analytics/interactions/service.py`. |
-| C2 | `interactions:runs` (already in #281), `interactions:engine_names`, `interactions:rebuild_lock`, `interactions:rebuild_rerun`, `interactions:otag_index` | Run log and locks. Ephemeral except the run log. |
-| C3 | `card_interactions:*`, `spellbook:fmc:*` | Tagger and external-API caches. |
-| C4 | `card_eval:card:*`, `card_eval:edhrec:*`, `edhrec:commander:*`, `embeddings:card:*` | External-data caches. |
-| C5 | `github_changelog`, `github_changelog_stale`, `github_latest_version_stale` (already in #281) | Derived from GitHub. |
-| C6 | `personality:pending`, `personality:heartbeat`, `bracket:eval:heartbeat`, `bracket:eval:wake` | Worker coordination. Not data. |
-| C7 | `cache:{namespace}:{generation}:*` | `redis_cache.py`. Ephemeral. |
+| `idx:instances_by_card:{card name}` | 2440 | derived |
+| `idx:card_name_to_oracle:{card name}` | 2438 | derived |
+| `idx:instances_by_set:{set}` | 261 | derived |
+| `idx:instances_by_deck:{registry id}` | 41 | derived |
+| `idx:instances_pending_removal:{deck id}` | 4 | derived |
+| `idx:instances_by_status:{status}` | 2 | derived |
+| `card_meta:{oracle_id uuid}` | 2440 | derived |
+| `card_meta:{card name} (legacy)` | 2438 | derived |
+| `price:card:{card name}` | 4115 | cache |
+| `card_interactions:{card name}` | 3849 | cache |
+| `card_eval:card:{slug}` | 172 | cache |
+| `card_eval:edhrec:{slug}` | 1 | cache |
+| `edhrec:commander:{slug}` | 52 | cache |
+| `spellbook:fmc:{hash}` | 59 | cache |
+| `embeddings:card:{model}` | 1 | cache |
+| `cards:catalog:names` | 1 | cache |
+| `cards:autocomplete:{scope}:{query}` | 26 | cache |
+| `brew:commander_search:{query}` | 21 | cache |
+| `cache:routes:__gen` | 1 | cache |
+| `github_changelog_stale` | 1 | cache |
+| `github_latest_version_stale` | 1 | cache |
+| `tag_vocabulary` | 1 | derived |
+| `tag_query_index` | 1 | derived |
+| `personality:deck:{deck id}` | 58 | derived |
+| `personality:read:{deck id}` | 3 | derived |
+| `identity:deck:{deck id}` | 58 | derived |
+| `bracket:eval:{deck id}` | 58 | derived |
+| `interaction_graph:deck:{deck id}` | 58 | derived |
+| `interaction_graph:collection` | 1 | derived |
+| `interactions:engine_names` | 1 | derived |
+| `deck_card_tags_version:{deck id}:{card}` | 225 | derived |
+| `deck_tags_version:{deck id}` | 3 | derived |
+| `tuner:count:{deck id}` | 17 | cache |
+| `tuner:prose:{deck id}` | 15 | cache |
 
-## Not in code at all
+Notes:
+- `card_meta:*` is partly covered by `cards` (Scryfall mirror) and is refetchable.
+- `interaction_graph:*` is 11.8 MB and `spellbook:fmc:*` 13 MB, so most of the dataset by bytes is derived. Skipping them keeps the migration small.
+- `instance:*` (5,610) is the largest durable group and is **partial** (`card_instances`; `scripts/migrate_instances_to_pg.py` exists but drops `pending_removal`).
+- Mapped durable: `comp:presets`, `comp:deck:*` (0 live keys).
 
-| Pattern | Finding |
+## Previous claims corrected
+
+| Earlier claim | Reality at scan |
 |---|---|
-| `inventory` | No literal `inventory` key is written. `inventory_view.build_inventory()` computes rows from `registry.list_decks()` plus `lab_tags` at request time. **AGENTS.md is stale on this.** |
-| `card_tags:{name}` | No literal `card_tags:` key in the code. Tags use `lab_tags` (B4). **AGENTS.md is stale on this.** |
+| Keyspace is 7 keys, 16 KB RDB | 24698 keys; backup RDB is 22 MB |
+| `inventory` is a Redis key / listed in AGENTS.md | No `inventory` key and no code writes one. Inventory is built from `instance:*`, `card_meta:*`, `idx:*` and `lab_tags` |
+| `card_tags:{name}` exists | 0 keys; tags live in `lab_tags` / `lab_tags_source` (and PG `card_tags`) |
+| `deck_status`, `deck_categories` absent | Present: 90 and 2 keys |
+| B5-B14 are "code-only, not in production" | Most are live (`review`, `journal`, `personality`, `deck:sim`, `archetypes`, `genres`, `categories`, `staple_themes`, `identity`, `bracket:eval`). Not live: `card_review:job:*`, `composition:template:*`, `brackets:game_changers`, `bracket:eval:pending`, `personality:pending`, `review:job:*`, `sim:standard_pod` |
 
-## Decisions needed
+## Decisions needed (in order)
 
-1. Is `decks` (B1) the source of truth for deck identity, and does it get a `decks` table? Most
-   of B2–B8 keys by deck id, so this blocks them all.
-2. Confirm AGENTS.md's `inventory` and `card_tags:{name}` entries and correct the doc.
-3. Choose one approach for durable `review:*`, `journal:*`, `personality:*`, `deck:sim:*`
-   output (typed tables vs one generic JSONB store like `redis_import`).
-4. Confirm whether `redis_import` should stay a landing table only, or become a permanent
-   fallback for the blockers above.
+1. **Should `decks` become the authoritative PG table?** Recommendation: yes; import the blob into `decks`/`deck_cards`/`deck_links` first.
+2. Moxfield deck id form in `decks.id` and `deck_status`.
+3. Canonical review table (`reviews` vs `review_documents`).
+4. Typed tables vs one generic JSONB registry for the small durable groups in items 5-6 above.
+5. Whether derived/cache/ops keys are dropped or carried at cutover (recommendation: drop, rebuild).
+6. Whether `redis_import` stays a landing-only table.
 
 ## Method and limits
 
-- Patterns are from module-level constants and string literals in non-test `.py` files.
-  Dynamic keys were matched by their literal prefix.
-- Code-derived patterns were not found in live Redis. Only the 7-key snapshot above was checked live (counts, sizes; no values).
-- Only `db/orm_models.py` and `redis_pg_import.py` were treated as PostgreSQL schema, as in #281.
+- Enumeration grouped keys by literal prefix and id shape; the patterns partition the keyspace exactly (sum = 24698).
+- "Live" means seen in the scan; "durable/derived/cache" is judged from the code that reads/writes the prefix and is a judgement, not a measured property.
+- `docs/redis_pg/mapping.md` still describes the 7-key snapshot and is out of scope here; it should be refreshed or removed in a follow-up.
+- Redis has no `requirepass`.

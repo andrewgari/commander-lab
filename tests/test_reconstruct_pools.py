@@ -653,6 +653,14 @@ def check_redis_catalog_honours_scryfall_legalities_and_identity_list():
     assert c.legal is False and c.color_identity == frozenset("WU")
 
 
+def check_redis_catalog_never_yields_uuid_names_from_card_meta():
+    r = FakeRedis()
+    r.set(f"card_meta:{OID}", json.dumps({"name": "Rhystic Study", "color": "U"}))
+    r.set(f"card_meta:{OID2}", json.dumps({"color": "G"}))  # nameless: skipped, not named by UUID
+    names = {c.name for c in RedisCardCatalog(r).iter_cards()}
+    assert names == {"Rhystic Study"}
+
+
 def check_redis_price_lookup_cached_only_never_hits_network():
     r = FakeRedis()
     r.set(rp.PRICE_CACHE_PREFIX + "Sol Ring", json.dumps({"usd": 1.5, "at": 1}))
