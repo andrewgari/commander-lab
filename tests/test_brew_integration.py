@@ -18,6 +18,7 @@ from src.server.domain.draft import brew_scoring as bs
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 from tests.support import deck_assertions as da
 from tests.support.brew_matrix import matrix_catalog
+from src.server.domain.draft.brew_builder import StubBrewBuilder
 from tests.support.brew_harness import run_brew
 
 COMMANDERS = ("Krenko, Mob Boss", "Meren of Clan Nel Toth", "Kozilek, the Great Distortion")  # all in matrix_catalog()
@@ -76,7 +77,8 @@ class BrewIntegrationTests(unittest.TestCase):
             for power in POWERS:
                 for sources in (True, False):
                     with self.subTest(cmd=cmd, power=power, sources=sources):
-                        res = run_brew(cmd, power, sources=sources, catalog=self.catalog)
+                        res = run_brew(cmd, power, sources=sources, catalog=self.catalog,
+                                       builder=StubBrewBuilder())
                         da.assert_valid_brew_deck(res.deck, self.catalog)
                         self.assertEqual(res.deck.get("power_level"), power)
 
