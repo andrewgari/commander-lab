@@ -12,9 +12,7 @@ power level, source configuration and EDHREC state is covered -- no sampling.
 Not covered: the LLM-backed `BrewBuilder` (needs a live model; not runnable offline).
 
 Assertions are identical to the reference path (same `run_cell` checks, same
-`test_power_trend` expectations); none are weakened. Known production defects are marked
-xfail(strict=True) via KNOWN_FAILURES with a reason; strict means a fix flips them to
-XPASS->fail so the entry must be removed.
+`test_power_trend` expectations); none are weakened. All 280 cells (legality + power trend) now pass on production.
 
 Note: the production builder never receives the trap cards (they come from a reference-only
 EDHREC injection), so `must_exclude` here proves the production pool/gate leaks nothing,
@@ -33,18 +31,6 @@ from src.server.domain.draft.brew_builder import StubBrewBuilder, _cached_edhrec
 from tests.support.brew_harness import _COLORS, EdhrecState, edhrec_payload
 from tests.support.brew_matrix import ROWS
 from tests.test_brew_verification_matrix import CASES, POWERS, STATES, run_cell, state_label
-
-_TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by power_level, so the "
-              "released drafts do not follow low/mid/high. Measured on the draft's own estimated_power / "
-              "bracket / Game Changers: low power has Game Changers (alesha, korvold, meren, wort), "
-              "bracket is flat (thrasios_tymna 4/4/4), draft estimate is flat or non-monotonic "
-              "(kozilek 8.4/8.4/8.4, wort 6.3/7.5/7.2). Remove this marker when power-aware picking lands.")
-# cell-id -> reason. All 210 legality cells pass on production; every power-trend cell fails.
-KNOWN_FAILURES: dict = {
-    f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}": _TREND_BUG
-    for k in ROWS for s in (True, False) for st, kd in STATES
-}
-
 
 class ProdBuilder(StubBrewBuilder):
     """Production builder. The production path (builder + gate) reads EDHREC ONLY from the
@@ -85,10 +71,7 @@ def _params():
     out = []
     for k, p, s, st, kd in CASES:
         cid = _cell_id(k, p, s, st, kd)
-        marks = []
-        if cid in KNOWN_FAILURES:
-            marks.append(pytest.mark.xfail(strict=True, reason=KNOWN_FAILURES[cid]))
-        out.append(pytest.param(k, p, s, st, kd, id=cid, marks=marks))
+        out.append(pytest.param(k, p, s, st, kd, id=cid))
     return out
 
 
@@ -113,9 +96,7 @@ def _trend_params():
         for sources in (True, False):
             for st, kd in STATES:
                 cid = f"prod-trend-{key}-{'src' if sources else 'nosrc'}-{state_label(st, kd)}"
-                marks = ([pytest.mark.xfail(strict=True, reason=KNOWN_FAILURES[cid])]
-                         if cid in KNOWN_FAILURES else [])
-                out.append(pytest.param(key, sources, st, kd, id=cid, marks=marks))
+                out.append(pytest.param(key, sources, st, kd, id=cid))
     return out
 
 

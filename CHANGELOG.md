@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
