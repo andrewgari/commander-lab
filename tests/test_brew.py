@@ -148,7 +148,7 @@ class TestBrewCore(unittest.TestCase):
             commander="Atraxa, Praetors' Voice",
             donor_deck_ids=["archidekt:42", "archidekt:43"],
             build_mode="owned_first",
-            power_level="3",
+            power_level="8",  # high tier: these donor-pool tests expect GC/tutor cards (Demonic Tutor) to be kept
             deck_idea="proliferate",
             themes=["counters"],
             notes="no extra turns",

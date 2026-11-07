@@ -185,6 +185,39 @@ def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
                           "rationale": "Basic land to complete the 100-card deck"})
 
 
+class _TierGate:
+    """Hard power-tier limits (brew-power-tiers-v1). The soft power term only biases ranking;
+    with a small pool the top-up step would still pull in every card, so low/mid decks leaked
+    Game Changers and flat estimates. Low: 0 GC, no combo pieces, no fast mana except Sol Ring,
+    <=2 tutors. Mid: <=3 GC. High: unrestricted. Rejected slots backfill with on-plan basics."""
+
+    def __init__(self, target: Any, cfg: Any):
+        self.cfg = cfg
+        self.tier = ("high" if target is None or target > cfg.tier_mid_max
+                     else "low" if target <= cfg.tier_low_max else "mid")
+        self.gcs = self.tutors = 0
+
+    def admit(self, card: dict) -> bool:
+        if self.tier == "high":
+            return True
+        sig = brew_power.card_signals(card)
+        if self.tier == "low":
+            if sig["game_changer"] or sig["combo"]:
+                return False
+            if sig["fast_mana"] and brew_power._key(card.get("name")) != "sol ring":
+                return False
+            if sig["tutor"]:
+                if self.tutors >= self.cfg.low_max_tutors:
+                    return False
+                self.tutors += 1
+            return True
+        if sig["game_changer"]:
+            if self.gcs >= self.cfg.mid_max_game_changers:
+                return False
+            self.gcs += 1
+        return True
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -289,6 +322,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             name = resolved.name
             if norm_name(name) in used:
                 return False
+            if not gate.admit(_card_record(r, name, scorer.lab_tags)):
+                return False
             cards.append({
                 "name": name, "quantity": 1, "tier": tier,
                 "tier_label": tier_label, "cost": cost, "rationale": rationale,
@@ -302,6 +337,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
         scorer = _Scorer(r, session, BrewScoringConfig.from_env())
+        gate = _TierGate(scorer.target_power, scorer.config.power)
 
         def fresh(names):
             return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
