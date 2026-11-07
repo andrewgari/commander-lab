@@ -246,6 +246,25 @@ def _repair(draft: dict, catalog: dv.CardCatalog, sources: List[Tuple[str, List[
     return out
 
 
+def _tier_filter_sources(loaded: List[Tuple[str, List[str]]], draft: dict, session: Optional[dict],
+                         r: Any) -> List[Tuple[str, List[str]]]:
+    """Keep repair backfill inside the requested power tier (retained cards and commanders count)."""
+    target = (session or {}).get("target_power", draft.get("target_power"))
+    if target is None:
+        return loaded
+    import src.server.domain.draft.brew_power as brew_power
+    from src.server.domain.draft.brew_builder import _card_record
+    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+
+    gate = brew_power.TierGate(target, BrewScoringConfig.from_env().power)
+    if gate.tier == "high":
+        return loaded
+    for n in [*(draft.get("commanders") or []), *(c.get("name") for c in draft.get("cards") or [])]:
+        if isinstance(n, str):
+            gate.count(_card_record(r, n))
+    return [(lbl, [n for n in ns if gate.admit(_card_record(r, n))]) for lbl, ns in loaded]
+
+
 def _catalog_for(r: Any, names: Iterable[str]) -> dv.CardCatalog:
     return dv.catalog_from_redis(r, list(dict.fromkeys(n for n in names if isinstance(n, str))))
 
@@ -280,6 +299,7 @@ def release_draft(draft: dict, r: Any = None, *, session: Optional[dict] = None,
             raw_sources = sources if sources is not None else default_sources(r, session, current)
             loaded = [(label, deck_fill._load_source(label, src, deck_fill.DEFAULT_SOURCE_TIMEOUT))
                       for label, src in raw_sources]
+            loaded = _tier_filter_sources(loaded, current, session, r)
             if own_catalog:
                 extra = [n for _, ns in loaded for n in ns] + list(STAPLES)
                 cat = _catalog_for(r, [*current["commanders"], *(c["name"] for c in current["cards"]), *extra])

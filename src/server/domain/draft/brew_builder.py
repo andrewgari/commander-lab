@@ -185,39 +185,6 @@ def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
                           "rationale": "Basic land to complete the 100-card deck"})
 
 
-class _TierGate:
-    """Hard power-tier limits (brew-power-tiers-v1). The soft power term only biases ranking;
-    with a small pool the top-up step would still pull in every card, so low/mid decks leaked
-    Game Changers and flat estimates. Low: 0 GC, no combo pieces, no fast mana except Sol Ring,
-    <=2 tutors. Mid: <=3 GC. High: unrestricted. Rejected slots backfill with on-plan basics."""
-
-    def __init__(self, target: Any, cfg: Any):
-        self.cfg = cfg
-        self.tier = ("high" if target is None or target > cfg.tier_mid_max
-                     else "low" if target <= cfg.tier_low_max else "mid")
-        self.gcs = self.tutors = 0
-
-    def admit(self, card: dict) -> bool:
-        if self.tier == "high":
-            return True
-        sig = brew_power.card_signals(card)
-        if self.tier == "low":
-            if sig["game_changer"] or sig["combo"]:
-                return False
-            if sig["fast_mana"] and brew_power._key(card.get("name")) != "sol ring":
-                return False
-            if sig["tutor"]:
-                if self.tutors >= self.cfg.low_max_tutors:
-                    return False
-                self.tutors += 1
-            return True
-        if sig["game_changer"]:
-            if self.gcs >= self.cfg.mid_max_game_changers:
-                return False
-            self.gcs += 1
-        return True
-
-
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -232,6 +199,7 @@ class _Scorer:
         self.skeleton = config.skeleton()
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+        self.gate: Any = None  # TierGate; set by the builder so picks are admission-aware
         self.source_names: frozenset = frozenset()
         self.source_oracle_ids: frozenset = frozenset()
 
@@ -243,18 +211,32 @@ class _Scorer:
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
-        ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
-                                        source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
-                                        target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
-        chosen = brew_scoring.select_cards(recs, ctx, cap, self.config)
-        for c in chosen:
-            self.records[c["name"]] = c
-            mv = brew_power.mana_value(c)
-            if mv is not None and not brew_power.is_land(c):
-                self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
-            for k in set(brew_scoring._matching(c, self.skeleton)):
-                self.counts[k] = self.counts.get(k, 0) + 1
+        chosen: list = []
+        # Admission-aware greedy: only admitted cards consume slots or update scoring state.
+        while len(chosen) < cap and recs:
+            ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
+                                            source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
+                                            target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
+            batch = brew_scoring.select_cards(recs, ctx, cap - len(chosen), self.config)
+            if not batch:
+                break
+            progressed = False
+            for c in batch:
+                recs = [x for x in recs if x["name"] != c["name"]]
+                if self.gate is not None and not self.gate.admit(c):
+                    continue
+                progressed = True
+                chosen.append(c)
+                self.records[c["name"]] = c
+                mv = brew_power.mana_value(c)
+                if mv is not None and not brew_power.is_land(c):
+                    self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
+                for k in set(brew_scoring._matching(c, self.skeleton)):
+                    self.counts[k] = self.counts.get(k, 0) + 1
+                break  # re-score after every admitted card so state stays exact
+            if not progressed and not recs:
+                break
         return [c["name"] for c in chosen]
 
 
@@ -297,6 +279,9 @@ class StubBrewBuilder(BaseBrewBuilder):
 
         cards: list[dict] = []
         used = set()
+        scorer = _Scorer(r, session, BrewScoringConfig.from_env())
+        gate = brew_power.TierGate(scorer.target_power, scorer.config.power)
+        scorer.gate = gate
 
         for cmd in commanders:
             in_donor = any(norm_name(cmd) == norm_name(d) for d in donor_cards)
@@ -309,6 +294,7 @@ class StubBrewBuilder(BaseBrewBuilder):
                 "rationale": "Designated commander",
             })
             used.add(norm_name(cmd))
+            gate.count(_card_record(r, cmd, scorer.lab_tags))  # commanders can't be rejected but use up the tier budget
 
         for v in (pools.dropped if pools is not None else []):
             report.drop(v)
@@ -336,8 +322,6 @@ class StubBrewBuilder(BaseBrewBuilder):
         else:  # owned_first
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
-        scorer = _Scorer(r, session, BrewScoringConfig.from_env())
-        gate = _TierGate(scorer.target_power, scorer.config.power)
 
         def fresh(names):
             return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
