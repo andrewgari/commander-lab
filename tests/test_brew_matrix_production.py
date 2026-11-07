@@ -43,6 +43,8 @@ _TREND_BUG = ("PENDING BUG: production StubBrewBuilder does not pick cards by po
 KNOWN_FAILURES: dict = {
     f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}": _TREND_BUG
     for k in ROWS for s in (True, False) for st, kd in STATES
+    # thrasios_tymna (sources yes, EDHREC available) now trends correctly: no longer a known failure.
+    if f"prod-trend-{k}-{'src' if s else 'nosrc'}-{state_label(st, kd)}" != "prod-trend-thrasios_tymna-src-available"
 }
 
 

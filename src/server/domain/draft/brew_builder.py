@@ -353,7 +353,17 @@ class StubBrewBuilder(BaseBrewBuilder):
                      "Buy to complete the brew")
                     for pc in pools.tier3
                 ]
+            # Fill in score order (target power, signals, curve) rather than pool order, so the
+            # padding honors the requested power level instead of diluting it.
+            by_name = {}
             for args in extra:
+                by_name.setdefault(norm_name(args[0]), args)
+            fill = fresh([a[0] for a in extra])
+            for name in scorer.pick(fill, len(fill)):
+                if len(cards) >= DECK_SIZE:
+                    break
+                add(*by_name[norm_name(name)])
+            for args in extra:  # anything the scorer declined (e.g. unresolved) still tops up
                 if len(cards) >= DECK_SIZE:
                     break
                 add(*args)
