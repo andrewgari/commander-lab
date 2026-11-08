@@ -122,7 +122,8 @@ def test_prod_power_trend(key, sources, state, kind):
 def test_prod_power_source_follows_analytics_state():
     for key in ROWS:
         ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE,
-                      builder_factory=_prod_factory(EdhrecState.AVAILABLE, "slow"))
+                      builder_factory=_prod_factory(EdhrecState.AVAILABLE, "slow"),
+                      inject_commandersalt=True)
         down = run_cell(ROWS[key], "mid", False, EdhrecState.UNAVAILABLE,
                         builder_factory=_prod_factory(EdhrecState.UNAVAILABLE, "slow"))
         assert ok.power_source == "commandersalt", key

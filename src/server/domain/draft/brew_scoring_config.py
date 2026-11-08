@@ -108,6 +108,10 @@ class PowerConfig:
 class BrewScoringConfig:
     # --- component weights (PLACEHOLDER values) ---
     commander_synergy: float = 1.0
+    # NOTE: select_cards' hard range guarantees keep every category's count inside its
+    # skeleton min/max regardless of this weight, so it mainly shifts WHICH cards fill a
+    # category and their ordering. Exact counts within a range may still move with it;
+    # only the range bounds are guaranteed. Kept deliberately as a tuning knob.
     category_need: float = 2.0
     edhrec_inclusion: float = 1.0
     edhrec_synergy: float = 0.5
