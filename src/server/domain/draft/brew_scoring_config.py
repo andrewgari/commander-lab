@@ -83,6 +83,12 @@ class PowerConfig:
     curve_avg_high: float = 2.6     # target avg MV at max power
     curve_tolerance: float = 3.0    # MV distance for the full curve penalty
 
+    # --- hard tier gates (brew-power-tiers-v1): requested power -> low / mid / high ---
+    tier_low_max: float = 4.5       # target <= this: low tier (0 GC, no combo, no fast mana but Sol Ring)
+    tier_mid_max: float = 7.0       # target <= this: mid tier (at most mid_max_game_changers GC)
+    mid_max_game_changers: int = 3
+    low_max_tutors: int = 2
+
     # --- estimate_power_level ---
     est_base: float = 3.0
     est_fast_mana: float = 0.6
@@ -102,9 +108,10 @@ class PowerConfig:
 class BrewScoringConfig:
     # --- component weights (PLACEHOLDER values) ---
     commander_synergy: float = 1.0
-    # NOTE: skeleton category COUNTS are guaranteed by select_cards' range hard
-    # guarantees, so this weight only shifts WHICH cards fill a category and the
-    # ordering within it, not how many. Intentional; zeroing it leaves counts intact.
+    # NOTE: select_cards' hard range guarantees keep every category's count inside its
+    # skeleton min/max regardless of this weight, so it mainly shifts WHICH cards fill a
+    # category and their ordering. Exact counts within a range may still move with it;
+    # only the range bounds are guaranteed. Kept deliberately as a tuning knob.
     category_need: float = 2.0
     edhrec_inclusion: float = 1.0
     edhrec_synergy: float = 0.5

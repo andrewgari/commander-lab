@@ -18,6 +18,7 @@ from src.server.domain.draft import brew_scoring as bs
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 from tests.support import deck_assertions as da
 from tests.support.brew_matrix import matrix_catalog
+from src.server.domain.draft.brew_builder import StubBrewBuilder
 from tests.support.brew_harness import run_brew
 
 COMMANDERS = ("Krenko, Mob Boss", "Meren of Clan Nel Toth", "Kozilek, the Great Distortion")  # all in matrix_catalog()
@@ -76,7 +77,8 @@ class BrewIntegrationTests(unittest.TestCase):
             for power in POWERS:
                 for sources in (True, False):
                     with self.subTest(cmd=cmd, power=power, sources=sources):
-                        res = run_brew(cmd, power, sources=sources, catalog=self.catalog)
+                        res = run_brew(cmd, power, sources=sources, catalog=self.catalog,
+                                       builder=StubBrewBuilder())
                         da.assert_valid_brew_deck(res.deck, self.catalog)
                         self.assertEqual(res.deck.get("power_level"), power)
 
@@ -131,14 +133,27 @@ class BrewIntegrationTests(unittest.TestCase):
         self.assertEqual(a, b)
 
     # 6. Real power estimate is not masked by the harness ---------------------------------
-    def test_estimated_power_is_real_and_varies_by_commander(self):
-        est = {c: {p: run_brew(c, p, catalog=self.catalog).estimated_power for p in POWERS}
-               for c in COMMANDERS}
+    def test_estimated_power_is_real_and_varies_by_commander_and_bias(self):
+        est = {}
         for c in COMMANDERS:
             for p in POWERS:
-                self.assertNotIn(est[c][p], (3.0, 6.5, 8.5), f"{c}/{p} looks injected: {est[c][p]}")
-        self.assertGreater(len({v for per in est.values() for v in per.values()}), 1, est)
-        self.assertNotEqual(est[COMMANDERS[0]], est[COMMANDERS[1]], est)
+                for src in (True, False):
+                    res = run_brew(c, p, sources=src, catalog=self.catalog, builder=StubBrewBuilder())
+                    # the harness must not inject Commander Salt unless asked
+                    self.assertEqual(res.power_source, "bracket_band", (c, p, src))
+                    self.assertNotIn(res.estimated_power, (3.0, 6.5, 8.5), (c, p, src))
+                    est[(c, p, src)] = res.deck["estimated_power"]  # builder's own estimate
+        for c in COMMANDERS:
+            for src in (True, False):
+                tiers = [est[(c, p, src)] for p in POWERS]
+                self.assertLess(tiers[0], tiers[1], (c, tiers))
+                self.assertLess(tiers[1], tiers[2], (c, tiers))
+        for p in POWERS:  # estimates differ across commanders at the same tier
+            self.assertGreater(len({est[(c, p, True)] for c in COMMANDERS}), 1, p)
+        # source bias is bounded: it must not swing the estimate between tiers
+        for c in COMMANDERS:
+            for p in POWERS:
+                self.assertAlmostEqual(est[(c, p, True)], est[(c, p, False)], delta=1.0, msg=(c, p))
 
 
 if __name__ == "__main__":
