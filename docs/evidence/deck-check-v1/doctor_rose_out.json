@@ -1,0 +1,383 @@
+{
+ "deck": {
+  "name": "The Laws of Time are Mine!!",
+  "registry_id": "archidekt:5620189",
+  "commanders": [
+   "The Tenth Doctor",
+   "Rose Tyler"
+  ],
+  "mainboard_qty": 100,
+  "unique": 95,
+  "excluded_slots": {
+   "Sideboard": [
+    "Bad Wolf Bay",
+    "The Lux Foundation Library",
+    "Amy's Home",
+    "Human\u2014Time Lord Meta-Crisis",
+    "Lake Silencio",
+    "Prime Minister's Cabinet Room",
+    "New New York",
+    "Ood Sphere",
+    "Pompeii",
+    "Two Streams Facility"
+   ]
+  },
+  "archidekt_updated_at": "2026-09-11T00:03:02.693427Z",
+  "archidekt_edhBracket": null
+ },
+ "legality": {
+  "valid": true,
+  "errors": []
+ },
+ "bracket_findings": {
+  "minimum_bracket": 4,
+  "minimum_bracket_name": "Optimized",
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "game_changers": {
+   "rule": "game_changers",
+   "kind": "hard",
+   "count": 2,
+   "cards": [
+    "Farewell",
+    "Mystical Tutor"
+   ],
+   "floor": 3
+  },
+  "mass_land_denial": {
+   "rule": "mass_land_denial",
+   "kind": "hard",
+   "count": 1,
+   "cards": [
+    {
+     "name": "Worldfire",
+     "source": "list"
+    }
+   ],
+   "floor": 4
+  },
+  "extra_turns": {
+   "rule": "extra_turns",
+   "kind": "hard",
+   "count": 1,
+   "cards": [
+    {
+     "name": "Regenerations Restored",
+     "source": "list"
+    }
+   ],
+   "floor": 2,
+   "loops": []
+  },
+  "two_card_combos": {
+   "rule": "two_card_combos",
+   "kind": "hard",
+   "checked": true,
+   "count": 0,
+   "combos": [],
+   "floor": 1
+  },
+  "tutors": {
+   "rule": "tutors",
+   "kind": "advisory",
+   "count": 3,
+   "cards": [
+    {
+     "name": "Rory Williams",
+     "source": "list"
+    },
+    {
+     "name": "Amy Pond",
+     "source": "list"
+    },
+    {
+     "name": "Mystical Tutor",
+     "source": "list"
+    }
+   ]
+  },
+  "notes": [],
+  "data": {
+   "rules_as_of": "2026-10-15",
+   "game_changers_source": "argument",
+   "game_changers_count": 53,
+   "card_lists_as_of": "2026-10-15",
+   "deck_cards": 95
+  }
+ },
+ "bracket_eval": {
+  "estimated_bracket": 4,
+  "estimated_bracket_name": "Optimized",
+  "estimated_bracket_reason": "Bracket 4 (Optimized). Mass land denial (Worldfire) set the minimum: Bracket 4.",
+  "minimum_bracket": 4,
+  "target_bracket": null,
+  "target_bracket_name": null,
+  "no_target": true,
+  "aligned": null,
+  "estimated_power_level": 9.0,
+  "power_source": "bracket_band",
+  "target_power_level": null,
+  "power_delta": null,
+  "power_aligned": null,
+  "conflicts": [],
+  "explanation": {
+   "signals": [
+    {
+     "signal": "mass_land_denial",
+     "value": 1,
+     "effect": "floor Bracket 4: Worldfire",
+     "source": "Scryfall Tagger otag:mass-land-denial + WotC examples"
+    },
+    {
+     "signal": "game_changers",
+     "value": 2,
+     "effect": "floor Bracket 3: Farewell, Mystical Tutor",
+     "source": "Scryfall is:gamechanger (official Game Changers list)"
+    },
+    {
+     "signal": "extra_turns",
+     "value": 1,
+     "effect": "floor Bracket 2: Regenerations Restored",
+     "source": "Scryfall Tagger otag:extra-turn + Commander Spellbook loops"
+    },
+    {
+     "signal": "two_card_combos",
+     "value": 0,
+     "effect": "no floor",
+     "source": "Commander Spellbook"
+    },
+    {
+     "signal": "tutors",
+     "value": 3,
+     "effect": "advisory only, never moves the bracket (Rory Williams, Amy Pond, Mystical Tutor)",
+     "source": "Scryfall Tagger otag:tutor"
+    },
+    {
+     "signal": "power_fallback",
+     "value": 9.0,
+     "effect": "no power data: midpoint of the Bracket 4 band (8-10)",
+     "source": "docs/BRACKETS_SPEC.md"
+    }
+   ],
+   "summary": "2 Game Changers (Farewell, Mystical Tutor) + 1 extra-turn card + mass land denial (Worldfire) -> Bracket 4 (Optimized). no power data, Bracket 4 band midpoint -> power 9.0/10 (no target power). No target bracket set, so nothing to compare."
+  }
+ },
+ "combos": {
+  "identity": "URW",
+  "fetched_at": "2026-11-08T21:33:48+00:00",
+  "in_deck": [],
+  "counts": {
+   "included": 0,
+   "almost_included": 34,
+   "almost_included_off_identity": 9
+  },
+  "one_away_top": [
+   {
+    "id": "513-5034--46",
+    "card_names": [
+     "Hullbreaker Horror",
+     "Sol Ring"
+    ],
+    "produces": [
+     "Infinite colorless mana",
+     "Infinite storm count"
+    ],
+    "bracket_tag": "E"
+   },
+   {
+    "id": "542-5034",
+    "card_names": [
+     "Tidespout Tyrant",
+     "Sol Ring"
+    ],
+    "produces": [
+     "Infinite colorless mana",
+     "Infinite storm count"
+    ],
+    "bracket_tag": "S"
+   },
+   {
+    "id": "553-2856",
+    "card_names": [
+     "Approach of the Second Sun",
+     "Mystical Tutor"
+    ],
+    "produces": [
+     "Win the game"
+    ],
+    "bracket_tag": "P"
+   },
+   {
+    "id": "1397-1618",
+    "card_names": [
+     "The Tenth Doctor",
+     "Rousing Refrain"
+    ],
+    "produces": [
+     "Infinite magecraft triggers",
+     "Infinite storm count"
+    ],
+    "bracket_tag": "E"
+   },
+   {
+    "id": "2022-3283",
+    "card_names": [
+     "Wedding Ring",
+     "Consecrated Sphinx"
+    ],
+    "produces": [
+     "Infinite card draw",
+     "Infinite card draw for opponents that control a Wedding Ring"
+    ],
+    "bracket_tag": "S"
+   },
+   {
+    "id": "112-974",
+    "card_names": [
+     "There and Back Again",
+     "Clockspinning"
+    ],
+    "produces": [
+     "Infinite artifact ETB",
+     "Infinite artifact LTB",
+     "Infinite artifact sacrifice triggers",
+     "Infinite artifact tokens",
+     "Infinite creature LTB",
+     "Infinite creature ETB",
+     "Infinite colored mana",
+     "Infinite death triggers",
+     "Infinite storm count",
+     "Infinite magecraft triggers",
+     "Infinite Treasure tokens",
+     "Put all Mountains from your library onto the battlefield"
+    ],
+    "bracket_tag": "C"
+   },
+   {
+    "id": "2781-3668",
+    "card_names": [
+     "Felidar Guardian",
+     "Flesh Duplicate"
+    ],
+    "produces": [
+     "Infinite creature LTB",
+     "Infinite creature ETB"
+    ],
+    "bracket_tag": "E"
+   },
+   {
+    "id": "722-1618",
+    "card_names": [
+     "The Tenth Doctor",
+     "Chronomantic Escape"
+    ],
+    "produces": [
+     "You can't be attacked",
+     "Lock"
+    ],
+    "bracket_tag": "S"
+   }
+  ]
+ },
+ "combo_error": null,
+ "composition": {
+  "rows": [
+   {
+    "key": "lands",
+    "label": "Lands",
+    "actual": 36,
+    "target": 38,
+    "delta": -2,
+    "status": "short",
+    "cards": 31
+   },
+   {
+    "key": "ramp",
+    "label": "Ramp",
+    "actual": 9,
+    "target": 10,
+    "delta": -1,
+    "status": "ok",
+    "cards": 9
+   },
+   {
+    "key": "card_advantage",
+    "label": "Card advantage",
+    "actual": 9,
+    "target": 12,
+    "delta": -3,
+    "status": "short",
+    "cards": 9
+   },
+   {
+    "key": "targeted_disruption",
+    "label": "Targeted disruption",
+    "actual": 10,
+    "target": 12,
+    "delta": -2,
+    "status": "short",
+    "cards": 10
+   },
+   {
+    "key": "mass_disruption",
+    "label": "Mass disruption",
+    "actual": 3,
+    "target": 6,
+    "delta": -3,
+    "status": "short",
+    "cards": 3
+   },
+   {
+    "key": "plan",
+    "label": "Plan",
+    "actual": 34,
+    "target": 22,
+    "delta": 12,
+    "status": "over",
+    "cards": 34
+   }
+  ],
+  "total_cards": 100,
+  "unknown_cards": []
+ },
+ "game_changers_snapshot": {
+  "count": 53,
+  "as_of": "2026-10-15"
+ },
+ "high_salt": [
+  [
+   "Worldfire",
+   2.38
+  ],
+  [
+   "Farewell",
+   2.32
+  ],
+  [
+   "Sol Ring",
+   1.59
+  ]
+ ]
+}

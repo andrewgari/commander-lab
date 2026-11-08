@@ -1,0 +1,1063 @@
+{
+ "facts_checked_scryfall": {
+  "Mana Crypt": {
+   "ci": "",
+   "commander": "banned",
+   "game_changer": false
+  },
+  "Birds of Paradise": {
+   "ci": "G",
+   "commander": "legal",
+   "game_changer": false
+  },
+  "Rhystic Study": {
+   "ci": "U",
+   "commander": "legal",
+   "game_changer": true
+  },
+  "Smothering Tithe": {
+   "ci": "W",
+   "commander": "legal",
+   "game_changer": true
+  },
+  "Cyclonic Rift": {
+   "ci": "U",
+   "commander": "legal",
+   "game_changer": true
+  },
+  "Kiki-Jiki, Mirror Breaker": {
+   "ci": "R",
+   "commander": "legal",
+   "game_changer": false
+  },
+  "Felidar Guardian": {
+   "ci": "W",
+   "commander": "legal",
+   "game_changer": false
+  },
+  "Time Warp": {
+   "ci": "U",
+   "commander": "legal",
+   "game_changer": false
+  },
+  "Temporal Manipulation": {
+   "ci": "U",
+   "commander": "legal",
+   "game_changer": false
+  },
+  "Persistent Petitioners": {
+   "ci": "U",
+   "commander": "legal",
+   "game_changer": false
+  }
+ },
+ "K1_banned": {
+  "mutation": "Island -> Mana Crypt",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "BANNED",
+    "cards": [
+     "Mana Crypt"
+    ],
+    "message": "Banned in Commander: Mana Crypt. Remove them."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    10,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K2_off_identity": {
+  "mutation": "Island -> Birds of Paradise",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "COLOR_IDENTITY",
+    "cards": [
+     "Birds of Paradise"
+    ],
+    "message": "Cards outside the commander color identity (WUR): Birds of Paradise (has G). Replace them with cards inside the identity."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    10,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K3_99_cards": {
+  "mutation": "remove one basic",
+  "total_with_commanders": 99,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "DECK_SIZE",
+    "cards": [],
+    "message": "Deck has 99 cards including commander(s); it must have exactly 100. Add 1."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K4_duplicate": {
+  "mutation": "basic -> 2nd Sol Ring",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "SINGLETON",
+    "cards": [
+     "Sol Ring"
+    ],
+    "message": "Too many copies (singleton format): Sol Ring x2 (max 1)."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    10,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K5_plane_in_main": {
+  "mutation": "basic -> Bad Wolf Bay (plane) in mainboard",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "NOT_LEGAL",
+    "cards": [
+     "Bad Wolf Bay"
+    ],
+    "message": "Not legal in Commander: Bad Wolf Bay. Remove them."
+   },
+   {
+    "code": "NOT_LEGAL",
+    "cards": [
+     "Bad Wolf Bay"
+    ],
+    "message": "Cards in the wrong slot: Bad Wolf Bay: plane not legal in mainboard slot (belongs in planar_deck)."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    11,
+    12,
+    "ok"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K6_bad_partner": {
+  "mutation": "Rose Tyler -> Jhoira of the Ghitu as 2nd commander",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 2,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "PARTNER_INVALID",
+    "cards": [
+     "The Tenth Doctor",
+     "Jhoira of the Ghitu"
+    ],
+    "message": "The Tenth Doctor and Jhoira of the Ghitu are not a legal commander pair: commanders share no pairing ability (need both Partner, a matching 'Partner with', both Friends forever, Choose a Background + Background, or Doctor's companion + Doctor)."
+   },
+   {
+    "code": "COLOR_IDENTITY",
+    "cards": [
+     "Deserted Beach",
+     "Four Knocks",
+     "Farewell",
+     "Fractured Identity",
+     "Judoon Enforcers",
+     "Grasp of Fate",
+     "Glacial Fortress",
+     "Irrigated Farmland",
+     "Out of Time",
+     "Regenerations Restored",
+     "Plains",
+     "Port Town",
+     "Prairie Stream",
+     "Rory Williams",
+     "Skycloud Expanse",
+     "Sundown Pass",
+     "Temple of Enlightenment",
+     "Wilfred Mott",
+     "Wedding Ring",
+     "Gandalf of the Secret Fire",
+     "The Wedding of River Song",
+     "The Face of Boe",
+     "Dinosaurs on a Spaceship",
+     "Hallowed Fountain",
+     "Barren Glory",
+     "The War Doctor",
+     "The Eleventh Doctor",
+     "Atraxi Warden",
+     "Crack in Time",
+     "Kate Stewart",
+     "Talisman of Conviction",
+     "Furycalm Snarl",
+     "Mystic Monastery",
+     "Sunbaked Canyon",
+     "Temple of Triumph",
+     "Absolute Virtue",
+     "Rose Tyler"
+    ],
+    "message": "Cards outside the commander color identity (UR): Deserted Beach (has W), Four Knocks (has W), Farewell (has W), Fractured Identity (has W), Judoon Enforcers (has W), Grasp of Fate (has W), Glacial Fortress (has W), Irrigated Farmland (has W), Out of Time (has W), Regenerations Restored (has W), Plains (has W), Port Town (has W), Prairie Stream (has W), Rory Williams (has W), Skycloud Expanse (has W), Sundown Pass (has W), Temple of Enlightenment (has W), Wilfred Mott (has W), Wedding Ring (has W), Gandalf of the Secret Fire (has W), The Wedding of River Song (has W), The Face of Boe (has W), Dinosaurs on a Spaceship (has W), Hallowed Fountain (has W), Barren Glory (has W), The War Doctor (has W), The Eleventh Doctor (has W), Atraxi Warden (has W), Crack in Time (has W), Kate Stewart (has W), Talisman of Conviction (has W), Furycalm Snarl (has W), Mystic Monastery (has W), Sunbaked Canyon (has W), Temple of Triumph (has W), Absolute Virtue (has W), Rose Tyler (has W). Replace them with cards inside the identity."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    36,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K7_unknown_card": {
+  "mutation": "basic -> 'Totally Fake Card'",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 1,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [
+   {
+    "code": "UNKNOWN_CARD",
+    "cards": [
+     "Totally Fake Card"
+    ],
+    "message": "These cards are not in the card database (misspelled or invented?): Totally Fake Card. Replace them with real card names."
+   }
+  ],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    35,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    35,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": [
+   "Totally Fake Card"
+  ]
+ },
+ "K8_game_changers": {
+  "mutation": "3 basics -> Rhystic Study, Smothering Tithe, Cyclonic Rift",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Plains": 2,
+   "Island": 3
+  },
+  "legality": [],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "game_changers",
+    "floor": 4,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor",
+     "Rhystic Study",
+     "Smothering Tithe",
+     "Cyclonic Rift"
+    ]
+   },
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    33,
+    38,
+    "short"
+   ],
+   "ramp": [
+    10,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    11,
+    12,
+    "ok"
+   ],
+   "targeted_disruption": [
+    11,
+    12,
+    "ok"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K9_two_card_combo": {
+  "mutation": "2 basics -> Kiki-Jiki + Felidar Guardian",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "two_card_combos",
+    "floor": 4,
+    "cards": [
+     "Felidar Guardian",
+     "Kiki-Jiki, Mirror Breaker"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [
+   {
+    "cards": [
+     "Kiki-Jiki, Mirror Breaker",
+     "Felidar Guardian"
+    ],
+    "tag": "R",
+    "early": true,
+    "produces": [
+     "Infinite creature tokens with haste",
+     "Infinite death triggers",
+     "Infinite creature ETB",
+     "Infinite creature LTB",
+     "Infinite creature sacrifice triggers"
+    ]
+   },
+   {
+    "cards": [
+     "Felidar Guardian",
+     "Flesh Duplicate"
+    ],
+    "tag": "E",
+    "early": false,
+    "produces": [
+     "Infinite creature LTB",
+     "Infinite creature ETB"
+    ]
+   }
+  ],
+  "combos_checked": true,
+  "in_deck_combo_count": 2,
+  "notes": [],
+  "composition": {
+   "lands": [
+    34,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    36,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K10_extra_turns": {
+  "mutation": "2 basics -> Time Warp, Temporal Manipulation",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored",
+     "Time Warp",
+     "Temporal Manipulation"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [
+   "3 extra-turn cards: Brackets 2-3 allow only a few, never chained. No loop found, so this doesn't move the minimum; check it by hand."
+  ],
+  "composition": {
+   "lands": [
+    34,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    36,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K11_land_starved": {
+  "mutation": "8 basics -> 8x Persistent Petitioners",
+  "total_with_commanders": 100,
+  "basics_left": {},
+  "legality": [],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": true,
+  "in_deck_combo_count": 0,
+  "notes": [],
+  "composition": {
+   "lands": [
+    28,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    42,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ },
+ "K12_spellbook_down": {
+  "mutation": "control deck, combo data unavailable",
+  "total_with_commanders": 100,
+  "basics_left": {
+   "Mountain": 2,
+   "Plains": 3,
+   "Island": 3
+  },
+  "legality": [],
+  "minimum_bracket": 4,
+  "floors": [
+   {
+    "rule": "mass_land_denial",
+    "floor": 4,
+    "cards": [
+     "Worldfire"
+    ]
+   },
+   {
+    "rule": "game_changers",
+    "floor": 3,
+    "cards": [
+     "Farewell",
+     "Mystical Tutor"
+    ]
+   },
+   {
+    "rule": "extra_turns",
+    "floor": 2,
+    "cards": [
+     "Regenerations Restored"
+    ]
+   }
+  ],
+  "two_card_combos": [],
+  "combos_checked": false,
+  "in_deck_combo_count": null,
+  "notes": [
+   "Two-card combos not checked (no Commander Spellbook data); minimum bracket may be higher."
+  ],
+  "composition": {
+   "lands": [
+    36,
+    38,
+    "short"
+   ],
+   "ramp": [
+    9,
+    10,
+    "ok"
+   ],
+   "card_advantage": [
+    9,
+    12,
+    "short"
+   ],
+   "targeted_disruption": [
+    10,
+    12,
+    "short"
+   ],
+   "mass_disruption": [
+    3,
+    6,
+    "short"
+   ],
+   "plan": [
+    34,
+    22,
+    "over"
+   ]
+  },
+  "unknown_cards": []
+ }
+}
