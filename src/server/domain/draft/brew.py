@@ -274,7 +274,9 @@ def execute_build(r: Any, session_id: str) -> dict:
         released = release_draft(r, session, drafts[0])  # exactly one draft
         # Oracle review: a deck oracle did not pass (or could not review) is not a finished result.
         verdict = brew_review.review_draft(released, session, r)
+        session.pop("review_rejected", None)
         if verdict["status"] != brew_review.PASS:
+            session["review_rejected"] = verdict  # kept structured; the failed deck is not stored
             why = "; ".join(verdict.get("reasons") or []) or verdict["status"]
             raise ValueError(f"brew review {verdict['status']}: {why}")
         session["drafts"] = [released]
@@ -730,6 +732,15 @@ def accept_draft(r: Any, session_id: str, draft_index: int = 0) -> dict:
     # Gate: only a complete, legal 100 is ever accepted (a hand-edited draft
     # is made whole first: basics trimmed / lands added, picks kept).
     draft = release_draft(r, session, drafts[draft_index], allow_incomplete=False)
+    # A pass only counts for the exact deck it reviewed: edits or repairs since
+    # the build invalidate it, so review again before accepting.
+    from src.server.domain.draft import brew_review
+
+    if not brew_review.verdict_is_current(draft):
+        verdict = brew_review.review_draft(draft, session, r)
+        if verdict["status"] != brew_review.PASS:
+            why = "; ".join(verdict.get("reasons") or []) or verdict["status"]
+            raise ValueError(f"brew review {verdict['status']}: {why}")
     normalized = {
         "source": "brew",
         "source_id": f"{session_id}_{draft_index}",

@@ -65,3 +65,33 @@ class TestBrewResultCarriesVerdict(TestBrewCore):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVerdictBoundToDeck(unittest.TestCase):
+    def tearDown(self):
+        reset_reviewer()
+
+    def test_pass_is_invalidated_by_edit(self):
+        d = {"cards": _cards(100), "commanders": ["X"], "target_power": 5}
+        brew_review.review_draft(d, {})
+        self.assertTrue(brew_review.verdict_is_current(d))
+        d["cards"][0]["name"] = "Other"
+        self.assertFalse(brew_review.verdict_is_current(d))
+        d2 = dict(d, target_power=7)
+        self.assertFalse(brew_review.verdict_is_current(d2))
+
+
+class TestRejectedVerdictPersisted(TestBrewCore):
+    def tearDown(self):
+        reset_reviewer()
+        super().tearDown()
+
+    def test_rejected_review_kept_on_session(self):
+        brew_review.set_reviewer(lambda d, s: {"status": "fail", "reasons": ["too strong"], "source": "fake"})
+        from unittest import mock
+        with mock.patch.object(brew_review, "deterministic_check", return_value=[]):
+            with self.assertRaises(ValueError):
+                self._built_session()
+        sess = [brew.get_session(self.r, k.split("brew:session:")[-1]) for k in self.r.keys("*") if "session" in str(k)]
+        sess = [x for x in sess if x]
+        self.assertTrue(any((x.get("review_rejected") or {}).get("reasons") == ["too strong"] for x in sess))

@@ -42,6 +42,22 @@ def _total(draft: dict) -> int:
     return sum(int(c.get("quantity", 1) or 1) for c in draft.get("cards") or [])
 
 
+def fingerprint(draft: dict) -> str:
+    """Hash of what a verdict is about: cards, commanders and target power."""
+    import hashlib
+
+    cards = sorted((str(c.get("name")), int(c.get("quantity", 1) or 1)) for c in draft.get("cards") or [])
+    payload = json.dumps([cards, sorted(draft.get("commanders") or []), draft.get("target_power")],
+                         sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def verdict_is_current(draft: dict) -> bool:
+    """True only for a stored pass issued for exactly this deck."""
+    v = draft.get("oracle_verdict") or {}
+    return v.get("status") == PASS and v.get("fingerprint") == fingerprint(draft)
+
+
 def deterministic_check(draft: dict, r: Any = None) -> List[str]:
     """Hard gate reasons (empty list = clean)."""
     reasons: List[str] = []
@@ -124,5 +140,6 @@ def review_draft(draft: dict, session: dict, r: Any = None) -> dict:
         except Exception as exc:
             verdict = {"status": UNAVAILABLE, "reasons": [f"{type(exc).__name__}: {exc}"], "source": "reviewer"}
     verdict.setdefault("reasons", [])
+    verdict["fingerprint"] = fingerprint(draft)
     draft["oracle_verdict"] = verdict
     return verdict
