@@ -262,6 +262,7 @@ def execute_build(r: Any, session_id: str) -> dict:
     if not session:
         raise ValueError(f"session not found: {session_id}")
 
+    from src.server.domain.draft import brew_review
     from src.server.domain.draft.brew_builder import get_builder
 
     builder = get_builder()
@@ -270,7 +271,13 @@ def execute_build(r: Any, session_id: str) -> dict:
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
         # THE gate: nothing illegal / incomplete is stored or returned (brew_gate).
-        session["drafts"] = [release_draft(r, session, drafts[0])]  # exactly one draft
+        released = release_draft(r, session, drafts[0])  # exactly one draft
+        # Oracle review: a deck oracle did not pass (or could not review) is not a finished result.
+        verdict = brew_review.review_draft(released, session, r)
+        if verdict["status"] != brew_review.PASS:
+            why = "; ".join(verdict.get("reasons") or []) or verdict["status"]
+            raise ValueError(f"brew review {verdict['status']}: {why}")
+        session["drafts"] = [released]
         session["status"] = STATUS_DRAFTS_READY
         session.pop("error", None)
         session.pop("error_message", None)
