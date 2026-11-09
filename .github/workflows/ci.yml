@@ -92,7 +92,7 @@ jobs:
         run: |
           set -o pipefail
           python -m pytest -q -rs tests/test_brew_verification_matrix.py tests/test_brew_harness_smoke.py tests/test_brew_matrix_production.py tests/test_brew_integration.py | tee brew-matrix.log
-          ! grep -qi "skipped" brew-matrix.log
+          ! grep -qiE "skipped|xfail|xpass" brew-matrix.log
 
       # The pgvector determinism/freshness/endpoint tests skip when the DB or the
       # extension is missing; require 0 skipped so they cannot silently not run.
