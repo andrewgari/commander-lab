@@ -1159,7 +1159,9 @@ async def trigger_brew_build(
     is_sync = sync if sync is not None else bool(body.get("sync", False))
 
     try:
-        session = brew.release_session(r, brew.trigger_build(r, session_id, sync=is_sync))
+        # Sync builds include the oracle review (minutes): keep them off the event loop.
+        built = await asyncio.to_thread(brew.trigger_build, r, session_id, sync=is_sync)
+        session = brew.release_session(r, built)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1196,7 +1198,7 @@ async def accept_brew_draft(session_id: str, request: Request):
         return JSONResponse(status_code=400, content={"success": False, "error": "draft_index must be an integer"})
 
     try:
-        result = brew.accept_draft(r, session_id, draft_index=draft_index)
+        result = await asyncio.to_thread(brew.accept_draft, r, session_id, draft_index=draft_index)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
