@@ -3,6 +3,7 @@ import unittest
 
 import src.server.domain.draft.brew as brew
 import src.server.domain.draft.brew_review as brew_review
+from tests import reset_reviewer
 from tests.test_brew import TestBrewCore
 
 
@@ -11,6 +12,9 @@ def _cards(n, prefix="Card"):
 
 
 class TestDeterministicGate(unittest.TestCase):
+    def tearDown(self):
+        reset_reviewer()
+
     def test_wrong_size_fails(self):
         v = brew_review.review_draft({"cards": _cards(40)}, {})
         self.assertEqual(v["status"], "fail")
@@ -37,6 +41,10 @@ class TestDeterministicGate(unittest.TestCase):
 
 
 class TestBrewResultCarriesVerdict(TestBrewCore):
+    def tearDown(self):
+        reset_reviewer()
+        super().tearDown()
+
     def test_build_result_always_has_verdict(self):
         brew_review.set_reviewer(lambda d, s: {"status": "pass", "reasons": [], "source": "fake"})
         from unittest import mock
