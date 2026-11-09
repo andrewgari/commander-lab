@@ -8,9 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
+- Deck validation: cards missing a color identity now derive it from hybrid and other mana symbols in their cost and rules text.
+- Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
+- Brew: the availability report no longer shows cards from a draft that fails the final legality check; it returns an error instead.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
 
 ### Added

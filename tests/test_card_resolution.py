@@ -66,8 +66,9 @@ class TestBuilder(unittest.TestCase):
         names = [c["name"] for c in draft["cards"]]
         self.assertNotIn(BAD, names)
         self.assertEqual(draft["dropped_ids"], [BAD])
-        self.assertEqual(len(names), 61)  # not capped at 25+commander
-        self.assertEqual(draft["missing_slots"], 39)
+        self.assertEqual(len(names), 62)  # not capped at 25+commander; unknown identity -> Wastes fill
+        self.assertEqual(sum(c["quantity"] for c in draft["cards"]), 100)
+        self.assertEqual(draft["missing_slots"], 0)
 
     def test_unresolvable_commander_raises(self):
         with self.assertRaises(ValueError):

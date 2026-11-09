@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -96,6 +96,8 @@ class Cell:
     gcs: int
     checks: Dict[str, bool]
     notes: List[str]
+    draft_est: Optional[float] = None   # released draft's own estimated_power (not the analytics estimate)
+    builder: object = None
 
 
 def _gc_count(deck) -> int:
@@ -110,12 +112,16 @@ def _verdict(fn) -> bool:
         return False
 
 
-def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow") -> Cell:
+def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str = "slow",
+             builder_factory=None, inject_commandersalt: bool = False) -> Cell:
+    """builder_factory(cat, row) -> builder; default is the harness TrapFirstBuilder
+    (reference path). tests/test_brew_matrix_production.py passes the production builder."""
     cat = matrix_catalog()
-    builder = TrapFirstBuilder(cat, row)
+    builder = builder_factory(cat, row) if builder_factory else TrapFirstBuilder(cat, row)
     with mock.patch.object(bh, "GAME_CHANGER_NAMES", []):
         res = run_brew(list(row.commanders), power, sources=sources, edhrec=state,
-                       degraded_kind=kind, builder=builder, catalog=cat)
+                       degraded_kind=kind, builder=builder, catalog=cat,
+                       inject_commandersalt=inject_commandersalt)
     deck = res.deck
     names = {dv.normalize_name(c["name"]) for c in deck["cards"]}
 
@@ -146,7 +152,8 @@ def run_cell(row: Row, power: str, sources: bool, state: EdhrecState, kind: str 
              for n in row.soft_exclude if dv.normalize_name(n) in names]
     return Cell(row, power, sources, state_label(state, kind), res.estimated_power,
                 res.estimated_bracket, res.power_source,
-                da.total_cards(deck), _gc_count(deck), checks, notes)
+                da.total_cards(deck), _gc_count(deck), checks, notes,
+                draft_est=deck.get("estimated_power"), builder=builder)
 
 
 _CARD_RULES = {dv.RuleCode.COLOR_IDENTITY, dv.RuleCode.SINGLETON, dv.RuleCode.BANNED,
@@ -203,7 +210,7 @@ def test_power_trend(key, sources, state, kind):
 
 def test_power_source_follows_analytics_state():
     for key in ROWS:
-        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE)
+        ok = run_cell(ROWS[key], "mid", False, EdhrecState.AVAILABLE, inject_commandersalt=True)
         down = run_cell(ROWS[key], "mid", False, EdhrecState.UNAVAILABLE)
         assert ok.power_source == "commandersalt" and down.power_source == "bracket_band"
 
@@ -297,7 +304,6 @@ def test_snow_covered_basic_illegal_under_colorless_commander():
 # document REAL defects (verified failing today); they flip to XPASS->fail when
 # fixed so the marker must then be removed.
 # --------------------------------------------------------------------------
-@pytest.mark.xfail(strict=True, reason="F2: identity ignores rules-text mana symbols when color_identity missing")
 def test_F2_identity_from_rules_text_when_field_missing():
     info = dv.CardInfo.from_record({"name": "Alesha", "mana_cost": "{2}{R}",
                                     "type_line": "Legendary Creature — Human",
