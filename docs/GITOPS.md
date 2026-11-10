@@ -4,14 +4,14 @@ Verified 2026-10-12 (AN-0, kanban t_b54f852f) by deploying main 7181416.
 
 ## What prod actually is
 
-- Host: Tower (Unraid, 192.168.50.3). Portainer UI/API: http://192.168.50.3:9009
+- Host: Tower (Unraid, <tower-host>). Portainer UI/API: http://<tower-host>:9009
 - Portainer stack id 124, name `commander-lab`, type Git repository:
   - repository: https://github.com/andrewgari/commander-lab (GitHub, NOT Gitea)
   - ref: `refs/heads/main`, compose file: `docker-compose.prod.yml`
   - auto-update: webhook only (no polling interval). A trigger re-pulls and rebuilds.
 - Containers: `commander-lab-app` (built from the repo Dockerfile, host port
   8020 -> 8000) and `commander-lab-redis` (redis:alpine, volume `redis_data`).
-- Live site: http://192.168.50.3:8020 (Tower's port 8000 is a different service).
+- Live site: http://<tower-host>:8020 (Tower's port 8000 is a different service).
 - Portainer checks out each deployed commit to
   `/mnt/user/appdata/portainer/compose/124/<full-sha>/` on Tower. That dir name
   (and the container label in step 5) is the ground truth for which sha is live.
@@ -38,7 +38,7 @@ main does NOT deploy; you have to trigger the webhook yourself.
    make deploy-push
    # equivalent to:
    WH=$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook)
-   curl -fsS -X POST http://192.168.50.3:9009/api/stacks/webhooks/$WH   # HTTP 204
+   curl -fsS -X POST http://<tower-host>:9009/api/stacks/webhooks/$WH   # HTTP 204
    ```
 
    Portainer clones main, rebuilds the app image, and recreates both
@@ -52,7 +52,7 @@ main does NOT deploy; you have to trigger the webhook yourself.
    # -> /data/compose/124/<sha of origin/main> <fresh timestamp>
    ```
 
-6. Smoke test at http://192.168.50.3:8020: /instances (TOTAL ~5608),
+6. Smoke test at http://<tower-host>:8020: /instances (TOTAL ~5608),
    /inventory (has rows), and a deck page (/deck/Holy%20Hellfire shows CARDS 100).
 
 The version badge (`/api/version`, sidebar) is NOT proof of which build is
@@ -110,13 +110,13 @@ backup as described above.
   To rotate a key, rewrite its file (`umask 077`), then restart
   `commander-lab-app`.
 - oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` defaults to
-  `http://192.168.50.2:8645` (oracle's own standalone Hermes gateway on the
+  `http://<oracle-host>:8645` (oracle's own standalone Hermes gateway on the
   Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
   `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
   `API_SERVER_KEY` from `~/.hermes/profiles/oracle/.env`; set it on the
   Portainer stack env or as the file `secrets/ORACLE_KEY` (the client reads
   that file when the env var is empty). The Framework's ufw must allow
-  `8645/tcp` from Tower (`192.168.50.3`). Smoke test from prod:
+  `8645/tcp` from Tower (`<tower-host>`). Smoke test from prod:
   `ssh tower 'docker exec commander-lab-app python -m analytics.oracle_client'`
   prints `oracle online`; `OracleUnavailable` means oracle is down or blocked.
 - `Makefile` `deploy-push`: triggers the stack 124 webhook.
@@ -128,7 +128,7 @@ backup as described above.
   but stack 124 doesn't use it. The Gitea mirror's main is stale (908b4cd as of
   2026-10-12), and pushing to Gitea deploys nothing.
 - `make deploy` / `scripts/deploy_tower.sh`: the old build-on-Tower and
-  push-to-local-registry (192.168.50.3:5000) path, which bypasses stack 124.
+  push-to-local-registry (<tower-host>:5000) path, which bypasses stack 124.
 - GHCR image from `.github/workflows/ci.yml` ("Build & Push Docker Image"):
   it's built on main pushes, but prod builds from source and never pulls it.
 

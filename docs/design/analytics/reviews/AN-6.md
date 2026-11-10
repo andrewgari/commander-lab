@@ -1,7 +1,7 @@
 # AN-6R: Designer review of the live Journal, check-in and Tune
 
 Card: `t_ace127ec`. Reviewed against `docs/design/analytics/UX_SPEC.md` §3.3,
-§3.4, §4 and §5 on live prod `http://192.168.50.3:8020` (a74c0ab, v0.4.16),
+§3.4, §4 and §5 on live prod `http://<tower-host>:8020` (a74c0ab, v0.4.16),
 Holy Hellfire, at 1440×900 and 390×844 (mobile, DPR 2), plus 1024 and 1920
 for the Tune breakpoint. I used Chromium over CDP and measured findings in the
 DOM.

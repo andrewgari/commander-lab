@@ -6,7 +6,7 @@ load the real `static/css/hud.css` and `static/js/hud.js`. Screenshots are in
 `docs/design/analytics/shots/` (1440px desktop + 390px phone).
 Inputs: `docs/ANALYTICS_SPEC.md`, `docs/DESIGN_REVIEW.md` (Direction C,
 "Identity Lab"), `docs/DESIGN_TOKENS.md`, live prod at
-`http://192.168.50.3:8020/deck/Holy%20Hellfire` (v0.4.6, 2026-10-12).
+`http://<tower-host>:8020/deck/Holy%20Hellfire` (v0.4.6, 2026-10-12).
 
 What's real in the mockups: the Holy Hellfire card list, CMC, colours,
 Scryfall ids, and the curve (it matches prod). What's illustrative: edges,

@@ -6,7 +6,7 @@ agent loop on oracle's side, so replies take 30 s to several minutes; the
 default timeout is 10 minutes.
 
 Config (env):
-    ORACLE_URL        base URL, e.g. http://192.168.50.2:8645 (a trailing /v1 is fine)
+    ORACLE_URL        base URL, e.g. http://<oracle-host>:8645 (a trailing /v1 is fine)
     ORACLE_KEY        oracle's API_SERVER_KEY. Prod can also drop it as a file named
                       ORACLE_KEY in the secrets dir (INTERACTIONS_SECRETS_DIR,
                       default /run/commander-lab-secrets). Never commit it.
