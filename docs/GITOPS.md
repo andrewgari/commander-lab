@@ -109,7 +109,7 @@ backup as described above.
   in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
   To rotate a key, rewrite its file (`umask 077`), then restart
   `commander-lab-app`.
-- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` defaults to
+- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` (empty = oracle features disabled) is
   `http://<oracle-host>:8645` (oracle's own standalone Hermes gateway on the
   Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
   `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
