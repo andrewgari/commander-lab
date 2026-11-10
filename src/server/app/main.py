@@ -990,7 +990,7 @@ async def brew_landing_view(request: Request, resume: Optional[str] = Query(None
         for d in decks
         if d.get("status") != "retired" and not d.get("decommissioned_at")
     ]
-    resume_session = brew.get_session(r, resume) if resume else None
+    resume_session = brew.release_session(r, brew.get_session(r, resume)) if resume else None
     return templates.TemplateResponse(
         request=request,
         name="brew.html",
@@ -1090,7 +1090,7 @@ async def start_brew_session(request: Request):
 @app.get("/api/brew/sessions")
 async def list_brew_sessions(limit: int = 50):
     """List recent Brew sessions."""
-    sessions = brew.list_sessions(r, limit=limit)
+    sessions = brew.list_sessions(r, limit=limit)  # gated inside list_sessions
     return {"success": True, "sessions": sessions}
 
 
@@ -1110,7 +1110,11 @@ async def get_brew_drafts(session_id: str):
     session = brew.get_session(r, session_id)
     if not session:
         return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
-    return {"success": True, "status": session["status"], "drafts": session.get("drafts", [])}
+    try:
+        drafts = brew.get_drafts(r, session_id)
+    except brew.BrewGateError as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(e)})
+    return {"success": True, "status": session["status"], "drafts": drafts}
 
 
 @app.get("/api/brew/{session_id}/availability")
@@ -1118,6 +1122,8 @@ async def get_brew_availability(session_id: str):
     """Availability report: owned (donors / free inventory) vs buy list."""
     try:
         report = brew.get_availability(r, session_id)
+    except brew.BrewGateError as e:
+        return JSONResponse(status_code=422, content={"success": False, "error": str(e)})
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1131,7 +1137,7 @@ async def get_brew_session(session_id: str):
     session = brew.get_session(r, session_id)
     if not session:
         return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
-    return {"success": True, "session": session}
+    return {"success": True, "session": brew.release_session(r, session)}
 
 
 @app.post("/api/brew/{session_id}/build")
@@ -1153,7 +1159,9 @@ async def trigger_brew_build(
     is_sync = sync if sync is not None else bool(body.get("sync", False))
 
     try:
-        session = brew.trigger_build(r, session_id, sync=is_sync)
+        # Sync builds include the oracle review (minutes): keep them off the event loop.
+        built = await asyncio.to_thread(brew.trigger_build, r, session_id, sync=is_sync)
+        session = brew.release_session(r, built)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1190,7 +1198,7 @@ async def accept_brew_draft(session_id: str, request: Request):
         return JSONResponse(status_code=400, content={"success": False, "error": "draft_index must be an integer"})
 
     try:
-        result = brew.accept_draft(r, session_id, draft_index=draft_index)
+        result = await asyncio.to_thread(brew.accept_draft, r, session_id, draft_index=draft_index)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1198,7 +1206,7 @@ async def accept_brew_draft(session_id: str, request: Request):
 
     return {
         "success": True,
-        "session": result["session"],
+        "session": brew.release_session(r, result["session"]),
         "created_decks": result["created_decks"],
     }
 
@@ -1217,7 +1225,7 @@ async def abandon_brew_session(session_id: str, request: Request):
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
         return JSONResponse(status_code=status_code, content={"success": False, "error": msg})
-    return {"success": True, "session": session}
+    return {"success": True, "session": brew.release_session(r, session)}
 
 
 @app.post("/api/reconstruct/{session_id}/abandon")

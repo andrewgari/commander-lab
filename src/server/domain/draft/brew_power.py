@@ -197,3 +197,50 @@ def estimate_power_level(deck: Any, config: Optional[BrewScoringConfig] = None,
         "avg_mana_value": None if avg is None else round(avg, 3),
         "curve": round(curve, 3), "raw": round(raw, 3),
     }}
+
+
+# --------------------------------------------------------------------------
+# Hard tier gate
+# --------------------------------------------------------------------------
+
+class TierGate:
+    """Hard power-tier limits (brew-power-tiers-v1). The soft power term only biases ranking;
+    with a small pool the top-up step would still pull in every card, so low/mid decks leaked
+    Game Changers and flat estimates. Low: 0 GC, no combo pieces, no fast mana except Sol Ring,
+    <=2 tutors. Mid: <=3 GC. High: unrestricted. Stateful: admitted cards use up the budget
+    (idempotent per name); `count` charges a card that cannot be rejected (a commander)."""
+
+    def __init__(self, target: Any, cfg: PowerConfig):
+        self.cfg = cfg
+        self.tier = ("high" if target is None or target > cfg.tier_mid_max
+                     else "low" if target <= cfg.tier_low_max else "mid")
+        self.gcs = self.tutors = 0
+        self.seen: set = set()
+
+    def _charge(self, sig: Mapping[str, bool]) -> None:
+        self.gcs += bool(sig["game_changer"])
+        self.tutors += bool(sig["tutor"])
+
+    def count(self, card: Mapping[str, Any]) -> None:
+        k = _key(card.get("name"))
+        if k not in self.seen:
+            self.seen.add(k)
+            self._charge(card_signals(card))
+
+    def admit(self, card: Mapping[str, Any]) -> bool:
+        k = _key(card.get("name"))
+        if k in self.seen or self.tier == "high":
+            return True
+        sig = card_signals(card)
+        if self.tier == "low":
+            if sig["game_changer"] or sig["combo"]:
+                return False
+            if sig["fast_mana"] and k != "sol ring":
+                return False
+            if sig["tutor"] and self.tutors >= self.cfg.low_max_tutors:
+                return False
+        elif sig["game_changer"] and self.gcs >= self.cfg.mid_max_game_changers:
+            return False
+        self.seen.add(k)
+        self._charge(sig)
+        return True

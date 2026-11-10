@@ -18,6 +18,7 @@ import src.server.domain.inventory.instances as instances
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.decks.registry as registry
+from tests.support.brew_gate_seed import GATE_CORE, pin_gate_fill, seed_gate_catalog
 
 
 class FakePipe:
@@ -106,6 +107,8 @@ def static_price_lookup(prices):
 class TestBrewCore(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
+        seed_gate_catalog(self.r, only=GATE_CORE)
+        pin_gate_fill(self)
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.deck2 = make_deck(
             deck_id=43, name="Urza Artifacts", status="testing",
@@ -131,7 +134,7 @@ class TestBrewCore(unittest.TestCase):
         instances.create_instance(self.r, "Demonic Tutor", ownership_status="in_collection")
 
         # Catalog + prices (deterministic; no network)
-        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact — Equipment"}))
+        self.r.set("card_meta:Lightning Greaves", json.dumps({"color": "", "type": "Artifact — Equipment", "commander_legality": "legal"}))
         self._orig_lookup = reconstruct_pools.redis_price_lookup
         reconstruct_pools.redis_price_lookup = static_price_lookup({"Lightning Greaves": 3.50})
 
@@ -145,7 +148,7 @@ class TestBrewCore(unittest.TestCase):
             commander="Atraxa, Praetors' Voice",
             donor_deck_ids=["archidekt:42", "archidekt:43"],
             build_mode="owned_first",
-            power_level="3",
+            power_level="8",  # high tier: these donor-pool tests expect GC/tutor cards (Demonic Tutor) to be kept
             deck_idea="proliferate",
             themes=["counters"],
             notes="no extra turns",
