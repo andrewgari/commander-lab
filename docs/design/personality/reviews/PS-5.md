@@ -1,6 +1,6 @@
 # PS-5 · Designer review: live ability scores (deck page + /profile)
 
-Reviewer: designer · Live build: v0.4.43 (eb3254f) on `http://192.168.50.3:8020` · 2026-10-15
+Reviewer: designer · Live build: v0.4.43 (eb3254f) on `http://<tower-host>:8020` · 2026-10-15
 Against: `docs/design/personality/UX_SPEC.md` (PS-D, branch `74632eb`, reference only)
 Widths: 1440 and 390 · Data: real, 39 physical / 57 all decks · Deck: The Laws of Time are Mine!! (Doctor / Rose)
 

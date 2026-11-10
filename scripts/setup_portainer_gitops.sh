@@ -11,8 +11,8 @@
 #   PORTAINER_TOKEN=... GITEA_TOKEN=... ./scripts/setup_portainer_gitops.sh
 set -euo pipefail
 
-PORTAINER_URL="${PORTAINER_URL:-http://192.168.50.3:9009}"
-GITEA_URL="${GITEA_URL:-http://192.168.50.3:3004}"
+PORTAINER_URL="${PORTAINER_URL:?set PORTAINER_URL (e.g. http://<tower-host>:9009)}"
+GITEA_URL="${GITEA_URL:?set GITEA_URL (e.g. http://<tower-host>:3004)}"
 GITEA_OWNER="${GITEA_OWNER:-andrewgari}"
 GITEA_REPO="${GITEA_REPO:-commander-lab}"
 STACK_NAME="${STACK_NAME:-commander-lab}"
@@ -20,7 +20,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 # Portainer runs in its own container, so it can't resolve the "gitea" container
 # name unless they share a Docker network. Use Tower's LAN IP instead, which is
 # reachable from any container via the host's published port.
-REPO_URL="http://192.168.50.3:3004/${GITEA_OWNER}/${GITEA_REPO}.git"
+REPO_URL="${GITEA_URL}/${GITEA_OWNER}/${GITEA_REPO}.git"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 
 : "${PORTAINER_TOKEN:?Set PORTAINER_TOKEN}"
