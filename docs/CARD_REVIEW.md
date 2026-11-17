@@ -11,7 +11,7 @@ Code: `analytics/card_review/`. Tests: `tests/test_card_review.py` (scripted LLM
 5. **Confidence** (§3.6): `0.5·rubric prior + 0.5·judge_confidence`, capped at 0.70 when EDHREC data is missing, 0.65 when the Journal is unconfirmed, 0.60 on fallback; floor 0.50.
 6. **Replacements** (remove only): 3-5 suggestions, see below.
 
-The LLM sits behind `DebateLLM.complete(role, system, user, temperature)` (`analytics/card_review/llm.py`). Production uses `OracleDebateLLM` (the OpenRouter oracle tool loop; the judge must check curve, bracket and power); tests pass a scripted fake.
+The LLM sits behind `DebateLLM.complete(role, system, user, temperature)` (`analytics/card_review/llm.py`). Production uses `OracleLLM` (the oracle Hermes profile); tests pass a scripted fake.
 
 ## API
 ### `POST /api/decks/{deck_id}/cards/{card_id}/review`

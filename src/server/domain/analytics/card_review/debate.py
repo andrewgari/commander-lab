@@ -12,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
+from src.server.domain.llm.port import LLMError
+
 from . import config as cfg
 from .llm import DebateLLM
 from .packet import ReviewContext, band, p_keep, packet_numbers, tier_of, unknown_numbers
@@ -227,8 +229,12 @@ def run_judge(llm: DebateLLM, ev, packet: Dict[str, str], transcript: List[dict]
     user = json.dumps({"packet": packet, "transcript": transcript, "conceded": conceded})
     v = None
     for attempt in range(2):
-        raw = extract_json(llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
-                                        temperature=dcfg.judge_temperature))
+        try:
+            reply = llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
+                                 temperature=dcfg.judge_temperature)
+        except LLMError:  # OracleBudgetExceeded / OracleEvidenceMissing / LLMUnavailable (spec §9.5 e)
+            return fallback_verdict(ev, packet)
+        raw = extract_json(reply)
         v = validate_verdict(raw, packet, transcript) if raw else None
         if v:
             break
