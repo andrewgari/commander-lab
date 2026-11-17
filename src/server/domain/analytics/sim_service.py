@@ -446,7 +446,8 @@ def build_payload(r, deck: Mapping, params: Mapping, client: sim_client.SimClien
     return payload
 
 
-def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.SimClient] = None) -> dict:
+def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.SimClient] = None,
+              persist_focus: bool = True) -> dict:
     """Validate, reserve the deck, submit to the daemon. Raises SimParamError / SimRunBusy /
     SimBusy / SimUnavailable / SimError; on any raise nothing is left reserved or recorded."""
     client = client or sim_client.SimClient()
@@ -474,7 +475,8 @@ def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.Sim
                "fingerprint": review_metrics.fingerprint(deck)}
         _save_job(r, job)
         sim_store.record_job_started(r, deck, {"job_id": job_id, "status": "queued"})
-        sim_focus.save_choice(r, rid, job["fingerprint"], params["focus"])
+        if persist_focus:  # tool-triggered runs must not overwrite the user's saved focus chips
+            sim_focus.save_choice(r, rid, job["fingerprint"], params["focus"])
         return job
     except Exception:
         release(rid, job_id)

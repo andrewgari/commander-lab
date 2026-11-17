@@ -5,7 +5,7 @@ import time
 from typing import Any, Callable, Dict, Mapping, Optional
 
 from ...analytics import sim_diff, sim_service, sim_store
-from ...analytics.sim_client import SimUnavailable
+from ...analytics.sim_client import SimBusy, SimUnavailable
 from ..registry import Tool, ToolError
 from .context import ToolContext
 
@@ -27,9 +27,18 @@ class SimRunner:
         static = sim_service._static_review(self.r, self.deck)
         return sim_service._slim_comparison(sim_diff.build_sim_comparison(dict(self.deck), report, static))
 
+    def _matches_pod(self, report: Mapping) -> bool:
+        """A saved run only counts when it was a Standard run against the current saved pod."""
+        params = report.get("params") or {}
+        pod = sim_service.get_pod(self.r)
+        saved = (params.get("pod") or {}).get("saved_at")
+        return params.get("opponent_mode") == "standard" and pod is not None and bool(saved) \
+            and saved == pod.get("updated_at")
+
     def run(self, games: int) -> Dict[str, Any]:
         doc = sim_store.load_latest(self.r, self.deck, persist_stale=False)
-        if doc and not (doc.get("meta") or {}).get("stale") and isinstance(doc.get("report"), Mapping):
+        if doc and not (doc.get("meta") or {}).get("stale") and isinstance(doc.get("report"), Mapping) \
+                and self._matches_pod(doc["report"]):
             report = doc["report"]
             have = (report.get("summary") or {}).get("games") or (doc.get("meta") or {}).get("games") or 0
             if isinstance(have, (int, float)) and have >= games:
@@ -37,13 +46,14 @@ class SimRunner:
                         "games": have, "comparison": self._comparison(report)}
         try:
             job = sim_service.begin_run(self.r, self.deck, {"opponent_mode": "standard", "games": games,
-                                                            "notes": "oracle tool run"}, self.client)
+                                                            "notes": "oracle tool run"}, self.client,
+                                         persist_focus=False)
             job = sim_service.run_job(self.r, job, self.deck, self.client, oracle_factory=_NO_REVIEW,
                                       max_wait=self.max_wait_s, sleep=self.sleep, skip_review=True)
         except sim_service.SimParamError as exc:
             raise ToolError("sim_not_configured", str(exc)[:200])
-        except sim_service.SimRunBusy:
-            raise ToolError("sim_busy", "a simulation is already running for this deck")
+        except (sim_service.SimRunBusy, SimBusy):
+            raise ToolError("sim_busy", "a simulation is already running (for this deck or on the simulator)")
         except SimUnavailable:
             raise ToolError("sim_unavailable", "the simulator is unavailable")
         except TimeoutError:

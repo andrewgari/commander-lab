@@ -46,6 +46,8 @@ class TestNewRun(Base):
         self.assertIn("fingerprint", out["comparison"])
         self.assertNotIn("games", out["comparison"].get("pod_breakdown") or {})
         self.assertEqual(len(sim.payloads), 1)
+        fp = svc.review_metrics.fingerprint(self.deck)
+        self.assertIsNone(svc.sim_focus.saved_choice(self.r, svc._rid(self.deck), fp))  # user's chips untouched
         doc = ss.load_latest(self.r, self.deck)
         self.assertEqual(doc["report"]["oracle_review"], {"source": "skipped"})
         self.assertEqual(doc["report"]["diagnosis"]["summary_source"], "deterministic")
@@ -71,9 +73,11 @@ class TestNewRun(Base):
 
 
 class TestSaved(Base):
-    def _save(self, games):
+    def _save(self, games, pod=True):
         rep = make_report()
         rep["summary"] = {"games": games}
+        if pod:
+            rep["params"] = {"opponent_mode": "standard", "pod": {"saved_at": svc.get_pod(self.r)["updated_at"]}}
         ss.save_completed(self.r, self.deck, {"job_id": "old", "status": "done", "report": rep})
 
     def test_saved_fresh_enough_is_reused(self):
@@ -83,6 +87,10 @@ class TestSaved(Base):
         self.assertEqual((out["source"], out["games"]), ("saved", 20))
         self.assertTrue(out["saved_at"])
         self.assertEqual(sim.payloads, [])
+
+    def test_saved_non_standard_or_other_pod_runs_new(self):
+        self._save(20, pod=False)
+        self.assertEqual(self.runner(FakeSim()).run(20)["source"], "new_run")
 
     def test_saved_with_too_few_games_runs_new(self):
         self._save(5)
@@ -106,6 +114,9 @@ class TestErrors(Base):
     def test_busy_run_in_flight(self):
         svc._INFLIGHT[svc._rid(self.deck)] = "other"
         self.assertEqual(self.kind(self.runner(FakeSim())), "sim_busy")
+
+    def test_daemon_busy_409(self):
+        self.assertEqual(self.kind(self.runner(FakeSim(busy=True))), "sim_busy")
 
     def test_no_pod_is_not_configured(self):
         svc.clear_pod(self.r)
