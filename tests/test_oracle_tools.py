@@ -107,6 +107,14 @@ class TestCardLookup(ToolsBase):
         self.assertIs(rows[1]["game_changer"], True)
         self.assertEqual(rows[2], {"query": "Nope Card", "found": False, "reason": "not on Scryfall"})
 
+    def test_dfc_mana_cost_from_faces(self):
+        dfc = {"name": "Delver // Aberrant", "cmc": 1.0, "type_line": "Creature", "color_identity": ["U"],
+               "card_faces": [{"mana_cost": "{U}", "oracle_text": "a"}, {"mana_cost": "", "oracle_text": "b"}]}
+        c = ctx(scryfall_batch=lambda names: {"delver // aberrant": dfc})
+        row = run(self.reg(c), c, "card_lookup", {"names": ["Delver // Aberrant"]}).result["data"]["cards"][0]
+        self.assertEqual(row["mana_cost"], "{U}")
+        self.assertEqual(row["oracle_text"], "a\n//\nb")
+
     def test_game_changer_null_when_unavailable(self):
         c = ctx(scryfall_batch=Scry(), game_changers=None)
         o = run(self.reg(c), c, "card_lookup", {"names": ["Sol Ring"]})
@@ -214,6 +222,24 @@ class TestDeckStats(ToolsBase):
         run(r, c, "deck_stats", {"sections": ["curve"],
                                  "cards": [{"name": "Swamp", "qty": 36}, {"name": "Sol Ring"}]}, id="c3")
         self.assertEqual(m.n, 1)  # same fingerprint -> memo hit
+
+    def test_override_keeps_enrichment_and_commanders_counted(self):
+        from unittest.mock import patch
+        deck = make_deck()
+        deck["cards"][0] = {**deck["cards"][0], "type_line": "Artifact", "cmc": 3}
+        name = deck["cards"][0]["name"]
+        seen = []
+        import src.server.domain.draft.brew_power as bp
+        real = bp.estimate_power_level
+        c = ctx(deck=deck, compute_metrics=Metrics(), allow_hypothetical=True, game_changers=[])
+        with patch.object(bp, "estimate_power_level", side_effect=lambda cards, **k: (seen.append(cards), real(cards, **k))[1]):
+            run(self.reg(c), c, "deck_stats", {"sections": ["power"], "cards": [{"name": name, "qty": 2}]})
+            run(self.reg(c), c, "deck_stats", {"sections": ["power"]}, id="c2")
+        override_cards, base_cards = seen
+        self.assertEqual(override_cards[0]["type_line"], "Artifact")
+        self.assertEqual(override_cards[0]["quantity"], 2)
+        self.assertIn("Cmdr", [x["name"] for x in override_cards])
+        self.assertIn("Cmdr", [x["name"] for x in base_cards])
 
     def test_bad_args(self):
         c = ctx()

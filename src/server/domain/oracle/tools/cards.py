@@ -21,10 +21,17 @@ def _oracle_text(card: Dict[str, Any]) -> Any:
     return "\n//\n".join(faces) if faces else None
 
 
+def _mana_cost(card: Dict[str, Any]) -> Any:
+    if card.get("mana_cost"):
+        return card.get("mana_cost")
+    faces = [f.get("mana_cost") for f in card.get("card_faces") or [] if f.get("mana_cost")]
+    return " // ".join(faces) if faces else card.get("mana_cost")
+
+
 def _row(query: str, card: Dict[str, Any], ctx: ToolContext) -> Dict[str, Any]:
     gc = None if ctx.game_changers is None else brackets.is_game_changer(card.get("name") or query, ctx.game_changers)
     return {
-        "query": query, "found": True, "name": card.get("name"), "mana_cost": card.get("mana_cost"),
+        "query": query, "found": True, "name": card.get("name"), "mana_cost": _mana_cost(card),
         "cmc": card.get("cmc"), "type_line": card.get("type_line"), "oracle_text": _oracle_text(card),
         "color_identity": card.get("color_identity"),
         "commander_legal": (card.get("legalities") or {}).get("commander") == "legal",

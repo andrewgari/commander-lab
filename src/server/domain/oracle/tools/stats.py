@@ -25,7 +25,10 @@ def _target_deck(args: dict, ctx: ToolContext) -> Dict[str, Any]:
         return dict(ctx.deck)
     if not ctx.allow_hypothetical:
         raise ToolError("not_allowed", "the cards override is only available when building a deck")
-    return {**ctx.deck, "cards": [{"name": c["name"], "quantity": c.get("qty", 1)} for c in override]}
+    known = {c.get("name"): c for c in ctx.deck.get("cards") or [] if c.get("name")}
+    # keep enrichment (type, cmc, tags, text) for cards already in the deck; only quantity changes
+    return {**ctx.deck, "cards": [{**known.get(c["name"], {}), "name": c["name"], "quantity": c.get("qty", 1)}
+                                  for c in override]}
 
 
 def _metrics(deck: Dict[str, Any], fp: str, is_override: bool, ctx: ToolContext):
@@ -66,7 +69,10 @@ def _section(name: str, deck: Dict[str, Any], fp: str, is_override: bool, ctx: T
         return out
     out = {k: getattr(ev, k) for k in _POWER_KEYS}
     if ctx.allow_hypothetical:
-        est = brew_power.estimate_power_level(list(deck.get("cards") or []),
+        cards = list(deck.get("cards") or [])
+        have = {c.get("name") for c in cards}
+        cards += [{"name": n, "quantity": 1} for n in deck.get("commanders") or [] if n and n not in have]
+        est = brew_power.estimate_power_level(cards,
                                               game_changers=None if ctx.game_changers is None else list(ctx.game_changers))
         out["brew_estimate"] = {"power": est.get("power"), "breakdown": est.get("breakdown")}
     return out
