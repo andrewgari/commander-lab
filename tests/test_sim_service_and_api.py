@@ -345,7 +345,7 @@ class TestReview(Base):
         def reply(messages):
             data = json.loads(good_reply(messages).split("```json\n")[1].split("\n```")[0])
             data["tempo_and_mana_read"] = "Commander landed on turn 5. A made up 73.3141 percent figure appeared."
-            data["actionable_tweaks"] = ["Add 17 lands.", "Add one land.", "Trim the top end."]
+            data["actionable_tweaks"] = ["Add 87 lands.", "Add one land.", "Trim the top end."]
             return "```json\n" + json.dumps(data) + "\n```"
         run_sync(self.r, self.deck, {}, FakeSim(), FakeOracle(reply))
         rv = ss.load_latest(self.r, self.deck)["report"]["oracle_review"]
