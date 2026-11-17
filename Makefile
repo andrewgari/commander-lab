@@ -12,7 +12,8 @@ deploy:
 # GitHub main. Run after the PR is merged and the version bump has landed.
 # See docs/GITOPS.md.
 deploy-push:
-	curl -fsS -X POST http://192.168.50.3:9009/api/stacks/webhooks/$$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook) && echo "webhook triggered"
+	@test -n "$(PORTAINER_URL)" || { echo "PORTAINER_URL must be set (see .env.example)"; exit 1; }
+	curl -fsS -X POST $(PORTAINER_URL)/api/stacks/webhooks/$$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook) && echo "webhook triggered"
 
 # LEGACY, do not use: Gitea-based setup; stack 124 tracks GitHub (see docs/GITOPS.md).
 gitops-setup:
