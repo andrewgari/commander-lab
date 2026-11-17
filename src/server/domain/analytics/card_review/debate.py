@@ -12,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
+from src.server.domain.llm.port import LLMError
+
 from . import config as cfg
 from .llm import DebateLLM
 from .packet import ReviewContext, band, p_keep, packet_numbers, tier_of, unknown_numbers
@@ -120,7 +122,10 @@ def _call_json(llm: DebateLLM, role: str, system: str, user: str, temperature: f
     """One call plus one 'valid JSON only' retry (§3.5 step 1). None if both replies are unusable."""
     for attempt in range(2):
         msg = user if attempt == 0 else user + "\n\nReturn valid JSON only."
-        parsed = extract_json(llm.complete(role, system, msg, temperature=temperature))
+        try:
+            parsed = extract_json(llm.complete(role, system, msg, temperature=temperature))
+        except LLMError:  # oracle offline / over budget / no evidence: this turn is empty, the debate goes on
+            return None
         if parsed is not None:
             return parsed
     return None
@@ -227,8 +232,11 @@ def run_judge(llm: DebateLLM, ev, packet: Dict[str, str], transcript: List[dict]
     user = json.dumps({"packet": packet, "transcript": transcript, "conceded": conceded})
     v = None
     for attempt in range(2):
-        raw = extract_json(llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
-                                        temperature=dcfg.judge_temperature))
+        try:
+            raw = extract_json(llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
+                                            temperature=dcfg.judge_temperature))
+        except LLMError:  # judge could not run: deterministic fallback verdict
+            break
         v = validate_verdict(raw, packet, transcript) if raw else None
         if v:
             break

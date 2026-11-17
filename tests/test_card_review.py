@@ -518,3 +518,35 @@ def test_oracle_debate_non_json_reply_is_repaired():
     llm, chat = _oracle_llm([text_turn("no json here"), text_turn(KEEP_T)])
     assert json.loads(llm.complete("keep", "sys", "user"))["side"] == "keep"
     assert len(chat.calls) == 2
+
+
+class _RaisingJudge(FakeLLM):
+    def __init__(self, exc, **kw):
+        super().__init__(**kw)
+        self.exc = exc
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            raise self.exc
+        return super().complete(role, system, user, temperature=temperature)
+
+
+@pytest.mark.parametrize("make", [lambda: __import__("src.server.domain.oracle", fromlist=["x"]).OracleBudgetExceeded("tokens"),
+                                  lambda: __import__("src.server.domain.oracle", fromlist=["x"]).OracleEvidenceMissing("deck_stats"),
+                                  lambda: __import__("src.server.domain.llm.port", fromlist=["x"]).LLMUnavailable("down")])
+def test_judge_oracle_failure_falls_back_instead_of_raising(make):
+    out = run(llm=_RaisingJudge(make(), remove=REMOVE_T, keep=KEEP_T))
+    assert out["fallback"] is True
+
+
+def test_oracle_debate_llm_records_meta_on_success_and_failure_and_review_saves_it():
+    from src.server.domain.oracle import OracleEvidenceMissing
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(REMOVE_T), text_turn(KEEP_T), text_turn(verdict()), text_turn(verdict())])
+    llm.complete("remove", "s", "u")
+    assert llm.metas[0]["role"] == "remove" and llm.metas[0]["task"] == "card_review"
+    with pytest.raises(OracleEvidenceMissing):
+        llm.complete("judge", "s", "u")
+    assert llm.metas[-1]["role"] == "judge" and llm.metas[-1]["stop_reason"]
+    out = run(llm=type("L", (FakeLLM,), {"metas": [{"role": "judge", "model": "m"}]})(remove=REMOVE_T, keep=KEEP_T, judge=verdict()))
+    assert out["llm"] == {"calls": [{"role": "judge", "model": "m"}]}

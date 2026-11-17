@@ -23,6 +23,7 @@ class OracleDebateLLM:
     def __init__(self, oracle_factory: Callable[[], Any], ctx_factory: Callable[[], Any]):
         self._oracle_factory = oracle_factory
         self._ctx_factory = ctx_factory
+        self.metas: list = []  # one {"role", **to_job_meta()} per oracle run, failures included
 
     def complete(self, role: Role, system: str, user: str, *, temperature: float = 0.0) -> str:
         from src.server.domain.oracle.tools import build_registry
@@ -35,8 +36,15 @@ class OracleDebateLLM:
 
         oracle = self._oracle_factory()
         ctx = self._ctx_factory()
-        res = oracle.run(task="card_review",
-                         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                         registry=build_registry(list(TOOLS), ctx), ctx=ctx, validate=validate,
-                         required_evidence=JUDGE_EVIDENCE if role == "judge" else {})
+        try:
+            res = oracle.run(task="card_review",
+                             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                             registry=build_registry(list(TOOLS), ctx), ctx=ctx, validate=validate,
+                             required_evidence=JUDGE_EVIDENCE if role == "judge" else {})
+        except Exception as exc:
+            trace = getattr(exc, "trace", None)
+            if trace is not None:
+                self.metas.append({"role": role, **trace.to_job_meta()})
+            raise
+        self.metas.append({"role": role, **res.trace.to_job_meta()})
         return res.text

@@ -80,6 +80,8 @@ def run_review(ev: EvaluationResult, ctx: ReviewContext, deck_names: Sequence[st
            "fallback": v["fallback"], "transcript": transcript, "discarded": v["discarded"],
            "winning_claims": v["winning_claims"], "flags": flags, "rounds": dcfg.rounds,
            "packet": packet}
+    if getattr(llm, "metas", None):
+        out["llm"] = {"calls": list(llm.metas)}
 
     # --- replacements ---------------------------------------------------------------------------
     if v["verdict"] == "remove":
