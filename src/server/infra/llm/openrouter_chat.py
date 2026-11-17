@@ -5,15 +5,17 @@ Authorization header; it is never logged and never part of an error message.
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 import time
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import httpx
 
 from src.server.domain.analytics.review_pipeline.llm import LLMTransportError
-from src.server.domain.llm.port import LLMAuthError, LLMResponseError, LLMUnavailable
+from src.server.domain.llm.port import (ChatTurn, LLMAuthError, LLMResponseError, LLMUnavailable, ToolCall,
+                                        Usage)
 from src.server.infra.llm.provider import OPENROUTER_BASE_URL, ProviderUnavailable, _post
 
 REFERER = "https://github.com/andrewgari/commander-lab"
@@ -22,12 +24,8 @@ ALLOWED_EXTRAS = ("temperature", "response_format", "tools", "tool_choice")
 PING_TIMEOUT_S = 8.0
 
 
-@dataclass(frozen=True)
-class LLMUsage:
-    tokens_in: int = 0
-    tokens_out: int = 0
-    cached_tokens: int = 0
-    cost_usd: Optional[float] = None
+LLMUsage = Usage  # re-export under the historical name
+log = logging.getLogger(__name__)
 
 
 class OpenRouterChat:
@@ -44,7 +42,8 @@ class OpenRouterChat:
         self._base = base_url.rstrip("/")
         self._sleep = sleep
         self._http = httpx.Client(timeout=timeout, transport=transport)
-        self.last_usage: Optional[LLMUsage] = None
+        self.last_usage: Optional[Usage] = None
+        self._turns = 0
 
     def _headers(self) -> Dict[str, str]:
         return {"Authorization": f"Bearer {self._key}", "HTTP-Referer": REFERER, "X-Title": TITLE}
@@ -64,6 +63,9 @@ class OpenRouterChat:
         return body
 
     def chat(self, messages: List[Dict[str, Any]], **extra) -> str:
+        return self._parse(self._request(messages, extra))
+
+    def _request(self, messages: List[Dict[str, Any]], extra: Dict[str, Any]) -> Dict[str, Any]:
         body = self._body(messages, extra)
         url = f"{self._base}/chat/completions"
         try:
@@ -77,7 +79,7 @@ class OpenRouterChat:
             raise LLMUnavailable(self._redact(str(exc))[:200]) from None
         except LLMTransportError as exc:
             raise LLMResponseError(self._redact(str(exc))[:300]) from None
-        return self._parse(data)
+        return data
 
     def _redact(self, text: str) -> str:
         """Remove the API key (and any bearer token) from upstream/transport text before it reaches an error."""
@@ -91,27 +93,93 @@ class OpenRouterChat:
             content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError):
             raise LLMResponseError("OpenRouter reply had no message content") from None
-        if content is None:
-            content = ""
-        elif isinstance(content, list):
-            content = "".join(p["text"] for p in content
-                              if isinstance(p, dict) and isinstance(p.get("text"), str))
-        elif not isinstance(content, str):
-            raise LLMResponseError("OpenRouter reply content had an unexpected type")
-        u = data.get("usage") or {}
-        try:
-            det = u.get("prompt_tokens_details") or {}
-            cost = u.get("cost")
-            self.last_usage = LLMUsage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0),
-                                       int(det.get("cached_tokens") or 0),
-                                       float(cost) if cost is not None else None)
-        except (AttributeError, TypeError, ValueError):
-            raise LLMResponseError("OpenRouter reply had malformed usage") from None
+        content = self._norm_content(content)
+        self._set_usage(data)
         if choice.get("finish_reason") == "length":
             raise LLMResponseError("reply truncated at max_tokens")
         if not content.strip():
             raise LLMResponseError("empty reply")
         return content
+
+    @staticmethod
+    def _norm_content(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            return "".join(p["text"] for p in content if isinstance(p, dict) and isinstance(p.get("text"), str))
+        if not isinstance(content, str):
+            raise LLMResponseError("OpenRouter reply content had an unexpected type")
+        return content
+
+    def _set_usage(self, data: Dict[str, Any]) -> Usage:
+        u = data.get("usage") or {}
+        try:
+            det = u.get("prompt_tokens_details") or {}
+            cost = u.get("cost")
+            usage = Usage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0),
+                          int(det.get("cached_tokens") or 0), float(cost) if cost is not None else None)
+        except (AttributeError, TypeError, ValueError):
+            raise LLMResponseError("OpenRouter reply had malformed usage") from None
+        self.last_usage = usage
+        return usage
+
+    def chat_turn(self, messages: List[Dict[str, Any]], *, tools: Optional[List[Dict[str, Any]]] = None,
+                  tool_choice: Union[str, Dict[str, Any], None] = None,
+                  response_format: Optional[Dict[str, Any]] = None,
+                  temperature: Optional[float] = None) -> ChatTurn:
+        data = self._request(messages, {"tools": tools, "tool_choice": tool_choice,
+                                        "response_format": response_format, "temperature": temperature})
+        self._turns += 1
+        try:
+            choice = data["choices"][0]
+            message = choice["message"]
+            if not isinstance(message, dict):
+                raise TypeError
+        except (KeyError, IndexError, TypeError):
+            raise LLMResponseError("OpenRouter reply had no message content") from None
+        content = self._norm_content(message.get("content"))
+        usage = self._set_usage(data)
+        finish = choice.get("finish_reason") or ""
+        if finish == "length":
+            raise LLMResponseError("reply truncated at max_tokens")
+        calls = self._parse_tool_calls(message.get("tool_calls"), self._turns)
+        if not calls and not content.strip():
+            raise LLMResponseError("empty reply")
+        model = data.get("model")
+        return ChatTurn(content, calls, str(finish), usage, model if isinstance(model, str) and model else self.model,
+                        message)
+
+    @staticmethod
+    def _parse_tool_calls(raw: Any, turn: int) -> Tuple[ToolCall, ...]:
+        if not isinstance(raw, list):
+            return ()
+        out: List[ToolCall] = []
+        for i, entry in enumerate(raw):
+            fn = entry.get("function") if isinstance(entry, dict) else None
+            name = fn.get("name") if isinstance(fn, dict) else None
+            if (not isinstance(entry, dict) or entry.get("type", "function") != "function"
+                    or not isinstance(name, str) or not name):
+                log.warning("dropping non-function tool call entry at index %d", i)
+                continue
+            cid = entry.get("id")
+            if not isinstance(cid, str) or not cid.strip():
+                cid = f"call_{turn}_{i}"
+            args = fn.get("arguments")
+            if isinstance(args, dict):
+                args_raw, parsed, err = json.dumps(args), args, None
+            else:
+                args_raw = args if isinstance(args, str) else ""
+                parsed, err = None, None
+                try:
+                    val = json.loads(args_raw) if args_raw.strip() else {}
+                    if isinstance(val, dict):
+                        parsed = val
+                    else:
+                        err = "arguments must be an object"
+                except ValueError as exc:
+                    err = f"invalid JSON: {exc}"
+            out.append(ToolCall(cid, name, parsed, args_raw, err))
+        return tuple(out)
 
     def ask(self, prompt: str, *, system: Optional[str] = None, **extra) -> str:
         msgs: List[Dict[str, Any]] = []
