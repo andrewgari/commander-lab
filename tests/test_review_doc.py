@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from src.server.domain.analytics import review_doc as rd
 from src.server.domain.analytics import review_metrics as rm
-from src.server.domain.llm.port import LLMNotConfigured, LLMResponseError, LLMUnavailable
+from src.server.domain.llm.port import LLMNotConfigured, LLMResponseError, LLMUnavailable, Usage
 from src.server.domain.oracle import LoopCaps, Oracle
 from src.server.domain.oracle.tools import ToolContext
 from src.server.app.main import app
@@ -289,6 +289,14 @@ class TestOracleLoop(unittest.TestCase):
         d = self.summ(run(FakeRedis(), Oracle(_DownChat(LLMResponseError("empty reply")), CAPS)))
         self.assertEqual(d["status"], "invalid")
         self.assertIn("empty reply", d["note"])
+
+    def test_billed_failed_call_counts_in_llm_meta(self):
+        o = Oracle(_DownChat(LLMResponseError("empty reply", usage=Usage(10, 5, 0, 0.004))), CAPS)
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertAlmostEqual(d["llm"]["cost_usd"], 0.004)
+        self.assertEqual(d["llm"]["turns"], 1)
+        self.assertEqual(d["llm"]["stop_reason"], "llm_error")
 
     def test_budget_exceeded_note(self):
         tiny = LoopCaps(max_turns=1, max_tool_calls=0, soft_cost_usd=1.0, hard_cost_usd=2.0, max_tokens_in=10**6, deadline_s=60)
