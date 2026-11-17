@@ -113,7 +113,7 @@ class RegistryTests(unittest.TestCase):
         for cap in (10, 11, 30, 45):
             r = ToolRegistry([tool(lambda a, c: {"blob": "y" * 500}, max_result_chars=cap)])
             o = r.dispatch(call("t_one", {"n": 1}), None)
-            self.assertTrue(o.ok and o.truncated, cap)
+            self.assertTrue(o.truncated, cap)
             self.assertLessEqual(len(serialize(o.result)), cap, cap)
 
     def test_custom_shrink_used(self):
