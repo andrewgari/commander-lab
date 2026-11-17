@@ -7,7 +7,7 @@ Source review: [`SM-4R.md`](SM-4R.md) (PR #225), evidence in [`sm4r/`](sm4r/).
 
 - **Main audited:** `4ae8e5b16b7137107366c8cdbea52b917b7231ac` (`fix(sim): sanitize opponent pool … (SM-4F / F5) (#263)`).
   The audit started at `45e03ac` (#262). #263 merged mid-audit, so I re-pinned to it. All file:line refs below are at `4ae8e5b`.
-- **Is :8020 serving that SHA? No.** `/api/version` = `0.4.157`. I hash-compared the assets served at `http://192.168.50.3:8020` with git blobs:
+- **Is :8020 serving that SHA? No.** `/api/version` = `0.4.157`. I hash-compared the assets served at `http://<tower-host>:8020` with git blobs:
 
 | Asset | Served md5 | Matches | Same as main `4ae8e5b`? |
 |---|---|---|---|

@@ -147,6 +147,44 @@ def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoring
     draft.setdefault("metadata", {})["estimated_power"] = estimate
 
 
+_BASIC_FOR_COLOR = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
+
+
+def _commander_identity(r: Any, commanders: List[str]) -> List[str]:
+    """Ordered WUBRG colours of the commanders' identity ([] = colourless or unknown)."""
+    if r is None:
+        return []
+    try:
+        ident = reconstruct_pools.identity_of_cards(commanders, reconstruct_pools.RedisCardCatalog(r)) or frozenset()
+    except Exception:
+        return []
+    return [c for c in "WUBRG" if c in ident]
+
+
+def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
+    """Append `need` generated basic lands (Tier 3, free), split evenly over `colors` (Wastes if none).
+
+    Runs AFTER costing so generated copies never inherit a donor/inventory entry's tier or
+    availability: a basic already supplied by a finite Tier 1/2 pool is skipped when another
+    colour is free (else the copies go in a separate Tier 3 entry); a Tier 3 basic is stacked.
+    """
+    basics = [_BASIC_FOR_COLOR[c] for c in colors] or ["Wastes"]
+    pooled = {norm_name(c["name"]) for c in cards if c.get("tier") in (1, 2)}
+    free = [b for b in basics if norm_name(b) not in pooled]
+    targets = free or basics
+    per = {b: need // len(targets) + (1 if i < need % len(targets) else 0) for i, b in enumerate(targets)}
+    for b, n in per.items():
+        if not n:
+            continue
+        for c in cards:
+            if norm_name(c["name"]) == norm_name(b) and c.get("tier") not in (1, 2):
+                c["quantity"] = int(c.get("quantity") or 1) + n
+                break
+        else:
+            cards.append({"name": b, "quantity": n, "tier": 3, "tier_label": "new", "cost": 0.0,
+                          "rationale": "Basic land to complete the 100-card deck"})
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -161,6 +199,7 @@ class _Scorer:
         self.skeleton = config.skeleton()
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+        self.gate: Any = None  # TierGate; set by the builder so picks are admission-aware
         self.source_names: frozenset = frozenset()
         self.source_oracle_ids: frozenset = frozenset()
 
@@ -172,18 +211,32 @@ class _Scorer:
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
             return []
-        ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
-                                        source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
-                                        target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
-        chosen = brew_scoring.select_cards(recs, ctx, cap, self.config)
-        for c in chosen:
-            self.records[c["name"]] = c
-            mv = brew_power.mana_value(c)
-            if mv is not None and not brew_power.is_land(c):
-                self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
-            for k in set(brew_scoring._matching(c, self.skeleton)):
-                self.counts[k] = self.counts.get(k, 0) + 1
+        chosen: list = []
+        # Admission-aware greedy: only admitted cards consume slots or update scoring state.
+        while len(chosen) < cap and recs:
+            ctx = brew_scoring.ScoreContext(self.commander, self.themes, self.counts, self.skeleton, self.edhrec,
+                                            source_names=self.source_names, source_oracle_ids=self.source_oracle_ids,
+                                            target_power=self.target_power, mv_sum=self.mv_sum, mv_n=self.mv_n)
+            batch = brew_scoring.select_cards(recs, ctx, cap - len(chosen), self.config)
+            if not batch:
+                break
+            progressed = False
+            for c in batch:
+                recs = [x for x in recs if x["name"] != c["name"]]
+                if self.gate is not None and not self.gate.admit(c):
+                    continue
+                progressed = True
+                chosen.append(c)
+                self.records[c["name"]] = c
+                mv = brew_power.mana_value(c)
+                if mv is not None and not brew_power.is_land(c):
+                    self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
+                for k in set(brew_scoring._matching(c, self.skeleton)):
+                    self.counts[k] = self.counts.get(k, 0) + 1
+                break  # re-score after every admitted card so state stays exact
+            if not progressed and not recs:
+                break
         return [c["name"] for c in chosen]
 
 
@@ -226,6 +279,9 @@ class StubBrewBuilder(BaseBrewBuilder):
 
         cards: list[dict] = []
         used = set()
+        scorer = _Scorer(r, session, BrewScoringConfig.from_env())
+        gate = brew_power.TierGate(scorer.target_power, scorer.config.power)
+        scorer.gate = gate
 
         for cmd in commanders:
             in_donor = any(norm_name(cmd) == norm_name(d) for d in donor_cards)
@@ -238,6 +294,7 @@ class StubBrewBuilder(BaseBrewBuilder):
                 "rationale": "Designated commander",
             })
             used.add(norm_name(cmd))
+            gate.count(_card_record(r, cmd, scorer.lab_tags))  # commanders can't be rejected but use up the tier budget
 
         for v in (pools.dropped if pools is not None else []):
             report.drop(v)
@@ -251,6 +308,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             name = resolved.name
             if norm_name(name) in used:
                 return False
+            if not gate.admit(_card_record(r, name, scorer.lab_tags)):
+                return False
             cards.append({
                 "name": name, "quantity": 1, "tier": tier,
                 "tier_label": tier_label, "cost": cost, "rationale": rationale,
@@ -263,7 +322,6 @@ class StubBrewBuilder(BaseBrewBuilder):
         else:  # owned_first
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
-        scorer = _Scorer(r, session, BrewScoringConfig.from_env())
 
         def fresh(names):
             return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
@@ -319,6 +377,7 @@ class StubBrewBuilder(BaseBrewBuilder):
                 if len(cards) >= DECK_SIZE:
                     break
                 add(*args)
+
         self.last_report = report
 
         # Re-tier and cost against the pools so provenance/cost stay truthful.
@@ -332,6 +391,12 @@ class StubBrewBuilder(BaseBrewBuilder):
             total_new_cost = round(sum(c.get("cost") or 0.0 for c in cards if c.get("tier") == 3), 2)
             is_complete = True
             unpriced = []
+
+        # Pools exhausted (small in-identity pool): fill the remainder with basics
+        # matching the commander identity (Wastes if colourless).
+        short = DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards)
+        if short > 0:
+            _fill_basics(cards, short, _commander_identity(r, commanders))
 
         name = pref.get("name") or f"{commanders[0]} brew"
         themes = list(session.get("themes") or pref.get("themes") or [])
@@ -352,7 +417,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             "is_complete": is_complete,
             "unpriced_cards": unpriced,
             "dropped_ids": list(report.dropped),
-            "missing_slots": max(DECK_SIZE - len(cards), 0),  # hook for the fill step
+            "missing_slots": max(DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards), 0),  # hook for the fill step
             "explanation": (
                 f"Brew draft ({build_mode}) for {', '.join(commanders)}"
                 + (f" — themes: {', '.join(themes)}." if themes else ".")

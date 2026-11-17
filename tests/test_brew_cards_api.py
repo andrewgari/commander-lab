@@ -20,6 +20,7 @@ import src.server.domain.draft.brew as brew
 import src.server.domain.draft.brew_builder as brew_builder
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.inventory.instances as instances
+from tests.support.brew_gate_seed import pin_gate_fill, seed_gate_catalog
 from tests.test_brew import FakeRedis, make_deck, static_price_lookup
 
 OID_RIFT = "11111111-1111-4111-8111-111111111111"
@@ -35,13 +36,15 @@ class BrewCardsAPITestBase(unittest.TestCase):
         import src.server.app.main as app_module
 
         self.r = FakeRedis()
+        seed_gate_catalog(self.r)
+        pin_gate_fill(self)
         self.deck1 = make_deck(deck_id=42, name="Atraxa Superfriends", status="physical")
         self.r.set("decks", json.dumps([self.deck1]))
         instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",
                                   deck_id="archidekt:42", deck_name="Atraxa Superfriends")
         instances.create_instance(self.r, "Demonic Tutor", ownership_status="in_collection")
         self.r.set("card_meta:Lightning Greaves",
-                   json.dumps({"color": "", "type": "Artifact — Equipment"}))
+                   json.dumps({"color": "", "type": "Artifact — Equipment", "commander_legality": "legal"}))
         # Catalog records so DELETE can resolve oracle_id -> name for cards the
         # builder wrote (which carry no oracle_id).
         for oid, name in ((OID_SOL_RING, "Sol Ring"), (OID_TUTOR, "Demonic Tutor"),
@@ -141,11 +144,12 @@ class TestAddCard(BrewCardsAPITestBase):
 
     def test_basic_land_quantities_stack_instead_of_409(self):
         sid = self._built()
+        base = sum(c["quantity"] for c in self._cards(sid) if c["name"] == "Forest")  # gate-filled basics
         self.assertEqual(self._post(sid, OID_FOREST, "Forest", qty=3).status_code, 200)
         self.assertEqual(self._post(sid, OID_FOREST, "Forest", qty=2).status_code, 200)
         forests = [c for c in self._cards(sid) if c["name"] == "Forest"]
         self.assertEqual(len(forests), 1)
-        self.assertEqual(forests[0]["quantity"], 5)
+        self.assertEqual(forests[0]["quantity"], base + 5)
 
     def test_invalid_bodies_are_422(self):
         sid = self._built()
