@@ -100,6 +100,26 @@ class ChatTurnTests(unittest.TestCase):
             make(h).chat_turn([{"role": "user", "content": "q"}])
         self.assertNotIn(KEY, str(cm.exception))
 
+    def test_malformed_tool_calls_container_rejected(self):
+        with self.assertRaises(LLMResponseError):
+            turn({"content": "text", "tool_calls": "oops"})
+
+    def test_tool_calls_finish_without_usable_calls_rejected(self):
+        with self.assertRaises(LLMResponseError):
+            turn({"content": "text", "tool_calls": [{"type": "x"}]})
+
+    def test_synthesized_id_avoids_provider_ids(self):
+        t = turn({"content": "", "tool_calls": [tc(id=""), tc(id="call_1_0")]})
+        ids = [c.id for c in t.tool_calls]
+        self.assertEqual(len(set(ids)), 2)
+        self.assertIn("call_1_0", ids)
+
+    def test_bad_argument_shapes_report_parse_error(self):
+        for bad in ("", "  ", None, 7, "[1]", "7", "null", '{"a": NaN}', '{"a": Infinity}'):
+            c = turn({"content": "", "tool_calls": [tc(args=bad)]}).tool_calls[0]
+            self.assertIsNotNone(c.parse_error, bad)
+            self.assertIsNone(c.arguments, bad)
+
 
 if __name__ == "__main__":
     unittest.main()

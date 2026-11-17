@@ -142,7 +142,12 @@ class OpenRouterChat:
         finish = choice.get("finish_reason") or ""
         if finish == "length":
             raise LLMResponseError("reply truncated at max_tokens")
-        calls = self._parse_tool_calls(message.get("tool_calls"), self._turns)
+        raw_calls = message.get("tool_calls")
+        if raw_calls is not None and not isinstance(raw_calls, list):
+            raise LLMResponseError("malformed tool_calls in reply")
+        calls = self._parse_tool_calls(raw_calls, self._turns)
+        if finish == "tool_calls" and not calls:
+            raise LLMResponseError("tool_calls finish with no usable calls")
         if not calls and not content.strip():
             raise LLMResponseError("empty reply")
         model = data.get("model")
@@ -154,6 +159,7 @@ class OpenRouterChat:
         if not isinstance(raw, list):
             return ()
         out: List[ToolCall] = []
+        used = {e["id"] for e in raw if isinstance(e, dict) and isinstance(e.get("id"), str) and e["id"].strip()}
         for i, entry in enumerate(raw):
             fn = entry.get("function") if isinstance(entry, dict) else None
             name = fn.get("name") if isinstance(fn, dict) else None
@@ -164,6 +170,11 @@ class OpenRouterChat:
             cid = entry.get("id")
             if not isinstance(cid, str) or not cid.strip():
                 cid = f"call_{turn}_{i}"
+                n = 0
+                while cid in used:
+                    n += 1
+                    cid = f"call_{turn}_{i}_{n}"
+                used.add(cid)
             args = fn.get("arguments")
             if isinstance(args, dict):
                 args_raw, parsed, err = json.dumps(args), args, None
@@ -171,7 +182,14 @@ class OpenRouterChat:
                 args_raw = args if isinstance(args, str) else ""
                 parsed, err = None, None
                 try:
-                    val = json.loads(args_raw) if args_raw.strip() else {}
+                    if not isinstance(args, str):
+                        raise ValueError("arguments must be a JSON string or object")
+                    if not args_raw.strip():
+                        raise ValueError("arguments are empty")
+
+                    def _bad(c: str) -> Any:
+                        raise ValueError(f"non-finite number {c}")
+                    val = json.loads(args_raw, parse_constant=_bad)
                     if isinstance(val, dict):
                         parsed = val
                     else:
