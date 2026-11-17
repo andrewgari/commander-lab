@@ -55,7 +55,7 @@ class BuildOracle(unittest.TestCase):
         self.assertEqual((c.max_turns, c.hard_cost_usd, c.soft_cost_usd), (3, 0.25, 0.25))
 
     def test_invalid_overrides_ignored(self):
-        for bad in ("x", "0", "-2", "nan", ""):
+        for bad in ("x", "0", "-2", "nan", "inf", ""):
             env = {**KEY, "LLM_LOOP_MAX_TURNS_SIM_REVIEW": bad, "LLM_LOOP_HARD_USD_SIM_REVIEW": bad}
             self.assertEqual(_t(build_oracle("sim_review", env=env).caps), ROWS["sim_review"], bad)
 
