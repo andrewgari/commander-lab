@@ -447,7 +447,7 @@ def build_payload(r, deck: Mapping, params: Mapping, client: sim_client.SimClien
 
 
 def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.SimClient] = None,
-              persist_focus: bool = True) -> dict:
+              persist_focus: bool = True, persist: bool = True) -> dict:
     """Validate, reserve the deck, submit to the daemon. Raises SimParamError / SimRunBusy /
     SimBusy / SimUnavailable / SimError; on any raise nothing is left reserved or recorded."""
     client = client or sim_client.SimClient()
@@ -474,7 +474,8 @@ def begin_run(r, deck: Mapping, raw_params: Any, client: Optional[sim_client.Sim
                "games_completed": 0, "games_total": params["games"], "created_at": _now_iso(),
                "fingerprint": review_metrics.fingerprint(deck)}
         _save_job(r, job)
-        sim_store.record_job_started(r, deck, {"job_id": job_id, "status": "queued"})
+        if persist:  # tool runs must not replace the user's deck:sim:job pointer
+            sim_store.record_job_started(r, deck, {"job_id": job_id, "status": "queued"})
         if persist_focus:  # tool-triggered runs must not overwrite the user's saved focus chips
             sim_focus.save_choice(r, rid, job["fingerprint"], params["focus"])
         return job
@@ -497,7 +498,7 @@ def run_job(r, job: dict, deck: Mapping, client: Optional[sim_client.SimClient] 
             oracle_factory: Optional[Callable[[str], Any]] = None, ctx_factory: Optional[Callable[..., Any]] = None,
             *, poll_interval: Optional[float] = None,
             max_wait: Optional[float] = None, sleep: Optional[Callable[[float], None]] = None,
-            skip_review: bool = False) -> dict:
+            skip_review: bool = False, persist: bool = True) -> dict:
     client = client or sim_client.SimClient()
     poll_interval = POLL_INTERVAL_S if poll_interval is None else poll_interval
     max_wait = MAX_POLL_S if max_wait is None else max_wait
@@ -505,28 +506,32 @@ def run_job(r, job: dict, deck: Mapping, client: Optional[sim_client.SimClient] 
     deck = dict(deck)
     rid = job["deck_id"]
     try:
-        _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep, skip_review, ctx_factory)
+        _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep, skip_review, ctx_factory,
+                 persist)
     except Exception as exc:  # noqa: BLE001 - the saved report must survive any failure
         log.exception("sim job %s failed", job["job_id"])
         job.update(status="failed", error=f"{type(exc).__name__}: {str(exc)[:300]}", error_kind="internal")
         if isinstance(exc, SimUnavailable):
             job["error_kind"] = "sim_unavailable"
-        try:
-            sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "failed", "error": job["error"]})
-        except Exception:  # noqa: BLE001
-            log.warning("could not close sim job pointer", exc_info=True)
+        if persist:
+            try:
+                sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "failed", "error": job["error"]})
+            except Exception:  # noqa: BLE001
+                log.warning("could not close sim job pointer", exc_info=True)
     finally:
         release(rid, job["job_id"])
     job["finished_at"] = _now_iso()
+    report = None if persist else job.pop("report", None)  # stored job record never carries the report
     try:
-        return _save_job(r, job)
+        out = _save_job(r, job)
     except Exception:  # noqa: BLE001
         log.exception("sim job %s: could not persist final state", job["job_id"])
-        return job
+        out = job
+    return {**out, "report": report} if report is not None else out
 
 
 def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep, skip_review=False,
-             ctx_factory=None) -> None:
+             ctx_factory=None, persist=True) -> None:
     job.update(status="running", started_at=_now_iso())
     _save_job(r, job)
     deadline = time.monotonic() + max_wait
@@ -549,7 +554,8 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
     job.update(status="writing_review")
     _save_job(r, job)
 
-    static = _static_review(r, deck)
+    # non-persisted (tool) runs: the caller builds its own comparison from current metrics
+    static = _static_review(r, deck) if persist else None
     comparison = sim_diff.build_sim_comparison(deck, report, static)
     if skip_review:  # oracle tool run: never start another LLM review from inside one
         review, source, note, llm_meta = {}, "skipped", "", None
@@ -577,9 +583,12 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
                                                     skip_llm=skip_review, ctx_factory=ctx_factory, r=r)
     except Exception:  # noqa: BLE001 - diagnosis must never block saving the run
         log.warning("could not build sim diagnosis", exc_info=True)
-    saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})
-    if saved is None:
-        raise RuntimeError("could not save the completed simulation")
+    if persist:
+        saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})
+        if saved is None:
+            raise RuntimeError("could not save the completed simulation")
+    else:
+        job["report"] = final
     job.update(status="done", review_source=source, error=None)
     if llm_meta:
         job["llm"] = llm_meta
