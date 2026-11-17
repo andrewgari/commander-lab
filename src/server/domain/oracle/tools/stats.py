@@ -1,6 +1,7 @@
 """deck_stats: curve / bracket / power / composition from the existing analytics."""
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List
 
 from ...draft import brew_power
@@ -8,6 +9,8 @@ from ...analytics import bracket_eval, review_metrics as rm
 from ..registry import Tool, ToolError
 from .context import ToolContext
 from .deck import deck_entries
+
+log = logging.getLogger(__name__)
 
 SECTIONS = ("curve", "bracket", "power", "composition")
 _BRACKET_KEYS = {"estimated_bracket", "estimated_bracket_name", "estimated_bracket_reason", "minimum_bracket",
@@ -42,11 +45,23 @@ def _metrics(deck: Dict[str, Any], fp: str, is_override: bool, ctx: ToolContext)
     return ctx.memo[key]
 
 
-def _evaluation(deck: Dict[str, Any], fp: str, ctx: ToolContext):
+def _evaluation(deck: Dict[str, Any], fp: str, is_override: bool, ctx: ToolContext):
+    """Returns (evaluation, inputs) where inputs is "live" or "snapshot"."""
     key = ("bracket_eval", fp)
     if key not in ctx.memo:
-        gcs = None if ctx.game_changers is None else list(ctx.game_changers)
-        ctx.memo[key] = bracket_eval.evaluate_bracket(deck, ctx.journal, {"game_changers": gcs})
+        ev, inputs = None, "snapshot"
+        if not is_override and ctx.bracket_eval is not None:
+            try:
+                ev = ctx.bracket_eval(deck)
+            except Exception:
+                log.warning("live bracket evaluation failed; using snapshot inputs", exc_info=True)
+                ev = None
+            if ev is not None:
+                inputs = "live"
+        if ev is None:
+            gcs = None if ctx.game_changers is None else list(ctx.game_changers)
+            ev = bracket_eval.evaluate_bracket(deck, ctx.journal, {"game_changers": gcs})
+        ctx.memo[key] = (ev, inputs)
     return ctx.memo[key]
 
 
@@ -60,14 +75,18 @@ def _section(name: str, deck: Dict[str, Any], fp: str, is_override: bool, ctx: T
         comp = m.get("composition") or {}
         return {"rows": comp.get("rows"), "total_cards": comp.get("total_cards"),
                 "unknown_cards": comp.get("unknown_cards")}
-    ev = _evaluation(deck, fp, ctx)
+    ev, inputs = _evaluation(deck, fp, is_override, ctx)
     if name == "bracket":
         out = ev.model_dump(include=_BRACKET_KEYS)
         out["floors"] = (ev.findings or {}).get("floors")
+        out["inputs"] = inputs
+        out["combos_checked"] = bool(((ev.findings or {}).get("two_card_combos") or {}).get("checked"))
         if ctx.game_changers is None:
             out["game_changers"] = "unavailable"
         return out
     out = {k: getattr(ev, k) for k in _POWER_KEYS}
+    if ev.power_source == "bracket_band":
+        out["note"] = "no Commander Salt or engine estimate; this is the bracket band midpoint"
     if ctx.allow_hypothetical:
         cards = list(deck.get("cards") or [])
         have = {c.get("name") for c in cards}

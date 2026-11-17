@@ -249,5 +249,111 @@ class TestDeckStats(ToolsBase):
             self.assertEqual(run(r, c, "deck_stats", a).error_kind, "bad_arguments", a)
 
 
+class TestDeckStatsLiveInputs(ToolsBase):
+    def _live(self, deck, power_source="commandersalt"):
+        from src.server.domain.analytics import bracket_eval as be
+        ev = be.evaluate_bracket(deck, None, {"game_changers": []})
+        d = ev.model_dump()
+        d["power_source"] = power_source
+        d["findings"] = {**(d.get("findings") or {}), "two_card_combos": {"checked": True, "combos": []}}
+        return be.BracketEvaluation.model_validate(d)
+
+    def test_live_inputs(self):
+        deck = make_deck()
+        c = ctx(deck=deck, bracket_eval=lambda d: self._live(d), game_changers=[])
+        d = run(self.reg(c), c, "deck_stats", {"sections": ["bracket", "power"]}).result["data"]
+        self.assertEqual(d["bracket"]["inputs"], "live")
+        self.assertTrue(d["bracket"]["combos_checked"])
+        self.assertEqual(d["power"]["power_source"], "commandersalt")
+        self.assertNotIn("note", d["power"])
+
+    def test_snapshot_note_when_band(self):
+        c = ctx(game_changers=[])
+        d = run(self.reg(c), c, "deck_stats", {"sections": ["bracket", "power"]}).result["data"]
+        self.assertEqual(d["bracket"]["inputs"], "snapshot")
+        self.assertFalse(d["bracket"]["combos_checked"])
+        if d["power"]["power_source"] == "bracket_band":
+            self.assertIn("note", d["power"])
+
+    def test_raise_falls_back_without_leaking(self):
+        def boom(d):
+            raise RuntimeError("SECRET-BOOM-TEXT")
+        c = ctx(bracket_eval=boom, game_changers=[])
+        o = run(self.reg(c), c, "deck_stats", {"sections": ["bracket", "power"]})
+        self.assertTrue(o.ok, o.result)
+        self.assertEqual(o.result["data"]["bracket"]["inputs"], "snapshot")
+        self.assertNotIn("SECRET-BOOM-TEXT", json.dumps(o.result))
+
+    def test_none_return_falls_back(self):
+        c = ctx(bracket_eval=lambda d: None, game_changers=[])
+        d = run(self.reg(c), c, "deck_stats", {"sections": ["bracket"]}).result["data"]
+        self.assertEqual(d["bracket"]["inputs"], "snapshot")
+
+    def test_override_never_calls_bracket_eval(self):
+        calls = []
+        c = ctx(bracket_eval=lambda d: calls.append(d), allow_hypothetical=True, game_changers=[])
+        o = run(self.reg(c), c, "deck_stats", {"sections": ["bracket", "power"],
+                                               "cards": [{"name": "Sol Ring"}]})
+        self.assertTrue(o.ok, o.result)
+        self.assertEqual(calls, [])
+        self.assertEqual(o.result["data"]["bracket"]["inputs"], "snapshot")
+
+    def test_called_once_per_fingerprint(self):
+        calls = []
+
+        def fn(d):
+            calls.append(1)
+            return self._live(d)
+        c = ctx(bracket_eval=fn, game_changers=[])
+        r = self.reg(c)
+        run(r, c, "deck_stats", {"sections": ["bracket", "power"]})
+        run(r, c, "deck_stats", {"sections": ["power"]}, id="c2")
+        self.assertEqual(len(calls), 1)
+
+
+class _R:
+    def __init__(self, store):
+        self.store = store
+
+    def get(self, k):
+        return self.store.get(k)
+
+
+class TestMainBracketEvalHelper(unittest.TestCase):
+    def _ctx(self, store, deck):
+        from unittest.mock import patch
+        import src.server.app.main as main
+        with patch.object(main.brackets_mod, "get_game_changers", side_effect=RuntimeError("x")):
+            return main._oracle_tool_ctx(_R(store), deck)
+
+    def test_fresh_stored_result_used_else_live(self):
+        from unittest.mock import AsyncMock, patch
+        from src.server.domain.analytics import bracket_eval as be, bracket_worker as bw
+        deck = make_deck()
+        deck["registry_id"] = "archidekt:1"
+        ev = be.evaluate_bracket(deck, None, {"game_changers": []})
+        h = bw.current_input_hash(_R({}), deck)
+        store = {bw.EVAL_PREFIX + "archidekt:1": json.dumps(
+            {"status": "ok", "input_hash": h, "result": ev.model_dump(mode="json")})}
+        c = self._ctx(store, deck)
+        self.assertIsNotNone(c.bracket_eval)
+        with patch.object(be, "evaluate_bracket_live", side_effect=AssertionError("must not run live")):
+            got = c.bracket_eval(deck)
+        self.assertEqual(got.estimated_bracket, ev.estimated_bracket)
+
+        store[bw.EVAL_PREFIX + "archidekt:1"] = json.dumps(
+            {"status": "ok", "input_hash": "stale", "result": ev.model_dump(mode="json")})
+        canned = self._canned(ev)
+        with patch.object(be, "evaluate_bracket_live", new=AsyncMock(return_value=canned)) as live:
+            got = c.bracket_eval(deck)
+        live.assert_awaited_once()
+        self.assertIs(got, canned)
+        self.assertFalse(live.await_args.kwargs.get("commandersalt", True))
+
+    @staticmethod
+    def _canned(ev):
+        return ev.model_copy(update={"estimated_bracket_reason": "canned"})
+
+
 if __name__ == "__main__":
     unittest.main()
