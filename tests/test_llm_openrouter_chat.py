@@ -109,6 +109,18 @@ class Chat(unittest.TestCase):
         with self.assertRaisesRegex(LLMResponseError, "truncated"):
             make(h).ask("q")
 
+    def test_truncated_reply_carries_usage(self):
+        def h(req):
+            return httpx.Response(200, json={"choices": [{"message": {"content": "p"}, "finish_reason": "length"}],
+                                             "usage": {"prompt_tokens": 5, "completion_tokens": 2}})
+        with self.assertRaises(LLMResponseError) as cm:
+            make(h).ask("q")
+        self.assertEqual(cm.exception.usage.tokens_in, 5)
+
+    def test_response_error_backward_compatible(self):
+        self.assertIsNone(LLMResponseError("x").usage)
+        self.assertEqual(LLMResponseError("x", 400).status, 400)
+
     def test_malformed_reply_is_response_error(self):
         for payload in ({"choices": [{"message": {"content": 5}}]},
                         {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": "abc"}},
