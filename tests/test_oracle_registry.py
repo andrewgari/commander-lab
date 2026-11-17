@@ -123,6 +123,14 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(o.result["data"], {"big": "z" * 10})
         self.assertTrue(o.truncated)
 
+    def test_tiny_cap_returns_outcome_within_cap(self):
+        r = ToolRegistry([tool(lambda a, c: {"x": "y" * 500}, max_result_chars=10)])
+        out = r.dispatch(call("t_one", {"n": 1}), None)
+        self.assertFalse(out.ok)
+        self.assertTrue(out.truncated)
+        self.assertEqual(out.error_kind, "result_too_large")
+        self.assertLessEqual(len(serialize(out.result)), 10)
+
 
 if __name__ == "__main__":
     unittest.main()

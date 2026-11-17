@@ -125,10 +125,10 @@ class ToolRegistry:
         """Answer a call that was not run (loop-level cap)."""
         return self._outcome(call, _fail(kind, message), 0)
 
-    def _outcome(self, call: ToolCall, result: Dict[str, Any], ms: int, truncated: bool = False,
-                 ok_hint: bool = False) -> ToolOutcome:
-        ok = bool(result.get("ok")) if result else bool(ok_hint)
-        kind = None if ok else (result.get("error") or {}).get("kind")
+    def _outcome(self, call: ToolCall, result: Dict[str, Any], ms: int, truncated: bool = False) -> ToolOutcome:
+        ok = bool(result.get("ok"))
+        # an absurdly small cap yields a bare `{}` result: no error body fits, so name the kind here
+        kind = None if ok else (result.get("error") or {}).get("kind", "result_too_large")
         return ToolOutcome(call_id=call.id, tool=call.name,
                            arguments=call.arguments if call.arguments is not None else call.arguments_raw,
                            ok=ok, result=result, ms=ms, truncated=truncated, error_kind=kind,
@@ -138,7 +138,7 @@ class ToolRegistry:
         t0 = self._clock()
 
         def done(result: Dict[str, Any], truncated: bool = False) -> ToolOutcome:
-            return self._outcome(call, result, int((self._clock() - t0) * 1000), truncated, ok_hint=truncated)
+            return self._outcome(call, result, int((self._clock() - t0) * 1000), truncated)
 
         tool = self._tools.get(call.name)
         if tool is None:  # 1
@@ -188,8 +188,5 @@ class ToolRegistry:
         if fitted is None:
             fitted = {"ok": True, "data": {}, "truncated": True}
             if len(serialize(fitted)) > tool.max_result_chars:
-                # absurdly small cap: shed keys until it fits, never exceed it and never raise
-                fitted = {"ok": True}
-                if len(serialize(fitted)) > tool.max_result_chars:
-                    fitted = {}
+                fitted = {}  # absurdly small cap: send nothing rather than exceed it
         return done(fitted, truncated=True)
