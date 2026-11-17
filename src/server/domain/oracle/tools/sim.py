@@ -4,7 +4,9 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Mapping, Optional
 
-from ...analytics import sim_diff, sim_service, sim_store
+from collections.abc import Mapping as _Mapping
+
+from ...analytics import review_metrics, sim_diff, sim_service, sim_store
 from ...analytics.sim_client import SimBusy, SimUnavailable
 from ..registry import Tool, ToolError
 from .context import ToolContext
@@ -23,8 +25,13 @@ class SimRunner:
         self.r, self.deck, self.client = r, deck, client
         self.max_wait_s, self.sleep = max_wait_s, sleep
 
-    def _comparison(self, report: Mapping) -> dict:
-        static = sim_service._static_review(self.r, self.deck)
+    def _comparison(self, report: Mapping, metrics: Any = None) -> dict:
+        static = metrics
+        if static is None:
+            try:
+                static = review_metrics.review_deck(self.r, dict(self.deck))
+            except Exception:  # noqa: BLE001 - comparison degrades to no review metrics
+                static = None
         return sim_service._slim_comparison(sim_diff.build_sim_comparison(dict(self.deck), report, static))
 
     def _matches_pod(self, report: Mapping) -> bool:
@@ -35,7 +42,7 @@ class SimRunner:
         return params.get("opponent_mode") == "standard" and pod is not None and bool(saved) \
             and saved == pod.get("updated_at")
 
-    def run(self, games: int) -> Dict[str, Any]:
+    def run(self, games: int, metrics: Any = None) -> Dict[str, Any]:
         doc = sim_store.load_latest(self.r, self.deck, persist_stale=False)
         if doc and not (doc.get("meta") or {}).get("stale") and isinstance(doc.get("report"), Mapping) \
                 and self._matches_pod(doc["report"]):
@@ -43,13 +50,13 @@ class SimRunner:
             have = (report.get("summary") or {}).get("games") or (doc.get("meta") or {}).get("games") or 0
             if isinstance(have, (int, float)) and have >= games:
                 return {"source": "saved", "saved_at": (doc.get("meta") or {}).get("saved_at"),
-                        "games": have, "comparison": self._comparison(report)}
+                        "games": have, "comparison": self._comparison(report, metrics)}
         try:
             job = sim_service.begin_run(self.r, self.deck, {"opponent_mode": "standard", "games": games,
                                                             "notes": "oracle tool run"}, self.client,
-                                         persist_focus=False)
+                                         persist_focus=False, persist=False)
             job = sim_service.run_job(self.r, job, self.deck, self.client, oracle_factory=_NO_REVIEW,
-                                      max_wait=self.max_wait_s, sleep=self.sleep, skip_review=True)
+                                      max_wait=self.max_wait_s, sleep=self.sleep, skip_review=True, persist=False)
         except sim_service.SimParamError as exc:
             raise ToolError("sim_not_configured", str(exc)[:200])
         except (sim_service.SimRunBusy, SimBusy):
@@ -65,16 +72,17 @@ class SimRunner:
             if "TimeoutError" in str(job.get("error") or ""):
                 raise ToolError("sim_timeout", "the simulation did not finish in time")
             raise ToolError("sim_failed", str(job.get("error") or "simulation failed")[:200])
-        saved = sim_store.load_latest(self.r, self.deck, persist_stale=False) or {}
-        report = saved.get("report") or {}
+        report = job.get("report")
+        if not isinstance(report, _Mapping):
+            raise ToolError("sim_failed", "simulation finished without a report")
         return {"source": "new_run", "job_id": job.get("job_id"), "games": job.get("games_total", games),
-                "comparison": self._comparison(report)}
+                "comparison": self._comparison(report, metrics)}
 
 
 def _sim_run(args: dict, ctx: ToolContext) -> dict:
     if ctx.sim is None:
         raise ToolError("unavailable", "simulation is not available in this context")
-    return ctx.sim.run(args["games"])
+    return ctx.sim.run(args["games"], metrics=ctx.metrics)
 
 
 def sim_run_tool() -> Tool:
