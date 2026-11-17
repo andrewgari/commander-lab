@@ -104,12 +104,22 @@ backup as described above.
   and `--reload`, and adds Unraid UI labels. It also bind-mounts
   `/mnt/user/appdata/commander-lab/secrets` (root-only, mode 700) read-only at
   `/run/commander-lab-secrets`. Each file in that directory holds one API key
-  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`). The
+  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`,
+  `OPENROUTER_API_KEY`). The
   interaction-graph tagger reads keys from there when the variable isn't set
   in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
   To rotate a key, rewrite its file (`umask 077`), then restart
   `commander-lab-app`.
-- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` (empty = oracle features disabled) is
+- OpenRouter (oracle tool loop, `src/server/domain/oracle`,
+  `src/server/infra/llm/factory.py`): `OPENROUTER_API_KEY` env var, or the file
+  `secrets/OPENROUTER_API_KEY` in the same root-only secrets dir (read when the
+  env var is empty). Optional: `LLM_MODEL`, `LLM_MODEL_<TASK>`, `LLM_TIMEOUT_S`,
+  `OPENROUTER_BASE_URL`, `LLM_LOOP_MAX_TURNS_<TASK>`, `LLM_LOOP_HARD_USD_<TASK>`.
+  An unset key makes Deep Review show the offline note. Smoke test from prod:
+  `ssh tower 'docker exec commander-lab-app python -c "from src.server.infra.llm.provider import provider_status; print(provider_status()[\"openrouter\"])"'`
+  prints `None` when configured (it never prints the key). To rotate, rewrite
+  the file (`umask 077`) and restart `commander-lab-app`.
+- Legacy: oracle (Theory docs, `src/server/domain/analytics/oracle_client.py`): `ORACLE_URL` (empty = oracle features disabled) is
   `http://<oracle-host>:8645` (oracle's own standalone Hermes gateway on the
   Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
   `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
@@ -119,6 +129,8 @@ backup as described above.
   `8645/tcp` from Tower (`<tower-host>`). Smoke test from prod:
   `ssh tower 'docker exec commander-lab-app python -m analytics.oracle_client'`
   prints `oracle online`; `OracleUnavailable` means oracle is down or blocked.
+  Still used by Theory docs and Personality Read until they move to the
+  OpenRouter loop; new LLM features use OPENROUTER_API_KEY.
 - `Makefile` `deploy-push`: triggers the stack 124 webhook.
 
 ## Legacy / stale paths (do not use)
