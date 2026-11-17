@@ -4978,6 +4978,48 @@ def _oracle_client():
     return OracleClient.from_env()
 
 
+def _oracle(task: str):
+    """Capped oracle tool loop for a task (infra.llm.factory.build_oracle). Raises LLMNotConfigured."""
+    from src.server.infra.llm.factory import build_oracle
+
+    return build_oracle(task)
+
+
+def _oracle_tool_ctx(r, deck, **kw):
+    """ToolContext for an oracle run. Call from the job thread; any failing source becomes None."""
+    from src.server.domain.oracle.tools import ToolContext
+
+    def _safe(fn):
+        try:
+            return fn()
+        except Exception:
+            logging.getLogger(__name__).warning("oracle tool ctx source failed", exc_info=True)
+            return None
+
+    def _scryfall_batch():
+        from src.server.domain.analytics import fact_sources
+
+        return fact_sources.default_fetchers()["scryfall_batch"]
+
+    def _compute_metrics():
+        from src.server.domain.analytics import review_metrics
+
+        return lambda d: review_metrics.review_deck(r, dict(d))
+
+    def _journal():
+        rec = journal_mod.load_journal(r, deck)
+        return journal_mod.public(rec) if rec else None
+
+    def _game_changers():
+        gc = asyncio.run(brackets_mod.get_game_changers(r))
+        return list(gc.cards)
+
+    fields = dict(scryfall_batch=_safe(_scryfall_batch), compute_metrics=_safe(_compute_metrics),
+                  journal=_safe(_journal), game_changers=_safe(_game_changers))
+    fields.update(kw)
+    return ToolContext(deck=deck, **fields)
+
+
 def _oracle_offline(detail: str = ""):
     from src.server.domain.analytics.oracle_client import OFFLINE_MESSAGE
 
