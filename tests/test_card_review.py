@@ -520,7 +520,7 @@ def test_oracle_debate_non_json_reply_is_repaired():
     assert len(chat.calls) == 2
 
 
-# ---- QA round 1: judge failure falls back; llm meta saved (spec 9.5 d/e) ---------------------------
+# ---- QA round 1: judge failure propagates (spec §4); llm meta saved (spec 9.5 d/e) ---------------------------
 
 class _RaisingJudge:
     def __init__(self, exc):
@@ -538,11 +538,10 @@ class _RaisingJudge:
     lambda: __import__("src.server.domain.oracle.errors", fromlist=["x"]).OracleEvidenceMissing("no evidence"),
     lambda: __import__("src.server.domain.llm.port", fromlist=["x"]).LLMUnavailable("down"),
 ])
-def test_judge_oracle_failure_returns_fallback(make_exc):
-    out = run(llm=_RaisingJudge(make_exc()))
-    assert out["fallback"] is True
-    assert out["verdict"] in ("keep", "remove")
-    assert out["confidence"] <= 0.60
+def test_judge_oracle_failure_propagates_as_job_error(make_exc):
+    exc = make_exc()
+    with pytest.raises(type(exc)):
+        run(llm=_RaisingJudge(exc))
 
 
 def test_review_saves_llm_meta_on_success():
@@ -559,9 +558,12 @@ def test_review_saves_llm_meta_on_success():
 def test_review_saves_llm_meta_on_judge_failure():
     from tests.oracle_fakes import text_turn
     llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])  # judge never checks evidence
-    out = run(llm=_RoleSplit(llm))
-    assert out["fallback"] is True
-    assert out["llm"]["role"] == "judge" and out["llm"]["stop_reason"]
+    from src.server.domain.oracle import OracleEvidenceMissing
+    with pytest.raises(OracleEvidenceMissing) as ei:
+        run(llm=_RoleSplit(llm))
+    assert str(ei.value) == "oracle answered without checking curve/bracket/power"
+    meta = llm.llm_meta()
+    assert meta["role"] == "judge" and meta["stop_reason"]
 
 
 class _RoleSplit:

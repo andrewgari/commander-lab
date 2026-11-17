@@ -13,6 +13,7 @@ class DebateLLM(Protocol):
 
 
 TOOLS = ("get_deck", "card_lookup", "deck_stats")
+EVIDENCE_NOTE = "oracle answered without checking curve/bracket/power"
 JUDGE_EVIDENCE = {"deck_stats": frozenset({"curve", "bracket", "power"})}
 
 
@@ -62,6 +63,8 @@ class OracleDebateLLM:
                              required_evidence=JUDGE_EVIDENCE if role == "judge" else {})
         except Exception as exc:
             self._record(role, getattr(exc, "trace", None), None)
+            if type(exc).__name__ == "OracleEvidenceMissing":
+                exc.args = (EVIDENCE_NOTE,)  # job error text (spec §4)
             raise
         self._record(role, res.trace, res.outputs)
         return res.text
