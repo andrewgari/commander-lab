@@ -1,9 +1,8 @@
 """LLM provider boundary. The debate only ever talks to a DebateLLM; tests pass a scripted fake."""
 from __future__ import annotations
 
-from typing import Callable, Optional, Protocol
-
-from src.server.domain.llm.port import ChatClient
+import threading
+from typing import Any, Callable, Optional, Protocol
 
 Role = str  # "remove" | "keep" | "judge"
 
@@ -13,15 +12,77 @@ class DebateLLM(Protocol):
         """Return the raw model reply (the runner parses and validates the JSON)."""
 
 
-class OracleLLM:
-    """Production adapter: the `oracle` Hermes profile via analytics.oracle_client.OracleClient.
+TOOLS = ("get_deck", "card_lookup", "deck_stats")
+JUDGE_EVIDENCE = {"deck_stats": frozenset({"curve", "bracket", "power"})}
+
+
+class OracleDebateLLM:
+    """Production adapter: one capped oracle tool-loop run per debate call (spec oracle-tool-loop §3).
+    The judge must check the deck's curve, bracket and power before ruling; advocates need no evidence.
     Oracle fixes its own sampling, so `temperature` is advisory and not forwarded."""
 
-    def __init__(self, client_factory: Callable[[], ChatClient]):
-        self._factory = client_factory
-        self._client: Optional[ChatClient] = None
+    def __init__(self, oracle_factory: Callable[[], Any], ctx_factory: Callable[[], Any]):
+        self._oracle_factory = oracle_factory
+        self._ctx_factory = ctx_factory
+        self._lock = threading.Lock()
+        self._judge: Optional[dict] = None
+        self._last: Optional[dict] = None
+
+    def llm_meta(self) -> Optional[dict]:
+        """Judge run meta (model/trace + evidence), else the last advocate run; None before any call."""
+        with self._lock:
+            return self._judge or self._last
+
+    def _record(self, role: str, trace: Any, outputs: Any) -> None:
+        if trace is None:
+            return
+        evidence = [{"tool": "deck_stats", "sections": list((o.arguments or {}).get("sections") or [])}
+                    for o in (outputs or []) if o.ok and o.tool == "deck_stats"]
+        meta = {**trace.to_job_meta(), "role": role, "evidence": evidence}
+        with self._lock:
+            self._last = meta
+            if role == "judge":
+                self._judge = meta
 
     def complete(self, role: Role, system: str, user: str, *, temperature: float = 0.0) -> str:
-        if self._client is None:
-            self._client = self._factory()
-        return self._client.chat([{"role": "system", "content": system}, {"role": "user", "content": user}])
+        from src.server.domain.oracle.tools import build_registry
+        from .debate import extract_json
+
+        def validate(text: str, state: Any) -> list:
+            if extract_json(text) is None:
+                return ["reply must contain a JSON object"]
+            return []
+
+        oracle = self._oracle_factory()
+        ctx = self._ctx_factory()
+        try:
+            res = oracle.run(task="card_review",
+                             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                             registry=build_registry(list(TOOLS), ctx), ctx=ctx, validate=validate,
+                             required_evidence=JUDGE_EVIDENCE if role == "judge" else {})
+        except Exception as exc:
+            self._record(role, getattr(exc, "trace", None), None)
+            raise
+        self._record(role, res.trace, res.outputs)
+        return res.text
+
+
+EVIDENCE_NOTE = "oracle answered without checking curve/bracket/power"
+
+
+def run_with_llm_meta(llm: Any, work: Callable[[], dict]) -> dict:
+    """Run a card review and attach the oracle run meta (spec §5). A judge that did not check
+    curve/bracket/power, or that hit its budget, makes the result `invalid` with a note (spec §9.5 d);
+    LLMUnavailable and every other error propagate so the job fails (spec §4)."""
+    from src.server.domain.oracle import OracleBudgetExceeded, OracleEvidenceMissing
+
+    meta_fn = getattr(llm, "llm_meta", None)
+    meta = lambda: meta_fn() if callable(meta_fn) else None  # noqa: E731
+    try:
+        out = work()
+    except OracleEvidenceMissing:
+        return {"oracle_status": "invalid", "oracle_note": EVIDENCE_NOTE, "llm": meta()}
+    except OracleBudgetExceeded as exc:
+        return {"oracle_status": "invalid", "oracle_note": f"oracle hit its {exc.reason} budget"[:300], "llm": meta()}
+    out["llm"] = meta()
+    return out

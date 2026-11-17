@@ -472,3 +472,119 @@ def test_endpoint_validation(client):
     assert c.post("/api/decks/archidekt:1/cards/Krenko, Mob Boss/review").status_code == 400
     assert c.post("/api/decks/archidekt:1/cards/Blasphemous%20Act/review", json={"rounds": 9}).status_code == 422
     assert c.get("/api/decks/archidekt:1/cards/Blasphemous%20Act/review/jobs/missing").status_code == 404
+
+
+# ---- oracle tool-loop adapter (OL-8) ----------------------------------------------------------------
+
+def _oracle_llm(turns):
+    from src.server.domain.analytics.card_review import OracleDebateLLM
+    from src.server.domain.oracle import Oracle
+    from src.server.domain.oracle.types import LoopCaps
+    from tests.oracle_fakes import ScriptedToolChat
+    chat = ScriptedToolChat(turns)
+    caps = LoopCaps(max_turns=6, max_tool_calls=8, soft_cost_usd=0.2, hard_cost_usd=0.35, max_tokens_in=150_000,
+                    deadline_s=60, nudges=1, repairs=1)
+    from src.server.domain.oracle.tools import ToolContext
+    deck = {"name": "Krenko", "cards": [{"name": n, "quantity": 1} for n in DECK]}
+    ctx = ToolContext(deck=deck, metrics={"curve": {}, "bracket": {}, "power": {}})
+    return OracleDebateLLM(lambda: Oracle(chat, caps), lambda: ctx), chat
+
+
+def test_oracle_debate_advocate_needs_no_evidence():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(REMOVE_T)])
+    assert json.loads(llm.complete("remove", "sys", "user"))["side"] == "remove"
+    assert len(chat.calls) == 1
+    assert {t["function"]["name"] for t in chat.calls[0]["tools"]} == {"get_deck", "card_lookup", "deck_stats"}
+
+
+def test_oracle_debate_judge_without_evidence_is_nudged_then_fails():
+    from src.server.domain.oracle import OracleEvidenceMissing
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])
+    with pytest.raises(OracleEvidenceMissing):
+        llm.complete("judge", "sys", "user")
+    assert len(chat.calls) == 2
+
+
+def test_oracle_debate_judge_with_deck_stats_answers():
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})), text_turn(verdict())])
+    assert json.loads(llm.complete("judge", "sys", "user"))["verdict"] == "remove"
+
+
+def test_oracle_debate_non_json_reply_is_repaired():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn("no json here"), text_turn(KEEP_T)])
+    assert json.loads(llm.complete("keep", "sys", "user"))["side"] == "keep"
+    assert len(chat.calls) == 2
+
+
+# ---- QA round 2: invalid on missing evidence/budget, LLMUnavailable propagates; llm meta (spec 4/5/9.5 d) ----
+
+class _RoleSplit:
+    """Advocates answer from a scripted fake; the judge goes through the real oracle adapter."""
+    def __init__(self, oracle_llm):
+        self.o = oracle_llm
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            return self.o.complete(role, system, user, temperature=temperature)
+        return self.inner.complete(role, system, user, temperature=temperature)
+
+    def llm_meta(self):
+        return self.o.llm_meta()
+
+
+class _RaisingJudge:
+    def __init__(self, exc):
+        self.exc = exc
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            raise self.exc
+        return self.inner.complete(role, system, user, temperature=temperature)
+
+
+def _guarded(llm):
+    from src.server.domain.analytics.card_review import run_with_llm_meta
+    return run_with_llm_meta(llm, lambda: run(llm=llm))
+
+
+def test_judge_evidence_missing_is_invalid_not_fallback():
+    from src.server.domain.oracle.errors import OracleEvidenceMissing
+    out = _guarded(_RaisingJudge(OracleEvidenceMissing("no evidence")))
+    assert out["oracle_status"] == "invalid"
+    assert out["oracle_note"] == "oracle answered without checking curve/bracket/power"
+    assert "fallback" not in out
+
+
+def test_judge_budget_exceeded_is_invalid():
+    from src.server.domain.oracle.errors import OracleBudgetExceeded
+    out = _guarded(_RaisingJudge(OracleBudgetExceeded("cost")))
+    assert out["oracle_status"] == "invalid" and "cost" in out["oracle_note"]
+
+
+def test_llm_unavailable_propagates_to_job_error():
+    from src.server.domain.llm.port import LLMUnavailable
+    with pytest.raises(LLMUnavailable):
+        _guarded(_RaisingJudge(LLMUnavailable("down")))
+
+
+def test_review_saves_llm_meta_on_success():
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})),
+                             text_turn(verdict())])
+    meta = _guarded(_RoleSplit(llm))["llm"]
+    assert meta["task"] == "card_review" and meta["role"] == "judge"
+    assert meta["evidence"] == [{"tool": "deck_stats", "sections": ["curve", "bracket", "power"]}]
+
+
+def test_review_saves_llm_meta_on_judge_failure():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])  # judge never checks evidence
+    out = _guarded(_RoleSplit(llm))
+    assert out["oracle_status"] == "invalid"
+    assert out["llm"]["role"] == "judge" and out["llm"]["stop_reason"]
