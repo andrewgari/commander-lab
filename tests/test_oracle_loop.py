@@ -368,10 +368,6 @@ class Play(unittest.TestCase):
             play.start_play()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PartialOutcomes(unittest.TestCase):
     EV = {"deck_stats": frozenset({"curve", "bracket", "power"})}
 
@@ -406,3 +402,7 @@ class PartialOutcomes(unittest.TestCase):
 
     def test_response_error_after_tool_turn(self):
         self._down(LLMResponseError("down"))
+
+
+if __name__ == "__main__":
+    unittest.main()
