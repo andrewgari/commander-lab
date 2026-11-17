@@ -29,7 +29,7 @@ class Base(unittest.TestCase):
         put_decks(self.r, self.deck, user_deck(1), user_deck(2), user_deck(3))
         svc.save_pod(self.r, ["user_901"], FakeSim())
         self.addCleanup(svc._INFLIGHT.clear)
-        p = patch.object(svc, "_static_review", return_value=make_review())
+        p = patch.object(svc.review_metrics, "review_deck", return_value=make_review())
         p.start()
         self.addCleanup(p.stop)
 
@@ -48,9 +48,7 @@ class TestNewRun(Base):
         self.assertEqual(len(sim.payloads), 1)
         fp = svc.review_metrics.fingerprint(self.deck)
         self.assertIsNone(svc.sim_focus.saved_choice(self.r, svc._rid(self.deck), fp))  # user's chips untouched
-        doc = ss.load_latest(self.r, self.deck)
-        self.assertEqual(doc["report"]["oracle_review"], {"source": "skipped"})
-        self.assertEqual(doc["report"]["diagnosis"]["summary_source"], "deterministic")
+        self.assertIsNone(ss.load_latest(self.r, self.deck))  # tool run saves nothing
 
     def test_run_job_skip_review_never_calls_factory(self):
         boom = Boom()
@@ -70,6 +68,50 @@ class TestNewRun(Base):
 
         out = svc.run_job(self.r, job, self.deck, FakeSim(), factory, poll_interval=0, sleep=lambda s: None)
         self.assertEqual((out["review_source"], len(calls)), ("fallback", 1))
+
+
+class TestNoOverwrite(Base):
+    def _presave(self):
+        ss.record_job_started(self.r, self.deck, {"job_id": "user", "status": "running"})
+        ss.save_completed(self.r, self.deck, {"job_id": "user", "status": "done", "report": make_report()})
+        doc = copy.deepcopy(ss.load_latest(self.r, self.deck, persist_stale=False))
+        return doc, None
+
+    def _snapshot(self):
+        return copy.deepcopy(ss.load_latest(self.r, self.deck, persist_stale=False))
+
+    def test_new_run_keeps_saved_report_and_pointer(self):
+        before = self._presave()[0]
+        ptr = self.r.kv.get(f"deck:sim:job:{svc._rid(self.deck)}")
+        self.assertIsNotNone(ptr)  # a real user pointer exists, so preservation is exercised
+        out = self.runner(FakeSim()).run(20)
+        self.assertEqual(out["source"], "new_run")
+        after = self._snapshot()
+        self.assertEqual(after["meta"]["job_id"], "user")
+        self.assertEqual(after["report"], before["report"])
+        self.assertEqual(after, before)
+        self.assertEqual(self.r.kv.get(f"deck:sim:job:{svc._rid(self.deck)}"), ptr)
+
+    def test_failed_run_keeps_saved_report(self):
+        before = self._presave()[0]
+        sim = FakeSim(states=["failed"])
+        with self.assertRaises(ToolError):
+            self.runner(sim).run(20)
+        self.assertEqual(self._snapshot(), before)
+
+    def test_job_record_has_no_report(self):
+        out = self.runner(FakeSim()).run(20)
+        raw = self.r.kv.get(svc.run_key(out["job_id"]))
+        self.assertIsNotNone(raw)
+        self.assertNotIn("report", json.loads(raw))
+
+    def test_metrics_passed_and_saved_review_never_read(self):
+        sentinel = {"sentinel": True}
+        with patch.object(svc, "_static_review", side_effect=AssertionError("no")), \
+                patch("src.server.domain.analytics.review_doc.load_latest", side_effect=AssertionError("no")), \
+                patch("src.server.domain.analytics.sim_diff.build_sim_comparison", return_value={}) as b:
+            self.runner(FakeSim()).run(20, metrics=sentinel)
+        self.assertIs(b.call_args[0][2], sentinel)
 
 
 class TestSaved(Base):
