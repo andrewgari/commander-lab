@@ -13,6 +13,7 @@ class ToolContext:
     game_changers: Optional[Sequence[str]] = None
     scryfall_batch: Optional[Callable[[list], dict]] = None
     compute_metrics: Optional[Callable[[Mapping], Mapping]] = None
+    bracket_eval: Optional[Callable[[Mapping[str, Any]], Any]] = None  # -> bracket_eval.BracketEvaluation (live inputs)
     sim: Optional[Any] = None  # SimRunner (OL-4); None = sim_run not offered
     allow_hypothetical: bool = False
     memo: dict = field(default_factory=dict)
