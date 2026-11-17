@@ -127,7 +127,8 @@ class ToolRegistry:
 
     def _outcome(self, call: ToolCall, result: Dict[str, Any], ms: int, truncated: bool = False) -> ToolOutcome:
         ok = bool(result.get("ok"))
-        kind = None if ok else result["error"]["kind"]
+        # an absurdly small cap yields a bare `{}` result: no error body fits, so name the kind here
+        kind = None if ok else (result.get("error") or {}).get("kind", "result_too_large")
         return ToolOutcome(call_id=call.id, tool=call.name,
                            arguments=call.arguments if call.arguments is not None else call.arguments_raw,
                            ok=ok, result=result, ms=ms, truncated=truncated, error_kind=kind,
