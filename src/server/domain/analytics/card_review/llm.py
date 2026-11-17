@@ -65,3 +65,24 @@ class OracleDebateLLM:
             raise
         self._record(role, res.trace, res.outputs)
         return res.text
+
+
+EVIDENCE_NOTE = "oracle answered without checking curve/bracket/power"
+
+
+def run_with_llm_meta(llm: Any, work: Callable[[], dict]) -> dict:
+    """Run a card review and attach the oracle run meta (spec §5). A judge that did not check
+    curve/bracket/power, or that hit its budget, makes the result `invalid` with a note (spec §9.5 d);
+    LLMUnavailable and every other error propagate so the job fails (spec §4)."""
+    from src.server.domain.oracle import OracleBudgetExceeded, OracleEvidenceMissing
+
+    meta_fn = getattr(llm, "llm_meta", None)
+    meta = lambda: meta_fn() if callable(meta_fn) else None  # noqa: E731
+    try:
+        out = work()
+    except OracleEvidenceMissing:
+        return {"oracle_status": "invalid", "oracle_note": EVIDENCE_NOTE, "llm": meta()}
+    except OracleBudgetExceeded as exc:
+        return {"oracle_status": "invalid", "oracle_note": f"oracle hit its {exc.reason} budget"[:300], "llm": meta()}
+    out["llm"] = meta()
+    return out

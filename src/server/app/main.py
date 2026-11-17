@@ -3561,7 +3561,10 @@ async def api_card_review(deck_id: str, card_id: str, request: Request):
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
     llm = _card_review_llm(deck)
     try:
-        jobs.start_job(r, job, lambda emit: review_service.review_card(r, deck, card, llm, rounds, emit))
+        from src.server.domain.analytics.card_review import run_with_llm_meta
+
+        jobs.start_job(r, job, lambda emit: run_with_llm_meta(
+            llm, lambda: review_service.review_card(r, deck, card, llm, rounds, emit)))
     except Exception:
         jobs.release(job["slot"], job["job_id"])
         raise
