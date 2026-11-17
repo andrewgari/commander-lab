@@ -5018,8 +5018,20 @@ def _oracle_tool_ctx(r, deck, **kw):
         gc = asyncio.run(brackets_mod.get_game_changers(r))
         return list(gc.cards)
 
+    def _bracket_eval():
+        from src.server.domain.analytics import bracket_eval
+
+        def fn(d):
+            rec = bracket_worker.load_result(r, bracket_worker.registry_id(d))
+            if (rec and rec.get("status") == "ok" and isinstance(rec.get("result"), dict)
+                    and rec.get("input_hash") == bracket_worker.current_input_hash(r, d)):
+                return bracket_eval.BracketEvaluation.model_validate(rec["result"])
+            return asyncio.run(bracket_eval.evaluate_bracket_live(r, d, commandersalt=False))
+
+        return fn
+
     fields = dict(scryfall_batch=_safe(_scryfall_batch), compute_metrics=_safe(_compute_metrics),
-                  journal=_safe(_journal), game_changers=_safe(_game_changers))
+                  journal=_safe(_journal), game_changers=_safe(_game_changers), bracket_eval=_safe(_bracket_eval))
     fields.update(kw)
     return ToolContext(deck=deck, **fields)
 
