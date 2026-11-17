@@ -2,7 +2,7 @@
 
 Reviewer: designer · Task `t_1cee23ec` · Checked 2026-10-20, 19:50–20:15 EDT.
 Spec: [`../UX_SPEC.md`](../UX_SPEC.md). Section numbers below (§) refer to it; §13 is the checklist.
-Target: `http://192.168.50.3:8020`, Chromium, **1440×900** and **390×844**, DPR 1.
+Target: `http://<tower-host>:8020`, Chromium, **1440×900** and **390×844**, DPR 1.
 Raw measurements: [`sm4r/checks.json`](sm4r/checks.json). Screenshots: [`sm4r/`](sm4r/).
 
 This replaces the 2026-10-19 partial report, which was blocked by a 404 because the deploy hadn't landed. All of

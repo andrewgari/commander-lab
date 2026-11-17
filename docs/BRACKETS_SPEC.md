@@ -176,6 +176,8 @@ only ever declared.
 
 ## Deck check (BR-3)
 
+The full four-section Deck Check report (FR-1) is specified in docs/DECK_CHECK_SPEC.md.
+
 `analytics/bracket_check.py`: `check_deck_brackets(deck, game_changers=, combos=, oracle=)
 -> BracketFindings` (pydantic). Pure and deterministic, no LLM, no network.
 

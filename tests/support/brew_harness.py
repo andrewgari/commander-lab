@@ -270,7 +270,8 @@ def _donor_decks(commanders: Sequence[str], catalog: CardCatalog) -> List[dict]:
 def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bool = True,
              edhrec: EdhrecState = EdhrecState.AVAILABLE, degraded_kind: str = "slow",
              build_mode: str = "owned_first", builder: Any = None,
-             catalog: Optional[CardCatalog] = None) -> BrewResult:
+             catalog: Optional[CardCatalog] = None,
+             inject_commandersalt: bool = False) -> BrewResult:
     if power not in POWER_LEVELS:
         raise ValueError(f"power must be one of {POWER_LEVELS}")
     cmds = [commanders] if isinstance(commanders, str) else list(commanders)
@@ -302,9 +303,10 @@ def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bo
         session = brew.get_session(r, s["session_id"])
         deck = brew.get_drafts(r, s["session_id"])[0]
 
-    # Analytics: Commander Salt-style power only when "analytics" is reachable.
+    # By default the REAL estimate_power_level runs on the built deck. Injecting a
+    # canned Commander Salt power (3.0/6.5/8.5) masks it, so it is opt-in only.
     meta: Dict[str, Any] = {}
-    if edhrec is EdhrecState.AVAILABLE:
+    if inject_commandersalt and edhrec is EdhrecState.AVAILABLE:
         meta["commandersalt"] = {"power": {"low": 3.0, "mid": 6.5, "high": 8.5}[power]}
     ev = bracket_eval.evaluate_bracket(
         {"commanders": deck.get("commanders", cmds), "cards": deck["cards"]}, None, meta)

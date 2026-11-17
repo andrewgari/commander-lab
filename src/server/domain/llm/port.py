@@ -5,7 +5,8 @@ clients (infra or legacy adapters) raise subclasses of them.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Protocol
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
 
 UNAVAILABLE_MESSAGE = "AI writer unavailable, try again later"
 
@@ -44,3 +45,40 @@ class ChatClient(Protocol):
 
     def ask(self, prompt: str, *, system: Optional[str] = None, **extra) -> str:
         """Single-prompt convenience wrapper around chat()."""
+
+
+@dataclass(frozen=True)
+class Usage:
+    tokens_in: int = 0
+    tokens_out: int = 0
+    cached_tokens: int = 0
+    cost_usd: Optional[float] = None  # None = not reported
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    id: str  # provider id; synthesized "call_{turn}_{i}" if missing/blank
+    name: str
+    arguments: Optional[Dict[str, Any]]  # parsed JSON object, None when it did not parse
+    arguments_raw: str  # the raw string as sent
+    parse_error: Optional[str]  # "invalid JSON: ..." / "arguments must be an object"
+
+
+@dataclass(frozen=True)
+class ChatTurn:
+    content: str  # "" when the model only called tools
+    tool_calls: Tuple[ToolCall, ...]
+    finish_reason: str
+    usage: Usage
+    model: str
+    raw_message: Dict[str, Any]  # choices[0].message exactly as received
+
+
+class ToolChatClient(Protocol):
+    model: str
+
+    def chat_turn(self, messages: List[Dict[str, Any]], *, tools: Optional[List[Dict[str, Any]]] = None,
+                  tool_choice: Union[str, Dict[str, Any], None] = None,
+                  response_format: Optional[Dict[str, Any]] = None,
+                  temperature: Optional[float] = None) -> ChatTurn:
+        """Run one model turn; may return tool calls instead of text."""

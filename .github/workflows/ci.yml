@@ -84,15 +84,15 @@ jobs:
         run: |
           python -m pytest -q tests/test_card_eval.py tests/test_card_review.py tests/test_pg_store.py tests/test_app_schema_public.py tests/test_deck_writeup.py tests/test_primer_builder.py tests/test_honcho_push.py tests/test_slice1.py tests/test_forge_import.py tests/test_draft_mode.py tests/test_index_rebuild.py tests/test_card_dossier.py tests/test_cards_search.py tests/test_knowledge.py tests/test_fact_pack.py tests/test_fact_pack_reviewer.py tests/test_candidate_pool.py tests/test_candidate_invariants.py tests/test_review_pipeline_facts.py tests/test_review_pipeline_passes.py tests/test_review_pipeline_prompts.py tests/test_review_pipeline_provider.py tests/test_review_pipeline_replay.py tests/test_review_pipeline_store.py tests/test_review_pipeline_structured.py tests/test_review_pipeline_trace.py tests/test_web_*.py
 
-      # Brew verification matrix (offline: FakeRedis + fault-injected EDHREC). The 2 xfails are
-      # strict, documented production defects (F2/F3); no skips allowed.
+      # Brew verification matrix (offline: FakeRedis + fault-injected EDHREC). Also runs the production
+      # power-level matrix and integration suites; no skips or xfails allowed.
       - name: Run Brew verification matrix
         env:
           INTERACTIONS_DISABLED: "1"
         run: |
           set -o pipefail
-          python -m pytest -q -rs tests/test_brew_verification_matrix.py tests/test_brew_harness_smoke.py | tee brew-matrix.log
-          ! grep -qi "skipped" brew-matrix.log
+          python -m pytest -q -rs tests/test_brew_verification_matrix.py tests/test_brew_harness_smoke.py tests/test_brew_matrix_production.py tests/test_brew_integration.py | tee brew-matrix.log
+          ! grep -qiE "skipped|xfail|xpass" brew-matrix.log
 
       # The pgvector determinism/freshness/endpoint tests skip when the DB or the
       # extension is missing; require 0 skipped so they cannot silently not run.
