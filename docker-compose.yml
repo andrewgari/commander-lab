@@ -63,6 +63,7 @@ services:
       - ORACLE_URL=${ORACLE_URL:-}
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Deck reviewer card 11: PDF export goes through the optional `pdf` container (docker compose --profile pdf up -d),
       # which prints the web page; card art is served from the local Scryfall image cache under /data.
       - PDF_SERVICE_URL=${PDF_SERVICE_URL:-http://pdf:8100}
