@@ -5,7 +5,7 @@ import hashlib
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
-from ..llm.port import ChatTurn, LLMError, ToolChatClient, ToolCall
+from ..llm.port import ChatTurn, LLMError, ToolChatClient, ToolCall, Usage
 from .errors import OracleBudgetExceeded, OracleEvidenceMissing, OracleInvalidAnswer, OracleRunError
 from .registry import ToolRegistry, serialize
 from .types import LoopCaps, OracleResult, OracleRunState, OracleTrace, ToolOutcome
@@ -68,6 +68,24 @@ class Oracle:
             trace.stop_reason = reason
             trace.error = str(exc)
             return exc
+
+        def _record(u: Usage, kind: str) -> Dict[str, Any]:
+            st["tokens_in"] += u.tokens_in
+            trace.totals["tokens_in"] += u.tokens_in
+            trace.totals["tokens_out"] += u.tokens_out
+            if u.cost_usd is None:
+                st["cost_known"] = False
+                trace.totals["cost_usd"] = None
+            else:
+                st["cost"] += u.cost_usd
+                if trace.totals["cost_usd"] is not None:
+                    trace.totals["cost_usd"] += u.cost_usd
+            rec: Dict[str, Any] = {"n": len(trace.turns) + 1, "kind": kind,
+                                   "usage": {"tokens_in": u.tokens_in, "tokens_out": u.tokens_out,
+                                             "cached_tokens": u.cached_tokens, "cost_usd": u.cost_usd},
+                                   "calls": []}
+            trace.turns.append(rec)
+            return rec
 
         def over_deadline() -> bool:
             return self.clock() >= deadline
@@ -133,6 +151,9 @@ class Oracle:
             except LLMError as exc:
                 if isinstance(exc, OracleRunError):
                     raise
+                u = getattr(exc, "usage", None)  # a billed call that failed still counts
+                if isinstance(u, Usage):
+                    _record(u, "error")
                 # provider trouble: attach what ran and what it cost (type name only, never the text), re-raise as is
                 trace.stop_reason = "llm_error"
                 trace.error = type(exc).__name__
@@ -140,22 +161,7 @@ class Oracle:
                 exc.outputs = list(state.outputs)
                 raise
             # 3. usage
-            u = turn.usage
-            st["tokens_in"] += u.tokens_in
-            trace.totals["tokens_in"] += u.tokens_in
-            trace.totals["tokens_out"] += u.tokens_out
-            if u.cost_usd is None:
-                st["cost_known"] = False
-                trace.totals["cost_usd"] = None
-            else:
-                st["cost"] += u.cost_usd
-                if trace.totals["cost_usd"] is not None:
-                    trace.totals["cost_usd"] += u.cost_usd
-            rec: Dict[str, Any] = {"n": len(trace.turns) + 1, "kind": kind or "answer",
-                                   "usage": {"tokens_in": u.tokens_in, "tokens_out": u.tokens_out,
-                                             "cached_tokens": u.cached_tokens, "cost_usd": u.cost_usd},
-                                   "calls": []}
-            trace.turns.append(rec)
+            rec = _record(turn.usage, kind or "answer")
             if turn.model:
                 trace.model = turn.model
 

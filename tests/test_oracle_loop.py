@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.server.domain.llm.port import LLMError, LLMResponseError, LLMUnavailable  # noqa: E402
+from src.server.domain.llm.port import LLMError, LLMResponseError, LLMUnavailable, Usage  # noqa: E402
 from src.server.domain.oracle import (LoopCaps, Oracle, OracleBudgetExceeded, OracleEvidenceMissing,  # noqa: E402
                                       OracleInvalidAnswer, OracleRunError, Tool, ToolError, ToolRegistry)
 from src.server.domain.oracle.loop import EVIDENCE_NUDGE, FINALIZE_PROMPT  # noqa: E402
@@ -402,6 +402,44 @@ class PartialOutcomes(unittest.TestCase):
 
     def test_response_error_after_tool_turn(self):
         self._down(LLMResponseError("down"))
+
+
+    def _billed(self, first, usage):
+        err = LLMResponseError("reply truncated at max_tokens", usage=usage)
+
+        class Chat(ScriptedToolChat):
+            def chat_turn(self, *a, **k):
+                if not self.turns:
+                    raise err
+                return super().chat_turn(*a, **k)
+        oracle = Oracle(Chat(first), CAPS)
+        kw = dict(task="deck_review", messages=[{"role": "user", "content": "u"}], registry=registry(), ctx=None,
+                  validate=ok)
+        with self.assertRaises(LLMResponseError) as cm:
+            oracle.run(**kw)
+        self.assertIs(cm.exception, err)
+        return cm.exception
+
+    def test_billed_first_call_failure_is_recorded(self):
+        exc = self._billed([], Usage(100, 50, 0, 0.02))
+        meta = exc.trace.to_job_meta()
+        self.assertEqual(meta["turns"], 1)
+        self.assertAlmostEqual(meta["cost_usd"], 0.02)
+        self.assertEqual(exc.trace.turns[0]["kind"], "error")
+        self.assertEqual(exc.trace.turns[0]["calls"], [])
+        self.assertEqual(exc.trace.totals["tokens_in"], 100)
+        self.assertEqual(exc.trace.totals["tokens_out"], 50)
+
+    def test_billed_failure_after_tool_turn_adds_cost(self):
+        exc = self._billed([tool_turn(stats(["curve"]))], Usage(10, 5, 0, 0.02))
+        meta = exc.trace.to_job_meta()
+        self.assertEqual(meta["turns"], 2)
+        self.assertAlmostEqual(meta["cost_usd"], 0.03)
+        self.assertEqual(len(exc.outputs), 1)
+
+    def test_billed_failure_unknown_cost(self):
+        exc = self._billed([], Usage(10, 5, 0, None))
+        self.assertIsNone(exc.trace.to_job_meta()["cost_usd"])
 
 
 if __name__ == "__main__":
