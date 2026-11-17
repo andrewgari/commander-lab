@@ -64,7 +64,7 @@ class TestNewRun(Base):
         job = svc.begin_run(self.r, self.deck, {"games": 20}, FakeSim())
         calls = []
 
-        def factory():
+        def factory(task):
             calls.append(1)
             raise LLMUnavailable("down")
 
