@@ -72,6 +72,7 @@ class TestNewRun(Base):
 
 class TestNoOverwrite(Base):
     def _presave(self):
+        ss.record_job_started(self.r, self.deck, {"job_id": "user", "status": "running"})
         ss.save_completed(self.r, self.deck, {"job_id": "user", "status": "done", "report": make_report()})
         doc = copy.deepcopy(ss.load_latest(self.r, self.deck, persist_stale=False))
         return doc, None
@@ -82,6 +83,7 @@ class TestNoOverwrite(Base):
     def test_new_run_keeps_saved_report_and_pointer(self):
         before = self._presave()[0]
         ptr = self.r.kv.get(f"deck:sim:job:{svc._rid(self.deck)}")
+        self.assertIsNotNone(ptr)  # a real user pointer exists, so preservation is exercised
         out = self.runner(FakeSim()).run(20)
         self.assertEqual(out["source"], "new_run")
         after = self._snapshot()
