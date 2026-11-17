@@ -574,7 +574,7 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
 
         final["diagnosis"] = sim_diagnosis.diagnose(final.get("telemetry"), deck, static, oracle_factory,
                                                     now_iso=_now_iso(), run_id=job["job_id"],
-                                                    skip_llm=skip_review)
+                                                    skip_llm=skip_review, ctx_factory=ctx_factory, r=r)
     except Exception:  # noqa: BLE001 - diagnosis must never block saving the run
         log.warning("could not build sim diagnosis", exc_info=True)
     saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})

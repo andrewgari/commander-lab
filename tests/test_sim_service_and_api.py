@@ -422,6 +422,14 @@ class TestOracleLoop(Base):
             out = svc.run_job(self.r, job, self.deck, FakeSim(), None, poll_interval=0, sleep=lambda s: None)
         self.assertEqual(out["review_source"], "fallback")
 
+    def test_diagnosis_gets_ctx_factory_and_redis(self):
+        seen = {}
+        with patch("src.server.domain.analytics.sim_diagnosis.diagnose",
+                   side_effect=lambda *a, **k: seen.update(k) or {}):
+            run_sync(self.r, self.deck, {}, FakeSim(), FakeOracle(good_reply))
+        self.assertIsNotNone(seen["ctx_factory"])
+        self.assertIs(seen["r"], self.r)
+
     def test_e_modules_do_not_import_oracle_client(self):
         from src.server.domain.analytics import sim_diagnosis
         for mod in (svc, sim_diagnosis):
