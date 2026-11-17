@@ -1,7 +1,8 @@
 """LLM provider boundary. The debate only ever talks to a DebateLLM; tests pass a scripted fake."""
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol
+import threading
+from typing import Any, Callable, Optional, Protocol
 
 Role = str  # "remove" | "keep" | "judge"
 
@@ -23,7 +24,25 @@ class OracleDebateLLM:
     def __init__(self, oracle_factory: Callable[[], Any], ctx_factory: Callable[[], Any]):
         self._oracle_factory = oracle_factory
         self._ctx_factory = ctx_factory
-        self.metas: list = []  # one {"role", **to_job_meta()} per oracle run, failures included
+        self._lock = threading.Lock()
+        self._judge: Optional[dict] = None
+        self._last: Optional[dict] = None
+
+    def llm_meta(self) -> Optional[dict]:
+        """Judge run meta (model/trace + evidence), else the last advocate run; None before any call."""
+        with self._lock:
+            return self._judge or self._last
+
+    def _record(self, role: str, trace: Any, outputs: Any) -> None:
+        if trace is None:
+            return
+        evidence = [{"tool": "deck_stats", "sections": list((o.arguments or {}).get("sections") or [])}
+                    for o in (outputs or []) if o.ok and o.tool == "deck_stats"]
+        meta = {**trace.to_job_meta(), "role": role, "evidence": evidence}
+        with self._lock:
+            self._last = meta
+            if role == "judge":
+                self._judge = meta
 
     def complete(self, role: Role, system: str, user: str, *, temperature: float = 0.0) -> str:
         from src.server.domain.oracle.tools import build_registry
@@ -42,9 +61,7 @@ class OracleDebateLLM:
                              registry=build_registry(list(TOOLS), ctx), ctx=ctx, validate=validate,
                              required_evidence=JUDGE_EVIDENCE if role == "judge" else {})
         except Exception as exc:
-            trace = getattr(exc, "trace", None)
-            if trace is not None:
-                self.metas.append({"role": role, **trace.to_job_meta()})
+            self._record(role, getattr(exc, "trace", None), None)
             raise
-        self.metas.append({"role": role, **res.trace.to_job_meta()})
+        self._record(role, res.trace, res.outputs)
         return res.text

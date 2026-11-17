@@ -520,33 +520,60 @@ def test_oracle_debate_non_json_reply_is_repaired():
     assert len(chat.calls) == 2
 
 
-class _RaisingJudge(FakeLLM):
-    def __init__(self, exc, **kw):
-        super().__init__(**kw)
+# ---- QA round 1: judge failure falls back; llm meta saved (spec 9.5 d/e) ---------------------------
+
+class _RaisingJudge:
+    def __init__(self, exc):
         self.exc = exc
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
 
     def complete(self, role, system, user, *, temperature=0.0):
         if role == "judge":
             raise self.exc
-        return super().complete(role, system, user, temperature=temperature)
+        return self.inner.complete(role, system, user, temperature=temperature)
 
 
-@pytest.mark.parametrize("make", [lambda: __import__("src.server.domain.oracle", fromlist=["x"]).OracleBudgetExceeded("tokens"),
-                                  lambda: __import__("src.server.domain.oracle", fromlist=["x"]).OracleEvidenceMissing("deck_stats"),
-                                  lambda: __import__("src.server.domain.llm.port", fromlist=["x"]).LLMUnavailable("down")])
-def test_judge_oracle_failure_falls_back_instead_of_raising(make):
-    out = run(llm=_RaisingJudge(make(), remove=REMOVE_T, keep=KEEP_T))
+@pytest.mark.parametrize("make_exc", [
+    lambda: __import__("src.server.domain.oracle.errors", fromlist=["x"]).OracleBudgetExceeded("budget"),
+    lambda: __import__("src.server.domain.oracle.errors", fromlist=["x"]).OracleEvidenceMissing("no evidence"),
+    lambda: __import__("src.server.domain.llm.port", fromlist=["x"]).LLMUnavailable("down"),
+])
+def test_judge_oracle_failure_returns_fallback(make_exc):
+    out = run(llm=_RaisingJudge(make_exc()))
     assert out["fallback"] is True
+    assert out["verdict"] in ("keep", "remove")
+    assert out["confidence"] <= 0.60
 
 
-def test_oracle_debate_llm_records_meta_on_success_and_failure_and_review_saves_it():
-    from src.server.domain.oracle import OracleEvidenceMissing
+def test_review_saves_llm_meta_on_success():
+    from src.server.domain.oracle import Oracle
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})),
+                             text_turn(verdict())])
+    out = run(llm=_RoleSplit(llm))
+    meta = out["llm"]
+    assert meta["task"] == "card_review" and meta["role"] == "judge"
+    assert meta["evidence"] == [{"tool": "deck_stats", "sections": ["curve", "bracket", "power"]}]
+
+
+def test_review_saves_llm_meta_on_judge_failure():
     from tests.oracle_fakes import text_turn
-    llm, chat = _oracle_llm([text_turn(REMOVE_T), text_turn(KEEP_T), text_turn(verdict()), text_turn(verdict())])
-    llm.complete("remove", "s", "u")
-    assert llm.metas[0]["role"] == "remove" and llm.metas[0]["task"] == "card_review"
-    with pytest.raises(OracleEvidenceMissing):
-        llm.complete("judge", "s", "u")
-    assert llm.metas[-1]["role"] == "judge" and llm.metas[-1]["stop_reason"]
-    out = run(llm=type("L", (FakeLLM,), {"metas": [{"role": "judge", "model": "m"}]})(remove=REMOVE_T, keep=KEEP_T, judge=verdict()))
-    assert out["llm"] == {"calls": [{"role": "judge", "model": "m"}]}
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])  # judge never checks evidence
+    out = run(llm=_RoleSplit(llm))
+    assert out["fallback"] is True
+    assert out["llm"]["role"] == "judge" and out["llm"]["stop_reason"]
+
+
+class _RoleSplit:
+    """Advocates answer from a scripted fake; the judge goes through the real oracle adapter."""
+    def __init__(self, oracle_llm):
+        self.o = oracle_llm
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            return self.o.complete(role, system, user, temperature=temperature)
+        return self.inner.complete(role, system, user, temperature=temperature)
+
+    def llm_meta(self):
+        return self.o.llm_meta()

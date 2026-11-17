@@ -122,10 +122,7 @@ def _call_json(llm: DebateLLM, role: str, system: str, user: str, temperature: f
     """One call plus one 'valid JSON only' retry (§3.5 step 1). None if both replies are unusable."""
     for attempt in range(2):
         msg = user if attempt == 0 else user + "\n\nReturn valid JSON only."
-        try:
-            parsed = extract_json(llm.complete(role, system, msg, temperature=temperature))
-        except LLMError:  # oracle offline / over budget / no evidence: this turn is empty, the debate goes on
-            return None
+        parsed = extract_json(llm.complete(role, system, msg, temperature=temperature))
         if parsed is not None:
             return parsed
     return None
@@ -233,10 +230,11 @@ def run_judge(llm: DebateLLM, ev, packet: Dict[str, str], transcript: List[dict]
     v = None
     for attempt in range(2):
         try:
-            raw = extract_json(llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
-                                            temperature=dcfg.judge_temperature))
-        except LLMError:  # judge could not run: deterministic fallback verdict
-            break
+            reply = llm.complete("judge", system, user if attempt == 0 else user + "\n\nReturn valid JSON only.",
+                                 temperature=dcfg.judge_temperature)
+        except LLMError:  # OracleBudgetExceeded / OracleEvidenceMissing / LLMUnavailable (spec §9.5 e)
+            return fallback_verdict(ev, packet)
+        raw = extract_json(reply)
         v = validate_verdict(raw, packet, transcript) if raw else None
         if v:
             break
