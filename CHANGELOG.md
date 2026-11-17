@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deep Review: the written verdict now checks the deck's curve, bracket and power level before it's written, and shows which checks it used.
+
 ### Fixed
 - Brew: every brewed deck is now checked (100 cards, real card names, legality) and reviewed by oracle before it is shown, and the result carries oracle's verdict. A deck oracle fails, or cannot review because it is offline, is reported as a failed brew instead of a finished deck.
 - Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.

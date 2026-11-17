@@ -3332,7 +3332,8 @@ async def api_deck_review_rebuild(deck_id: str):
         return JSONResponse(status_code=409 if exc.per_deck else 429,
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
     try:
-        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)}, _oracle_client)
+        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)},
+                             lambda: _oracle("deck_review"), _review_tool_ctx)
     except Exception:
         review_doc.release(job["deck_id"], job["job_id"])
         raise
@@ -5018,6 +5019,15 @@ def _oracle_tool_ctx(r, deck, **kw):
                   journal=_safe(_journal), game_changers=_safe(_game_changers))
     fields.update(kw)
     return ToolContext(deck=deck, **fields)
+
+
+def _review_tool_ctx(r_, deck, metrics):
+    """Deep Review ToolContext (job thread): oracle ctx plus the sim_run runner."""
+    from src.server.domain.oracle.tools import SimRunner
+
+    ctx = _oracle_tool_ctx(r_, deck, metrics=metrics)
+    ctx.sim = SimRunner(r_, deck)
+    return ctx
 
 
 def _oracle_offline(detail: str = ""):
