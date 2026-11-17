@@ -26,11 +26,19 @@ def _args_hash(o: ToolOutcome) -> str:
 
 
 def _assistant_tool_message(turn: ChatTurn) -> Dict[str, Any]:
-    raw = (turn.raw_message or {}).get("tool_calls")
-    if not raw:  # fakes / providers without a raw list: rebuild from the parsed calls
-        raw = [{"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.arguments_raw}}
-               for c in turn.tool_calls]
-    return {"role": "assistant", "content": turn.content or None, "tool_calls": raw}
+    """Assistant message whose tool_calls match the dispatched calls one-to-one.
+
+    The provider's own entry is re-sent verbatim when it matches a parsed call (same id and name);
+    otherwise (synthesized ids, dropped entries) the entry is rebuilt from the parsed call."""
+    raw_by_id = {r.get("id"): r for r in ((turn.raw_message or {}).get("tool_calls") or []) if isinstance(r, dict)}
+    out = []
+    for c in turn.tool_calls:
+        r = raw_by_id.get(c.id)
+        if r is not None and (r.get("function") or {}).get("name") == c.name:
+            out.append(r)
+        else:
+            out.append({"id": c.id, "type": "function", "function": {"name": c.name, "arguments": c.arguments_raw}})
+    return {"role": "assistant", "content": turn.content or None, "tool_calls": out}
 
 
 class Oracle:

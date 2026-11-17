@@ -109,6 +109,17 @@ class RegistryTests(unittest.TestCase):
         self.assertTrue(o.truncated)
         self.assertLessEqual(len(serialize(o.result)), 300)
 
+    def test_serialization_failures_count_toward_disable(self):
+        circ = {}
+        circ["me"] = circ
+        r = ToolRegistry([tool(lambda a, c: circ)])
+        kinds = []
+        for _ in range(4):
+            with self.assertLogs("src.server.domain.oracle.registry", level="ERROR") if len(kinds) < 3 else \
+                    self.subTest():
+                kinds.append(r.dispatch(call("t_one", {"n": 1}), None).result["error"]["kind"])
+        self.assertEqual(kinds, ["tool_failed", "tool_failed", "tool_failed", "disabled"])
+
     def test_tiny_cap_never_raises_or_exceeds(self):
         for cap in (10, 11, 30, 45):
             r = ToolRegistry([tool(lambda a, c: {"blob": "y" * 500}, max_result_chars=cap)])

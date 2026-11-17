@@ -83,6 +83,16 @@ class HappyPath(unittest.TestCase):
         tool_msgs = [m for m in client.calls[1]["messages"] if m["role"] == "tool"]
         self.assertEqual([m["tool_call_id"] for m in tool_msgs], ["1", "2", "3"])
 
+    def test_assistant_tool_calls_match_dispatched_calls(self):
+        # raw list has an extra entry and a different id than the parsed call -> rebuilt to match
+        t = tool_turn(stats(["a"], "call_1_0"))
+        t.raw_message["tool_calls"] = [{"id": "other", "type": "function", "function": {"name": "x", "arguments": "{}"}}]
+        client, oracle, kw = run([t, text_turn("done")])
+        oracle.run(**kw)
+        sent = client.calls[1]["messages"][2]["tool_calls"]
+        self.assertEqual([c["id"] for c in sent], ["call_1_0"])
+        self.assertEqual(sent[0]["function"]["name"], "deck_stats")
+
     def test_consumer_messages_not_mutated(self):
         client, oracle, kw = run([text_turn("x")])
         before = json.dumps(kw["messages"])

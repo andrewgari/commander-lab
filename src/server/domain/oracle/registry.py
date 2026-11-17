@@ -169,14 +169,14 @@ class ToolRegistry:
             log.exception("tool %s raised", name)
             self._failures[name] = self._failures.get(name, 0) + 1
             return done(_fail("tool_failed", type(exc).__name__))
-        self._failures[name] = 0  # 7
-        result: Dict[str, Any] = {"ok": True, "data": data}
+        result: Dict[str, Any] = {"ok": True, "data": data}  # 7
         try:
             size = len(serialize(result))
         except Exception as exc:  # noqa: BLE001
             log.exception("tool %s result not serializable", name)
             self._failures[name] = self._failures.get(name, 0) + 1
             return done(_fail("tool_failed", type(exc).__name__))
+        self._failures[name] = 0  # streak resets only once the result is usable
         if size <= tool.max_result_chars:
             return done(result)
         if tool.shrink is not None:
