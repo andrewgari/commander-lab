@@ -5,7 +5,7 @@ import hashlib
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
-from ..llm.port import ChatTurn, ToolChatClient, ToolCall
+from ..llm.port import ChatTurn, LLMError, ToolChatClient, ToolCall
 from .errors import OracleBudgetExceeded, OracleEvidenceMissing, OracleInvalidAnswer, OracleRunError
 from .registry import ToolRegistry, serialize
 from .types import LoopCaps, OracleResult, OracleRunState, OracleTrace, ToolOutcome
@@ -64,6 +64,7 @@ class Oracle:
 
         def fail(exc: OracleRunError, reason: str) -> OracleRunError:
             exc.trace = trace
+            exc.outputs = list(state.outputs)
             trace.stop_reason = reason
             trace.error = str(exc)
             return exc
@@ -124,10 +125,20 @@ class Oracle:
             kind = "finalize" if just_finalized else None
 
             # 2. model call
-            turn = self.client.chat_turn(
-                list(msgs), tools=specs or None,
-                tool_choice=("none" if finalizing else "auto") if specs else None,
-                response_format=response_format if finalizing else None)
+            try:
+                turn = self.client.chat_turn(
+                    list(msgs), tools=specs or None,
+                    tool_choice=("none" if finalizing else "auto") if specs else None,
+                    response_format=response_format if finalizing else None)
+            except LLMError as exc:
+                if isinstance(exc, OracleRunError):
+                    raise
+                # provider trouble: attach what ran and what it cost (type name only, never the text), re-raise as is
+                trace.stop_reason = "llm_error"
+                trace.error = type(exc).__name__
+                exc.trace = trace
+                exc.outputs = list(state.outputs)
+                raise
             # 3. usage
             u = turn.usage
             st["tokens_in"] += u.tokens_in

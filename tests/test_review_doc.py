@@ -297,6 +297,39 @@ class TestOracleLoop(unittest.TestCase):
         self.assertEqual(d["status"], "invalid")
         self.assertIn("budget", d["note"])
 
+    def test_evidence_missing_keeps_partial_evidence_and_llm(self):
+        o = FakeOracle(turns=[tool_turn(call("deck_stats", {"sections": ["curve"]})),
+                              text_turn(reply_for(FP)), text_turn(reply_for(FP))])
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertEqual(d["evidence"], [{"tool": "deck_stats", "sections": ["curve"]}])
+        self.assertIn("llm", d)
+
+    def test_unavailable_mid_run_keeps_meta_and_job_llm(self):
+        class Chat(ScriptedToolChat):
+            def chat_turn(self, *a, **k):
+                if not self.turns:
+                    raise LLMUnavailable("down")
+                return super().chat_turn(*a, **k)
+        r = FakeRedis()
+        mk = lambda: Oracle(Chat([tool_turn(call("deck_stats", {"sections": ["curve"]}))]), CAPS)
+        d = self.summ(rd.build_review(r, make_deck(), mk, metrics=copy.deepcopy(METRICS)))
+        self.assertEqual(d["status"], "offline")
+        self.assertEqual(d["llm"]["stop_reason"], "llm_error")
+        self.assertEqual(d["evidence"], [{"tool": "deck_stats", "sections": ["curve"]}])
+        job = rd.new_job(r, {**make_deck(), "registry_id": RID})
+        with patch.object(rm, "review_deck", side_effect=lambda *a, **k: copy.deepcopy(METRICS)):
+            out = rd.run_job(r, job, make_deck(), mk)
+        self.assertEqual(out["llm"]["stop_reason"], "llm_error")
+
+    def test_not_configured_has_no_llm_key(self):
+        def boom():
+            raise LLMNotConfigured("no key")
+        d = self.summ(rd.build_review(FakeRedis(), make_deck(), boom, metrics=copy.deepcopy(METRICS)))
+        self.assertEqual(d["status"], "offline")
+        self.assertNotIn("llm", d)
+        self.assertNotIn("evidence", d)
+
     def test_job_carries_llm_meta(self):
         r = FakeRedis()
         job = rd.new_job(r, {**make_deck(), "registry_id": RID})
