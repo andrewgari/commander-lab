@@ -419,7 +419,7 @@ def build_review(r, deck: Mapping, oracle_factory: Callable[[], Any], metrics: O
     No single-prompt fallback (spec D1): the oracle must check curve, bracket and power with tools."""
     from src.server.domain.knowledge import build_messages
     from src.server.domain.llm.port import LLMError, LLMUnavailable
-    from src.server.domain.oracle import OracleBudgetExceeded, OracleEvidenceMissing, OracleRunState
+    from src.server.domain.oracle import OracleBudgetExceeded, OracleEvidenceMissing, OracleRunError, OracleRunState
     from src.server.domain.oracle.numbers import allowed_numbers_from
     from src.server.domain.oracle.tools import ToolContext, build_registry
 
@@ -459,13 +459,17 @@ def build_review(r, deck: Mapping, oracle_factory: Callable[[], Any], metrics: O
             status, note = "invalid", "summary held only numbers that are not in the metrics"
     except LLMUnavailable as exc:
         status, note = "offline", (exc.detail or "")[:200]
+        llm_meta, evidence = _partial(exc)
     except OracleEvidenceMissing as exc:
-        status, note, llm_meta = "invalid", EVIDENCE_NOTE, _meta(exc)
+        status, note = "invalid", EVIDENCE_NOTE
+        llm_meta, evidence = _partial(exc)
     except OracleBudgetExceeded as exc:
-        status, note, llm_meta = "invalid", f"oracle hit its {exc.reason} budget"[:300], _meta(exc)
+        status, note = "invalid", f"oracle hit its {exc.reason} budget"[:300]
+        llm_meta, evidence = _partial(exc)
     except LLMError as exc:  # OracleInvalidAnswer, LLMResponseError, auth
-        status, note, llm_meta = "invalid", (str(exc)[:300] if hasattr(exc, "trace") else
-                                             f"{type(exc).__name__}: {str(exc)[:250]}"), _meta(exc)
+        status, note = "invalid", (str(exc)[:300] if isinstance(exc, OracleRunError) else
+                                   f"{type(exc).__name__}: {str(exc)[:250]}")
+        llm_meta, evidence = _partial(exc)
     if status != "ok":
         prose = None
     doc = build_doc(rid, metrics, prose, oracle_status=status, oracle_note=note, stripped=stripped)
@@ -473,6 +477,11 @@ def build_review(r, deck: Mapping, oracle_factory: Callable[[], Any], metrics: O
         data = doc["sections"][-1]["data"]
         data["llm"], data["evidence"] = llm_meta, evidence
     return save(r, doc)
+
+
+def _partial(exc: BaseException) -> tuple:
+    """(llm meta | None, evidence) from a failed run; (None, []) when no turn was recorded."""
+    return _meta(exc), _evidence(getattr(exc, "outputs", []) or [])
 
 
 def _meta(exc: BaseException) -> Optional[dict]:

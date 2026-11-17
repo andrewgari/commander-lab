@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.server.domain.llm.port import LLMError  # noqa: E402
+from src.server.domain.llm.port import LLMError, LLMResponseError, LLMUnavailable  # noqa: E402
 from src.server.domain.oracle import (LoopCaps, Oracle, OracleBudgetExceeded, OracleEvidenceMissing,  # noqa: E402
                                       OracleInvalidAnswer, OracleRunError, Tool, ToolError, ToolRegistry)
 from src.server.domain.oracle.loop import EVIDENCE_NUDGE, FINALIZE_PROMPT  # noqa: E402
@@ -366,6 +366,42 @@ class Play(unittest.TestCase):
         self.assertEqual(play.PLAY_TOOLS, ())
         with self.assertRaises(NotImplementedError):
             play.start_play()
+
+
+class PartialOutcomes(unittest.TestCase):
+    EV = {"deck_stats": frozenset({"curve", "bracket", "power"})}
+
+    def test_evidence_missing_carries_outputs(self):
+        client, oracle, kw = run([tool_turn(stats(["curve"])), text_turn("a"), text_turn("b")], evidence=self.EV)
+        with self.assertRaises(OracleEvidenceMissing) as cm:
+            oracle.run(**kw)
+        self.assertEqual(len(cm.exception.outputs), 1)
+        self.assertEqual(cm.exception.outputs[0].tool, "deck_stats")
+
+    def _down(self, err):
+        class Chat(ScriptedToolChat):
+            def chat_turn(self, *a, **k):
+                if not self.turns:
+                    raise err
+                return super().chat_turn(*a, **k)
+        oracle = Oracle(Chat([tool_turn(stats(["curve"]))]), CAPS)
+        kw = dict(task="deck_review", messages=[{"role": "user", "content": "u"}], registry=registry(), ctx=None,
+                  validate=ok)
+        with self.assertRaises(LLMError) as cm:
+            oracle.run(**kw)
+        exc = cm.exception
+        self.assertIs(exc, err)
+        self.assertNotIsInstance(exc, OracleRunError)
+        self.assertEqual(exc.trace.stop_reason, "llm_error")
+        self.assertEqual(exc.trace.to_job_meta()["turns"], 1)
+        self.assertEqual(len(exc.outputs), 1)
+        self.assertNotIn("down", exc.trace.error)
+
+    def test_unavailable_after_tool_turn(self):
+        self._down(LLMUnavailable("down"))
+
+    def test_response_error_after_tool_turn(self):
+        self._down(LLMResponseError("down"))
 
 
 if __name__ == "__main__":
