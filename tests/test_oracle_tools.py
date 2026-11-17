@@ -311,6 +311,19 @@ class TestDeckStatsLiveInputs(ToolsBase):
         self.assertEqual(len(calls), 1)
 
 
+class TestMemoModeIsolation(ToolsBase):
+    def test_override_identical_to_base_does_not_share_live_result(self):
+        deck = make_deck()
+        calls = []
+        c = ctx(deck=deck, bracket_eval=lambda d: calls.append(1), allow_hypothetical=True, game_changers=[])
+        r = self.reg(c)
+        same = [{"name": x["name"], "qty": x.get("quantity", 1)} for x in deck["cards"]]
+        run(r, c, "deck_stats", {"sections": ["bracket"], "cards": same})
+        self.assertEqual(calls, [])
+        run(r, c, "deck_stats", {"sections": ["bracket"]}, id="c2")
+        self.assertEqual(len(calls), 1)  # base still consults the hook
+
+
 class _R:
     def __init__(self, store):
         self.store = store

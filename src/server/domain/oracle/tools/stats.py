@@ -47,7 +47,7 @@ def _metrics(deck: Dict[str, Any], fp: str, is_override: bool, ctx: ToolContext)
 
 def _evaluation(deck: Dict[str, Any], fp: str, is_override: bool, ctx: ToolContext):
     """Returns (evaluation, inputs) where inputs is "live" or "snapshot"."""
-    key = ("bracket_eval", fp)
+    key = ("bracket_eval", fp, is_override)
     if key not in ctx.memo:
         ev, inputs = None, "snapshot"
         if not is_override and ctx.bracket_eval is not None:
@@ -103,7 +103,7 @@ def _deck_stats(args: dict, ctx: ToolContext) -> dict:
     fp = rm.fingerprint(deck)
     out: Dict[str, Any] = {}
     for s in args["sections"]:
-        key = ("stats", fp, s, ctx.allow_hypothetical)
+        key = ("stats", fp, s, ctx.allow_hypothetical, is_override)
         if key not in ctx.memo:
             ctx.memo[key] = _section(s, deck, fp, is_override, ctx)
         out[s] = ctx.memo[key]
