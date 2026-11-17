@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Simulation review: the written review and the run diagnosis summary now check the deck's curve, bracket and power level before they are written, and the saved review shows which model and checks were used.
+- Card review: the Keep/Remove debate now runs on the oracle tool loop, and the judge checks the deck's curve, bracket and power level before it rules.
 - Deep Review: the written verdict now checks the deck's curve, bracket and power level before it's written, and shows which checks it used.
 
 ### Fixed

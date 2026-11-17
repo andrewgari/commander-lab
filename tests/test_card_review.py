@@ -472,3 +472,49 @@ def test_endpoint_validation(client):
     assert c.post("/api/decks/archidekt:1/cards/Krenko, Mob Boss/review").status_code == 400
     assert c.post("/api/decks/archidekt:1/cards/Blasphemous%20Act/review", json={"rounds": 9}).status_code == 422
     assert c.get("/api/decks/archidekt:1/cards/Blasphemous%20Act/review/jobs/missing").status_code == 404
+
+
+# ---- oracle tool-loop adapter (OL-8) ----------------------------------------------------------------
+
+def _oracle_llm(turns):
+    from src.server.domain.analytics.card_review import OracleDebateLLM
+    from src.server.domain.oracle import Oracle
+    from src.server.domain.oracle.types import LoopCaps
+    from tests.oracle_fakes import ScriptedToolChat
+    chat = ScriptedToolChat(turns)
+    caps = LoopCaps(max_turns=6, max_tool_calls=8, soft_cost_usd=0.2, hard_cost_usd=0.35, max_tokens_in=150_000,
+                    deadline_s=60, nudges=1, repairs=1)
+    from src.server.domain.oracle.tools import ToolContext
+    deck = {"name": "Krenko", "cards": [{"name": n, "quantity": 1} for n in DECK]}
+    ctx = ToolContext(deck=deck, metrics={"curve": {}, "bracket": {}, "power": {}})
+    return OracleDebateLLM(lambda: Oracle(chat, caps), lambda: ctx), chat
+
+
+def test_oracle_debate_advocate_needs_no_evidence():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(REMOVE_T)])
+    assert json.loads(llm.complete("remove", "sys", "user"))["side"] == "remove"
+    assert len(chat.calls) == 1
+    assert {t["function"]["name"] for t in chat.calls[0]["tools"]} == {"get_deck", "card_lookup", "deck_stats"}
+
+
+def test_oracle_debate_judge_without_evidence_is_nudged_then_fails():
+    from src.server.domain.oracle import OracleEvidenceMissing
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])
+    with pytest.raises(OracleEvidenceMissing):
+        llm.complete("judge", "sys", "user")
+    assert len(chat.calls) == 2
+
+
+def test_oracle_debate_judge_with_deck_stats_answers():
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})), text_turn(verdict())])
+    assert json.loads(llm.complete("judge", "sys", "user"))["verdict"] == "remove"
+
+
+def test_oracle_debate_non_json_reply_is_repaired():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn("no json here"), text_turn(KEEP_T)])
+    assert json.loads(llm.complete("keep", "sys", "user"))["side"] == "keep"
+    assert len(chat.calls) == 2

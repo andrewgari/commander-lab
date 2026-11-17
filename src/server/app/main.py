@@ -3521,10 +3521,10 @@ async def api_deck_sim_job(deck_id: str, job_id: str):
 # ---------------------------------------------------------------------------
 
 
-def _card_review_llm():
-    from src.server.domain.analytics.card_review import OracleLLM
+def _card_review_llm(deck):
+    from src.server.domain.analytics.card_review import OracleDebateLLM
 
-    return OracleLLM(_oracle_client)
+    return OracleDebateLLM(lambda: _oracle("card_review"), lambda: _oracle_tool_ctx(r, deck))
 
 
 @app.post("/api/decks/{deck_id}/cards/{card_id:path}/review")
@@ -3559,7 +3559,7 @@ async def api_card_review(deck_id: str, card_id: str, request: Request):
     except jobs.ReviewBusy as exc:
         return JSONResponse(status_code=409 if exc.per_card else 429,
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
-    llm = _card_review_llm()
+    llm = _card_review_llm(deck)
     try:
         jobs.start_job(r, job, lambda emit: review_service.review_card(r, deck, card, llm, rounds, emit))
     except Exception:
