@@ -88,27 +88,27 @@ class OpenRouterChat:
         return re.sub(r"(?i)bearer\s+[A-Za-z0-9._~+/=-]+", "Bearer ***", text)
 
     def _parse(self, data: Dict[str, Any]) -> str:
+        usage = self._set_usage(data) if isinstance(data, dict) else None
         try:
             choice = data["choices"][0]
             content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError):
-            raise LLMResponseError("OpenRouter reply had no message content") from None
-        content = self._norm_content(content)
-        self._set_usage(data)
+            raise LLMResponseError("OpenRouter reply had no message content", usage=usage) from None
+        content = self._norm_content(content, usage)
         if choice.get("finish_reason") == "length":
-            raise LLMResponseError("reply truncated at max_tokens")
+            raise LLMResponseError("reply truncated at max_tokens", usage=usage)
         if not content.strip():
-            raise LLMResponseError("empty reply")
+            raise LLMResponseError("empty reply", usage=usage)
         return content
 
     @staticmethod
-    def _norm_content(content: Any) -> str:
+    def _norm_content(content: Any, usage: Optional[Usage] = None) -> str:
         if content is None:
             return ""
         if isinstance(content, list):
             return "".join(p["text"] for p in content if isinstance(p, dict) and isinstance(p.get("text"), str))
         if not isinstance(content, str):
-            raise LLMResponseError("OpenRouter reply content had an unexpected type")
+            raise LLMResponseError("OpenRouter reply content had an unexpected type", usage=usage)
         return content
 
     def _set_usage(self, data: Dict[str, Any]) -> Usage:
@@ -130,26 +130,26 @@ class OpenRouterChat:
         data = self._request(messages, {"tools": tools, "tool_choice": tool_choice,
                                         "response_format": response_format, "temperature": temperature})
         self._turns += 1
+        usage = self._set_usage(data) if isinstance(data, dict) else None
         try:
             choice = data["choices"][0]
             message = choice["message"]
             if not isinstance(message, dict):
                 raise TypeError
         except (KeyError, IndexError, TypeError):
-            raise LLMResponseError("OpenRouter reply had no message content") from None
-        content = self._norm_content(message.get("content"))
-        usage = self._set_usage(data)
+            raise LLMResponseError("OpenRouter reply had no message content", usage=usage) from None
+        content = self._norm_content(message.get("content"), usage)
         finish = choice.get("finish_reason") or ""
         if finish == "length":
-            raise LLMResponseError("reply truncated at max_tokens")
+            raise LLMResponseError("reply truncated at max_tokens", usage=usage)
         raw_calls = message.get("tool_calls")
         if raw_calls is not None and not isinstance(raw_calls, list):
-            raise LLMResponseError("malformed tool_calls in reply")
+            raise LLMResponseError("malformed tool_calls in reply", usage=usage)
         calls = self._parse_tool_calls(raw_calls, self._turns)
         if finish == "tool_calls" and not calls:
-            raise LLMResponseError("tool_calls finish with no usable calls")
+            raise LLMResponseError("tool_calls finish with no usable calls", usage=usage)
         if not calls and not content.strip():
-            raise LLMResponseError("empty reply")
+            raise LLMResponseError("empty reply", usage=usage)
         model = data.get("model")
         return ChatTurn(content, calls, str(finish), usage, model if isinstance(model, str) and model else self.model,
                         message)

@@ -81,6 +81,27 @@ class ChatTurnTests(unittest.TestCase):
         with self.assertRaisesRegex(LLMResponseError, "truncated"):
             turn({"content": "abc"}, finish="length")
 
+    def _err(self, payload=None, handler=None):
+        h = handler or (lambda r: httpx.Response(200, json=payload))
+        with self.assertRaises(LLMResponseError) as cm:
+            make(h).chat_turn([{"role": "user", "content": "q"}])
+        return cm.exception
+
+    def test_failed_replies_carry_usage(self):
+        usage = {"prompt_tokens": 5, "completion_tokens": 2, "cost": 0.003}
+        e = self._err({"choices": [{"message": {"content": "abc"}, "finish_reason": "length"}], "usage": usage})
+        self.assertEqual(e.usage, Usage(5, 2, 0, 0.003))
+        e = self._err(reply({"content": ""}, "stop"))
+        self.assertEqual(e.usage.tokens_in, 5)
+        e = self._err(reply({"content": "t", "tool_calls": "oops"}))
+        self.assertIsInstance(e.usage, Usage)
+        e = self._err({"usage": usage, "choices": []})
+        self.assertIsInstance(e.usage, Usage)
+
+    def test_http_error_has_no_usage(self):
+        e = self._err(handler=lambda r: httpx.Response(400, json={"error": "bad"}))
+        self.assertIsNone(e.usage)
+
     def test_request_body(self):
         seen = {}
 

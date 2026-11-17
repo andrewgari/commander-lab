@@ -34,8 +34,9 @@ class LLMAuthError(LLMError):
 class LLMResponseError(LLMError):
     """The provider answered with a client error or a reply we can't parse."""
 
-    def __init__(self, message: str, status: Optional[int] = None):
+    def __init__(self, message: str, status: Optional[int] = None, *, usage: Optional["Usage"] = None):
         self.status = status
+        self.usage = usage
         super().__init__(message)
 
 
