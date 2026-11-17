@@ -26,4 +26,28 @@ TASKS: dict[str, TaskSpec] = {
     "theory": TaskSpec(OPUS, 600, 16000),
     "reconstruct": TaskSpec(OPUS, 600, 16000),
     "review_writer": TaskSpec(SONNET, 300, 8000),
+    "brew_review": TaskSpec(SONNET, 240, 2000),
+}
+
+
+@dataclass(frozen=True)
+class LoopSpec:
+    """Default oracle loop caps per task (spec oracle-tool-loop §3)."""
+    max_turns: int
+    max_tool_calls: int
+    soft_cost_usd: float
+    hard_cost_usd: float
+    max_tokens_in: int
+    deadline_s: float
+
+
+LOOPS: dict[str, LoopSpec] = {
+    "deck_review": LoopSpec(10, 16, 0.60, 1.00, 400_000, 1500),
+    "sim_review": LoopSpec(6, 8, 0.30, 0.50, 200_000, 300),
+    "sim_diagnosis": LoopSpec(4, 4, 0.05, 0.10, 60_000, 120),
+    "card_review": LoopSpec(6, 8, 0.20, 0.35, 150_000, 180),
+    "review_writer": LoopSpec(6, 8, 0.40, 0.70, 250_000, 300),
+    "review_pipeline": LoopSpec(6, 8, 0.50, 0.90, 300_000, 600),
+    "reconstruct": LoopSpec(14, 30, 1.50, 2.50, 900_000, 1200),
+    "brew_review": LoopSpec(6, 8, 0.20, 0.35, 150_000, 240),
 }
