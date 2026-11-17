@@ -197,11 +197,12 @@ def _oracle_summary(d: Mapping, oracle_factory: Callable[[], Any]) -> str:
 
 
 def diagnose(telemetry: Optional[Mapping], deck: Mapping, review: Optional[Mapping],
-             oracle_factory: Optional[Callable[[], Any]] = None, now_iso: str = "", run_id: Optional[str] = None) -> dict:
+             oracle_factory: Optional[Callable[[], Any]] = None, now_iso: str = "", run_id: Optional[str] = None,
+             skip_llm: bool = False) -> dict:
     d = build_findings(telemetry, deck, review)
     source, note = "deterministic", ""
     summary = _fallback_summary(d)
-    if d["status"] == "ready":
+    if d["status"] == "ready" and not skip_llm:
         try:
             if oracle_factory is None:
                 from .oracle_client import OracleClient

@@ -493,7 +493,8 @@ def _progress(job: dict, daemon: Mapping) -> None:
 
 def run_job(r, job: dict, deck: Mapping, client: Optional[sim_client.SimClient] = None,
             oracle_factory: Optional[Callable[[], Any]] = None, *, poll_interval: Optional[float] = None,
-            max_wait: Optional[float] = None, sleep: Optional[Callable[[float], None]] = None) -> dict:
+            max_wait: Optional[float] = None, sleep: Optional[Callable[[float], None]] = None,
+            skip_review: bool = False) -> dict:
     client = client or sim_client.SimClient()
     poll_interval = POLL_INTERVAL_S if poll_interval is None else poll_interval
     max_wait = MAX_POLL_S if max_wait is None else max_wait
@@ -501,7 +502,7 @@ def run_job(r, job: dict, deck: Mapping, client: Optional[sim_client.SimClient] 
     deck = dict(deck)
     rid = job["deck_id"]
     try:
-        _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep)
+        _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep, skip_review)
     except Exception as exc:  # noqa: BLE001 - the saved report must survive any failure
         log.exception("sim job %s failed", job["job_id"])
         job.update(status="failed", error=f"{type(exc).__name__}: {str(exc)[:300]}", error_kind="internal")
@@ -521,7 +522,7 @@ def run_job(r, job: dict, deck: Mapping, client: Optional[sim_client.SimClient] 
         return job
 
 
-def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep) -> None:
+def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, sleep, skip_review=False) -> None:
     job.update(status="running", started_at=_now_iso())
     _save_job(r, job)
     deadline = time.monotonic() + max_wait
@@ -546,11 +547,14 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
 
     static = _static_review(r, deck)
     comparison = sim_diff.build_sim_comparison(deck, report, static)
-    review, source, note = write_review(r, deck, job["params"], comparison, oracle_factory)
+    if skip_review:  # oracle tool run: never start another LLM review from inside one
+        review, source, note = {}, "skipped", ""
+    else:
+        review, source, note = write_review(r, deck, job["params"], comparison, oracle_factory)
     final = dict(report)
     final["params"] = {**(report.get("params") or {}), **job["params"]}
     final["comparison"] = comparison
-    final["oracle_review"] = {"source": source, "note": note, **review}
+    final["oracle_review"] = {"source": "skipped"} if skip_review else {"source": source, "note": note, **review}
     try:
         import src.server.domain.decks.registry as registry
 
@@ -564,7 +568,8 @@ def _execute(r, job, deck, client, oracle_factory, poll_interval, max_wait, slee
         from . import sim_diagnosis
 
         final["diagnosis"] = sim_diagnosis.diagnose(final.get("telemetry"), deck, static, oracle_factory,
-                                                    now_iso=_now_iso(), run_id=job["job_id"])
+                                                    now_iso=_now_iso(), run_id=job["job_id"],
+                                                    skip_llm=skip_review)
     except Exception:  # noqa: BLE001 - diagnosis must never block saving the run
         log.warning("could not build sim diagnosis", exc_info=True)
     saved = sim_store.save_completed(r, deck, {"job_id": job["job_id"], "status": "done", "report": final})

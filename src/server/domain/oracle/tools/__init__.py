@@ -7,12 +7,14 @@ from ..registry import Tool, ToolRegistry
 from .cards import card_lookup_tool
 from .context import ToolContext
 from .deck import get_deck_tool
+from .sim import SimRunner, sim_run_tool
 from .stats import deck_stats_tool
 
 FACTORIES: Dict[str, Callable[[], Tool]] = {
     "get_deck": get_deck_tool,
     "card_lookup": card_lookup_tool,
     "deck_stats": deck_stats_tool,
+    "sim_run": sim_run_tool,
 }
 
 
@@ -26,4 +28,4 @@ def build_registry(names: Iterable[str], ctx: ToolContext) -> ToolRegistry:
     return ToolRegistry(tools)
 
 
-__all__ = ["ToolContext", "build_registry", "FACTORIES"]
+__all__ = ["SimRunner", "ToolContext", "build_registry", "FACTORIES"]
