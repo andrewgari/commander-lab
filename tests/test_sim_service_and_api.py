@@ -14,7 +14,10 @@ from fastapi.testclient import TestClient
 from src.server.domain.analytics import sim_client as sc
 from src.server.domain.analytics import sim_service as svc
 from src.server.domain.analytics import sim_store as ss
-from src.server.domain.analytics.oracle_client import OracleUnavailable
+from src.server.domain.llm.port import LLMUnavailable
+from src.server.domain.oracle import LoopCaps, Oracle
+from src.server.domain.oracle.tools import ToolContext
+from tests.oracle_fakes import call, text_turn, tool_turn
 from src.server.app.main import app
 from tests.test_sim_store_and_diff import FakeRedis, make_deck, make_report, make_review
 
@@ -63,19 +66,38 @@ class FakeSim:
         return {"job_id": job_id, "status": state, "games_completed": 5, "games_total": 20}
 
 
-class FakeOracle:
-    def __init__(self, reply=None, fail=False):
-        self.reply, self.fail, self.calls = reply, fail, []
+CAPS = LoopCaps(max_turns=6, max_tool_calls=8, soft_cost_usd=1.0, hard_cost_usd=2.0, max_tokens_in=10**6, deadline_s=60)
+ALL_STATS = {"sections": ["curve", "bracket", "power"]}
 
-    def chat(self, messages, **kw):
-        self.calls.append((messages, kw))
+
+class _Chat:
+    """ToolChatClient: checks curve/bracket/power first (when `check`), then answers `reply(messages)`."""
+    model = "m/x"
+
+    def __init__(self, reply, fail=False, check=True):
+        self.reply, self.fail, self.check, self.calls = reply, fail, check, []
+
+    def chat_turn(self, messages, *, tools=None, **kw):
+        self.calls.append({"messages": copy.deepcopy(messages), "tools": tools, **kw})
         if self.fail:
-            raise OracleUnavailable("down")
-        return self.reply(messages) if callable(self.reply) else self.reply
+            raise LLMUnavailable("down")
+        if self.check and not any(m.get("role") == "tool" for m in messages):
+            return tool_turn(call("deck_stats", ALL_STATS))
+        return text_turn(self.reply(messages) if callable(self.reply) else self.reply)
+
+
+def FakeOracle(reply=None, fail=False, check=True):
+    o = Oracle(_Chat(reply, fail, check), CAPS)
+    return o
+
+
+def tool_names(sent):
+    return {t["function"]["name"] for t in sent["tools"]}
 
 
 def good_reply(messages):
-    payload = json.loads(messages[-1]["content"].split("```json\n")[1].split("\n```")[0])
+    user = next(m for m in messages if m["role"] == "user")["content"]
+    payload = json.loads(user.split("```json\n")[1].split("\n```")[0])
     body = {"schema_version": "1", "fingerprint": payload["fingerprint"],
             "headline": "The deck stumbled on mana more than the paper read suggested.",
             "notes_response": "You asked about mana: starvation at T5 was real.",
@@ -92,7 +114,7 @@ def run_sync(r, deck, params, sim, oracle):
     """begin_run + run_job inline (no thread, no sleeping)."""
     job = svc.begin_run(r, deck, params, sim)
     with patch.object(svc, "_static_review", return_value=make_review()):
-        return svc.run_job(r, job, deck, sim, lambda: oracle, poll_interval=0, sleep=lambda s: None)
+        return svc.run_job(r, job, deck, sim, lambda task: oracle, lambda r_, d: ToolContext(deck=d), poll_interval=0, sleep=lambda s: None)
 
 
 class Base(unittest.TestCase):
@@ -294,9 +316,8 @@ class TestRunModes(Base):
         sim, oracle = FakeSim(), FakeOracle(good_reply)
         run_sync(self.r, self.deck, {"notes": "Testing whether I stumble on mana"}, sim, oracle)
         self.assertEqual(sim.payloads[0]["notes"], "Testing whether I stumble on mana")
-        messages, kw = oracle.calls[0]
-        self.assertIn("Testing whether I stumble on mana", messages[-1]["content"])
-        self.assertEqual((kw["tools"], kw["tool_choice"]), ([], "none"))
+        sent = oracle.client.calls[0]
+        self.assertIn("Testing whether I stumble on mana", sent["messages"][1]["content"])
         doc = ss.load_latest(self.r, self.deck)
         self.assertEqual(doc["report"]["params"]["notes"], "Testing whether I stumble on mana")
 
@@ -353,6 +374,63 @@ class TestReview(Base):
         self.assertNotIn("73.3141", rv["tempo_and_mana_read"])
         self.assertIn("Commander landed", rv["tempo_and_mana_read"])
         self.assertEqual(rv["actionable_tweaks"], ["Add one land.", "Trim the top end."])
+
+
+class TestOracleLoop(Base):
+    """OL-7: sim review + diagnosis summary run on the oracle tool loop (spec §9.5 a-e)."""
+
+    def test_a_review_tools_evidence_and_llm_meta(self):
+        oracle = FakeOracle(good_reply)
+        job = run_sync(self.r, self.deck, {"notes": "n"}, FakeSim(), oracle)
+        review_sent = oracle.client.calls[0]
+        self.assertEqual(tool_names(review_sent), {"get_deck", "card_lookup", "deck_stats"})  # NO sim_run
+        self.assertIn("comparison", review_sent["messages"][1]["content"])  # comparison JSON stays in the user message
+        rv = ss.load_latest(self.r, self.deck)["report"]["oracle_review"]
+        self.assertEqual(rv["source"], "oracle")
+        self.assertEqual((rv["llm"]["task"], rv["llm"]["tool_calls"]), ("sim_review", 1))
+        self.assertEqual(job["llm"]["task"], "sim_review")
+
+    def test_b_tool_numbers_allowed_unknown_stripped(self):
+        def reply(messages):
+            data = json.loads(good_reply(messages).split("```json\n")[1].split("\n```")[0])
+            data["tempo_and_mana_read"] = "Commander landed on turn 5. It won 97.5 percent of games."
+            return "```json\n" + json.dumps(data) + "\n```"
+        run_sync(self.r, self.deck, {}, FakeSim(), FakeOracle(reply))
+        rv = ss.load_latest(self.r, self.deck)["report"]["oracle_review"]
+        self.assertEqual(rv["source"], "oracle")
+        self.assertNotIn("97.5", rv["tempo_and_mana_read"])
+        self.assertIn("Commander landed", rv["tempo_and_mana_read"])
+
+    def test_c_evidence_missing_falls_back_with_note(self):
+        oracle = FakeOracle(good_reply, check=False)
+        job = run_sync(self.r, self.deck, {}, FakeSim(), oracle)
+        self.assertEqual(job["review_source"], "fallback")
+        rv = ss.load_latest(self.r, self.deck)["report"]["oracle_review"]
+        self.assertEqual(rv["note"], "oracle answered without checking curve/bracket/power")
+        self.assertTrue(rv["headline"])
+
+    def test_d_offline_falls_back_no_second_ask(self):
+        oracle = FakeOracle(fail=True)
+        job = run_sync(self.r, self.deck, {}, FakeSim(), oracle)
+        self.assertEqual(job["review_source"], "fallback")
+        self.assertEqual(len(oracle.client.calls), 1)  # no plain-prompt retry, one call per oracle task
+        self.assertNotIn("llm", ss.load_latest(self.r, self.deck)["report"]["oracle_review"])
+
+    def test_no_factory_is_offline_fallback(self):
+        job = svc.begin_run(self.r, self.deck, {}, FakeSim())
+        with patch.object(svc, "_static_review", return_value=make_review()):
+            out = svc.run_job(self.r, job, self.deck, FakeSim(), None, poll_interval=0, sleep=lambda s: None)
+        self.assertEqual(out["review_source"], "fallback")
+
+    def test_e_modules_do_not_import_oracle_client(self):
+        from src.server.domain.analytics import sim_diagnosis
+        for mod in (svc, sim_diagnosis):
+            with open(mod.__file__) as fh:
+                src = fh.read()
+            self.assertNotIn("oracle_client", src)
+            self.assertNotIn("OracleClient", src)
+            self.assertNotIn("client.chat(", src)
+            self.assertNotIn('tool_choice="none"', src)
 
 
 class TestPreservesPreviousReport(Base):
@@ -424,7 +502,8 @@ class TestApi(Base):
         self.oracle = FakeOracle(good_reply)
         real_client = sc.SimClient
         for p in (patch("src.server.app.main.r", self.r), patch("src.server.app.main._find_deck_any", return_value=self.deck),
-                  patch("src.server.app.main._oracle_client", return_value=self.oracle),
+                  patch("src.server.app.main._oracle", return_value=self.oracle),
+                  patch("src.server.app.main._oracle_tool_ctx", lambda r_, d, **kw: ToolContext(deck=d)),
                   patch.object(sc, "SimClient", lambda *a, **k: self.sim),
                   patch.object(svc, "_static_review", return_value=make_review()),
                   patch.object(svc, "POLL_INTERVAL_S", 0.01)):
@@ -537,7 +616,7 @@ class TestApi(Base):
         self.assertEqual(self.client.get(f"/api/decks/{RID}/sim/jobs/missing").status_code, 404)
 
     def test_oracle_offline_via_api_still_saves(self):
-        self.oracle.fail = True
+        self.oracle.client.fail = True
         job = self.wait_job(self.client.post(f"/api/decks/{RID}/sim/run", json={}).json()["job_id"])
         self.assertEqual(job["status"], "done")
         self.assertEqual(job["review_source"], "fallback")

@@ -3432,7 +3432,7 @@ async def api_run_deck_sim(deck_id: str, request: Request):
     except ValueError as exc:  # deck can't be exported (no commander / not 100 cards)
         return _bad_request(exc, 422)
     try:
-        sim_service.start_thread(r, job, deck, None, _oracle_client)
+        sim_service.start_thread(r, job, deck, None, _oracle, _oracle_tool_ctx)
     except Exception:
         sim_service.release(job["deck_id"], job["job_id"])
         raise
