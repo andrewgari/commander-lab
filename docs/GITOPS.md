@@ -115,6 +115,10 @@ backup as described above.
   `secrets/OPENROUTER_API_KEY` in the same root-only secrets dir (read when the
   env var is empty). Optional: `LLM_MODEL`, `LLM_MODEL_<TASK>`, `LLM_TIMEOUT_S`,
   `OPENROUTER_BASE_URL`, `LLM_LOOP_MAX_TURNS_<TASK>`, `LLM_LOOP_HARD_USD_<TASK>`.
+  Compose forwards only `OPENROUTER_API_KEY`; to use any of these optional
+  overrides, also add an explicit `VAR=${VAR:-}` entry to the app service's
+  `environment` in `docker-compose.prod.yml`, otherwise setting it in the
+  Portainer stack has no effect.
   An unset key makes Deep Review show the offline note. Smoke test from prod:
   `ssh tower 'docker exec commander-lab-app python -c "from src.server.infra.llm.provider import provider_status; print(provider_status()[\"openrouter\"])"'`
   prints `None` when configured (it never prints the key). To rotate, rewrite
