@@ -5007,7 +5007,8 @@ def _oracle_tool_ctx(r, deck, **kw):
         return lambda d: review_metrics.review_deck(r, dict(d))
 
     def _journal():
-        return journal_mod.public(journal_mod.load_journal(r, deck))
+        rec = journal_mod.load_journal(r, deck)
+        return journal_mod.public(rec) if rec else None
 
     def _game_changers():
         gc = asyncio.run(brackets_mod.get_game_changers(r))

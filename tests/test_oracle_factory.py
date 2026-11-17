@@ -41,6 +41,10 @@ class BuildOracle(unittest.TestCase):
         o = build_oracle("sim_review", env=KEY)
         self.assertEqual(_t(o.caps), ROWS["sim_review"])
 
+    def test_every_loops_task_builds(self):
+        for task, row in ROWS.items():
+            self.assertEqual(_t(build_oracle(task, env=KEY).caps), row, task)
+
     def test_unknown_task(self):
         with self.assertRaises(ValueError):
             build_oracle("nope", env=KEY)
@@ -76,6 +80,14 @@ class ToolCtx(unittest.TestCase):
         self.assertIsNone(ctx.journal)
         self.assertIsNone(ctx.game_changers)
         self.assertEqual(ctx.deck, {"name": "d"})
+
+    def test_absent_journal_stays_none(self):
+        m = self.m
+        with mock.patch.object(m.journal_mod, "load_journal", return_value=None), \
+                mock.patch.object(m.journal_mod, "public", return_value={"goals": ["default"]}), \
+                mock.patch.object(m.brackets_mod, "get_game_changers", side_effect=RuntimeError):
+            ctx = m._oracle_tool_ctx(object(), {"name": "d"})
+        self.assertIsNone(ctx.journal)
 
     def test_success_and_kwargs(self):
         m = self.m

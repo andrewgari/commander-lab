@@ -188,7 +188,7 @@ class Factory(unittest.TestCase):
     def test_task_table(self):
         self.assertEqual(set(TASKS), {"card_review", "deck_review", "sim_review", "sim_diagnosis", "personality_read",
                                       "genre_autofill", "deck_writeup", "theory", "reconstruct", "review_writer",
-                                      "brew_review"})
+                                      "brew_review", "review_pipeline"})
         self.assertEqual(TASKS["sim_diagnosis"].model, "anthropic/claude-haiku-5.5")
         self.assertEqual((TASKS["deck_review"].timeout_s, TASKS["deck_review"].max_tokens), (300, 8000))
 
