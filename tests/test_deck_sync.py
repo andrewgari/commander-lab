@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import unittest
+from copy import deepcopy
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,8 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import src.server.domain.decks.deck_links as deck_links
 import src.server.domain.decks.deck_sync as deck_sync
 import src.server.domain.decks.registry as registry
-from src.server.domain.decks.deck_sync import DeckSyncError
+import src.server.domain.inventory.instances as instance_store
+from src.server.domain.decks.deck_sync import DeckSyncError, ProviderFailure
 from src.server.infra.providers import PROVIDERS, ProviderError
+from tests.test_physical_resync_diff import FakeRedis as PhysicalFakeRedis
 
 
 class FakeRedis:
@@ -182,27 +185,64 @@ class TestSyncDeck(unittest.TestCase):
         names = {c["name"] for c in deck["cards"]}
         self.assertEqual(names, {"Sol Ring", "Arcane Signet", "Cultivate", "Rhystic Study"})
 
-    def test_one_source_unreachable_other_still_completes_with_warning(self):
-        with patch.dict(
-            PROVIDERS,
-            {
-                "archidekt": FakeArchidektProvider(deck=ARCHIDEKT_DECK),
-                "moxfield": FakeMoxfieldProvider(error=ProviderError("moxfield timed out")),
-            },
-        ):
-            report = deck_sync.sync_deck(self.r, "archidekt:42")
+    def test_one_source_failure_aborts_update_and_preview(self):
+        for failed in ("archidekt", "moxfield"):
+            for dry_run in (False, True):
+                with self.subTest(failed=failed, dry_run=dry_run):
+                    error = ProviderError(f"{failed} timed out")
+                    providers = {
+                        "archidekt": FakeArchidektProvider(deck=ARCHIDEKT_DECK),
+                        "moxfield": FakeMoxfieldProvider(deck=MOXFIELD_DECK),
+                    }
+                    providers[failed]._error = error
+                    before = deepcopy(self.r.store)
+                    with patch.dict(PROVIDERS, providers):
+                        with self.assertRaises(ProviderFailure) as ctx:
+                            deck_sync.update_deck(self.r, "archidekt:42", dry_run=dry_run)
+                    self.assertIn(failed, str(ctx.exception))
+                    self.assertIn("timed out", str(ctx.exception))
+                    self.assertIs(ctx.exception.__cause__, error)
+                    self.assertEqual(self.r.store, before)
 
-        statuses = {s.provider: s.status for s in report.sources}
-        self.assertEqual(statuses["archidekt"], "ok")
-        self.assertEqual(statuses["moxfield"], "error")
-        self.assertTrue(any("moxfield" in w for w in report.warnings))
-
-        deck = registry.find_deck(self.r, "archidekt:42")
-        names = {c["name"] for c in deck["cards"]}
-        self.assertEqual(names, {"Sol Ring", "Arcane Signet", "Cultivate"})
+    def test_physical_deck_partial_failure_does_not_mutate_any_state(self):
+        r = PhysicalFakeRedis()
+        deck = _seed_linked_deck(r, status="physical")
+        deck.update({
+            "cards": [{"name": "Rhystic Study", "quantity": 1}],
+            "commanders": ["Original Commander"],
+            "commander_uids": ["original-uid"],
+            "color": "U",
+            "slots": {"maybeboard": [{"name": "Original Maybe", "quantity": 1}]},
+            "parse_flags": ["original flag"],
+            "parent_folder_id": 588380,
+            "last_updated_at": "old",
+            "sync_state": {"archidekt": {"last_updated_at": "old"}},
+        })
+        r.set("decks", json.dumps([deck]))
+        r.set("deck_status:42", "physical")
+        instance = instance_store.create_instance(
+            r, card_name="Rhystic Study", ownership_status="in_deck",
+            deck_id="archidekt:42", deck_name=deck["name"],
+        )
+        before_store, before_sets = deepcopy(r.store), deepcopy(r.sets)
+        arch = dict(ARCHIDEKT_DECK, parent_folder_id=123, theorycrafted=True)
+        with patch.dict(PROVIDERS, {
+            "archidekt": FakeArchidektProvider(deck=arch),
+            "moxfield": FakeMoxfieldProvider(error=ProviderError("rate limited")),
+        }), patch.object(registry, "update_deck_cards", wraps=registry.update_deck_cards) as update, \
+                patch.object(registry, "set_folder_data", wraps=registry.set_folder_data) as folder, \
+                patch.object(deck_sync, "_stamp", wraps=deck_sync._stamp) as stamp:
+            with self.assertRaises(ProviderFailure):
+                deck_sync.sync_deck(r, "archidekt:42")
+        update.assert_not_called()
+        folder.assert_not_called()
+        stamp.assert_not_called()
+        self.assertEqual(r.store, before_store)
+        self.assertEqual(r.sets, before_sets)
+        self.assertNotIn("pending_removal", instance_store.get_instance(r, instance["id"]))
 
     def test_all_sources_failing_raises_and_leaves_deck_untouched(self):
-        original_cards = json.loads(self.r.get("decks"))[0]["cards"]
+        before = deepcopy(self.r.store)
         with patch.dict(
             PROVIDERS,
             {
@@ -210,11 +250,31 @@ class TestSyncDeck(unittest.TestCase):
                 "moxfield": FakeMoxfieldProvider(error=ProviderError("moxfield down")),
             },
         ):
-            with self.assertRaises(DeckSyncError):
+            with self.assertRaises(ProviderFailure) as ctx:
                 deck_sync.sync_deck(self.r, "archidekt:42")
 
-        deck = registry.find_deck(self.r, "archidekt:42")
-        self.assertEqual(deck["cards"], original_cards)
+        self.assertIn("all linked sources failed", str(ctx.exception))
+        self.assertIn("archidekt: archidekt down", str(ctx.exception))
+        self.assertIn("moxfield: moxfield down", str(ctx.exception))
+        self.assertEqual(self.r.store, before)
+
+    def test_physical_deck_success_still_flags_removed_inventory(self):
+        r = PhysicalFakeRedis()
+        deck = _seed_linked_deck(r, status="physical")
+        deck["cards"] = [{"name": "Local Only", "quantity": 1}]
+        r.set("decks", json.dumps([deck]))
+        instance = instance_store.create_instance(
+            r, card_name="Local Only", ownership_status="in_deck",
+            deck_id="archidekt:42", deck_name=deck["name"],
+        )
+        with patch.dict(PROVIDERS, {
+            "archidekt": FakeArchidektProvider(deck=ARCHIDEKT_DECK),
+            "moxfield": FakeMoxfieldProvider(deck=MOXFIELD_DECK),
+        }):
+            deck_sync.sync_deck(r, "archidekt:42")
+        updated = instance_store.get_instance(r, instance["id"])
+        self.assertEqual(updated["pending_removal"]["reason"], "resync_removed")
+        self.assertEqual(updated["ownership_status"], "in_deck")
 
     def test_single_source_only_still_works_no_regression(self):
         self.r.store.clear()
