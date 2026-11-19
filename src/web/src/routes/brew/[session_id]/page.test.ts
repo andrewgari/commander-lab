@@ -39,6 +39,15 @@ describe('brew page', () => {
 		await waitFor(() => expect(screen.queryByTestId('tier-2')).toBeNull());
 		expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('?/remove');
 	});
+	it('removes a generated line without an oracle id by name', async () => {
+		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ type: 'success', status: 200, data: { cards: [base[0]] } })));
+		vi.stubGlobal('fetch', fetchMock);
+		mount({ ...data(), cards: [base[0], { ...base[1], oracle_id: '' }] });
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove Sol Ring' }));
+		await waitFor(() => expect(screen.queryByTestId('tier-2')).toBeNull());
+		const init = (fetchMock.mock.calls[0] as unknown[])[1] as RequestInit;
+		expect((init.body as FormData).get('name')).toBe('Sol Ring');
+	});
 	it('a failed remove shows the server reason and keeps the list', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ type: 'failure', status: 409, data: { actionError: 'nope' } }))));
 		mount();

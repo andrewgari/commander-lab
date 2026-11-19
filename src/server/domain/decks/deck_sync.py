@@ -16,13 +16,9 @@ Design (see docs/DUAL_SOURCE_SYNC.md):
 - A deck can carry a link for more than one syncable provider at once
   (currently Archidekt and Moxfield; Commander Salt is link-only -- it has
   no cardlist to merge, see deck_links.SYNCABLE_PROVIDERS).
-- Each linked provider is fetched independently. One provider being
-  unreachable (network error, 404, rate limit, etc.) does NOT abort the
-  sync for the other -- that provider's failure is collected and surfaced
-  as a warning, and the sync still completes using whatever source(s)
-  succeeded.
-- If zero of the linked providers are reachable, the sync fails outright
-  (nothing to merge) and the deck's cardlist is left untouched.
+- Each selected provider is fetched independently so all failures can be
+  reported. If any selected provider fails, the update (including a dry-run
+  preview) fails before changing the deck, folder status, or inventory.
 - Merge strategy: union of both cardlists by card name, taking the MAX
   quantity seen across sources for any card that appears on both. This
   favors a complete decklist over an undercount when sources disagree
@@ -32,8 +28,9 @@ Design (see docs/DUAL_SOURCE_SYNC.md):
   commander entry is honored even if only one source lists it.
 - A conflict is logged whenever two sources both list the same card but
   with different quantities, or when a card appears on only one side --
-  the whole report (per-source pulled counts, conflicts, failures) is
-  returned so callers can show the user exactly what happened.
+  the report (per-source pulled counts and conflicts) is returned so callers
+  can show the user exactly what happened. Failed sources are named in the
+  error instead.
 """
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -49,9 +46,9 @@ from src.server.infra.providers import ProviderError, PushError, PushNotConfigur
 
 
 class DeckSyncError(ValueError):
-    """Raised when a sync cannot produce any usable result at all (e.g. no
-    syncable provider is linked, or every linked provider failed).
-    `code`/`status` map it to the API error shape (see app.py)."""
+    """Raised when a sync cannot safely complete (e.g. no syncable provider
+    is linked, or a selected provider failed). `code`/`status` map it to the
+    API error shape (see app.py)."""
 
     code = "sync_failed"
     status = 400
@@ -133,8 +130,7 @@ class SyncReport:
 
 
 def _fetch_one(provider: str, deck_id: str) -> dict:
-    """Fetch+normalize one provider's deck. Raises on failure -- callers
-    catch broadly so one bad source never takes down the whole sync."""
+    """Fetch+normalize one provider's deck. Raises on failure."""
     return provider_fetch_deck(provider, deck_id)
 
 
@@ -323,7 +319,7 @@ def update_deck(r, registry_id: str, provider: Optional[str] = None, dry_run: bo
     dry_run: fetch and diff, but write nothing (confirmation-modal preview).
 
     Returns a UI result dict (see docs/SYNC_UPDATE_PUSH.md). Raises
-    DeckNotFound / DeckSyncError (no link, unknown provider, every source failed).
+    DeckNotFound / DeckSyncError (no link, unknown provider, any selected source failed).
     """
     deck = _find(r, registry_id)
     registry_id = registry.registry_id_of(deck)
@@ -336,17 +332,22 @@ def update_deck(r, registry_id: str, provider: Optional[str] = None, dry_run: bo
 
     report = SyncReport(registry_id=registry_id)
     fetched = {}
+    failures = []
+    first_error = None
     for name, entry in links.items():
         try:
             normalized = _fetch_one(name, _link_id(entry))
+            source = SourceResult(provider=name, status="ok", card_count=len(normalized.get("cards", [])))
             fetched[name] = normalized
-            report.sources.append(SourceResult(provider=name, status="ok", card_count=len(normalized.get("cards", []))))
-        except Exception as exc:  # noqa: BLE001 - one bad source must not abort the others
-            report.sources.append(SourceResult(provider=name, status="error", error=str(exc)))
-            report.warnings.append(f"{name}: {exc}")
+            report.sources.append(source)
+        except Exception as exc:  # noqa: BLE001 - collect failures from every selected source
+            if first_error is None:
+                first_error = exc
+            failures.append(f"{name}: {exc}")
 
-    if not fetched:
-        raise ProviderFailure(f"all linked sources failed for deck {registry_id}: " + "; ".join(report.warnings))
+    if failures:
+        scope = "all linked sources failed" if not fetched else "linked source update incomplete"
+        raise ProviderFailure(f"{scope} for deck {registry_id}: " + "; ".join(failures)) from first_error
 
     cards, commanders, commander_uids, color, conflicts, slots, parse_flags = (
         merge_normalized_decks(fetched)

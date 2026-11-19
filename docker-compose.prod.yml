@@ -51,6 +51,7 @@ services:
       - "8020:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-}
       - DATA_ACCESS_MODE=${DATA_ACCESS_MODE:-readwrite}
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
@@ -88,7 +89,10 @@ services:
       # Read-only: live credentials, gitignored, refreshed out-of-band without a rebuild.
       - ./.auth:/app/.auth:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000
     networks:
       - internal

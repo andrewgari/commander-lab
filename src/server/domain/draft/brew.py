@@ -493,28 +493,26 @@ def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int 
     return draft
 
 
-def remove_draft_card(r: Any, session_id: str, oracle_id: str) -> dict:
-    """Remove a card (the whole line, any quantity) from the brew draft and
-    re-tier from pools. The commander cannot be removed. Returns the draft."""
+def remove_draft_card(r: Any, session_id: str, oracle_id: str = "", *, name: str = "") -> dict:
+    """Remove a whole card line by oracle ID or, for legacy drafts, exact name."""
     session = get_session(r, session_id)
     draft = _editable_draft(session, session_id)
     assert session is not None
 
-    oracle_id = (oracle_id or "").strip()
+    oracle_id, name = (oracle_id or "").strip(), (name or "").strip()
+    if not oracle_id and not name:
+        raise BrewEditError("invalid_card", "oracle_id or name is required", 422)
     cards = draft.get("cards") or []
-    catalog_key = None
-    match = next((c for c in cards if c.get("oracle_id") == oracle_id), None)
+    match = next((c for c in cards if oracle_id and c.get("oracle_id") == oracle_id), None)
     if match is None:
-        # Builder-written cards carry no oracle_id: resolve it to a name instead.
-        catalog_name = _catalog_name(r, oracle_id)
-        catalog_key = reconstruct_pools.norm_name(catalog_name) if catalog_name else None
-        match = next(
-            (c for c in cards
-             if catalog_key and reconstruct_pools.norm_name(c.get("name", "")) == catalog_key),
-            None,
-        )
+        # Exact stored names also support old drafts and cards missing catalog IDs.
+        catalog_name = _catalog_name(r, oracle_id) if oracle_id else name
+        match = next((c for c in cards if catalog_name and (
+            reconstruct_pools.norm_name(c.get("name", "")) == reconstruct_pools.norm_name(catalog_name)
+            if oracle_id else c.get("name", "").casefold() == catalog_name.casefold()
+        )), None)
     if match is None:
-        raise BrewEditError("card_not_in_draft", f"no card with oracle_id {oracle_id!r} in the brew", 404)
+        raise BrewEditError("card_not_in_draft", f"card {name or oracle_id!r} is not in the brew", 404)
 
     commanders = {reconstruct_pools.norm_name(c) for c in (draft.get("commanders") or session.get("commanders") or [])}
     if reconstruct_pools.norm_name(match.get("name", "")) in commanders:

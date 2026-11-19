@@ -99,10 +99,12 @@ export const actions: Actions = {
 	remove: async ({ request, params }) => {
 		const form = await request.formData();
 		const oracle_id = String(form.get('oracle_id') ?? '').trim();
-		if (!oracle_id) return fail(400, { actionError: 'Missing oracle id.', action: 'remove' });
+		const name = String(form.get('name') ?? '').trim();
+		if (!oracle_id && !name) return fail(400, { actionError: 'Missing card identity.', action: 'remove' });
 		try {
+			const cardPath = oracle_id ? encodeURIComponent(oracle_id) : `by-name?${new URLSearchParams({ name })}`;
 			const out = await apiDelete<{ draft: { cards: BrewLine[] } }>(
-				`/api/v2/brew/${encodeURIComponent(params.session_id)}/cards/${encodeURIComponent(oracle_id)}`
+				`/api/v2/brew/${encodeURIComponent(params.session_id)}/cards/${cardPath}`
 			);
 			return { action: 'remove', cards: out.draft.cards };
 		} catch (e) {
