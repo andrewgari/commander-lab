@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deep Review: the bracket and power level the review checks now include Commander Spellbook combos and your deck's power estimate, matching the deck page.
+- Simulation review: the written review and the run diagnosis summary now check the deck's curve, bracket and power level before they are written, and the saved review shows which model and checks were used.
+- Card review: the Keep/Remove debate now runs on the oracle tool loop, and the judge checks the deck's curve, bracket and power level before it rules.
+- Deep Review: the written verdict now checks the deck's curve, bracket and power level before it's written, and shows which checks it used.
+
+### Security
+- Tags, Decks, and Deck pages: stored tag, card, and deck values are now rendered as plain text or escaped attributes instead of raw HTML markup.
+
 ### Fixed
+- Linked deck sync: multi-provider updates now fail closed when any selected provider fails instead of overwriting the local decklist with partial data.
+- Account sync: Archidekt sync now follows all result pages instead of stopping at the first 100 decks, and sets HTTP request timeouts.
+- Brew editor: generated brew cards without an oracle ID can now be removed from the draft list.
+- Inventory page: search and deck filters discard stale responses, support keyboard expansion and filter-pill removal, and display unrecognized card statuses as unavailable with a reason.
+- Draft commits: concurrent draft commits, staging edits, and abandonments lock shared records consistently and enforce read-only mode across both Redis and PostgreSQL.
+- Deep Review: a playtest run during a review no longer replaces your saved Simulate report.
 - Brew: every brewed deck is now checked (100 cards, real card names, legality) and reviewed by oracle before it is shown, and the result carries oracle's verdict. A deck oracle fails, or cannot review because it is offline, is reported as a failed brew instead of a finished deck.
 - Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.

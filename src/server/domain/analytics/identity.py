@@ -79,7 +79,7 @@ def deck_names(deck: dict) -> List[str]:
 
 
 def cards_signature(deck: dict) -> str:
-    return hashlib.sha1("\n".join(deck_names(deck)).encode("utf-8")).hexdigest()
+    return hashlib.sha1("\n".join(deck_names(deck)).encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 # ---------------------------------------------------------------------------

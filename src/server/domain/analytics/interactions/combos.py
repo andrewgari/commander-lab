@@ -109,7 +109,7 @@ _COUNT_ONLY = ("included_changing_commanders", "almost_included_changing_command
 def decklist_key(commanders: Iterable[str], main: Iterable[str]) -> str:
     cmd = sorted({name_key(c) for c in commanders if c})
     rest = sorted({name_key(c) for c in main if c} - set(cmd))
-    digest = hashlib.sha1(json.dumps([cmd, rest]).encode()).hexdigest()
+    digest = hashlib.sha1(json.dumps([cmd, rest]).encode(), usedforsecurity=False).hexdigest()
     return CACHE_PREFIX + digest
 
 

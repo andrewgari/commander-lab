@@ -151,6 +151,7 @@ class ServiceCase(unittest.TestCase):
 
 class TestUpdate(ServiceCase):
     def test_update_from_one_provider_overwrites_local_and_reports_changes(self):
+        self.mox.error = RuntimeError("unselected provider down")
         res = deck_sync.update_deck(self.r, "archidekt:42", provider="archidekt")
 
         self.assertTrue(res["success"])
@@ -297,6 +298,29 @@ class TestRoutes(RouteCase):
         res = self.client.post("/api/decks/archidekt:42/sync/pull")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(sorted(res.json()["providers"]), ["archidekt", "moxfield"])
+
+    def test_partial_failure_fails_pull_preview_and_legacy_without_side_effects(self):
+        self.mox.error = RuntimeError("moxfield rate limited")
+        before = self.r.get("decks")
+        with patch.object(app_module.interactions_service, "start_rebuild") as rebuild, \
+                patch.object(app_module, "_wake_bracket_worker") as wake:
+            for path, body, status in (
+                ("/api/decks/archidekt:42/sync/pull", {}, 502),
+                ("/api/decks/archidekt:42/sync/pull", {"dry_run": True}, 502),
+                ("/api/decks/archidekt:42/sync", {}, 400),
+            ):
+                with self.subTest(path=path, body=body):
+                    res = self.client.post(path, json=body)
+                    self.assertEqual(res.status_code, status)
+                    self.assertFalse(res.json()["success"])
+                    self.assertIn("moxfield: moxfield rate limited", res.json()["error"])
+                    if status == 502:
+                        self.assertEqual(res.json()["code"], "provider_error")
+                    self.assertEqual(self.r.get("decks"), before)
+            rebuild.assert_not_called()
+            wake.assert_not_called()
+        self.assertEqual(len(self.arch.fetch_calls), 3)
+        self.assertEqual(len(self.mox.fetch_calls), 3)
 
     def test_push_route_and_errors(self):
         ok = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield", "dry_run": False})

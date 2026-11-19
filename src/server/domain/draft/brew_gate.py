@@ -65,7 +65,7 @@ def fingerprint(draft: dict) -> str:
     payload = [list(draft.get("commanders") or []),
                [(c.get("name"), c.get("quantity")) for c in draft.get("cards") or []],
                bool(draft.get("user_edited"))]
-    return hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+    return hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()
 
 
 def find_uuid_strings(obj: Any, _key: str = "") -> List[str]:

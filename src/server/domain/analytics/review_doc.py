@@ -1,7 +1,7 @@
 """RV-3: the saved, versioned Deep Review doc (docs/REVIEW_SPEC.md).
 
 Pipeline (copies Theory / Personality Read): POST rebuild -> background job -> RV-2 metrics
-(pure math) -> oracle writes PROSE over them -> typed-sections doc saved in Redis.
+(pure math) -> oracle (tool loop: checks curve, bracket and power first) writes PROSE over them -> typed-sections doc saved in Redis.
 
 Core rule: every number, label and pick comes from `review_metrics`. Oracle's reply is validated
 against `review.schema.json` (docs/oracle/deck-review/references) and any sentence carrying a
@@ -54,11 +54,9 @@ TITLES = {
 OFFLINE_NOTE = "Explanation offline: oracle could not be reached. The numbers above are complete; press Rebuild to retry."
 INVALID_NOTE = "Explanation unavailable: oracle's reply did not pass validation. The numbers above are complete; press Rebuild to retry."
 
-SYSTEM_PROMPT = (
-    "Commander Lab request. Load and follow your `deck-review` skill exactly "
-    "(skill_view name='deck-review'). You write prose over the supplied metrics and decide nothing. "
-    "Reply with exactly one fenced ```json block matching review.schema.json. Nothing after it."
-)
+REQUIRED_EVIDENCE = {"deck_stats": frozenset({"curve", "bracket", "power"})}
+TOOLS = ("get_deck", "card_lookup", "deck_stats", "sim_run")
+EVIDENCE_NOTE = "oracle answered without checking curve/bracket/power"
 
 _INFLIGHT: Dict[str, str] = {}
 _INFLIGHT_LOCK = threading.Lock()
@@ -219,8 +217,10 @@ def strip_invented_numbers(text: str, allowed: Set[str], names: Iterable[str] = 
     return " ".join(kept), dropped
 
 
-def clean_prose(prose: ReviewProse, metrics: Mapping) -> tuple[Dict[str, str], int]:
-    allowed = allowed_numbers(metrics)
+def clean_prose(prose: ReviewProse, metrics: Mapping, allowed: Optional[Set[str]] = None) -> tuple[Dict[str, str], int]:
+    """`allowed` defaults to the metrics-only set; the oracle loop passes metrics plus tool outputs."""
+    if allowed is None:
+        allowed = allowed_numbers(metrics)
     names = _card_names(metrics)
     out: Dict[str, str] = {}
     total = 0
@@ -383,13 +383,17 @@ def _rid(deck: Mapping) -> str:
 # Oracle request
 # ---------------------------------------------------------------------------------------------
 
-def request_prompt(rid: str, metrics: Mapping, journal: Mapping) -> str:
+def request_facts(rid: str, metrics: Mapping, journal: Mapping) -> str:
     payload = {"deck_id": rid, "fingerprint": metrics.get("fingerprint"), "metrics": metrics, "journal": journal}
+    return f"```json\n{json.dumps(payload, indent=2, sort_keys=True, default=str)}\n```"
+
+
+def request_text(rid: str, metrics: Mapping) -> str:
     return (
-        f"Deep Review prose request for '{(metrics.get('deck') or {}).get('name')}' ({rid}).\n\n"
-        "Commander Lab computed every number below. Write prose only, one string per section, per the "
-        "`deck-review` skill. Do not introduce numbers, labels or card picks of your own.\n\n"
-        f"```json\n{json.dumps(payload, indent=2, sort_keys=True, default=str)}\n```\n\n"
+        f"Deep Review prose request for '{(metrics.get('deck') or {}).get('name')}' ({rid}).\n"
+        "Commander Lab computed every number above. Check the deck's curve, bracket and power level with "
+        "your tools first, then write prose only, one string per section. Do not introduce numbers, "
+        "labels or card picks of your own.\n"
         "End with exactly ONE fenced ```json block matching review.schema.json."
     )
 
@@ -403,35 +407,91 @@ def _journal(r, deck: Mapping) -> dict:
         return {}
 
 
-def build_review(r, deck: Mapping, client_factory: Callable[[], Any], metrics: Optional[dict] = None) -> dict:
-    """Metrics -> oracle prose -> saved doc. Oracle trouble degrades to the offline/invalid note."""
+def _evidence(outputs: Iterable[Any]) -> List[dict]:
+    return [{"tool": "deck_stats", "sections": list((o.arguments or {}).get("sections") or [])}
+            for o in outputs if o.ok and o.tool == "deck_stats"]
+
+
+def build_review(r, deck: Mapping, oracle_factory: Callable[[], Any], metrics: Optional[dict] = None,
+                 ctx_factory: Optional[Callable[..., Any]] = None) -> dict:
+    """Metrics -> oracle tool loop -> saved doc. Oracle trouble degrades to the offline/invalid note.
+
+    No single-prompt fallback (spec D1): the oracle must check curve, bracket and power with tools."""
+    from src.server.domain.knowledge import build_messages
     from src.server.domain.llm.port import LLMError, LLMUnavailable
+    from src.server.domain.oracle import OracleBudgetExceeded, OracleEvidenceMissing, OracleRunError, OracleRunState
+    from src.server.domain.oracle.numbers import allowed_numbers_from
+    from src.server.domain.oracle.tools import ToolContext, build_registry
 
     deck = dict(deck)
     rid = deck.get("registry_id") or _rid(deck)
     if metrics is None:
         metrics = review_metrics.review_deck(r, deck)
+    fp = str(metrics.get("fingerprint"))
     prose: Optional[Dict[str, str]] = None
     status, note, stripped = "ok", "", 0
+    llm_meta: Optional[dict] = None
+    evidence: List[dict] = []
+
+    def validate(text: str, state: OracleRunState) -> List[str]:
+        try:
+            state.parsed = validate_prose(parse_reply(text), fp)
+        except ReviewParseError as exc:
+            return [str(exc)]
+        return []
+
     try:
-        client = client_factory()
-        reply = client.chat([
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": request_prompt(rid, metrics, _journal(r, deck))},
-        ])
-        parsed = validate_prose(parse_reply(reply), str(metrics.get("fingerprint")))
-        prose, stripped = clean_prose(parsed, metrics)
+        oracle = oracle_factory()
+        ctx = (ctx_factory(r, deck, metrics) if ctx_factory
+               else ToolContext(deck=deck, metrics=metrics, journal=_journal(r, deck)))
+        ctx.metrics = metrics
+        names = [t for t in TOOLS if t != "sim_run" or ctx.sim is not None]
+        messages, pack_id = build_messages("deck_review", game_changers=_gc_payload(ctx),
+                                           facts_json=request_facts(rid, metrics, _journal(r, deck)),
+                                           user_text=request_text(rid, metrics))
+        oracle.pack_id = pack_id
+        res = oracle.run(task="deck_review", messages=messages, registry=build_registry(names, ctx), ctx=ctx,
+                         validate=validate, required_evidence=REQUIRED_EVIDENCE)
+        llm_meta = res.trace.to_job_meta()
+        evidence = _evidence(res.outputs)
+        prose, stripped = clean_prose(res.parsed, metrics, allowed_numbers_from(res.outputs, metrics))
         if not prose.get("oracle_summary"):
             status, note = "invalid", "summary held only numbers that are not in the metrics"
     except LLMUnavailable as exc:
         status, note = "offline", (exc.detail or "")[:200]
-    except ReviewParseError as exc:
-        status, note = "invalid", str(exc)[:300]
-    except LLMError as exc:
-        status, note = "invalid", f"{type(exc).__name__}: {str(exc)[:250]}"
+        llm_meta, evidence = _partial(exc)
+    except OracleEvidenceMissing as exc:
+        status, note = "invalid", EVIDENCE_NOTE
+        llm_meta, evidence = _partial(exc)
+    except OracleBudgetExceeded as exc:
+        status, note = "invalid", f"oracle hit its {exc.reason} budget"[:300]
+        llm_meta, evidence = _partial(exc)
+    except LLMError as exc:  # OracleInvalidAnswer, LLMResponseError, auth
+        status, note = "invalid", (str(exc)[:300] if isinstance(exc, OracleRunError) else
+                                   f"{type(exc).__name__}: {str(exc)[:250]}")
+        llm_meta, evidence = _partial(exc)
     if status != "ok":
         prose = None
-    return save(r, build_doc(rid, metrics, prose, oracle_status=status, oracle_note=note, stripped=stripped))
+    doc = build_doc(rid, metrics, prose, oracle_status=status, oracle_note=note, stripped=stripped)
+    if llm_meta is not None:
+        data = doc["sections"][-1]["data"]
+        data["llm"], data["evidence"] = llm_meta, evidence
+    return save(r, doc)
+
+
+def _partial(exc: BaseException) -> tuple:
+    """(llm meta | None, evidence) from a failed run; (None, []) when no turn was recorded."""
+    return _meta(exc), _evidence(getattr(exc, "outputs", []) or [])
+
+
+def _meta(exc: BaseException) -> Optional[dict]:
+    trace = getattr(exc, "trace", None)
+    return trace.to_job_meta() if trace is not None else None
+
+
+def _gc_payload(ctx: Any) -> Any:
+    gc = getattr(ctx, "game_changers", None)
+    return {"cards": list(gc), "source": "Commander Lab Game Changers list", "fetched_at": "this run"} if gc else None
 
 
 # ---------------------------------------------------------------------------------------------
@@ -479,14 +539,16 @@ def new_job(r, deck: Mapping) -> dict:
         raise
 
 
-def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> dict:
+def run_job(r, job: dict, deck: Mapping, oracle_factory: Callable[[], Any], ctx_factory: Optional[Callable[..., Any]] = None) -> dict:
     rid = job["deck_id"]
     try:
         job.update(status="running", started_at=_now_iso())
         _save_job(r, job)
-        doc = build_review(r, deck, client_factory)
+        doc = build_review(r, deck, oracle_factory, ctx_factory=ctx_factory)
         oracle = next((s["data"] for s in doc["sections"] if s["type"] == "oracle_summary"), {})
         job.update(status="done", doc_id=doc["doc_id"], oracle_status=oracle.get("status"))
+        if oracle.get("llm"):
+            job["llm"] = oracle["llm"]
     except Exception as exc:  # noqa: BLE001
         log.exception("review job %s failed", job["job_id"])
         job.update(status="failed", error=f"{type(exc).__name__}: {str(exc)[:300]}", error_kind="internal")
@@ -500,8 +562,8 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
         return job
 
 
-def start_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> threading.Thread:
-    t = threading.Thread(target=run_job, args=(r, job, dict(deck), client_factory),
+def start_job(r, job: dict, deck: Mapping, oracle_factory: Callable[[], Any], ctx_factory: Optional[Callable[..., Any]] = None) -> threading.Thread:
+    t = threading.Thread(target=run_job, args=(r, job, dict(deck), oracle_factory, ctx_factory),
                          name=f"review-{job['job_id']}", daemon=True)
     t.start()
     return t

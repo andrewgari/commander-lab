@@ -785,7 +785,12 @@ def list_drafts(session: Session, status: Optional[str] = None,
 
 
 def _require_open_draft(session: Session, draft_id: str) -> DraftRow:
-    row = session.get(DraftRow, draft_id)
+    # Serialize all staging writes, commits and abandonment for this draft.
+    # Refresh even an already-loaded ORM object after any lock wait.
+    row = session.scalar(
+        select(DraftRow).where(DraftRow.id == draft_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
     if row is None:
         raise draft_mode.DraftError(f"draft not found: {draft_id}")
     if row.status != draft_mode.STATUS_OPEN:
@@ -796,7 +801,8 @@ def _require_open_draft(session: Session, draft_id: str) -> DraftRow:
 def upsert_draft_card(session: Session, draft_id: str, card: dict) -> None:
     _require_open_draft(session, draft_id)
     draft_mode.validate_staged_card(card["oracle_id"], card["qty"], card["board"])
-    row = session.get(DraftCardRow, (draft_id, card["oracle_id"], card["board"]))
+    row = session.get(DraftCardRow, (draft_id, card["oracle_id"], card["board"]),
+                      populate_existing=True)
     if row is None:
         session.add(DraftCardRow(
             draft_id=draft_id, oracle_id=card["oracle_id"],
@@ -811,7 +817,7 @@ def upsert_draft_card(session: Session, draft_id: str, card: dict) -> None:
 def remove_draft_card(session: Session, draft_id: str, oracle_id: str,
                       board: str) -> bool:
     _require_open_draft(session, draft_id)
-    row = session.get(DraftCardRow, (draft_id, oracle_id, board))
+    row = session.get(DraftCardRow, (draft_id, oracle_id, board), populate_existing=True)
     if row is None:
         return False
     session.delete(row)
@@ -824,6 +830,7 @@ def list_draft_cards(session: Session, draft_id: str) -> list[dict]:
         .join(CardRow, CardRow.oracle_id == DraftCardRow.oracle_id)
         .where(DraftCardRow.draft_id == draft_id)
         .order_by(DraftCardRow.board, CardRow.name)
+        .execution_options(populate_existing=True)
     )
     return [
         {
@@ -839,10 +846,10 @@ def list_draft_cards(session: Session, draft_id: str) -> list[dict]:
 def stage_move(session: Session, draft_id: str, instance_id: str,
                action: str) -> None:
     _require_open_draft(session, draft_id)
-    inst = session.get(CardInstanceRow, instance_id)
+    inst = session.get(CardInstanceRow, instance_id, populate_existing=True)
     draft_mode.validate_move(action, _instance_dict(inst) if inst else None)
     assert inst is not None  # validate_move raises on None
-    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id))
+    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id), populate_existing=True)
     if row is None:
         session.add(DraftInstanceMoveRow(
             draft_id=draft_id, instance_id=instance_id,
@@ -855,7 +862,7 @@ def stage_move(session: Session, draft_id: str, instance_id: str,
 
 def unstage_move(session: Session, draft_id: str, instance_id: str) -> bool:
     _require_open_draft(session, draft_id)
-    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id))
+    row = session.get(DraftInstanceMoveRow, (draft_id, instance_id), populate_existing=True)
     if row is None:
         return False
     session.delete(row)
@@ -904,22 +911,34 @@ def commit_draft(session: Session, draft_id: str) -> dict:
     row = _require_open_draft(session, draft_id)
     draft = _draft_dict(row)
     cards = list_draft_cards(session, draft_id)
-    moves = list_draft_moves(session, draft_id)
+    # Do not join instances here: a missing instance must fail validation rather
+    # than silently dropping its staged move. The draft lock freezes staging.
+    moves = [
+        {"instance_id": instance_id, "action": action}
+        for instance_id, action in session.execute(
+            select(DraftInstanceMoveRow.instance_id, DraftInstanceMoveRow.action)
+            .where(DraftInstanceMoveRow.draft_id == draft_id)
+        ).all()
+    ]
     move_ids = [m["instance_id"] for m in moves]
-    instances_by_id = {}
+    locked_instances = {}
     if move_ids:
+        # Consistent ordering avoids cycles between drafts sharing multiple
+        # instances. NO KEY UPDATE conflicts with writes while remaining
+        # compatible with foreign-key checks on staged moves and events.
         for inst in session.scalars(
             select(CardInstanceRow).where(CardInstanceRow.id.in_(move_ids))
+            .order_by(CardInstanceRow.id).with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
         ).all():
-            instances_by_id[inst.id] = _instance_dict(inst)
+            locked_instances[inst.id] = inst
+    instances_by_id = {iid: _instance_dict(inst) for iid, inst in locked_instances.items()}
     plan = draft_mode.plan_commit(draft, cards, moves, instances_by_id)
 
     upsert_deck(session, plan["deck"])
     replace_deck_cards(session, plan["deck"]["id"], plan["deck_cards"])
     for instance_id, status, deck_id in plan["updates"]:
-        inst = session.get(CardInstanceRow, instance_id)
-        if inst is None:  # vanished mid-transaction: fail the whole commit
-            raise draft_mode.DraftError(f"instance not found: {instance_id}")
+        inst = locked_instances[instance_id]
         inst.status = status
         inst.deck_id = deck_id
         inst.updated_at = _utcnow()
@@ -943,11 +962,7 @@ def abandon_draft(session: Session, draft_id: str) -> dict:
     """Abandon = delete every staging row for the draft. Zero residue:
     drafts/draft_cards/draft_instance_moves all end empty for this id, and
     canonical tables were never touched."""
-    row = session.get(DraftRow, draft_id)
-    if row is None:
-        raise draft_mode.DraftError(f"draft not found: {draft_id}")
-    if row.status != draft_mode.STATUS_OPEN:
-        raise draft_mode.DraftError(f"draft is {row.status}, not open")
+    row = _require_open_draft(session, draft_id)
     cards = getattr(session.execute(
         delete(DraftCardRow).where(DraftCardRow.draft_id == draft_id)
     ), "rowcount", 0) or 0
