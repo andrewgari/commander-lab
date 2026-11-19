@@ -50,12 +50,10 @@
 	}
 
 	async function remove(line: BrewLine) {
-		if (!line.oracle_id) return;
 		removeError = '';
-		removing = line.oracle_id;
+		removing = line.name;
 		try {
-			const id = line.oracle_id;
-			answer = { base: data.cards, cards: await serial(() => call('remove', { oracle_id: id })) };
+			answer = { base: data.cards, cards: await serial(() => call('remove', line.oracle_id ? { oracle_id: line.oracle_id } : { name: line.name })) };
 		} catch (e) {
 			removeError = e instanceof Error ? e.message : 'Could not remove that card';
 		} finally {
@@ -101,8 +99,8 @@
 					<span class="chip" data-tier={line.tier}>{g.chip}</span>
 					{#if isCommander(line, data.commanders)}
 						<span class="meta">commander</span>
-					{:else if editable && line.oracle_id}
-						<button type="button" class="btn btn--secondary" disabled={removing === line.oracle_id} onclick={() => remove(line)} aria-label="Remove {line.name}">Remove</button>
+					{:else if editable}
+						<button type="button" class="btn btn--secondary" disabled={removing === line.name} onclick={() => remove(line)} aria-label="Remove {line.name}">Remove</button>
 					{/if}
 				</li>
 			{/each}
