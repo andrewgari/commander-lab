@@ -22,17 +22,25 @@ READWRITE = "readwrite"
 READONLY = "readonly"
 _VALID = {READWRITE, READONLY}
 
-WRITE_COMMANDS = frozenset({
-    "set", "setex", "setnx", "psetex", "mset", "msetnx", "append", "getset", "getdel",
-    "incr", "incrby", "incrbyfloat", "decr", "decrby", "setrange", "setbit",
-    "delete", "unlink", "expire", "pexpire", "expireat", "persist", "rename", "renamenx",
-    "hset", "hmset", "hsetnx", "hdel", "hincrby", "hincrbyfloat",
-    "sadd", "srem", "spop", "smove", "sinterstore", "sunionstore", "sdiffstore",
-    "lpush", "rpush", "lpushx", "rpushx", "lpop", "rpop", "lrem", "lset", "ltrim",
-    "linsert", "rpoplpush", "lmove", "blpop", "brpop",
-    "zadd", "zrem", "zincrby", "zremrangebyscore", "zremrangebyrank", "zpopmin", "zpopmax",
-    "flushdb", "flushall", "eval", "evalsha", "restore", "copy", "move", "xadd", "xdel",
+# Fail closed: Redis regularly gains commands, and several ostensibly read-like
+# commands (GETEX, SORT ... STORE, BITFIELD, scripts) can mutate data. Do not
+# expose unknown methods, client factories, or connection pools in readonly.
+_READ_METHODS = frozenset({
+    "get", "mget", "exists", "type", "ttl", "pttl", "expiretime", "pexpiretime",
+    "strlen", "getrange", "getbit", "bitcount", "bitpos",
+    "hget", "hmget", "hgetall", "hexists", "hlen", "hkeys", "hvals", "hstrlen",
+    "hscan", "hscan_iter", "scard", "sismember", "smismember", "smembers",
+    "srandmember", "sdiff", "sinter", "sunion", "sscan", "sscan_iter",
+    "lindex", "llen", "lpos", "lrange", "zcard", "zcount", "zlexcount",
+    "zrange", "zrangebyscore", "zrangebylex", "zrevrange", "zrevrangebyscore",
+    "zrevrangebylex", "zrank", "zrevrank", "zscore", "zmscore", "zscan", "zscan_iter",
+    "xlen", "xrange", "xrevrange", "xread", "keys", "scan", "scan_iter",
+    "randomkey", "dbsize", "ping", "echo", "info", "time", "lastsave",
+    "close",  # client lifecycle, not a Redis mutation
 })
+# Raw Redis command names do not include redis-py's iterator/helper methods.
+_READ_COMMANDS = _READ_METHODS - {"close", "scan_iter", "hscan_iter", "sscan_iter", "zscan_iter"}
+_PIPELINE_CONTROL = frozenset({"execute", "reset", "watch", "unwatch", "multi"})
 
 
 class WritesDisabledError(RuntimeError):
@@ -70,18 +78,56 @@ def assert_readwrite(operation: str = "write") -> None:
     assert_writes_enabled(operation)
 
 
+def _raw_read_command(args) -> bool:
+    if not args:
+        return False
+    command = args[0]
+    if isinstance(command, bytes):
+        try:
+            command = command.decode("ascii")
+        except UnicodeDecodeError:
+            return False
+    return isinstance(command, str) and command.lower() in _READ_COMMANDS
+
+
+def _check_method(name, args, *, pipeline=False):
+    """Check on invocation (not attribute lookup), so mode changes take effect."""
+    safe = (name in _READ_METHODS or (pipeline and name in _PIPELINE_CONTROL)
+            or (name == "execute_command" and _raw_read_command(args)))
+    if not safe:
+        assert_writes_enabled(name)
+    else:
+        get_mode()  # invalid mode must never silently allow a read
+    return safe
+
+
 class GuardedPipeline:
     def __init__(self, pipe):
         self._pipe = pipe
+        self._unsafe_queued = False
 
     def __getattr__(self, name):
         attr = getattr(self._pipe, name)
-        if name.lower() in WRITE_COMMANDS and callable(attr):
-            def guarded(*a, **kw):
-                assert_writes_enabled(name)
-                return attr(*a, **kw)
-            return guarded
-        return attr
+        if not callable(attr):
+            _check_method(name, (), pipeline=True)
+            return attr
+
+        def guarded(*args, **kwargs):
+            safe = _check_method(name, args, pipeline=True)
+            # Commands queued in readwrite mode must not escape after a flip.
+            if name == "execute" and self._unsafe_queued:
+                assert_writes_enabled("pipeline.execute")
+            if not safe:
+                self._unsafe_queued = True
+            try:
+                result = attr(*args, **kwargs)
+            finally:
+                if name in ("execute", "reset"):
+                    self._unsafe_queued = False
+            # redis-py pipelines return themselves to support chaining. Never
+            # return the unguarded pipeline from a chained command.
+            return self if result is self._pipe else result
+        return guarded
 
     def __enter__(self):
         self._pipe.__enter__()
@@ -92,26 +138,30 @@ class GuardedPipeline:
 
 
 class GuardedRedis:
-    """Drop-in wrapper around a redis client that enforces DATA_ACCESS_MODE."""
+    """Wrapper around a Redis client; readonly only exposes known-safe reads."""
 
     def __init__(self, client):
         self._client = client
 
     def pipeline(self, *a, **kw):
+        get_mode()
         return GuardedPipeline(self._client.pipeline(*a, **kw))
 
     def __getattr__(self, name):
         attr = getattr(self._client, name)
-        if name.lower() in WRITE_COMMANDS and callable(attr):
-            def guarded(*a, **kw):
-                assert_writes_enabled(name)
-                try:
-                    return attr(*a, **kw)
-                except redis.RedisError:
+        if not callable(attr):
+            _check_method(name, ())
+            return attr
+
+        def guarded(*args, **kwargs):
+            safe = _check_method(name, args)
+            try:
+                return attr(*args, **kwargs)
+            except redis.RedisError:
+                if not safe:
                     logger.exception("Redis write %s failed", name)
-                    raise
-            return guarded
-        return attr
+                raise
+        return guarded
 
 
 def from_url(url: str) -> GuardedRedis:
