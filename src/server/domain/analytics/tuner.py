@@ -817,7 +817,7 @@ PROSE_SCHEMA = {"type": "OBJECT", "properties": {"items": {"type": "ARRAY", "ite
 
 
 def _prose_key(cut: str, add: str) -> str:
-    return hashlib.sha1(f"{cut}\u2192{add}".encode()).hexdigest()[:16]
+    return hashlib.sha1(f"{cut}\u2192{add}".encode(), usedforsecurity=False).hexdigest()[:16]
 
 
 def _prose_items(tune: Mapping) -> List[dict]:
@@ -1619,7 +1619,7 @@ def panel_adds(r, tune: Mapping, limit: int = MAX_SWAPS) -> List[dict]:
         opt = (s.get("buy") if s.get("pick") == "buy" else s.get("own")) or s.get("own") or s.get("buy")
         if not opt:
             continue
-        adds.append({"id": "add-" + hashlib.sha1(f"{s['cut']['name']}\u2192{opt['name']}".encode()).hexdigest()[:16],
+        adds.append({"id": "add-" + hashlib.sha1(f"{s['cut']['name']}\u2192{opt['name']}".encode(), usedforsecurity=False).hexdigest()[:16],
                      "kind": "add", "card": opt["name"], "printing": opt.get("printing"),
                      "reason": s.get("why"), "status": "open", "source": opt.get("source"),
                      "price": opt.get("price"), "cut": s["cut"]["name"]})

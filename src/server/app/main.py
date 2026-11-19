@@ -2404,7 +2404,7 @@ def _tuneup_synced_cards(deck: dict) -> list:
 def _tuneup_decklist_hash(cards: list) -> str:
     """Order-independent hash of the decklist (spec §3.1 base_decklist_hash)."""
     canon = sorted((str(c.get("name", "")).lower(), int(c.get("qty") or 1)) for c in cards)
-    return hashlib.sha1(json.dumps(canon).encode("utf-8")).hexdigest()
+    return hashlib.sha1(json.dumps(canon).encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _tuneup_tag_label(registry_id: str, tag: str) -> str:
