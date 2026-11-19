@@ -59,6 +59,46 @@ def import_archidekt(body: schemas.ImportRequest, session: Session = Depends(db_
     return schemas.ImportResponse(**result)
 
 
+@router.post("/imports/archidekt/preview",
+             response_model=schemas.ReconciliationPreviewResponse)
+def preview_archidekt(body: schemas.ImportRequest,
+                      session: Session = Depends(db_session)):
+    """Read-only reconciliation preview for one Archidekt deck.
+
+    Diff-only: shows the source snapshot's raw facts (rows vs quantities,
+    categories, inclusion flags, printing/finish, timestamps) and proposed
+    differences against the locally matched deck. Writes nothing -- local
+    records, status, intent, and inventory win, and nothing is pushed to
+    Archidekt. Idempotent: re-running returns the same preview.
+    """
+    try:
+        from sqlalchemy.orm import sessionmaker
+
+        result = import_service.preview_archidekt_deck(
+            body.identifier, session_factory=sessionmaker(bind=session.get_bind())
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_identifier", "reason": str(e)},
+        )
+    except requests.HTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "archidekt_unavailable",
+                "reason": f"Archidekt returned HTTP {status or 'error'} for {body.identifier!r}",
+            },
+        )
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "archidekt_unavailable", "reason": str(e)},
+        )
+    return schemas.ReconciliationPreviewResponse(**result)
+
+
 @router.post("/imports/forge-log", response_model=schemas.ForgeLogImportResponse)
 def import_forge_log_endpoint(body: schemas.ForgeLogImportRequest,
                               session: Session = Depends(db_session)):

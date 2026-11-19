@@ -118,6 +118,21 @@ class ImportResponse(BaseModel):
     parse_flags: list[str] = Field(default_factory=list)
 
 
+class ReconciliationPreviewResponse(BaseModel):
+    """Read-only preview: every field is a proposal or a source fact.
+    ``writes`` is always "none" -- nothing is applied by a preview."""
+    writes: str
+    identity: dict
+    source_facts: dict
+    proposed_import: dict
+    main_deck_selection: str
+    timestamps: dict
+    printing_metadata: dict
+    differences: Optional[dict] = None
+    protected: list[str] = Field(default_factory=list)
+    exceptions: list[str] = Field(default_factory=list)
+
+
 class ProfileLatestResponse(BaseModel):
     available: bool
     reason: Optional[str] = None
