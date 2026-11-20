@@ -277,6 +277,54 @@ def test_pending_shared_search_does_not_implicitly_submit_form(page, search_phas
         assert page.evaluate("window.submissions") == 1
 
 
+@pytest.mark.parametrize("outcome", ["selected", "ready", "empty", "error"])
+def test_held_pending_enter_never_submits_form_after_search_settles(page, outcome):
+    page.set_content('<form id="host"><input id="card"><button type="submit">Submit</button></form>')
+    page.evaluate("""() => {
+        window.submissions = 0; window.selected = []; window.repeats = [];
+        document.getElementById('host').addEventListener('submit', e => { e.preventDefault(); window.submissions++; });
+        document.getElementById('card').addEventListener('keydown', e => {
+            if (e.key === 'Enter') window.repeats.push(e.repeat);
+        });
+        window.fetch = () => new Promise((resolve, reject) => { window.finishSearch = resolve; window.failSearch = reject; });
+    }""")
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/card_autocomplete.js"))
+    page.evaluate("""outcome => {
+        const input = document.getElementById('card');
+        window.CardAutocomplete.attach(input, {
+            debounceMs: 0, commitPendingOnEnter: outcome === 'selected',
+            onSelect: card => { window.selected.push(card.name); input.value = card.name; }
+        });
+    }""", outcome)
+    inp = page.locator("#card")
+    inp.fill("Kaalia")
+    page.keyboard.down("Enter")
+    page.wait_for_function("typeof window.finishSearch === 'function'")
+    if outcome == "error":
+        page.evaluate("() => window.failSearch(new Error('offline'))")
+        expect(page.locator(".hud-autocomplete-state--error")).to_be_visible()
+    else:
+        results = [] if outcome == "empty" else [{"name": "Kaalia of the Vast"}]
+        page.evaluate("results => window.finishSearch(new Response(JSON.stringify({results})))", results)
+        if outcome == "empty":
+            expect(page.locator(".hud-autocomplete-state--empty")).to_be_visible()
+        elif outcome == "ready":
+            expect(page.locator("[role=option]")).to_have_count(1)
+        else:
+            expect(inp).to_have_value("Kaalia of the Vast")
+    page.keyboard.down("Enter")  # repeat while the original key remains held
+    assert page.evaluate("window.repeats") == [False, True]
+    assert page.evaluate("window.submissions") == 0
+    assert page.evaluate("window.selected") == (["Kaalia of the Vast"] if outcome == "selected" else [])
+    page.keyboard.up("Enter")
+    inp.press("Enter")  # a fresh press must retain normal behavior
+    if outcome == "ready":
+        assert page.evaluate("window.selected") == ["Kaalia of the Vast"]
+        assert page.evaluate("window.submissions") == 0
+        inp.press("Enter")
+    assert page.evaluate("window.submissions") == 1
+
+
 # ---------------------------------------------------------------------------
 # Brew commander picker UX contract (t_d30383bb): one case per behavior.
 # ---------------------------------------------------------------------------

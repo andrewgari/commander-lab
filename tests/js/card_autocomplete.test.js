@@ -261,6 +261,50 @@ test('held Enter cannot confirm a degraded result; a fresh Enter can', async () 
     assert.deepEqual(h.selected, ['Kaalia of the Vast']);
 });
 
+for (const outcome of ['selected', 'ready', 'empty', 'error']) {
+    test(`held pending Enter stays suppressed after ${outcome}, until keyup`, async () => {
+        const h = harness({ commitPendingOnEnter: outcome === 'selected' });
+        h.input.form = {};
+        h.type('Kaalia');
+        assert.equal(h.key('Enter').defaultPrevented, true);
+        if (outcome !== 'selected') h.runTimer();
+        if (outcome === 'error') h.requests[0].reject(new Error('offline'));
+        else h.respond(0, outcome === 'empty' ? [] : [card('Kaalia of the Vast')]);
+        await h.settle();
+        assert.deepEqual(h.selected, outcome === 'selected' ? ['Kaalia of the Vast'] : []);
+        assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, true);
+        assert.deepEqual(h.selected, outcome === 'selected' ? ['Kaalia of the Vast'] : []);
+        h.input.fire('keyup', { key: 'Enter' });
+        const fresh = h.key('Enter');
+        if (outcome === 'ready') {
+            assert.equal(fresh.defaultPrevented, true);
+            assert.deepEqual(h.selected, ['Kaalia of the Vast']);
+        } else {
+            assert.equal(fresh.defaultPrevented, false);
+        }
+    });
+}
+
+test('Escape preserves the held guard; blur and a fresh press reset it', async () => {
+    const h = harness();
+    h.input.form = {};
+    h.type('Kaalia'); h.key('Enter'); h.key('Escape');
+    assert.equal(h.list.hidden, true);
+    assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, true);
+    h.input.fire('blur', { relatedTarget: null });
+    assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, false);
+    h.type('Kaalia'); h.key('Enter'); h.key('Escape');
+    assert.equal(h.key('Enter').defaultPrevented, false); // fresh keydown despite missed keyup
+});
+
+test('IME Enter does not arm the held guard or block Tune fallback', () => {
+    const h = harness({ allowPendingFormEnter: true });
+    h.input.form = {};
+    h.type('Kaalia');
+    assert.equal(h.key('Enter', { isComposing: true }).defaultPrevented, false);
+    assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, false);
+});
+
 test('pending Enter with network error and local extras shows error and requires confirmation', async () => {
     const h = harness({ commitPendingOnEnter: true, extraSource: async () => ['Owned Commander'] });
     h.type('owned'); h.key('Enter'); h.requests[0].reject(new Error('offline')); await h.settle();

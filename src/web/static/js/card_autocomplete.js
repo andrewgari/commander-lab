@@ -79,7 +79,7 @@
         if (!inputEl.getAttribute("autocomplete")) inputEl.setAttribute("autocomplete", "off");
 
         var debounce = null, activeIdx = -1, currentResults = [], currentNote = null, searchSequence = 0, destroyed = false;
-        var searchPending = false, pendingEnter = false;
+        var searchPending = false, pendingEnter = false, heldEnterConsumed = false;
         var optId = listEl.id + "-opt-";
 
         function closeList() {
@@ -259,6 +259,16 @@
         }
         function onKeydown(ev) {
             if (ev.isComposing) return;
+            if (ev.key === "Enter") {
+                // The search may finish (and even close the list) while Enter is
+                // held. Its repeats must never become a form submit or a pick.
+                if (ev.repeat && heldEnterConsumed) {
+                    ev.preventDefault();
+                    return;
+                }
+                // A non-repeat is a fresh press, even if keyup was missed.
+                if (!ev.repeat) heldEnterConsumed = false;
+            }
             // A held Enter must not count as a fresh confirmation of an outage notice.
             if (ev.key === "Enter" && ev.repeat && !listEl.hidden && currentNote) {
                 ev.preventDefault();
@@ -275,12 +285,14 @@
             if (ev.key === "Enter" && searchPending) {
                 if (commitPendingOnEnter && commitOnEnter === "first") {
                     ev.preventDefault();
+                    heldEnterConsumed = true;
                     pendingEnter = true;
                     // Skip a pending debounce, but reuse a search already in flight.
                     if (debounce !== null) runSearch();
                 } else if (inputEl.form && !allowPendingFormEnter) {
                     // Do not let a pending search implicitly submit the surrounding form.
                     ev.preventDefault();
+                    heldEnterConsumed = true;
                 }
                 return;
             }
@@ -292,13 +304,18 @@
                 renderResults(currentResults, currentNote);
             } else if (ev.key === "Enter") {
                 ev.preventDefault();
+                heldEnterConsumed = true;
                 var pick = activeIdx >= 0
                     ? currentResults[activeIdx]
                     : (commitOnEnter === "first" ? currentResults[0] : null);
                 if (pick) commit(pick);
             }
         }
+        function onKeyup(ev) {
+            if (ev.key === "Enter") heldEnterConsumed = false;
+        }
         function onBlur(ev) {
+            heldEnterConsumed = false;
             // Keyboard focus left the field (Tab etc). Option mousedown calls
             // preventDefault so clicks never blur the input; still ignore focus
             // moving into the list itself.
@@ -312,6 +329,7 @@
         inputEl.addEventListener("input", onInput);
         inputEl.addEventListener("focus", onFocus);
         inputEl.addEventListener("keydown", onKeydown);
+        inputEl.addEventListener("keyup", onKeyup);
         inputEl.addEventListener("blur", onBlur);
         document.addEventListener("mousedown", onDocDown);
         document.addEventListener("touchstart", onDocDown, { passive: true });
@@ -327,6 +345,7 @@
                 inputEl.removeEventListener("input", onInput);
                 inputEl.removeEventListener("focus", onFocus);
                 inputEl.removeEventListener("keydown", onKeydown);
+                inputEl.removeEventListener("keyup", onKeyup);
                 inputEl.removeEventListener("blur", onBlur);
                 document.removeEventListener("mousedown", onDocDown);
                 document.removeEventListener("touchstart", onDocDown);
