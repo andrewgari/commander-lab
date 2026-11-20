@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tags, Decks, and Deck pages: stored tag, card, and deck values are now rendered as plain text or escaped attributes instead of raw HTML markup.
 
 ### Fixed
+- Brew page: commander search and Generate brew now load reliably over HTTPS instead of being blocked as mixed content, shared autocomplete scripts cache-bust on deploy, and fuzzy commander fallback no longer suggests non-commander cards.
 - Linked deck sync: multi-provider updates now fail closed when any selected provider fails instead of overwriting the local decklist with partial data.
 - Account sync: Archidekt sync now follows all result pages instead of stopping at the first 100 decks, and sets HTTP request timeouts.
 - Brew editor: generated brew cards without an oracle ID can now be removed from the draft list.

@@ -456,7 +456,8 @@ async def search_commanders(r, query, limit=None):
             direct_fuzzy_ids = []
             if fuzzy.status_code == 200:
                 card = fuzzy.json()
-                if (card.get("legalities") or {}).get("commander") == "legal":
+                eligible = commander_set.Eligibility(r, commander_set.available(r))
+                if (card.get("legalities") or {}).get("commander") == "legal" and eligible.check(card):
                     cid = card.get("id") or card.get("name")
                     candidates[cid] = card
                     # Preserve existing behavior for a successful fuzzy-name
