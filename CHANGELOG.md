@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Brew: every brewed deck is now checked (100 cards, real card names, legality) and reviewed by oracle before it is shown, and the result carries oracle's verdict. A deck oracle fails, or cannot review because it is offline, is reported as a failed brew instead of a finished deck.
 - Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
+- Card search: the Rare/Mythic chips now include owned cards whose rarity is only known from the cache, and cards whose rarity isn't cached yet are looked up in the background so they show up on a repeat search. Scryfall requests stay spaced 100 ms apart, and a Rare/Mythic search can no longer come back empty because earlier non-matching cards used up the result limit.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
 - Deck validation: cards missing a color identity now derive it from hybrid and other mana symbols in their cost and rules text.
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected. Grist, the Hunger Tide is accepted.
 - Brew commander search: when Scryfall is rate-limiting or erroring, the picker now falls back to your local card data instead of showing "No commanders match", and no longer remembers that false empty result.
 - Draft page: a failed action now shows a dismissible error message next to the button you used (Stage move, unstage) instead of a plain red line at the top of the page or an error page, and those buttons show progress and ignore a second click while saving.
+- Card search boxes: the suggestion list now closes when you Tab out of the field (previously it stayed open).
 - Confirm dialogs (Commit/Abandon): on small screens the scrolling message area can now be reached and scrolled with the keyboard.
 - Brew result page: the card list no longer gets replaced by "Availability report unavailable" after a successful brew, and the Make physical dialog now lists what would move. A failed brew now shows only the failure (with Retry) instead of also showing the "Brewing…" progress panel, and a brew in progress no longer shows an empty "Brew failed" panel.
 - Brew page: donor decks and the Summary now show their status chips and colour pips on first load.

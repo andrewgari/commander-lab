@@ -6,7 +6,7 @@ rule as the inventory totals).
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -73,12 +73,17 @@ def _best_rarities(session: Session, oracle_ids: Sequence[str]) -> dict:
 
 
 def local_candidates(session: Session, f: SearchFilters, *, owned_mode: str = "any",
-                     pair_hints: Sequence = ()) -> list:
+                     pair_hints: Sequence = (),
+                     post_filter: Optional[Callable[[list], list]] = None) -> list:
     """Cards matching the filters in the local ``cards`` mirror, ordered by name.
 
     Simple predicates run in SQL; the JSON columns (color identity, legality)
     are checked in Python so the same code serves SQLite and Postgres. The
     commander/pairing rules are applied by the caller.
+
+    ``post_filter`` (facts list -> facts list) runs on each SQL batch *before*
+    ``MAX_LOCAL_ROWS`` is applied, so rows it rejects can never displace matches:
+    batches are fetched until ``MAX_LOCAL_ROWS`` rows survive or the table ends.
     """
     owned_ids = select(CardInstanceRow.oracle_id).where(CardInstanceRow.status.in_(OWNED_STATUSES))
     stmt = select(CardRow)
@@ -95,8 +100,11 @@ def local_candidates(session: Session, f: SearchFilters, *, owned_mode: str = "a
                          else CardRow.cmc == int(chip))
         stmt = stmt.where(or_(*conds))
     if f.rarities:
-        stmt = stmt.where(CardRow.oracle_id.in_(
-            select(PrintingRow.oracle_id).where(PrintingRow.rarity.in_(list(f.rarities)))))
+        # Cards with no printings row pass here; the service checks their cached rarity.
+        stmt = stmt.where(or_(
+            CardRow.oracle_id.in_(
+                select(PrintingRow.oracle_id).where(PrintingRow.rarity.in_(list(f.rarities)))),
+            CardRow.oracle_id.not_in(select(PrintingRow.oracle_id))))
     for term in f.oracle_terms:
         stmt = stmt.where(_like(CardRow.oracle_text, term))
     if pair_hints:
@@ -105,13 +113,21 @@ def local_candidates(session: Session, f: SearchFilters, *, owned_mode: str = "a
         stmt = stmt.where(CardRow.oracle_id.in_(owned_ids))
     elif owned_mode == "not_owned":
         stmt = stmt.where(CardRow.oracle_id.not_in(owned_ids))
-    stmt = stmt.order_by(func.lower(CardRow.name), CardRow.oracle_id).limit(MAX_LOCAL_ROWS)
-    rows = []
-    for row in session.execute(stmt).scalars():
-        if (row.legalities or {}).get("commander", "legal") != "legal":
-            continue
-        if not identity_matches(row.color_identity, f.colors, f.ci_mode):
-            continue
-        rows.append(row)
-    rarities = _best_rarities(session, [r.oracle_id for r in rows])
-    return [_facts(r, rarities.get(r.oracle_id, "")) for r in rows]
+    stmt = stmt.order_by(func.lower(CardRow.name), CardRow.oracle_id)
+    out: list = []
+    offset = 0
+    while len(out) < MAX_LOCAL_ROWS:
+        batch = list(session.execute(
+            stmt.limit(MAX_LOCAL_ROWS).offset(offset)).scalars())
+        offset += len(batch)
+        rows = [row for row in batch
+                if (row.legalities or {}).get("commander", "legal") == "legal"
+                and identity_matches(row.color_identity, f.colors, f.ci_mode)]
+        rarities = _best_rarities(session, [r.oracle_id for r in rows])
+        facts = [_facts(r, rarities.get(r.oracle_id, "")) for r in rows]
+        if post_filter is not None:
+            facts = post_filter(facts)
+        out.extend(facts[:MAX_LOCAL_ROWS - len(out)])
+        if post_filter is None or len(batch) < MAX_LOCAL_ROWS:
+            break
+    return out
