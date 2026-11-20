@@ -52,6 +52,8 @@ BUILD_TIMEOUT_SECONDS = 4.0      # the eligible-set pull must not stall a reques
 _HEADERS = {"User-Agent": "commander-lab/card-search", "Accept": "application/json"}
 
 _last_call = 0.0
+_space_lock = threading.Lock()
+_clock = time.monotonic
 _sleep = time.sleep
 
 
@@ -72,11 +74,18 @@ class FirstCardNotFound(LookupError):
 # ---------------------------------------------------------------------------
 
 def _space() -> None:
+    """Block until SPACING_SECONDS after the previous upstream dispatch.
+
+    The wait happens under the lock and the dispatch time is recorded after it,
+    so a late wake-up can never let two callers dispatch together: concurrent
+    callers (request path + rarity backfill) are serialised and each is
+    released at least SPACING_SECONDS after the one before."""
     global _last_call
-    wait = SPACING_SECONDS - (time.monotonic() - _last_call)
-    if wait > 0:
-        _sleep(wait)
-    _last_call = time.monotonic()
+    with _space_lock:
+        wait = _last_call + SPACING_SECONDS - _clock()
+        if wait > 0:
+            _sleep(wait)
+        _last_call = _clock()
 
 
 def _get(params: dict, timeout: float) -> dict:
@@ -193,6 +202,41 @@ def _fill_missing_rarities(r, chunk: list) -> None:
         _schedule_rarity_backfill(r, need)
 
 
+RARITY_BACKFILL_MAX = 1000       # per search: bound the background Scryfall I/O
+
+
+def _apply_cached_rarity_filter(r, f, cands: list) -> list:
+    """Cards with no ``printings`` row come back from SQL with rarity "" (the SQL
+    filter lets them through). Keep them only if their cached rarity
+    (``cards:rarity:{id}``) is in the filter, and show that rarity. One MGET.
+    Cache misses stay out of this response but are queued for a background
+    backfill, so a repeated search finds them once the cache warms."""
+    blank = [h for h in cands if not h.get("rarity")]
+    if not blank:
+        return cands
+    try:
+        vals = r.mget([f"cards:rarity:{h['oracle_id']}" for h in blank])
+    except Exception:
+        vals = [None] * len(blank)
+    cached = {}
+    missing = []
+    for h, raw in zip(blank, vals):
+        if raw:
+            cached[h["oracle_id"]] = raw.decode() if isinstance(raw, bytes) else raw
+        else:
+            missing.append(h["oracle_id"])
+    if missing:
+        _schedule_rarity_backfill(r, missing[:RARITY_BACKFILL_MAX])
+    out = []
+    for h in cands:
+        if h.get("rarity"):
+            out.append(h)
+        elif cached.get(h["oracle_id"]) in f.rarities:
+            h["rarity"] = cached[h["oracle_id"]]
+            out.append(h)
+    return out
+
+
 def _eligible_page_fetcher():
     def fetch(page: int):
         body = _get({"q": commander_set.ELIGIBLE_QUERY, "unique": "cards",
@@ -299,7 +343,9 @@ def search(session, r, f: SearchFilters, *, page: int, page_size: int) -> dict:
 
 def _local(session, r, f, query, page, page_size, pair_first_info, hints, response, *,
            source, degraded, build_set):
-    cands = pg.local_candidates(session, f, owned_mode=f.owned, pair_hints=hints)
+    post = (lambda rows: _apply_cached_rarity_filter(r, f, rows)) if f.rarities else None
+    cands = pg.local_candidates(session, f, owned_mode=f.owned, pair_hints=hints,
+                                post_filter=post)
     avail = commander_set.ensure(r, _eligible_page_fetcher(), build=build_set)
     e = commander_set.Eligibility(r, avail, bulk=len(cands) > 200)
     elig = lambda h: e.check(eligibility_row(h))                       # noqa: E731
