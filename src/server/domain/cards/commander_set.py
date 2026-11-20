@@ -128,7 +128,7 @@ class Eligibility:
 
     def check(self, row: Mapping[str, Any]) -> bool:
         if self.set_available:
-            oid = row.get("oracle_id") or ""
+            oid = card_oracle_id(row)
             if self._ids is not None:
                 return oid in self._ids
             try:

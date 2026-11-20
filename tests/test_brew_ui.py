@@ -75,7 +75,7 @@ class TestCommanderAutocomplete(unittest.TestCase):
         self.assertIn('role="listbox"', BREW_HTML)
 
     def test_component_is_loaded_versioned(self):
-        self.assertIn('/static/js/card_autocomplete.js?v={{ version }}', BASE)
+        self.assertIn("/static/js/card_autocomplete.js?v={{ static_hash('js/card_autocomplete.js')", BASE)
 
     def test_brew_attaches_shared_component(self):
         self.assertIn("CardAutocomplete.attach(cmdInput", BREW_JS)
@@ -173,12 +173,14 @@ class TestBrewAssetCacheBusting(unittest.TestCase):
     file's bytes, so any edit to brew.js changes the URL.
     """
 
-    TAG = re.compile(r'<script src="\{\{ url_for\(\'static\', path=\'/js/brew\.js\'\) \}\}([^"]*)"></script>')
+    TAG = re.compile(r'<script src="/static/js/brew\.js([^"]*)"></script>')
 
-    def test_brew_js_script_tags_use_content_hash(self):
+    def test_brew_js_script_tags_use_root_relative_content_hash(self):
         for name, html in (("brew.html", BREW_HTML), ("brew_deck.html", BREW_DECK_HTML)):
+            self.assertNotIn("url_for('static'", html,
+                             f"{name}: url_for('static') emits http:// behind an HTTPS proxy and gets blocked as mixed content")
             m = self.TAG.search(html)
-            self.assertIsNotNone(m, f"brew.js script tag not found in {name}")
+            self.assertIsNotNone(m, f"root-relative brew.js script tag not found in {name}")
             self.assertIn("?v={{ static_hash('js/brew.js') }}", m.group(1),
                           f"{name}: brew.js must be cache-busted by content hash, not the frozen app version")
             self.assertNotIn("{{ version }}", m.group(1))
@@ -199,18 +201,24 @@ class TestBrewAssetCacheBusting(unittest.TestCase):
             b = app_module.static_hash("js/x.js", static_dir=d)
             self.assertNotEqual(a, b, "editing the file must change the cache-bust token")
 
-    def test_rendered_brew_pages_carry_current_content_hash(self):
+    def test_rendered_brew_pages_carry_root_relative_content_hash(self):
         import hashlib
         from unittest import mock
         from fastapi.testclient import TestClient
         from src.server.app import main as app_module
-        want = hashlib.sha256(read("src/web/static/js/brew.js").encode("utf-8")).hexdigest()[:12]
+        want_brew = hashlib.sha256(read("src/web/static/js/brew.js").encode("utf-8")).hexdigest()[:12]
+        want_ac = hashlib.sha256(read("src/web/static/js/card_autocomplete.js").encode("utf-8")).hexdigest()[:12]
         fake_r = mock.MagicMock()
         fake_r.get.return_value = None
+        headers = {"host": "commander.example.com", "x-forwarded-proto": "https"}
         with mock.patch.object(app_module, "r", fake_r), \
                 mock.patch.object(app_module.github_sync, "update_github_data", mock.AsyncMock()):
-            html = TestClient(app_module.app).get("/brew").text
-        self.assertIn(f"/static/js/brew.js?v={want}", html)
+            client = TestClient(app_module.app)
+            for path in ("/brew", "/brew/brew_test123"):
+                html = client.get(path, headers=headers).text
+                self.assertIn(f'src="/static/js/brew.js?v={want_brew}"', html, path)
+                self.assertIn(f'src="/static/js/card_autocomplete.js?v={want_ac}"', html, path)
+                self.assertNotIn("http://commander.example.com/static/", html, path)
 
 
 class TestBrewPageHooks(unittest.TestCase):

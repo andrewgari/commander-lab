@@ -27,7 +27,11 @@ def is_commander_eligible(card: Mapping[str, Any]) -> bool:
     legendary = "legendary" in front
     if legendary and "creature" in front:
         return True
-    if "can be your commander" in (card.get("oracle_text") or "").casefold():
+    oracle_text = card.get("oracle_text") or ""
+    if not oracle_text:
+        faces = card.get("card_faces") or []
+        oracle_text = (faces[0].get("oracle_text") if faces else "") or ""
+    if "can be your commander" in oracle_text.casefold():
         return True
     if legendary and any(t in front for t in ("background", "vehicle", "spacecraft")):
         return True
