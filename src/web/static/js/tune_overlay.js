@@ -309,6 +309,7 @@
         document.querySelectorAll("#tuneOvColumns .tnov-add-input").forEach(function (input) {
             if (acHandles.some(function (h) { return h.input === input; })) return;
             acHandles.push(CardAutocomplete.attach(input, {
+                allowPendingFormEnter: true, // the delegated handler adds free text on Enter
                 onSelect: function (card) {
                     input.value = "";
                     addCard(card.name, input.getAttribute("data-add-col"));

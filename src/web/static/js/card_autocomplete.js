@@ -17,6 +17,7 @@
        minChars: 2, debounceMs: 200, limit: 8,  // brew passes 100
        commitOnEnter: "first",
        commitPendingOnEnter: false,          // opt in to Enter during debounce/loading
+       allowPendingFormEnter: false,          // opt out of blocking implicit form submit
        onSelect: (card, input) => {},        // default: input.value = card.name
        listEl: existingUl,                   // optional; one is created otherwise
        loadingText / emptyText / errorText / degradedText,
@@ -50,6 +51,7 @@
         var limit = opts.limit || 8;
         var commitOnEnter = opts.commitOnEnter || "first";
         var commitPendingOnEnter = opts.commitPendingOnEnter === true;
+        var allowPendingFormEnter = opts.allowPendingFormEnter === true;
         var onSelect = opts.onSelect || null;
         var loadingText = opts.loadingText || "Searching…";
         var emptyText = opts.emptyText || "No matches";
@@ -257,6 +259,11 @@
         }
         function onKeydown(ev) {
             if (ev.isComposing) return;
+            // A held Enter must not count as a fresh confirmation of an outage notice.
+            if (ev.key === "Enter" && ev.repeat && !listEl.hidden && currentNote) {
+                ev.preventDefault();
+                return;
+            }
             if (ev.key === "Escape") {
                 // Esc also cancels a pending debounce / in-flight search, so a
                 // keystroke-then-Esc does not re-open the list afterwards.
@@ -265,11 +272,16 @@
                 if (wasOpen) ev.preventDefault();
                 return;
             }
-            if (ev.key === "Enter" && searchPending && commitPendingOnEnter && commitOnEnter === "first") {
-                ev.preventDefault();
-                pendingEnter = true;
-                // Skip a pending debounce, but reuse a search already in flight.
-                if (debounce !== null) runSearch();
+            if (ev.key === "Enter" && searchPending) {
+                if (commitPendingOnEnter && commitOnEnter === "first") {
+                    ev.preventDefault();
+                    pendingEnter = true;
+                    // Skip a pending debounce, but reuse a search already in flight.
+                    if (debounce !== null) runSearch();
+                } else if (inputEl.form && !allowPendingFormEnter) {
+                    // Do not let a pending search implicitly submit the surrounding form.
+                    ev.preventDefault();
+                }
                 return;
             }
             if (listEl.hidden || !currentResults.length) return;

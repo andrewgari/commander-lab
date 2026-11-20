@@ -230,11 +230,44 @@ test('default consumer Enter also bubbles while a request is in flight', async (
     assert.equal(h.list.children[0].getAttribute('role'), 'option');
 });
 
+test('pending search prevents form submission unless the consumer opts out', async () => {
+    const h = harness();
+    h.input.form = {};
+    h.type('Kaalia');
+    assert.equal(h.key('Enter').defaultPrevented, true); // debounce
+    assert.equal(h.requests.length, 0);
+    h.runTimer();
+    assert.equal(h.key('Enter').defaultPrevented, true); // in flight
+    h.respond(0, [card('Kaalia of the Vast')]); await h.settle();
+    assert.deepEqual(h.selected, []);
+    h.key('Enter');
+    assert.deepEqual(h.selected, ['Kaalia of the Vast']);
+    const tune = harness({ allowPendingFormEnter: true });
+    tune.input.form = {};
+    tune.type('Custom Card');
+    assert.equal(tune.key('Enter').defaultPrevented, false);
+    tune.runTimer();
+    assert.equal(tune.key('Enter').defaultPrevented, false);
+});
+
+test('held Enter cannot confirm a degraded result; a fresh Enter can', async () => {
+    const h = harness({ commitPendingOnEnter: true });
+    h.type('Kaalia'); h.key('Enter');
+    h.respond(0, [card('Kaalia of the Vast')], { degraded: true }); await h.settle();
+    assert.match(h.list.children[0].className, /--degraded/);
+    assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, true);
+    assert.deepEqual(h.selected, []);
+    h.key('Enter');
+    assert.deepEqual(h.selected, ['Kaalia of the Vast']);
+});
+
 test('pending Enter with network error and local extras shows error and requires confirmation', async () => {
     const h = harness({ commitPendingOnEnter: true, extraSource: async () => ['Owned Commander'] });
     h.type('owned'); h.key('Enter'); h.requests[0].reject(new Error('offline')); await h.settle();
     assert.deepEqual(h.selected, []);
     assert.match(h.list.children[0].className, /--error/);
+    assert.equal(h.key('Enter', { repeat: true }).defaultPrevented, true);
+    assert.deepEqual(h.selected, []);
     h.key('ArrowDown');
     assert.match(h.list.children[0].className, /--error/);
     h.key('Enter');

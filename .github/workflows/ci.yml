@@ -117,6 +117,18 @@ jobs:
           python -m pytest -v -rs tests/e2e/test_reconstruct_playwright.py | tee e2e-browser.log
           ! grep -qi "skipped" e2e-browser.log
 
+      - name: Run card autocomplete browser regressions
+        timeout-minutes: 5
+        env:
+          INTERACTIONS_DISABLED: "1"
+        run: |
+          pip install fakeredis
+          set -o pipefail
+          python -m pytest -v -rs tests/e2e/test_brew_autocomplete_e2e.py \
+            tests/e2e/test_card_autocomplete_inputs_e2e.py::test_tune_free_text_enter_bubbles_during_pending_search_and_ignores_ime \
+            tests/e2e/test_card_autocomplete_inputs_e2e.py::test_pending_shared_search_does_not_implicitly_submit_form | tee autocomplete-browser.log
+          ! grep -qiE "skipped|xfail|xpassed" autocomplete-browser.log
+
   e2e:
     name: E2E (Deck Genre, Playwright)
     runs-on: ubuntu-latest
