@@ -45,7 +45,7 @@ def sync_inventory():
     print(f"Fetching user ID for username: {ARCHIDEKT_USERNAME}...")
     # 1. Get user ID
     user_url = f"https://archidekt.com/api/users/?username={ARCHIDEKT_USERNAME}"
-    user_res = requests.get(user_url)
+    user_res = requests.get(user_url, timeout=(10, 30))
     user_res.raise_for_status()
     user_data = user_res.json()
     
@@ -56,14 +56,20 @@ def sync_inventory():
     user_id = user_data["results"][0]["id"]
     print(f"Found user ID: {user_id}")
     
-    # 2. Get all decks for the user
+    # 2. Get all decks for the user (follow pagination)
     print(f"Fetching decks...")
     url = f"https://archidekt.com/api/decks/v3/?ownerId={user_id}&pageSize=100"
-    response = requests.get(url)
-    response.raise_for_status()
-    data = response.json()
-    
-    decks = data.get("results", [])
+    decks = []
+    seen_urls = set()
+    while url:
+        if url in seen_urls:
+            raise RuntimeError(f"Pagination loop detected while fetching Archidekt decks: {url}")
+        seen_urls.add(url)
+        response = requests.get(url, timeout=(10, 30))
+        response.raise_for_status()
+        data = response.json()
+        decks.extend(data.get("results", []))
+        url = data.get("next")
     print(f"Found {len(decks)} total decks.")
     
     inventory = {}
@@ -132,7 +138,7 @@ def sync_inventory():
         deck_names.append(deck_obj)
         print(f"Processing deck: {deck_name} (ID: {deck_id})")
         
-        deck_res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/")
+        deck_res = requests.get(f"https://archidekt.com/api/decks/{deck_id}/", timeout=(10, 30))
         deck_res.raise_for_status()
         deck_data = deck_res.json()
         deck_obj["description"] = deck_data.get("description", "")

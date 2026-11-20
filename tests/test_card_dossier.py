@@ -362,3 +362,44 @@ def test_db_session_reraises_validation_error(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         gen2.throw(RuntimeError("connection lost"))
     assert ei.value.status_code == 503
+    assert "connection lost" not in str(ei.value.detail)
+
+
+def test_db_session_sanitizes_database_error_details(monkeypatch):
+    from unittest.mock import MagicMock
+    from fastapi import HTTPException
+    from sqlalchemy.exc import IntegrityError, OperationalError
+    from src.server.app.api import deps
+    from src.server.infra.cache.datastore import WritesDisabledError
+
+    def bad_factory():
+        raise OperationalError(
+            "SELECT 1",
+            {},
+            Exception("postgresql://user:supersecret@db.internal:5432/commander_lab failed"),
+        )
+
+    monkeypatch.setattr(deps, "get_session_factory", bad_factory)
+    gen = deps.db_session()
+    with pytest.raises(HTTPException) as ei:
+        next(gen)
+    assert ei.value.status_code == 503
+    assert "supersecret" not in str(ei.value.detail)
+    assert "db.internal" not in str(ei.value.detail)
+
+    monkeypatch.setattr(deps, "get_session_factory", lambda: lambda: MagicMock())
+    gen = deps.db_session()
+    next(gen)
+    with pytest.raises(HTTPException) as ei:
+        gen.throw(IntegrityError(
+            "INSERT INTO decks (secret_col) VALUES (:secret)",
+            {"secret": "private-token"},
+            Exception("duplicate key value"),
+        ))
+    assert "INSERT INTO" not in str(ei.value.detail)
+    assert "private-token" not in str(ei.value.detail)
+
+    gen = deps.db_session()
+    next(gen)
+    with pytest.raises(WritesDisabledError):
+        gen.throw(WritesDisabledError("readonly"))

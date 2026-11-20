@@ -1159,7 +1159,9 @@ async def trigger_brew_build(
     is_sync = sync if sync is not None else bool(body.get("sync", False))
 
     try:
-        session = brew.release_session(r, brew.trigger_build(r, session_id, sync=is_sync))
+        # Sync builds include the oracle review (minutes): keep them off the event loop.
+        built = await asyncio.to_thread(brew.trigger_build, r, session_id, sync=is_sync)
+        session = brew.release_session(r, built)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -1196,7 +1198,7 @@ async def accept_brew_draft(session_id: str, request: Request):
         return JSONResponse(status_code=400, content={"success": False, "error": "draft_index must be an integer"})
 
     try:
-        result = brew.accept_draft(r, session_id, draft_index=draft_index)
+        result = await asyncio.to_thread(brew.accept_draft, r, session_id, draft_index=draft_index)
     except ValueError as e:
         msg = str(e)
         status_code = 404 if "not found" in msg.lower() else 400
@@ -2402,7 +2404,7 @@ def _tuneup_synced_cards(deck: dict) -> list:
 def _tuneup_decklist_hash(cards: list) -> str:
     """Order-independent hash of the decklist (spec §3.1 base_decklist_hash)."""
     canon = sorted((str(c.get("name", "")).lower(), int(c.get("qty") or 1)) for c in cards)
-    return hashlib.sha1(json.dumps(canon).encode("utf-8")).hexdigest()
+    return hashlib.sha1(json.dumps(canon).encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def _tuneup_tag_label(registry_id: str, tag: str) -> str:
@@ -3330,7 +3332,8 @@ async def api_deck_review_rebuild(deck_id: str):
         return JSONResponse(status_code=409 if exc.per_deck else 429,
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
     try:
-        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)}, _oracle_client)
+        review_doc.start_job(r, job, {**deck, "registry_id": _theory_deck_id(deck)},
+                             lambda: _oracle("deck_review"), _review_tool_ctx)
     except Exception:
         review_doc.release(job["deck_id"], job["job_id"])
         raise
@@ -3429,7 +3432,7 @@ async def api_run_deck_sim(deck_id: str, request: Request):
     except ValueError as exc:  # deck can't be exported (no commander / not 100 cards)
         return _bad_request(exc, 422)
     try:
-        sim_service.start_thread(r, job, deck, None, _oracle_client)
+        sim_service.start_thread(r, job, deck, None, _oracle, _oracle_tool_ctx)
     except Exception:
         sim_service.release(job["deck_id"], job["job_id"])
         raise
@@ -3518,10 +3521,10 @@ async def api_deck_sim_job(deck_id: str, job_id: str):
 # ---------------------------------------------------------------------------
 
 
-def _card_review_llm():
-    from src.server.domain.analytics.card_review import OracleLLM
+def _card_review_llm(deck):
+    from src.server.domain.analytics.card_review import OracleDebateLLM
 
-    return OracleLLM(_oracle_client)
+    return OracleDebateLLM(lambda: _oracle("card_review"), lambda: _oracle_tool_ctx(r, deck))
 
 
 @app.post("/api/decks/{deck_id}/cards/{card_id:path}/review")
@@ -3556,9 +3559,12 @@ async def api_card_review(deck_id: str, card_id: str, request: Request):
     except jobs.ReviewBusy as exc:
         return JSONResponse(status_code=409 if exc.per_card else 429,
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
-    llm = _card_review_llm()
+    llm = _card_review_llm(deck)
     try:
-        jobs.start_job(r, job, lambda emit: review_service.review_card(r, deck, card, llm, rounds, emit))
+        from src.server.domain.analytics.card_review import run_with_llm_meta
+
+        jobs.start_job(r, job, lambda emit: run_with_llm_meta(
+            llm, lambda: review_service.review_card(r, deck, card, llm, rounds, emit)))
     except Exception:
         jobs.release(job["slot"], job["job_id"])
         raise
@@ -4974,6 +4980,69 @@ def _oracle_client():
     from src.server.domain.analytics.oracle_client import OracleClient
 
     return OracleClient.from_env()
+
+
+def _oracle(task: str):
+    """Capped oracle tool loop for a task (infra.llm.factory.build_oracle). Raises LLMNotConfigured."""
+    from src.server.infra.llm.factory import build_oracle
+
+    return build_oracle(task)
+
+
+def _oracle_tool_ctx(r, deck, **kw):
+    """ToolContext for an oracle run. Call from the job thread; any failing source becomes None."""
+    from src.server.domain.oracle.tools import ToolContext
+
+    def _safe(fn):
+        try:
+            return fn()
+        except Exception:
+            logging.getLogger(__name__).warning("oracle tool ctx source failed", exc_info=True)
+            return None
+
+    def _scryfall_batch():
+        from src.server.domain.analytics import fact_sources
+
+        return fact_sources.default_fetchers()["scryfall_batch"]
+
+    def _compute_metrics():
+        from src.server.domain.analytics import review_metrics
+
+        return lambda d: review_metrics.review_deck(r, dict(d))
+
+    def _journal():
+        rec = journal_mod.load_journal(r, deck)
+        return journal_mod.public(rec) if rec else None
+
+    def _game_changers():
+        gc = asyncio.run(brackets_mod.get_game_changers(r))
+        return list(gc.cards)
+
+    def _bracket_eval():
+        from src.server.domain.analytics import bracket_eval
+
+        def fn(d):
+            rec = bracket_worker.load_result(r, bracket_worker.registry_id(d))
+            if (rec and rec.get("status") == "ok" and isinstance(rec.get("result"), dict)
+                    and rec.get("input_hash") == bracket_worker.current_input_hash(r, d)):
+                return bracket_eval.BracketEvaluation.model_validate(rec["result"])
+            return asyncio.run(bracket_eval.evaluate_bracket_live(r, d, commandersalt=False))
+
+        return fn
+
+    fields = dict(scryfall_batch=_safe(_scryfall_batch), compute_metrics=_safe(_compute_metrics),
+                  journal=_safe(_journal), game_changers=_safe(_game_changers), bracket_eval=_safe(_bracket_eval))
+    fields.update(kw)
+    return ToolContext(deck=deck, **fields)
+
+
+def _review_tool_ctx(r_, deck, metrics):
+    """Deep Review ToolContext (job thread): oracle ctx plus the sim_run runner."""
+    from src.server.domain.oracle.tools import SimRunner
+
+    ctx = _oracle_tool_ctx(r_, deck, metrics=metrics)
+    ctx.sim = SimRunner(r_, deck)
+    return ctx
 
 
 def _oracle_offline(detail: str = ""):

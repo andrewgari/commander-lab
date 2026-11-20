@@ -812,11 +812,11 @@
         const rows = GROUP_ORDER.flatMap(g => groups[g].map(c => {
             const i = inventoryCards.indexOf(c);
             const price = parseFloat(c.price) || 0;
-            const cmc = isLand(c) ? '' : (c.cmc || 0);
+            const cmc = isLand(c) ? '' : esc(c.cmc || 0);
             return `<tr data-card-index="${i}" data-card-name="${esc(c.name)}" data-card-ref="${refAttr(c)}" tabindex="0">
                 <td class="is-primary">${esc(c.name)}${c.is_core ? ' ' + HUD.chip('Core', 'signal') : ''}${flagOf(c) ? flagChip(flagOf(c)) : ''}</td>
                 <td>${esc(g)}</td>
-                <td class="is-num" data-value="${isLand(c) ? -1 : (c.cmc || 0)}">${cmc}</td>
+                <td class="is-num" data-value="${isLand(c) ? -1 : esc(c.cmc || 0)}">${cmc}</td>
                 <td data-value="${esc(c.color || '')}">${isLand(c) ? '<span class="hud-muted">—</span>' : HUD.pips(c.color || '', 'sm')}</td>
                 <td>${c.primary_tag ? esc(c.primary_tag) : '<span class="hud-muted">—</span>'}</td>
                 <td data-value="${esc(AT ? AT.tagsOf(c.name).map(e => e.tag).join(' ') : '')}">${AT && AT.tagsOf(c.name).length ? AT.chips(c.name) : '<span class="hud-muted">—</span>'}</td>
@@ -878,7 +878,7 @@
             ['Type', esc(card.type || '—')],
         ];
         if (card.sub_types && card.sub_types.length) pairs.push(['Subtype', esc(card.sub_types.join(', '))]);
-        if (!isLand(card)) pairs.push(['CMC', `<span class="hud-num">${card.cmc || 0}</span>`], ['Colour', HUD.pips(card.color || '', 'sm')]);
+        if (!isLand(card)) pairs.push(['CMC', `<span class="hud-num">${esc(card.cmc || 0)}</span>`], ['Colour', HUD.pips(card.color || '', 'sm')]);
         pairs.push(['Price', `<span class="hud-num">${priceStr}</span>`]);
 
         const nameEl = document.getElementById('modalCardName');

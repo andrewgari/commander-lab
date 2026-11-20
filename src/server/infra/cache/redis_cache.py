@@ -23,6 +23,8 @@ from typing import Any, Callable, Iterable, Optional
 
 import redis
 
+from src.server.infra.cache.datastore import GuardedRedis, WritesDisabledError
+
 log = logging.getLogger(__name__)
 
 ROOT_PREFIX = "cache"
@@ -45,7 +47,8 @@ class RedisCache:
                  fail_open: bool = True, scan_count: int = 500):
         if not namespace or ":" in namespace:
             raise ValueError("namespace must be non-empty and contain no ':'")
-        self._client = client
+        self._client = (client if client is None or isinstance(client, GuardedRedis)
+                        else GuardedRedis(client))
         self._client_lock = threading.Lock()
         self.namespace = namespace
         self.default_ttl = self._check_ttl(default_ttl)
@@ -61,10 +64,10 @@ class RedisCache:
         if self._client is None:
             with self._client_lock:
                 if self._client is None:
-                    self._client = redis.from_url(
+                    self._client = GuardedRedis(redis.from_url(
                         os.getenv("REDIS_URL", "redis://localhost:6379/0"),
                         decode_responses=True,
-                        socket_timeout=2, socket_connect_timeout=2)
+                        socket_timeout=2, socket_connect_timeout=2))
         return self._client
 
     @staticmethod
@@ -78,7 +81,7 @@ class RedisCache:
     def _guard(self, fn, default):
         try:
             return fn()
-        except redis.exceptions.RedisError as e:
+        except (redis.exceptions.RedisError, WritesDisabledError) as e:
             if not self.fail_open:
                 raise
             log.warning("redis cache error (%s): %s", self.namespace, e)

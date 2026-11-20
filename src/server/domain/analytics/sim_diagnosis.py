@@ -27,12 +27,14 @@ LAND_TURNS = (2, 3, 4)
 PILLARS = (("ramp", "Ramp"), ("card_advantage", "Card draw"), ("targeted_disruption", "Removal / interaction"),
            ("mass_disruption", "Mass interaction"), ("plan", "Win conditions"))
 SUMMARY_MAX = 900
+TOOLS = ("get_deck", "deck_stats")
 
-SYSTEM_PROMPT = (
-    "Commander Lab request. Single turn, do not call tools. You summarise a Magic Commander deck simulation "
-    "diagnosis in 2-4 sentences. Use ONLY the findings provided; do not introduce any number that is not in them. "
+INSTRUCTIONS = (
+    "You summarise a Magic Commander deck simulation diagnosis in 2-4 sentences. "
+    "Use ONLY the findings provided; do not introduce any number that is not in them. "
     "Simulations are mechanical diagnostics (Forge bots are not humans): do not lean on win rate, do not discuss "
     "politics, and make no strong claim about anything marked insufficient or unavailable. "
+    "You may use `get_deck` and `deck_stats` to check the deck; tool numbers may be quoted as given. "
     'Reply with exactly one fenced ```json block: {"summary": "..."}.'
 )
 
@@ -177,37 +179,52 @@ def _fallback_summary(d: Mapping) -> str:
             "See the cited findings below; this is a mechanical read, not a verdict.")[:SUMMARY_MAX]
 
 
-def _oracle_summary(d: Mapping, oracle_factory: Callable[[], Any]) -> str:
+def _oracle_summary(d: Mapping, oracle_factory: Callable[[str], Any], ctx_factory: Optional[Callable[..., Any]] = None,
+                    deck: Optional[Mapping] = None, r: Any = None) -> str:
+    from src.server.domain.knowledge import build_messages
+    from src.server.domain.oracle.numbers import allowed_numbers_from
+    from src.server.domain.oracle.tools import ToolContext, build_registry
     from .review_doc import ReviewParseError, allowed_numbers, parse_reply, strip_invented_numbers
 
-    client = oracle_factory()
     payload = {"status": d["status"], "sample_games": d["sample_games"], "findings": d["findings"],
                "limitations": d["limitations"]}
-    reply = client.chat([
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": "```json\n" + json.dumps(payload, indent=1, default=str) + "\n```"},
-    ], tools=[], tool_choice="none")
-    text = parse_reply(reply).get("summary")
-    if not isinstance(text, str) or not text.strip():
-        raise ReviewParseError("summary missing")
-    clean, _ = strip_invented_numbers(text.strip()[:SUMMARY_MAX], allowed_numbers(payload), [])
+
+    def validate(text: str, state: Any) -> list:
+        try:
+            summary = parse_reply(text).get("summary")
+        except ReviewParseError as exc:
+            return [str(exc)]
+        if not isinstance(summary, str) or not summary.strip():
+            return ["summary missing"]
+        state.parsed = summary
+        return []
+
+    oracle = oracle_factory("sim_diagnosis")
+    deck = dict(deck or {})
+    ctx = ctx_factory(r, deck) if ctx_factory else ToolContext(deck=deck)
+    messages, pack_id = build_messages("sim_diagnosis", facts_json="```json\n" + json.dumps(payload, indent=1, default=str) + "\n```",
+                                       user_text=INSTRUCTIONS)
+    oracle.pack_id = pack_id
+    res = oracle.run(task="sim_diagnosis", messages=messages, registry=build_registry(list(TOOLS), ctx), ctx=ctx,
+                     validate=validate, required_evidence={})
+    allowed = allowed_numbers_from(res.outputs, payload)
+    clean, _ = strip_invented_numbers(res.parsed.strip()[:SUMMARY_MAX], allowed, [])
     if not clean.strip():
         raise ReviewParseError("summary held only invented numbers")
     return clean.strip()
 
 
 def diagnose(telemetry: Optional[Mapping], deck: Mapping, review: Optional[Mapping],
-             oracle_factory: Optional[Callable[[], Any]] = None, now_iso: str = "", run_id: Optional[str] = None) -> dict:
+             oracle_factory: Optional[Callable[[str], Any]] = None, now_iso: str = "", run_id: Optional[str] = None,
+             skip_llm: bool = False, ctx_factory: Optional[Callable[..., Any]] = None, r: Any = None) -> dict:
     d = build_findings(telemetry, deck, review)
     source, note = "deterministic", ""
     summary = _fallback_summary(d)
-    if d["status"] == "ready":
+    if d["status"] == "ready" and not skip_llm:
         try:
             if oracle_factory is None:
-                from .oracle_client import OracleClient
-
-                oracle_factory = OracleClient.from_env
-            summary, source = _oracle_summary(d, oracle_factory), "oracle"
+                raise RuntimeError("oracle not configured")
+            summary, source = _oracle_summary(d, oracle_factory, ctx_factory, deck, r), "oracle"
         except Exception as exc:  # noqa: BLE001 - diagnosis must never break a run
             note = f"{type(exc).__name__}: {str(exc)[:200]}"
     return {"schema_version": SCHEMA_VERSION, "generated_at": now_iso, "run_id": run_id, "summary": summary,

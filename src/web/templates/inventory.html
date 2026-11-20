@@ -12,7 +12,8 @@
     th { color: #6b7280; font-weight: 500; border-bottom: 1px solid #1f2937; padding-bottom: 0.5rem; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; position: sticky; top: 0; background: var(--bg-color); z-index: 10; }
     
     .clickable-row { cursor: pointer; border-bottom: 1px solid #111827; transition: background-color 0.15s; }
-    .clickable-row:hover { background: var(--row-hover); }
+    .clickable-row:hover, .clickable-row:focus-visible { background: var(--row-hover); }
+    .clickable-row:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
     
     .type-icon { font-size: 0.8rem; font-weight: 500; }
     .type-Commander { color: #fbbf24; }
@@ -28,8 +29,8 @@
     .badge { display: inline-flex; align-items: center; background: #172554; color: #93c5fd; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; border: 1px solid #1e3a8a; }
     
     .pill { display: inline-flex; align-items: center; background: #172554; border: 1px solid #1e3a8a; border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.8rem; color: #bfdbfe; margin-right: 0.5rem; margin-bottom: 0.5rem; }
-    .pill-close { margin-left: 0.5rem; cursor: pointer; color: #60a5fa; }
-    .pill-close:hover { color: #ffffff; }
+    .pill-close { margin-left: 0.5rem; cursor: pointer; color: #60a5fa; background: none; border: none; padding: 0; font: inherit; line-height: 1; }
+    .pill-close:hover, .pill-close:focus-visible { color: #ffffff; }
     
     .mana-pip { width: 14px; height: 14px; vertical-align: middle; margin-left: 2px; }
     .badge-color-container { display: inline-flex; align-items: center; margin-left: 4px; }
@@ -159,18 +160,48 @@
             text.textContent = deck;
             pill.appendChild(text);
             
-            const close = document.createElement('span');
+            const close = document.createElement('button');
+            close.type = 'button';
             close.className = 'pill-close';
-            close.innerHTML = '&times;';
-            close.onclick = () => {
+            close.setAttribute('aria-label', `Remove ${deck} filter`);
+            close.innerHTML = '<span aria-hidden="true">&times;</span>';
+            close.addEventListener('click', () => {
+                const wasFocused = document.activeElement === close;
                 selectedDecks = selectedDecks.filter(d => d !== deck);
                 renderPills();
                 fetchInventory();
-            };
+                if (wasFocused) {
+                    const remaining = document.querySelector('#deckPills .pill-close');
+                    if (remaining) remaining.focus();
+                    else document.getElementById('deckInput').focus();
+                }
+            });
             pill.appendChild(close);
             
             container.appendChild(pill);
         });
+    }
+
+    function formatPhysicalStatus(card) {
+        const raw = card && card.status != null ? String(card.status).trim() : '';
+        const key = raw.toLowerCase();
+        if (key === 'have') {
+            return { text: 'have', color: '#34d399', isUnavailable: false };
+        }
+        if (key === 'pending') {
+            return { text: 'pending', color: '#60a5fa', isUnavailable: false };
+        }
+        if (key === 'possible') {
+            return { text: 'possible', color: '#fbbf24', isUnavailable: false };
+        }
+        const reason = raw
+            ? `unrecognized status "${raw}"`
+            : 'status missing from inventory record';
+        return {
+            text: `unavailable (${reason})`,
+            color: 'var(--text-3, #9ca3af)',
+            isUnavailable: true,
+        };
     }
 
     let currentlyOpen = null;
@@ -178,18 +209,34 @@
         if (currentlyOpen !== null && currentlyOpen !== index) {
             const oldRow = document.getElementById(`details-${currentlyOpen}`);
             if (oldRow) oldRow.style.display = 'none';
+            const oldSummary = document.getElementById(`row-${currentlyOpen}`);
+            if (oldSummary) oldSummary.setAttribute('aria-expanded', 'false');
         }
         const row = document.getElementById(`details-${index}`);
+        const summary = document.getElementById(`row-${index}`);
+        if (!row) return;
         if (row.style.display === 'none') {
             row.style.display = 'table-row';
+            if (summary) summary.setAttribute('aria-expanded', 'true');
             currentlyOpen = index;
         } else {
             row.style.display = 'none';
+            if (summary) summary.setAttribute('aria-expanded', 'false');
             currentlyOpen = null;
         }
     };
 
+    let inventoryFetchSeq = 0;
+    let inventoryFetchController = null;
+
     async function fetchInventory() {
+        const seq = ++inventoryFetchSeq;
+        if (inventoryFetchController) {
+            inventoryFetchController.abort();
+        }
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        inventoryFetchController = controller;
+
         const query = document.getElementById('searchInput').value;
         
         const params = new URLSearchParams();
@@ -197,9 +244,21 @@
         if (selectedDecks.length > 0) {
             selectedDecks.forEach(d => params.append('deck', d));
         }
-        
-        const res = await fetch(`/api/inventory?${params.toString()}`);
-        const data = await res.json();
+
+        let data;
+        try {
+            const res = await fetch(`/api/inventory?${params.toString()}`, controller ? { signal: controller.signal } : undefined);
+            if (seq !== inventoryFetchSeq) return;
+            data = await res.json();
+        } catch (err) {
+            if (err && err.name === 'AbortError') return;
+            throw err;
+        } finally {
+            if (inventoryFetchController === controller) {
+                inventoryFetchController = null;
+            }
+        }
+        if (seq !== inventoryFetchSeq) return;
         
         let inv = data.inventory;
 
@@ -259,8 +318,21 @@
         
         inv.forEach((card, index) => {
             const tr = document.createElement('tr');
+            tr.id = `row-${index}`;
             tr.className = 'clickable-row';
-            tr.onclick = () => toggleDetails(index);
+            tr.tabIndex = 0;
+            tr.setAttribute('aria-expanded', 'false');
+            tr.setAttribute('aria-controls', `details-${index}`);
+            tr.addEventListener('click', (e) => {
+                if (e.target && e.target.closest('a, button, input, select, textarea')) return;
+                toggleDetails(index);
+            });
+            tr.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if (e.target && e.target.closest('a, button, input, select, textarea')) return;
+                e.preventDefault();
+                toggleDetails(index);
+            });
             
             const primaryColor = card.color && card.color.length > 1 ? 'M' : (card.color ? card.color[0] : 'C');
             const deckColorString = deckColorMap[card.deck] || 'C';
@@ -345,6 +417,8 @@
                 }
             }
             
+            const statusInfo = formatPhysicalStatus(card);
+
             trDetails.innerHTML = `
                 <td colspan="7" style="padding: 0; border: none;">
                     <div class="details-container">
@@ -361,7 +435,7 @@
                             <p style="display: flex; align-items: center; margin-top: 8px;"><strong>Color:</strong> ${createColorPips(card.color)}</p>
                             <p><strong>Categories:</strong> ${cats}</p>
                             <p><strong>Primary Tag:</strong> ${card.primary_tag || 'None'} ${primaryTag}</p>
-                            <p><strong>Physical Status:</strong> <span style="text-transform: uppercase; color: ${card.status === 'have' ? '#34d399' : (card.status === 'pending' ? '#60a5fa' : '#fbbf24')};">${card.status || 'have'}</span></p>
+                            <p><strong>Physical Status:</strong> <span data-physical-status style="${statusInfo.isUnavailable ? '' : 'text-transform: uppercase; '}color: ${statusInfo.color};">${HUD.esc(statusInfo.text)}</span></p>
                             <p><strong>TCG Price:</strong> <span style="color: #84cc16;">${priceStr}</span></p>
                             <hr style="border-color: #333; margin: 0.8rem 0;">
                             <p style="display: flex; align-items: center;"><strong>Deck:</strong> <a href="/deck/${encodeURIComponent(card.deck)}" style="color: var(--accent); text-decoration: none;">${card.deck}</a> &nbsp;${createColorPips(deckColorString)}</p>

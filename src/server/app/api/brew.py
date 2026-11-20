@@ -81,6 +81,16 @@ def add_brew_card(session_id: str, body: BrewCardAddRequest, r: Any = Depends(ge
     return {"session_id": session_id, "draft": draft}
 
 
+@router.delete("/brew/{session_id}/cards/by-name", response_model=BrewDraftResponse)
+def remove_brew_card_by_name(session_id: str, name: str, r: Any = Depends(get_redis)):
+    """Remove a legacy/generated line that has no oracle ID."""
+    try:
+        draft = brew.remove_draft_card(r, session_id, name=name)
+    except brew.BrewEditError as e:
+        raise _http(e)
+    return {"session_id": session_id, "draft": draft}
+
+
 @router.delete("/brew/{session_id}/cards/{oracle_id}", response_model=BrewDraftResponse)
 def remove_brew_card(session_id: str, oracle_id: str, r: Any = Depends(get_redis)):
     """Remove a card line from the brew draft. The commander cannot be removed."""

@@ -382,7 +382,7 @@ def _slug(name: str) -> str:
 
 
 def new_preset_id(name: str, salt: str = "") -> str:
-    h = hashlib.sha1(f"{name}|{salt}|{_now()}".encode()).hexdigest()[:6]
+    h = hashlib.sha1(f"{name}|{salt}|{_now()}".encode(), usedforsecurity=False).hexdigest()[:6]
     return f"p-{_slug(name)}-{h}"
 
 

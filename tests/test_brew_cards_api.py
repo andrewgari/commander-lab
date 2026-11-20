@@ -187,6 +187,23 @@ class TestAddCard(BrewCardsAPITestBase):
 
 
 class TestRemoveCard(BrewCardsAPITestBase):
+    def test_remove_generated_line_without_id_by_name(self):
+        sid = self._built()
+        self.assertNotIn("oracle_id", self._by_name(sid)["Sol Ring"])
+        res = self.client.delete(f"/api/v2/brew/{sid}/cards/by-name", params={"name": "Sol Ring"})
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertNotIn("Sol Ring", self._by_name(sid))
+        self.assertTrue(res.json()["draft"]["user_edited"])
+
+    def test_remove_by_name_protects_commander_and_rejects_missing(self):
+        sid = self._built()
+        url = f"/api/v2/brew/{sid}/cards/by-name"
+        res = self.client.delete(url, params={"name": "Atraxa, Praetors' Voice"})
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(res.json()["detail"]["error"], "cannot_remove_commander")
+        self.assertEqual(self.client.delete(url, params={"name": "No such card"}).status_code, 404)
+        self.assertEqual(self.client.delete(url, params={"name": " "}).status_code, 422)
+
     def test_remove_added_card_by_oracle_id(self):
         sid = self._built()
         self._post(sid, OID_RIFT, "Cyclonic Rift")
