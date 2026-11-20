@@ -158,6 +158,173 @@ def test_card_name_input_uses_shared_autocomplete(page, base_url, name, path, se
         assert expect_top in page.locator("#brewCmdNames").inner_text()
 
 
+@pytest.mark.parametrize("search_phase", ["debounce", "loading"])
+def test_tune_free_text_enter_bubbles_during_pending_search_and_ignores_ime(page, search_phase):
+    # Mount the real legacy scripts and Tune event delegation without a running
+    # server. The controlled fetch keeps the in-flight case deterministic.
+    page.set_content("""
+      <form id="host">
+      <input id="view-recs" name="tuneView" value="recs" type="radio">
+      <input id="view-overlay" name="tuneView" value="overlay" type="radio">
+      <div id="tuneRecsView"></div><div id="tuneOverlayView"></div>
+      <div id="tuneOvColumns"></div><div id="tuneOvState"></div>
+      <div id="tuneOvDrift"></div><div id="tuneOvError"></div><div id="tuneOvCount"></div>
+      <button id="tuneOvRebase"></button><button id="tuneOvSaveDraft"></button>
+      <button id="tuneOvAddCol"></button><input id="tuneOvNewTag">
+      </form>
+    """)
+    page.evaluate("""() => {
+        window.submissions = 0;
+        document.getElementById('host').addEventListener('submit', e => { e.preventDefault(); window.submissions++; });
+        window.HUD = {esc: s => String(s), cardName: s => String(s)};
+        history.replaceState = () => {};
+        const state = {cards: [], columns: [{id: 'uncategorized', label: 'Uncategorized'}],
+                       card_tags: {}, tag_flags: {}, draft: null};
+        window.searchCalls = 0;
+        window.fetch = (url, options = {}) => {
+            if (url.startsWith('/api/cards/autocomplete')) {
+                window.searchCalls++;
+                window.searchResponse = new Promise(resolve => { window.finishSearch = resolve; });
+                return window.searchResponse;
+            }
+            if (options.method === 'POST') state.cards = JSON.parse(options.body).cards;
+            return Promise.resolve(new Response(JSON.stringify(state), {status: 200}));
+        };
+    }""")
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/card_autocomplete.js"))
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/tune_overlay.js"))
+    page.evaluate("""() => {
+        delete window.TuneOverlay.adds;
+        window.TuneOverlay.init({deckId: 'test'});
+        document.getElementById('view-overlay').dispatchEvent(new Event('change'));
+    }""")
+    inp = page.locator(".tnov-add-input").first
+    expect(inp).to_have_attribute("role", "combobox")
+    if search_phase == "debounce":
+        # Dispatch both keys in the same task, before the debounce can fire.
+        events = inp.evaluate("""el => {
+            el.value = 'Custom Free Text';
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            const ime = el.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true, isComposing: true
+            }));
+            const afterIme = el.value;
+            const enter = el.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+            }));
+            return {ime, afterIme, enter};
+        }""")
+        assert events == {"ime": True, "afterIme": "Custom Free Text", "enter": False}
+    else:
+        inp.fill("Custom Free Text")
+        inp.evaluate("""el => el.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Enter', bubbles: true, cancelable: true, isComposing: true
+        }))""")
+        expect(inp).to_have_value("Custom Free Text")
+        assert page.locator('[data-card="Custom Free Text"]').count() == 0
+        page.wait_for_function("window.searchCalls === 1")
+        inp.press("Enter")
+    expect(page.locator('[data-card="Custom Free Text"]')).to_have_count(1)
+    assert page.evaluate("window.submissions") == 0
+    if search_phase == "loading":
+        page.evaluate("""async () => {
+            window.finishSearch(new Response(JSON.stringify({results: [{name: 'Wrong Card'}], degraded: false})));
+            await window.searchResponse;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }""")
+    else:
+        assert page.evaluate("window.searchCalls") == 0
+    assert page.locator('[data-card="Wrong Card"]').count() == 0
+
+
+@pytest.mark.parametrize("search_phase", ["debounce", "loading"])
+@pytest.mark.parametrize("external_owner", [False, True])
+def test_pending_shared_search_does_not_implicitly_submit_form(page, search_phase, external_owner):
+    # Exercise native implicit submission, including inputs associated via form=.
+    if external_owner:
+        page.set_content('<form id="host"><button type="submit">Submit</button></form>'
+                         '<input id="card" form="host">')
+    else:
+        page.set_content('<form id="host"><input id="card"><button type="submit">Submit</button></form>')
+    page.evaluate("""() => {
+        window.submissions = 0; window.selected = [];
+        document.getElementById('host').addEventListener('submit', e => { e.preventDefault(); window.submissions++; });
+        window.fetch = () => new Promise(resolve => { window.finishSearch = resolve; });
+    }""")
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/card_autocomplete.js"))
+    page.evaluate("""phase => {
+        window.CardAutocomplete.attach(document.getElementById('card'), {
+            debounceMs: phase === 'debounce' ? 10000 : 0,
+            onSelect: card => window.selected.push(card.name)
+        });
+    }""", search_phase)
+    inp = page.locator("#card")
+    inp.fill("Kaalia")
+    if search_phase == "loading":
+        page.wait_for_function("typeof window.finishSearch === 'function'")
+    inp.press("Enter")
+    assert page.evaluate("window.submissions") == 0
+    assert page.evaluate("window.selected") == []
+    if search_phase == "loading":
+        page.evaluate("""() => window.finishSearch(new Response(JSON.stringify({results: [{name: 'Kaalia of the Vast'}]})))""")
+        expect(page.locator("[role=option]")).to_have_count(1)
+        inp.press("Enter")
+        assert page.evaluate("window.selected") == ["Kaalia of the Vast"]
+        assert page.evaluate("window.submissions") == 0
+    else:
+        inp.press("Escape")
+        inp.press("Enter")
+        assert page.evaluate("window.submissions") == 1
+
+
+@pytest.mark.parametrize("outcome", ["selected", "ready", "empty", "error"])
+def test_held_pending_enter_never_submits_form_after_search_settles(page, outcome):
+    page.set_content('<form id="host"><input id="card"><button type="submit">Submit</button></form>')
+    page.evaluate("""() => {
+        window.submissions = 0; window.selected = []; window.repeats = [];
+        document.getElementById('host').addEventListener('submit', e => { e.preventDefault(); window.submissions++; });
+        document.getElementById('card').addEventListener('keydown', e => {
+            if (e.key === 'Enter') window.repeats.push(e.repeat);
+        });
+        window.fetch = () => new Promise((resolve, reject) => { window.finishSearch = resolve; window.failSearch = reject; });
+    }""")
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/card_autocomplete.js"))
+    page.evaluate("""outcome => {
+        const input = document.getElementById('card');
+        window.CardAutocomplete.attach(input, {
+            debounceMs: 0, commitPendingOnEnter: outcome === 'selected',
+            onSelect: card => { window.selected.push(card.name); input.value = card.name; }
+        });
+    }""", outcome)
+    inp = page.locator("#card")
+    inp.fill("Kaalia")
+    page.keyboard.down("Enter")
+    page.wait_for_function("typeof window.finishSearch === 'function'")
+    if outcome == "error":
+        page.evaluate("() => window.failSearch(new Error('offline'))")
+        expect(page.locator(".hud-autocomplete-state--error")).to_be_visible()
+    else:
+        results = [] if outcome == "empty" else [{"name": "Kaalia of the Vast"}]
+        page.evaluate("results => window.finishSearch(new Response(JSON.stringify({results})))", results)
+        if outcome == "empty":
+            expect(page.locator(".hud-autocomplete-state--empty")).to_be_visible()
+        elif outcome == "ready":
+            expect(page.locator("[role=option]")).to_have_count(1)
+        else:
+            expect(inp).to_have_value("Kaalia of the Vast")
+    page.keyboard.down("Enter")  # repeat while the original key remains held
+    assert page.evaluate("window.repeats") == [False, True]
+    assert page.evaluate("window.submissions") == 0
+    assert page.evaluate("window.selected") == (["Kaalia of the Vast"] if outcome == "selected" else [])
+    page.keyboard.up("Enter")
+    inp.press("Enter")  # a fresh press must retain normal behavior
+    if outcome == "ready":
+        assert page.evaluate("window.selected") == ["Kaalia of the Vast"]
+        assert page.evaluate("window.submissions") == 0
+        inp.press("Enter")
+    assert page.evaluate("window.submissions") == 1
+
+
 # ---------------------------------------------------------------------------
 # Brew commander picker UX contract (t_d30383bb): one case per behavior.
 # ---------------------------------------------------------------------------
