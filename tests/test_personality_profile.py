@@ -12,8 +12,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import personality as ps  # noqa: E402
-from analytics import personality_profile as pp  # noqa: E402
+from src.server.domain.analytics import personality as ps  # noqa: E402
+from src.server.domain.analytics import personality_profile as pp  # noqa: E402
 
 AXES = ("timmy", "johnny", "spike", "vorthos", "melvin")
 

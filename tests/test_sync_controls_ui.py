@@ -16,9 +16,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SC_JS = ROOT / "static" / "js" / "sync_controls.js"
-DECK_HTML = (ROOT / "templates" / "deck.html").read_text()
-DECKS_HTML = (ROOT / "templates" / "decks.html").read_text()
+SC_JS = ROOT / "src/web/static" / "js" / "sync_controls.js"
+DECK_HTML = (ROOT / "src/web/templates" / "deck.html").read_text()
+DECKS_HTML = (ROOT / "src/web/templates" / "decks.html").read_text()
 
 
 class TestTemplates(unittest.TestCase):

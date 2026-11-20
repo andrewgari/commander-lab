@@ -20,13 +20,13 @@ import unittest
 # Ensure repo root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
-from analytics.report import (
+from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
+from src.server.domain.analytics.report import (
     DeckReportFormatter,
     DeckReview,
     generate_deck_review,
 )
-from user_intent import DeckVision, TargetPowerLevel, UserDeckIntent
+from src.server.domain.intake.user_intent import DeckVision, TargetPowerLevel, UserDeckIntent
 
 
 class TestDeckReportFormatter(unittest.TestCase):
@@ -56,6 +56,26 @@ class TestDeckReportFormatter(unittest.TestCase):
 
         self.review = generate_deck_review(deck=self.deck, intent=self.intent)
 
+    def test_generate_deck_review_can_opt_into_schema_validated_v1_without_changing_legacy(self):
+        """D5 adds v1 as an opt-in path; the default remains the legacy DeckReview API."""
+        from unittest.mock import patch
+
+        pipeline_args = {"ctx": object(), "fact_pack": {}, "pool": object(), "client": object(),
+                         "writer": lambda _verified: "{}"}
+        expected = {"schema_version": "review_document.v1"}
+        with patch("src.server.domain.analytics.review_pipeline.runner.run_review", return_value=expected) as run:
+            review = generate_deck_review(deck=self.deck, intent=self.intent,
+                                          review_format="v1", review_pipeline_args=pipeline_args)
+        self.assertEqual(review, expected)
+        run.assert_called_once_with(**pipeline_args)
+
+    def test_generate_deck_review_default_still_returns_legacy_formatters(self):
+        """Existing Markdown, JSON and CLI outputs remain available by default."""
+        review = generate_deck_review(deck=self.deck, intent=self.intent)
+        self.assertIsInstance(review, DeckReview)
+        self.assertIn("# Deck Review:", review.to_markdown())
+        self.assertEqual(json.loads(review.to_json())["deck_name"], self.deck.name)
+        self.assertIn("COMMANDER LAB DECK REVIEW", review.to_cli())
     def test_markdown_format_structure_and_sections(self):
         """Markdown output contains required titles, tables, metrics, and sections."""
         md = self.review.to_markdown()

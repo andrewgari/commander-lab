@@ -1,7 +1,7 @@
 import unittest
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 
 class TestDeckNamecardUI(unittest.TestCase):

@@ -24,13 +24,13 @@ from fastapi.testclient import TestClient
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import app as app_module  # noqa: E402
-import deck_sync  # noqa: E402
-import linked_accounts  # noqa: E402
-import providers  # noqa: E402
-from deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
-from providers import archidekt, moxfield  # noqa: E402
-from providers.errors import PushError  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.decks.deck_sync as deck_sync  # noqa: E402
+import src.server.infra.providers.linked_accounts as linked_accounts  # noqa: E402
+import src.server.infra.providers as providers  # noqa: E402
+from src.server.domain.decks.deck_sync import DeckNotFound, DeckSyncError, ProviderFailure, PushUnsupported  # noqa: E402
+from src.server.infra.providers import archidekt, moxfield  # noqa: E402
+from src.server.infra.providers.errors import PushError  # noqa: E402
 
 class FakeRedis:
     """In-repo stand-in (CI has no fakeredis package). Dict-backed for the
@@ -151,6 +151,7 @@ class ServiceCase(unittest.TestCase):
 
 class TestUpdate(ServiceCase):
     def test_update_from_one_provider_overwrites_local_and_reports_changes(self):
+        self.mox.error = RuntimeError("unselected provider down")
         res = deck_sync.update_deck(self.r, "archidekt:42", provider="archidekt")
 
         self.assertTrue(res["success"])
@@ -208,7 +209,7 @@ class TestUpdate(ServiceCase):
 class TestPush(ServiceCase):
     def test_push_sends_local_cards_and_records_timestamp(self):
         for name, prov in (("archidekt", self.arch), ("moxfield", self.mox)):
-            res = deck_sync.push_deck(self.r, "archidekt:42", name)
+            res = deck_sync.push_deck(self.r, "archidekt:42", name, dry_run=False)
             self.assertTrue(res["success"])
             self.assertEqual((res["operation"], res["direction"]), ("push", "local_to_external"))
             ident, cards, commanders = prov.push_calls[-1]
@@ -226,7 +227,7 @@ class TestPush(ServiceCase):
     def test_push_not_configured_is_explicit_error(self):
         self.mox.configured = False
         with self.assertRaises(PushUnsupported) as ctx:
-            deck_sync.push_deck(self.r, "archidekt:42", "moxfield")
+            deck_sync.push_deck(self.r, "archidekt:42", "moxfield", dry_run=False)
         self.assertEqual((ctx.exception.code, ctx.exception.status), ("push_not_configured", 501))
         self.assertEqual(self.mox.push_calls, [])
         self.assertNotIn("last_pushed_at", self.deck())
@@ -239,22 +240,28 @@ class TestPush(ServiceCase):
         self.assertEqual(self.arch.push_calls, [])
         self.assertNotIn("last_pushed_at", self.deck())
 
+    def test_bare_push_defaults_to_dry_run_and_writes_nothing(self):
+        res = deck_sync.push_deck(self.r, "archidekt:42", "archidekt")
+        self.assertTrue(res["dry_run"])
+        self.assertEqual(self.arch.push_calls, [])
+        self.assertNotIn("last_pushed_at", self.deck())
+
     def test_push_provider_rejection(self):
         self.arch.push_error = PushError("token expired")
         with self.assertRaises(ProviderFailure):
-            deck_sync.push_deck(self.r, "archidekt:42", "archidekt")
+            deck_sync.push_deck(self.r, "archidekt:42", "archidekt", dry_run=False)
         self.assertNotIn("last_pushed_at", self.deck())
 
     def test_push_requires_provider_and_link(self):
         with self.assertRaises(DeckSyncError):
-            deck_sync.push_deck(self.r, "archidekt:42", None)
+            deck_sync.push_deck(self.r, "archidekt:42", None, dry_run=False)
         with self.assertRaises(DeckSyncError):
-            deck_sync.push_deck(self.r, "archidekt:42", "commandersalt")
+            deck_sync.push_deck(self.r, "archidekt:42", "commandersalt", dry_run=False)
 
     def test_unsupported_provider_reports_push_unsupported(self):
         with patch.object(deck_sync, "PUSH_PROVIDERS", {"archidekt"}):
             with self.assertRaises(PushUnsupported) as ctx:
-                deck_sync.push_deck(self.r, "archidekt:42", "moxfield")
+                deck_sync.push_deck(self.r, "archidekt:42", "moxfield", dry_run=False)
         self.assertEqual(ctx.exception.code, "push_unsupported")
 
     def test_status_reports_capabilities_without_network(self):
@@ -292,24 +299,53 @@ class TestRoutes(RouteCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(sorted(res.json()["providers"]), ["archidekt", "moxfield"])
 
+    def test_partial_failure_fails_pull_preview_and_legacy_without_side_effects(self):
+        self.mox.error = RuntimeError("moxfield rate limited")
+        before = self.r.get("decks")
+        with patch.object(app_module.interactions_service, "start_rebuild") as rebuild, \
+                patch.object(app_module, "_wake_bracket_worker") as wake:
+            for path, body, status in (
+                ("/api/decks/archidekt:42/sync/pull", {}, 502),
+                ("/api/decks/archidekt:42/sync/pull", {"dry_run": True}, 502),
+                ("/api/decks/archidekt:42/sync", {}, 400),
+            ):
+                with self.subTest(path=path, body=body):
+                    res = self.client.post(path, json=body)
+                    self.assertEqual(res.status_code, status)
+                    self.assertFalse(res.json()["success"])
+                    self.assertIn("moxfield: moxfield rate limited", res.json()["error"])
+                    if status == 502:
+                        self.assertEqual(res.json()["code"], "provider_error")
+                    self.assertEqual(self.r.get("decks"), before)
+            rebuild.assert_not_called()
+            wake.assert_not_called()
+        self.assertEqual(len(self.arch.fetch_calls), 3)
+        self.assertEqual(len(self.mox.fetch_calls), 3)
+
     def test_push_route_and_errors(self):
-        ok = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield"})
+        ok = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield", "dry_run": False})
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.json()["direction"], "local_to_external")
 
         self.arch.configured = False
-        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt"})
+        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt", "dry_run": False})
         self.assertEqual(res.status_code, 501)
         self.assertEqual(res.json()["code"], "push_not_configured")
         self.assertFalse(res.json()["success"])
 
         self.assertEqual(self.client.post("/api/decks/archidekt:42/sync/push", json={}).status_code, 400)
-        missing = self.client.post("/api/decks/nope:1/sync/push", json={"provider": "archidekt"})
+        missing = self.client.post("/api/decks/nope:1/sync/push", json={"provider": "archidekt", "dry_run": False})
         self.assertEqual((missing.status_code, missing.json()["code"]), (404, "deck_not_found"))
 
         self.mox.error = RuntimeError("moxfield down")
-        bad = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield"})
+        bad = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "moxfield", "dry_run": False})
         self.assertEqual((bad.status_code, bad.json()["code"]), (502, "provider_error"))
+
+    def test_push_route_defaults_to_dry_run(self):
+        res = self.client.post("/api/decks/archidekt:42/sync/push", json={"provider": "archidekt"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()["dry_run"])
+        self.assertEqual(self.arch.push_calls, [])
 
     def test_status_route(self):
         res = self.client.get("/api/decks/archidekt:42/sync/status")
@@ -365,13 +401,13 @@ class TestNoAutomaticSync(RouteCase):
         for path in ROOT.rglob("*.py"):
             rel = path.relative_to(ROOT)
             if rel.parts[0] in {"tests", ".venv", "venv", "docs"} or ".worktrees" in rel.parts \
-                    or str(rel) in allowed_modules or rel.parts[0] == "scripts":
+                    or rel.name in allowed_modules or rel.parts[0] == "scripts":
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(rel))
             for fn in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
                 # providers' create_deck fills a brand-new remote deck via push_deck; it is only
                 # reachable from the explicit POST export route (deck_export.py), never a scheduler.
-                if rel.parts[0] == "providers" and fn.name == "create_deck":
+                if "providers" in rel.parts and fn.name == "create_deck":
                     continue
                 is_post_route = any(
                     isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr == "post"
@@ -393,9 +429,12 @@ class TestNoAutomaticSync(RouteCase):
         self.assertEqual(offenders, [])
 
     def test_background_workers_do_not_import_sync(self):
-        for rel in ("analytics/bracket_worker.py", "analytics/interactions/service.py", "github_sync.py"):
+        for rel in ("src/server/domain/analytics/bracket_worker.py",
+                    "src/server/domain/analytics/interactions/service.py",
+                    "src/server/infra/providers/github_sync.py"):
             src = (ROOT / rel).read_text(encoding="utf-8")
-            for mod in ("deck_sync", "linked_accounts", "providers"):
+            for mod in ("deck_sync", "linked_accounts", "providers",
+                        "src.server.domain.decks", "src.server.infra.providers"):
                 self.assertNotIn(f"import {mod}", src, f"{rel} imports {mod}")
                 self.assertNotIn(f"from {mod} ", src, f"{rel} imports from {mod}")
 

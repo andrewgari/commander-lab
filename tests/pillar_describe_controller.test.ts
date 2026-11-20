@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { PillarDescribeController } from "../static/ts/pillarDescribeController.ts";
-import type { ControllerState } from "../static/ts/pillarDescribeController.ts";
-import { PillarDescribeError } from "../static/ts/pillarDescribeClient.ts";
+import { PillarDescribeController } from "../src/web/static/ts/pillarDescribeController.ts";
+import type { ControllerState } from "../src/web/static/ts/pillarDescribeController.ts";
+import { PillarDescribeError } from "../src/web/static/ts/pillarDescribeClient.ts";
 
 // ---- Helpers ------------------------------------------------------------------
 

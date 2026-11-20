@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.interactions import combos
+from src.server.domain.analytics.interactions import combos
 from tests.test_interactions import FakeRedis
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "spellbook_holy_hellfire.json")
@@ -197,11 +197,11 @@ class TestDeckCombos(unittest.TestCase):
 class TestComboRoutes(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient as TC
-        from app import app
+        from src.server.app.main import app
         self.client = TC(app)
 
-    @patch("app.combos")
-    @patch("app.registry")
+    @patch("src.server.app.main.combos")
+    @patch("src.server.app.main.registry")
     def test_combos_route(self, mock_registry, mock_combos):
         mock_registry.find_deck.return_value = HH
         mock_combos.deck_combos.return_value = {"counts": {"in_deck": 2}, "in_deck": [], "one_away": []}
@@ -213,8 +213,8 @@ class TestComboRoutes(unittest.TestCase):
         self.assertEqual(kw["limit"], 5)
         self.assertFalse(kw["refresh"])
 
-    @patch("app.combos")
-    @patch("app.registry")
+    @patch("src.server.app.main.combos")
+    @patch("src.server.app.main.registry")
     def test_combos_upstream_error_is_502(self, mock_registry, mock_combos):
         mock_registry.find_deck.return_value = HH
         mock_combos.SpellbookError = combos.SpellbookError
@@ -223,15 +223,15 @@ class TestComboRoutes(unittest.TestCase):
         self.assertEqual(res.status_code, 502)
         self.assertFalse(res.json()["success"])
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_unknown_deck_404(self, mock_registry):
         mock_registry.find_deck.return_value = None
         mock_registry.list_decks.return_value = []
         self.assertEqual(self.client.get("/api/decks/nope/combos").status_code, 404)
         self.assertEqual(self.client.get("/api/decks/nope/engines").status_code, 404)
 
-    @patch("app.interactions_service")
-    @patch("app.registry")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.registry")
     def test_engines_route(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = HH
         mock_service.get_deck_engines.return_value = {"counts": {"engines": 1}, "engines": [{"name": "x"}]}

@@ -1,6 +1,6 @@
 {
   "reviewed": "2026-10-20 19:50–20:15 EDT",
-  "target": "http://192.168.50.3:8020",
+  "target": "http://<tower-host>:8020",
   "api_version_seen": ["0.4.144", "0.4.145", "0.4.146", "0.4.147"],
   "served_assets": {
     "static/js/deck_sim.js": "md5 a3f1d54260e6255f17fa62bf604edaf8 (49,501 B) = blob at e14a16f (#241); unchanged for the whole review",

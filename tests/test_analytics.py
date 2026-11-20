@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pydantic import ValidationError
 
-from analytics import (
+from src.server.domain.analytics import (
     AnalyticsProviderRegistry,
     BaseAnalyticsProvider,
     CardCutRecommendation,

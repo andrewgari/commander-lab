@@ -2,8 +2,8 @@
 
 import unittest
 
-from autotag import tag_registry as tr
-from autotag import engine
+from src.server.domain.tags import tag_registry as tr
+from src.server.domain.tags import engine
 
 
 class FakeRedis:

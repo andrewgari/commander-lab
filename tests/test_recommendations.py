@@ -18,19 +18,19 @@ import unittest
 # Ensure repo root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.engine import (
+from src.server.domain.analytics.engine import (
     DeckAnalysisEngine,
     DeckAnalysisReport,
     default_analysis_engine,
 )
-from analytics.models import (
+from src.server.domain.analytics.models import (
     CardRecommendation,
     CardRecommendations,
     CommanderIdentifier,
     DeckCardEntry,
     DecklistInput,
 )
-from analytics.recommendations import (
+from src.server.domain.analytics.recommendations import (
     CURATED_CARD_CATALOG,
     RECENT_SETS,
     CardSwapSuggestion,
@@ -39,7 +39,7 @@ from analytics.recommendations import (
     RecommendationSet,
     default_recommendation_generator,
 )
-from user_intent import (
+from src.server.domain.intake.user_intent import (
     ArchetypePreferences,
     BudgetConstraints,
     DeckVision,

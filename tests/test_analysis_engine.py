@@ -20,7 +20,7 @@ from typing import Any, Dict
 # Ensure repository root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.engine import (
+from src.server.domain.analytics.engine import (
     ArchetypeMatch,
     CohesionAnalysisBreakdown,
     CurveAnalysisBreakdown,
@@ -35,7 +35,7 @@ from analytics.engine import (
     default_analysis_engine,
     parse_mana_cost,
 )
-from analytics.models import (
+from src.server.domain.analytics.models import (
     CardRecommendations,
     CommanderIdentifier,
     DeckAnalyticsResult,
@@ -49,14 +49,14 @@ from analytics.models import (
     SaltScore,
     SynergyMetric,
 )
-from deck_intake import (
+from src.server.domain.intake.deck_intake import (
     ConsolidatedDeckIntake,
     DeckIntakePayload,
     DeckIntakeResult,
     DeckIntakeService,
 )
-import deck_analysis
-from user_intent import UserDeckIntent, parse_user_intent
+import src.server.domain.decks.deck_analysis as deck_analysis
+from src.server.domain.intake.user_intent import UserDeckIntent, parse_user_intent
 
 
 # =============================================================================
@@ -557,7 +557,7 @@ class TestStapleThemeRegistry(unittest.TestCase):
     staple_theme_registry.py), seeded once from the original hardcoded mapping."""
 
     def setUp(self):
-        import analytics.engine as engine_mod
+        import src.server.domain.analytics.engine as engine_mod
         self.engine_mod = engine_mod
         self.original = dict(engine_mod.KNOWN_STAPLE_THEMES)
 
@@ -565,19 +565,19 @@ class TestStapleThemeRegistry(unittest.TestCase):
         self.engine_mod.KNOWN_STAPLE_THEMES = self.original
 
     def test_default_module_global_matches_builtins_without_redis(self):
-        from analytics.staple_theme_registry import BUILTIN_STAPLE_THEMES
+        from src.server.domain.analytics.staple_theme_registry import BUILTIN_STAPLE_THEMES
 
         self.assertEqual(self.engine_mod.KNOWN_STAPLE_THEMES, BUILTIN_STAPLE_THEMES)
 
     def test_seeds_once_from_builtin_mapping(self):
-        from analytics import staple_theme_registry as st
+        from src.server.domain.analytics import staple_theme_registry as st
 
         r = _FakeRedis()
         st.ensure_seeded(r)
         self.assertEqual(st.get_map(r), st.BUILTIN_STAPLE_THEMES)
 
     def test_deleted_entry_is_not_reseeded(self):
-        from analytics import staple_theme_registry as st
+        from src.server.domain.analytics import staple_theme_registry as st
 
         r = _FakeRedis()
         st.ensure_seeded(r)
@@ -586,7 +586,7 @@ class TestStapleThemeRegistry(unittest.TestCase):
         self.assertNotIn("Hardened Scales", st.get_map(r))
 
     def test_load_staple_theme_vocab_refreshes_engine_global(self):
-        from analytics import staple_theme_registry as st
+        from src.server.domain.analytics import staple_theme_registry as st
 
         r = _FakeRedis()
         st.ensure_seeded(r)
@@ -600,7 +600,7 @@ class TestStapleThemeRegistry(unittest.TestCase):
 
     def test_theme_scan_uses_live_registry_after_load(self):
         """Deleting a staple's theme via the registry stops it crediting that theme."""
-        from analytics import staple_theme_registry as st
+        from src.server.domain.analytics import staple_theme_registry as st
 
         r = _FakeRedis()
         st.ensure_seeded(r)

@@ -5,9 +5,9 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from analytics import sim_diff as sd
+from src.server.domain.analytics import sim_diff as sd
 
-SIM_JS = Path(__file__).resolve().parent.parent / "static" / "js" / "deck_sim.js"
+SIM_JS = Path(__file__).resolve().parent.parent / "src/web/static" / "js" / "deck_sim.js"
 
 SCRIPT = r"""
 const fs = require('fs');

@@ -12,9 +12,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import cards
-import instances as instance_store
-from instances import InstanceError
+import src.server.domain.inventory.cards as cards
+import src.server.domain.inventory.instances as instance_store
+from src.server.domain.inventory.instances import InstanceError
 
 from tests.test_instances import FakeRedis
 

@@ -31,15 +31,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-import deck_genre as G
-from analytics import journal
+import src.server.app.main as app_mod
+import src.server.domain.decks.deck_genre as G
+from src.server.domain.analytics import journal
 from tests.test_deck_stats_ui import DECK, INVENTORY
 from tests.test_interactions import FakeRedis
-from user_intent import DeckGenre, allowed_archetypes, parse_user_intent, resolve_intent_defaults, validate_intent
+from src.server.domain.intake.user_intent import DeckGenre, allowed_archetypes, parse_user_intent, resolve_intent_defaults, validate_intent
 
 ROOT = Path(__file__).resolve().parents[1]
-GENRE_JS = ROOT / "static" / "js" / "deck_genre.js"
+GENRE_JS = ROOT / "src/web/static" / "js" / "deck_genre.js"
 ORIGINAL_14 = {"aggro", "midrange", "control", "combo", "stax", "spellslinger", "aristocrats", "tokens", "graveyard",
                "voltron", "ramp", "tribal", "group_hug", "group_slug"}
 
@@ -335,12 +335,12 @@ class _Pages(unittest.TestCase):
         cls.client = TestClient(app_mod.app)
 
     def get(self, path):
-        with patch.object(app_mod, "r", self.r), patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch.object(app_mod, "r", self.r), patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             return self.client.get(path)
 
     def put(self, path, body):
         # The first save snapshots live metrics (prices = network); stub them out.
-        with patch.object(app_mod, "r", self.r), patch("app.journal_mod.collect_context", return_value={}):
+        with patch.object(app_mod, "r", self.r), patch("src.server.app.main.journal_mod.collect_context", return_value={}):
             return self.client.put(path, json=body)
 
     @staticmethod
@@ -404,7 +404,7 @@ class TestPagesAndApi(_Pages):
         self.assertEqual(len(body["creature_types"]), 351)
 
     def test_css_defines_the_kit_classes(self):
-        css = (ROOT / "static" / "css" / "hud.css").read_text()
+        css = (ROOT / "src/web/static" / "css" / "hud.css").read_text()
         for cls in ("hud-sr", "hud-tagfield", "hud-tagfield-count", "hud-tagchip", "hud-chip--custom", "hud-chip-star",
                     "hud-tagopt", "hud-picker-group", "hud-picker-note", "hud-genre-strip", "hud-chip-more-desktop",
                     "hud-chip-more-phone"):
@@ -414,8 +414,8 @@ class TestPagesAndApi(_Pages):
 
 class TestEngineGuard(unittest.TestCase):
     def theme(self, ap):
-        from analytics.engine import DeckAnalysisEngine
-        from deck_intake import DeckIntakeService
+        from src.server.domain.analytics.engine import DeckAnalysisEngine
+        from src.server.domain.intake.deck_intake import DeckIntakeService
         from tests.test_analysis_engine import SAMPLE_AGGRO_TOKENS_DECKLIST
         intake = DeckIntakeService().process(decklist=SAMPLE_AGGRO_TOKENS_DECKLIST, intent={"archetype_preferences": ap})
         return DeckAnalysisEngine().analyze(deck=intake).theme_analysis

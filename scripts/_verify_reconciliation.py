@@ -8,7 +8,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from reconciliation import reconcile_deck
+from src.server.domain.inventory.reconciliation import reconcile_deck
 
 decklist = [
     {"name": "Sol Ring", "quantity": 1},

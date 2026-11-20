@@ -53,12 +53,12 @@ pytestmark = pytest.mark.skipif(not _REDIS_OK, reason=f"Redis not reachable at {
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-import app as app_module  # noqa: E402
-import deck_validator as dv  # noqa: E402
-import instances as instance_store  # noqa: E402
-import reconstruct  # noqa: E402
-import registry  # noqa: E402
-from reconstruct_builder import ReconstructBuilder  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.draft.deck_validator as dv  # noqa: E402
+import src.server.domain.inventory.instances as instance_store  # noqa: E402
+import src.server.domain.draft.reconstruct as reconstruct  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
+from src.server.domain.draft.reconstruct_builder import ReconstructBuilder  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixed card universe (synthetic, so legality and colour identity are known)
@@ -370,7 +370,7 @@ OTHER_DECK_CARDS = set(DEDICATED) | {SHARED}
 
 
 def free_counts(r) -> Counter:
-    from reconstruct_pools import free_owned_counts
+    from src.server.domain.draft.reconstruct_pools import free_owned_counts
     return Counter(free_owned_counts(instance_store.list_instances(r, ownership_status="in_collection")))
 
 

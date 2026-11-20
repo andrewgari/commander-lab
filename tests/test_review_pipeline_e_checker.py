@@ -1,0 +1,219 @@
+"""Pass E name checker: prose may repeat anything the verified payload literally says, and nothing from outside it."""
+import json
+import unittest
+from dataclasses import asdict
+
+from src.server.domain.analytics.review_pipeline import e_writer
+from tests.test_review_pipeline_verify_replay import replay
+
+NAME_ERR = "unverified card name or proper-name phrase"
+
+
+def _name_errors(prose, verified):
+    text = json.dumps({"verdict": verified["verdict"], "summary": prose})
+    return [e for e in e_writer.check_writer_output(text, verified) if e.startswith(NAME_ERR)]
+
+
+class PayloadEcho(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.verified = asdict(replay("saffi")[-1].verified) | {"verdict": {"grade": "B", "confidence": 0.7}}
+
+    def test_every_reviewable_payload_string_echoed_verbatim_has_no_name_errors(self):
+        prose = "\n".join(v for _, v in e_writer._walk_verified(self.verified) if isinstance(v, str))
+        self.assertEqual(_name_errors(prose, self.verified), [])
+
+    def test_card_absent_from_payload_is_still_rejected(self):
+        self.assertTrue(_name_errors("Craterhoof Behemoth ends the game.", self.verified))
+        self.assertTrue(_name_errors("Cast Craterhoof Behemoth.", self.verified))
+
+
+class PhraseAllowlist(unittest.TestCase):
+    def setUp(self):
+        self.verified = {
+            "verdict": {"grade": "B", "confidence": 0.8},
+            "strengths": [{"id": "s1", "title": "Scattered Groves fixes Selesnya colors", "body": "Fauna Shaman's tutor suite is deep."}],
+            "swaps": [{"id": "sw-1", "cut": {"name": "Plains"}, "add": {"name": "Sol Ring"}}],
+            "omitted": [{"kind": "swap", "item": "sw-2: cut Mana Crypt -> add Rhystic Study", "reason": "removed"}],
+        }
+
+    def check(self, prose):
+        return _name_errors(prose, self.verified)
+
+    def test_phrase_from_payload_prose_passes(self):
+        self.assertEqual(self.check("Scattered Groves keeps Selesnya stable."), [])
+
+    def test_possessive_of_payload_phrase_passes(self):
+        self.assertEqual(self.check("Scattered Groves\u2019s slot and Fauna Shaman's role matter."), [])
+
+    def test_possessive_of_payload_name_passes(self):
+        self.assertEqual(self.check("Sol Ring's speed matters."), [])
+
+    def test_sentence_initial_ordinary_words_are_not_names(self):
+        self.assertEqual(self.check("She plays it. Most lists run it. Many do. No one cuts it. All of it works."), [])
+
+    def test_names_only_in_omitted_are_still_rejected(self):
+        self.assertTrue(self.check("Mana Crypt would help."))
+        self.assertTrue(self.check("Add Rhystic Study."))
+
+    def test_unrelated_capitalized_phrase_is_rejected(self):
+        self.assertTrue(self.check("Craterhoof Behemoth ends it."))
+
+    def test_phrase_must_match_whole_not_substring_of_word(self):
+        self.assertTrue(self.check("Scatter Grove is fine."))
+
+
+class BareListEvidence(unittest.TestCase):
+    """Strings and numbers that sit directly in a payload list (win_paths, success_criteria, quirks) are evidence too."""
+
+    def setUp(self):
+        self.verified = {
+            "verdict": {"grade": "B", "confidence": 0.8},
+            "deck_identity": {
+                "success_criteria": ["Soldiers have meaningful lords in play by mid-game (Field Marshal, Coat of Arms)."],
+                "intentional_quirks": ["Heavy snow mana (24 Snow-Covered Plains) and Rashmi and Ragavan as enablers."],
+            },
+        }
+
+    def test_phrase_and_number_from_a_bare_list_element_pass(self):
+        prose = "Soldiers have meaningful lords. Rashmi and Ragavan help. Run 24 Snow-Covered Plains."
+        self.assertEqual(_name_errors(prose, self.verified), [])
+        text = json.dumps({"verdict": self.verified["verdict"], "summary": prose})
+        self.assertEqual([e for e in e_writer.check_writer_output(text, self.verified) if "number" in e], [])
+
+    def test_number_not_in_the_payload_is_still_rejected(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "summary": "Run 25 Snow-Covered Plains."})
+        self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "number" in e])
+
+
+class PlainSentenceOpeners(unittest.TestCase):
+    def setUp(self):
+        self.verified = {"verdict": {"grade": "B", "confidence": 0.8},
+                         "strengths": [{"id": "s1", "claim": "Combat damage with Sol Ring.", "cards": [{"name": "Sol Ring"}]}]}
+
+    def test_capitalized_ordinary_words_opening_a_sentence_are_not_names(self):
+        for prose in ("Critically, the deck is slow.", "Mostly fine. Apply pressure early.",
+                      "Flavor is fine.", "Combat damage matters."):
+            self.assertEqual(_name_errors(prose, self.verified), [], prose)
+
+    def test_color_words_are_not_names(self):
+        self.assertEqual(_name_errors("Blue/Red spells compete against Green ramp. White decks differ.", self.verified), [])
+
+    def test_a_real_one_word_card_name_not_in_the_payload_is_still_rejected(self):
+        self.assertTrue(_name_errors("Entomb finds the target.", self.verified))
+        self.assertTrue(_name_errors("Cast it. Counterspell answers it.", self.verified))
+
+    def test_fabricated_one_word_names_are_still_rejected(self):
+        for prose in ("Zorblax ends the game.", "Xqzvorn is the wincon here.", "Blorgly ends the game.", "Quickly, Zorblax ends it."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
+    def test_sentence_starter_allowlist_holds_no_real_card_name(self):
+        try:
+            import numpy as np
+            from src.server.domain.analytics import card2vec
+            with np.load(card2vec.DEFAULT_PATH) as z:
+                names = {e_writer.normalize(str(n)) for n in z["names"]}
+        except Exception:
+            self.skipTest("card corpus unavailable")
+        self.assertEqual(sorted(w for w in e_writer._SENTENCE_STARTERS
+                                if w in names and w not in {"six"}), [])  # "six" is a pre-existing numeral starter
+
+    def test_prose_opener_before_a_color_identity_word_is_accepted(self):
+        for prose in ("This Mardu list wants more pressure.", "Redundant Selesnya recursion is the theme.", "Scores by axis are fine.",
+                      "Volume is fine and colors are the problem.", "Grade C stays."):
+            self.assertFalse(_name_errors(prose, self.verified), prose)
+
+    def test_prose_opener_does_not_launder_an_invented_name(self):
+        for prose in ("This Zorblax ends the game.", "Redundant Zorblax ends it.", "Then Craterhoof Behemoth ends it."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
+    def test_live_writer_openers_are_prose_not_names(self):
+        # Seen from claude-sonnet-5-5 on lara-uncharted: headline / bullet openers that are ordinary review vocabulary.
+        for prose in ("Coherent Sol Ring plan with a smooth curve.", "Proposed fixes: Sol Ring first.",
+                      "Proposed: swap in Sol Ring.", "Protection for Sol Ring is layered.", "Axis scores are fine. Suggested fixes come first."):
+            self.assertEqual(_name_errors(prose, self.verified), [], prose)
+
+    def test_vocabulary_openers_do_not_launder_an_invented_name(self):
+        for prose in ("Coherent Zorblax plan.", "Proposed Zorblax for Sol Ring.", "Protection for Zorblax is layered.",
+                      "Proposed Craterhoof Behemoth."):
+            self.assertTrue(_name_errors(prose, self.verified), prose)
+
+    def test_multi_word_unverified_name_is_still_rejected(self):
+        self.assertTrue(_name_errors("Critically, Craterhoof Behemoth ends it.", self.verified))
+
+
+class RetryFeedback(unittest.TestCase):
+    """A retry tells the writer what the checker rejected; blind retries repeat the same mistake."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.verified = asdict(replay("saffi")[-1].verified) | {"verdict": {"grade": "B", "confidence": 0.7}}
+
+    def _doc(self, prose):
+        return json.dumps({"verdict": self.verified["verdict"], "summary": prose})
+
+    def test_second_attempt_receives_the_rejected_phrases_and_can_pass(self):
+        seen = []
+
+        def writer(payload):
+            seen.append(payload)
+            return self._doc("Zorblax ends the game." if len(seen) == 1 else "No names here, just prose.")
+
+        out = e_writer.generate_checked(writer, self.verified)
+        self.assertIsNotNone(out)
+        self.assertEqual(len(seen), 2)
+        self.assertNotIn("checker_feedback", seen[0])
+        self.assertIn("Zorblax", json.dumps(seen[1]["checker_feedback"]))
+
+    def test_feedback_never_widens_what_the_checker_accepts(self):
+        # The rejected name is echoed to the writer in feedback; it must not become 'verified payload' text.
+        def writer(payload):
+            return self._doc("Zorblax ends the game.")
+
+        self.assertIsNone(e_writer.generate_checked(writer, self.verified))
+
+    def test_exhaustion_logs_the_last_rejection_reasons(self):
+        with self.assertLogs(e_writer.LOG, level="WARNING") as logs:
+            self.assertIsNone(e_writer.generate_checked(lambda payload: self._doc("Zorblax ends the game."), self.verified))
+        self.assertIn("Zorblax", "\n".join(logs.output))
+
+    def test_the_original_payload_is_not_mutated(self):
+        before = json.dumps(self.verified, sort_keys=True, default=str)
+        e_writer.generate_checked(lambda payload: self._doc("Zorblax ends the game."), self.verified)
+        self.assertEqual(json.dumps(self.verified, sort_keys=True, default=str), before)
+
+
+class LiveWriterVocabulary(unittest.TestCase):
+    """Phrases seen from haiku-4-5 / sonnet-5-5 on the golden decks that are ordinary English, not card names."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.verified = asdict(replay("saffi")[-1].verified) | {"verdict": {"grade": "B", "confidence": 0.7}}
+
+    def test_list_items_opening_with_a_capitalized_verb_or_adverb_are_prose(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": [
+            "Survive removal by holding Silence.", "Fallback plans are thin.", "Recover from a Wrath of God.",
+            "Converting mana is slow.", "Fills the graveyard and recurs.", "Thirteen sources are tight.", "About half is fine."]})
+        self.assertEqual([e for e in e_writer.check_writer_output(text, self.verified) if e.startswith(NAME_ERR)], [])
+
+    def test_a_json_list_item_is_judged_as_a_sentence_start_not_by_the_comma_before_it(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": ["Fine.", "Zorblax ends the game."]})
+        self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "Zorblax" in e])
+
+    def test_names_inside_list_items_are_still_rejected(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": ["Survive with Craterhoof Behemoth."]})
+        self.assertTrue([e for e in e_writer.check_writer_output(text, self.verified) if "Craterhoof" in e])
+
+    def test_live_cheaper_tier_lara_openers_are_prose(self):
+        text = json.dumps({"verdict": self.verified["verdict"], "issues": [
+            "Promising core, but thin.", "Aggressive curve with few answers.", "The game plan is clear."]})
+        self.assertEqual([e for e in e_writer.check_writer_output(text, self.verified) if e.startswith(NAME_ERR)], [])
+        self.assertTrue(_name_errors("Promising Zorblax ends the game.", self.verified))
+
+    def test_a_plural_of_a_word_the_payload_says_is_not_a_new_name(self):
+        self.assertEqual(_name_errors("Sol Ring and friends.", self.verified), [])
+        self.assertTrue(_name_errors("Zorblaxes end the game.", self.verified))
+
+
+if __name__ == "__main__":
+    unittest.main()

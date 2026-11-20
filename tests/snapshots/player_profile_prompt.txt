@@ -1,0 +1,18 @@
+PLAYER PROFILE
+Identity: Builds more than pilots.
+Identity tags: builder, wacky
+Color affinities: Bant (0.80), Naya (0.60)
+Archetype affinities: equipment (0.90), auras (0.70)
+Favored mechanics: proliferate
+Pet cards (protect these): Stax Piece, Elspeth, Sun's Champion
+Dislikes (strategies): mass land destruction
+Power: focused; tuned but not cutthroat
+Budget per card (USD): soft cap 20, hard cap 10
+Review depth: deep
+Review tone: direct
+Skip in reviews: padding
+Generic staples: not welcome
+A deck feels finished when: curve is smooth; concept intact
+Deck intent overrides profile:
+- budget.hard_cap: deck intent 10 replaces profile
+- dislikes.cards: deck pet cards override profile dislikes

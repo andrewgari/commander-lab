@@ -4,14 +4,14 @@ Verified 2026-10-12 (AN-0, kanban t_b54f852f) by deploying main 7181416.
 
 ## What prod actually is
 
-- Host: Tower (Unraid, 192.168.50.3). Portainer UI/API: http://192.168.50.3:9009
+- Host: Tower (Unraid, <tower-host>). Portainer UI/API: http://<tower-host>:9009
 - Portainer stack id 124, name `commander-lab`, type Git repository:
   - repository: https://github.com/andrewgari/commander-lab (GitHub, NOT Gitea)
   - ref: `refs/heads/main`, compose file: `docker-compose.prod.yml`
   - auto-update: webhook only (no polling interval). A trigger re-pulls and rebuilds.
 - Containers: `commander-lab-app` (built from the repo Dockerfile, host port
   8020 -> 8000) and `commander-lab-redis` (redis:alpine, volume `redis_data`).
-- Live site: http://192.168.50.3:8020 (Tower's port 8000 is a different service).
+- Live site: http://<tower-host>:8020 (Tower's port 8000 is a different service).
 - Portainer checks out each deployed commit to
   `/mnt/user/appdata/portainer/compose/124/<full-sha>/` on Tower. That dir name
   (and the container label in step 5) is the ground truth for which sha is live.
@@ -38,7 +38,7 @@ main does NOT deploy; you have to trigger the webhook yourself.
    make deploy-push
    # equivalent to:
    WH=$(ssh tower cat /mnt/user/appdata/commander-lab/portainer-webhook)
-   curl -fsS -X POST http://192.168.50.3:9009/api/stacks/webhooks/$WH   # HTTP 204
+   curl -fsS -X POST http://<tower-host>:9009/api/stacks/webhooks/$WH   # HTTP 204
    ```
 
    Portainer clones main, rebuilds the app image, and recreates both
@@ -52,7 +52,7 @@ main does NOT deploy; you have to trigger the webhook yourself.
    # -> /data/compose/124/<sha of origin/main> <fresh timestamp>
    ```
 
-6. Smoke test at http://192.168.50.3:8020: /instances (TOTAL ~5608),
+6. Smoke test at http://<tower-host>:8020: /instances (TOTAL ~5608),
    /inventory (has rows), and a deck page (/deck/Holy%20Hellfire shows CARDS 100).
 
 The version badge (`/api/version`, sidebar) is NOT proof of which build is
@@ -104,21 +104,37 @@ backup as described above.
   and `--reload`, and adds Unraid UI labels. It also bind-mounts
   `/mnt/user/appdata/commander-lab/secrets` (root-only, mode 700) read-only at
   `/run/commander-lab-secrets`. Each file in that directory holds one API key
-  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`). The
+  and is named after its variable (`GOOGLE_API_KEY`, `NOUS_API_KEY`,
+  `OPENROUTER_API_KEY`). The
   interaction-graph tagger reads keys from there when the variable isn't set
   in the environment (docs/INTERACTION_GRAPH.md). Keys never go in git.
   To rotate a key, rewrite its file (`umask 077`), then restart
   `commander-lab-app`.
-- oracle (Theory docs, `analytics/oracle_client.py`): `ORACLE_URL` defaults to
-  `http://192.168.50.2:8645` (oracle's own standalone Hermes gateway on the
+- OpenRouter (oracle tool loop, `src/server/domain/oracle`,
+  `src/server/infra/llm/factory.py`): `OPENROUTER_API_KEY` env var, or the file
+  `secrets/OPENROUTER_API_KEY` in the same root-only secrets dir (read when the
+  env var is empty). Optional: `LLM_MODEL`, `LLM_MODEL_<TASK>`, `LLM_TIMEOUT_S`,
+  `OPENROUTER_BASE_URL`, `LLM_LOOP_MAX_TURNS_<TASK>`, `LLM_LOOP_HARD_USD_<TASK>`.
+  Compose forwards only `OPENROUTER_API_KEY`; to use any of these optional
+  overrides, also add an explicit `VAR=${VAR:-}` entry to the app service's
+  `environment` in `docker-compose.prod.yml`, otherwise setting it in the
+  Portainer stack has no effect.
+  An unset key makes Deep Review show the offline note. Smoke test from prod:
+  `ssh tower 'docker exec commander-lab-app python -c "from src.server.infra.llm.provider import provider_status; print(provider_status()[\"openrouter\"])"'`
+  prints `None` when configured (it never prints the key). To rotate, rewrite
+  the file (`umask 077`) and restart `commander-lab-app`.
+- Legacy: oracle (Theory docs, `src/server/domain/analytics/oracle_client.py`): `ORACLE_URL` (empty = oracle features disabled) is
+  `http://<oracle-host>:8645` (oracle's own standalone Hermes gateway on the
   Framework, unit `hermes-gateway-oracle`, `gateway.standalone: true` in
   `~/.hermes/profiles/oracle/config.yaml`). `ORACLE_KEY` is oracle's
   `API_SERVER_KEY` from `~/.hermes/profiles/oracle/.env`; set it on the
   Portainer stack env or as the file `secrets/ORACLE_KEY` (the client reads
   that file when the env var is empty). The Framework's ufw must allow
-  `8645/tcp` from Tower (`192.168.50.3`). Smoke test from prod:
+  `8645/tcp` from Tower (`<tower-host>`). Smoke test from prod:
   `ssh tower 'docker exec commander-lab-app python -m analytics.oracle_client'`
   prints `oracle online`; `OracleUnavailable` means oracle is down or blocked.
+  Still used by Theory docs and Personality Read until they move to the
+  OpenRouter loop; new LLM features use OPENROUTER_API_KEY.
 - `Makefile` `deploy-push`: triggers the stack 124 webhook.
 
 ## Legacy / stale paths (do not use)
@@ -128,7 +144,7 @@ backup as described above.
   but stack 124 doesn't use it. The Gitea mirror's main is stale (908b4cd as of
   2026-10-12), and pushing to Gitea deploys nothing.
 - `make deploy` / `scripts/deploy_tower.sh`: the old build-on-Tower and
-  push-to-local-registry (192.168.50.3:5000) path, which bypasses stack 124.
+  push-to-local-registry (<tower-host>:5000) path, which bypasses stack 124.
 - GHCR image from `.github/workflows/ci.yml` ("Build & Push Docker Image"):
   it's built on main pushes, but prod builds from source and never pulls it.
 

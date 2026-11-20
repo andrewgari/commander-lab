@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SI_JS = ROOT / "static" / "js" / "scryfall_image.js"
+SI_JS = ROOT / "src/web/static" / "js" / "scryfall_image.js"
 
 SID = "0c3e2a5b-4f4f-4a53-9c3f-5d1a6c1d9e10"
 CDN = "https://cards.scryfall.io"

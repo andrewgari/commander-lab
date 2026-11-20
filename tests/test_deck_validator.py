@@ -10,9 +10,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_repair
-import deck_validator as dv
-from deck_validator import (
+import src.server.domain.draft.deck_repair as deck_repair
+import src.server.domain.draft.deck_validator as dv
+from src.server.domain.draft.deck_validator import (
     CardCatalog, CardInfo, DraftCard, DraftDeck, RuleCode, validate_deck, validate_decks,
 )
 
@@ -81,6 +81,15 @@ CARDS = [
     # lands
     card("Command Tower", "", ("Land",)),
     card("Snow-Covered Island", "U", ("Land",), ("Basic", "Snow"), ("Island",)),
+    # variant-slot type classes (planar / scheme / attraction decks)
+    legend("Missy", "UB", subs=("Time Lord",)),
+    card("The Abyssal Plane", "", ("Plane",), legality="legal"),
+    card("Chaotic Aether", "", ("Phenomenon",), legality="legal"),
+    card("A Planar Scheme", "", ("Scheme",), legality="legal"),
+    # Real Scryfall layout: type_line "Artifact — Attraction" (Attraction is a
+    # SUBTYPE, unlike Plane/Phenomenon/Scheme which are types).
+    card("Balloon Stand", "", ("Artifact",), (), ("Attraction",), legality="legal"),
+    card("Mystery Card", "", (), legality="legal"),
 ]
 CATALOG = CardCatalog(CARDS)
 
@@ -312,14 +321,295 @@ class TestBanlist(Base):
             card("Black Lotus", "", legality=None), card("Unlisted Rock", "", legality=None)])
         d = mk_deck(["Mono Red Guy"], extra=[("Black Lotus", 1), ("Unlisted Rock", 1)])
         res = validate_deck(d, c)
-        self.assertEqual(codes(res), ["BANNED"])
+        # Snapshot fallback still catches the banned card; the other unknown-
+        # legality card fails closed (UNKNOWN_LEGALITY), never silently legal.
+        self.assertEqual(codes(res), ["BANNED", "UNKNOWN_LEGALITY"])
         self.assertEqual(res.errors[0].cards, ["Black Lotus"])
+        self.assertEqual(res.errors[1].cards, ["Unlisted Rock"])
+
+    def test_unknown_legality_fails_closed(self):
+        # Regression: a planar card whose record has no synced legality
+        # (commander_legality=None) must NOT pass mainboard validation. It is
+        # flagged UNKNOWN_LEGALITY (needs re-sync) AND, since the slot gates
+        # landed, NOT_LEGAL for being a plane in the mainboard slot.
+        plane = card("The Matrix of Time", "", types=("Plane",), legality=None)
+        c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [plane])
+        d = mk_deck(["Mono Red Guy"], extra=[("The Matrix of Time", 1)])
+        res = validate_deck(d, c)
+        self.assertFalse(res.valid)
+        self.assertEqual(codes(res), ["UNKNOWN_LEGALITY", "NOT_LEGAL"])
+        self.assertEqual(res.errors[0].cards, ["The Matrix of Time"])
+        self.assertIn("re-sync", res.errors[0].message)
+        self.assertEqual(res.errors[1].cards, ["The Matrix of Time"])
+        self.assertIn("plane not legal in mainboard slot", res.errors[1].message)
+
+    def test_unknown_legality_dropped_by_repair(self):
+        plane = card("The Matrix of Time", "", types=("Plane",), legality=None)
+        c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [plane])
+        d = mk_deck(["Mono Red Guy"], n_filler=98, extra=[("The Matrix of Time", 1)])
+        fixed, actions = deck_repair.drop_invalid_cards(d, c)
+        self.assertNotIn("The Matrix of Time", {x.name for x in fixed.cards})
+        self.assertTrue(any("legality unknown" in a for a in actions), actions)
 
     def test_synced_legal_overrides_snapshot(self):
         c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [
             card("Black Lotus", "", legality="legal")])
         d = mk_deck(["Mono Red Guy"], extra=[("Black Lotus", 1)])
         self.assertTrue(validate_deck(d, c).valid)
+
+
+def slotted_deck(commanders=("Missy",), slots=None, n_filler=None, extra=(),
+                 name="d"):
+    """A 100-card draft carrying named non-main slots (planar/scheme/
+    attraction/maybeboard/considering)."""
+    d = mk_deck(list(commanders), n_filler=n_filler, extra=extra, name=name)
+    d.slots = {slot: [DraftCard(n, q) for n, q in entries]
+               for slot, entries in (slots or {}).items()}
+    return d
+
+
+class TestSlotGates(Base):
+    """Deterministic per-slot type-class gates (Plane/Phenomenon/Scheme/
+    Attraction). Violations are NOT_LEGAL and carry a reason string."""
+
+    # --- mainboard / commander slots reject variant type classes
+    def test_plane_in_mainboard_not_legal(self):
+        d = mk_deck(["Mono Red Guy"], extra=[("The Abyssal Plane", 1)])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(e.cards, ["The Abyssal Plane"])
+        self.assertIn("plane not legal in mainboard slot", e.message)
+        self.assertEqual(
+            e.details["slot_reasons"]["The Abyssal Plane"],
+            {"slot": "mainboard",
+             "reason": "plane not legal in mainboard slot (belongs in planar_deck)"})
+
+    def test_phenomenon_scheme_attraction_in_mainboard_not_legal(self):
+        d = mk_deck(["Rogue Partner A", "Rogue Partner B"],
+                    extra=[("Chaotic Aether", 1), ("A Planar Scheme", 1),
+                           ("Balloon Stand", 1)])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(sorted(e.cards),
+                         ["A Planar Scheme", "Balloon Stand", "Chaotic Aether"])
+        for name, cls in (("Chaotic Aether", "phenomenon"),
+                          ("A Planar Scheme", "scheme"),
+                          ("Balloon Stand", "attraction")):
+            self.assertIn(f"{cls} not legal in mainboard slot",
+                          e.details["slot_reasons"][name]["reason"])
+
+    def test_subtype_position_attraction_in_mainboard_not_legal(self):
+        # Regression (t_cf694113): a real Attraction is stored as
+        # types=("Artifact",), subtypes=("Attraction",) — the gate must scan
+        # the subtype position too, or it passes the mainboard slot.
+        d = mk_deck(["Mono Red Guy"], extra=[("Balloon Stand", 1)])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(e.cards, ["Balloon Stand"])
+        self.assertEqual(
+            e.details["slot_reasons"]["Balloon Stand"],
+            {"slot": "mainboard",
+             "reason": "attraction not legal in mainboard slot "
+                       "(belongs in attraction_deck)"})
+
+    def test_subtype_position_attraction_gate_function(self):
+        # slot_gate itself classifies a subtype-position Attraction.
+        g = dv.slot_gate(self.catalog.get("Balloon Stand"), "mainboard")
+        self.assertFalse(g.legal)
+        self.assertEqual(g.type_class, "attraction")
+        ok = dv.slot_gate(self.catalog.get("Balloon Stand"), "attraction_deck")
+        self.assertTrue(ok.legal)
+        self.assertEqual(ok.type_class, "attraction")
+
+    def test_ordinary_artifact_still_passes_mainboard(self):
+        # An artifact WITHOUT the Attraction subtype is unaffected.
+        g = dv.slot_gate(self.catalog.get("Sol Ring"), "mainboard")
+        self.assertTrue(g.legal)
+        self.assertIsNone(g.type_class)
+        d = mk_deck(["Mono Red Guy"], extra=[("Sol Ring", 1)])
+        self.assertTrue(self.check(d).valid)
+
+    def test_plane_as_commander_not_legal(self):
+        d = mk_deck(["The Abyssal Plane"])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["COMMANDER_ILLEGAL", "NOT_LEGAL"])
+        self.assertIn("plane not legal in commander slot", res.errors[1].message)
+
+    # --- variant slots accept only their own type class
+    def test_missys_planar_deck_validates(self):
+        # Acceptance: Missy's planar deck (planes + phenomenons in the planar
+        # slot) validates clean; the slot cards don't touch the 100.
+        d = slotted_deck(slots={"planar_deck": [("The Abyssal Plane", 1),
+                                                ("Chaotic Aether", 1)]})
+        res = self.check(d)
+        self.assertTrue(res.valid, res.errors)
+
+    def test_missys_planar_card_in_mainboard_flagged(self):
+        # Acceptance: the same planar card placed in the mainboard is flagged
+        # NOT_LEGAL with an attachable reason.
+        d = slotted_deck(extra=[("The Abyssal Plane", 1)])
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        self.assertIn("plane not legal in mainboard slot", res.errors[0].message)
+
+    def test_attraction_in_attraction_deck_legal(self):
+        d = slotted_deck(slots={"attraction_deck": [("Balloon Stand", 2)]})
+        res = self.check(d)
+        self.assertTrue(res.valid, res.errors)
+
+    def test_scheme_in_scheme_deck_legal(self):
+        d = slotted_deck(slots={"scheme_deck": [("A Planar Scheme", 1)]})
+        self.assertTrue(self.check(d).valid)
+
+    def test_scheme_in_planar_deck_not_legal(self):
+        d = slotted_deck(slots={"planar_deck": [("A Planar Scheme", 1)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(e.cards, ["A Planar Scheme"])
+        self.assertIn("scheme not legal in planar_deck slot "
+                      "(planes and phenomenons only)", e.message)
+        self.assertEqual(e.details["slot_reasons"]["A Planar Scheme"]["slot"],
+                         "planar_deck")
+
+    def test_plane_in_attraction_deck_not_legal(self):
+        d = slotted_deck(slots={"attraction_deck": [("The Abyssal Plane", 1)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        self.assertIn("plane not legal in attraction_deck slot "
+                      "(attractions only)", res.errors[0].message)
+
+    def test_ordinary_card_in_planar_deck_not_legal(self):
+        d = slotted_deck(slots={"planar_deck": [("Sol Ring", 1)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        self.assertIn("artifact not legal in planar_deck slot", res.errors[0].message)
+
+    def test_unknown_type_card_in_variant_slot_flagged(self):
+        # Fail closed: a catalog card with no type data cannot be verified for
+        # a variant slot.
+        d = slotted_deck(slots={"scheme_deck": [("Mystery Card", 1)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["NOT_LEGAL"])
+        e = res.errors[0]
+        self.assertEqual(e.cards, ["Mystery Card"])
+        self.assertIn("card type unknown; cannot verify scheme_deck slot "
+                      "legality", e.message)
+
+    def test_unknown_card_in_variant_slot(self):
+        d = slotted_deck(slots={"planar_deck": [("Made Up Plane", 1)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["UNKNOWN_CARD"])
+        self.assertEqual(res.errors[0].cards, ["Made Up Plane"])
+
+    def test_invalid_quantity_in_variant_slot(self):
+        d = slotted_deck(slots={"planar_deck": [("The Abyssal Plane", 0)]})
+        res = self.check(d)
+        self.assertEqual(codes(res), ["INVALID_QUANTITY"])
+        self.assertIn("named-slot", res.errors[0].message)
+
+    # --- ungated slots / isolation from the main-deck rules
+    def test_maybeboard_and_considering_anything_goes(self):
+        d = slotted_deck(slots={
+            "maybeboard": [("The Abyssal Plane", 1), ("A Planar Scheme", 1)],
+            "considering": [("Balloon Stand", 1), ("Fake Card", 1)],
+        })
+        res = self.check(d)
+        self.assertTrue(res.valid, res.errors)
+
+    def test_variant_slots_do_not_count_toward_deck_size(self):
+        d = slotted_deck(slots={"planar_deck": [("The Abyssal Plane", 10),
+                                                ("Chaotic Aether", 1)]})
+        res = self.check(d)
+        self.assertTrue(res.valid, res.errors)  # still exactly 100 in the 100
+
+    def test_variant_slots_exempt_from_singleton_and_color_identity(self):
+        # 2 copies of one plane in the planar deck of a colorless-identity
+        # deck: no SINGLETON / COLOR_IDENTITY noise from variant slots.
+        d = slotted_deck(commanders=("Colorless Legend",),
+                         slots={"planar_deck": [("The Abyssal Plane", 2)]})
+        res = self.check(d)
+        self.assertTrue(res.valid, res.errors)
+
+    # --- the gate function itself: pass/fail + REASON strings
+    def test_slot_gate_result_reasons(self):
+        cat = self.catalog
+        ok = dv.slot_gate(cat.get("The Abyssal Plane"), "planar_deck")
+        self.assertTrue(ok.legal)
+        self.assertEqual(ok.reason, "plane is legal in the planar_deck slot")
+        self.assertEqual(ok.type_class, "plane")
+        bad = dv.slot_gate(cat.get("The Abyssal Plane"), "mainboard")
+        self.assertFalse(bad.legal)
+        self.assertEqual(bad.reason,
+                         "plane not legal in mainboard slot (belongs in planar_deck)")
+        free = dv.slot_gate(cat.get("The Abyssal Plane"), "maybeboard")
+        self.assertTrue(free.legal)
+        self.assertIn("no type gate", free.reason)
+        missing = dv.slot_gate(cat.get("Made Up Plane"), "planar_deck",
+                               card_name="Made Up Plane")
+        self.assertFalse(missing.legal)
+        self.assertIn("not in the catalog", missing.reason)
+        unknown = dv.slot_gate(cat.get("Mystery Card"), "planar_deck")
+        self.assertFalse(unknown.legal)
+        self.assertIn("card type unknown", unknown.reason)
+        self.assertEqual(ok.to_dict()["reason"], ok.reason)
+
+    def test_gate_deck_slots_covers_every_occupied_slot(self):
+        d = slotted_deck(slots={"planar_deck": [("The Abyssal Plane", 1),
+                                                ("A Planar Scheme", 1)],
+                                "maybeboard": [("Sol Ring", 1)]})
+        results = dv.gate_deck_slots(d, self.catalog)
+        by_card = {g.card: g for g in results}
+        self.assertIn("Missy", by_card)             # commander slot
+        self.assertIn("Filler 0", by_card)          # mainboard slot
+        self.assertFalse(by_card["A Planar Scheme"].legal)
+        self.assertTrue(by_card["The Abyssal Plane"].legal)
+        self.assertTrue(by_card["Sol Ring"].legal)  # maybeboard ungated
+        self.assertEqual(by_card["Missy"].slot, "commander")
+        self.assertEqual(by_card["Filler 0"].slot, "mainboard")
+        for g in results:
+            self.assertTrue(g.reason)  # reason always populated
+
+    def test_from_dict_slots_adapter(self):
+        d = DraftDeck.from_dict({
+            "name": "Missy",
+            "commanders": ["Missy"],
+            "cards": {f"Filler {i}": 1 for i in range(99)},
+            "slots": {"Planar Deck": [{"name": "The Abyssal Plane", "quantity": 1}],
+                      "Sideboard": [{"name": "Sol Ring", "quantity": 1}]},
+        })
+        self.assertEqual([c.name for c in d.slots["planar_deck"]],
+                         ["The Abyssal Plane"])
+        # Removed Sideboard concept folds into maybeboard.
+        self.assertEqual([c.name for c in d.slots["maybeboard"]], ["Sol Ring"])
+        self.assertTrue(self.check(d).valid)
+
+    def test_from_dict_slot_form_commander_and_mainboard(self):
+        d = DraftDeck.from_dict({
+            "slots": {"commander": [{"name": "Missy"}],
+                      "mainboard": [{"name": f"Filler {i}"} for i in range(99)],
+                      "planar_deck": [{"name": "Chaotic Aether"}]},
+        })
+        self.assertEqual(d.commanders, ["Missy"])
+        self.assertEqual(len(d.cards), 99)
+        self.assertTrue(self.check(d).valid, self.check(d).errors)
+
+    def test_repair_drops_slot_violation_and_preserves_slots(self):
+        # A synced-'legal' plane sitting in the mainboard is dropped by repair
+        # with the slot-gate reason; named slots survive auto_repair.
+        d = slotted_deck(extra=[("The Abyssal Plane", 1)],
+                         slots={"planar_deck": [("Chaotic Aether", 1)]})
+        fixed, actions = deck_repair.drop_invalid_cards(d, self.catalog)
+        self.assertNotIn("The Abyssal Plane", {c.name for c in fixed.cards})
+        self.assertTrue(any("not legal in mainboard slot" in a for a in actions),
+                        actions)
+        fixed2, _ = deck_repair.auto_repair(d, self.catalog)
+        self.assertEqual([c.name for c in fixed2.slots["planar_deck"]],
+                         ["Chaotic Aether"])
+        self.assertTrue(self.check(fixed2).valid, self.check(fixed2).errors)
 
 
 class TestCommanderAndPartners(Base):
@@ -544,6 +834,135 @@ class TestStructuredOutput(Base):
         text = dv.format_errors_for_prompt(self.check(d))
         self.assertIn("[DECK_SIZE] (deck 0)", text)
         self.assertEqual(dv.format_errors_for_prompt(self.check(mk_deck(["Mono Red Guy"]))), "VALID")
+
+
+class TestCommanderEligibilityScryfallAlignment(Base):
+    """can_be_commander mirrors Scryfall is:commander (per oracle t_6ccb9548)."""
+
+    def test_rule1_legendary_vehicle_or_spacecraft_with_pt_is_eligible(self):
+        chariot = CardInfo.from_record({
+            "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        shorikai = CardInfo.from_record({
+            "name": "Shorikai, Genesis Engine", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4"})
+        hearthhull = CardInfo.from_record({
+            "name": "Hearthhull, the Worldseed",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "power": "3", "toughness": "4"})
+        elevator = CardInfo.from_record({
+            "name": "The Eternity Elevator", "type_line": "Legendary Artifact \u2014 Spacecraft"})
+        for c in (chariot, shorikai, hearthhull):
+            self.assertTrue(c.can_be_commander, c.name)
+        self.assertFalse(elevator.can_be_commander)
+
+    def test_rule2_front_face_only(self):
+        brisela = CardInfo.from_record({
+            "name": "Brisela, Voice of Nightmares", "type_line": "Legendary Creature \u2014 Eldrazi Angel",
+            "layout": "meld", "meld_result": True})
+        akki = CardInfo.from_record({
+            "name": "Akki Lavarunner // Tok-Tok, Volcano Born",
+            "type_line": "Creature \u2014 Goblin Warrior // Legendary Creature \u2014 Goblin Shaman"})
+        front_legend = CardInfo.from_record({
+            "name": "Grist, Voracious Larva // The Plague Swarm",
+            "type_line": "Legendary Creature \u2014 Insect // Legendary Planeswalker \u2014 Grist"})
+        self.assertFalse(brisela.can_be_commander)
+        self.assertFalse(akki.can_be_commander)
+        self.assertTrue(front_legend.can_be_commander)
+
+    def test_rule3_can_be_your_commander_text(self):
+        pw = CardInfo.from_record({
+            "name": "Will Kenrith", "type_line": "Legendary Planeswalker \u2014 Will",
+            "oracle_text": "Will Kenrith can be your commander."})
+        self.assertTrue(pw.can_be_commander)
+
+    def test_rule4_grist_the_hunger_tide(self):
+        grist = CardInfo.from_record({
+            "name": "Grist, the Hunger Tide", "type_line": "Legendary Planeswalker \u2014 Grist",
+            "types": ["Creature"], "oracle_text": "As long as Grist isn't on the battlefield, "
+            "it's a 1/1 Insect creature in addition to its other types."})
+        self.assertTrue(grist.can_be_commander)
+
+    def test_rule5_background_only_as_second_slot_beside_chooser(self):
+        bg = next(c for c in CARDS if c.name == "Cult Background")
+        chooser = next(c for c in CARDS if c.name == "Bg Chooser")
+        self.assertFalse(bg.can_be_commander)
+        solo = self.check(mk_deck(["Cult Background"], n_filler=99))
+        self.assertIn(RuleCode.COMMANDER_ILLEGAL, codes(solo))
+        pair = self.check(mk_deck(["Bg Chooser", "Cult Background"], n_filler=98))
+        self.assertNotIn(RuleCode.COMMANDER_ILLEGAL, codes(pair))
+        self.assertNotIn(RuleCode.PARTNER_INVALID, codes(pair))
+        self.assertIsNone(dv.check_partner_pair(chooser, bg))
+
+
+class TestCommanderEligibilityRecordShapes(Base):
+    """Rule 1/2 through the real production record shapes, not hand-built dicts."""
+
+    def test_sync_shaped_record_vehicle_with_pt(self):
+        # Shape written by workers/sync.py upsert_card (Archidekt oracleCard keys).
+        oc = {"name": "Esika's Chariot", "types": ["Artifact"], "superTypes": ["Legendary"],
+              "subTypes": ["Vehicle"], "power": 4, "toughness": 4, "layout": "normal",
+              "text": "Crew 4", "legalities": {"commander": "legal"}}
+        rec = {"oracle_id": "x", "name": oc["name"], "type": "Artifact", "super_types": oc["superTypes"],
+               "sub_types": oc["subTypes"], "keywords": [], "oracle_text": oc["text"],
+               "types": oc["types"], "commander_legality": "legal",
+               "power": oc["power"], "toughness": oc["toughness"], "layout": oc["layout"]}
+        self.assertTrue(CardInfo.from_record(rec).can_be_commander)
+        rec_no_pt = dict(rec, name="The Eternity Elevator", power=None, toughness=None)
+        self.assertFalse(CardInfo.from_record(rec_no_pt).can_be_commander)
+
+    def test_real_sync_stores_pt_and_layout_that_drive_eligibility(self):
+        from unittest import mock
+        import src.server.workers.sync as sync
+        from src.server.domain.inventory import cards as card_store
+        from tests.test_instances import FakeRedis
+        r = FakeRedis()
+
+        def oc(uid, name, subs, **kw):
+            return {"quantity": 1, "categories": [], "card": {"oracleCard": dict({
+                "uid": uid, "name": name, "types": ["Artifact"], "superTypes": ["Legendary"],
+                "subTypes": subs, "colorIdentity": [], "text": "", "layout": "normal",
+                "legalities": {"commander": "legal"}}, **kw)}}
+
+        def fake_get(url, *a, **k):
+            resp = mock.Mock()
+            resp.raise_for_status = lambda: None
+            if "users" in url:
+                resp.json = lambda: {"results": [{"id": 1}]}
+            elif "v3" in url:
+                resp.json = lambda: {"results": [{"id": 5, "name": "D", "colors": {},
+                                                  "parentFolderId": 45665, "theorycrafted": False}]}
+            else:
+                resp.json = lambda: {"description": "", "cards": [
+                    oc("11111111-1111-1111-1111-111111111111", "Esika's Chariot", ["Vehicle"], power=4, toughness=4),
+                    oc("22222222-2222-2222-2222-222222222222", "The Eternity Elevator", ["Spacecraft"])]}
+            return resp
+
+        with mock.patch.object(sync, "r", r), mock.patch.object(sync.requests, "get", fake_get), \
+                mock.patch.object(sync.time, "sleep", lambda s: None):
+            sync.sync_inventory()
+        self.assertTrue(CardInfo.from_record(card_store.get_card(r, "11111111-1111-1111-1111-111111111111")).can_be_commander)
+        self.assertFalse(CardInfo.from_record(card_store.get_card(r, "22222222-2222-2222-2222-222222222222")).can_be_commander)
+
+    def test_sync_shaped_record_meld_result(self):
+        rec = {"oracle_id": "y", "name": "Brisela, Voice of Nightmares", "type": "Creature",
+               "types": ["Creature"], "super_types": ["Legendary"], "sub_types": ["Eldrazi", "Angel"],
+               "oracle_text": "Flying", "layout": "meld"}
+        self.assertFalse(CardInfo.from_record(rec).can_be_commander)
+        half = dict(rec, name="Bruna, the Fading Light",
+                    oracle_text="Flying\n(Melds with Gisela, the Broken Blade.)")
+        self.assertTrue(CardInfo.from_record(half).can_be_commander)
+
+    def test_search_query_facts_carry_pt_and_layout(self):
+        from src.server.domain.cards import search_query as sq
+        facts = sq.facts_from_scryfall({
+            "oracle_id": "z", "name": "Esika's Chariot", "type_line": "Legendary Artifact \u2014 Vehicle",
+            "power": "4", "toughness": "4", "layout": "normal", "oracle_text": "Crew 4",
+            "legalities": {"commander": "legal"}})
+        self.assertTrue(sq.card_info(facts).can_be_commander)
+        facts2 = sq.facts_from_scryfall({
+            "oracle_id": "w", "name": "The Eternity Elevator",
+            "type_line": "Legendary Artifact \u2014 Spacecraft", "layout": "normal"})
+        self.assertFalse(sq.card_info(facts2).can_be_commander)
 
 
 class TestAdapters(Base):

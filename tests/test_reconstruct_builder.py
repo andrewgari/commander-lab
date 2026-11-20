@@ -21,16 +21,16 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_validator as dv
-from deck_validator import CardCatalog, CardInfo
+import src.server.domain.draft.deck_validator as dv
+from src.server.domain.draft.deck_validator import CardCatalog, CardInfo
 from fastapi.testclient import TestClient
-import instances
-import reconstruct
-import reconstruct_agent as ra
-from reconstruct_builder import ReconstructBuildError, ReconstructBuilder
-import reconstruct_pools as rp
-from reconstruct_pools import CatalogCard, InMemoryCatalog, Tier
-import registry
+import src.server.domain.inventory.instances as instances
+import src.server.domain.draft.reconstruct as reconstruct
+import src.server.domain.draft.reconstruct_agent as ra
+from src.server.domain.draft.reconstruct_builder import ReconstructBuildError, ReconstructBuilder
+import src.server.domain.draft.reconstruct_pools as rp
+from src.server.domain.draft.reconstruct_pools import CatalogCard, InMemoryCatalog, Tier
+import src.server.domain.decks.registry as registry
 
 
 class FakeRedis:
@@ -535,7 +535,7 @@ class TestReconstructBuilder(unittest.TestCase):
 
     def test_async_endpoint_enqueues_background_task_without_blocking(self):
         """POST /api/reconstruct/{id}/build with sync=false returns 202 immediately, session status='building'."""
-        import app as main_app
+        import src.server.app.main as main_app
 
         session = reconstruct.start_reconstruct(self.r, ["archidekt:42"])
         sid = session["session_id"]

@@ -6,13 +6,13 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 ## Tech Stack
 - Backend: Python 3.11+, FastAPI, Uvicorn
 - Storage: Redis (caching decks, inventory, physical deck statuses, card archetype tags)
-- Frontend: Jinja2 templates, shared HUD stylesheet `static/css/hud.css` (tokens in `docs/DESIGN_TOKENS.md`), HUD component kit (Jinja macros in `templates/partials/hud.html`, JS helpers in `static/js/hud.js`, live reference at `/styleguide`), inline SVG icons, Scryfall card imagery
+- Frontend: Jinja2 templates, shared HUD stylesheet `src/web/static/css/hud.css` (tokens in `docs/DESIGN_TOKENS.md`), HUD component kit (Jinja macros in `src/web/templates/partials/hud.html`, JS helpers in `src/web/static/js/hud.js`, live reference at `/styleguide`), inline SVG icons, Scryfall card imagery
 - Containerization: Docker & Docker Compose
 
 ## Repository Structure
-- `app.py`: Core FastAPI application and REST endpoints (`/`, `/decks`, `/inventory`, `/tags`, `/deck/{deck_name}`, `/api/*`).
-- `sync.py`: Sync script pulling decks and cards from Archidekt v3 API and Scryfall into Redis.
-- `templates/`: Jinja2 HTML templates (`base.html`, `decks.html`, `deck.html`, `inventory.html`, `tags.html`).
+- `src/server/app/main.py`: Core FastAPI application and REST endpoints (`/`, `/decks`, `/inventory`, `/tags`, `/deck/{deck_name}`, `/api/*`).
+- `src/server/workers/sync.py`: Sync script pulling decks and cards from Archidekt v3 API and Scryfall into Redis.
+- `src/web/templates/`: Jinja2 HTML templates (`base.html`, `decks.html`, `deck.html`, `inventory.html`, `tags.html`).
 - `docs/`: Architecture and feature implementation documentation.
 - `scripts/`: One-off utilities, auth setup, and sync helpers.
 - `tests/`: API and integration verification scripts.
@@ -21,8 +21,8 @@ Commander Lab is a Magic: The Gathering deck analytics, physical card inventory,
 
 ## Common Workflows
 - Start containers: `docker compose up -d`
-- Run local server: `uvicorn app:app --reload --port 8000`
-- Run data sync: `make sync` (Docker) or `python sync.py` (local)
+- Run local server: `uvicorn src.server.app.main:app --reload --port 8000`
+- Run data sync: `make sync` (Docker) or `python -m src.server.workers.sync` (local)
 - Run tests: `python tests/<test_name>.py`
 
 ## Domain Conventions & Data Model

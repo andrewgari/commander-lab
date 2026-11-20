@@ -5,7 +5,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-JS = Path(__file__).resolve().parent.parent / "static" / "js" / "deck_sim_report.js"
+JS = Path(__file__).resolve().parent.parent / "src/web/static" / "js" / "deck_sim_report.js"
 
 SCRIPT = r"""
 const R = require(process.argv[1]);

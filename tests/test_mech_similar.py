@@ -18,10 +18,10 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app as app_mod  # noqa: E402
+import src.server.app.main as app_mod  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from analytics import card2vec, mech_similar, theory  # noqa: E402
+from src.server.domain.analytics import card2vec, mech_similar, theory  # noqa: E402
 from tests.test_theory import CAPS, DECK, FakeRedis  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "mech_similar_fixture.npz"

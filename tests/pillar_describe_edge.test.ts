@@ -15,8 +15,8 @@ import {
   serializeRequest,
   PillarDescribeError,
   DEFAULT_TIMEOUT_MS,
-} from "../static/ts/pillarDescribeClient.ts";
-import { PillarDescribeController } from "../static/ts/pillarDescribeController.ts";
+} from "../src/web/static/ts/pillarDescribeClient.ts";
+import { PillarDescribeController } from "../src/web/static/ts/pillarDescribeController.ts";
 
 const OK = { success: true, description: "d", mode: "generate" };
 
@@ -211,7 +211,7 @@ test("non-PillarDescribeError rejection from the client is wrapped with its raw 
   const stubUrl = "data:text/javascript," + encodeURIComponent(STUB_SRC);
   const stub = (await import(stubUrl)) as unknown as { box: { impl: null | ((...args: unknown[]) => Promise<unknown>) }; PillarDescribeError: typeof PillarDescribeError };
 
-  const controllerSrc = await readFile(new URL("../static/ts/pillarDescribeController.ts", import.meta.url), "utf8");
+  const controllerSrc = await readFile(new URL("../src/web/static/ts/pillarDescribeController.ts", import.meta.url), "utf8");
   const rewritten = controllerSrc.replaceAll("./pillarDescribeClient.ts", stubUrl);
   assert.notEqual(rewritten, controllerSrc, "controller must import the client via ./pillarDescribeClient.ts");
   // Serve the rewritten source as a .mts copy so Node applies type-stripping (data: URLs are not transpiled).

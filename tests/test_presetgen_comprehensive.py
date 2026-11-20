@@ -19,9 +19,9 @@ from fractions import Fraction
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import composition_ai as ca
-from analytics import composition_presets as cp
-from analytics import presetgen as pg
+from src.server.domain.analytics import composition_ai as ca
+from src.server.domain.analytics import composition_presets as cp
+from src.server.domain.analytics import presetgen as pg
 from tests.test_identity import JsonProvider
 from tests.test_presetgen_backend import (by_ref, chain, deck_g1, deck_g2, deck_g3, deck_g4,
                                           get_fixture_preset, pk, preset, slot)
@@ -1068,7 +1068,7 @@ class GenerateImproveStatusTests(unittest.TestCase):
         d = deck_g1()
         cur = pg.baseline(d)["preset"]
         prov = JsonProvider([])                      # any answer would be a bug: queue empty
-        res = pg.improve(d, __import__("analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]),
+        res = pg.improve(d, __import__("src.server.domain.analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]),
                          preset=copy.deepcopy(cur))
         self.assertEqual(res["ai"], {"status": "skipped", "reason": "no_candidates"})
         self.assertEqual(res["ops"], [])
@@ -1199,7 +1199,7 @@ class PacketAndPromptTests(unittest.TestCase):
 
     def test_single_turn_json_only_call(self):
         prov = JsonProvider([draft_from(pg.baseline(deck_g1()))])
-        pg.generate(deck_g1(), __import__("analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]))
+        pg.generate(deck_g1(), __import__("src.server.domain.analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]))
         self.assertEqual(len(prov.prompts), 1)
         system, prompt, schema = prov.prompts[0]
         self.assertEqual(system, pg.SYSTEM_PROMPT)
@@ -1217,7 +1217,7 @@ class PacketAndPromptTests(unittest.TestCase):
     def test_on_call_receives_usage(self):
         calls = []
         prov = JsonProvider([draft_from(pg.baseline(deck_g1()))])
-        pg.generate(deck_g1(), __import__("analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]),
+        pg.generate(deck_g1(), __import__("src.server.domain.analytics.interactions.llm", fromlist=["LLMChain"]).LLMChain([prov]),
                     on_call=calls.append)
         self.assertEqual(len(calls), 1)
         self.assertTrue(calls[0]["ok"])

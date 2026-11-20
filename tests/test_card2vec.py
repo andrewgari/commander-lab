@@ -22,9 +22,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import card2vec
-from analytics import tuner
-from analytics import weak_performers as weak
+from src.server.domain.analytics import card2vec
+from src.server.domain.analytics import tuner
+from src.server.domain.analytics import weak_performers as weak
 
 ARTIFACT = card2vec.DEFAULT_PATH
 

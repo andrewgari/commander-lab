@@ -20,8 +20,8 @@ import unittest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 
-import registry
-import instances as instance_store
+import src.server.domain.decks.registry as registry
+import src.server.domain.inventory.instances as instance_store
 
 _SCRIPT_PATH = os.path.join(REPO_ROOT, "scripts", "remove_nonphysical_wishlist_instances.py")
 _spec = importlib.util.spec_from_file_location("remove_nonphysical_wishlist_instances", _SCRIPT_PATH)

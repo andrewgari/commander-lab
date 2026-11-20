@@ -6,7 +6,7 @@ import json
 import pytest
 from tests.test_interactions import FakeRedis
 
-from analytics.composition_models import (
+from src.server.domain.analytics.composition_models import (
     # Constants
     SPEC_VERSION, DECK_SIZE, MAX_USER_PRESETS, MAX_SLOTS, MAX_OVERRIDES,
     MIN_PLAN_ROOM, MAX_NAME, MAX_DESCRIPTION, MAX_WHY,
@@ -27,7 +27,7 @@ from analytics.composition_models import (
     resolve_preset, default_deck_composition,
     legacy_override_to_record,
 )
-from analytics.composition_store import (
+from src.server.domain.analytics.composition_store import (
     PRESET_KEY, DECK_KEY,
     list_presets, get_preset, create_preset, update_preset, delete_preset,
     get_deck_composition, set_deck_composition,

@@ -46,7 +46,7 @@ def convert(parquet_path: str, out_path: str) -> dict:
     import numpy as np
     import pyarrow.parquet as pq
 
-    from analytics.mech_similar import name_key
+    from src.server.domain.analytics.mech_similar import name_key
 
     tbl = pq.read_table(parquet_path, columns=["name", "embedding"])
     names = tbl.column("name").to_pylist()

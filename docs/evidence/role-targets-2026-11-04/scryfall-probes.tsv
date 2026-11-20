@@ -1,0 +1,292 @@
+status	total_cards	checked	note	query
+200	1	2026-11-04		!"Beanstalk Giant // Fertile Footsteps"
+200	1	2026-11-04		!"Beanstalk Giant"
+200	1084	2026-11-04		(otag:artifact-matters or otag:artifact-count-matters or otag:synergy-artifact or otag:artifactfall)
+200	2555	2026-11-04		(otag:attack-trigger or otag:attacking-matters)
+200	1001	2026-11-04		(otag:blink or otag:flicker or otag:flicker-creature or otag:flicker-permanent or otag:cheat-into-play or otag:reanimate-creature)
+200	1893	2026-11-04		(otag:counter-doubler or otag:counter-increaser or otag:repeatable-pp-counters or otag:repeatable-proliferate)
+200	1334	2026-11-04		(otag:counters-matter or otag:synergy-proliferate)
+200	1620	2026-11-04		(otag:death-trigger or otag:life-and-death-trigger-self)
+200	428	2026-11-04		(otag:drain-life or otag:life-drain)
+200	5135	2026-11-04		(otag:draw or otag:draw-engine or otag:repeatable-draw or otag:repeatable-card-advantage)
+200	185	2026-11-04		(otag:draw-matters)
+200	636	2026-11-04		(otag:etb-other-creature or otag:synergy-leaves-creature)
+200	703	2026-11-04		(otag:extra-combat or otag:extra-combat-phase or otag:gives-haste or otag:extra-attack)
+200	644	2026-11-04		(otag:extra-land or otag:land-ramp or otag:rampant-growth)
+200	619	2026-11-04		(otag:landfall or otag:landfall-other or otag:lands-matter)
+200	149	2026-11-04		(otag:life-loss-matters)
+200	2640	2026-11-04		(otag:lifegain or otag:life-gain or otag:repeatable-lifegain)
+200	251	2026-11-04		(otag:lifegain-matters or otag:synergy-lifegain or otag:lifegain-increaser)
+200	577	2026-11-04		(otag:magecraft or otag:prowess-anthem or otag:synergy-instant or otag:synergy-sorcery)
+200	1884	2026-11-04		(otag:mana-sink or otag:mana-dump or otag:infinite-mana-sink or otag:bottomless-mana-sink)
+200	2354	2026-11-04		(otag:ramp or otag:mana-rock or otag:mana-dork or otag:mana-doubler or otag:mana-ramp or otag:repeatable-treasures)
+200	2948	2026-11-04		(otag:reanimate or otag:reanimate-creature or otag:recursion or otag:recursion-creature or otag:graveyard-fuel or otag:castable-from-graveyard or otag:synergy-mill)
+200	605	2026-11-04		(otag:repeatable-artifact-tokens or otag:repeatable-treasures or otag:repeatable-clues or otag:repeatable-food)
+200	28	2026-11-04		(otag:repeatable-enchantment-tokens)
+200	1915	2026-11-04		(otag:repeatable-token-generator or otag:repeatable-creature-tokens or otag:repeatable-artifact-tokens or otag:repeatable-noncreature-tokens or otag:repeatable-treasures or otag:repeatable-clues or otag:repeatable-food or otag:token-doubler or otag:token-increaser)
+200	1502	2026-11-04		(otag:sacrifice-outlet or otag:sacrifice-outlet-creature or otag:sacrifice-outlet-permanent or otag:sacrifice-outlet-artifact or otag:sacrifice-outlet-universal or otag:repeatable-sac-outlet or otag:repeatable-sacrifice-outlet)
+200	994	2026-11-04		(otag:sacrifice-outlet-creature)
+200	2414	2026-11-04		(otag:self-mill or otag:mill-self or otag:discard-outlet or otag:repeatable-loot or otag:repeatable-surveil or otag:loot)
+200	257	2026-11-04		(otag:synergy-enchantment)
+200	136	2026-11-04		(otag:synergy-sacrifice or otag:sacrifice-matters)
+200	243	2026-11-04		(otag:synergy-token or otag:synergy-token-creature or otag:affinity-for-tokens or otag:tokenfall or otag:sacrifice-outlet-token or otag:sac-outlet-token)
+200	8331	2026-11-04		(t:artifact or t:legendary or t:saga)
+200	628	2026-11-04		(t:bird or t:elf) c:g
+200	7047	2026-11-04		c:b
+200	7152	2026-11-04		c:b or o:/creates? [^.]*\bblack\b[^.]*tokens?/
+200	5018	2026-11-04		c=b
+200	395	2026-11-04		c=b t:legendary t:creature
+200	7047	2026-11-04		c>=b
+200	390	2026-11-04		function:mana-rock
+200	8027	2026-11-04		id:b
+200	63	2026-11-04		keyword:changeling
+200	352	2026-11-04		keyword:deathtouch
+200	531	2026-11-04		keyword:deathtouch or o:/\b(gains?|have|has) deathtouch\b/ or o:/creates? [^.]*tokens? with [^.]*\bdeathtouch\b/
+200	3297	2026-11-04		keyword:flying
+200	4182	2026-11-04		keyword:flying or o:/\b(gains?|have|has) flying\b/ or o:/creates? [^.]*tokens? with [^.]*\bflying\b/
+404	0	2026-11-04	Your query didn’t match any cards. Adjust your search terms or refer to the syntax guide at https://scryfall.com/docs/reference	o:"destroy all vampires"
+200	2	2026-11-04		o:"destroy target vampire"
+200	25	2026-11-04		o:/(becomes?|are|creates?) [^.]*Forest/ -t:land
+200	569	2026-11-04		o:/(destroy|exile) target (artifact|enchantment|land|planeswalker)/
+200	127	2026-11-04		o:/(destroy|exile) target (attacking|tapped|nonblack|nonwhite|nonblue|nonred|nongreen|nonartifact|nonland|legendary|flying|multicolored) creature/
+200	163	2026-11-04		o:/(destroy|exile) target (nonland )?permanent/
+200	1123	2026-11-04		o:/(destroy|exile) target [^.]*(creature|permanent)/
+200	182	2026-11-04		o:/(gains?|have|has|with) deathtouch/ -keyword:deathtouch
+200	6	2026-11-04		o:/(put|create)s? [^.]*planeswalker[^.]*onto the battlefield|put [^.]*planeswalker card[^.]*onto the battlefield/
+200	179	2026-11-04		o:/(you|each player|target player) draws? (two|three|four|x|that many) cards?/
+200	49	2026-11-04		o:/\b(bird|birds)\b(?! (\w+ )?creature tokens?)/
+200	12	2026-11-04		o:/\b(creatures?|permanents?) (you control )?with deathtouch\b/
+200	337	2026-11-04		o:/\b(creatures?|permanents?) (you control )?with flying\b/
+200	134	2026-11-04		o:/\b(elf|elves)\b(?! (\w+ )?creature tokens?)/
+200	424	2026-11-04		o:/\b(equipment|equipments)\b(?!( \w+)? tokens?)/
+200	192	2026-11-04		o:/\b(gains?|have|has) deathtouch\b/
+200	640	2026-11-04		o:/\b(gains?|have|has) flying\b/
+200	12	2026-11-04		o:/\b(is|are|becomes?) (a |an )?(Forest|Forests)\b/ or o:/\bevery basic land type\b/
+200	12	2026-11-04		o:/\b(is|are|becomes?) (a |an )?(Forest|Forests)\b|\bevery basic land type\b|\bForest in addition\b/
+200	809	2026-11-04		o:/\b(other )?creatures you control get\b/ or o:/\bfor each creature you control\b/ or o:/\bnumber of creatures you control\b/
+200	742	2026-11-04		o:/\b(other|another|each|for each|number of) (artifact|artifacts)\b/ or o:/\b(artifact|artifacts)( creatures?)? you control\b/ or o:/\bartifact (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (artifact|artifacts)\b/
+200	742	2026-11-04		o:/\b(other|another|each|for each|number of) (artifact|artifacts)\b/ or o:/\bartifacts?( creatures?)? you control\b/ or o:/\bartifact (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (artifact|artifacts)\b/
+200	742	2026-11-04		o:/\b(other|another|each|for each|number of) (artifact|artifacts)\b|\b(artifact|artifacts)( creatures?)? you control\b|\bartifact (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (artifact|artifacts)\b/
+200	19	2026-11-04		o:/\b(other|another|each|for each|number of) (bird|birds)\b/ or o:/\b(bird|birds)( creatures?)? you control\b/ or o:/\bbird (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (bird|birds)\b/
+200	19	2026-11-04		o:/\b(other|another|each|for each|number of) (bird|birds)\b|\b(bird|birds)( creatures?)? you control\b|\bbird (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (bird|birds)\b/
+200	7185	2026-11-04		o:/\b(other|another|each|for each|number of) (creature|creatures)\b|\b(creature|creatures)( creatures?)? you control\b|\bcreature (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (creature|creatures)\b/
+200	93	2026-11-04		o:/\b(other|another|each|for each|number of) (elf|elves)\b/ or o:/\b(elf|elves)( creatures?)? you control\b/ or o:/\belf (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (elf|elves)\b/
+200	93	2026-11-04		o:/\b(other|another|each|for each|number of) (elf|elves)\b|\b(elf|elves)( creatures?)? you control\b|\belf (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (elf|elves)\b/
+200	262	2026-11-04		o:/\b(other|another|each|for each|number of) (enchantment|enchantments)\b/ or o:/\b(enchantment|enchantments)( creatures?)? you control\b/ or o:/\benchantment (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (enchantment|enchantments)\b/
+200	258	2026-11-04		o:/\b(other|another|each|for each|number of) (enchantment|enchantments)\b/ or o:/\benchantments? you control\b/ or o:/\benchantment (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (enchantment|enchantments)\b/
+200	262	2026-11-04		o:/\b(other|another|each|for each|number of) (enchantment|enchantments)\b|\b(enchantment|enchantments)( creatures?)? you control\b|\benchantment (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (enchantment|enchantments)\b/
+200	97	2026-11-04		o:/\b(other|another|each|for each|number of) (forest|forests)\b/ or o:/\b(forest|forests) you control\b/ or o:/\bforestwalk\b/
+200	145	2026-11-04		o:/\b(other|another|each|for each|number of) (forest|forests)\b|\b(forest|forests)( creatures?)? you control\b|\bforest (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (forest|forests)\b|\bforestwalk\b/
+200	17	2026-11-04		o:/\b(other|another|each|for each|number of) (gate|gates)\b/ or o:/\b(gate|gates) you control\b/
+200	17	2026-11-04		o:/\b(other|another|each|for each|number of) (gate|gates)\b/ or o:/\b(gate|gates) you control\b/ or o:/\bgatewalk\b/
+200	124	2026-11-04		o:/\b(other|another|each|for each|number of) (instant|instants)\b/ or o:/\b(instant|instants)( creatures?)? you control\b/ or o:/\binstant (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (instant|instants)\b/
+200	124	2026-11-04		o:/\b(other|another|each|for each|number of) (instant|instants)\b|\b(instant|instants)( creatures?)? you control\b|\binstant (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (instant|instants)\b/
+200	84	2026-11-04		o:/\b(other|another|each|for each|number of) (island|islands)\b/ or o:/\b(island|islands) you control\b/ or o:/\bislandwalk\b/
+200	228	2026-11-04		o:/\b(other|another|each|for each|number of) (planeswalker|planeswalkers)\b/ or o:/\b(planeswalker|planeswalkers)( creatures?)? you control\b/ or o:/\bplaneswalker (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (planeswalker|planeswalkers)\b/
+400	0	2026-11-04	warning: Invalid expression “o:/\b(other|another…” was ignored. Regular expression too complex.	o:/\b(other|another|each|for each|number of) (planeswalker|planeswalkers)\b|\b(planeswalker|planeswalkers)( creatures?)? you control\b|\bplaneswalker (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (planeswalker|planeswalkers)\b/
+200	747	2026-11-04		o:/\b(other|another|each|for each|number of) (sorcery|sorceries)\b/ or o:/\b(sorcery|sorceries) you control\b/ or o:/\bsorcery (spells?|cards?)\b/ or o:/\bwhenever (an?|another|one or more) (sorcery|sorceries)\b/
+200	19	2026-11-04		o:/\b(other|another|each|for each|number of) (treasure|treasures)\b|\b(treasure|treasures)( creatures?)? you control\b|\btreasure (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (treasure|treasures)\b/
+200	58	2026-11-04		o:/\b(other|another|each|for each|number of) (vampire|vampires)\b/ or o:/\b(vampire|vampires)( creatures?)? you control\b/ or o:/\bvampire (spells?|cards?|permanents?)\b/ or o:/\bwhenever (an?|another|one or more) (vampire|vampires)\b/
+200	58	2026-11-04		o:/\b(other|another|each|for each|number of) (vampire|vampires)\b|\b(vampire|vampires)( creatures?)? you control\b|\bvampire (spells?|cards?|permanents?)\b|\bwhenever (an?|another|one or more) (vampire|vampires)\b/
+200	58	2026-11-04		o:/\b(treasure|treasures)\b(?!( \w+)? tokens?)/
+200	105	2026-11-04		o:/\b(vampire|vampires)\b(?! (\w+ )?creature tokens?)/
+200	49	2026-11-04		o:/\bbirds?\b(?! (\w+ )?creature tokens?)/
+200	2	2026-11-04		o:/\bbirds?\b/ (!"Birds of Paradise" or !"Sol Ring" or !"Llanowar Elves" or !"Swords to Plowshares" or !"Command Tower" or !"Arcane Signet" or !"Cultivate" or !"Rhystic Study" or !"Smothering Tithe" or !"Swan Song" or !"Baleful Strix" or !"Mockingbird" or !"Gilded Goose" or !"Thrummingbird" or !"Elvish Mystic" or !"Blood Artist" or !"Viscera Seer" or !"Path to Exile" or !"Counterspell" or !"Beast Within" or !"Demonic Tutor" or !"Eternal Witness" or !"Sun Titan" or !"Lightning Greaves" or !"Swiftfoot Boots" or !"Fellwar Stone" or !"Mind Stone" or !"Thought Vessel" or !"Exotic Orchard" or !"Reliquary Tower" or !"Path of Ancestry" or !"Rogue's Passage" or !"Farseek" or !"Nature's Lore" or !"Rampant Growth" or !"Blasphemous Act" or !"Heroic Intervention" or !"Esper Sentinel" or !"Garruk's Uprising" or !"Mystic Remora" or !"Phyrexian Arena" or !"Skullclamp" or !"Solemn Simulacrum" or !"Toxic Deluge" or !"Feed the Swarm")
+200	179	2026-11-04		o:/\bblack (permanents?|creatures?(?! tokens?)|spells?|cards?|sources?)\b|\bdevotion to black\b/
+200	114	2026-11-04		o:/\bcopy target instant or sorcery\b|\bcopy (that|the next) (instant|sorcery|spell)\b/
+200	133	2026-11-04		o:/\belf\b/
+200	7	2026-11-04		o:/\bevery creature type\b/
+200	59	2026-11-04		o:/\bhistoric\b/
+200	1013	2026-11-04		o:/\binstant (or|and) sorcery (spells?|cards?)\b/ or o:/\bnoncreature spells?\b/ or o:/\bmagecraft\b/ or o:/\bprowess\b/
+200	927	2026-11-04		o:/\binstant (or|and) sorcery (spells?|cards?)\b|\bnoncreature spells?\b/
+200	168	2026-11-04		o:/\bwhite (permanents?|creatures?(?! tokens?)|spells?|cards?|sources?)\b|\bdevotion to white\b/
+200	361	2026-11-04		o:/add [^.]*\{B\}/
+200	820	2026-11-04		o:/add [^.]*\{B\}/ or o:/creates? [^.]*\bblack\b[^.]*tokens?/
+200	244	2026-11-04		o:/black (permanents?|creatures?|spells?|cards?)/
+200	931	2026-11-04		o:/creates? [^.]*(Treasure|Clue|Food|Powerstone|Servo|Thopter|Construct|Blood|Map|Incubator|artifact creature) tokens?/
+200	983	2026-11-04		o:/creates? [^.]*\b(artifact|Treasure|Clue|Food|Blood|Map|Powerstone|Gold|Junk|Incubator|Servo|Thopter|Construct)\b[^.]*tokens?/
+200	67	2026-11-04		o:/creates? [^.]*\b(enchantment|Role)\b[^.]*tokens?/
+200	67	2026-11-04		o:/creates? [^.]*\b(enchantment|Role|Aura)\b[^.]*tokens?/
+200	1023	2026-11-04		o:/creates? [^.]*\b(legendary|artifact|Treasure|Clue|Food|Blood|Map|Powerstone|Gold|Junk|Incubator|Servo|Thopter|Construct)\b[^.]*tokens?/
+200	62	2026-11-04		o:/creates? [^.]*\bBird\b[^.]*tokens?/
+200	466	2026-11-04		o:/creates? [^.]*\bblack\b[^.]*tokens?/
+200	44	2026-11-04		o:/creates? [^.]*\bElf\b[^.]*tokens?/
+200	376	2026-11-04		o:/creates? [^.]*\bTreasure\b[^.]*tokens?/
+200	31	2026-11-04		o:/creates? [^.]*\bVampire\b[^.]*tokens?/
+200	56	2026-11-04		o:/creates? [^.]*Bird creature tokens?/
+200	2618	2026-11-04		o:/creates? [^.]*creature tokens?/
+200	18	2026-11-04		o:/creates? [^.]*tokens? with [^.]*\bdeathtouch\b/
+200	22	2026-11-04		o:/creates? [^.]*Vampire creature tokens?/
+200	133	2026-11-04		o:/destroy all [^.]*creatures/ -o:/you control/ -o:/you don.t control/ -o:/target player/
+200	53	2026-11-04		o:/destroy all creatures you don.t control/ or o:/each opponent sacrifices (a|all|each) creatures?/ or o:/destroy all creatures target (player|opponent) controls/
+200	703	2026-11-04		o:/destroy target [^.]*(creature|permanent)/
+200	3	2026-11-04		o:/destroy target [^.]*\bvampires?\b/ or o:/destroy all [^.]*\bvampires\b/
+200	3	2026-11-04		o:/destroy target [^.]*vampire/
+200	4	2026-11-04		o:/exile (all|each) [^.]*(you don.t control|target (player|opponent) controls|your opponents control)/
+200	26	2026-11-04		o:/exile all [^.]*creatures/ -o:/you control/ -o:/you don.t control/ -o:/target player/
+200	421	2026-11-04		o:/exile target [^.]*(creature|permanent)/
+200	40	2026-11-04		o:/forests? you control/
+200	59	2026-11-04		o:/historic/
+200	1156	2026-11-04		o:/return [^.]*(card|creature|permanent)[^.]* from your graveyard to (your hand|the battlefield)/
+200	33	2026-11-04		o:/return all [^.]*(creatures|permanents|nonland permanents)[^.]* to their owners. hands/
+200	78	2026-11-04		o:/return target (nonland )?permanent to its owner.s hand/
+200	258	2026-11-04		o:/return target [^.]*(creature|permanent)[^.]* to its owner.s hand/
+200	57	2026-11-04		o:/search your library for [^.]*\bForest\b/
+200	841	2026-11-04		o:/search your library for [^.]*basic land[^.]*onto the battlefield/ or (t:artifact o:/\{T\}: add/) or (t:creature o:/\{T\}: add/)
+200	103	2026-11-04		o:/search your library for a card/
+200	161	2026-11-04		o:/search your library for an? [^.]*(creature|artifact|enchantment|instant|sorcery|planeswalker|equipment|aura|dragon|elf|goblin) card/ -t:land -o:/basic land/
+200	511	2026-11-04		o:/whenever [^.]*, (you may )?draw a card/
+200	468	2026-11-04		o:/whenever [^.]*artifact/
+200	112	2026-11-04		o:bird
+200	591	2026-11-04		o:deathtouch
+200	163	2026-11-04		o:elf
+200	59	2026-11-04		o:historic
+200	869	2026-11-04		o:planeswalker
+200	130	2026-11-04		o:vampire
+200	390	2026-11-04		oracletag:mana-rock
+400	0	2026-11-04	warning: Invalid expression “ot:mana-rock” was ignored. Unknown keyword “ot”.	ot:mana-rock
+200	1	2026-11-04		otag:affinity-for-tokens
+200	190	2026-11-04		otag:artifact-count-matters
+200	1084	2026-11-04		otag:artifact-matters
+200	97	2026-11-04		otag:artifactfall
+200	2190	2026-11-04		otag:attack-trigger
+200	1224	2026-11-04		otag:attacking-matters
+200	204	2026-11-04		otag:blink
+200	791	2026-11-04		otag:bottomless-mana-sink
+200	414	2026-11-04		otag:castable-from-graveyard
+200	274	2026-11-04		otag:cheat-into-play
+200	65	2026-11-04		otag:counter-doubler
+200	87	2026-11-04		otag:counter-increaser
+200	1328	2026-11-04		otag:counters-matter
+200	1620	2026-11-04		otag:death-trigger
+200	1340	2026-11-04		otag:discard-outlet
+200	428	2026-11-04		otag:drain-life
+200	4337	2026-11-04		otag:draw
+200	1618	2026-11-04		otag:draw-engine
+200	185	2026-11-04		otag:draw-matters
+200	633	2026-11-04		otag:etb-other-creature
+200	46	2026-11-04		otag:extra-attack
+200	46	2026-11-04		otag:extra-combat
+200	46	2026-11-04		otag:extra-combat-phase
+200	164	2026-11-04		otag:extra-land
+200	204	2026-11-04		otag:flicker
+200	162	2026-11-04		otag:flicker-creature
+200	17	2026-11-04		otag:flicker-permanent
+200	662	2026-11-04		otag:gives-haste
+200	461	2026-11-04		otag:graveyard-fuel
+200	791	2026-11-04		otag:infinite-mana-sink
+200	638	2026-11-04		otag:land-ramp
+200	297	2026-11-04		otag:landfall
+200	30	2026-11-04		otag:landfall-other
+200	619	2026-11-04		otag:lands-matter
+200	36	2026-11-04		otag:life-and-death-trigger-self
+200	428	2026-11-04		otag:life-drain
+200	2640	2026-11-04		otag:life-gain
+200	149	2026-11-04		otag:life-loss-matters
+200	2640	2026-11-04		otag:lifegain
+200	15	2026-11-04		otag:lifegain-increaser
+200	245	2026-11-04		otag:lifegain-matters
+200	424	2026-11-04		otag:loot
+200	32	2026-11-04		otag:magecraft
+200	449	2026-11-04		otag:mana-dork
+200	57	2026-11-04		otag:mana-doubler
+200	1884	2026-11-04		otag:mana-dump
+200	2353	2026-11-04		otag:mana-ramp
+200	390	2026-11-04		otag:mana-rock
+200	1884	2026-11-04		otag:mana-sink
+200	1091	2026-11-04		otag:mill-self
+200	8	2026-11-04		otag:prowess-anthem
+200	2353	2026-11-04		otag:ramp
+200	638	2026-11-04		otag:rampant-growth
+200	1083	2026-11-04		otag:reanimate
+200	535	2026-11-04		otag:reanimate-creature
+200	2283	2026-11-04		otag:recursion
+200	886	2026-11-04		otag:recursion-creature
+200	605	2026-11-04		otag:repeatable-artifact-tokens
+200	2784	2026-11-04		otag:repeatable-card-advantage
+200	83	2026-11-04		otag:repeatable-clues
+200	1474	2026-11-04		otag:repeatable-creature-tokens
+200	1958	2026-11-04		otag:repeatable-draw
+200	28	2026-11-04		otag:repeatable-enchantment-tokens
+200	62	2026-11-04		otag:repeatable-food
+200	1508	2026-11-04		otag:repeatable-lifegain
+200	240	2026-11-04		otag:repeatable-loot
+200	461	2026-11-04		otag:repeatable-noncreature-tokens
+200	1800	2026-11-04		otag:repeatable-pp-counters
+200	71	2026-11-04		otag:repeatable-proliferate
+200	913	2026-11-04		otag:repeatable-sac-outlet
+200	913	2026-11-04		otag:repeatable-sacrifice-outlet
+200	149	2026-11-04		otag:repeatable-surveil
+200	1896	2026-11-04		otag:repeatable-token-generator
+200	208	2026-11-04		otag:repeatable-treasures
+200	46	2026-11-04		otag:sac-outlet-token
+200	136	2026-11-04		otag:sacrifice-matters
+200	1502	2026-11-04		otag:sacrifice-outlet
+200	353	2026-11-04		otag:sacrifice-outlet-artifact
+200	994	2026-11-04		otag:sacrifice-outlet-creature
+200	49	2026-11-04		otag:sacrifice-outlet-permanent
+200	46	2026-11-04		otag:sacrifice-outlet-token
+200	49	2026-11-04		otag:sacrifice-outlet-universal
+200	1091	2026-11-04		otag:self-mill
+200	1084	2026-11-04		otag:synergy-artifact
+200	257	2026-11-04		otag:synergy-enchantment
+200	557	2026-11-04		otag:synergy-instant
+200	3	2026-11-04		otag:synergy-leaves-creature
+200	245	2026-11-04		otag:synergy-lifegain
+200	96	2026-11-04		otag:synergy-mill
+200	7	2026-11-04		otag:synergy-proliferate
+200	136	2026-11-04		otag:synergy-sacrifice
+200	554	2026-11-04		otag:synergy-sorcery
+200	232	2026-11-04		otag:synergy-token
+200	111	2026-11-04		otag:synergy-token-creature
+200	17	2026-11-04		otag:token-doubler
+200	32	2026-11-04		otag:token-increaser
+200	20	2026-11-04		otag:tokenfall
+200	45	2026-11-04		t:/\bape\b/
+200	54	2026-11-04		t:/\bbat\b/
+200	116	2026-11-04		t:/\brat\b/
+200	45	2026-11-04		t:ape
+200	3958	2026-11-04		t:artifact
+200	4716	2026-11-04		t:artifact or o:/creates? [^.]*\b(artifact|Treasure|Clue|Food|Blood|Map|Powerstone|Gold|Junk|Incubator|Servo|Thopter|Construct)\b[^.]*tokens?/
+200	8832	2026-11-04		t:artifact or t:legendary or t:saga or o:/creates? [^.]*\b(legendary|artifact|Treasure|Clue|Food|Blood|Map|Powerstone|Gold|Junk|Incubator|Servo|Thopter|Construct)\b[^.]*tokens?/
+200	444	2026-11-04		t:artifact t:legendary
+200	54	2026-11-04		t:bat
+200	54	2026-11-04		t:bat -t:battle
+200	36	2026-11-04		t:battle
+200	463	2026-11-04		t:bird
+200	579	2026-11-04		t:bird or keyword:changeling or o:/creates? [^.]*\bBird\b[^.]*tokens?/
+200	516	2026-11-04		t:bird or o:/creates? [^.]*\bBird\b[^.]*tokens?/
+200	1054	2026-11-04		t:bird or t:elf c:g
+200	463	2026-11-04	warning: Invalid expression “ot:mana-rock” was ignored. Unknown keyword “ot”.	t:bird ot:mana-rock
+200	18992	2026-11-04		t:creature
+200	16	2026-11-04		t:creature (!"Birds of Paradise" or !"Sol Ring" or !"Llanowar Elves" or !"Swords to Plowshares" or !"Command Tower" or !"Arcane Signet" or !"Cultivate" or !"Rhystic Study" or !"Smothering Tithe" or !"Swan Song" or !"Baleful Strix" or !"Mockingbird" or !"Gilded Goose" or !"Thrummingbird" or !"Elvish Mystic" or !"Blood Artist" or !"Viscera Seer" or !"Path to Exile" or !"Counterspell" or !"Beast Within" or !"Demonic Tutor" or !"Eternal Witness" or !"Sun Titan" or !"Lightning Greaves" or !"Swiftfoot Boots" or !"Fellwar Stone" or !"Mind Stone" or !"Thought Vessel" or !"Exotic Orchard" or !"Reliquary Tower" or !"Path of Ancestry" or !"Rogue's Passage" or !"Farseek" or !"Nature's Lore" or !"Rampant Growth" or !"Blasphemous Act" or !"Heroic Intervention" or !"Esper Sentinel" or !"Garruk's Uprising" or !"Mystic Remora" or !"Phyrexian Arena" or !"Skullclamp" or !"Solemn Simulacrum" or !"Toxic Deluge" or !"Feed the Swarm")
+200	13	2026-11-04		t:creature (!"Birds of Paradise" or !"Sol Ring" or !"Llanowar Elves" or !"Swords to Plowshares" or !"Command Tower" or !"Arcane Signet" or !"Cultivate" or !"Rhystic Study" or !"Smothering Tithe" or !"Swan Song" or !"Baleful Strix" or !"Mockingbird" or !"Gilded Goose" or !"Thrummingbird" or !"Elvish Mystic" or !"Blood Artist" or !"Viscera Seer" or !"Path to Exile" or !"Counterspell" or !"Beast Within" or !"Demonic Tutor" or !"Eternal Witness" or !"Sun Titan")
+200	20298	2026-11-04		t:creature or o:/creates? [^.]*creature tokens?/
+200	698	2026-11-04		t:elf
+200	782	2026-11-04		t:elf or keyword:changeling or o:/creates? [^.]*\bElf\b[^.]*tokens?/
+200	3822	2026-11-04		t:enchantment
+200	3878	2026-11-04		t:enchantment or o:/creates? [^.]*\b(enchantment|Role|Aura)\b[^.]*tokens?/
+200	658	2026-11-04		t:equipment or o:/creates? [^.]*\bEquipment\b[^.]*tokens?/
+200	43	2026-11-04		t:forest
+200	41	2026-11-04		t:forest -t:basic
+200	112	2026-11-04		t:forest or o:/search your library for [^.]*\bForest\b/ or o:/\b(is|are|becomes?) (a |an )?(Forest|Forests)\b/ or o:/\bevery basic land type\b/
+200	35	2026-11-04		t:gate or o:/search your library for [^.]*\bGate\b/ or o:/\b(is|are|becomes?) (a |an )?(Gate|Gates)\b/
+200	3930	2026-11-04		t:instant
+200	3953	2026-11-04		t:instant or o:/\bcopy (target|that|the next) [^.]*\binstant\b/
+200	7675	2026-11-04		t:instant or t:sorcery
+200	7760	2026-11-04		t:instant or t:sorcery or o:/\bcopy target instant or sorcery\b|\bcopy (that|the next) (instant|sorcery|spell)\b/
+200	93	2026-11-04		t:island or o:/search your library for [^.]*\bIsland\b/ or o:/\b(is|are|becomes?) (a |an )?(Island|Islands)\b/ or o:/\bevery basic land type\b/
+200	1262	2026-11-04		t:land
+200	4595	2026-11-04		t:legend
+200	4595	2026-11-04		t:legendary
+200	8331	2026-11-04		t:legendary or t:artifact or t:saga
+200	332	2026-11-04		t:planeswalker
+200	337	2026-11-04		t:planeswalker or o:/(put|create)s? [^.]*planeswalker[^.]*onto the battlefield|put [^.]*planeswalker card[^.]*onto the battlefield/
+200	116	2026-11-04		t:rat
+200	243	2026-11-04		t:saga
+200	3773	2026-11-04		t:sorcery
+200	3883	2026-11-04		t:sorcery or o:/\bcopy target instant or sorcery\b/ or o:/\bcopy (that|the next) (instant|sorcery|spell)\b/
+200	6	2026-11-04		t:treasure
+200	382	2026-11-04		t:treasure or o:/creates? [^.]*\bTreasure\b[^.]*tokens?/
+200	445	2026-11-04		t:vampire
+200	522	2026-11-04		t:vampire or keyword:changeling or o:/creates? [^.]*\bVampire\b[^.]*tokens?/

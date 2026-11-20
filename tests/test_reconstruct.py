@@ -11,9 +11,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import instances
-import registry
-import reconstruct
+import src.server.domain.inventory.instances as instances
+import src.server.domain.decks.registry as registry
+import src.server.domain.draft.reconstruct as reconstruct
 from fastapi.testclient import TestClient
 
 
@@ -328,7 +328,7 @@ class TestReconstructCore(unittest.TestCase):
 
 class TestReconstructEndpoints(unittest.TestCase):
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.app_module = app_module
         self.r = FakeRedis()
         self.deck1 = make_deck(deck_id=42, name="Atraxa", status="physical")
@@ -500,7 +500,7 @@ class TestReconstructDryRun(unittest.TestCase):
 
 class TestReconstructDryRunEndpoints(unittest.TestCase):
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.r = FakeRedis()
         self.r.set("decks", json.dumps([make_deck(deck_id=42, name="Atraxa")]))
         for _ in range(2):

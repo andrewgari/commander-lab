@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 NODE = shutil.which("node")
 FLOW = Path(__file__).parent / "js" / "bulk_decommission_flow.js"

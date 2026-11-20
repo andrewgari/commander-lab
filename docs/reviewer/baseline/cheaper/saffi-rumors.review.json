@@ -1,0 +1,2026 @@
+{
+ "schema_version": "review_document.v1",
+ "meta": {
+  "deck_id": "archidekt:417219",
+  "deck_name": "Rumors of my death were....greatly exaggerated",
+  "commanders": [
+   {
+    "name": "Saffi Eriksdotter",
+    "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+   }
+  ],
+  "generated_at": "2026-10-29T01:32:18.216872+00:00",
+  "pipeline_version": "review-ab-1",
+  "prompt_versions": {
+   "A": "v1",
+   "B": "v1",
+   "C": "v1",
+   "D": "v1",
+   "E": "v1",
+   "critic": "v1"
+  },
+  "models": {
+   "A": "spoton:claude-haiku-4-5",
+   "B": "spoton:claude-haiku-4-5",
+   "C": "spoton:claude-haiku-4-5",
+   "D": "spoton:claude-haiku-4-5",
+   "E": "spoton:claude-haiku-4-5",
+   "critic": "spoton:mistral-large-3"
+  },
+  "fact_pack_hash": "4a00ca4ef0241bd7b27a18529b4f07895d2e509a8d4787cdbde6dfe4100e6f97"
+ },
+ "verdict": {
+  "headline": "Saffi Eriksdotter recursion engine with 30 complete infinite combos but draw and color consistency gaps limit reliability",
+  "summary": "This deck assembles 29–30 complete three-piece infinite loops through Saffi Eriksdotter, Karmic Guide, Reveillark, and three sacrifice outlets (Ashnod's Altar, Altar of Dementia, Blasting Station). Tutors (8 total) and ramp (13 pieces) enable early combo assembly, and protection spells (4) shield against interaction. The core engine is exceptionally robust—redundant recursion, diverse payoffs, and deck density make closing inevitable once assembled. However, draw support falls short (8 vs. 11–13 recommended), leaving the deck without refueling after tutors resolve; colored mana sources also underdeliver (W: 21 vs. 30; G: 20 vs. 36), creating tempo friction on turns 3–5 when Chord of Calling, Green Sun's Zenith, and Birthing Pod must fire. The deck succeeds in its core plan but lacks the flex slots and card flow to navigate disrupted games smoothly.",
+  "grade": "B",
+  "confidence": 0.73
+ },
+ "deck_identity": {
+  "what_it_does": "The deck is built around Saffi Eriksdotter's recursion ability paired with creatures that have powerful enter or leave triggers. It aims to generate infinite loops involving sacrifice outlets and creatures that recur or generate value, then convert that advantage into a win through damage, mill, or card advantage.",
+  "win_paths": [
+   "Infinite colorless mana into lethal via Ashnod's Altar loop with Karmic Guide, Reveillark, or Saffi Eriksdotter recursion engine",
+   "Infinite mill via Altar of Dementia with Saffi Eriksdotter, Karmic Guide, or Reveillark recursion",
+   "Infinite damage via Blasting Station with Karmic Guide, Reveillark, or Fiend Hunter recursion"
+  ],
+  "success_criteria": [
+   "Assembles a three-card combo involving Saffi Eriksdotter or a recursion creature, a sacrifice outlet, and an ETB or LTB trigger creature most games",
+   "Generates value before combo: tutors find pieces via Birthing Pod, Chord of Calling, Eladamri's Call, or Worldly Tutor",
+   "Survives early interaction with protection (Heroic Intervention, Dauntless Escort, Rebuff the Wicked, Dawn Charm)",
+   "Converts infinite mana or recursion into a win condition within the same turn or shortly after"
+  ],
+  "intentional_quirks": [
+   "High concentration of creatures with power 2 or less (Reveillark recursion trigger requirement)",
+   "Gift of Immortality and Pattern of Rebirth as alternative recursion engines despite lower synergy with commander",
+   "Felidar Guardian as blink tool in a non-blink-focused deck"
+  ]
+ },
+ "scorecard": [
+  {
+   "axis": "plan_synergy",
+   "score": 8,
+   "one_line": "30 complete combo lines with 3+ tutors create exceptional redundancy; draw and protection slots are thin relative to combo density.",
+   "finding_ids": [
+    "s-plan_synergy-1",
+    "s-plan_synergy-2",
+    "s-plan_synergy-3",
+    "p-plan_synergy-2",
+    "p-plan_synergy-3",
+    "p-plan_synergy-4"
+   ]
+  },
+  {
+   "axis": "mana_consistency",
+   "score": 6,
+   "one_line": "Colored sources fall short of recommendations (W: 21 vs 30; G: 20 vs 36) and lands are low (36 vs 38 norm), but 13 ramp pieces and redundant tutors enable consistent early loops despite the pressure on green sources.",
+   "finding_ids": [
+    "s-mana_consistency-1",
+    "s-mana_consistency-2",
+    "s-mana_consistency-3",
+    "p-mana_consistency-1",
+    "p-mana_consistency-2",
+    "p-mana_consistency-3"
+   ]
+  },
+  {
+   "axis": "interaction_resilience",
+   "score": 6,
+   "one_line": "Removal suite covers the main answers but recursion-focused strategy lacks graveyard protection; deck survives interaction better than it stops it.",
+   "finding_ids": [
+    "s-interaction_resilience-1",
+    "s-interaction_resilience-2",
+    "s-interaction_resilience-3",
+    "p-interaction_resilience-2",
+    "p-interaction_resilience-3",
+    "p-interaction_resilience-4"
+   ]
+  },
+  {
+   "axis": "win_paths_closing",
+   "score": 9,
+   "one_line": "30 complete infinite combos across three damage/mill payoffs (Blasting Station, Ashnod's Altar, Altar of Dementia) plus 8 tutors make closing reliable and inevitable once assembled.",
+   "finding_ids": [
+    "s-win_paths_closing-1",
+    "s-win_paths_closing-2",
+    "s-win_paths_closing-3",
+    "p-win_paths_closing-1"
+   ]
+  },
+  {
+   "axis": "power_bracket",
+   "score": 8,
+   "one_line": "Floor is bracket 3 (Aura Shards, Worldly Tutor); 23 complete infinites across 4 win conditions puts this well into bracket 4 territory, but target is an open question.",
+   "finding_ids": [
+    "s-power_bracket-1",
+    "s-power_bracket-2",
+    "s-power_bracket-3",
+    "p-power_bracket-1",
+    "p-power_bracket-2",
+    "p-power_bracket-3"
+   ]
+  },
+  {
+   "axis": "budget_inventory",
+   "score": 7,
+   "one_line": "High-impact tutors and protection spells justify the cost; the 11 unpriced staples mask true total but the 9 priced game-changers cluster efficiently in $100-150 of the $414.49 deck.",
+   "finding_ids": [
+    "s-budget_inventory-1",
+    "s-budget_inventory-2",
+    "p-budget_inventory-1"
+   ]
+  },
+  {
+   "axis": "concept_execution",
+   "score": 9,
+   "one_line": "29 complete infinite combos with 39 combo pieces (roles.ramp.cards through combo data) ensure the core Saffi recursion engine fires in nearly every game.",
+   "finding_ids": [
+    "s-concept_execution-1",
+    "s-concept_execution-2",
+    "s-concept_execution-3",
+    "p-concept_execution-1",
+    "p-concept_execution-2"
+   ]
+  }
+ ],
+ "strengths": [
+  {
+   "id": "s-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "The deck assembles Saffi + sacrifice outlet + ETB/LTB trigger recursion loops through dense redundancy: 39 cards function as combo pieces across recursion sources (Saffi Eriksdotter, Karmic Guide, Reveillark, Sun Titan, Fiend Hunter, Extraction Specialist, Renegade Rallier), sacrifice outlets (Ashnod's Altar, Altar of Dementia, Blasting Station), and alternate recursion engines (Gift of Immortality, Pattern of Rebirth). The 29 complete combos tag include Saffi Eriksdotter + Ashnod's Altar + Karmic Guide for infinite mana and Saffi Eriksdotter + Altar of Dementia + Karmic Guide for infinite mill, guaranteeing the concept reaches payoff within a few turns.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Extraction Specialist",
+      "oracle_id": "4164034a-5e59-4e40-a150-2c1000b0bd0d"
+     },
+     {
+      "name": "Renegade Rallier",
+      "oracle_id": "6fa07b6c-f01a-4416-b0fc-986b0fc4e412"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Gift of Immortality",
+      "oracle_id": "2c11c72f-5b04-47d8-bdf8-8d9d197ebc1b"
+     },
+     {
+      "name": "Pattern of Rebirth",
+      "oracle_id": "4b8856f8-3cd1-450c-a71b-eb0026e8e179"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.2281-4681-5256.card_names",
+     "combos.complete.2034-2281-4681.card_names",
+     "combos.complete.2034-2281-3175.card_names",
+     "combos.complete.2281-3175-5256.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "The deck assembles 30 complete three-piece infinite loops across five main sacrifice outlets (Ashnod's Altar, Altar of Dementia, Blasting Station, and recursion via Saffi Eriksdotter, Reveillark, Karmic Guide, Sun Titan, Extraction Specialist, Fiend Hunter, Renegade Rallier, and Gift of Immortality), making the plan extremely resilient to single-piece removal.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Extraction Specialist",
+      "oracle_id": "4164034a-5e59-4e40-a150-2c1000b0bd0d"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Renegade Rallier",
+      "oracle_id": "6fa07b6c-f01a-4416-b0fc-986b0fc4e412"
+     },
+     {
+      "name": "Gift of Immortality",
+      "oracle_id": "2c11c72f-5b04-47d8-bdf8-8d9d197ebc1b"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.67-4681-5256.card_names",
+     "combos.complete.2034-2781-4681.card_names",
+     "combos.complete.2281-4681-5256.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The deck assembles 23 documented complete infinite loops with multiple redundant paths to colorless mana (Ashnod's Altar), mill (Altar of Dementia), and damage (Blasting Station), giving it extreme consistency in converting Saffi Eriksdotter, Karmic Guide, or Reveillark recursion into a deterministic win.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Renegade Rallier",
+      "oracle_id": "6fa07b6c-f01a-4416-b0fc-986b0fc4e412"
+     },
+     {
+      "name": "Extraction Specialist",
+      "oracle_id": "4164034a-5e59-4e40-a150-2c1000b0bd0d"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.67-4681-5256.card_names",
+     "combos.complete.2034-2781-4681.card_names",
+     "combos.complete.2281-4681-5256.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "The deck contains 30 complete infinite combos (combos.counts.complete) with three independent payoff types: infinite damage via Blasting Station, infinite mana via Ashnod's Altar, and infinite mill via Altar of Dementia, each triggerable from multiple recursion engines.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     }
+    ],
+    "fact_keys": [
+     "combos.counts.complete"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "The five most expensive cards—Esper Sentinel ($54.35), Green Sun's Zenith ($30.82), Worldly Tutor ($29.87), Aura Shards ($26.91), and Heroic Intervention ($17.38)—anchor the deck's tutoring, protection, and removal engine and align directly with the brief's success criteria.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Esper Sentinel.usd",
+     "derived.price.most_expensive.Green Sun's Zenith.usd",
+     "derived.price.most_expensive.Worldly Tutor.usd",
+     "derived.price.most_expensive.Aura Shards.usd",
+     "derived.price.most_expensive.Heroic Intervention.usd"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.92
+  },
+  {
+   "id": "s-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "The deck avoids expensive fast mana: Sol Ring and Arcane Signet are unpriced staples, and the remainder of ramp (Llanowar Elves, Avacyn's Pilgrim, Birds of Paradise, Cultivate, Kodama's Reach) costs under $2 per card, keeping acceleration affordable while channeling spending into tutors and protection",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Kodama's Reach",
+      "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.total_usd"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.92
+  },
+  {
+   "id": "s-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Eight tutors (Birthing Pod, Chord of Calling, Eladamri's Call, Eldritch Evolution, Fauna Shaman, Green Sun's Zenith, Recruiter of the Guard, Worldly Tutor) enable fast assembly of any combo line, and creatures like Recruiter of the Guard and Eternal Witness further tutor for combo pieces or recursion.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.92
+  },
+  {
+   "id": "s-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Tutors (Worldly Tutor, Chord of Calling, Birthing Pod, Eladamri's Call, Green Sun's Zenith, Eldritch Evolution, Recruiter of the Guard, Fauna Shaman) find combo pieces at sorcery speed or through sacrifice, enabling turn-speed assembly; Chord of Calling convokes using the deck's 1-2 mana creatures (Llanowar Elves, Birds of Paradise, Avacyn's Pilgrim, Esper Sentinel) to fetch missing recursion or outlet pieces before turn 4.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Eight tutors (Worldly Tutor, Eladamri's Call, Green Sun's Zenith, Chord of Calling, Eldritch Evolution, Birthing Pod, Recruiter of the Guard, Fauna Shaman) provide redundant paths to core combo pieces, reducing dependency on consistent draws.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "Eight tutors (Birthing Pod, Chord of Calling, Eladamri's Call, Eldritch Evolution, Fauna Shaman, Green Sun's Zenith, Recruiter of the Guard, Worldly Tutor) plus 7 recursion cards (roles.recursion.count) let the deck assemble combo pieces or rebuild after disruption, enabling multiple paths to the same payoff.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Small-power creatures (Reveillark recursion trigger, 12 power-2-or-less creatures) allow the deck to maximize Reveillark's two-creature return, and 4 protection effects (Heroic Intervention, Dauntless Escort, Rebuff the Wicked, Dawn Charm) prevent disruption of combo assembly.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     },
+     {
+      "name": "Elvish Visionary",
+      "oracle_id": "c6a3a882-a127-4590-93d7-679ef4313efe"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     },
+     {
+      "name": "Extraction Specialist",
+      "oracle_id": "4164034a-5e59-4e40-a150-2c1000b0bd0d"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Sakura-Tribe Elder",
+      "oracle_id": "e3afc704-220f-498f-9eaa-0821b17dc24c"
+     },
+     {
+      "name": "Qasali Pridemage",
+      "oracle_id": "10821e37-8a83-4d8e-a12f-249a10933a22"
+     },
+     {
+      "name": "Mentor of the Meek",
+      "oracle_id": "b9f4f96b-6e54-4fe6-8df7-623e0fc72409"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count",
+     "roles.protection.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.88
+  },
+  {
+   "id": "s-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Aura Shards and Reclamation Sage provide the deck's only answers to artifact and enchantment hate (Rest in Peace, Urabrask's Incubator, etc.) that would lock out recursion engines, leaving the recursion plan vulnerable to a single resolved stax piece.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Reclamation Sage",
+      "oracle_id": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "The deck runs 13 ramp pieces including Sol Ring, Arcane Signet, Birds of Paradise, and Cultivate, which generate early mana to cast Chord of Calling, Eladamri's Call, and other tutors by turn 2–3 despite only 36 lands (mana.lands).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Selesnya Signet",
+      "oracle_id": "1436dd81-496e-42a5-b210-fb5b9cdf073f"
+     },
+     {
+      "name": "Talisman of Unity",
+      "oracle_id": "e5fcc5d7-6a60-4a5b-9d02-6c30041a95b9"
+     },
+     {
+      "name": "Solemn Simulacrum",
+      "oracle_id": "00c0543c-2a1f-4425-8283-4062d74a1637"
+     },
+     {
+      "name": "Sakura-Tribe Elder",
+      "oracle_id": "e3afc704-220f-498f-9eaa-0821b17dc24c"
+     },
+     {
+      "name": "Wood Elves",
+      "oracle_id": "8973bd99-20f8-4867-90ef-50392147ee1b"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Kodama's Reach",
+      "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "mana.lands"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "Ramp of 13 pieces (roles.ramp.count: Arcane Signet, Sol Ring, Selesnya Signet, Ashnod's Altar, Birds of Paradise, Llanowar Elves, Avacyn's Pilgrim, and five land ramp spells) supports early tutoring and sacrifice outlet activation by turn 4-5, enabling closing by turn 6-7 at bracket 3 speed.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Selesnya Signet",
+      "oracle_id": "1436dd81-496e-42a5-b210-fb5b9cdf073f"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Kodama's Reach",
+      "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+     },
+     {
+      "name": "Wood Elves",
+      "oracle_id": "8973bd99-20f8-4867-90ef-50392147ee1b"
+     },
+     {
+      "name": "Sakura-Tribe Elder",
+      "oracle_id": "e3afc704-220f-498f-9eaa-0821b17dc24c"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Recursion density (roles.recursion.count = 7) with Reveillark, Karmic Guide, Extraction Specialist, Sun Titan, and Eternal Witness means the deck rebuilds from creature removal faster than pure sacrifice outlets would; a resolved wipe still leaves Saffi Eriksdotter or Gift of Immortality to restart the loop.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Extraction Specialist",
+      "oracle_id": "4164034a-5e59-4e40-a150-2c1000b0bd0d"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Gift of Immortality",
+      "oracle_id": "2c11c72f-5b04-47d8-bdf8-8d9d197ebc1b"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "Eight tutors (Birthing Pod, Chord of Calling, Eladamri's Call, Eldritch Evolution, Fauna Shaman, Green Sun's Zenith, Recruiter of the Guard, Worldly Tutor) search for specific combo pieces—Karmic Guide, Reveillark, Ashnod's Altar, Altar of Dementia, Fiend Hunter—enabling the deck to find combo components at will; 13 ramp sources accelerate this tutoring engine to turns 4-6.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Cultivate",
+      "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+     },
+     {
+      "name": "Kodama's Reach",
+      "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Sakura-Tribe Elder",
+      "oracle_id": "e3afc704-220f-498f-9eaa-0821b17dc24c"
+     },
+     {
+      "name": "Selesnya Signet",
+      "oracle_id": "1436dd81-496e-42a5-b210-fb5b9cdf073f"
+     },
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Solemn Simulacrum",
+      "oracle_id": "00c0543c-2a1f-4425-8283-4062d74a1637"
+     },
+     {
+      "name": "Talisman of Unity",
+      "oracle_id": "e5fcc5d7-6a60-4a5b-9d02-6c30041a95b9"
+     },
+     {
+      "name": "Wood Elves",
+      "oracle_id": "8973bd99-20f8-4867-90ef-50392147ee1b"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.ramp.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Protection suite (Heroic Intervention, Dauntless Escort, Dawn Charm, Rebuff the Wicked) gives the deck three ways to save the board or commander from sweepers or targeted removal; Dauntless Escort's indestructible and Heroic Intervention's hexproof-and-indestructible are both instant-speed, letting the deck continue after taking damage.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     },
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Multicolor lands provide 33% of the mana base (mana.fixing_quality.share_of_lands), reducing color screw risk between the two colors despite below-target sources.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Temple Garden",
+      "oracle_id": "f413a83d-a40d-434c-b20a-4c707c0527fa"
+     },
+     {
+      "name": "Sunpetal Grove",
+      "oracle_id": "402ec768-76fb-474e-ae74-babc90d833c4"
+     },
+     {
+      "name": "Brushland",
+      "oracle_id": "5eb8b497-ec9a-4a89-ad29-1ec3ca82da7c"
+     },
+     {
+      "name": "Canopy Vista",
+      "oracle_id": "dcb7e046-f01b-497c-88e5-57794eb30ce5"
+     },
+     {
+      "name": "Fortified Village",
+      "oracle_id": "56f1a16a-9f41-41fb-b580-c200bca27cd6"
+     },
+     {
+      "name": "Scattered Groves",
+      "oracle_id": "3c87ea85-ca29-45a7-b5b2-758c62898b0a"
+     },
+     {
+      "name": "Sungrass Prairie",
+      "oracle_id": "0a28dff0-2bd6-4105-b73a-b6c4735833fd"
+     },
+     {
+      "name": "Wooded Bastion",
+      "oracle_id": "61b85077-64aa-4bcc-890d-2d88da9543c0"
+     },
+     {
+      "name": "Selesnya Sanctuary",
+      "oracle_id": "00ef1c55-dea1-4564-bd57-66de86cba4df"
+     },
+     {
+      "name": "Krosan Verge",
+      "oracle_id": "d9a10971-f32b-4978-952d-fed0a5bc9e36"
+     },
+     {
+      "name": "Windswept Heath",
+      "oracle_id": "29737a60-3ebd-40d9-b935-c4f54b90d45d"
+     }
+    ],
+    "fact_keys": [
+     "mana.fixing_quality.multicolor_lands",
+     "mana.fixing_quality.share_of_lands"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-power_bracket-3",
+   "axis": "power_bracket",
+   "claim": "Curve.average_mv of 2.83 with redundant protection (Heroic Intervention, Dauntless Escort, Rebuff the Wicked, Dawn Charm) allows early assembly of combo pieces and shields against interaction, avoiding the fragility trap of pure combo builds.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "The deck survives early disruption through concentrated protection: Heroic Intervention and Dauntless Escort grant indestructible until end of turn, Rebuff the Wicked and Dawn Charm counter targeted removal, allowing Saffi Eriksdotter and key combo pieces to resolve and activate unmolested.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.8
+  }
+ ],
+ "problems": [
+  {
+   "id": "p-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "Green sources fall significantly short: 20 sources against 36 recommended (mana.pips_vs_sources.G), with major costs on turns 3–4 (Green Sun's Zenith, Chord of Calling, Birthing Pod, Eldritch Evolution all need green). Mana rocks like Arcane Signet and Selesnya Signet help but cannot fully bridge the gap.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Selesnya Signet",
+      "oracle_id": "1436dd81-496e-42a5-b210-fb5b9cdf073f"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.G.pips",
+     "mana.pips_vs_sources.G.sources",
+     "mana.pips_vs_sources.G.recommended_sources"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The target power bracket is unmarked (q-1 open), and the deck's floor is bracket 3 due to Aura Shards and Worldly Tutor (bracket.game_changers), making it impossible to judge whether the current tutor count (8) and combo density are correctly calibrated to the owner's intent.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Recruiter of the Guard",
+      "oracle_id": "d521a329-a53a-4962-810a-2abed80df260"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "Eleven staple cards (Sol Ring, Skullclamp, Swords to Plowshares, Command Tower, Arcane Signet, Temple Garden, Evolving Wilds, Reliquary Tower, Terramorphic Expanse, Plains, Forest) lack prices in the card table, so the true deck cost is unknown and could exceed $414.49 by $20–100 depending on which versions are owned",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+     },
+     {
+      "name": "Command Tower",
+      "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25"
+     },
+     {
+      "name": "Arcane Signet",
+      "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+     },
+     {
+      "name": "Temple Garden",
+      "oracle_id": "f413a83d-a40d-434c-b20a-4c707c0527fa"
+     },
+     {
+      "name": "Evolving Wilds",
+      "oracle_id": "a75445d3-1303-4bb5-89ad-26ea93fecd48"
+     },
+     {
+      "name": "Reliquary Tower",
+      "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+     },
+     {
+      "name": "Terramorphic Expanse",
+      "oracle_id": "1bd3e453-aa21-4ee6-95c2-d6d920ee8e7a"
+     },
+     {
+      "name": "Plains",
+      "oracle_id": "bc71ebf6-2056-41f7-be35-b2e5c34afa99"
+     },
+     {
+      "name": "Forest",
+      "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.unpriced_cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.9
+  },
+  {
+   "id": "p-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Wipe defense is minimal (roles.wipes.count = 2, below target 5–7): only Austere Command and Wrath of God exist, but board wipes cost 4–6 mana and Austere Command requires careful mode selection, leaving the deck vulnerable to mass removal on turns 3–5 before combos fire. Reveillark and Karmic Guide can rebuild post-wipe if Saffi Eriksdotter survives, but if the commander is exiled or the graveyard is emptied, the core engine stalls.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Austere Command",
+      "oracle_id": "09cc8709-fe10-472a-b05c-e89f3523018d"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "roles.wipes.target_min",
+     "roles.wipes.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.8
+  },
+  {
+   "id": "p-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "Draw support is underweight (roles.draw.count = 8, below target 11–13) relative to combo density; the deck has 29 complete combos but no way to refuel after assembling them. Greater Good, Skullclamp, and Elvish Visionary provide one-time value, but no repeatable cantrip or looting effect ensures card flow when tutors miss or combos are held up by interaction.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Elvish Visionary",
+      "oracle_id": "c6a3a882-a127-4590-93d7-679ef4313efe"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.draw.target_min",
+     "roles.draw.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Limited counterspell interaction: Rebuff the Wicked only stops spells targeting permanents, leaving the deck vulnerable to tutors, sweepers, and ramp denial; Selesnya has no blue mana and cannot access hard counters, making the deck reliant on speed rather than permission.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     }
+    ],
+    "fact_keys": [
+     "deck.color_identity"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Sweeper damage against a creature-heavy build: roles.wipes.count = 2 (Austere Command, Wrath of God) but the deck runs 28 creatures; Austere Command at mode 3 (MV ≤3) hits 18+ of the deck's creatures, and the deck has no preemptive way to clear its own board before the opponent's sweeper resolves except sacrificing to Ashnod's Altar or Altar of Dementia.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Austere Command",
+      "oracle_id": "09cc8709-fe10-472a-b05c-e89f3523018d"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "derived.type_counts.creature"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-4",
+   "axis": "interaction_resilience",
+   "claim": "Commander removal leaves the deck without its primary recursion engine: Saffi Eriksdotter is a 2-mana legend with no evasion or protection on the card itself; if removed before building a loop, the deck must rebuild via Reveillark, Karmic Guide, or the alternative recursion engines, which are slower and more fragile to further interaction.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     }
+    ],
+    "fact_keys": []
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "White sources also underdeliver at 21 against 30 recommended (mana.pips_vs_sources.W), stressing Karmic Guide, Reveillark, and protection spells (Heroic Intervention, Dauntless Escort, Dawn Charm) during early combo assembly.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.W.pips",
+     "mana.pips_vs_sources.W.sources",
+     "mana.pips_vs_sources.W.recommended_sources"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Five unconditional tapped lands (Krosan Verge, Selesnya Sanctuary, and others among the 36 lands) create tempo friction on turns 1–3 when ramp and tutors matter most, delaying combo assembly.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Krosan Verge",
+      "oracle_id": "d9a10971-f32b-4978-952d-fed0a5bc9e36"
+     },
+     {
+      "name": "Selesnya Sanctuary",
+      "oracle_id": "00ef1c55-dea1-4564-bd57-66de86cba4df"
+     },
+     {
+      "name": "Emeria, the Sky Ruin",
+      "oracle_id": "cc999cf2-c99b-4911-8c52-6cc4a99fcc7b"
+     },
+     {
+      "name": "Temple of Plenty",
+      "oracle_id": "e521322b-0e83-458c-8936-7021a80ee279"
+     },
+     {
+      "name": "Temple of the False God",
+      "oracle_id": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df"
+     }
+    ],
+    "fact_keys": [
+     "mana.unconditional_tapped_lands"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Draw is significantly below target (8 actual vs. 11–13 recommended, roles.draw.count), and draw payoffs like Greater Good, Skullclamp, and Mentor of the Meek depend on sacrifice or specific power 2-or-less triggers that activate only after combo pieces are assembled; the deck lacks proactive card advantage to find pieces before tutors resolve.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Mentor of the Meek",
+      "oracle_id": "b9f4f96b-6e54-4fe6-8df7-623e0fc72409"
+     },
+     {
+      "name": "Elvish Visionary",
+      "oracle_id": "c6a3a882-a127-4590-93d7-679ef4313efe"
+     },
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Reprieve",
+      "oracle_id": "f0449cbd-855c-4c20-a1f5-f76a395d8d39"
+     },
+     {
+      "name": "Solemn Simulacrum",
+      "oracle_id": "00c0543c-2a1f-4425-8283-4062d74a1637"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.draw.target_min",
+     "roles.draw.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "The deck lists three independent recursion engines (Saffi Eriksdotter, Gift of Immortality, Pattern of Rebirth) that each enable distinct infinite loops, but q-4 leaves unclear whether all three are deliberate backup lines or whether Pattern of Rebirth and Gift of Immortality represent redundancy that could serve other roles like card draw or creature tutors in a bracket 3 build.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Gift of Immortality",
+      "oracle_id": "2c11c72f-5b04-47d8-bdf8-8d9d197ebc1b"
+     },
+     {
+      "name": "Pattern of Rebirth",
+      "oracle_id": "4b8856f8-3cd1-450c-a71b-eb0026e8e179"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2034-3055-3175.card_names",
+     "combos.complete.2281-5237-5256.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-3",
+   "axis": "power_bracket",
+   "claim": "Felidar Guardian creates bracket-4-level infinite loops (infinite mana or damage with Karmic Guide and a sacrifice outlet) but the brief marks it as deliberate quirk redundancy; if q-3 resolves to cutting it, six combo lines collapse, forcing a painful rebuild of tutor targets or a reversion to simpler two-card recursion engines.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2034-2781-4681.card_names",
+     "combos.complete.413-2781-4681.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "Infinite colorless mana (Ashnod's Altar combos) lacks a direct damage outlet: the deck must tutor or draw into Blasting Station or convert mana into card draw (Greater Good) and hope to hit a payoff, or crash for combat damage with 1-2 power creatures, leaving closing a turn slower than mill or damage combos.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2034-2281-4681",
+     "combos.complete.2034-2281-3175",
+     "combos.complete.2034-3055-3175"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-plan_synergy-4",
+   "axis": "plan_synergy",
+   "claim": "Wipes are sparse (2 vs. 5–7 recommended, roles.wipes.count), and the few that exist (Austere Command, Wrath of God) clear your own creatures and enable recursion but do not advance combo assembly, creating a timing gap where the deck is vulnerable to wide boards or aggressive tables.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Austere Command",
+      "oracle_id": "09cc8709-fe10-472a-b05c-e89f3523018d"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count",
+     "roles.wipes.target_min"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.72
+  },
+  {
+   "id": "p-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Felidar Guardian creates three complete infinite-mana combos with Karmic Guide and sacrifice outlets, but at 4 mana it competes for deck slots with Reveillark (also 5 mana, recurs two creatures per trigger) and lacks a role outside combo lines, making it a narrow redundancy.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2034-2781-4681.card_names",
+     "combos.complete.2781-4681-5256.card_names",
+     "combos.complete.413-2781-4681.card_names",
+     "synergy.orphans"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.5
+  }
+ ],
+ "top_changes": {
+  "swap_ids": [
+   "sw-1",
+   "sw-2",
+   "sw-5"
+  ],
+  "why_these_first": "Swaps 1 and 2 directly attack the underweight draw problem (8 vs 11–13 required): Fecundity converts the constant creature deaths in Saffi loops into repeatable card draw, and Wall of Omens draws on entry while fitting Reveillark's power-2-or-less requirement. Swap 3 adds Enlightened Tutor to find Aura Shards, Gift of Immortality, or Pattern of Rebirth at instant speed, improving green mana consistency on turns 3–4 when tutors and sacrifice outlets must resolve to assemble combos."
+ },
+ "swaps": [
+  {
+   "id": "sw-1",
+   "cut": {
+    "name": "Panharmonicon",
+    "oracle_id": "76678885-3674-443d-b9a2-2a460cf6aac0"
+   },
+   "add": {
+    "name": "Fecundity",
+    "oracle_id": "ffa64ac6-fe55-48b8-b015-849982cd7ad8"
+   },
+   "resolves_finding_id": "p-concept_execution-1",
+   "tradeoff": "Panharmonicon's doubled ETB triggers are marginal when most creatures already combo without it; Fecundity converts creature deaths (which happen constantly in the loop) into card draw, fueling tutors and refills before combos fire.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$5.63 (adds $0.94, cuts $6.57); ownership unknown",
+   "alternative": {
+    "name": "Guardian Project",
+    "oracle_id": "4f9e07ae-6341-4b46-9f77-f17ab659d266"
+   },
+   "owned": false,
+   "price": 0.94
+  },
+  {
+   "id": "sw-2",
+   "cut": {
+    "name": "Altar of the Brood",
+    "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+   },
+   "add": {
+    "name": "Wall of Omens",
+    "oracle_id": "5f601f48-d24b-4883-9fde-b3f620e7c9ea"
+   },
+   "resolves_finding_id": "p-concept_execution-1",
+   "tradeoff": "Altar of the Brood mills only on permanent entry, not sacrifice, making it passive; Wall of Omens draws immediately on entry and is a defender that synergizes with Reveillark's power-2-or-less threshold.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$9.20 (adds $0.37, cuts $9.57); ownership unknown",
+   "alternative": {
+    "name": "Wall of Blossoms",
+    "oracle_id": "ef4d5fb3-70a3-433d-a9d3-18b2beb8d79f"
+   },
+   "owned": false,
+   "price": 0.37
+  },
+  {
+   "id": "sw-5",
+   "cut": {
+    "name": "Silence",
+    "oracle_id": "8aed54cb-d1bb-45ad-adbe-38e55d84ff31"
+   },
+   "add": {
+    "name": "Enlightened Tutor",
+    "oracle_id": "c5229c17-b7be-4b05-b683-f2277edc4849"
+   },
+   "resolves_finding_id": "p-mana_consistency-1",
+   "tradeoff": "Silence is a one-time interrupt with no synergy to the plan; Enlightened Tutor finds Aura Shards, Gift of Immortality, Pattern of Rebirth, or any artifact at instant speed, using the deck's existing green mana more efficiently and tutoring combo pieces directly.",
+   "bracket_effect": "raises",
+   "budget_effect": "net +$29.86 (adds $39.77, cuts $9.91); ownership unknown",
+   "alternative": {
+    "name": "Survival of the Fittest",
+    "oracle_id": "119d719d-e965-45b4-9bc9-ac03211b10c2"
+   },
+   "owned": false,
+   "price": 39.77
+  }
+ ],
+ "cuts_to_consider": [
+  {
+   "card": {
+    "name": "Evolutionary Leap",
+    "oracle_id": "44cf5ef4-2b0f-4d9d-bf87-8835424721d0"
+   },
+   "reason": "Evolutionary Leap costs {G}, which the mana base cannot reliably support before turn 4, and its creature selection is narrow (only triggers on sacrifice, not ETB). The deck already has eight tutors and Greater Good fills the sacrifice-to-draw role better.",
+   "evidence": [
+    "mana.pips_vs_sources.G.pips",
+    "mana.pips_vs_sources.G.sources",
+    "synergy.orphans"
+   ]
+  },
+  {
+   "card": {
+    "name": "Ramunap Excavator",
+    "oracle_id": "4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5"
+   },
+   "reason": "Ramunap Excavator costs {3}{G}, competes with Reviellark and Sun Titan for recursion slots, and only recovers lands that have been sacrificed—a narrow trigger. The deck's land ramp is already handled by Sakura-Tribe Elder, Wood Elves, and sorcery ramp.",
+   "evidence": [
+    "curve.average_mv",
+    "synergy.orphans"
+   ]
+  },
+  {
+   "card": {
+    "name": "Grand Abolisher",
+    "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+   },
+   "reason": "Grand Abolisher is a 2/2 body with no power 2-or-less Reveillark synergy and locks out opponents' abilities only during your turn; it does not directly advance the recursion plan or provide the creature utility (draw, recursion, tutoring) that lower-MV creatures offer.",
+   "evidence": [
+    "synergy.orphans",
+    "roles.recursion.count"
+   ]
+  }
+ ],
+ "bracket": {
+  "estimated": 3,
+  "target": null,
+  "reasons": [
+   "game_changers (floor 3): Aura Shards, Worldly Tutor"
+  ]
+ },
+ "mana": {
+  "summary": "Colored sources fall significantly short: white at 21 vs. 30 recommended, green at 20 vs. 36 recommended. The deck runs 36 lands (vs. 38 norm) with five unconditional tapped lands creating tempo friction on turns 1–3. Multicolor lands provide good fixing (33% of the mana base), and 13 ramp pieces including Sol Ring, Arcane Signet, and creature ramp help bridge the gap. Eight tutors enable redundant access to combo pieces, reducing dependency on consistent draws, but the colored mana deficit stresses Karmic Guide, Reveillark, and protection spells during early combo assembly.",
+  "issues": [
+   "Green sources critically underdeliver (20 vs. 36 recommended), stressing Green Sun's Zenith, Chord of Calling, Birthing Pod, and Eldritch Evolution on turns 3–4",
+   "White sources fall short at 21 vs. 30 recommended, delaying Reveillark, Karmic Guide, and protection spells (Heroic Intervention, Dauntless Escort)",
+   "Five unconditional tapped lands (Krosan Verge, Selesnya Sanctuary, Emeria the Sky Ruin, Temple of Plenty, Temple of the False God) create early tempo friction when ramp and tutors matter most",
+   "Deck runs only 36 lands against 38 norm, relying on tutors to compensate rather than land count"
+  ]
+ },
+ "questions_for_owner": [
+  {
+   "id": "q-1",
+   "question": "What is the target power bracket or play environment for this deck?",
+   "why_asked": "Deck has clear bracket 3 minimum (Worldly Tutor, Aura Shards) but contains enough tutors, redundant infinite combos, and fast mana to reach bracket 4. Knowing the target changes whether the combo density is correct or excessive."
+  },
+  {
+   "id": "q-2",
+   "question": "Is the goal to assemble combos quickly, or to win through value buildup and creature attacks before combo tutors matter?",
+   "why_asked": "The deck has 8 tutors and many combo pieces but relatively few creatures with meaningful combat power. Whether this is a combo-speed deck or a grindier value deck with combo as a backup win affects whether the tutor count is right."
+  },
+  {
+   "id": "q-3",
+   "question": "Do you want to keep Felidar Guardian, or is the combo synergy with it a side effect?",
+   "why_asked": "Felidar Guardian creates powerful infinite loops but does not fit the core Saffi + Reveillark + Karmic Guide identity. If it is deliberate redundancy, it belongs; if it is a legacy card, it could be cut for other roles."
+  },
+  {
+   "id": "q-4",
+   "question": "Are Gift of Immortality and Pattern of Rebirth deliberate backup recursion engines, or should the deck lean fully into Saffi Eriksdotter as the only recursion source?",
+   "why_asked": "These enchantments create independent infinite lines but add redundancy that may not align with a focused Saffi strategy. Clarifying intent determines whether they stay or become slots for draw, protection, or creature tutors."
+  }
+ ],
+ "charts": {
+  "curve": {
+   "buckets": [
+    {
+     "mv": 0,
+     "count": 0,
+     "label": "0"
+    },
+    {
+     "mv": 1,
+     "count": 12,
+     "label": "1"
+    },
+    {
+     "mv": 2,
+     "count": 14,
+     "label": "2"
+    },
+    {
+     "mv": 3,
+     "count": 22,
+     "label": "3"
+    },
+    {
+     "mv": 4,
+     "count": 7,
+     "label": "4"
+    },
+    {
+     "mv": 5,
+     "count": 5,
+     "label": "5"
+    },
+    {
+     "mv": 6,
+     "count": 2,
+     "label": "6"
+    },
+    {
+     "mv": 7,
+     "count": 1,
+     "label": "7+"
+    }
+   ],
+   "average_mv": 2.83
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 34,
+    "sources": 21,
+    "recommended_sources": 30
+   },
+   {
+    "color": "G",
+    "pips": 39,
+    "sources": 20,
+    "recommended_sources": 36
+   }
+  ],
+  "roles": [
+   {
+    "role": "ramp",
+    "count": 13,
+    "target_min": 9,
+    "target_max": 11
+   },
+   {
+    "role": "draw",
+    "count": 8,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "targeted_removal",
+    "count": 12,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "wipes",
+    "count": 2,
+    "target_min": 5,
+    "target_max": 7
+   }
+  ],
+  "synergy_clusters": []
+ },
+ "omitted": [
+  {
+   "kind": "finding",
+   "item": "p-plan_synergy-1: The deck contains 13 cards with zero functional role (synergy.orphans), including Altar of the Brood, Cosmic Rebirth, Evolutionary Leap, Panharmonicon, Protean Hulk, Ramunap Excava…",
+   "reason": "critic:unsupported_claim: The dossier lists 'synergy.orphans' but does not define or justify the 'functional role' classification for the cited cards. (quoted: \"The deck contains 13 cards with zero functional role (synergy.orphans), including Altar of the Brood, Cosmic Rebirth, Evolutionary Leap, Panharmonicon, Protean; the generator withdrew the finding: The synergy.orphans list includes cards like Fiend Hunter, Gift of Immortality, and Pattern of Rebirth that are explicitly listed as deliberate quirks in the brief and are core to alternate combo lines (e.g., Pattern of Rebirth + Saffi Eriksd"
+  },
+  {
+   "kind": "finding",
+   "item": "p-concept_execution-3: Felidar Guardian and the Gift of Immortality / Pattern of Rebirth recursion engines dilute focus on Saffi Eriksdotter as the sole recursion anchor. While Felidar Guardian enables a…",
+   "reason": "critic:unsupported_claim: The dossier does not clearly establish Saffi Eriksdotter as the 'sole recursion anchor' or show that the cited cards dilute focus rather than add redundancy. (quoted: \"Felidar Guardian and the Gift of Immortality / Pattern of Rebirth recursion engines dilute focus on Saffi Eriksdotter as the s; the generator withdrew the finding: The brief explicitly marks Gift of Immortality, Pattern of Rebirth, and Felidar Guardian as deliberate redundancy (intentional_quirks), so reporting them as diluting focus contradicts the stated design intent. The claim that they occupy slots"
+  },
+  {
+   "kind": "finding",
+   "item": "p-interaction_resilience-1: Reclamation Sage and Krosan Grip are the only cards in the deck that can destroy artifacts and enchantments, leaving the recursion plan vulnerable to graveyard-locking artifacts an…",
+   "reason": "critic:unsupported_claim: The dossier does not provide decklist data to confirm that these are the only two such cards in the deck. (quoted: \"Reclamation Sage and Krosan Grip are the only cards in the deck that can destroy artifacts and enchantments\")"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-3: cut Cosmic Rebirth -> add Endurance",
+   "reason": "code:unresolved_finding_id: the problem it resolves (p-interaction_resilience-1) was removed by the verifier"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-4: cut Protean Hulk -> add Devoted Druid",
+   "reason": "critic:tradeoff_missing: The dossier does not address the trade-off of losing Protean Hulk's tutoring ability, which is a significant combo piece, nor does it fully justify Devoted Druid's replacement value beyond mana generation, as the persist combo interaction is not detailed in the dossier. (quoted: \"Protean Hulk i"
+  }
+ ]
+}

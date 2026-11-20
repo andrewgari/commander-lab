@@ -3,15 +3,15 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 
-from app import app
+from src.server.app.main import app
 
 
 class TestDeckCategories(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_get_deck_categories(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123", "name": "Test Deck"}
         mock_redis.get.return_value = json.dumps({"Sol Ring": ["Ramp"]})
@@ -24,7 +24,7 @@ class TestDeckCategories(unittest.TestCase):
         self.assertEqual(data["categories"], {"Sol Ring": ["Ramp"]})
         mock_redis.get.assert_called_with("deck_categories:archidekt:123")
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_get_deck_categories_missing_deck(self, mock_find_deck):
         mock_find_deck.return_value = None
 
@@ -32,8 +32,8 @@ class TestDeckCategories(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_get_deck_categories_empty(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.get.return_value = None
@@ -43,8 +43,8 @@ class TestDeckCategories(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["categories"], {})
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_add_tag_new_card(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.get.return_value = json.dumps({})
@@ -61,8 +61,8 @@ class TestDeckCategories(unittest.TestCase):
         saved = json.loads(mock_redis.set.call_args[0][1])
         self.assertEqual(saved, {"Sol Ring": ["Ramp"]})
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_add_tag_existing_card(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.get.return_value = json.dumps({"Sol Ring": ["Ramp"]})
@@ -76,8 +76,8 @@ class TestDeckCategories(unittest.TestCase):
         data = response.json()
         self.assertEqual(sorted(data["categories"]), ["Card Draw", "Ramp"])
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_remove_tag(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.get.return_value = json.dumps({"Sol Ring": ["Ramp", "Card Draw"]})
@@ -93,8 +93,8 @@ class TestDeckCategories(unittest.TestCase):
         saved = json.loads(mock_redis.set.call_args[0][1])
         self.assertEqual(saved, {"Sol Ring": ["Card Draw"]})
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_remove_last_tag_drops_entry(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
         mock_redis.get.return_value = json.dumps({"Sol Ring": ["Ramp"]})
@@ -110,7 +110,7 @@ class TestDeckCategories(unittest.TestCase):
         saved = json.loads(mock_redis.set.call_args[0][1])
         self.assertEqual(saved, {})
 
-    @patch("app.registry.find_deck")
+    @patch("src.server.app.main.registry.find_deck")
     def test_post_missing_deck(self, mock_find_deck):
         mock_find_deck.return_value = None
 
@@ -121,8 +121,8 @@ class TestDeckCategories(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_invalid_action(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
 
@@ -133,8 +133,8 @@ class TestDeckCategories(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
 
-    @patch("app.registry.find_deck")
-    @patch("app.r")
+    @patch("src.server.app.main.registry.find_deck")
+    @patch("src.server.app.main.r")
     def test_post_missing_fields(self, mock_redis, mock_find_deck):
         mock_find_deck.return_value = {"id": "archidekt:123"}
 

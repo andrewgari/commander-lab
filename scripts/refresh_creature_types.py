@@ -15,7 +15,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import deck_genre  # noqa: E402
+import src.server.domain.decks.deck_genre as deck_genre  # noqa: E402
 
 
 def _fetch(url):

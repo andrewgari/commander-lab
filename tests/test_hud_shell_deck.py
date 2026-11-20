@@ -18,10 +18,10 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 
 
 def _classes(html):
@@ -51,7 +51,7 @@ class TestShell(unittest.TestCase):
 
     def test_active_section_follows_path_prefix(self):
         cases = {
-            "/": ["Home"],
+            "/": ["Command Center"],
             "/decks": ["Commander Decks"],
             "/deck/Some%20Deck": ["Commander Decks"],
             "/inventory": ["Inventory"],
@@ -64,7 +64,7 @@ class TestShell(unittest.TestCase):
                 html = self.client.get(path).text
                 self.assertEqual(_active_nav_labels(html), expected)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_deck_manage_lights_up_decks_section(self, mock_registry):
         mock_registry.list_decks.return_value = [{"name": "TestDeck", "id": "archidekt:1"}]
         mock_registry.registry_id_of.return_value = "archidekt:1"
@@ -113,9 +113,10 @@ class TestDeckView(unittest.TestCase):
         cls.body = cls.html.split("<body", 1)[1]
         cls.client = client
 
-    def test_page_leads_with_stats(self):
-        # Shared deck header (UX_SPEC §3.0), then the stat strip comes before the briefing and decklist.
-        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="deckStats"', '<h2>Briefing</h2>', 'id="decklistContainer"')]
+    def test_page_leads_with_decklist(self):
+        # Shared deck header (UX_SPEC §3.0), then the decklist leads (NAV_IA §3.3),
+        # followed by the Briefing and the stats-at-a-glance strip.
+        order = [self.body.find(m) for m in ('class="hud-deckhead"', 'id="decklistContainer"', '<h2>Briefing</h2>', 'id="deckStats"', 'id="deckUtilities"')]
         self.assertTrue(all(i > 0 for i in order), order)
         self.assertEqual(order, sorted(order))
         self.assertRegex(self.body, r'<div class="hud-stat-strip" id="deckStats">\s*<div class="hud-stat hud-stat--hero">')
@@ -184,7 +185,8 @@ class TestDeckView(unittest.TestCase):
 
     def test_actions_and_links_preserved(self):
         self.assertIn('href="/deck/Magic%20in%20Stereo/manage"', self.body)
-        for fn in ["initSyncControls", "reviewDeck()", "togglePrimerEdit()", "savePrimer()"]:
+        # The primer (and its edit functions) moved to the Primer tab (NAV_IA §3.2, D5).
+        for fn in ["initSyncControls", "reviewDeck()"]:
             with self.subTest(fn=fn):
                 self.assertIn(fn, self.body)
         for host in ["edhrec.com/commanders", "archidekt.com/decks", "commandersalt.com/details/deck", "moxfield.com/decks"]:

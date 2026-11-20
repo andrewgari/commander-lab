@@ -11,8 +11,8 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import instances
-import registry
+import src.server.domain.inventory.instances as instances
+import src.server.domain.decks.registry as registry
 from fastapi.testclient import TestClient
 from test_decommission import FakeRedis, make_deck
 
@@ -97,7 +97,7 @@ class TestBulk(unittest.TestCase):
 
 class TestBulkEndpoint(unittest.TestCase):
     def setUp(self):
-        import app as app_module
+        import src.server.app.main as app_module
         self.r = FakeRedis()
         self.r.set("decks", json.dumps([mk(1), mk(2), mk(3, status="digital")]))
         instances.create_instance(self.r, "Sol Ring", ownership_status="in_deck",

@@ -13,11 +13,11 @@ res = evaluate_card(r, "Sol Ring", DeckContext(commanders=["Atraxa, Praetors' Vo
 and is reported in `result.warnings` and the per-source status fields.
 
 ## Pipeline
-1. **Card facts** – Scryfall `/cards/collection`, cached `card_eval:card:{name_key}` (7 d): type, text, colour identity, Commander legality.
+1. **Card facts** – Scryfall `/cards/collection`, cached `card_eval:card:{name_key}` (7 d): type, text, colour identity, Commander legality. Each record also carries `type_class` (variant-deck class like plane/scheme/attraction, if any) and `mainboard_gate` — the full mainboard slot-gate result `{slot, legal, reason, type_class}` (Commander-legal AND no variant type class, fail-closed on unknown legality). `legal` is Commander legality only; never read it as mainboard legality.
 2. **EDHREC** – `analytics/providers/edhrec.EDHRecClient` (throttle, retry on 429/5xx), cached `card_eval:edhrec:{slug}` (`EDHREC_MAX_AGE_DAYS`, default 7). A 404 is negative-cached for 1 d; on fetch failure a stale copy is served (`stale: true`).
 3. **Role signal** – Hugging Face zero-shot classification (`hf_classifier.py`) over 11 roles, merged with heuristic roles (`composition.classify_card`) and EDHREC slot priors. HF failure/disabled → heuristics only.
 4. **Strength** 0–100 – weighted mean of inclusion, synergy, model role confidence, and role need (deck lacks the role); components without data are dropped and the rest re-normalised.
-5. **Candidate pool** – EDHREC cards for the commander, not already in the deck, filtered to the commander's colour identity and Commander-legal; same-role first (up to 12), then other roles (up to 8). Physical decks: pass `owned_lookup` to flag `owned` and apply a score bonus.
+5. **Candidate pool** – EDHREC cards for the commander, not already in the deck, filtered to the commander's colour identity and full mainboard legality (the `mainboard_gate` slot gate: Commander-legal with known legality and no variant type class, so planar/scheme/attraction cards are never suggested for the main deck); same-role first (up to 12), then other roles (up to 8). Every candidate carries its `slot_gate` verdict with the pass reason. Physical decks: pass `owned_lookup` to flag `owned` and apply a score bonus.
 
 ## Environment
 | var | default | meaning |
@@ -47,7 +47,8 @@ EvaluationResult
                        commander_slug?, inclusion? 0..1, synergy?, num_decks?, decks_sampled?,
                        slot? (EDHREC cardlist tag), slot_peers [str], stale, error?}
   model: ModelSignal {status: ok|disabled|unavailable, model_id?, error?, scores {role: conf}}
-  candidates: [Candidate {name, roles, same_role, inclusion?, synergy?, score, color_identity, owned?}]
+  candidates: [Candidate {name, roles, same_role, inclusion?, synergy?, score, color_identity, owned?,
+                          slot_gate? {slot: mainboard, legal, reason, type_class?}}]
   warnings: [str]
 ```
 Roles: ramp, card_advantage, targeted_removal, board_wipe, protection, tutor, recursion, token_maker, threat, engine, utility_land.

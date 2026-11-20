@@ -1,0 +1,171 @@
+/* ==========================================================================
+   Commander Lab: Transfer dashboard (TD) mockup kit. Docs only, NOT app code.
+   Loads AFTER the real static/css/hud.css, so everything not defined here is
+   the shipped HUD kit.
+
+   Coders: every rule here is a proposal for hud.css section "Transfers".
+   Class names are final, all hud-/tx- prefixed. Rules:
+     - Tokens in :root are NEW; they move into the hud.css token block.
+     - Only transform and opacity animate. Every animation stops under
+       prefers-reduced-motion.
+     - No new colours, radii or shadows. See SPEC.md section 2.
+   ========================================================================== */
+
+:root {
+    --tx-new:     var(--data-5);   /* committed: inserted + updated */
+    --tx-same:    var(--data-4);   /* committed: unchanged (idempotent no-op). 4.68:1 on surface-1 (data-3 was 2.98, fails 3:1) */
+    --tx-fail:    var(--danger);
+    --tx-ok:      var(--ok);
+    --tx-slo:     var(--text-3);   /* dashed SLO reference line */
+    --tx-chart-h: 11rem;
+    --tx-bar-gap: 0.28;            /* unitless: share of a bar slot left empty (read by JS) */
+}
+
+/* Mock-only chrome (not part of the design) ------------------------------- */
+.mock-note { margin-top: var(--sp-8); color: var(--text-3); font: var(--fs-xs)/1.5 var(--font-mono); max-width: 70ch; }
+.mock-scenarios { display: flex; gap: var(--sp-1); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+
+/* 0. Header: freshness + range ------------------------------------------- */
+.tx-head-tools { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+.tx-fresh { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; white-space: nowrap; }
+.tx-fresh b { color: var(--text-2); font-weight: var(--fw-medium); }
+.tx-dot { width: var(--dot-size, 8px); height: var(--dot-size, 8px); background: var(--text-4); flex: none; }
+.tx-fresh.is-live .tx-dot { background: var(--ok); }
+.tx-fresh.is-paused .tx-dot { background: var(--signal); }
+.tx-fresh.is-offline .tx-dot { background: var(--danger); }
+
+/* Banner (offline / stalled / breach) ------------------------------------ */
+.tx-banner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.tx-banner[hidden] { display: none; }
+.tx-banner.is-danger { border-left-color: var(--danger); background: var(--danger-dim); }
+.tx-banner p { margin: 0; color: var(--text-2); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+.tx-banner p b { color: var(--text-1); font-weight: var(--fw-semibold); }
+
+/* 1. Live run ------------------------------------------------------------- */
+.tx-live { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); background: var(--surface-1); border: var(--stroke); border-left: var(--indicator) solid var(--signal); border-radius: var(--radius-1); }
+.tx-live.is-idle { border-left-color: var(--ok); }
+.tx-live.is-failed, .tx-live.is-stalled { border-left-color: var(--danger); }
+.tx-live-head { display: flex; gap: var(--sp-3) var(--sp-4); align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.tx-live-title { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; margin: 0; color: var(--text-1); font-size: var(--fs-md); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); }
+.tx-live-title .hud-num { color: var(--text-2); font-weight: var(--fw-regular); font-size: var(--fs-sm); }
+.tx-clock { display: flex; gap: var(--sp-4); color: var(--text-3); font: var(--fs-xs) var(--font-mono); font-variant-numeric: tabular-nums; }
+.tx-clock b { color: var(--text-1); font-weight: var(--fw-medium); font-size: var(--fs-sm); }
+
+.tx-progress { position: relative; height: 0.75rem; overflow: hidden; background: var(--surface-3); border-radius: var(--radius-1); }
+.tx-progress > span { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(var(--to, 0)); transition: transform var(--dur-slow) var(--ease); }
+.tx-progress .p-fail { background: var(--danger); }  /* scaleX would stretch a hatch; the Failed counter + aria-valuetext carry the non-colour signal */
+.tx-progress .p-same { background: var(--tx-same); }
+.tx-progress .p-new  { background: var(--tx-new); }
+.tx-progress.is-unknown > span { display: none; }
+.tx-progress.is-unknown::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 30%; background: var(--signal); animation: tx-slide 1.6s var(--ease) infinite; }
+@keyframes tx-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+
+.tx-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: var(--sp-3) var(--sp-5); margin: 0; }
+.tx-counters > div { min-width: 0; }
+.tx-counters dt { display: flex; gap: var(--sp-1); align-items: center; color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.tx-counters dd { margin: var(--sp-1) 0 0; color: var(--text-1); font: var(--fw-medium) var(--fs-lg)/var(--lh-tight) var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-tight); white-space: nowrap; }
+.tx-counters dd small { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+.tx-counters .is-fail dd { color: var(--danger); }
+.tx-sw { width: 8px; height: 8px; flex: none; }
+.tx-sw--new { background: var(--tx-new); } .tx-sw--same { background: var(--tx-same); } .tx-sw--fail { background: var(--danger-dim); outline: 2px solid var(--danger); outline-offset: -2px; }
+.tx-live-foot { display: flex; gap: var(--sp-3); align-items: center; justify-content: space-between; flex-wrap: wrap; color: var(--text-3); font: var(--fs-xs) var(--font-mono); }
+.tx-live-foot .tx-event { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tx-live-foot .tx-event.is-enter { animation: tx-in var(--dur-slow) var(--ease); }
+@keyframes tx-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* 2. Stat strip additions -------------------------------------------------- */
+.tx-stats { --tile-min: 12rem; margin-top: var(--sp-6); }
+.tx-stats .hud-stat-value { font-size: var(--fs-stat); }
+.tx-stats .tx-lead .hud-stat-value { font-size: var(--fs-hero); }
+.tx-stats .tx-lead { grid-column: span 2; }
+.tx-stat-state { margin-left: auto; }
+.tx-spark { display: block; width: 100%; height: 1.5rem; margin-top: var(--sp-1); }
+.tx-spark path { fill: none; stroke: var(--text-3); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+
+/* 3. Charts ----------------------------------------------------------------- */
+.tx-chart { position: relative; min-width: 0; }
+.tx-chart-tools { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.tx-plotwrap { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); grid-template-rows: var(--tx-chart-h) auto; }
+.tx-yaxis { position: relative; grid-row: 1; color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.tx-yaxis span { position: absolute; right: var(--sp-2); transform: translateY(50%); line-height: 1; color: var(--text-3); }
+.tx-plot { position: relative; grid-row: 1; grid-column: 2; border-bottom: var(--stroke-strong); outline: none; cursor: crosshair; }
+.tx-plot:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.tx-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.tx-grid { stroke: var(--line-faint); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.tx-slo { stroke: var(--tx-slo); stroke-width: 1.5; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
+.tx-line { fill: none; stroke: var(--tx-ok); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.tx-bar { stroke: var(--surface-1); stroke-width: 1; vector-effect: non-scaling-stroke; }  /* 1px seam between stacked segments */
+.tx-bar--new { fill: var(--tx-new); } .tx-bar--same { fill: var(--tx-same); }
+.tx-bar--fail { fill: var(--danger-dim); stroke: var(--tx-fail); stroke-width: 2; }  /* hollow + outlined: reads without hue, and survives the non-uniform viewBox (a pattern would stretch) */
+.tx-bar.is-dim { opacity: 0.25; }
+.tx-cursor { position: absolute; top: 0; bottom: 0; width: 0; border-left: var(--hairline) solid var(--text-2); pointer-events: none; opacity: 0; }
+.tx-cursor.is-on { opacity: 1; }
+.tx-pt { position: absolute; width: 7px; height: 7px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--tx-ok); border: 1px solid var(--surface-1); pointer-events: none; }
+.tx-pt.tx-mark { width: 9px; height: 9px; border-radius: 0; background: var(--danger); }  /* square = below limit, never colour alone */
+.tx-runtick { position: absolute; bottom: 0; width: 0; height: 6px; border-left: var(--hairline) solid var(--text-3); pointer-events: none; }
+.tx-xaxis { grid-row: 2; grid-column: 2; position: relative; height: 1.25rem; margin-top: var(--sp-1); color: var(--text-3); font: var(--fs-micro) var(--font-mono); }
+.tx-xaxis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tx-xaxis span:first-child { transform: none; } .tx-xaxis span:last-child { transform: translateX(-100%); }
+.tx-tip { position: absolute; z-index: 3; top: var(--sp-2); min-width: 11rem; padding: var(--sp-2) var(--sp-3); background: var(--surface-3); border: var(--stroke-strong); border-radius: var(--radius-1); color: var(--text-2); font: var(--fs-xs)/1.5 var(--font-mono); pointer-events: none; opacity: 0; transition: opacity var(--dur-fast) var(--ease); }
+.tx-tip.is-on { opacity: 1; }
+.tx-tip b { display: block; margin-bottom: var(--sp-1); color: var(--text-1); font-weight: var(--fw-medium); }
+.tx-tip i { font-style: normal; color: var(--text-3); }
+.tx-tip div { display: flex; justify-content: space-between; gap: var(--sp-4); }
+.tx-legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin-top: var(--sp-3); color: var(--text-3); font: var(--fs-micro) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; }
+.tx-legend > span { display: inline-flex; gap: var(--sp-1); align-items: center; }
+.tx-legend .tx-dash { width: 12px; height: 0; border-top: 2px dashed var(--tx-slo); }
+.tx-legend .tx-sq { width: 8px; height: 8px; background: var(--danger); }
+.tx-axisnote { margin-left: auto; color: var(--text-3); }
+.tx-chart-empty { display: grid; place-items: center; height: var(--tx-chart-h); color: var(--text-3); font: var(--fs-xs) var(--font-mono); letter-spacing: var(--tracking-label); text-transform: uppercase; border: var(--hairline) dashed var(--line-strong); }
+.tx-datatable[hidden], .tx-plotwrap[hidden] { display: none; }
+.tx-datatable { max-height: calc(var(--tx-chart-h) + 2rem); overflow: auto; }
+
+/* Skeleton ------------------------------------------------------------------ */
+.tx-skel { background: var(--surface-2); border-radius: var(--radius-1); }
+.tx-skel.is-pulse { animation: tx-pulse 1.4s var(--ease) infinite alternate; }
+@keyframes tx-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+
+/* 4. Reasons list ------------------------------------------------------------ */
+.tx-reasons { list-style: none; margin: 0; padding: 0; }
+.tx-reason { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); align-items: center; width: 100%; padding: var(--sp-3) var(--sp-4); background: none; border: 0; border-bottom: var(--stroke-faint); color: var(--text-2); font: inherit; text-align: left; cursor: pointer; }
+.tx-reasons li:last-child .tx-reason { border-bottom: 0; }
+.tx-reason:hover { background: var(--surface-2); }
+.tx-reason:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+.tx-reason[aria-pressed="true"] { background: var(--surface-3); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+.tx-reason-name { color: var(--text-1); font: var(--fw-medium) var(--fs-sm) var(--font-mono); }
+.tx-reason-n { color: var(--text-1); font: var(--fw-medium) var(--fs-md) var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.tx-reason-desc { grid-column: 1; color: var(--text-3); font-size: var(--fs-xs); }
+.tx-reason-meta { grid-column: 2; color: var(--text-3); font: var(--fs-xs) var(--font-mono); text-align: right; }
+.tx-reason-bar { grid-column: 1 / -1; position: relative; height: var(--bar-track-h); background: var(--surface-3); overflow: hidden; }
+.tx-reason-bar i { position: absolute; inset: 0; background: var(--danger); transform-origin: left; transform: scaleX(var(--to, 0)); transition: transform var(--dur-slow) var(--ease); }
+.tx-reason.is-zero .tx-reason-name, .tx-reason.is-zero .tx-reason-n { color: var(--text-3); }
+
+/* 5. Runs + detail ------------------------------------------------------------ */
+.tx-runs tbody tr { cursor: pointer; }
+.tx-runlink { background: none; border: 0; padding: 0; color: var(--signal); font: var(--fw-medium) var(--fs-sm) var(--font-mono); cursor: pointer; }
+.tx-runlink:hover { color: var(--signal-strong); text-decoration: underline; }
+.tx-runlink:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.tx-detail { margin-top: var(--sp-4); }
+.tx-detail .hud-panel-meta { display: flex; gap: var(--sp-2); align-items: center; }
+.tx-errmsg { max-width: 52ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.tx-more { display: flex; justify-content: center; padding: var(--sp-3); border-top: var(--stroke-faint); }
+
+/* Layout --------------------------------------------------------------------- */
+.tx-cols { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--sp-4); align-items: start; }
+.tx-cols--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tx-cols > * { min-width: 0; }
+@media (max-width: 1100px) { .tx-cols, .tx-cols--even { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+    .tx-stats .tx-lead { grid-column: auto; }
+    .tx-banner { grid-template-columns: minmax(0, 1fr); }
+    .tx-live { padding: var(--sp-3) var(--sp-4); }
+    .tx-plotwrap { grid-template-columns: 2.25rem minmax(0, 1fr); }
+    .tx-hide-sm { display: none; }
+}
+
+/* Motion: nothing animates for reduced-motion users. ------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+    .tx-progress > span, .tx-reason-bar i, .tx-tip { transition: none; }
+    .tx-progress.is-unknown::after { animation: none; width: 100%; opacity: 0.35; }
+    .tx-skel.is-pulse, .tx-event.is-enter { animation: none; }
+}

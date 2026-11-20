@@ -29,8 +29,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import embeddings
-from analytics import pillar_fit
+from src.server.domain.analytics import embeddings
+from src.server.domain.analytics import pillar_fit
 from tests.test_interactions import FakeRedis
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "holy_hellfire_cards.json")

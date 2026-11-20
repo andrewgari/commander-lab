@@ -1,0 +1,50 @@
+{
+  "name": "andrew",
+  "builder_identity": {
+    "text": "Builds far more than he pilots and cares a lot that decks are well constructed. Enjoys unusual, wacky concepts; uses EDHREC as a baseline, then diverges deliberately. Favorite planeswalkers: Elspeth and Venser (card families, not specific printings).",
+    "tags": [
+      "builder-first",
+      "well-constructed",
+      "wacky",
+      "edhrec-then-diverge",
+      "fav-planeswalker:Elspeth",
+      "fav-planeswalker:Venser"
+    ]
+  },
+  "color_affinities": {
+    "Bant": 0.8,
+    "Naya": 0.8
+  },
+  "archetype_affinities": {
+    "equipment": 0.8,
+    "auras": 0.8
+  },
+  "favored_mechanics": [],
+  "pet_cards": [],
+  "dislikes": {
+    "cards": [],
+    "strategies": [],
+    "play_patterns": []
+  },
+  "power_tendencies": {
+    "tier": null,
+    "notes": ""
+  },
+  "budget_norms": {
+    "hard_cap": null,
+    "soft_cap": null,
+    "currency": "USD"
+  },
+  "review_preferences": {
+    "depth": null,
+    "tone": "direct",
+    "skip": [
+      "padding",
+      "generic praise"
+    ],
+    "welcome_generic_staples": null
+  },
+  "done_when": [
+    "The deck is well constructed and its unusual concept is intact."
+  ]
+}

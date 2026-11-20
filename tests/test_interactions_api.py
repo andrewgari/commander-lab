@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 DECK = {"id": 417707, "name": "Holy Hellfire", "registry_id": "archidekt:417707",
         "cards": [{"name": "Sol Ring", "quantity": 1}]}
@@ -25,8 +25,8 @@ class TestDeckGraphRoute(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.interactions_service")
-    @patch("app.registry")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.registry")
     def test_by_name(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = None
         mock_registry.list_decks.return_value = [DECK]
@@ -39,15 +39,15 @@ class TestDeckGraphRoute(unittest.TestCase):
         mock_service.get_deck_graph.assert_called_once()
         self.assertEqual(mock_service.get_deck_graph.call_args[0][1]["registry_id"], "archidekt:417707")
 
-    @patch("app.interactions_service")
-    @patch("app.registry")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.registry")
     def test_by_registry_id(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = DECK
         mock_service.get_deck_graph.return_value = GRAPH
         res = self.client.get("/api/decks/archidekt:417707/interactions")
         self.assertEqual(res.status_code, 200)
 
-    @patch("app.registry")
+    @patch("src.server.app.main.registry")
     def test_unknown_deck_404(self, mock_registry):
         mock_registry.find_deck.return_value = None
         mock_registry.list_decks.return_value = []
@@ -60,7 +60,7 @@ class TestRefreshRoutes(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.interactions_service")
+    @patch("src.server.app.main.interactions_service")
     def test_refresh_all_starts_background_rebuild(self, mock_service):
         mock_service.start_rebuild.return_value = {"started": True, "trigger": "manual"}
         res = self.client.post("/api/interactions/refresh")
@@ -68,15 +68,15 @@ class TestRefreshRoutes(unittest.TestCase):
         mock_service.start_rebuild.assert_called_once()
         self.assertEqual(mock_service.start_rebuild.call_args.kwargs["trigger"], "manual")
 
-    @patch("app.interactions_service")
+    @patch("src.server.app.main.interactions_service")
     def test_refresh_wait_runs_inline_and_returns_run(self, mock_service):
         mock_service.rebuild.return_value = {"run_id": "x", "status": "ok"}
         res = self.client.post("/api/interactions/refresh?wait=true")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["run"]["status"], "ok")
 
-    @patch("app.interactions_service")
-    @patch("app.registry")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.registry")
     def test_refresh_one_deck(self, mock_registry, mock_service):
         mock_registry.find_deck.return_value = DECK
         mock_service.start_rebuild.return_value = {"started": True}
@@ -84,7 +84,7 @@ class TestRefreshRoutes(unittest.TestCase):
         self.assertEqual(res.status_code, 202)
         self.assertEqual(mock_service.start_rebuild.call_args.kwargs["deck_ids"], ["archidekt:417707"])
 
-    @patch("app.interactions_service")
+    @patch("src.server.app.main.interactions_service")
     def test_runs_and_collection(self, mock_service):
         mock_service.list_runs.return_value = [{"run_id": "a"}]
         mock_service.get_collection_graph.return_value = {"counts": {"nodes": 3, "edges": 2}, "nodes": [], "index": {}}
@@ -92,7 +92,7 @@ class TestRefreshRoutes(unittest.TestCase):
         body = self.client.get("/api/interactions/collection").json()
         self.assertEqual(body["graph"]["counts"]["edges"], 2)
 
-    @patch("app.interactions_service")
+    @patch("src.server.app.main.interactions_service")
     def test_collection_missing_is_404(self, mock_service):
         mock_service.get_collection_graph.return_value = None
         self.assertEqual(self.client.get("/api/interactions/collection").status_code, 404)
@@ -102,8 +102,8 @@ class TestSyncTriggersRebuild(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app.interactions_service")
-    @patch("app.deck_sync")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.deck_sync")
     def test_deck_sync_route_triggers_scoped_rebuild(self, mock_sync, mock_service):
         class Rep:
             def to_dict(self):
@@ -114,8 +114,8 @@ class TestSyncTriggersRebuild(unittest.TestCase):
         mock_service.start_rebuild.assert_called_once()
         self.assertEqual(mock_service.start_rebuild.call_args.kwargs["trigger"], "sync")
 
-    @patch("app.interactions_service")
-    @patch("app.linked_accounts")
+    @patch("src.server.app.main.interactions_service")
+    @patch("src.server.app.main.linked_accounts")
     def test_sync_all_triggers_rebuild(self, mock_la, mock_service):
         mock_la.sync_all.return_value = []
         res = self.client.post("/api/linked-accounts/sync-all")

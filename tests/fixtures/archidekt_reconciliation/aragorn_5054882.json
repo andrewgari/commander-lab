@@ -1,0 +1,3425 @@
+{
+  "id": 5054882,
+  "name": "The Return of the King",
+  "parentFolderId": 588380,
+  "parentFolderName": "Commander Decks",
+  "deckFormat": 3,
+  "updatedAt": "2026-10-20T12:00:00Z",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "description": "",
+  "categories": [
+    {
+      "name": "Commander",
+      "includedInDeck": true
+    },
+    {
+      "name": "Maindeck",
+      "includedInDeck": true
+    },
+    {
+      "name": "Ramp",
+      "includedInDeck": true
+    }
+  ],
+  "cards": [
+    {
+      "quantity": 1,
+      "categories": [
+        "Commander"
+      ],
+      "finish": "foil",
+      "owned": "Have",
+      "card": {
+        "uid": "sf-fx-0001",
+        "collectorNumber": "1",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Aragorn, the Uniter",
+          "uid": "o-fx-0001",
+          "types": [
+            "Legendary",
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0002",
+        "collectorNumber": "2",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 002",
+          "uid": "o-fx-0002",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0003",
+        "collectorNumber": "3",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 003",
+          "uid": "o-fx-0003",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0004",
+        "collectorNumber": "4",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 004",
+          "uid": "o-fx-0004",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0005",
+        "collectorNumber": "5",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 005",
+          "uid": "o-fx-0005",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0006",
+        "collectorNumber": "6",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 006",
+          "uid": "o-fx-0006",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0007",
+        "collectorNumber": "7",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 007",
+          "uid": "o-fx-0007",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0008",
+        "collectorNumber": "8",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 008",
+          "uid": "o-fx-0008",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0009",
+        "collectorNumber": "9",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 009",
+          "uid": "o-fx-0009",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0010",
+        "collectorNumber": "10",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 010",
+          "uid": "o-fx-0010",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0011",
+        "collectorNumber": "11",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 011",
+          "uid": "o-fx-0011",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0012",
+        "collectorNumber": "12",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 012",
+          "uid": "o-fx-0012",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0013",
+        "collectorNumber": "13",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 013",
+          "uid": "o-fx-0013",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0014",
+        "collectorNumber": "14",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 014",
+          "uid": "o-fx-0014",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0015",
+        "collectorNumber": "15",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 015",
+          "uid": "o-fx-0015",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0016",
+        "collectorNumber": "16",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 016",
+          "uid": "o-fx-0016",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0017",
+        "collectorNumber": "17",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 017",
+          "uid": "o-fx-0017",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0018",
+        "collectorNumber": "18",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 018",
+          "uid": "o-fx-0018",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0019",
+        "collectorNumber": "19",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 019",
+          "uid": "o-fx-0019",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0020",
+        "collectorNumber": "20",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 020",
+          "uid": "o-fx-0020",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0021",
+        "collectorNumber": "21",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 021",
+          "uid": "o-fx-0021",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0022",
+        "collectorNumber": "22",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 022",
+          "uid": "o-fx-0022",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0023",
+        "collectorNumber": "23",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 023",
+          "uid": "o-fx-0023",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0024",
+        "collectorNumber": "24",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 024",
+          "uid": "o-fx-0024",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0025",
+        "collectorNumber": "25",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 025",
+          "uid": "o-fx-0025",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0026",
+        "collectorNumber": "26",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 026",
+          "uid": "o-fx-0026",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0027",
+        "collectorNumber": "27",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 027",
+          "uid": "o-fx-0027",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0028",
+        "collectorNumber": "28",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 028",
+          "uid": "o-fx-0028",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0029",
+        "collectorNumber": "29",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 029",
+          "uid": "o-fx-0029",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0030",
+        "collectorNumber": "30",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 030",
+          "uid": "o-fx-0030",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0031",
+        "collectorNumber": "31",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 031",
+          "uid": "o-fx-0031",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0032",
+        "collectorNumber": "32",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 032",
+          "uid": "o-fx-0032",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0033",
+        "collectorNumber": "33",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 033",
+          "uid": "o-fx-0033",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0034",
+        "collectorNumber": "34",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 034",
+          "uid": "o-fx-0034",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0035",
+        "collectorNumber": "35",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 035",
+          "uid": "o-fx-0035",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0036",
+        "collectorNumber": "36",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 036",
+          "uid": "o-fx-0036",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0037",
+        "collectorNumber": "37",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 037",
+          "uid": "o-fx-0037",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0038",
+        "collectorNumber": "38",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 038",
+          "uid": "o-fx-0038",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0039",
+        "collectorNumber": "39",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 039",
+          "uid": "o-fx-0039",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0040",
+        "collectorNumber": "40",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 040",
+          "uid": "o-fx-0040",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0041",
+        "collectorNumber": "41",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 041",
+          "uid": "o-fx-0041",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0042",
+        "collectorNumber": "42",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 042",
+          "uid": "o-fx-0042",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0043",
+        "collectorNumber": "43",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 043",
+          "uid": "o-fx-0043",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0044",
+        "collectorNumber": "44",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 044",
+          "uid": "o-fx-0044",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0045",
+        "collectorNumber": "45",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 045",
+          "uid": "o-fx-0045",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0046",
+        "collectorNumber": "46",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 046",
+          "uid": "o-fx-0046",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0047",
+        "collectorNumber": "47",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 047",
+          "uid": "o-fx-0047",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0048",
+        "collectorNumber": "48",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 048",
+          "uid": "o-fx-0048",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0049",
+        "collectorNumber": "49",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 049",
+          "uid": "o-fx-0049",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0050",
+        "collectorNumber": "50",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 050",
+          "uid": "o-fx-0050",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0051",
+        "collectorNumber": "51",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 051",
+          "uid": "o-fx-0051",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0052",
+        "collectorNumber": "52",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 052",
+          "uid": "o-fx-0052",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0053",
+        "collectorNumber": "53",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 053",
+          "uid": "o-fx-0053",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0054",
+        "collectorNumber": "54",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 054",
+          "uid": "o-fx-0054",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0055",
+        "collectorNumber": "55",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 055",
+          "uid": "o-fx-0055",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0056",
+        "collectorNumber": "56",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 056",
+          "uid": "o-fx-0056",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0057",
+        "collectorNumber": "57",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 057",
+          "uid": "o-fx-0057",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0058",
+        "collectorNumber": "58",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 058",
+          "uid": "o-fx-0058",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0059",
+        "collectorNumber": "59",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 059",
+          "uid": "o-fx-0059",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0060",
+        "collectorNumber": "60",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 060",
+          "uid": "o-fx-0060",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0061",
+        "collectorNumber": "61",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 061",
+          "uid": "o-fx-0061",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0062",
+        "collectorNumber": "62",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 062",
+          "uid": "o-fx-0062",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0063",
+        "collectorNumber": "63",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 063",
+          "uid": "o-fx-0063",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0064",
+        "collectorNumber": "64",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 064",
+          "uid": "o-fx-0064",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0065",
+        "collectorNumber": "65",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 065",
+          "uid": "o-fx-0065",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0066",
+        "collectorNumber": "66",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 066",
+          "uid": "o-fx-0066",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0067",
+        "collectorNumber": "67",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 067",
+          "uid": "o-fx-0067",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0068",
+        "collectorNumber": "68",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 068",
+          "uid": "o-fx-0068",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0069",
+        "collectorNumber": "69",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 069",
+          "uid": "o-fx-0069",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0070",
+        "collectorNumber": "70",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 070",
+          "uid": "o-fx-0070",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0071",
+        "collectorNumber": "71",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 071",
+          "uid": "o-fx-0071",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0072",
+        "collectorNumber": "72",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 072",
+          "uid": "o-fx-0072",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0073",
+        "collectorNumber": "73",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 073",
+          "uid": "o-fx-0073",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0074",
+        "collectorNumber": "74",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 074",
+          "uid": "o-fx-0074",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0075",
+        "collectorNumber": "75",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 075",
+          "uid": "o-fx-0075",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0076",
+        "collectorNumber": "76",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 076",
+          "uid": "o-fx-0076",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0077",
+        "collectorNumber": "77",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 077",
+          "uid": "o-fx-0077",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0078",
+        "collectorNumber": "78",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 078",
+          "uid": "o-fx-0078",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0079",
+        "collectorNumber": "79",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 079",
+          "uid": "o-fx-0079",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0080",
+        "collectorNumber": "80",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 080",
+          "uid": "o-fx-0080",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0081",
+        "collectorNumber": "81",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 081",
+          "uid": "o-fx-0081",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0082",
+        "collectorNumber": "82",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 082",
+          "uid": "o-fx-0082",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0083",
+        "collectorNumber": "83",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 083",
+          "uid": "o-fx-0083",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 1,
+      "categories": [
+        "Maindeck"
+      ],
+      "finish": "nonfoil",
+      "card": {
+        "uid": "sf-fx-0084",
+        "collectorNumber": "84",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 084",
+          "uid": "o-fx-0084",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0085",
+        "collectorNumber": "85",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 085",
+          "uid": "o-fx-0085",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0086",
+        "collectorNumber": "86",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 086",
+          "uid": "o-fx-0086",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0087",
+        "collectorNumber": "87",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 087",
+          "uid": "o-fx-0087",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0088",
+        "collectorNumber": "88",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 088",
+          "uid": "o-fx-0088",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0089",
+        "collectorNumber": "89",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 089",
+          "uid": "o-fx-0089",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0090",
+        "collectorNumber": "90",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 090",
+          "uid": "o-fx-0090",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0091",
+        "collectorNumber": "91",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 091",
+          "uid": "o-fx-0091",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    },
+    {
+      "quantity": 2,
+      "categories": [
+        "Ramp"
+      ],
+      "card": {
+        "uid": "sf-fx-0092",
+        "collectorNumber": "92",
+        "rarity": "rare",
+        "edition": {
+          "editioncode": "fx"
+        },
+        "prices": {
+          "usd": 0.25
+        },
+        "oracleCard": {
+          "name": "Fixture Card 092",
+          "uid": "o-fx-0092",
+          "types": [
+            "Creature"
+          ],
+          "superTypes": [],
+          "subTypes": [],
+          "cmc": 3.0,
+          "manaCost": "{2}{G}",
+          "colors": [
+            "Green"
+          ],
+          "colorIdentity": [
+            "Green"
+          ],
+          "text": "",
+          "keywords": []
+        }
+      }
+    }
+  ],
+  "_fixture_note": "SYNTHETIC fixture generated by scripts/gen_archidekt_reconciliation_fixtures.py to reproduce the STA-9 source-validation report's verified aggregate behavior. Roster identity (id/name/url), commander names, and aggregate counts are from the validated snapshot; all other card names, printings, and timestamps are placeholders, not captured source data."
+}

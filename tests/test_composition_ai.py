@@ -9,8 +9,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import composition_ai as ca
-from analytics.interactions import llm as llm_mod
+from src.server.domain.analytics import composition_ai as ca
+from src.server.domain.analytics.interactions import llm as llm_mod
 from tests.test_identity import JsonProvider
 
 

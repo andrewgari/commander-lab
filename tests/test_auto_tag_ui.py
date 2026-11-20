@@ -20,10 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
-JS = ROOT / "static" / "js" / "auto_tag.js"
+JS = ROOT / "src/web/static" / "js" / "auto_tag.js"
 
 HARNESS = r"""
 const AT = require(process.argv[1]);

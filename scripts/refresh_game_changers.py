@@ -14,8 +14,8 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import brackets as br  # noqa: E402
-from src.integrations.scryfall import ScryfallClient  # noqa: E402
+from src.server.domain.analytics import brackets as br  # noqa: E402
+from src.server.infra.providers.scryfall import ScryfallClient  # noqa: E402
 
 OFFICIAL_UPDATE = br.SOURCES["update_2026_02"]
 

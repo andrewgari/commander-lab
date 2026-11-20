@@ -22,12 +22,12 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-DECKS_HTML = ROOT / "templates" / "decks.html"
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-HUD_JS = ROOT / "static" / "js" / "hud.js"
+DECKS_HTML = ROOT / "src/web/templates" / "decks.html"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
 
 UID_A = "0a1b2c3d-1111-4222-8333-444455556666"
 UID_B = "9f8e7d6c-aaaa-4bbb-8ccc-ddddeeeeffff"
@@ -124,8 +124,8 @@ class TestDeckHeadMultiCommander(unittest.TestCase):
         cls.client = TestClient(app)
 
     def _get(self, path, decks):
-        with patch("app.registry.list_decks", return_value=decks), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=decks), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             res = self.client.get(path)
         self.assertEqual(res.status_code, 200)
         return res.text.split('<header class="hud-deckhead">', 1)[1].split("</header>", 1)[0]

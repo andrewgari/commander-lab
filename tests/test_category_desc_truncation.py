@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 class CategoryDescriptionTooltipTest(unittest.TestCase):
     def setUp(self):
-        self.js = (REPO_ROOT / "static" / "js" / "categories.js").read_text(encoding="utf-8")
+        self.js = (REPO_ROOT / "src/web/static" / "js" / "categories.js").read_text(encoding="utf-8")
 
     def test_item_desc_has_title_tooltip_with_full_description(self):
         match = re.search(

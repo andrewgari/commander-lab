@@ -11,7 +11,7 @@ try:
 except ImportError as exc:
     raise unittest.SkipTest("pytest not installed; install pytest to run pytest-based tests") from exc
 
-from src.services.repo_status import (
+from src.server.infra.services.repo_status import (
     clear_repo_status_cache,
     enrich_decks_with_repo_status,
     get_cache_size,
@@ -204,8 +204,8 @@ def test_cache_behavior_within_ttl_and_after_expiry(clean_repo):
     def current_time():
         return fake_time
 
-    with patch("src.services.repo_status.time.time", side_effect=current_time):
-        with patch("src.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
+    with patch("src.server.infra.services.repo_status.time.time", side_effect=current_time):
+        with patch("src.server.infra.services.repo_status.subprocess.run", wraps=subprocess.run) as mock_git:
             # 1. First query: cache miss -> git executed once
             status1 = get_repo_status(clean_repo, ttl=10.0)
             assert mock_git.call_count == 1

@@ -15,9 +15,9 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from analytics import personality_read
-from analytics.oracle_client import OracleUnavailable
-from app import app
+from src.server.domain.analytics import personality_read
+from src.server.domain.analytics.oracle_client import OracleUnavailable
+from src.server.app.main import app
 
 
 class FakeRedis:
@@ -291,8 +291,8 @@ class TestApiRoutes(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
 
-    @patch("app._find_deck_any", return_value=SAMPLE_DECK)
-    @patch("app.r", new_callable=FakeRedis)
+    @patch("src.server.app.main._find_deck_any", return_value=SAMPLE_DECK)
+    @patch("src.server.app.main.r", new_callable=FakeRedis)
     def test_post_personality_read_cached_returns_200(self, mock_r, mock_deck):
         h = personality_read.current_input_hash(mock_r, SAMPLE_DECK)
         doc = personality_read.validate_doc(VALID_ORACLE_JSON)
@@ -306,13 +306,13 @@ class TestApiRoutes(unittest.TestCase):
         read_obj = data.get("read") or {}
         self.assertEqual(read_obj.get("leans_toward"), "spike")
 
-    @patch("app._find_deck_any", return_value=SAMPLE_DECK)
-    @patch("app._oracle_preflight", return_value=None)
-    @patch("app.r", new_callable=FakeRedis)
+    @patch("src.server.app.main._find_deck_any", return_value=SAMPLE_DECK)
+    @patch("src.server.app.main._oracle_preflight", return_value=None)
+    @patch("src.server.app.main.r", new_callable=FakeRedis)
     def test_post_personality_read_starts_job(self, mock_r, mock_pre, mock_deck):
         reply = "```json\n" + json.dumps(VALID_ORACLE_JSON) + "\n```"
         fake_client = FakeOracleClient(reply_content=reply)
-        with patch("app._oracle_client", return_value=fake_client):
+        with patch("src.server.app.main._oracle_client", return_value=fake_client):
             resp = self.client.post("/api/decks/archidekt:417707/personality/read", json={"force": True})
             self.assertEqual(resp.status_code, 202)
             data = resp.json()
@@ -326,8 +326,8 @@ class TestApiRoutes(unittest.TestCase):
             pdata = poll_resp.json()
             self.assertTrue(pdata.get("success"))
 
-    @patch("app._find_deck_any", return_value=SAMPLE_DECK)
-    @patch("app.r", new_callable=FakeRedis)
+    @patch("src.server.app.main._find_deck_any", return_value=SAMPLE_DECK)
+    @patch("src.server.app.main.r", new_callable=FakeRedis)
     def test_get_personality_read_endpoint(self, mock_r, mock_deck):
         # 404 before read
         resp = self.client.get("/api/decks/archidekt:417707/personality/read")

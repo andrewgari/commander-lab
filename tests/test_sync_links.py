@@ -17,10 +17,10 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 os.environ.setdefault("ARCHIDEKT_USERNAME", "test_user")
 
-import instances as instance_store  # noqa: E402
-import linked_accounts  # noqa: E402
-import registry  # noqa: E402
-from providers import PROVIDERS  # noqa: E402
+import src.server.domain.inventory.instances as instance_store  # noqa: E402
+import src.server.infra.providers.linked_accounts as linked_accounts  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
+from src.server.infra.providers import PROVIDERS  # noqa: E402
 from tests.test_instances import FakeRedis  # noqa: E402
 
 import backfill_deck_links  # noqa: E402
@@ -194,7 +194,7 @@ class TestFullSyncPreservesLinks(unittest.TestCase):
         self.assertEqual(out["moxfield:Z"]["links"]["moxfield"]["deck_id"], "Z")
 
     def test_sync_py_writes_merged_registry(self):
-        import sync
+        import src.server.workers.sync as sync
         r = FakeRedis()
         r.set("decks", json.dumps([
             {"id": 101, "name": "A", "status": "physical", "source": "archidekt", "source_id": "101",
@@ -224,7 +224,7 @@ class TestFullSyncPreservesLinks(unittest.TestCase):
 class TestImportRoute(Base):
     def test_import_writes_links_and_attaches_moxfield(self):
         from fastapi.testclient import TestClient
-        import app as app_module
+        import src.server.app.main as app_module
         r = FakeRedis()
         PROVIDERS["archidekt"] = FakeProvider([arch_deck(101, "A", ["Cmd A"])])
         PROVIDERS["moxfield"] = FakeProvider([mox_deck("M1", "A", ["Cmd A"]), mox_deck("M2", "New", ["Cmd Z"])])

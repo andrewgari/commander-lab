@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from providers import moxfield, archidekt
+from src.server.infra.providers import moxfield, archidekt
 
 
 class TestMoxfieldParseIdentifier(unittest.TestCase):
@@ -98,7 +98,7 @@ class TestArchidektColorIdentity(unittest.TestCase):
                 },
             ],
         }
-        with patch("providers.archidekt.requests.get", return_value=self._mock_response(payload)):
+        with patch("src.server.infra.providers.archidekt.requests.get", return_value=self._mock_response(payload)):
             deck = archidekt.fetch_deck("6862011")
         self.assertEqual(deck["color"], "BRG")  # WUBRG order, union of B/R/G
 
@@ -118,7 +118,7 @@ class TestArchidektColorIdentity(unittest.TestCase):
                 },
             ],
         }
-        with patch("providers.archidekt.requests.get", return_value=self._mock_response(payload)):
+        with patch("src.server.infra.providers.archidekt.requests.get", return_value=self._mock_response(payload)):
             deck = archidekt.fetch_deck("6862011")
         self.assertEqual(deck["color"], "C")
 
@@ -139,7 +139,7 @@ class TestArchidektListDecks(unittest.TestCase):
         page2 = MagicMock()
         page2.json.return_value = {"results": [{"id": 3}], "next": None}
 
-        with patch("providers.archidekt.requests.get", side_effect=[user_resp, page1, page2]) as mock_get:
+        with patch("src.server.infra.providers.archidekt.requests.get", side_effect=[user_resp, page1, page2]) as mock_get:
             ids = archidekt.list_decks("CovaDax")
         self.assertEqual(ids, ["1", "2", "3"])
         self.assertEqual(mock_get.call_count, 3)
@@ -149,7 +149,7 @@ class TestArchidektListDecks(unittest.TestCase):
 
         user_resp = MagicMock()
         user_resp.json.return_value = {"results": []}
-        with patch("providers.archidekt.requests.get", return_value=user_resp):
+        with patch("src.server.infra.providers.archidekt.requests.get", return_value=user_resp):
             with self.assertRaises(archidekt.ArchidektUserNotFound):
                 archidekt.list_decks("zzz_nonexistent_user_xyz_12345")
 
@@ -178,7 +178,7 @@ class TestMoxfieldListDecks(unittest.TestCase):
         page1 = make_page(2, ["abc", "def"])
         page2 = make_page(2, ["ghi"])
 
-        with patch("providers.moxfield.requests.get", side_effect=[page1, page2]) as mock_get:
+        with patch("src.server.infra.providers.moxfield.requests.get", side_effect=[page1, page2]) as mock_get:
             ids = moxfield.list_decks("CovaDax")
         self.assertEqual(ids, ["abc", "def", "ghi"])
         self.assertEqual(mock_get.call_count, 2)
@@ -193,7 +193,7 @@ class TestMoxfieldListDecks(unittest.TestCase):
             "totalPages": 2000,
             "data": [{"publicId": "unrelated1", "authors": [{"userName": "someone_else"}]}],
         }
-        with patch("providers.moxfield.requests.get", return_value=resp):
+        with patch("src.server.infra.providers.moxfield.requests.get", return_value=resp):
             with self.assertRaises(moxfield.MoxfieldUserNotFound):
                 moxfield.list_decks("zzz_nonexistent_user_xyz_12345")
 
@@ -206,14 +206,14 @@ class TestProvidersDispatcher(unittest.TestCase):
     def test_list_decks_dispatches(self):
         from unittest.mock import patch
 
-        with patch("providers.archidekt.list_decks", return_value=["1", "2"]) as mocked:
-            from providers import list_decks
+        with patch("src.server.infra.providers.archidekt.list_decks", return_value=["1", "2"]) as mocked:
+            from src.server.infra.providers import list_decks
 
             self.assertEqual(list_decks("archidekt", "CovaDax"), ["1", "2"])
             mocked.assert_called_once_with("CovaDax")
 
     def test_list_decks_unknown_provider_raises(self):
-        from providers import list_decks, ProviderError
+        from src.server.infra.providers import list_decks, ProviderError
 
         with self.assertRaises(ProviderError):
             list_decks("nonexistent", "someone")

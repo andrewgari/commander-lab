@@ -6,10 +6,10 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-import app as app_mod
-from analytics import tune_store as ts
-from analytics import tuner
-from app import app
+import src.server.app.main as app_mod
+from src.server.domain.analytics import tune_store as ts
+from src.server.domain.analytics import tuner
+from src.server.app.main import app
 
 DECK = {"id": 417707, "registry_id": "archidekt:417707", "name": "Holy Hellfire"}
 
@@ -194,9 +194,9 @@ class TestApi(unittest.TestCase):
             return {"n": outer.n, "mode": mode, "swaps": []}
 
         self.patches = [patch.object(app_mod, "r", self.r),
-                        patch("app.registry.find_deck",
+                        patch("src.server.app.main.registry.find_deck",
                               side_effect=lambda r, d: DECK if d in ("archidekt:417707", "417707") else None),
-                        patch("app.registry.list_decks", return_value=[DECK]),
+                        patch("src.server.app.main.registry.list_decks", return_value=[DECK]),
                         patch.object(tuner, "compute", fake_compute)]
         for p in self.patches:
             p.start()

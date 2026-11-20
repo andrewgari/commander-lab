@@ -10,7 +10,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from app import app, templates
+from src.server.app.main import app, templates
 
 STYLESHEET = "/static/css/hud.css"
 SCRIPT = "/static/js/hud.js"

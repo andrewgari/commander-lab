@@ -70,7 +70,7 @@ class TestChangelogScript(unittest.TestCase):
         self.assertEqual(cl.validate(real), [])
 
     def test_renders_in_release_body_renderer(self):
-        from app import render_release_body
+        from src.server.app.main import render_release_body
         html = render_release_body(cl.extract(FIX, "Unreleased"))
         self.assertIn("<h3>Added</h3>", html)
         self.assertIn("<li>New thing for users.", html)

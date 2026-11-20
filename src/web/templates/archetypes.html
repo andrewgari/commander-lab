@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% import "partials/hud.html" as hud %}
+
+{% block title %}Archetypes | Commander Lab{% endblock %}
+
+{% block crumbs %}{{ hud.crumbs([{"label": "Archetypes"}]) }}{% endblock %}
+{% block topbar_meta %}<span id="arVersion" class="hud-freshness">Loading…</span>{% endblock %}
+{% block work_class %} hud-work--detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Vocab PR3 archetype registry. HUD tokens only; stacks to one column on the 390px rail. */
+    .ar-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--sp-6); align-items: start; }
+    .ar-list { list-style: none; margin: 0; padding: 0; }
+    .ar-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: var(--stroke-faint);
+               color: var(--text-1); padding: var(--sp-4) var(--sp-5); cursor: pointer; font: inherit; }
+    .ar-item:hover { background: var(--surface-2); }
+    .ar-item[aria-current="true"] { background: var(--surface-2); box-shadow: inset var(--indicator) 0 0 var(--signal); }
+    .ar-item-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-weight: var(--fw-semibold); }
+    .ar-item-desc { margin: var(--sp-1) 0 0; color: var(--text-3); font-size: var(--fs-xs); line-height: var(--lh-snug); overflow-wrap: anywhere;
+                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ar-item-desc > p { margin: 0; }
+    .ar-item-desc > ul, .ar-item-desc > ol { margin: 0; padding-left: var(--sp-5); }
+    .ar-desc-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+    .ar-desc-field textarea { min-height: 6.5rem; max-height: 40vh; field-sizing: content; }
+    .ar-desc-field textarea.is-error { border-color: var(--danger); }
+    .ar-desc-preview { box-sizing: border-box; width: 100%; min-height: 6.5rem; max-height: 40vh; overflow-y: auto;
+                       padding: var(--sp-2) var(--sp-3); background: var(--surface-1); border: var(--stroke);
+                       border-radius: var(--radius-1); color: var(--text-1); font-size: var(--fs-sm);
+                       line-height: var(--lh-base); overflow-wrap: anywhere; }
+    .ar-desc-preview p { margin: 0 0 var(--sp-3); }
+    .ar-desc-preview ul, .ar-desc-preview ol { margin: 0 0 var(--sp-3); padding-left: var(--sp-5); }
+    .ar-desc-preview code { font-family: var(--font-mono); font-size: var(--fs-xs); }
+    .ar-desc-preview :last-child { margin-bottom: 0; }
+    .ar-desc-foot { display: flex; align-items: baseline; gap: var(--sp-3); }
+    .ar-desc-foot .hud-field-hint { flex: 1; }
+    .ar-roles { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .ar-role { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); background: var(--surface-1);
+               border: var(--stroke); border-radius: var(--radius-1); }
+    .ar-role-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
+    .ar-role-query textarea { width: 100%; box-sizing: border-box; font-family: var(--font-mono); font-size: var(--fs-xs);
+                              min-height: 2.4rem; field-sizing: content; }
+    .ar-role-starters { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .ar-role-preview { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .ar-role-preview .ar-pv-out { font-size: var(--fs-xs); color: var(--text-2); overflow-wrap: anywhere; }
+    .ar-role-preview .ar-pv-out.is-error { color: var(--danger); }
+    .ar-role-preview .ar-pv-out.is-warn { color: var(--warn, var(--danger)); }
+    .ar-role-foot { display: grid; grid-template-columns: 4.5rem 4.5rem auto; gap: var(--sp-3); align-items: end; }
+    .ar-role .hud-field > label { font-size: var(--fs-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: var(--tracking-label); }
+    .ar-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+    .ar-actions .ar-spacer { flex: 1; }
+    .ar-msg { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-base); color: var(--text-2); overflow-wrap: anywhere; }
+    .ar-msg.is-error { color: var(--danger); }
+    .ar-msg.is-ok { color: var(--ok); }
+    @media (max-width: 900px) {
+        .ar-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 520px) {
+        .ar-role-head { grid-template-columns: minmax(0, 1fr); }
+        .ar-item { padding: var(--sp-3) var(--sp-4); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call hud.page_head("Archetypes", eyebrow="Global registry") %}
+    <button type="button" class="hud-btn hud-btn--primary" id="arNew">New archetype</button>
+{% endcall %}
+<p class="ar-msg" style="margin-bottom: var(--sp-5)">Archetypes are a global, editable list. Each has a name, a description, and required card roles. Every role is a tag, and every tag is one Scryfall query — the raw query is always visible and editable. A deck's archetype is picked here, or derived from how well the whole deck fills an archetype's required roles.</p>
+
+<div class="ar-layout">
+    <section class="hud-panel">
+        <header class="hud-panel-head"><h3 class="hud-panel-title">Registry</h3><div class="hud-panel-meta" id="arCount"></div></header>
+        <div class="hud-panel-body" style="padding:0">
+            <ul class="ar-list" id="arList" aria-label="Archetypes"></ul>
+        </div>
+    </section>
+
+    <section class="hud-panel" id="arEditor" aria-live="polite">
+        <header class="hud-panel-head"><h3 class="hud-panel-title" id="arEditorTitle">New archetype</h3><div class="hud-panel-meta" id="arEditorMeta"></div></header>
+        <div class="hud-panel-body">
+            <form class="hud-form-stack" id="arForm" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--sp-5)">
+                <div class="hud-field">
+                    <label for="arName">Name</label>
+                    <input id="arName" maxlength="60" required>
+                </div>
+                <div class="hud-field ar-desc-field">
+                    <div class="ar-desc-head">
+                        <label for="arDesc">Description</label>
+                        <button type="button" class="hud-btn hud-btn--sm pd-gen" id="arGen" aria-busy="false"
+                                title="Draft a description from the name and roles, or enhance your text (AI)">
+                            <span class="pd-gen-g" aria-hidden="true">◇</span><span id="arGenLabel">Draft</span>
+                        </button>
+                        <div class="hud-tabs ar-desc-tabs" role="group" aria-label="Description edit mode">
+                            <button type="button" class="hud-tab active" id="arDescWriteTab" aria-current="page">Write</button>
+                            <button type="button" class="hud-tab" id="arDescPreviewTab">Preview</button>
+                        </div>
+                    </div>
+                    <textarea id="arDesc" rows="4" maxlength="4000"
+                              aria-describedby="arDescHint arDescCount"></textarea>
+                    <div class="ar-desc-preview" id="arDescPreview" role="region" tabindex="-1"
+                         aria-label="Description preview" hidden></div>
+                    <div class="ar-desc-foot">
+                        <span class="hud-field-hint" id="arDescHint">
+                            Markdown: **bold**, *italic*, `code`, lists. Aim for &le; 600 characters.
+                            The registry list shows the first paragraph only.
+                        </span>
+                        <span class="pf-count" id="arDescCount" aria-live="off">0 / 4000</span>
+                    </div>
+                </div>
+                <div class="hud-field">
+                    <span class="hud-field-label">Required roles</span>
+                    <span class="hud-field-hint">Each role points at one tag = one Scryfall query. Pick a target to get its facet tags (IS / TALKS ABOUT / MAKES / AMPLIFIES / FREE), or write a query directly. Min count = copies needed to fill the role; weight = how much it matters. <a href="https://scryfall.com/docs/syntax" target="_blank" rel="noopener">Scryfall syntax</a></span>
+                    <div class="ar-roles" id="arRoles"></div>
+                    <div><button type="button" class="hud-btn hud-btn--sm" id="arAddRole">Add role</button></div>
+                </div>
+                <p class="ar-msg" id="arMsg" role="status"></p>
+                <div class="ar-actions">
+                    <button type="submit" class="hud-btn hud-btn--primary" id="arSave">Save</button>
+                    <button type="button" class="hud-btn hud-btn--ghost" id="arCancel">Reset</button>
+                    <span class="ar-spacer"></span>
+                    <button type="button" class="hud-btn hud-btn--danger hud-btn--sm" id="arDelete" hidden>Delete</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const state = { archetypes: [], vocab: [], targets: [], decks: [], version: 0, current: null };
+
+    function el(tag, props, kids) {
+        const n = document.createElement(tag);
+        Object.entries(props || {}).forEach(([k, v]) => { if (k === 'text') n.textContent = v; else n.setAttribute(k, v); });
+        (kids || []).forEach(k => n.appendChild(k));
+        return n;
+    }
+    function msg(id, text, tone) { const m = $(id); m.textContent = text || ''; m.className = 'ar-msg' + (tone ? ' is-' + tone : ''); }
+    async function api(method, url, body) {
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, data };
+        } catch (e) {
+            return { ok: false, status: 0, data: { error: 'Network error. Check your connection and try again.' } };
+        }
+    }
+
+    function renderList() {
+        const ul = $('arList'); ul.replaceChildren();
+        $('arCount').textContent = state.archetypes.length + ' archetypes';
+        $('arVersion').textContent = 'Registry v' + state.version;
+        if (!state.archetypes.length) ul.appendChild(el('li', { class: 'hud-empty', text: 'No archetypes yet. Add one.' }));
+        state.archetypes.forEach(a => {
+            const name = el('span', { class: 'ar-item-name' }, [el('span', { text: a.name })]);
+            const chip = (text, tone) => el('span', { class: 'hud-chip hud-chip--' + tone, text });
+            if (a.draft) name.appendChild(chip('draft', 'neutral'));
+            name.appendChild(chip((a.required_roles || []).length + ' roles', 'neutral'));
+            const desc = el('div', { class: 'ar-item-desc' });
+            // Excerpt HTML is server-rendered and sanitized (never raw a.description).
+            if (a.description_excerpt_html) desc.innerHTML = a.description_excerpt_html;
+            const b = el('button', { type: 'button', class: 'ar-item', 'data-id': a.id, 'aria-current': String(a.id === state.current) },
+                [name, desc]);
+            b.addEventListener('click', () => edit(a.id));
+            ul.appendChild(el('li', {}, [b]));
+        });
+    }
+
+    // -- Role rows: target + facet tags, always-visible editable query, live preview ----------
+    const FACETS = ['IS', 'TALKS', 'MAKES', 'AMPLIFIES', 'FREE'];
+    const FACET_LABEL = { IS: 'IS', TALKS: 'TALKS ABOUT', MAKES: 'MAKES', AMPLIFIES: 'AMPLIFIES', FREE: 'FREE' };
+
+    function tagById(id) { return state.vocab.find(v => v.tag === id) || null; }
+    function targetById(id) { return state.targets.find(t => t.id === id) || null; }
+    function resolveTagId(raw) {  // legacy produces:x spellings resolve to legacy:produces:x
+        if (tagById(raw)) return raw;
+        if (tagById('legacy:' + raw)) return 'legacy:' + raw;
+        return raw;
+    }
+
+    function roleRow(role) {
+        role = role || {};
+        const tagId = role.tag ? resolveTagId(role.tag) : '__new__';
+        const tag = tagById(tagId);
+
+        // Target select: groups the facet tags; never scored itself.
+        const targetSel = el('select', { class: 'ar-target', 'aria-label': 'Role target' });
+        targetSel.appendChild(el('option', { value: '', text: '(no target — free query)' }));
+        state.targets.forEach(t => targetSel.appendChild(el('option', { value: t.id, text: t.label })));
+        targetSel.appendChild(el('option', { value: '__new_target__', text: '+ New target…' }));
+        targetSel.value = (tag && tag.target_id) || '';
+
+        // Tag select: existing tags for the target (or all tags), grouped by facet.
+        const tagSel = el('select', { class: 'ar-tag', 'aria-label': 'Role tag' });
+        const facetSel = el('select', { class: 'ar-facet', 'aria-label': 'Facet' });
+        FACETS.forEach(f => facetSel.appendChild(el('option', { value: f, text: FACET_LABEL[f] })));
+        const labelIn = el('input', { class: 'ar-label', type: 'text', maxlength: '60', placeholder: 'Tag label', 'aria-label': 'Tag label' });
+        const queryBox = el('textarea', { class: 'ar-query', rows: '2', maxlength: '400',
+                                          placeholder: 'Scryfall query, e.g. o:/creates? a [^.]*Bird creature token/',
+                                          'aria-label': 'Scryfall query' });
+        const starters = el('div', { class: 'ar-role-starters' });
+
+        function fillTagOptions() {
+            tagSel.replaceChildren();
+            const tid = targetSel.value;
+            const tags = state.vocab.filter(v => !tid || v.target_id === tid || v.target_id === null);
+            FACETS.forEach(f => {
+                const group = tags.filter(v => v.facet === f);
+                if (!group.length) return;
+                const og = el('optgroup', { label: FACET_LABEL[f] });
+                group.forEach(v => og.appendChild(el('option', { value: v.tag, text: v.label, title: v.query })));
+                tagSel.appendChild(og);
+            });
+            tagSel.appendChild(el('option', { value: '__new__', text: 'New tag…' }));
+            if (tags.some(v => v.tag === tagId)) tagSel.value = tagId;
+            else tagSel.value = '__new__';
+        }
+
+        function seedFromFacet() {
+            const t = targetById(targetSel.value);
+            const seed = t && t.seeds ? (t.seeds[facetSel.value] || '') : '';
+            if (seed) queryBox.value = seed;
+            labelIn.value = labelIn.value || (t ? t.label + ' ' + FACET_LABEL[facetSel.value].toLowerCase() : '');
+            starters.replaceChildren();
+            (t && t.starters || []).forEach(([label, q]) => {
+                const b = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost', text: label, title: q });
+                b.addEventListener('click', () => { queryBox.value = q; labelIn.value = labelIn.value || label; });
+                starters.appendChild(b);
+            });
+        }
+
+        function syncFromTag() {
+            const v = tagById(tagSel.value);
+            if (v) {
+                queryBox.value = v.query || '';
+                labelIn.value = v.label || '';
+                facetSel.value = v.facet || 'FREE';
+                labelIn.disabled = true;
+                starters.replaceChildren();
+            } else {
+                labelIn.disabled = false;
+                labelIn.value = '';
+                queryBox.value = '';
+                seedFromFacet();
+            }
+        }
+
+        targetSel.addEventListener('change', async () => {
+            if (targetSel.value === '__new_target__') {
+                const label = prompt('New target name (the thing the archetype cares about, e.g. "Birds"):');
+                if (label && label.trim()) {
+                    const kind = prompt('Kind: subtype, type, color, land, keyword, concept or enemy', 'subtype');
+                    const rr = await api('POST', '/api/role-targets', { label: label.trim(), kind: (kind || 'concept').trim() });
+                    if (rr.ok) { state.targets.push(rr.data.target); await loadTargetsOnly(); targetSel.value = rr.data.target.id; }
+                    else { msg('arMsg', rr.data.error || 'Could not create the target.', 'error'); targetSel.value = ''; }
+                } else targetSel.value = '';
+            }
+            fillTagOptions(); syncFromTag();
+        });
+        tagSel.addEventListener('change', syncFromTag);
+        facetSel.addEventListener('change', () => { if (tagSel.value === '__new__') seedFromFacet(); });
+
+        // Preview against a real deck: same evaluation path scoring uses.
+        const deckSel = el('select', { class: 'ar-pv-deck', 'aria-label': 'Preview deck' });
+        deckSel.appendChild(el('option', { value: '', text: 'Preview against deck…' }));
+        state.decks.forEach(d => deckSel.appendChild(el('option', { value: d.registry_id || d.id || d.name, text: d.name })));
+        if (state.decks.length) deckSel.value = state.decks[0].registry_id || state.decks[0].id || state.decks[0].name;
+        const pvBtn = el('button', { type: 'button', class: 'hud-btn hud-btn--sm', text: 'Preview' });
+        const pvOut = el('span', { class: 'ar-pv-out' });
+        pvBtn.addEventListener('click', async () => {
+            if (!deckSel.value) { pvOut.textContent = 'Pick a deck first.'; return; }
+            pvOut.textContent = 'Evaluating…'; pvOut.className = 'ar-pv-out';
+            const rr = await api('POST', '/api/role-tags/preview', { query: queryBox.value, deck_id: deckSel.value });
+            if (!rr.ok) { pvOut.textContent = rr.data.error || 'Preview failed.'; pvOut.className = 'ar-pv-out is-error'; return; }
+            const d = rr.data;
+            if (d.state === 'blocked') { pvOut.textContent = 'blocked: ' + (d.error || 'query error'); pvOut.className = 'ar-pv-out is-error'; return; }
+            const names = (d.cards || []).map(c => c.name).join(', ');
+            pvOut.textContent = d.have + ' copies · ' + d.matched + ' cards in ' + (d.deck || 'this deck')
+                + (d.matched === 0 ? ' — no card in this deck matches the query' : '');
+            pvOut.title = names;
+            pvOut.className = 'ar-pv-out' + (d.matched === 0 ? ' is-warn' : '');
+        });
+
+        const num = (cls, val, min, max, step, lab) => {
+            const i = el('input', { type: 'number', min, max, step: lab.toLowerCase().includes('weight') ? 'any' : step, value: val, 'aria-label': lab }); i.className = cls; return i;
+        };
+        const rm = el('button', { type: 'button', class: 'hud-btn hud-btn--sm hud-btn--ghost ar-rm', text: 'Remove' });
+        const row = el('div', { class: 'ar-role' }, [
+            el('div', { class: 'ar-role-head' }, [
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Target' }), targetSel]),
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Tag' }), tagSel]),
+            ]),
+            el('div', { class: 'ar-role-head' }, [
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Facet' }), facetSel]),
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Label' }), labelIn]),
+            ]),
+            starters,
+            el('div', { class: 'hud-field ar-role-query' }, [el('label', { text: 'Scryfall query' }), queryBox]),
+            el('div', { class: 'ar-role-preview' }, [deckSel, pvBtn, pvOut]),
+            el('div', { class: 'ar-role-foot' }, [
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Min' }), num('ar-min', role.min_count || 1, 1, 40, 1, 'Min count')]),
+                el('div', { class: 'hud-field' }, [el('label', { text: 'Weight' }), num('ar-weight', role.weight || 1, 0.1, 10, 0.1, 'Weight')]),
+                rm,
+            ]),
+        ]);
+        rm.addEventListener('click', () => row.remove());
+        fillTagOptions();
+        if (tag) { tagSel.value = tagId; syncFromTag(); } else { tagSel.value = '__new__'; syncFromTag(); }
+        return row;
+    }
+    function setRoles(roles) { const box = $('arRoles'); box.replaceChildren(); (roles || []).forEach(r => box.appendChild(roleRow(r))); }
+
+    // Resolve each row to a tag id, creating a tag first whenever the query is new or was
+    // edited (spec §5.1 step 6: the tag is saved before the archetype that points at it).
+    async function ensureRoleTags() {
+        const rows = Array.from($('arRoles').children);
+        const out = [];
+        for (const row of rows) {
+            const selId = row.querySelector('.ar-tag').value;
+            const query = row.querySelector('.ar-query').value.trim();
+            const existing = tagById(selId);
+            let tagId = selId;
+            if (!existing || (existing.query || '').trim() !== query) {
+                if (!query) throw new Error('Every role needs a Scryfall query.');
+                const label = row.querySelector('.ar-label').value.trim() || (existing ? existing.label : '') || query.slice(0, 40);
+                const body = { label, query, facet: row.querySelector('.ar-facet').value,
+                               target_id: row.querySelector('.ar-target').value || null };
+                const rr = await api('POST', '/api/role-tags', body);
+                if (!rr.ok) throw new Error(rr.data.error || 'Could not save tag ' + label);
+                tagId = rr.data.tag.id;
+                state.vocab.push({ tag: tagId, label: rr.data.tag.label, query: rr.data.tag.query,
+                                   facet: rr.data.tag.facet, target_id: rr.data.tag.target_id });
+            }
+            out.push({ tag: tagId,
+                       min_count: Number(row.querySelector('.ar-min').value),
+                       weight: Number(row.querySelector('.ar-weight').value) });
+        }
+        return out;
+    }
+
+    function fill(a) {
+        $('arName').value = a.name || ''; $('arDesc').value = a.description || '';
+        setRoles(a.required_roles);
+        setDescTab('write', false); updateDescCount(); autoGrowDesc(); syncGenLabel();
+    }
+
+    // -- Draft / Enhance (AI): fills #arDesc only; nothing saves until Save -----------------
+    let genCtl = null;
+
+    function syncGenLabel() {
+        if ($('arGen').getAttribute('aria-busy') === 'true') return;
+        $('arGenLabel').textContent = $('arDesc').value.trim() ? 'Enhance' : 'Draft';
+    }
+
+    $('arGen').addEventListener('click', async () => {
+        const gen = $('arGen');
+        if (gen.disabled) return;
+        if (genCtl) genCtl.abort();
+        const enhancing = !!$('arDesc').value.trim();
+        const ctl = new AbortController(); genCtl = ctl;
+        const timer = setTimeout(() => ctl.abort(), 60000);
+        gen.disabled = true; gen.setAttribute('aria-busy', 'true');
+        $('arGenLabel').textContent = enhancing ? 'Enhancing…' : 'Drafting…';
+        msg('arMsg', '');
+        const body = { name: $('arName').value.trim(), description: $('arDesc').value.trim(),
+                       roles: Array.from($('arRoles').children).map(row => {
+                           const id = row.querySelector('.ar-tag').value;
+                           return id === '__new__' ? row.querySelector('.ar-query').value.trim() : id;
+                       }).filter(Boolean) };
+        let r;
+        try {
+            const res = await fetch('/api/archetypes/describe', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
+            r = { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+        } catch (e) {
+            r = { ok: false, status: 0, data: { error: ctl.signal.aborted
+                ? 'Drafting took too long or was cancelled. Your text is untouched.'
+                : 'Network error. Your text is untouched.' } };
+        }
+        clearTimeout(timer);
+        if (genCtl === ctl) genCtl = null;
+        gen.disabled = false; gen.setAttribute('aria-busy', 'false'); syncGenLabel();
+        if (r.ok && typeof r.data.description === 'string' && r.data.description.trim()) {
+            setDescTab('write', false);
+            $('arDesc').value = r.data.description.trim();
+            $('arDesc').dispatchEvent(new Event('input'));
+            msg('arMsg', (r.data.mode === 'improve' ? 'Enhanced' : 'Drafted') +
+                ' — nothing is saved until you hit Save.', 'ok');
+        } else {
+            msg('arMsg', r.status === 503
+                ? 'AI drafting is unavailable (no model configured). Your text is untouched.'
+                : (r.data.error || 'Could not draft a description. Your text is untouched.'), 'error');
+        }
+    });
+
+    // -- Description editor: Write/Preview tabs, counter, auto-grow, markdown shortcuts --------
+    const DESC_MAX = 4000;
+    let previewTimer = null;
+
+    function setDescTab(mode, moveFocus = true) {
+        const write = mode === 'write';
+        $('arDescWriteTab').classList.toggle('active', write);
+        $('arDescPreviewTab').classList.toggle('active', !write);
+        $('arDescWriteTab').setAttribute('aria-current', write ? 'page' : 'false');
+        $('arDescPreviewTab').setAttribute('aria-current', write ? 'false' : 'page');
+        $('arDesc').hidden = !write;
+        $('arDescPreview').hidden = write;
+        if (!moveFocus) return;
+        if (write) $('arDesc').focus();
+        else { renderPreview(); $('arDescPreview').focus(); }
+    }
+
+    function updateDescCount() {
+        const len = $('arDesc').value.length;
+        const over = len > DESC_MAX;
+        const c = $('arDescCount');
+        c.textContent = len + ' / ' + DESC_MAX;
+        c.classList.toggle('is-over', over);
+        $('arDesc').classList.toggle('is-error', over);
+        $('arDesc').setAttribute('aria-invalid', String(over));
+    }
+
+    function autoGrowDesc() {
+        if (CSS.supports('field-sizing', 'content')) return;  // CSS handles growth where supported
+        const ta = $('arDesc');
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, Math.round(window.innerHeight * 0.4)) + 'px';
+    }
+
+    async function renderPreview() {
+        const pane = $('arDescPreview');
+        if (!$('arDesc').value.trim()) {
+            pane.replaceChildren(el('p', { class: 'hud-muted', text: 'Nothing to preview yet.' }));
+            return;
+        }
+        pane.setAttribute('aria-busy', 'true');
+        const r = await api('POST', '/api/archetypes/render-preview', { description: $('arDesc').value });
+        pane.removeAttribute('aria-busy');
+        if (pane.hidden) return;  // user switched back to Write mid-fetch; next Preview re-renders
+        if (r.ok) pane.innerHTML = r.data.html || '';
+        else pane.replaceChildren(el('div', { class: 'hud-empty', text: 'Preview unavailable — your text is safe and saving still works.' }));
+    }
+
+    function toggleWrap(marker) {
+        const ta = $('arDesc');
+        const s = ta.selectionStart, e = ta.selectionEnd, v = ta.value, m = marker;
+        const sel = v.slice(s, e);
+        let ns, ne;
+        if (sel.length >= 2 * m.length && sel.startsWith(m) && sel.endsWith(m)) {
+            ta.setRangeText(sel.slice(m.length, -m.length), s, e, 'end');       // "**bold**" selected -> unwrap
+            ns = s; ne = e - 2 * m.length;
+        } else if (v.slice(s - m.length, s) === m && v.slice(e, e + m.length) === m) {
+            ta.setRangeText(sel, s - m.length, e + m.length, 'end');            // "bold" inside "**|**" -> unwrap
+            ns = s - m.length; ne = e - m.length;
+        } else {
+            ta.setRangeText(m + sel + m, s, e, 'end');                          // wrap
+            ns = s + m.length; ne = e + m.length;
+        }
+        ta.setSelectionRange(ns, ne);
+        ta.dispatchEvent(new Event('input'));
+        ta.focus();
+    }
+
+    $('arDescWriteTab').addEventListener('click', () => setDescTab('write'));
+    $('arDescPreviewTab').addEventListener('click', () => setDescTab('preview'));
+    $('arDesc').addEventListener('input', () => {
+        updateDescCount(); autoGrowDesc(); syncGenLabel();
+        clearTimeout(previewTimer);
+        if (!$('arDescPreview').hidden) previewTimer = setTimeout(renderPreview, 400);
+    });
+    $('arDesc').addEventListener('keydown', ev => {
+        if (!(ev.ctrlKey || ev.metaKey)) return;
+        if (ev.key === 'Enter') { ev.preventDefault(); $('arForm').requestSubmit(); }
+        else if (ev.key === 'b' || ev.key === 'B') { ev.preventDefault(); toggleWrap('**'); }
+        else if (ev.key === 'i' || ev.key === 'I') { ev.preventDefault(); toggleWrap('*'); }
+    });
+    function edit(id) {
+        const a = state.archetypes.find(x => x.id === id); if (!a) return;
+        state.current = id; fill(a);
+        $('arEditorTitle').textContent = a.name; $('arEditorMeta').textContent = a.draft ? 'draft' : (a.updated_at || '').slice(0, 10);
+        $('arDelete').hidden = false; msg('arMsg', ''); renderList();
+    }
+    function fresh() {
+        state.current = null; fill({ required_roles: [] });
+        $('arEditorTitle').textContent = 'New archetype'; $('arEditorMeta').textContent = '';
+        $('arDelete').hidden = true; msg('arMsg', ''); renderList();
+    }
+
+    async function loadTargetsOnly() {
+        const { ok, data } = await api('GET', '/api/role-tags');
+        if (ok) { state.targets = data.targets || []; }
+    }
+
+    async function load(keep) {
+        const { ok, data } = await api('GET', '/api/archetypes');
+        if (!ok) { msg('arMsg', data.error || 'Could not load archetypes.', 'error'); return; }
+        state.archetypes = data.archetypes; state.vocab = data.vocabulary; state.targets = data.targets || [];
+        state.version = data.version;
+        keep && state.archetypes.some(a => a.id === keep) ? edit(keep) : fresh();
+    }
+
+    $('arNew').addEventListener('click', fresh);
+    $('arCancel').addEventListener('click', () => state.current ? edit(state.current) : fresh());
+    $('arAddRole').addEventListener('click', () => $('arRoles').appendChild(roleRow({ min_count: 1, weight: 1 })));
+
+    $('arForm').addEventListener('submit', async ev => {
+        ev.preventDefault();
+        if ($('arDesc').value.length > DESC_MAX) {  // reachable via paste/shortcut paths that bypass maxlength
+            msg('arMsg', 'Description is longer than ' + DESC_MAX + ' characters.', 'error'); return;
+        }
+        let roles;
+        try {
+            roles = await ensureRoleTags();
+        } catch (e) {
+            msg('arMsg', e.message || 'Could not save a role tag.', 'error'); return;
+        }
+        const body = { name: $('arName').value, description: $('arDesc').value, required_roles: roles };
+        $('arSave').disabled = true; msg('arMsg', 'Saving…');
+        const r = state.current ? await api('PUT', '/api/archetypes/' + encodeURIComponent(state.current), body) : await api('POST', '/api/archetypes', body);
+        $('arSave').disabled = false;
+        if (!r.ok) { msg('arMsg', r.data.error || 'Save failed.', 'error'); return; }
+        await load(r.data.archetype.id); msg('arMsg', 'Saved. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    $('arDelete').addEventListener('click', async () => {
+        if (!state.current || !confirm('Delete this archetype?')) return;
+        const r = await api('DELETE', '/api/archetypes/' + encodeURIComponent(state.current));
+        if (!r.ok) { msg('arMsg', r.data.error || 'Delete failed.', 'error'); return; }
+        await load(); msg('arMsg', 'Deleted. Registry is now v' + r.data.version + '.', 'ok');
+    });
+
+    async function loadDecks() {
+        const { ok, data } = await api('GET', '/api/decks');
+        if (ok) state.decks = (data.decks || []).map(d => ({ name: d.name, registry_id: d.registry_id || d.id || d.name, id: d.id }));
+    }
+
+    loadDecks().then(load);
+})();
+</script>
+{% endblock %}

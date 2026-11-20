@@ -25,7 +25,7 @@ DECK_NAMES = {1: "Alpha Deck", 2: "Beta Deck", 3: "Gamma Deck", 4: "Delta Deck"}
 
 
 def seed(r):
-    import instances
+    import src.server.domain.inventory.instances as instances
 
     r.flushdb()
 
@@ -50,7 +50,7 @@ def deck_status(r, i):
 
 
 def in_deck_count(r, i):
-    import instances
+    import src.server.domain.inventory.instances as instances
     return len([x for x in instances.list_instances(r, deck_id=f"archidekt:{i}")
                 if x.get("ownership_status") == "in_deck"])
 

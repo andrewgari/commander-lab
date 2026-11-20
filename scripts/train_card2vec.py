@@ -53,7 +53,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card2vec import BASICS, name_key  # noqa: E402
+from src.server.domain.analytics.card2vec import BASICS, name_key  # noqa: E402
 
 
 def _commanders(raw) -> list:

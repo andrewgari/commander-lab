@@ -9,13 +9,13 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card_eval import Candidate, EvaluationResult
-from analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
-from analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
-from analytics.card_review import jobs
-from analytics.card_review.debate import extract_json, final_confidence
-from analytics.card_review.packet import build_packet, packet_numbers
-from analytics.card_review.replacements import suggest_replacements
+from src.server.domain.analytics.card_eval import Candidate, EvaluationResult
+from src.server.domain.analytics.card_eval.schema import CardInfo, EdhrecStats, ModelSignal, RoleScore, StrengthBreakdown
+from src.server.domain.analytics.card_review import ReviewContext, ReviewNotAllowed, run_review
+from src.server.domain.analytics.card_review import jobs
+from src.server.domain.analytics.card_review.debate import extract_json, final_confidence
+from src.server.domain.analytics.card_review.packet import build_packet, packet_numbers
+from src.server.domain.analytics.card_review.replacements import suggest_replacements
 
 
 # ---- fixtures -------------------------------------------------------------------------------------
@@ -248,6 +248,53 @@ def test_hard_filters_exclude_off_identity_banned_and_in_deck_cards():
     assert all(fid in {"o1", "o2", "o3", "o4", "o5"} for fid in (s["oracle_id"] for s in res["suggestions"]))
 
 
+def test_unknown_legality_candidate_is_never_suggested():
+    # Regression: a candidate whose fact record has unknown legality (missing
+    # or None `legal`, e.g. an unsynced planar card) must fail closed.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS, "the matrix of time": {"oracle_id": "o-plane", "color_identity": "",
+                                             "legal": None}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK, lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    assert "The Matrix Of Time" not in {s["card"] for s in res["suggestions"]}
+    assert any(d["card"] == "The Matrix Of Time" and "legality unknown" in d["reason"]
+               for d in res["dropped"])
+
+
+def test_variant_type_candidates_never_suggested_and_dropped_with_slot_reason():
+    # Missy's planar deck: planar/scheme/attraction cards are Commander-legal
+    # on Scryfall but can never be proposed into a mainboard slot.
+    cands = default_cands() + [cand("The Matrix Of Time", ["board_wipe"], syn=0.9),
+                               cand("Balloon Stand", ["board_wipe"], syn=0.9)]
+    facts = {**FACTS,
+             "the matrix of time": {"oracle_id": "o-phen", "color_identity": "", "legal": True,
+                                    "type_line": "Phenomenon"},
+             "balloon stand": {"oracle_id": "o-attr", "color_identity": "R", "legal": True,
+                               "type_line": "Artifact — Attraction"}}
+    res = suggest_replacements(make_ev(cands=cands), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                               ctx(), DECK,
+                               lambda ns: {k: v for k, v in facts.items() if k in {n.lower() for n in ns}})
+    names = {s["card"] for s in res["suggestions"]}
+    assert "The Matrix Of Time" not in names and "Balloon Stand" not in names
+    reasons = {d["card"]: d["reason"] for d in res["dropped"]}
+    assert reasons["The Matrix Of Time"] == "phenomenon not legal in mainboard slot (belongs in planar_deck)"
+    assert reasons["Balloon Stand"] == "attraction not legal in mainboard slot (belongs in attraction_deck)"
+
+
+def test_every_suggestion_carries_a_mainboard_slot_gate_reason():
+    res = run()  # full remove-verdict review -> replacements
+    assert res["replacements"]
+    for s in res["replacements"]:
+        gate = s["slot_gate"]
+        assert gate["slot"] == "mainboard" and gate["legal"] is True
+        assert isinstance(gate["reason"], str) and gate["reason"]
+    res2 = suggest_replacements(make_ev(), {"mode": "mixed", "target_roles": ["board_wipe"], "avoid": []},
+                                ctx(), DECK, lookup)
+    assert res2["suggestions"]
+    for s in res2["suggestions"]:
+        assert s["slot_gate"]["legal"] is True and s["slot_gate"]["reason"]
+
+
 def test_spirit_gate_drops_candidates_with_no_role_or_pillar_fit():
     cands = default_cands() + [cand("Random Rock", ["utility_land"], syn=0.0)]
     facts = {**FACTS, "random rock": {"oracle_id": "o10", "color_identity": "", "legal": True}}
@@ -300,8 +347,8 @@ def test_game_changer_penalty_is_a_flag_not_a_filter():
 
 
 def test_card_source_tiers_applied():
-    from analytics.card_review.replacements import suggest_replacements
-    from analytics.card_review import config as cfg
+    from src.server.domain.analytics.card_review.replacements import suggest_replacements
+    from src.server.domain.analytics.card_review import config as cfg
     cfg.VERY_STRONG_THRESHOLD = 0.0
     cands = [cand("BuyMe", ["board_wipe"], inc=0.9, syn=0.5), cand("DonorMe", ["board_wipe"], inc=0.8, syn=0.4), cand("FreeMe", ["board_wipe"], inc=0.7, syn=0.3, owned=True)]
     
@@ -387,14 +434,14 @@ DECK_REC = {"id": 1, "source": "archidekt", "source_id": 1, "name": "Krenko", "c
 @pytest.fixture
 def client():
     from fastapi.testclient import TestClient
-    from app import app
+    from src.server.app.main import app
     r = FakeRedis()
     llm = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
-    with patch("app.r", r), patch("app.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
-            patch("app._oracle_preflight", return_value=None), patch("app._card_review_llm", return_value=llm), \
-            patch("analytics.card_review.service.build_context", return_value=ctx()), \
-            patch("analytics.card_review.service.evaluate_card", return_value=make_ev()), \
-            patch("analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
+    with patch("src.server.app.main.r", r), patch("src.server.app.main.registry.find_deck", side_effect=lambda _r, i: DECK_REC if i in ("archidekt:1", "1") else None), \
+            patch("src.server.app.main._oracle_preflight", return_value=None), patch("src.server.app.main._card_review_llm", return_value=llm), \
+            patch("src.server.domain.analytics.card_review.service.build_context", return_value=ctx()), \
+            patch("src.server.domain.analytics.card_review.service.evaluate_card", return_value=make_ev()), \
+            patch("src.server.domain.analytics.card_review.service.fetch_cards", side_effect=lambda _r, ns: lookup(ns)):
         yield TestClient(app), llm
 
 
@@ -425,3 +472,119 @@ def test_endpoint_validation(client):
     assert c.post("/api/decks/archidekt:1/cards/Krenko, Mob Boss/review").status_code == 400
     assert c.post("/api/decks/archidekt:1/cards/Blasphemous%20Act/review", json={"rounds": 9}).status_code == 422
     assert c.get("/api/decks/archidekt:1/cards/Blasphemous%20Act/review/jobs/missing").status_code == 404
+
+
+# ---- oracle tool-loop adapter (OL-8) ----------------------------------------------------------------
+
+def _oracle_llm(turns):
+    from src.server.domain.analytics.card_review import OracleDebateLLM
+    from src.server.domain.oracle import Oracle
+    from src.server.domain.oracle.types import LoopCaps
+    from tests.oracle_fakes import ScriptedToolChat
+    chat = ScriptedToolChat(turns)
+    caps = LoopCaps(max_turns=6, max_tool_calls=8, soft_cost_usd=0.2, hard_cost_usd=0.35, max_tokens_in=150_000,
+                    deadline_s=60, nudges=1, repairs=1)
+    from src.server.domain.oracle.tools import ToolContext
+    deck = {"name": "Krenko", "cards": [{"name": n, "quantity": 1} for n in DECK]}
+    ctx = ToolContext(deck=deck, metrics={"curve": {}, "bracket": {}, "power": {}})
+    return OracleDebateLLM(lambda: Oracle(chat, caps), lambda: ctx), chat
+
+
+def test_oracle_debate_advocate_needs_no_evidence():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(REMOVE_T)])
+    assert json.loads(llm.complete("remove", "sys", "user"))["side"] == "remove"
+    assert len(chat.calls) == 1
+    assert {t["function"]["name"] for t in chat.calls[0]["tools"]} == {"get_deck", "card_lookup", "deck_stats"}
+
+
+def test_oracle_debate_judge_without_evidence_is_nudged_then_fails():
+    from src.server.domain.oracle import OracleEvidenceMissing
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])
+    with pytest.raises(OracleEvidenceMissing):
+        llm.complete("judge", "sys", "user")
+    assert len(chat.calls) == 2
+
+
+def test_oracle_debate_judge_with_deck_stats_answers():
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})), text_turn(verdict())])
+    assert json.loads(llm.complete("judge", "sys", "user"))["verdict"] == "remove"
+
+
+def test_oracle_debate_non_json_reply_is_repaired():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn("no json here"), text_turn(KEEP_T)])
+    assert json.loads(llm.complete("keep", "sys", "user"))["side"] == "keep"
+    assert len(chat.calls) == 2
+
+
+# ---- QA round 2: invalid on missing evidence/budget, LLMUnavailable propagates; llm meta (spec 4/5/9.5 d) ----
+
+class _RoleSplit:
+    """Advocates answer from a scripted fake; the judge goes through the real oracle adapter."""
+    def __init__(self, oracle_llm):
+        self.o = oracle_llm
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            return self.o.complete(role, system, user, temperature=temperature)
+        return self.inner.complete(role, system, user, temperature=temperature)
+
+    def llm_meta(self):
+        return self.o.llm_meta()
+
+
+class _RaisingJudge:
+    def __init__(self, exc):
+        self.exc = exc
+        self.inner = FakeLLM(remove=REMOVE_T, keep=KEEP_T, judge=verdict())
+
+    def complete(self, role, system, user, *, temperature=0.0):
+        if role == "judge":
+            raise self.exc
+        return self.inner.complete(role, system, user, temperature=temperature)
+
+
+def _guarded(llm):
+    from src.server.domain.analytics.card_review import run_with_llm_meta
+    return run_with_llm_meta(llm, lambda: run(llm=llm))
+
+
+def test_judge_evidence_missing_is_invalid_not_fallback():
+    from src.server.domain.oracle.errors import OracleEvidenceMissing
+    out = _guarded(_RaisingJudge(OracleEvidenceMissing("no evidence")))
+    assert out["oracle_status"] == "invalid"
+    assert out["oracle_note"] == "oracle answered without checking curve/bracket/power"
+    assert "fallback" not in out
+
+
+def test_judge_budget_exceeded_is_invalid():
+    from src.server.domain.oracle.errors import OracleBudgetExceeded
+    out = _guarded(_RaisingJudge(OracleBudgetExceeded("cost")))
+    assert out["oracle_status"] == "invalid" and "cost" in out["oracle_note"]
+
+
+def test_llm_unavailable_propagates_to_job_error():
+    from src.server.domain.llm.port import LLMUnavailable
+    with pytest.raises(LLMUnavailable):
+        _guarded(_RaisingJudge(LLMUnavailable("down")))
+
+
+def test_review_saves_llm_meta_on_success():
+    from tests.oracle_fakes import call, text_turn, tool_turn
+    llm, chat = _oracle_llm([tool_turn(call("deck_stats", {"sections": ["curve", "bracket", "power"]})),
+                             text_turn(verdict())])
+    meta = _guarded(_RoleSplit(llm))["llm"]
+    assert meta["task"] == "card_review" and meta["role"] == "judge"
+    assert meta["evidence"] == [{"tool": "deck_stats", "sections": ["curve", "bracket", "power"]}]
+
+
+def test_review_saves_llm_meta_on_judge_failure():
+    from tests.oracle_fakes import text_turn
+    llm, chat = _oracle_llm([text_turn(verdict()), text_turn(verdict())])  # judge never checks evidence
+    out = _guarded(_RoleSplit(llm))
+    assert out["oracle_status"] == "invalid"
+    assert out["llm"]["role"] == "judge" and out["llm"]["stop_reason"]

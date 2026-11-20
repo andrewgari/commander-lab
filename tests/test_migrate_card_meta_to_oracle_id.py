@@ -16,7 +16,7 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 
-import cards as card_store
+import src.server.domain.inventory.cards as card_store
 import migrate_card_meta_to_oracle_id as migrate_mod
 
 

@@ -32,7 +32,7 @@ import httpx
 # Ensure workspace root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.integrations.scryfall import (
+from src.server.infra.providers.scryfall import (
     ScryfallCard,
     ScryfallClient,
     ScryfallError,
@@ -41,8 +41,8 @@ from src.integrations.scryfall import (
     ScryfallRequestError,
     ScryfallSearchResult,
 )
-from src.shared.http import RetryConfig, SharedHttpClient
-from src.shared.http.exceptions import HttpClientError
+from src.server.infra.http import RetryConfig, SharedHttpClient
+from src.server.infra.http.exceptions import HttpClientError
 
 
 def _make_mock_card_payload(

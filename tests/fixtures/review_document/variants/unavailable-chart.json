@@ -1,0 +1,8 @@
+{
+  "charts": {
+    "roles": {
+      "status": "unavailable",
+      "reason": "Role classification was not available in this metrics snapshot."
+    }
+  }
+}

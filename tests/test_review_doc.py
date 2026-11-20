@@ -11,10 +11,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from analytics import review_doc as rd
-from analytics import review_metrics as rm
-from analytics.oracle_client import OracleUnavailable
-from app import app
+from src.server.domain.analytics import review_doc as rd
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.llm.port import LLMNotConfigured, LLMResponseError, LLMUnavailable, Usage
+from src.server.domain.oracle import LoopCaps, Oracle
+from src.server.domain.oracle.tools import ToolContext
+from src.server.app.main import app
+from tests.oracle_fakes import ScriptedToolChat, call, text_turn, tool_turn
 from tests.test_review_metrics import make_deck, make_inputs
 
 
@@ -47,20 +50,28 @@ class FakeRedis:
         return len(self.z.get(k, {}))
 
 
-class FakeOracle:
-    def __init__(self, reply=None, fail=False):
-        self.reply, self.fail, self.calls = reply, fail, []
+CAPS = LoopCaps(max_turns=6, max_tool_calls=8, soft_cost_usd=1.0, hard_cost_usd=2.0, max_tokens_in=10**6, deadline_s=60)
+ALL_STATS = {"sections": ["curve", "bracket", "power"]}
 
-    def chat(self, messages, **kw):
+
+class _DownChat:
+    model = "m/x"
+
+    def __init__(self, exc):
+        self.exc, self.calls = exc, []
+
+    def chat_turn(self, messages, **kw):
         self.calls.append(messages)
-        if self.fail:
-            raise OracleUnavailable("down")
-        return self.reply(messages) if callable(self.reply) else self.reply
+        raise self.exc
 
-    def models(self):
-        if self.fail:
-            raise OracleUnavailable("down")
-        return ["oracle"]
+
+def FakeOracle(reply=None, fail=False, turns=None):
+    """Oracle over a scripted chat. Default script: check curve/bracket/power, then answer `reply`."""
+    if fail:
+        return Oracle(_DownChat(LLMUnavailable("down")), CAPS)
+    if turns is None:
+        turns = [tool_turn(call("deck_stats", ALL_STATS)), text_turn(reply)]
+    return Oracle(ScriptedToolChat(turns), CAPS)
 
 
 def sections(**over):
@@ -163,7 +174,7 @@ class TestBuild(unittest.TestCase):
         r = FakeRedis()
         o = FakeOracle(reply_for(FP))
         run(r, o)
-        user = o.calls[0][1]["content"]
+        user = o.client.calls[0]["messages"][1]["content"]
         self.assertIn(FP, user)
         self.assertIn('"metrics"', user)
         self.assertIn('"journal"', user)
@@ -204,7 +215,7 @@ class TestOfflineFallback(unittest.TestCase):
 
     def test_invalid_reply_saves_math_and_retry_replaces(self):
         r = FakeRedis()
-        bad = run(r, FakeOracle("garbage"))
+        bad = run(r, FakeOracle(turns=[tool_turn(call("deck_stats", ALL_STATS)), text_turn("garbage"), text_turn("garbage")]))
         self.assertEqual(bad["sections"][-1]["data"]["status"], "invalid")
         time.sleep(0.01)
         good = run(r, FakeOracle(reply_for(FP)))
@@ -213,13 +224,132 @@ class TestOfflineFallback(unittest.TestCase):
         self.assertEqual(json.dumps(rd.math_sections(bad)), json.dumps(rd.math_sections(good)))
 
     def test_not_configured_is_offline(self):
-        from analytics.oracle_client import OracleNotConfigured
-
         def boom():
-            raise OracleNotConfigured("ORACLE_URL not set")
+            raise LLMNotConfigured("no key")
 
         doc = rd.build_review(FakeRedis(), make_deck(), boom, metrics=copy.deepcopy(METRICS))
         self.assertEqual(doc["sections"][-1]["data"]["status"], "offline")
+
+
+class TestOracleLoop(unittest.TestCase):
+    """OL-6: Deep Review runs on the oracle tool loop (spec §9.5 a-e)."""
+
+    def summ(self, doc):
+        return doc["sections"][-1]["data"]
+
+    def test_a_evidence_run_saves_llm_and_evidence(self):
+        r = FakeRedis()
+        o = FakeOracle(turns=[tool_turn(call("deck_stats", {"sections": ["curve"]}, id="a"),
+                                        call("deck_stats", {"sections": ["bracket", "power"]}, id="b")),
+                              text_turn(reply_for(FP))])
+        doc = run(r, o)
+        d = self.summ(doc)
+        self.assertEqual(d["status"], "ok")
+        self.assertEqual(d["llm"]["task"], "deck_review")
+        self.assertEqual(d["llm"]["tool_calls"], 2)
+        self.assertEqual(sorted(s for e in d["evidence"] for s in e["sections"]), ["bracket", "curve", "power"])
+        self.assertTrue(all(e["tool"] == "deck_stats" for e in d["evidence"]))
+        sent = o.client.calls[0]
+        self.assertEqual({t["function"]["name"] for t in sent["tools"]},
+                         {"get_deck", "card_lookup", "deck_stats"})  # sim_run only when ctx.sim is set
+        self.assertIn(FP, sent["messages"][1]["content"])
+
+    def test_b_tool_numbers_kept_unknown_stripped(self):
+        secs = sections(genre="Aristocrats core. It wins 97 percent of games.",
+                        curve_tempo="The journal targets 4242 here. It needs 7777 mana.")
+        o = FakeOracle(turns=[tool_turn(call("get_deck", {}, id="g"), call("deck_stats", ALL_STATS, id="s")),
+                              text_turn(reply_for(FP, secs))])
+        doc = rd.build_review(FakeRedis(), make_deck(), lambda: o, metrics=copy.deepcopy(METRICS),
+                              ctx_factory=lambda r, deck, metrics: ToolContext(deck=deck, metrics=metrics,
+                                                                                journal={"note": 4242}))
+        by = {s["type"]: s for s in doc["sections"]}
+        self.assertEqual(by["genre"]["prose"], "Aristocrats core.")  # 97 is from nowhere
+        self.assertEqual(by["curve_tempo"]["prose"], "The journal targets 4242 here.")  # tool-only number kept
+
+    def test_c_unavailable_is_offline_and_no_plain_prompt(self):
+        o = FakeOracle(fail=True)
+        doc = run(FakeRedis(), o)
+        d = self.summ(doc)
+        self.assertEqual((d["status"], d["note"]), ("offline", "down"))
+        self.assertEqual(len(o.client.calls), 1)  # D1: no fallback re-ask
+
+    def test_d_evidence_missing_is_invalid_with_note(self):
+        o = FakeOracle(turns=[text_turn(reply_for(FP)), text_turn(reply_for(FP))])
+        doc = run(FakeRedis(), o)
+        d = self.summ(doc)
+        self.assertEqual(d["status"], "invalid")
+        self.assertEqual(d["note"], "oracle answered without checking curve/bracket/power")
+        self.assertTrue(all(s["prose"] is None for s in doc["sections"]))
+
+    def test_invalid_answer_and_response_error_are_invalid(self):
+        o = FakeOracle(turns=[tool_turn(call("deck_stats", ALL_STATS)), text_turn("garbage"), text_turn("garbage")])
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertIn("fenced", d["note"])
+        d = self.summ(run(FakeRedis(), Oracle(_DownChat(LLMResponseError("empty reply")), CAPS)))
+        self.assertEqual(d["status"], "invalid")
+        self.assertIn("empty reply", d["note"])
+
+    def test_billed_failed_call_counts_in_llm_meta(self):
+        o = Oracle(_DownChat(LLMResponseError("empty reply", usage=Usage(10, 5, 0, 0.004))), CAPS)
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertAlmostEqual(d["llm"]["cost_usd"], 0.004)
+        self.assertEqual(d["llm"]["turns"], 1)
+        self.assertEqual(d["llm"]["stop_reason"], "llm_error")
+
+    def test_budget_exceeded_note(self):
+        tiny = LoopCaps(max_turns=1, max_tool_calls=0, soft_cost_usd=1.0, hard_cost_usd=2.0, max_tokens_in=10**6, deadline_s=60)
+        o = Oracle(ScriptedToolChat([tool_turn(call("deck_stats", ALL_STATS)), tool_turn(call("deck_stats", ALL_STATS))]), tiny)
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertIn("budget", d["note"])
+
+    def test_evidence_missing_keeps_partial_evidence_and_llm(self):
+        o = FakeOracle(turns=[tool_turn(call("deck_stats", {"sections": ["curve"]})),
+                              text_turn(reply_for(FP)), text_turn(reply_for(FP))])
+        d = self.summ(run(FakeRedis(), o))
+        self.assertEqual(d["status"], "invalid")
+        self.assertEqual(d["evidence"], [{"tool": "deck_stats", "sections": ["curve"]}])
+        self.assertIn("llm", d)
+
+    def test_unavailable_mid_run_keeps_meta_and_job_llm(self):
+        class Chat(ScriptedToolChat):
+            def chat_turn(self, *a, **k):
+                if not self.turns:
+                    raise LLMUnavailable("down")
+                return super().chat_turn(*a, **k)
+        r = FakeRedis()
+        mk = lambda: Oracle(Chat([tool_turn(call("deck_stats", {"sections": ["curve"]}))]), CAPS)
+        d = self.summ(rd.build_review(r, make_deck(), mk, metrics=copy.deepcopy(METRICS)))
+        self.assertEqual(d["status"], "offline")
+        self.assertEqual(d["llm"]["stop_reason"], "llm_error")
+        self.assertEqual(d["evidence"], [{"tool": "deck_stats", "sections": ["curve"]}])
+        job = rd.new_job(r, {**make_deck(), "registry_id": RID})
+        with patch.object(rm, "review_deck", side_effect=lambda *a, **k: copy.deepcopy(METRICS)):
+            out = rd.run_job(r, job, make_deck(), mk)
+        self.assertEqual(out["llm"]["stop_reason"], "llm_error")
+
+    def test_not_configured_has_no_llm_key(self):
+        def boom():
+            raise LLMNotConfigured("no key")
+        d = self.summ(rd.build_review(FakeRedis(), make_deck(), boom, metrics=copy.deepcopy(METRICS)))
+        self.assertEqual(d["status"], "offline")
+        self.assertNotIn("llm", d)
+        self.assertNotIn("evidence", d)
+
+    def test_job_carries_llm_meta(self):
+        r = FakeRedis()
+        job = rd.new_job(r, {**make_deck(), "registry_id": RID})
+        with patch.object(rm, "review_deck", side_effect=lambda *a, **k: copy.deepcopy(METRICS)):
+            out = rd.run_job(r, job, make_deck(), lambda: FakeOracle(reply_for(FP)))
+        self.assertEqual(out["llm"]["task"], "deck_review")
+
+    def test_e_review_doc_does_not_import_oracle_client(self):
+        src = open(rd.__file__).read()
+        self.assertNotIn("import oracle_client", src)
+        self.assertNotIn("OracleClient", src)
+        self.assertNotIn("client.chat(", src)
 
 
 class TestStale(unittest.TestCase):
@@ -229,7 +359,7 @@ class TestStale(unittest.TestCase):
         run(self.r, FakeOracle(reply_for(FP)), self.deck)
 
     def patched(self, version=7):
-        return patch("analytics.genres.get_version", return_value=version)
+        return patch("src.server.domain.analytics.genres.get_version", return_value=version)
 
     def test_unchanged_deck_is_fresh(self):
         with self.patched():
@@ -267,7 +397,7 @@ class TestStale(unittest.TestCase):
             rd.mark_stale_on_sync(FakeRedis(), self.deck)
 
     def test_registry_update_deck_cards_marks_stale(self):
-        import registry
+        import src.server.domain.decks.registry as registry
 
         deck = make_deck()
         deck.update(source="archidekt", source_id="1")
@@ -278,19 +408,26 @@ class TestStale(unittest.TestCase):
         self.assertTrue(rd.load_latest(self.r, RID)["stale"])
 
 
+CTX = "src.server.app.main._oracle_tool_ctx"
+
+
+def _ctx(r, deck, **kw):
+    return ToolContext(deck=deck, **kw)
+
+
 class TestApi(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
         self.deck = make_deck()
         self.client = TestClient(app)
-        self.patches = [patch("app.r", self.r), patch("app._find_deck_any", return_value=self.deck),
-                        patch("analytics.genres.get_version", return_value=7)]
+        self.patches = [patch("src.server.app.main.r", self.r), patch("src.server.app.main._find_deck_any", return_value=self.deck),
+                        patch("src.server.domain.analytics.genres.get_version", return_value=7)]
         for p in self.patches:
             p.start()
             self.addCleanup(p.stop)
 
     def test_get_without_doc_never_builds(self):
-        with patch.object(rm, "review_deck") as metrics, patch("app._oracle_client") as oc, \
+        with patch.object(rm, "review_deck") as metrics, patch("src.server.app.main._oracle") as oc, \
                 patch.object(rd, "build_review") as build, patch.object(rd, "start_job") as sj:
             res = self.client.get(f"/api/decks/{RID}/review")
             self.assertEqual(res.status_code, 200)
@@ -312,13 +449,13 @@ class TestApi(unittest.TestCase):
         self.assertIsNone(body["review"].get("error"))
 
     def test_unknown_deck_404(self):
-        with patch("app._find_deck_any", return_value=None):
+        with patch("src.server.app.main._find_deck_any", return_value=None):
             self.assertEqual(self.client.get("/api/decks/nope/review").status_code, 404)
             self.assertEqual(self.client.post("/api/decks/nope/review/rebuild").status_code, 404)
 
     def test_rebuild_job_end_to_end(self):
-        oracle = FakeOracle(lambda m: reply_for(rm.fingerprint(self.deck)))
-        with patch("app._oracle_client", return_value=oracle), \
+        oracle = FakeOracle(reply_for(rm.fingerprint(self.deck)))
+        with patch("src.server.app.main._oracle", return_value=oracle), patch(CTX, side_effect=_ctx), \
                 patch.object(rm, "review_deck", side_effect=lambda r, d, *a, **k: copy.deepcopy(METRICS)):
             res = self.client.post(f"/api/decks/{RID}/review/rebuild")
             self.assertEqual(res.status_code, 202)
@@ -337,7 +474,7 @@ class TestApi(unittest.TestCase):
         self.assertEqual(self.client.get(f"/api/decks/{RID}/review/jobs/zzz").status_code, 404)
 
     def test_rebuild_with_oracle_down_still_saves(self):
-        with patch("app._oracle_client", return_value=FakeOracle(fail=True)), \
+        with patch("src.server.app.main._oracle", return_value=FakeOracle(fail=True)), patch(CTX, side_effect=_ctx), \
                 patch.object(rm, "review_deck", side_effect=lambda r, d, *a, **k: copy.deepcopy(METRICS)):
             job_id = self.client.post(f"/api/decks/{RID}/review/rebuild").json()["job_id"]
             for _ in range(100):

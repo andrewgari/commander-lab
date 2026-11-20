@@ -7,12 +7,12 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.card_eval import (DeckContext, ScoringWeights, UnknownCardError, InvalidDeckError, evaluate_card)
-from analytics.card_eval import edhrec_data
-from analytics.card_eval.config import ROLE_LABELS
-from analytics.card_eval.hf_classifier import HFClassifier, HFError
-from analytics.card_eval.service import compute_strength
-from analytics.providers.edhrec import EDHRecNotFoundError, EDHRecRequestError
+from src.server.domain.analytics.card_eval import (DeckContext, ScoringWeights, UnknownCardError, InvalidDeckError, evaluate_card)
+from src.server.domain.analytics.card_eval import edhrec_data
+from src.server.domain.analytics.card_eval.config import ROLE_LABELS
+from src.server.domain.analytics.card_eval.hf_classifier import HFClassifier, HFError
+from src.server.domain.analytics.card_eval.service import compute_strength
+from src.server.domain.analytics.providers.edhrec import EDHRecNotFoundError, EDHRecRequestError
 
 
 class FakeRedis:
@@ -203,6 +203,62 @@ def test_weights_are_configurable():
 def test_parse_page_keeps_slots():
     page = edhrec_data.parse_page(PAGE)
     assert page["cards"]["cultivate"]["tags"] == ["highsynergycards", "manaartifacts"]
+
+
+# ---- mainboard slot gate --------------------------------------------------
+
+def test_pool_candidates_all_carry_a_mainboard_slot_gate_reason():
+    res = run()
+    assert res.candidates
+    for c in res.candidates:
+        assert c.slot_gate is not None and c.slot_gate.slot == "mainboard" and c.slot_gate.legal is True
+        assert isinstance(c.slot_gate.reason, str) and c.slot_gate.reason
+
+
+def test_variant_cards_never_enter_the_mainboard_pool():
+    # Missy-style planar deck: Plane/Phenomenon/Attraction cards on the
+    # commander's EDHREC page must never be suggested for a mainboard slot,
+    # even when Commander-legal and inside the colour identity.
+    cards = {**CARDS,
+             "the matrix of time": {"name": "The Matrix of Time", "color_identity": "", "legal": True,
+                                    "type_line": "Phenomenon", "oracle_text": "x"},
+             "balloon stand": {"name": "Balloon Stand", "color_identity": "W", "legal": True,
+                               "type_line": "Artifact — Attraction", "oracle_text": "x"}}
+    page = {"container": {"json_dict": {"card": {"num_decks": 1000}, "cardlists": [
+        {"tag": "topcards", "cardviews": [view("The Matrix of Time", 0.95, 0.9), view("Balloon Stand", 0.9, 0.9),
+                                          view("Rhystic Study", 0.3, 0.1), view("Cultivate", 0.5, 0.3)]}]}}}
+    res = evaluate_card(FakeRedis(), "Sol Ring", DECK,
+                        card_lookup=lambda names: {k: v for k, v in cards.items()
+                                                   if k in {n.lower() for n in names}},
+                        edhrec_client=FakeEdhrec(page), classifier=FakeHF({"ramp": 0.9}))
+    names = {c.name for c in res.candidates}
+    assert "The Matrix of Time" not in names and "Balloon Stand" not in names
+    assert names  # ordinary mainboard-legal cards still flow through
+
+
+def test_card_source_record_exposes_mainboard_gate_alongside_commander_legality():
+    from src.server.domain.analytics.card_eval.card_source import _record, mainboard_gate, variant_type_class
+    plane = _record({"name": "The Abyssal Plane", "type_line": "Plane — The Abyss",
+                     "color_identity": [], "legalities": {"commander": "legal"}})
+    assert plane["legal"] is True  # Commander-legal is NOT mainboard-legal
+    assert plane["type_class"] == "plane"
+    assert plane["mainboard_gate"]["legal"] is False
+    assert plane["mainboard_gate"]["reason"] == \
+        "plane not legal in mainboard slot (belongs in planar_deck)"
+    # Attraction is a subtype: the gate must still catch it.
+    attraction = _record({"name": "Balloon Stand", "type_line": "Artifact — Attraction",
+                          "color_identity": ["R"], "legalities": {"commander": "legal"}})
+    assert attraction["type_class"] == "attraction"
+    assert attraction["mainboard_gate"]["legal"] is False
+    ordinary = _record({"name": "Sol Ring", "type_line": "Artifact",
+                        "color_identity": [], "legalities": {"commander": "legal"}})
+    assert ordinary["type_class"] is None
+    assert ordinary["mainboard_gate"]["legal"] is True and ordinary["mainboard_gate"]["reason"]
+    # Legacy cached record without the new fields: re-derived from type_line.
+    gate = mainboard_gate({"name": "Chaos Plane", "type_line": "Plane — Segovia", "legal": True})
+    assert gate["legal"] is False and gate["type_class"] == "plane"
+    assert mainboard_gate({"name": "X", "legal": None})["legal"] is False  # unknown fails closed
+    assert variant_type_class("Legendary Creature — Human Rogue") is None
 
 
 # ---- HF client ----------------------------------------------------------

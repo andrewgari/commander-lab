@@ -72,7 +72,7 @@ def _scry(names: list[str]) -> dict[str, dict]:
 
 
 def seed(r) -> None:
-    import instances  # noqa: F401  (record shape)
+    import src.server.domain.inventory.instances as instances  # noqa: F401  (record shape)
     names = [COMMANDER] + CARDS
     try:
         data = _scry(names)
@@ -115,7 +115,7 @@ def heuristic_tags(meta: dict) -> list[str]:
 
 def install_engine(app_mod, mode: str) -> None:
     from fastapi.responses import JSONResponse
-    import tags as tag_store
+    import src.server.domain.tags.deck_tags as tag_store
 
     if mode == "501":
         return
@@ -162,7 +162,7 @@ def main() -> None:
     a = ap.parse_args()
     os.environ.setdefault("REDIS_URL", "redis://localhost:6431/0")
     import uvicorn
-    import app as app_mod
+    import src.server.app.main as app_mod
     from fastapi.testclient import TestClient
 
     seed(app_mod.r)

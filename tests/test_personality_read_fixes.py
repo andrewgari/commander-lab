@@ -7,8 +7,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from analytics import personality_read
-from analytics.providers.edhrec import commander_slug
+from src.server.domain.analytics import personality_read
+from src.server.domain.analytics.providers.edhrec import commander_slug
 from tests.test_personality_read import (
     SAMPLE_DECK,
     SAMPLE_JOURNAL,
@@ -108,7 +108,7 @@ class TestCachedSaltReaders(unittest.TestCase):
             _now=lambda: 101.0,
             _cache_ttl_seconds=300.0,
         )
-        with patch("analytics.registry.get_provider", return_value=provider) as get_provider:
+        with patch("src.server.domain.analytics.registry.get_provider", return_value=provider) as get_provider:
             out = personality_read._extract_cached_commandersalt(
                 FakeRedis(), "archidekt:417707", SAMPLE_DECK
             )
@@ -134,7 +134,7 @@ class TestCachedSaltReaders(unittest.TestCase):
             _now=lambda: 401.0,
             _cache_ttl_seconds=300.0,
         )
-        with patch("analytics.registry.get_provider", return_value=provider):
+        with patch("src.server.domain.analytics.registry.get_provider", return_value=provider):
             out = personality_read._extract_cached_commandersalt(
                 FakeRedis(), "archidekt:417707", SAMPLE_DECK
             )
@@ -144,7 +144,7 @@ class TestCachedSaltReaders(unittest.TestCase):
 
 class TestEdhrecParseKeepsSalt(unittest.TestCase):
     def test_parse_page_retains_salt(self):
-        from analytics import edhrec_inclusion
+        from src.server.domain.analytics import edhrec_inclusion
         src = open(edhrec_inclusion.__file__).read()
         self.assertIn("commander_salt", src)
         self.assertIn('"salt"', src)

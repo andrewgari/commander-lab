@@ -10,10 +10,10 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import review_metrics as rm
-from analytics import sim_client as sc
-from analytics import sim_diff as sd
-from analytics import sim_store as ss
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.analytics import sim_client as sc
+from src.server.domain.analytics import sim_diff as sd
+from src.server.domain.analytics import sim_store as ss
 
 SPELLS = (
     ["Sol Ring", "Arcane Signet", "Demonic Tutor", "Helm of the Host", "Strionic Resonator", "Teferi's Protection",

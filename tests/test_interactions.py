@@ -18,12 +18,12 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics.interactions import graph as graph_mod
-from analytics.interactions import llm as llm_mod
-from analytics.interactions import oracle_rules
-from analytics.interactions import service
-from analytics.interactions import tagger as tagger_mod
-from analytics.interactions import vocab
+from src.server.domain.analytics.interactions import graph as graph_mod
+from src.server.domain.analytics.interactions import llm as llm_mod
+from src.server.domain.analytics.interactions import oracle_rules
+from src.server.domain.analytics.interactions import service
+from src.server.domain.analytics.interactions import tagger as tagger_mod
+from src.server.domain.analytics.interactions import vocab
 
 
 class FakeRedis:

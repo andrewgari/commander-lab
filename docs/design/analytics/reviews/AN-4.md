@@ -1,7 +1,7 @@
 # AN-4R: Designer review of the live Stats + Identity pages
 
 Card: `t_f5cf86da`. Reviewed against `docs/design/analytics/UX_SPEC.md` on
-live prod `http://192.168.50.3:8020` (f0e34aa, v0.4.11), Holy Hellfire, at
+live prod `http://<tower-host>:8020` (f0e34aa, v0.4.11), Holy Hellfire, at
 1440×900 and 390×844 (mobile, DPR 2), using Chromium over CDP. Every finding
 below was measured in the DOM, not eyeballed.
 

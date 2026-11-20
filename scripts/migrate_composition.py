@@ -11,7 +11,7 @@ import sys
 
 import redis
 
-from analytics.composition_store import migrate_all_legacy_compositions, _get_json, SPEC_VERSION
+from src.server.domain.analytics.composition_store import migrate_all_legacy_compositions, _get_json, SPEC_VERSION
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)

@@ -20,12 +20,12 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from src.server.app.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
-HUD_CSS = ROOT / "static" / "css" / "hud.css"
-HUD_JS = ROOT / "static" / "js" / "hud.js"
-DECK_JS = ROOT / "static" / "js" / "deck_analytics.js"
+HUD_CSS = ROOT / "src/web/static" / "css" / "hud.css"
+HUD_JS = ROOT / "src/web/static" / "js" / "hud.js"
+DECK_JS = ROOT / "src/web/static" / "js" / "deck_analytics.js"
 MOCK_CSS = ROOT / "docs" / "design" / "analytics" / "analytics.css"
 FIX = ROOT / "tests" / "fixtures" / "an4"
 VENDOR = "/static/vendor/d3-force-3.0.0.min.js"
@@ -70,8 +70,8 @@ def _contrast(a, b):
 
 def _patched(fn):
     """Route tests: a fake registry with Holy Hellfire and a 2-card inventory."""
-    fn = patch("app.inventory_view.build_inventory", return_value=INVENTORY)(fn)
-    fn = patch("app.registry.list_decks", return_value=[DECK])(fn)
+    fn = patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY)(fn)
+    fn = patch("src.server.app.main.registry.list_decks", return_value=[DECK])(fn)
     return fn
 
 
@@ -145,8 +145,8 @@ class _DeckPage:
     @classmethod
     def setUpClass(cls):
         cls.client = TestClient(app)
-        with patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             cls.res = cls.client.get(cls.PATH)
         cls.html = cls.res.text
         cls.body = cls.html.split("<body", 1)[1]
@@ -169,15 +169,16 @@ class _DeckPage:
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8"])
-        self.assertEqual([h for h, _ in tabs], ["/deck/Holy%20Hellfire", "/deck/Holy%20Hellfire/stats",
-                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/journal",
-                                                 "/deck/Holy%20Hellfire/tune", "/deck/Holy%20Hellfire/ideas",
+        self.assertEqual([k for _, k in tabs], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        self.assertEqual([h for h, _ in tabs], ["/deck/Holy%20Hellfire", "/deck/Holy%20Hellfire/manage",
+                                                 "/deck/Holy%20Hellfire/tune", "/deck/Holy%20Hellfire/stats",
+                                                 "/deck/Holy%20Hellfire/identity", "/deck/Holy%20Hellfire/primer",
+                                                 "/deck/Holy%20Hellfire/journal", "/deck/Holy%20Hellfire/ideas",
                                                  "/deck/Holy%20Hellfire/review", "/deck/Holy%20Hellfire/sim"])
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], [self.ACTIVE])
         # No tuner run yet: Tune's badge is hidden, never "0" (UX_SPEC §1).
-        self.assertNotRegex(nav, r'/tune"[^>]*>Tune <span')
+        self.assertNotRegex(nav, r'/tune"[^>]*><span class="hud-kbd"[^>]*>3</span>Tune <span')
 
     def test_every_hud_class_used_is_defined(self):
         used = set(re.findall(r"(?<![-\w])(hud-[a-z0-9-]+)", self.body))
@@ -243,13 +244,13 @@ class TestStatsPage(_DeckPage, unittest.TestCase):
 
     def test_deck_name_is_escaped(self):
         evil = dict(DECK, name="<img src=x onerror=alert(1)>")
-        with patch("app.registry.list_decks", return_value=[evil]), \
-                patch("app.inventory_view.build_inventory", return_value=INVENTORY):
+        with patch("src.server.app.main.registry.list_decks", return_value=[evil]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=INVENTORY):
             html = self.client.get("/deck/%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E/stats").text
         self.assertNotIn("<img src=x onerror=alert(1)>", html)
 
     def test_unknown_deck_is_404(self):
-        with patch("app.registry.list_decks", return_value=[DECK]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[DECK]):
             self.assertEqual(self.client.get("/deck/Nope/stats").status_code, 404)
             self.assertEqual(self.client.get("/deck/Nope/identity").status_code, 404)
 
@@ -291,7 +292,7 @@ class TestOverviewUsesDeckHeader(_DeckPage, unittest.TestCase):
 
     def test_unknown_deck_still_renders(self):
         # The Overview page renders a "not synced" shell for unknown names (pre-AN-4 behaviour).
-        with patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(self.client.get("/deck/Unknown").status_code, 200)
 
 

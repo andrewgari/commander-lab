@@ -1,0 +1,6 @@
+*
+!src/web
+!tests/fixtures/review_document
+src/web/node_modules
+src/web/.svelte-kit
+src/web/build

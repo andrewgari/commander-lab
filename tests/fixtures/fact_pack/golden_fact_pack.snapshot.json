@@ -1,0 +1,1563 @@
+{
+ "bracket": {
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "game_changers": [
+   "Cyclonic Rift",
+   "Rhystic Study",
+   "Demonic Tutor",
+   "Vampiric Tutor",
+   "Smothering Tithe",
+   "Thassa's Oracle"
+  ],
+  "meaning": "Lowest bracket at which every hard rule passes; intent can only raise it. Bracket 5 is never computed.",
+  "minimum_bracket": 4,
+  "minimum_bracket_name": "Optimized",
+  "notes": [],
+  "reasons": [
+   {
+    "cards": [
+     "Cyclonic Rift",
+     "Rhystic Study",
+     "Demonic Tutor",
+     "Vampiric Tutor",
+     "Smothering Tithe",
+     "Thassa's Oracle"
+    ],
+    "floor": 4,
+    "rule": "game_changers"
+   },
+   {
+    "cards": [
+     "Demonic Consultation",
+     "Thassa's Oracle"
+    ],
+    "floor": 4,
+    "rule": "two_card_combos"
+   }
+  ],
+  "source": "bracket_check (scryfall game_changer flag; bracket_cards.json; Commander Spellbook)"
+ },
+ "cards": [
+  {
+   "cmc": 4.0,
+   "game_changer": false,
+   "name": "Atraxa, Praetors' Voice",
+   "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Sol Ring",
+   "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": false,
+   "name": "Arcane Signet",
+   "oracle_id": "0bc7f093-bef0-4f1a-852c-4b75ebf54838"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": false,
+   "name": "Cultivate",
+   "oracle_id": "8b755881-a72d-4e21-a369-d2924eb4585a"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": false,
+   "name": "Kodama's Reach",
+   "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Birds of Paradise",
+   "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Swords to Plowshares",
+   "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Path to Exile",
+   "oracle_id": "d683d985-9888-4d21-8b5f-69e69ce4a03b"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": true,
+   "name": "Cyclonic Rift",
+   "oracle_id": "d75b9c82-1b49-4c3e-a1b5-aeef57d6644b"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": true,
+   "name": "Rhystic Study",
+   "oracle_id": "53236dd7-845a-444c-96d5-f41ed7325d8f"
+  },
+  {
+   "cmc": 4.0,
+   "game_changer": false,
+   "name": "Wrath of God",
+   "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": false,
+   "name": "Toxic Deluge",
+   "oracle_id": "afaef788-34d1-460b-b884-9d7ae6ddeb18"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": false,
+   "name": "Heroic Intervention",
+   "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": false,
+   "name": "Animate Dead",
+   "oracle_id": "c0d8fef4-65f4-4769-982d-b397d2b7e977"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": true,
+   "name": "Demonic Tutor",
+   "oracle_id": "82004860-e589-4e38-8d61-8c0210e4ea39"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": true,
+   "name": "Vampiric Tutor",
+   "oracle_id": "ededbdae-d9dc-4206-9335-d7158f2d7700"
+  },
+  {
+   "cmc": 4.0,
+   "game_changer": true,
+   "name": "Smothering Tithe",
+   "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": true,
+   "name": "Thassa's Oracle",
+   "oracle_id": "1de1b591-a73f-4974-b507-8c63e07a0868"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Demonic Consultation",
+   "oracle_id": "9a1412db-45ad-46ea-8f12-a85d203113d8"
+  },
+  {
+   "cmc": 5.0,
+   "game_changer": false,
+   "name": "Doubling Season",
+   "oracle_id": "01546b7d-a233-4176-8843-d732074dc5b6"
+  },
+  {
+   "cmc": 1.0,
+   "game_changer": false,
+   "name": "Hardened Scales",
+   "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+  },
+  {
+   "cmc": 5.0,
+   "game_changer": false,
+   "name": "Inexorable Tide",
+   "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+  },
+  {
+   "cmc": 5.0,
+   "game_changer": false,
+   "name": "Deepglow Skate",
+   "oracle_id": "debce64a-18bd-42f5-9e85-158c2242e9e9"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": false,
+   "name": "Evolution Sage",
+   "oracle_id": "b45fdeab-00cc-4422-af9f-66f30a880a7c"
+  },
+  {
+   "cmc": 6.0,
+   "game_changer": false,
+   "name": "Sun Titan",
+   "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+  },
+  {
+   "cmc": 5.0,
+   "game_changer": false,
+   "name": "Mulldrifter",
+   "oracle_id": "24d0f5e7-0d9e-4b76-900e-a7274e80312d"
+  },
+  {
+   "cmc": 3.0,
+   "game_changer": false,
+   "name": "Eternal Witness",
+   "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+  },
+  {
+   "cmc": 2.0,
+   "game_changer": false,
+   "name": "Farseek",
+   "oracle_id": "495e52e6-4c2b-4574-9474-eadbdcc8b4ac"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Command Tower",
+   "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Exotic Orchard",
+   "oracle_id": "27b047e3-0d41-45e2-98e9-9391d7923a1e"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Breeding Pool",
+   "oracle_id": "20283c4a-f1f0-42f0-bc08-6da87474426b"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Watery Grave",
+   "oracle_id": "fc9ec820-4245-4a96-b009-5308a818ca58"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Godless Shrine",
+   "oracle_id": "73864fcc-1bde-4bc0-831e-2b93e546e417"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Hallowed Fountain",
+   "oracle_id": "f1750962-a87c-49f6-b731-02ae971ac6ea"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Temple Garden",
+   "oracle_id": "f413a83d-a40d-434c-b20a-4c707c0527fa"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Overgrown Tomb",
+   "oracle_id": "975ec9a3-6f20-4177-8211-82526e092538"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Forest",
+   "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Plains",
+   "oracle_id": "bc71ebf6-2056-41f7-be35-b2e5c34afa99"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Island",
+   "oracle_id": "b2c6aa39-2d2a-459c-a555-fb48ba993373"
+  },
+  {
+   "cmc": 0.0,
+   "game_changer": false,
+   "name": "Swamp",
+   "oracle_id": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68"
+  }
+ ],
+ "charts": {
+  "curve": {
+   "average_mv": 2.7,
+   "buckets": [
+    {
+     "count": 0,
+     "label": "0",
+     "mv": 0
+    },
+    {
+     "count": 7,
+     "label": "1",
+     "mv": 1
+    },
+    {
+     "count": 7,
+     "label": "2",
+     "mv": 2
+    },
+    {
+     "count": 6,
+     "label": "3",
+     "mv": 3
+    },
+    {
+     "count": 2,
+     "label": "4",
+     "mv": 4
+    },
+    {
+     "count": 4,
+     "label": "5",
+     "mv": 5
+    },
+    {
+     "count": 1,
+     "label": "6",
+     "mv": 6
+    },
+    {
+     "count": 0,
+     "label": "7+",
+     "mv": 7
+    }
+   ]
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 7,
+    "recommended_sources": 26,
+    "sources": 7
+   },
+   {
+    "color": "U",
+    "pips": 8,
+    "recommended_sources": 30,
+    "sources": 7
+   },
+   {
+    "color": "B",
+    "pips": 5,
+    "recommended_sources": 19,
+    "sources": 7
+   },
+   {
+    "color": "G",
+    "pips": 10,
+    "recommended_sources": 28,
+    "sources": 8
+   }
+  ],
+  "roles": [
+   {
+    "count": 7,
+    "role": "ramp",
+    "target_max": 11,
+    "target_min": 9
+   },
+   {
+    "count": 5,
+    "role": "draw",
+    "target_max": 13,
+    "target_min": 11
+   },
+   {
+    "count": 3,
+    "role": "targeted_removal",
+    "target_max": 13,
+    "target_min": 11
+   },
+   {
+    "count": 2,
+    "role": "wipes",
+    "target_max": 7,
+    "target_min": 5
+   }
+  ],
+  "synergy_clusters": [
+   {
+    "cards": [
+     {
+      "name": "Evolution Sage",
+      "oracle_id": "b45fdeab-00cc-4422-af9f-66f30a880a7c"
+     },
+     {
+      "name": "Hardened Scales",
+      "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+     },
+     {
+      "name": "Inexorable Tide",
+      "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+     }
+    ],
+    "name": "counters",
+    "strength": 0.1111
+   }
+  ]
+ },
+ "combos": {
+  "complete": [
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Demonic Consultation",
+     "Thassa's Oracle"
+    ],
+    "id": "742-1295",
+    "identity": "UB",
+    "popularity": 149872,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/742-1295/"
+   }
+  ],
+  "counts": {
+   "complete": 1,
+   "near_misses": 36
+  },
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "near_misses": [
+   {
+    "bracket_tag": "E",
+    "card_names": [
+     "Hullbreaker Horror",
+     "Sol Ring"
+    ],
+    "id": "513-5034--46",
+    "identity": "U",
+    "missing": [
+     "Hullbreaker Horror"
+    ],
+    "popularity": 363277,
+    "produces": [
+     "Infinite colorless mana",
+     "Infinite storm count"
+    ],
+    "url": "https://commanderspellbook.com/combo/513-5034--46/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Tainted Pact",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-3093",
+    "identity": "UB",
+    "missing": [
+     "Tainted Pact"
+    ],
+    "popularity": 131870,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-3093/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Tidespout Tyrant",
+     "Sol Ring"
+    ],
+    "id": "542-5034",
+    "identity": "U",
+    "missing": [
+     "Tidespout Tyrant"
+    ],
+    "popularity": 37780,
+    "produces": [
+     "Infinite colorless mana",
+     "Infinite storm count"
+    ],
+    "url": "https://commanderspellbook.com/combo/542-5034/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Abdel Adrian, Gorion's Ward",
+     "Animate Dead"
+    ],
+    "id": "372-4812",
+    "identity": "WB",
+    "missing": [
+     "Abdel Adrian, Gorion's Ward"
+    ],
+    "popularity": 17098,
+    "produces": [
+     "Infinite blinking",
+     "Infinite creature tokens",
+     "Infinite death triggers",
+     "Infinite creature ETB",
+     "Infinite creature LTB",
+     "Infinite creature sacrifice triggers",
+     "Infinite blinking of nonland permanents"
+    ],
+    "url": "https://commanderspellbook.com/combo/372-4812/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Demonic Consultation",
+     "Laboratory Maniac"
+    ],
+    "id": "742-2836",
+    "identity": "UB",
+    "missing": [
+     "Laboratory Maniac"
+    ],
+    "popularity": 14624,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/742-2836/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Doomsday",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-3189",
+    "identity": "UB",
+    "missing": [
+     "Doomsday"
+    ],
+    "popularity": 14614,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-3189/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Enter the Infinite",
+     "Thassa's Oracle"
+    ],
+    "id": "953-1295",
+    "identity": "U",
+    "missing": [
+     "Enter the Infinite"
+    ],
+    "popularity": 12638,
+    "produces": [
+     "Infinite card draw",
+     "Infinite draw triggers",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/953-1295/"
+   },
+   {
+    "bracket_tag": "E",
+    "card_names": [
+     "Doppelgang",
+     "Eternal Witness"
+    ],
+    "id": "864-5352",
+    "identity": "GU",
+    "missing": [
+     "Doppelgang"
+    ],
+    "popularity": 12606,
+    "produces": [
+     "Infinite copies of all permanents",
+     "Infinite creature tokens",
+     "Infinite creature ETB",
+     "Infinite landfall triggers",
+     "Infinite magecraft triggers",
+     "Infinite mana permanents you control can produce",
+     "Infinite storm count",
+     "Return all cards from your graveyard to your hand",
+     "Infinite casts of instants and sorceries in your hand and graveyard"
+    ],
+    "url": "https://commanderspellbook.com/combo/864-5352/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Swords to Plowshares",
+     "Jumbo Cactuar"
+    ],
+    "id": "3779-6323",
+    "identity": "GW",
+    "missing": [
+     "Jumbo Cactuar"
+    ],
+    "popularity": 11921,
+    "produces": [
+     "Near-infinite lifegain"
+    ],
+    "url": "https://commanderspellbook.com/combo/3779-6323/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Hermit Druid",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-4400",
+    "identity": "GU",
+    "missing": [
+     "Hermit Druid"
+    ],
+    "popularity": 10389,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-4400/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Approach of the Second Sun",
+     "Demonic Tutor"
+    ],
+    "id": "553-4105",
+    "identity": "WB",
+    "missing": [
+     "Approach of the Second Sun"
+    ],
+    "popularity": 9592,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/553-4105/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Demonic Consultation",
+     "Jace, Wielder of Mysteries"
+    ],
+    "id": "742-3096",
+    "identity": "UB",
+    "missing": [
+     "Jace, Wielder of Mysteries"
+    ],
+    "popularity": 9507,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/742-3096/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Leveler",
+     "Thassa's Oracle"
+    ],
+    "id": "1068-1295",
+    "identity": "U",
+    "missing": [
+     "Leveler"
+    ],
+    "popularity": 9252,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1068-1295/"
+   },
+   {
+    "bracket_tag": "E",
+    "card_names": [
+     "Leonin Relic-Warder",
+     "Animate Dead"
+    ],
+    "id": "4812-5276",
+    "identity": "WB",
+    "missing": [
+     "Leonin Relic-Warder"
+    ],
+    "popularity": 8782,
+    "produces": [
+     "Infinite death triggers",
+     "Infinite creature ETB",
+     "Infinite creature LTB",
+     "Infinite creature sacrifice triggers"
+    ],
+    "url": "https://commanderspellbook.com/combo/4812-5276/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Stasis",
+     "Smothering Tithe"
+    ],
+    "id": "1025-4682",
+    "identity": "WU",
+    "missing": [
+     "Stasis"
+    ],
+    "popularity": 8350,
+    "produces": [
+     "Mass Land Denial",
+     "Players skip their untap steps",
+     "Lock"
+    ],
+    "url": "https://commanderspellbook.com/combo/1025-4682/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Approach of the Second Sun",
+     "Vampiric Tutor"
+    ],
+    "id": "553-1827",
+    "identity": "WB",
+    "missing": [
+     "Approach of the Second Sun"
+    ],
+    "popularity": 7391,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/553-1827/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Thassa's Oracle",
+     "Thought Lash"
+    ],
+    "id": "1295-2853",
+    "identity": "U",
+    "missing": [
+     "Thought Lash"
+    ],
+    "popularity": 4232,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-2853/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Replication Technique",
+     "Doubling Season"
+    ],
+    "id": "1883-4772",
+    "identity": "GU",
+    "missing": [
+     "Replication Technique"
+    ],
+    "popularity": 3794,
+    "produces": [
+     "Near-infinite creature tokens",
+     "Near-infinite creature ETB"
+    ],
+    "url": "https://commanderspellbook.com/combo/1883-4772/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Paradigm Shift",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-3367",
+    "identity": "U",
+    "missing": [
+     "Paradigm Shift"
+    ],
+    "popularity": 3673,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-3367/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Myojin of Cryptic Dreams",
+     "Deepglow Skate"
+    ],
+    "id": "1437-2431",
+    "identity": "U",
+    "missing": [
+     "Myojin of Cryptic Dreams"
+    ],
+    "popularity": 2379,
+    "produces": [
+     "Infinite creature ETB",
+     "Infinite creature tokens",
+     "Infinite proliferate",
+     "Infinite copies of permanent spells you control"
+    ],
+    "url": "https://commanderspellbook.com/combo/1437-2431/"
+   },
+   {
+    "bracket_tag": "E",
+    "card_names": [
+     "Approach of the Second Sun",
+     "Demonic Consultation"
+    ],
+    "id": "553-742",
+    "identity": "WB",
+    "missing": [
+     "Approach of the Second Sun"
+    ],
+    "popularity": 2039,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/553-742/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Divining Witch",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-4267",
+    "identity": "UB",
+    "missing": [
+     "Divining Witch"
+    ],
+    "popularity": 2038,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-4267/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Kederekt Leviathan",
+     "Animate Dead"
+    ],
+    "id": "4413-4812",
+    "identity": "UB",
+    "missing": [
+     "Kederekt Leviathan"
+    ],
+    "popularity": 1995,
+    "produces": [
+     "Return all nonland permanents to owner's hand each turn",
+     "Lock"
+    ],
+    "url": "https://commanderspellbook.com/combo/4413-4812/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Brago, King Eternal",
+     "Cyclonic Rift",
+     "Eternal Witness"
+    ],
+    "id": "864-3115-3557",
+    "identity": "GWU",
+    "missing": [
+     "Brago, King Eternal"
+    ],
+    "popularity": 1785,
+    "produces": [
+     "Lock",
+     "Return all nonland permanents opponents control to their hand on each of your turns"
+    ],
+    "url": "https://commanderspellbook.com/combo/864-3115-3557/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Jace, Cunning Castaway",
+     "Doubling Season"
+    ],
+    "id": "600-4772",
+    "identity": "GU",
+    "missing": [
+     "Jace, Cunning Castaway"
+    ],
+    "popularity": 1527,
+    "produces": [
+     "Infinite creature ETB",
+     "Infinite copies of a specific planeswalker",
+     "Infinite creature tokens"
+    ],
+    "url": "https://commanderspellbook.com/combo/600-4772/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Gleaming Splendor",
+     "Smothering Tithe",
+     "Doubling Season"
+    ],
+    "id": "4682-4772-7890",
+    "identity": "GW",
+    "missing": [
+     "Gleaming Splendor"
+    ],
+    "popularity": 1502,
+    "produces": [
+     "Infinite card draw for any number of players",
+     "Infinite draw triggers for any number of players",
+     "Near-infinite Treasure tokens",
+     "Near-infinite colored mana",
+     "Near-infinite artifact ETB",
+     "Near-infinite artifact LTB",
+     "Near-infinite artifact sacrifice triggers"
+    ],
+    "url": "https://commanderspellbook.com/combo/4682-4772-7890/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Mirror of Fate",
+     "Thassa's Oracle"
+    ],
+    "id": "1164-1295",
+    "identity": "U",
+    "missing": [
+     "Mirror of Fate"
+    ],
+    "popularity": 1238,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1164-1295/"
+   },
+   {
+    "bracket_tag": "E",
+    "card_names": [
+     "Spawnsire of Ulamog",
+     "Doubling Season"
+    ],
+    "id": "2143-4772",
+    "identity": "G",
+    "missing": [
+     "Spawnsire of Ulamog"
+    ],
+    "popularity": 1092,
+    "produces": [
+     "Infinite death triggers",
+     "Infinite creature ETB",
+     "Infinite creature LTB",
+     "Infinite creature sacrifice triggers"
+    ],
+    "url": "https://commanderspellbook.com/combo/2143-4772/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Doomsday Excruciator",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-5909",
+    "identity": "UB",
+    "missing": [
+     "Doomsday Excruciator"
+    ],
+    "popularity": 973,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-5909/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Demonic Consultation",
+     "Timestream Navigator"
+    ],
+    "id": "742-1061",
+    "identity": "UB",
+    "missing": [
+     "Timestream Navigator"
+    ],
+    "popularity": 669,
+    "produces": [
+     "Infinite turns",
+     "Exile your library",
+     "Skip your draw steps",
+     "Lock"
+    ],
+    "url": "https://commanderspellbook.com/combo/742-1061/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Phyrexian Devourer",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-4899",
+    "identity": "U",
+    "missing": [
+     "Phyrexian Devourer"
+    ],
+    "popularity": 606,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-4899/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Fblthp, Impossibly Lost",
+     "Demonic Consultation"
+    ],
+    "id": "742-8266",
+    "identity": "UB",
+    "missing": [
+     "Fblthp, Impossibly Lost"
+    ],
+    "popularity": 468,
+    "produces": [
+     "Exile your library",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/742-8266/"
+   },
+   {
+    "bracket_tag": "R",
+    "card_names": [
+     "Second Chance",
+     "Sun Titan"
+    ],
+    "id": "1530-3175",
+    "identity": "WU",
+    "missing": [
+     "Second Chance"
+    ],
+    "popularity": 258,
+    "produces": [
+     "Infinite turns",
+     "Lock"
+    ],
+    "url": "https://commanderspellbook.com/combo/1530-3175/"
+   },
+   {
+    "bracket_tag": "S",
+    "card_names": [
+     "Sacred Guide",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-2679",
+    "identity": "WU",
+    "missing": [
+     "Sacred Guide"
+    ],
+    "popularity": 189,
+    "produces": [
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-2679/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Biorhythm",
+     "Wrath of God"
+    ],
+    "id": "6127-7299",
+    "identity": "GW",
+    "missing": [
+     "Biorhythm"
+    ],
+    "popularity": 154,
+    "produces": [
+     "Draw the game",
+     "Each opponent loses the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/6127-7299/"
+   },
+   {
+    "bracket_tag": "P",
+    "card_names": [
+     "Mordenkainen",
+     "Doubling Season",
+     "Thassa's Oracle"
+    ],
+    "id": "1295-4772-5305",
+    "identity": "GU",
+    "missing": [
+     "Mordenkainen"
+    ],
+    "popularity": 44,
+    "produces": [
+     "Infinite card draw",
+     "Win the game"
+    ],
+    "url": "https://commanderspellbook.com/combo/1295-4772-5305/"
+   }
+  ],
+  "source": "commanderspellbook find-my-combos"
+ },
+ "curve": {
+  "average_mv": 2.7,
+  "buckets": [
+   {
+    "count": 0,
+    "label": "0",
+    "mv": 0
+   },
+   {
+    "count": 7,
+    "label": "1",
+    "mv": 1
+   },
+   {
+    "count": 7,
+    "label": "2",
+    "mv": 2
+   },
+   {
+    "count": 6,
+    "label": "3",
+    "mv": 3
+   },
+   {
+    "count": 2,
+    "label": "4",
+    "mv": 4
+   },
+   {
+    "count": 4,
+    "label": "5",
+    "mv": 5
+   },
+   {
+    "count": 1,
+    "label": "6",
+    "mv": 6
+   },
+   {
+    "count": 0,
+    "label": "7+",
+    "mv": 7
+   }
+  ],
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "nonland_cards": 27,
+  "note": "Lands and commanders excluded; MDFCs count by front face.",
+  "source": "scryfall"
+ },
+ "deck": {
+  "card_count": 45,
+  "color_identity": [
+   "W",
+   "U",
+   "B",
+   "G"
+  ],
+  "commanders": [
+   "Atraxa, Praetors' Voice"
+  ]
+ },
+ "edhrec": {
+  "cards_scored": 35,
+  "commander": {
+   "name": "Atraxa, Praetors' Voice",
+   "num_decks": 45914,
+   "rank": 4,
+   "salt": 1.7713884992987377
+  },
+  "deviation_definition": "Mean of (1 - inclusion) over the deck's nonland, nonbasic cards; a card EDHREC does not list for this commander counts as 1.0. 0 = a stock list, 1 = nothing in common. 'high_synergy_absent' = listed cards with synergy >= 0.2 that the deck lacks.",
+  "deviation_score": 0.666,
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "high_synergy_absent": [
+   {
+    "inclusion": 0.6688,
+    "name": "Tekuthal, Inquiry Dominus",
+    "synergy": 0.27
+   },
+   {
+    "inclusion": 0.5952,
+    "name": "Karn's Bastion",
+    "synergy": 0.2328
+   },
+   {
+    "inclusion": 0.5296,
+    "name": "Ezuri, Stalker of Spheres",
+    "synergy": 0.2116
+   },
+   {
+    "inclusion": 0.5271,
+    "name": "Vraska, Betrayal's Sting",
+    "synergy": 0.2052
+   }
+  ],
+  "present": [
+   {
+    "inclusion": 0.918,
+    "name": "Command Tower",
+    "num_decks": 42148,
+    "synergy": -0.0043
+   },
+   {
+    "inclusion": 0.85,
+    "name": "Sol Ring",
+    "num_decks": 39027,
+    "synergy": -0.0183
+   },
+   {
+    "inclusion": 0.788,
+    "name": "Arcane Signet",
+    "num_decks": 36182,
+    "synergy": 0.0033
+   },
+   {
+    "inclusion": 0.6386,
+    "name": "Exotic Orchard",
+    "num_decks": 29321,
+    "synergy": -0.0154
+   },
+   {
+    "inclusion": 0.5926,
+    "name": "Evolution Sage",
+    "num_decks": 27210,
+    "synergy": 0.2373
+   },
+   {
+    "inclusion": 0.5586,
+    "name": "Swords to Plowshares",
+    "num_decks": 25649,
+    "synergy": -0.0177
+   },
+   {
+    "inclusion": 0.5068,
+    "name": "Inexorable Tide",
+    "num_decks": 23268,
+    "synergy": 0.2067
+   },
+   {
+    "inclusion": 0.4915,
+    "name": "Breeding Pool",
+    "num_decks": 22568,
+    "synergy": -0.0438
+   },
+   {
+    "inclusion": 0.4763,
+    "name": "Overgrown Tomb",
+    "num_decks": 21870,
+    "synergy": 0.0098
+   },
+   {
+    "inclusion": 0.4726,
+    "name": "Temple Garden",
+    "num_decks": 21699,
+    "synergy": 0.0174
+   },
+   {
+    "inclusion": 0.4687,
+    "name": "Farseek",
+    "num_decks": 21522,
+    "synergy": 0.0628
+   },
+   {
+    "inclusion": 0.4648,
+    "name": "Hallowed Fountain",
+    "num_decks": 21340,
+    "synergy": -0.0008
+   },
+   {
+    "inclusion": 0.463,
+    "name": "Watery Grave",
+    "num_decks": 21259,
+    "synergy": -0.0269
+   },
+   {
+    "inclusion": 0.4549,
+    "name": "Godless Shrine",
+    "num_decks": 20885,
+    "synergy": 0.0199
+   },
+   {
+    "inclusion": 0.3891,
+    "name": "Cultivate",
+    "num_decks": 17865,
+    "synergy": 0.071
+   },
+   {
+    "inclusion": 0.3624,
+    "name": "Path to Exile",
+    "num_decks": 16637,
+    "synergy": 0.0338
+   },
+   {
+    "inclusion": 0.3246,
+    "name": "Doubling Season",
+    "num_decks": 14903,
+    "synergy": 0.1259
+   },
+   {
+    "inclusion": 0.322,
+    "name": "Birds of Paradise",
+    "num_decks": 14785,
+    "synergy": -0.1265
+   },
+   {
+    "inclusion": 0.3078,
+    "name": "Deepglow Skate",
+    "num_decks": 14133,
+    "synergy": 0.1243
+   },
+   {
+    "inclusion": 0.2833,
+    "name": "Rhystic Study",
+    "num_decks": 13008,
+    "synergy": -0.1
+   },
+   {
+    "inclusion": 0.2526,
+    "name": "Cyclonic Rift",
+    "num_decks": 11597,
+    "synergy": -0.0453
+   },
+   {
+    "inclusion": 0.24,
+    "name": "Heroic Intervention",
+    "num_decks": 11018,
+    "synergy": 0.0503
+   },
+   {
+    "inclusion": 0.2307,
+    "name": "Demonic Tutor",
+    "num_decks": 10591,
+    "synergy": -0.1105
+   },
+   {
+    "inclusion": 0.2159,
+    "name": "Smothering Tithe",
+    "num_decks": 9912,
+    "synergy": -0.1095
+   },
+   {
+    "inclusion": 0.1858,
+    "name": "Kodama's Reach",
+    "num_decks": 8530,
+    "synergy": 0.019
+   },
+   {
+    "inclusion": 0.155,
+    "name": "Vampiric Tutor",
+    "num_decks": 7117,
+    "synergy": -0.123
+   },
+   {
+    "inclusion": 0.1413,
+    "name": "Toxic Deluge",
+    "num_decks": 6489,
+    "synergy": -0.0055
+   },
+   {
+    "inclusion": 0.1366,
+    "name": "Hardened Scales",
+    "num_decks": 6271,
+    "synergy": 0.0346
+   }
+  ],
+  "source": "edhrec (unofficial json.edhrec.com commander page)"
+ },
+ "generated_at": "2026-10-26T12:00:00+00:00",
+ "mana": {
+  "basic_lands": 9,
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "fixing_lands": 8,
+  "fixing_quality": {
+   "multicolor_lands": 8,
+   "note": "multicolor_lands = lands whose Scryfall produced_mana has 2+ colors; tapped count ignores conditional ETB-tapped lands.",
+   "share_of_lands": 0.471
+  },
+  "lands": 17,
+  "mdfc_spell_lands": 0,
+  "nonbasic_lands": 8,
+  "norms": {
+   "colored_sources": {
+    "caveat": "recommended_sources = the highest requirement among cards of that color (incl. the commander); lands only, ignores rocks/dorks.",
+    "source": "Frank Karsten, How Many Sources Do You Need to Consistently Cast Your Spells? A 2022 Update (99-card column): https://www.tcgplayer.com/content/article/How-Many-Sources-Do-You-Need-to-Consistently-Cast-Your-Spells-A-2022-Update/dc23a7d2-0a16-4c0b-ad36-586fcca03ad8/"
+   },
+   "lands": {
+    "source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+    "target": 38
+   }
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 7,
+    "recommended_sources": 26,
+    "sources": 7
+   },
+   {
+    "color": "U",
+    "pips": 8,
+    "recommended_sources": 30,
+    "sources": 7
+   },
+   {
+    "color": "B",
+    "pips": 5,
+    "recommended_sources": 19,
+    "sources": 7
+   },
+   {
+    "color": "G",
+    "pips": 10,
+    "recommended_sources": 28,
+    "sources": 8
+   }
+  ],
+  "source": "scryfall",
+  "unconditional_tapped_lands": 0
+ },
+ "roles": {
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "ramp_vs_norm": {
+   "count": 7,
+   "source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+   "target": 10
+  },
+  "roles": [
+   {
+    "cards": [
+     "Arcane Signet",
+     "Birds of Paradise",
+     "Cultivate",
+     "Farseek",
+     "Kodama's Reach",
+     "Smothering Tithe",
+     "Sol Ring"
+    ],
+    "count": 7,
+    "norm_source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+    "role": "ramp",
+    "target_max": 11,
+    "target_min": 9
+   },
+   {
+    "cards": [
+     "Demonic Consultation",
+     "Eternal Witness",
+     "Mulldrifter",
+     "Rhystic Study",
+     "Smothering Tithe"
+    ],
+    "count": 5,
+    "norm_source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+    "role": "draw",
+    "target_max": 13,
+    "target_min": 11
+   },
+   {
+    "cards": [
+     "Cyclonic Rift",
+     "Path to Exile",
+     "Swords to Plowshares"
+    ],
+    "count": 3,
+    "norm_source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+    "role": "targeted_removal",
+    "target_max": 13,
+    "target_min": 11
+   },
+   {
+    "cards": [
+     "Toxic Deluge",
+     "Wrath of God"
+    ],
+    "count": 2,
+    "norm_source": "The Command Zone ep. 658, Commander Deckbuilding Template for the New Era (2025-02-18): https://edhrec.com/articles/the-command-zone-commander-deckbuilding-template-for-the-new-era-the-command-zone-658-mtg-edh-magic-gathering",
+    "role": "wipes",
+    "target_max": 7,
+    "target_min": 5
+   },
+   {
+    "cards": [
+     "Heroic Intervention"
+    ],
+    "count": 1,
+    "norm": {
+     "reason": "no published Commander norm for this role",
+     "status": "unavailable"
+    },
+    "role": "protection"
+   },
+   {
+    "cards": [
+     "Animate Dead",
+     "Eternal Witness",
+     "Sun Titan"
+    ],
+    "count": 3,
+    "norm": {
+     "reason": "no published Commander norm for this role",
+     "status": "unavailable"
+    },
+    "role": "recursion"
+   },
+   {
+    "cards": [
+     "Demonic Tutor",
+     "Vampiric Tutor"
+    ],
+    "count": 2,
+    "norm": {
+     "reason": "no published Commander norm for this role",
+     "status": "unavailable"
+    },
+    "role": "tutors"
+   }
+  ],
+  "source": "scryfall oracle text + analytics.composition/commander_roles heuristics"
+ },
+ "salt": {
+  "deck_salt": 3.2,
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "source": "commandersalt",
+  "top_cards": [
+   {
+    "name": "Rhystic Study",
+    "salt": 1.1
+   },
+   {
+    "name": "Cyclonic Rift",
+    "salt": 0.9
+   }
+  ]
+ },
+ "schema": "fact_pack/2",
+ "synergy": {
+  "clusters": [
+   {
+    "cards": [
+     {
+      "name": "Evolution Sage",
+      "oracle_id": "b45fdeab-00cc-4422-af9f-66f30a880a7c"
+     },
+     {
+      "name": "Hardened Scales",
+      "oracle_id": "a1f3da21-af6d-450e-bf0b-985d158418e6"
+     },
+     {
+      "name": "Inexorable Tide",
+      "oracle_id": "40ec0a47-badf-4074-b0a8-749bb7c17b95"
+     }
+    ],
+    "commander_centered": true,
+    "name": "counters",
+    "strength": 0.1111,
+    "support": 3.0,
+    "threshold": 2
+   }
+  ],
+  "density": 0.1111,
+  "fetched_at": "2026-10-26T12:00:00+00:00",
+  "orphan_definition": "Nonland, noncommander cards in no active theme cluster and with no functional role (ramp/draw/removal/wipes/protection/recursion/tutors).",
+  "orphans": [
+   "Deepglow Skate",
+   "Doubling Season",
+   "Thassa's Oracle"
+  ],
+  "source": "tags.engine (oracle-text rules, autotag-v1)"
+ }
+}

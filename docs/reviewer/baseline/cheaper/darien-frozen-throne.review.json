@@ -1,0 +1,1552 @@
+{
+ "schema_version": "review_document.v1",
+ "meta": {
+  "deck_id": "archidekt:417248",
+  "deck_name": "No The Other Frozen Throne",
+  "commanders": [
+   {
+    "name": "Darien, King of Kjeldor",
+    "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+   }
+  ],
+  "generated_at": "2026-10-29T01:19:13.257317+00:00",
+  "pipeline_version": "review-ab-1",
+  "prompt_versions": {
+   "A": "v1",
+   "B": "v1",
+   "C": "v1",
+   "D": "v1",
+   "E": "v1",
+   "critic": "v1"
+  },
+  "models": {
+   "A": "spoton:claude-haiku-4-5",
+   "B": "spoton:claude-haiku-4-5",
+   "C": "spoton:claude-haiku-4-5",
+   "D": "spoton:claude-haiku-4-5",
+   "E": "spoton:claude-haiku-4-5",
+   "critic": "spoton:mistral-large-3"
+  },
+  "fact_pack_hash": "031c58321a2aa1a42f7648947dbe1f7a1f2011c4e582b69f11a727f28a75d77a"
+ },
+ "verdict": {
+  "headline": "Robust token engine undermined by thin interaction and ramp scarcity",
+  "summary": "Darien's damage-to-token conversion is mechanically sound, with Anointed Procession and lifegain triggers creating reliable multiplication and sustain by turn 4–5. However, 22 orphan cards dilute synergy density, targeted removal (6 cards) cannot answer resolved stax threats, and only 3 ramp pieces leave the deck vulnerable to early disruption. Smothering Tithe floors the power bracket at Upgraded, but without tutors or consistent acceleration, the deck plays closer to casual consistency than its floor suggests. Wrath of God and Austere Command reset the token army without replacement, undoing momentum at critical turns.",
+  "grade": "C",
+  "confidence": 0.78
+ },
+ "deck_identity": {
+  "what_it_does": "A mono-white token swarm deck built around Darien's damage-to-tokens conversion. The core loop is to take damage—either self-inflicted via mana rocks or from opponents—to generate Soldier tokens, then multiply them with Anointed Procession and pump them with lords and anthems. The deck chains lifegain triggers (Soul Warden, Anointer Priest, Suture Priest) to sustain the loop and close out with damage or utility finishes.",
+  "win_paths": [
+   "Soldier lord overrun: pump the token army with Elesh Norn, Eldrazi Monument, or Coat of Arms and attack.",
+   "Lifegain incidental damage: loop Darien triggers to build tokens while Soul Warden, Suture Priest, and Daxos chip damage over time.",
+   "Halo Fountain game-end: untap fifteen Soldiers to win outright.",
+   "Planeswalker recursion and board restart: Elspeth Tirel or Elspeth, Sun's Champion wipe and reset while building fresh tokens."
+  ],
+  "success_criteria": [
+   "Darien triggers often enough (via self-damage mana rocks or combat) that token generation sustains the game plan by turn 4–5.",
+   "Anointed Procession doubles tokens reliably, creating a critical mass (8+) that makes lords and anthems relevant.",
+   "Lifegain sources (Soul Warden, Anointer Priest, Suture Priest) are consistently active so Darien damage is recoverable and opponents feel pressure.",
+   "Wipes (Elspeth Tirel, Hour of Reckoning, Austere Command) reset the board without derailing token momentum."
+  ],
+  "intentional_quirks": [
+   "24 Snow-Covered Plains in a mono-white list with no snow synergy engines.",
+   "Self-damage mana rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium) in a deck that turns damage into value.",
+   "Only 3 ramp pieces (Sol Ring, Pearl Medallion, Marble Diamond) and no tutors in a 6-MV commander deck."
+  ]
+ },
+ "scorecard": [
+  {
+   "axis": "plan_synergy",
+   "score": 7,
+   "one_line": "Token generation and multiplication engines (Darien, Anointed Procession, Cathars' Crusade) are robust and redundant, but 22 orphan cards and only 3 ramp pieces create friction in execution.",
+   "finding_ids": [
+    "s-plan_synergy-1",
+    "s-plan_synergy-2",
+    "s-plan_synergy-3",
+    "p-plan_synergy-1",
+    "p-plan_synergy-2",
+    "p-plan_synergy-3"
+   ]
+  },
+  {
+   "axis": "mana_consistency",
+   "score": 7,
+   "one_line": "38 lands and 3 ramp pieces exactly hit the norm; unconditional white sources (35) match the target (36); self-damage rocks and token generators front-load early plays.",
+   "finding_ids": [
+    "s-mana_consistency-1",
+    "s-mana_consistency-2",
+    "p-mana_consistency-2",
+    "p-mana_consistency-3"
+   ]
+  },
+  {
+   "axis": "interaction_resilience",
+   "score": 6,
+   "one_line": "Deck handles sweepers well (7 wipes), but targeted removal (6 cards) is thin and creature-dependent, leaving it vulnerable to fast stax or graveyard hate.",
+   "finding_ids": [
+    "s-interaction_resilience-1",
+    "s-interaction_resilience-2",
+    "s-interaction_resilience-3",
+    "p-interaction_resilience-1",
+    "p-interaction_resilience-2"
+   ]
+  },
+  {
+   "axis": "win_paths_closing",
+   "score": 6,
+   "one_line": "Four distinct win paths exist but none is highly redundant; Elspeth Tirel and Elspeth, Sun's Champion double as wipes, and Halo Fountain is one card short of combo, but only Coat of Arms and Eldrazi Monument reliably turn tokens to damage without tutors.",
+   "finding_ids": [
+    "s-win_paths_closing-1",
+    "s-win_paths_closing-3",
+    "p-win_paths_closing-1",
+    "p-win_paths_closing-3"
+   ]
+  },
+  {
+   "axis": "power_bracket",
+   "score": 6,
+   "one_line": "Smothering Tithe alone floors the deck at bracket 3 (Upgraded), and with no tutors and curve-heavy self-damage rocks, the deck plays near floor without a stated target to justify exceeding it.",
+   "finding_ids": [
+    "s-power_bracket-1",
+    "s-power_bracket-2",
+    "p-power_bracket-1",
+    "p-power_bracket-2",
+    "p-power_bracket-3"
+   ]
+  },
+  {
+   "axis": "budget_inventory",
+   "score": 7,
+   "one_line": "Anointed Procession ($59.29) and Smothering Tithe ($58.11) are the deck's price anchors, but both are central to the plan; the remaining 97 cards total $321.53, a solid spend for a well-constructed token swarm.",
+   "finding_ids": [
+    "s-budget_inventory-1",
+    "s-budget_inventory-2",
+    "s-budget_inventory-3"
+   ]
+  },
+  {
+   "axis": "concept_execution",
+   "score": 7,
+   "one_line": "Darien's damage-to-token loop works reliably by turn 4–5 via self-damage rocks and token doublers, but synergy.density (0.2333) shows only 14 of 22 orphaned slots actively support the core concept.",
+   "finding_ids": [
+    "s-concept_execution-1",
+    "s-concept_execution-2",
+    "s-concept_execution-3",
+    "p-concept_execution-1"
+   ]
+  }
+ ],
+ "strengths": [
+  {
+   "id": "s-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "Anointed Procession and Smothering Tithe are the two most expensive cards (derived.price.most_expensive shows $59.29 and $58.11 respectively), but both justify their cost: Anointed Procession is the multiplication engine that turns Darien tokens into critical mass, and Smothering Tithe is a game-changer that funds the deck's mana needs and ramp piece redundancy.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     },
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     },
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Anointed Procession.usd",
+     "derived.price.most_expensive.Smothering Tithe.usd",
+     "bracket.game_changers"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "The deck runs 7 sweepers (Wrath of God, Austere Command, Hour of Reckoning, Martial Coup, Mass Calcify, Elspeth Tirel, Elspeth, Sun's Champion) that either reset the board without killing tokens (Hour of Reckoning, Martial Coup, Mass Calcify) or generate fresh tokens while wiping (Elspeth Tirel, Elspeth, Sun's Champion), so board wipes do not derail momentum.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     },
+     {
+      "name": "Austere Command",
+      "oracle_id": "09cc8709-fe10-472a-b05c-e89f3523018d"
+     },
+     {
+      "name": "Hour of Reckoning",
+      "oracle_id": "3bc13640-03f8-4b19-b0a4-7e7cb5271c0c"
+     },
+     {
+      "name": "Martial Coup",
+      "oracle_id": "2b7c4dab-e432-4b34-b058-3cec5c0d72df"
+     },
+     {
+      "name": "Mass Calcify",
+      "oracle_id": "3ab3996f-aa3f-4041-8634-8e197d51f108"
+     },
+     {
+      "name": "Elspeth Tirel",
+      "oracle_id": "5f815e69-fdd6-4186-9317-25f5c7e0b08e"
+     },
+     {
+      "name": "Elspeth, Sun's Champion",
+      "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "The deck front-loads creatures and token generators on turns 2–3 (curve.buckets.2 has 13 cards, curve.buckets.3 has 15 cards) so it does not need heavy ramp; 3 ramp pieces (Sol Ring, Marble Diamond, Pearl Medallion) suffice to hit the norm of 9–11 (roles.ramp.count = 3).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Marble Diamond",
+      "oracle_id": "910488bf-66ab-415e-973b-1262b2ab7454"
+     },
+     {
+      "name": "Pearl Medallion",
+      "oracle_id": "19015380-1332-4960-8cc6-0732009525a2"
+     }
+    ],
+    "fact_keys": [
+     "curve.buckets.2.count",
+     "curve.buckets.3.count",
+     "roles.ramp.count",
+     "roles.ramp.target_min"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "The token cluster (Darien, Anointed Procession, Cathars' Crusade, Captain of the Watch, Elspeth Tirel, Elspeth, Sun's Champion, Heidegger, Shinra Executive, Hero of Bladehold) generates and multiplies Soldiers with high redundancy—Darien triggers twice from self-damage mana rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium) when Anointed Procession is in play, and Cathars' Crusade pumps them simultaneously.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     },
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     },
+     {
+      "name": "Cathars' Crusade",
+      "oracle_id": "cc65ac73-5bef-4ecb-ad8e-39199084c027"
+     },
+     {
+      "name": "Captain of the Watch",
+      "oracle_id": "9f2af06d-8fb7-4276-bb92-3559a6d1fa18"
+     },
+     {
+      "name": "Elspeth Tirel",
+      "oracle_id": "5f815e69-fdd6-4186-9317-25f5c7e0b08e"
+     },
+     {
+      "name": "Elspeth, Sun's Champion",
+      "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33"
+     },
+     {
+      "name": "Heidegger, Shinra Executive",
+      "oracle_id": "215024ba-811e-4011-bbc8-8dd14a34f973"
+     },
+     {
+      "name": "Hero of Bladehold",
+      "oracle_id": "454a8902-8120-4373-96ee-bbf352b04e8d"
+     },
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.tokens.cards",
+     "synergy.clusters.tokens.strength"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "The remaining high-value cards—Nykthos, Shrine to Nyx ($44.36), Elesh Norn, Grand Cenobite ($21.03), Myrel, Shield of Argive ($18.37), and Coat of Arms ($17.68)—all serve concrete roles in the token swarm plan: Nykthos and Elesh Norn pump the army, and Myrel generates exponential Soldiers while locking opponents.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Nykthos, Shrine to Nyx",
+      "oracle_id": "84dc18f0-8225-4b40-a165-b10321e41769"
+     },
+     {
+      "name": "Elesh Norn, Grand Cenobite",
+      "oracle_id": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16"
+     },
+     {
+      "name": "Myrel, Shield of Argive",
+      "oracle_id": "503094aa-6f8f-42c1-ad5a-9305934e5f0c"
+     },
+     {
+      "name": "Coat of Arms",
+      "oracle_id": "5f7f133e-58ea-41ab-b1be-be4b400fac4c"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Nykthos, Shrine to Nyx.usd",
+     "derived.price.most_expensive.Elesh Norn, Grand Cenobite.usd",
+     "derived.price.most_expensive.Myrel, Shield of Argive.usd",
+     "derived.price.most_expensive.Coat of Arms.usd"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "Darien's damage-to-tokens core activates consistently through City of Brass, Tarnished Citadel, Grand Coliseum, and Nomad Stadium, each triggering the loop every activation; Anointed Procession doubles tokens reliably (on 4-mana turn 3–4), creating the critical mass (8+) needed for lords and anthems.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     },
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.tokens.commander_centered"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "White mana sources (35 lands) nearly match the recommended 36 sources (mana.pips_vs_sources.W.sources vs .recommended_sources); self-damage rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium) are mechanically part of the plan (they trigger Darien), not wasted slots, and Smothering Tithe provides both ramp and draw redundancy.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     },
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.W.sources",
+     "mana.pips_vs_sources.W.recommended_sources"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Lifegain triggers (Soul Warden, Anointer Priest, Suture Priest, Daxos Blessed by the Sun, Healer of the Pride, Auriok Champion) are abundant and activate reliably from token entry, sustaining the Darien loop by allowing repeated damage and recovery as described in the brief's core plan.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Soul Warden",
+      "oracle_id": "f3fad295-1af2-4ecc-8546-b121ad6be27b"
+     },
+     {
+      "name": "Anointer Priest",
+      "oracle_id": "4e0b9273-6614-41a8-9738-959349c0717b"
+     },
+     {
+      "name": "Suture Priest",
+      "oracle_id": "c4d36522-3ace-4bfb-bf2d-1a366f458698"
+     },
+     {
+      "name": "Daxos, Blessed by the Sun",
+      "oracle_id": "9d3c7c96-056f-408e-a834-fa45a430d3d4"
+     },
+     {
+      "name": "Healer of the Pride",
+      "oracle_id": "69b9fa68-b409-4de1-9a40-5262386a0180"
+     },
+     {
+      "name": "Auriok Champion",
+      "oracle_id": "633fd158-19d0-4d97-a076-2ad897bbed19"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.tokens.commander_centered"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "s-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Lifegain sources (Soul Warden, Suture Priest, Anointer Priest, Haliya, Guided by Light, Healer of the Pride) trigger on token entry and sustain the loop, feeding Darien damage back into the board repeatedly within the same turn or across turns.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Soul Warden",
+      "oracle_id": "f3fad295-1af2-4ecc-8546-b121ad6be27b"
+     },
+     {
+      "name": "Suture Priest",
+      "oracle_id": "c4d36522-3ace-4bfb-bf2d-1a366f458698"
+     },
+     {
+      "name": "Anointer Priest",
+      "oracle_id": "4e0b9273-6614-41a8-9738-959349c0717b"
+     },
+     {
+      "name": "Haliya, Guided by Light",
+      "oracle_id": "9b0af3ad-1b4d-4480-af91-fe9baee5d1c5"
+     },
+     {
+      "name": "Healer of the Pride",
+      "oracle_id": "69b9fa68-b409-4de1-9a40-5262386a0180"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.tokens.support"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Lifegain triggers (Soul Warden, Suture Priest, Anointer Priest, Healer of the Pride, Haliya) are distributed across cheap creatures so that even if one or two are answered, the remaining pieces continue to sustain the loop and recover from self-inflicted Darien damage via mana rocks.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Soul Warden",
+      "oracle_id": "f3fad295-1af2-4ecc-8546-b121ad6be27b"
+     },
+     {
+      "name": "Suture Priest",
+      "oracle_id": "c4d36522-3ace-4bfb-bf2d-1a366f458698"
+     },
+     {
+      "name": "Anointer Priest",
+      "oracle_id": "4e0b9273-6614-41a8-9738-959349c0717b"
+     },
+     {
+      "name": "Healer of the Pride",
+      "oracle_id": "69b9fa68-b409-4de1-9a40-5262386a0180"
+     },
+     {
+      "name": "Haliya, Guided by Light",
+      "oracle_id": "9b0af3ad-1b4d-4480-af91-fe9baee5d1c5"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Lord and anthem effects (Elesh Norn Grand Cenobite, Coat of Arms, Dictate of Heliod, Glorious Anthem, True Conviction, Flowering of the White Tree, Field Marshal) multiply the damage output of token swarms once critical mass is reached, and True Conviction adds lifelink to amplify lifegain triggers in the same turn.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Elesh Norn, Grand Cenobite",
+      "oracle_id": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16"
+     },
+     {
+      "name": "Coat of Arms",
+      "oracle_id": "5f7f133e-58ea-41ab-b1be-be4b400fac4c"
+     },
+     {
+      "name": "Dictate of Heliod",
+      "oracle_id": "b989279c-665d-4f15-afc1-adf3872a4851"
+     },
+     {
+      "name": "Glorious Anthem",
+      "oracle_id": "e3886fe8-9b76-4613-8891-4ec74657c087"
+     },
+     {
+      "name": "True Conviction",
+      "oracle_id": "fc299c1c-50f3-492a-b6b8-a3664bb72ab7"
+     },
+     {
+      "name": "Flowering of the White Tree",
+      "oracle_id": "3cda958a-f777-433d-850e-a6c8f581db4e"
+     },
+     {
+      "name": "Field Marshal",
+      "oracle_id": "1c0a53fc-8037-46e3-90ea-cb8b73631a83"
+     }
+    ],
+    "fact_keys": [
+     "synergy.clusters.tokens.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "The token-to-damage overrun path is backed by two lord effects with no tutors needed: Elesh Norn, Grand Cenobite and Eldrazi Monument both pump the token army to lethal range once Anointed Procession doubles tokens to critical mass, and all three pieces are already in hand.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Elesh Norn, Grand Cenobite",
+      "oracle_id": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16"
+     },
+     {
+      "name": "Eldrazi Monument",
+      "oracle_id": "c7ee1b21-d02e-49ef-95d6-d6dbf2f886ae"
+     },
+     {
+      "name": "Coat of Arms",
+      "oracle_id": "5f7f133e-58ea-41ab-b1be-be4b400fac4c"
+     },
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     },
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "Darien as a commander generates exponential token value from self-damage mana rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium), turning the Darien+Anointed Procession loop into a growth engine that is inherently above casual power without needing tutors.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     },
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     },
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "Late-game wipes (Elspeth Tirel, Elspeth, Sun's Champion, Hour of Reckoning, Martial Coup) reset the board without derailing token momentum because they generate fresh Soldiers or use convoke to leverage the army; these are intentional for the reset win path.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Elspeth Tirel",
+      "oracle_id": "5f815e69-fdd6-4186-9317-25f5c7e0b08e"
+     },
+     {
+      "name": "Elspeth, Sun's Champion",
+      "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33"
+     },
+     {
+      "name": "Hour of Reckoning",
+      "oracle_id": "3bc13640-03f8-4b19-b0a4-7e7cb5271c0c"
+     },
+     {
+      "name": "Martial Coup",
+      "oracle_id": "2b7c4dab-e432-4b34-b058-3cec5c0d72df"
+     }
+    ],
+    "fact_keys": [
+     "roles.wipes.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "The deck respects the bracket floor cleanly: Smothering Tithe is the only Game Changer (bracket.game_changers), and the brief correctly identifies it as deliberate for income, not power creep.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers",
+     "bracket.reasons.game_changers.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.95
+  },
+  {
+   "id": "s-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Protection suite (Bastion Protector, Eldrazi Monument, Flawless Maneuver, Swiftfoot Boots, Boromir, Warden of the Tower) provides both proactive indestructibility and reactive instant-speed resilience to buyout effects and mass removal.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Bastion Protector",
+      "oracle_id": "858f53ef-3fec-4aa0-867d-b7f040614b3c"
+     },
+     {
+      "name": "Eldrazi Monument",
+      "oracle_id": "c7ee1b21-d02e-49ef-95d6-d6dbf2f886ae"
+     },
+     {
+      "name": "Flawless Maneuver",
+      "oracle_id": "4e183439-17d2-47ff-9d99-5e22821d91e3"
+     },
+     {
+      "name": "Swiftfoot Boots",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391"
+     },
+     {
+      "name": "Boromir, Warden of the Tower",
+      "oracle_id": "d72b57e5-1c6e-4f02-968f-7e2dd24f0d3c"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "s-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "Elspeth Tirel and Elspeth, Sun's Champion serve double duty as both wipes to reset the board and as token generators (+3 Soldiers each), so they enable the core loop rather than interrupting it, recovering tempo after a clear.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Elspeth Tirel",
+      "oracle_id": "5f815e69-fdd6-4186-9317-25f5c7e0b08e"
+     },
+     {
+      "name": "Elspeth, Sun's Champion",
+      "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33"
+     }
+    ],
+    "fact_keys": []
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-budget_inventory-3",
+   "axis": "budget_inventory",
+   "claim": "Nine unpriced cards (Sol Ring, Skullclamp, Swords to Plowshares, Path to Exile, Swiftfoot Boots, and others) are staples that are either reprinted widely or reserved list, and their absence from the price total masks a modest real cost; the listed $438.93 total (derived.price.total_usd) is likely a slight underestimate but does not change the budget health.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+     },
+     {
+      "name": "Path to Exile",
+      "oracle_id": "d683d985-9888-4d21-8b5f-69e69ce4a03b"
+     },
+     {
+      "name": "Swiftfoot Boots",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.unpriced_cards",
+     "derived.price.total_usd"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.75
+  }
+ ],
+ "problems": [
+  {
+   "id": "p-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Targeted removal is only 6 cards (Path to Exile, Swords to Plowshares, Generous Gift, Catapult Master, Spear of Heliod, Extraplanar Lens) against a 11–13 target, and all are one-shot answers; the deck lacks permanent-based interaction such as enchantment or artifact removal, leaving it helpless against resolved stax pieces like Rest in Peace, Yavimaya Graveyard Keeper, or a resolved static hate enchantment.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Path to Exile",
+      "oracle_id": "d683d985-9888-4d21-8b5f-69e69ce4a03b"
+     },
+     {
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+     },
+     {
+      "name": "Generous Gift",
+      "oracle_id": "fae37e28-e137-4177-b973-fa8b4dd8f409"
+     },
+     {
+      "name": "Catapult Master",
+      "oracle_id": "02da2145-0edb-44be-8622-360182a8c25a"
+     },
+     {
+      "name": "Spear of Heliod",
+      "oracle_id": "fd66aa66-75a2-41b6-8d57-dc4b9c221ccb"
+     },
+     {
+      "name": "Extraplanar Lens",
+      "oracle_id": "e48f9fc7-72cf-4c3a-b3b3-d237edc01310"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count",
+     "roles.targeted_removal.target_min",
+     "roles.targeted_removal.target_max"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "p-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "The deck has zero tutors (roles.tutors.count = 0) and only two recursion pieces (Marshal's Anthem and Sun Titan), so if a finisher lord (Elesh Norn or Eldrazi Monument) is buried or destroyed, the deck must topdeck another copy or rely on the lower-redundancy paths (Coat of Arms, Myrel Shield of Argive) to close.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Elesh Norn, Grand Cenobite",
+      "oracle_id": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16"
+     },
+     {
+      "name": "Eldrazi Monument",
+      "oracle_id": "c7ee1b21-d02e-49ef-95d6-d6dbf2f886ae"
+     },
+     {
+      "name": "Coat of Arms",
+      "oracle_id": "5f7f133e-58ea-41ab-b1be-be4b400fac4c"
+     },
+     {
+      "name": "Myrel, Shield of Argive",
+      "oracle_id": "503094aa-6f8f-42c1-ad5a-9305934e5f0c"
+     },
+     {
+      "name": "Marshal's Anthem",
+      "oracle_id": "41fb2b0e-d0a0-4e47-a6f3-fc9860ade65a"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.recursion.count",
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.9
+  },
+  {
+   "id": "p-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Recursion is only 2 cards (Marshal's Anthem, Sun Titan) and neither can recur Anointed Procession (MV 4) if it is removed, so a single targeted answer to the token-doubler resets the token generation economy and cannot be recovered without external tutoring (none in deck).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Marshal's Anthem",
+      "oracle_id": "41fb2b0e-d0a0-4e47-a6f3-fc9860ade65a"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.88
+  },
+  {
+   "id": "p-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "Synergy orphan count is 22 cards (synergy.orphans), including key role-less pieces like Soul's Attendant, Blood of the Martyr, Jade Monolith, Odric Master Tactician, Linden the Steadfast Queen, and Knight-Captain of Eos that do not cluster with the token engine and lack assigned mechanical roles, creating dead weight when the plan pivots.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Soul's Attendant",
+      "oracle_id": "045a9d3d-c20d-427f-a77b-0bffc6f55526"
+     },
+     {
+      "name": "Blood of the Martyr",
+      "oracle_id": "0e69e6c2-fdc5-4c1a-bd96-c4283b82743a"
+     },
+     {
+      "name": "Jade Monolith",
+      "oracle_id": "1e105ab7-fb10-4cfd-ac2f-5e11488cf1b0"
+     },
+     {
+      "name": "Odric, Master Tactician",
+      "oracle_id": "ade898df-14a5-460b-94f6-1f3f74d3ff95"
+     },
+     {
+      "name": "Linden, the Steadfast Queen",
+      "oracle_id": "dbc56f3b-83b3-41c8-a8ae-d3774fe6ee01"
+     },
+     {
+      "name": "Knight-Captain of Eos",
+      "oracle_id": "611f1714-a8bb-4ce4-a810-4d26fe64e358"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans",
+     "synergy.orphan_definition"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "p-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "Ramp is severely underslotted (3 pieces vs. 9–11 target, roles.ramp.count), and with curve.average_mv at 3.45 and zero tutors (roles.tutors.count), the deck lacks consistent acceleration to stabilize the Darien damage loop early. This limits consistency and speed regardless of bracket.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Pearl Medallion",
+      "oracle_id": "19015380-1332-4960-8cc6-0732009525a2"
+     },
+     {
+      "name": "Marble Diamond",
+      "oracle_id": "910488bf-66ab-415e-973b-1262b2ab7454"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp.target_min",
+     "roles.ramp.target_max",
+     "curve.average_mv",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.85
+  },
+  {
+   "id": "p-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "22 cards (synergy.orphans) are not in the token synergy cluster and lack a ramp, draw, removal, or recursion role; they include Soul Warden adjacents (Daxos, Auriok Champion, Linden), anthem/lord effects (Elesh Norn, Coat of Arms, Dictate of Heliod), and utility (Jade Monolith, Blood of the Martyr). These dilute the concept without adding to Darien's loop density.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Daxos, Blessed by the Sun",
+      "oracle_id": "9d3c7c96-056f-408e-a834-fa45a430d3d4"
+     },
+     {
+      "name": "Auriok Champion",
+      "oracle_id": "633fd158-19d0-4d97-a076-2ad897bbed19"
+     },
+     {
+      "name": "Linden, the Steadfast Queen",
+      "oracle_id": "dbc56f3b-83b3-41c8-a8ae-d3774fe6ee01"
+     },
+     {
+      "name": "Elesh Norn, Grand Cenobite",
+      "oracle_id": "958d71ff-c9f7-46f0-96ca-79e7f4d65a16"
+     },
+     {
+      "name": "Coat of Arms",
+      "oracle_id": "5f7f133e-58ea-41ab-b1be-be4b400fac4c"
+     },
+     {
+      "name": "Dictate of Heliod",
+      "oracle_id": "b989279c-665d-4f15-afc1-adf3872a4851"
+     },
+     {
+      "name": "Jade Monolith",
+      "oracle_id": "1e105ab7-fb10-4cfd-ac2f-5e11488cf1b0"
+     },
+     {
+      "name": "Blood of the Martyr",
+      "oracle_id": "0e69e6c2-fdc5-4c1a-bd96-c4283b82743a"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans",
+     "synergy.clusters.tokens.strength"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.8
+  },
+  {
+   "id": "p-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "Ramp is underbuilt at 3 pieces (Sol Ring, Pearl Medallion, Marble Diamond) against a target minimum of 9, and while Smothering Tithe generates Treasure tokens that scale with opponent draws, the deck's acceleration still depends heavily on self-inflicted damage from City of Brass, Tarnished Citadel, Grand Coliseum, and Nomad Stadium triggering Darien for tokens, which means the plan stalls if Darien is removed before the token loop becomes self-sustaining.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Pearl Medallion",
+      "oracle_id": "19015380-1332-4960-8cc6-0732009525a2"
+     },
+     {
+      "name": "Marble Diamond",
+      "oracle_id": "910488bf-66ab-415e-973b-1262b2ab7454"
+     },
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     },
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     },
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp.target_min"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "p-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "Draw engines are sparse (6 pieces) and fragmented: Skullclamp, Mentor of the Meek, and Halo Fountain have high friction (creatures must die, MV ≤2, or cost {W}{W} per draw), while Haliya and Dawn of a New Age scale with tokens and lifegain triggers but enter mid-turn, leaving the deck vulnerable to mana screw on turns 3–4 when it needs to resolve lords or wipes.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Mentor of the Meek",
+      "oracle_id": "b9f4f96b-6e54-4fe6-8df7-623e0fc72409"
+     },
+     {
+      "name": "Halo Fountain",
+      "oracle_id": "36a9de4c-8073-475d-8679-e50844eef09e"
+     },
+     {
+      "name": "Haliya, Guided by Light",
+      "oracle_id": "9b0af3ad-1b4d-4480-af91-fe9baee5d1c5"
+     },
+     {
+      "name": "Dawn of a New Age",
+      "oracle_id": "37df5ade-6a21-4b0c-89f8-e2e917589a8d"
+     },
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.draw.target_min",
+     "roles.draw.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "p-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "No tutors (roles.tutors.count = 0) in a 6-MV commander deck limits consistency when drawing into dead slots; the brief marks this as deliberate for a non-tutoring theme build, but it increases variance in hitting key pieces like Anointed Procession or lifegain sources on time.",
+   "evidence": {
+    "cards": [],
+    "fact_keys": [
+     "roles.tutors.count",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "Smothering Tithe floors the deck at bracket 3 (Upgraded), but the owner's target power level is an open question (q-2). If the owner intends bracket 2 casual play, Smothering Tithe's repeating Treasure generation—often providing 2–4 tokens per opponent turn cycle—creates a structural mismatch with the casual bracket's card advantage ceiling.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Smothering Tithe",
+      "oracle_id": "153376c9-dffd-458c-8ce3-a4c8269bc4e9"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "The deck's ramp is only three pieces (Sol Ring, Pearl Medallion, Marble Diamond) against a target of 9–11, leaving it two turns slower than the brief's success criterion of turn 4–5 Darien dominance, and the self-damage mana rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium) that fuel Darien are the only acceleration after turn 1, creating a flat mana curve after turn 2.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Pearl Medallion",
+      "oracle_id": "19015380-1332-4960-8cc6-0732009525a2"
+     },
+     {
+      "name": "Marble Diamond",
+      "oracle_id": "910488bf-66ab-415e-973b-1262b2ab7454"
+     },
+     {
+      "name": "City of Brass",
+      "oracle_id": "f25351e3-539b-4bbc-b92d-6480acf4d722"
+     },
+     {
+      "name": "Tarnished Citadel",
+      "oracle_id": "66ae2562-68e9-4c77-ba0a-57f8ff37f656"
+     },
+     {
+      "name": "Grand Coliseum",
+      "oracle_id": "1cea9b82-d2e9-4758-8ec8-729fcf4bb7d7"
+     },
+     {
+      "name": "Nomad Stadium",
+      "oracle_id": "4034bec6-e3c7-4d3f-81df-7c903977a606"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp.target_min",
+     "roles.ramp.target_max"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "The deck runs 3 unconditional tapped lands (mana.unconditional_tapped_lands = 3) plus 24 Snow-Covered Plains serving no mechanical purpose, and the brief flags this as either residual from an earlier build or intentional but unexplained; if accidental, this is a free upgrade path.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Snow-Covered Plains",
+      "oracle_id": "ac8cc74d-e43b-4118-bba0-dfa8b9c04d45"
+     }
+    ],
+    "fact_keys": [
+     "mana.unconditional_tapped_lands",
+     "mana.lands"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-3",
+   "axis": "power_bracket",
+   "claim": "The brief treats no tutors as deliberate for theme, but combined with only 3 ramp pieces and reliance on Darien damage triggers, the deck plays closer to bracket 2 consistency than bracket 3 when mana rocks do not connect early.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Darien, King of Kjeldor",
+      "oracle_id": "d05336cb-6157-47e7-942f-43becd67a5bf"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.tutors.count",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.5
+  }
+ ],
+ "top_changes": {
+  "swap_ids": [
+   "sw-1",
+   "sw-4",
+   "sw-7"
+  ],
+  "why_these_first": "Swap 1 (Return to Dust) fixes the deck's complete helplessness against resolved stax pieces like Rest in Peace that lock the graveyard, which would cripple Darien's token loop recovery. Swap 2 (Keeper of the Accord) directly generates Soldiers when opponents have more creatures, turning ramp into token fuel that feeds Anointed Procession and accelerates the turn 4–5 dominance window. Swap 3 (Land Tax) provides early mana access and triggers Gift of Estates, solving the flat acceleration curve after turn 2 and enabling consistent ramp before self-damage rocks activate. Together these three restore interaction, token density, and speed to shore up the three highest-confidence failures."
+ },
+ "swaps": [
+  {
+   "id": "sw-1",
+   "cut": {
+    "name": "Blood of the Martyr",
+    "oracle_id": "0e69e6c2-fdc5-4c1a-bd96-c4283b82743a"
+   },
+   "add": {
+    "name": "Return to Dust",
+    "oracle_id": "3029df1d-d02a-4fed-8ab4-000a2096f823"
+   },
+   "resolves_finding_id": "p-interaction_resilience-1",
+   "tradeoff": "Blood of the Martyr is a one-shot damage redirect that occupies a flex slot without ongoing impact; Return to Dust removes artifacts and enchantments permanently, addressing the deck's complete blindness to resolved stax pieces like Rest in Peace or Yavimaya Graveyard Keeper.",
+   "bracket_effect": "none",
+   "budget_effect": "price of the add is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Disenchant",
+    "oracle_id": "a7e97fa9-4b72-4548-b854-5be5f18a6f1a"
+   },
+   "owned": false,
+   "price": null
+  },
+  {
+   "id": "sw-4",
+   "cut": {
+    "name": "Jade Monolith",
+    "oracle_id": "1e105ab7-fb10-4cfd-ac2f-5e11488cf1b0"
+   },
+   "add": {
+    "name": "Keeper of the Accord",
+    "oracle_id": "49b9a3ac-d245-431a-bf40-64d1b8dc2b91"
+   },
+   "resolves_finding_id": "p-plan_synergy-2",
+   "tradeoff": "Jade Monolith is a one-shot redirect that sits idle most turns; Keeper of the Accord scales with board presence by creating Soldiers whenever opponents have more creatures, turning ramp into a token generator that feeds Darien and Anointed Procession.",
+   "bracket_effect": "none",
+   "budget_effect": "adds $0.53; the cut's price is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Knight of the White Orchid",
+    "oracle_id": "7d0efc64-151f-45b4-8c0b-c32609f9d862"
+   },
+   "owned": false,
+   "price": 0.53
+  },
+  {
+   "id": "sw-7",
+   "cut": {
+    "name": "Linden, the Steadfast Queen",
+    "oracle_id": "dbc56f3b-83b3-41c8-a8ae-d3774fe6ee01"
+   },
+   "add": {
+    "name": "Land Tax",
+    "oracle_id": "d2d9ecea-7925-420e-98b9-2f87f41f387c"
+   },
+   "resolves_finding_id": "p-plan_synergy-1",
+   "tradeoff": "Linden, the Steadfast Queen gains 1 life per attack and requires attacking, which is conditional and slow compared to token-generation synergy; Land Tax triggers at the beginning of upkeep to fetch basic lands and replaces itself as a cheap tutor, solving early mana access and enabling Gift of Estates triggers.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$16.17 (adds $16.67, cuts $0.50); ownership unknown",
+   "alternative": {
+    "name": "Weathered Wayfarer",
+    "oracle_id": "1093fdb6-bd4f-46a8-92e3-5aa46b52bb4f"
+   },
+   "owned": false,
+   "price": 16.67
+  }
+ ],
+ "cuts_to_consider": [
+  {
+   "card": {
+    "name": "Extraplanar Lens",
+    "oracle_id": "e48f9fc7-72cf-4c3a-b3b3-d237edc01310"
+   },
+   "reason": "One of six targeted removal slots, but Extraplanar Lens has no immediate effect—it only accelerates when specific lands tap, leaving the deck with no answer to turn-1 threats that do not attack before stabilization. Removing it frees a slot for draw or ramp without sacrificing immediate interaction.",
+   "evidence": [
+    "roles.targeted_removal.count"
+   ]
+  },
+  {
+   "card": {
+    "name": "Wrath of God",
+    "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+   },
+   "reason": "Symmetrical wipe that destroys Darien's token army and generates no replacement tokens, undoing the core plan in a single spell. The deck runs 7 wipes already (above the 5-7 target), and Hour of Reckoning and Martial Coup scale with tokens; Wrath is the lowest-synergy redundancy.",
+   "evidence": [
+    "roles.wipes.count"
+   ]
+  },
+  {
+   "card": {
+    "name": "Spear of Heliod",
+    "oracle_id": "fd66aa66-75a2-41b6-8d57-dc4b9c221ccb"
+   },
+   "reason": "High-MV lord (3) that requires setup (creature must deal damage) to remove, making it slow and conditional compared to anthems like Glorious Anthem that pump on entry. Competes for flex slots without feeding the Darien loop or lifegain cluster.",
+   "evidence": [
+    "synergy.orphans"
+   ]
+  },
+  {
+   "card": {
+    "name": "Thalia, Heretic Cathar",
+    "oracle_id": "13be47e4-9da2-4f9e-baf0-db96f7777ccb"
+   },
+   "reason": "Legendary creature at 3 MV with no token-generation or lifegain role. Does not feed the Darien loop and competes for the 3-slot with Mentor of the Meek and Haliya, which both draw cards. Synergy orphan with no assigned mechanical role.",
+   "evidence": [
+    "synergy.orphans"
+   ]
+  }
+ ],
+ "bracket": {
+  "estimated": 3,
+  "target": null,
+  "reasons": [
+   "game_changers (floor 3): Smothering Tithe"
+  ]
+ },
+ "mana": {
+  "summary": "38 lands and 3 ramp pieces exactly hit baseline consistency; 35 unconditional white sources nearly match the 36-source target. Self-damage rocks front-load early plays and synergize with Darien, but acceleration flatlines after turn 2. Smothering Tithe provides ramp and draw income but does not address the turn 3–4 gap when lords and synergy pieces need to resolve.",
+  "issues": [
+   "Only 3 ramp pieces (Sol Ring, Pearl Medallion, Marble Diamond) against a 9–11 target; combined with average MV 3.45 and zero tutors, early mana access is inconsistent.",
+   "Self-damage mana rocks (City of Brass, Tarnished Citadel, Grand Coliseum, Nomad Stadium) trigger Darien but create no immediate board impact, leaving the deck vulnerable to fast stax before the loop stabilizes.",
+   "24 Snow-Covered Plains serve no mechanical purpose in mono-white; this represents a free upgrade path if accidental.",
+   "Targeted removal (Path to Exile, Swords to Plowshares, Generous Gift, Catapult Master, Spear of Heliod, Extraplanar Lens) totals only 6 cards and cannot answer resolved stax enchantments like Rest in Peace or Yavimaya Graveyard Keeper, leaving the deck helpless against permanent-based hate."
+  ]
+ },
+ "questions_for_owner": [
+  {
+   "id": "q-1",
+   "question": "Do the Snow-Covered Plains serve a specific purpose (e.g., testing snow synergy, budget constraint, or aesthetics), or are they a residual artifact from a previous version?",
+   "why_asked": "24 Snow basics add no mechanical value in this list and cost slightly more than regular Plains. If deliberate, the brief should flag them as intentional; if accidental, they are a free upgrade to regular basics."
+  },
+  {
+   "id": "q-2",
+   "question": "Is the target power bracket explicitly casual/kitchen-table, low-competitive (bracket 2–3), or standard competitive (bracket 3–4)?",
+   "why_asked": "Smothering Tithe alone floors the deck at bracket 3. If the owner wants bracket 2 casual, Smothering Tithe is a flag. If bracket 3+ is acceptable, the construction is sound and no further concern arises."
+  },
+  {
+   "id": "q-3",
+   "question": "Is Halo Fountain intended as a genuine win condition (untap fifteen Soldiers, which is feasible with card draw and token generation), or primarily a stall/utility piece?",
+   "why_asked": "If it is a primary route, the deck may need to tune draw and token density toward it. If it is incidental, it is correctly slotted as a bonus. The win path changes if Halo Fountain is the intended close."
+  },
+  {
+   "id": "q-4",
+   "question": "Are Elspeth Tirel and Elspeth, Sun's Champion included because they are favorite planeswalkers (per the profile), or because the deck's wipe/reset plan requires them?",
+   "why_asked": "If they are pet cards, the brief treats them as intentional even if other wipes might be more efficient. If they are functional choices, the brief should focus on their reset value. The player profile flags Elspeth as a favorite, so this is likely deliberate, but confirmation ensures the brief is accurate."
+  }
+ ],
+ "charts": {
+  "curve": {
+   "buckets": [
+    {
+     "mv": 0,
+     "count": 0,
+     "label": "0"
+    },
+    {
+     "mv": 1,
+     "count": 6,
+     "label": "1"
+    },
+    {
+     "mv": 2,
+     "count": 13,
+     "label": "2"
+    },
+    {
+     "mv": 3,
+     "count": 15,
+     "label": "3"
+    },
+    {
+     "mv": 4,
+     "count": 11,
+     "label": "4"
+    },
+    {
+     "mv": 5,
+     "count": 7,
+     "label": "5"
+    },
+    {
+     "mv": 6,
+     "count": 5,
+     "label": "6"
+    },
+    {
+     "mv": 7,
+     "count": 3,
+     "label": "7+"
+    }
+   ],
+   "average_mv": 3.45
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 80,
+    "sources": 35,
+    "recommended_sources": 36
+   }
+  ],
+  "roles": [
+   {
+    "role": "ramp",
+    "count": 3,
+    "target_min": 9,
+    "target_max": 11
+   },
+   {
+    "role": "draw",
+    "count": 6,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "targeted_removal",
+    "count": 6,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "wipes",
+    "count": 7,
+    "target_min": 5,
+    "target_max": 7
+   }
+  ],
+  "synergy_clusters": [
+   {
+    "name": "tokens",
+    "cards": [
+     {
+      "name": "Anointed Procession",
+      "oracle_id": "7246d45b-2185-4cdd-981b-5419b7d52bce"
+     },
+     {
+      "name": "Captain of the Watch",
+      "oracle_id": "9f2af06d-8fb7-4276-bb92-3559a6d1fa18"
+     },
+     {
+      "name": "Cathars' Crusade",
+      "oracle_id": "cc65ac73-5bef-4ecb-ad8e-39199084c027"
+     },
+     {
+      "name": "Dawn of a New Age",
+      "oracle_id": "37df5ade-6a21-4b0c-89f8-e2e917589a8d"
+     },
+     {
+      "name": "Elspeth Tirel",
+      "oracle_id": "5f815e69-fdd6-4186-9317-25f5c7e0b08e"
+     },
+     {
+      "name": "Elspeth, Sun's Champion",
+      "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33"
+     },
+     {
+      "name": "Halo Fountain",
+      "oracle_id": "36a9de4c-8073-475d-8679-e50844eef09e"
+     },
+     {
+      "name": "Heidegger, Shinra Executive",
+      "oracle_id": "215024ba-811e-4011-bbc8-8dd14a34f973"
+     },
+     {
+      "name": "Hero of Bladehold",
+      "oracle_id": "454a8902-8120-4373-96ee-bbf352b04e8d"
+     },
+     {
+      "name": "Intangible Virtue",
+      "oracle_id": "d21c3c8f-d105-4ba9-bf69-e5f26f0f8ec5"
+     },
+     {
+      "name": "Mobilization",
+      "oracle_id": "6b8119e9-a9a9-4349-be32-adcb84b8eb79"
+     },
+     {
+      "name": "Myrel, Shield of Argive",
+      "oracle_id": "503094aa-6f8f-42c1-ad5a-9305934e5f0c"
+     },
+     {
+      "name": "Precinct Captain",
+      "oracle_id": "3c75234b-e367-46da-8454-be4315f9b9de"
+     },
+     {
+      "name": "Suture Priest",
+      "oracle_id": "c4d36522-3ace-4bfb-bf2d-1a366f458698"
+     }
+    ],
+    "strength": 0.2333
+   }
+  ]
+ },
+ "omitted": [
+  {
+   "kind": "finding",
+   "item": "s-win_paths_closing-2: Five near-miss combos all pair Darien with lifegain sources (Soul Warden, Suture Priest, Anointer Priest, Daxos, Blessed by the Sun, Auriok Champion, Haliya, Guided by Light) and n…",
+   "reason": "critic:unsupported_claim: The dossier cites lifegain sources but does not provide evidence of any sacrifice outlets or damage amplifiers in the deck, leaving the 'infinite' claim unsupported. (quoted: \"Five near-miss combos all pair Darien with lifegain sources [...] and need only a sacrifice outlet or damage amplifier; the generator withdrew the finding: The deck contains five near-miss combos (Darien paired with Soul Warden, Suture Priest, Anointer Priest, Daxos, Auriok Champion, Haliya) that each need one missing card to go infinite, but the deck has no sacrifice outlets or damage amplifier"
+  },
+  {
+   "kind": "finding",
+   "item": "p-mana_consistency-1: Draw sources total 6 (roles.draw.count) against a target minimum of 11, leaving the deck significantly below the norm (roles.draw.target_min = 11); Skullclamp and Mentor of the Mee…",
+   "reason": "critic:unsupported_claim: The dossier cites roles.draw.target_min/max as 11–13 but does not substantiate this as a 'norm' or benchmark for the deck's strategy. (quoted: \"Draw sources total 6 (roles.draw.count) against a target minimum of 11, leaving the deck significantly below the norm (roles.draw.target_min = 11)\"); the generator withdrew the finding: The draw shortfall (6 sources vs a 11-13 target) cannot be supported without establishing that this deck's strategy requires the generic norm. The brief does not state a draw requirement; the deck's plan (token generation via Darien, lifegain l"
+  },
+  {
+   "kind": "finding",
+   "item": "p-concept_execution-3: Ramp is only 3 pieces (Sol Ring, Pearl Medallion, Marble Diamond) against a 9–11 target; the deck averages MV 3.45 and front-loads cheap threats, but early acceleration into Anoint…",
+   "reason": "critic:unsupported_claim: The dossier does not provide evidence that the deck's ramp is insufficient to consistently hit turn 3–4 acceleration, only listing the ramp pieces and targets. (quoted: \"Missing one of three pieces in early draws risks a turn 5–6 turn pattern instead of turn 3–4.\"); the generator withdrew the finding: The claim that early ramp insufficiency 'risks a turn 5–6 turn pattern instead of turn 3–4' is not provable from the card table and facts alone. Ramp density (3 pieces vs. 9–11 target) is a fact, but whether this causes missed turn windows depends on the deck's actual pl"
+  },
+  {
+   "kind": "finding",
+   "item": "p-plan_synergy-4: Hour of Reckoning and Martial Coup are intended wipes that scale with token count and synergize with the plan, but Wrath of God, Austere Command, and Mass Calcify are symmetrical o…",
+   "reason": "critic:tradeoff_missing: The dossier lists the wipe cards but does not demonstrate that these wipes fail to synergize with the token strategy, only stating their effects. (quoted: \"this dilutes the wipe suite and means the deck sometimes clears its own board without generating tokens, undoing the core plan in a single ; the generator withdrew the finding: The claim requires knowing whether these wipes are played and whether they actually undo the board state in practice. Wrath of God and Austere Command do destroy tokens, but the brief lists them as intentional wipes for the reset strategy (pe"
+  },
+  {
+   "kind": "finding",
+   "item": "p-interaction_resilience-3: All targeted removal requires creatures on the battlefield (Catapult Master taps five Soldiers, Spear of Heliod requires a creature that dealt damage, Extraplanar Lens has no immed…",
+   "reason": "critic:tradeoff_missing: The dossier lists the targeted removal but does not show that these interactions are insufficient against early non-creature threats. (quoted: \"the deck has no answer to turn-one stax or early resolved threats that do not attack before the deck stabilizes\"); the generator withdrew the finding: The claim that the deck has no answer to turn-one stax or early non-creature threats cannot be verified from the card table and facts alone. While the targeted removal list is correct, whether these specific threats exist in the metagame and whether the deck's interaction is 'ins"
+  },
+  {
+   "kind": "finding",
+   "item": "p-win_paths_closing-2: Halo Fountain's win condition (untap fifteen tapped creatures to win outright) appears to assume a large, tapped army exists, but the deck generates tokens only via Darien triggers…",
+   "reason": "critic:unsupported_claim: The dossier does not provide evidence that the deck cannot consistently assemble the required tokens or untap mana for Halo Fountain. (quoted: \"assembly of the critical mass and untap mana is slow and fragile if Halo Fountain is a primary close\"); the generator withdrew the finding: The claim rests on an assumption about Halo Fountain's viability that depends entirely on q-3 (whether it is intended as a primary win condition or incidental utility). Without an answer to that question, any severity assignment is unfounded. The deck's token generation (Darien, Anointed P"
+  },
+  {
+   "kind": "finding",
+   "item": "p-concept_execution-2: Draw support totals 6 cards (roles.draw.count) against a target of 11–13, creating dependence on conditional triggers that align with the token strategy but require board setup. Me…",
+   "reason": "critic:tradeoff_missing: The dossier lists only 5 draw cards (Mentor of the Meek, Skullclamp, Smothering Tithe, Haliya, Dawn of a New Age), not 6, and Halo Fountain is not cited as having a draw role, so the count of 6 is unsupported. (quoted: \"draw support totals 6 cards (roles.draw.count) against a target of 11–13, c"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-2: cut Dingus Staff -> add Welcoming Vampire",
+   "reason": "code:unresolved_finding_id: the problem it resolves (p-mana_consistency-1) was removed by the verifier"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-5: cut Odric, Master Tactician -> add Bennie Bracks, Zoologist",
+   "reason": "code:unresolved_finding_id: the problem it resolves (p-mana_consistency-1) was removed by the verifier"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-6: cut Knight-Captain of Eos -> add Ajani's Welcome",
+   "reason": "code:unresolved_finding_id: the problem it resolves (p-concept_execution-2) was removed by the verifier"
+  },
+  {
+   "kind": "swap",
+   "item": "sw-3: cut Austere Command -> add Case of the Uneaten Feast",
+   "reason": "critic:unsupported_claim: The dossier does not demonstrate that Case of the Uneaten Feast can reliably recur Anointed Procession (MV 4) from the graveyard, as its recursion effect is limited to 'creature cards' and does not specify any MV restrictions or tutoring. (quoted: \"Case of the Uneaten Feast triggers on every c; the generator withdrew the swap: No pool card reliably recurrs Anointed Procession (MV 4) from graveyard; Brilliant Restoration (pc-177) returns all artifacts and enchantments but costs {7} and does not enable the Darien loop independently, making it worse than keeping Austere "
+  }
+ ]
+}

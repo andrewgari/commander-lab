@@ -1,0 +1,162 @@
+{
+ "generator": "spoton:claude-sonnet-5-5",
+ "judge": "spoton:gpt-5-6-sol",
+ "critic": "spoton:mistral-large-3",
+ "writer": "spoton:claude-sonnet-5-5",
+ "models": {
+  "A": "spoton:claude-sonnet-5-5",
+  "B": "spoton:claude-sonnet-5-5",
+  "C": "spoton:claude-sonnet-5-5",
+  "critic": "spoton:mistral-large-3"
+ },
+ "pipeline_version": "review-ab-1",
+ "max_cost_usd": null,
+ "started_at": "20261029T011029Z",
+ "decks": {
+  "celes-ebbing-away": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 5.0,
+     "specificity": 9.0,
+     "intent_alignment": 4.0,
+     "actionability": 8.0,
+     "generic_filler": 6.0
+    },
+    "notes": "The review clearly identifies the fast +1/+1-counter combo plan, naming Celes, persist/return creatures, sacrifice outlets, tutors, and redundant loops. However, it directly contradicts the supplied target by repeatedly saying no power target is stated. It evaluates a Bracket 4 floor but not whether the list is lean enough for upper Bracket 4 or aspiring cEDH/Bracket 5 play. Recommendations are concrete and include cuts, additions, costs, alternatives, and trade-offs, but several priorities are poorly aligned with that target: expensive dual-land upgrades, Akroma's Will, additional sweepers/protection, and cutting Esper Sentinel or Black Market Connections receive attention while cEDH-level speed, card velocity, mulligans, fast mana, compactness, and expected win turns are not seriously benchmarked. The document is highly card-specific but substantially repetitive, especially around the same Celes, Broodmoth, outlet, and Dualcaster claims.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 5.0,
+   "cost_usd": 0.984353,
+   "cost_complete": true,
+   "latency_s": 266.77,
+   "calls": 30,
+   "review_file": "celes-ebbing-away.review.json",
+   "fetch_s": 75.58,
+   "api_latency_s": 359.7,
+   "judge_cost_usd": 0.101,
+   "providers": {
+    "served": {
+     "spoton:claude-sonnet-5-5": 22,
+     "spoton:mistral-large-3": 8,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "darien-frozen-throne": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 3.0,
+     "specificity": 9.0,
+     "intent_alignment": 4.0,
+     "actionability": 8.0,
+     "generic_filler": 3.0
+    },
+    "notes": "The review recognizes that Darien converts damage to the controller into Soldiers and names supporting pain/redirection cards, but it misses the rubric's central Aikido/punisher framing: opponents face a devil's choice between damaging Andrew and feeding his board or declining to attack. Instead, it treats opponent-dependent damage primarily as a weakness and reframes the deck as a generic Soldier go-wide list. Card-level analysis and mechanisms are highly specific, and the proposed swaps include clear cuts, additions, alternatives, costs, and trade-offs. However, those swaps mostly optimize generic draw, ramp, and removal rather than strengthen the intended political punishment dynamic. The document is also highly repetitive, with the same draw/ramp deficits, sweepers, and token payoffs reiterated across many sections.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 3.0,
+   "cost_usd": 1.172963,
+   "cost_complete": true,
+   "latency_s": 335.59,
+   "calls": 34,
+   "review_file": "darien-frozen-throne.review.json",
+   "fetch_s": 10.86,
+   "api_latency_s": 438.252,
+   "judge_cost_usd": 0.085424,
+   "providers": {
+    "served": {
+     "spoton:claude-sonnet-5-5": 22,
+     "spoton:mistral-large-3": 12,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "lara-uncharted": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 10.0,
+     "specificity": 10.0,
+     "intent_alignment": 8.0,
+     "actionability": 8.0,
+     "generic_filler": 7.0
+    },
+    "notes": "The review repeatedly identifies the legendary-equipment plan, Lara's graveyard-to-exile replay mechanism for legendary artifacts or lands, and the deck's emphasis on legendary carriers and permanents. Claims and swaps are highly card-specific with explicit mechanisms and trade-offs. Alignment is generally strong, especially in adding legendary equipment, creatures, and lands, but the review sometimes overweights generic consistency metrics and incorrectly claims Passionate Archaeologist does nothing in the 99; it works as a battlefield enchantment that grants Lara the triggered ability. That error weakens the Nature's Claim swap and related legality question. Actionability remains high due to seven named swaps, though several findings\u2014especially the untutorable Aggravated Assault half, self-damaging sweepers, and color-source issue\u2014are repeated excessively.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 10.0,
+   "cost_usd": 1.392405,
+   "cost_complete": true,
+   "latency_s": 413.26,
+   "calls": 45,
+   "review_file": "lara-uncharted.review.json",
+   "fetch_s": 11.82,
+   "api_latency_s": 537.709,
+   "judge_cost_usd": 0.107552,
+   "providers": {
+    "served": {
+     "spoton:claude-sonnet-5-5": 33,
+     "spoton:mistral-large-3": 12,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  },
+  "saffi-rumors": {
+   "status": "ok",
+   "error": null,
+   "verdict_source": "eval-bridge",
+   "gate_violations": [],
+   "gates_checked": 17,
+   "judge": {
+    "scores": {
+     "rubric_recall": 5.0,
+     "specificity": 9.0,
+     "intent_alignment": 4.0,
+     "actionability": 8.0,
+     "generic_filler": 7.0
+    },
+    "notes": "The review clearly identifies the Karmic Guide/Reveillark recursion-combo shell, sacrifice outlets, and several Saffi-enabled loops, but it does not recognize the owner's stated primary line as specifically using Saffi's ability and repeatedly frames Saffi as a passenger. It entirely misses the play-safe/pillowfort-first sequencing and instead claims owner intent is unknown. It avoids recommending aggro additions, although discussion of weak combat closing is irrelevant to the intended plan. Card-level analysis and swaps are unusually concrete with explicit trade-offs, budget, and bracket effects, but some tutor claims are inaccurate or overstated: Green Sun's Zenith cannot find Karmic Guide or Reveillark, and the creature tutors generally cannot find artifact outlets. The review is highly specific but repetitive and spends substantial space on generic bracket, budget, combat-backup, and role-target analysis that is secondary to the owner's rubric.",
+    "judge_model": "spoton:gpt-5-6-sol"
+   },
+   "judge_error": null,
+   "rubric_recall": 5.0,
+   "cost_usd": 1.180742,
+   "cost_complete": true,
+   "latency_s": 326.66,
+   "calls": 35,
+   "review_file": "saffi-rumors.review.json",
+   "fetch_s": 10.83,
+   "api_latency_s": 434.115,
+   "judge_cost_usd": 0.095976,
+   "providers": {
+    "served": {
+     "spoton:claude-sonnet-5-5": 25,
+     "spoton:mistral-large-3": 10,
+     "spoton:gpt-5-6-sol": 1
+    },
+    "failed": []
+   }
+  }
+ },
+ "note": "Merged from separate runs of the same pipeline head; see docs/reviewer/EVAL_BASELINE.md"
+}

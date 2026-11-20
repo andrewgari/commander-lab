@@ -12,14 +12,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import card_refs
+import src.server.domain.decks.card_refs as card_refs
 from jinja2 import Environment, FileSystemLoader
 
-import app as app_mod
-from analytics import review_doc as rd
-from analytics import review_metrics as rm
-from analytics import review_view as rv
-from analytics import theory_view
+import src.server.app.main as app_mod
+from src.server.domain.analytics import review_doc as rd
+from src.server.domain.analytics import review_metrics as rm
+from src.server.domain.analytics import review_view as rv
+from src.server.domain.analytics import theory_view
 from tests.test_deck_stats_ui import DECK, _DeckPage
 from tests.test_review_doc import FakeRedis
 from tests.test_review_metrics import make_inputs
@@ -41,7 +41,7 @@ def _section(type_):
 
 
 def render(section):
-    env = Environment(loader=FileSystemLoader(str(ROOT / "templates")), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(ROOT / "src/web/templates")), autoescape=True)
     env.globals["card_preview_attrs"] = card_refs.preview_attrs
     return env.get_template(rv.section_template(section)).render(section=section, rv=rv, tv=theory_view)
 
@@ -50,7 +50,7 @@ class TestRouting(unittest.TestCase):
     def test_every_known_type_has_a_partial_file(self):
         for t in rv.RENDERERS:
             with self.subTest(t=t):
-                self.assertTrue((ROOT / "templates" / "partials" / "review" / f"{t}.html").exists())
+                self.assertTrue((ROOT / "src/web/templates" / "partials" / "review" / f"{t}.html").exists())
         self.assertEqual(set(rv.RENDERERS), set(rd.SECTION_ORDER))
 
     def test_real_doc_sections_use_their_own_partial(self):
@@ -267,9 +267,9 @@ class _ReviewPage(_DeckPage):
     def test_tabs_have_keys_and_mark_the_active_tab(self):
         nav = self.body.split('class="hud-tabs hud-deck-tabs"', 1)[1].split("</nav>", 1)[0]
         tabs = re.findall(r'<a class="hud-tab[^"]*" href="([^"]+)"[^>]*data-key="(\d)"', nav)
-        self.assertEqual([k for _, k in tabs], list("12345678"))
-        self.assertEqual(tabs[6][0], "/deck/Holy%20Hellfire/review")
-        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*>([^<]+)', nav)
+        self.assertEqual([k for _, k in tabs], list("123456789") + ["0"])
+        self.assertEqual(tabs[8][0], "/deck/Holy%20Hellfire/review")
+        active = re.findall(r'<a class="hud-tab active"[^>]*aria-current="page"[^>]*><span class="hud-kbd"[^>]*>[^<]*</span>([^<]+)', nav)
         self.assertEqual([a.strip() for a in active], ["Review"])
 
     def test_tab_order_matches_other_pages_hrefs(self):
@@ -362,8 +362,8 @@ class TestStorageDown(unittest.TestCase):
                 return super().get(k)
 
         with patch.object(app_mod, "r", Boom()), \
-                patch("app.registry.list_decks", return_value=[DECK]), \
-                patch("app.inventory_view.build_inventory", return_value=[]):
+                patch("src.server.app.main.registry.list_decks", return_value=[DECK]), \
+                patch("src.server.app.main.inventory_view.build_inventory", return_value=[]):
             from fastapi.testclient import TestClient
             res = TestClient(app_mod.app).get("/deck/Holy%20Hellfire/review")
         self.assertEqual(res.status_code, 200)
@@ -371,14 +371,14 @@ class TestStorageDown(unittest.TestCase):
 
     def test_unknown_deck_404(self):
         from fastapi.testclient import TestClient
-        with patch("app.registry.list_decks", return_value=[]):
+        with patch("src.server.app.main.registry.list_decks", return_value=[]):
             self.assertEqual(TestClient(app_mod.app).get("/deck/Nope/review").status_code, 404)
 
 
 class TestHotkeys(unittest.TestCase):
     def test_seven_key_switches_tab(self):
-        js = (ROOT / "static" / "js" / "deck_analytics.js").read_text()
-        self.assertIn("/^[1-8]$/", js)
+        js = (ROOT / "src/web/static" / "js" / "deck_analytics.js").read_text()
+        self.assertIn("/^[0-9]$/", js)
 
 
 if __name__ == "__main__":

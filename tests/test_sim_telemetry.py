@@ -1,6 +1,6 @@
 import os, sys, unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from analytics import sim_telemetry as st, sim_store as ss
+from src.server.domain.analytics import sim_telemetry as st, sim_store as ss
 from tests.test_sim_store_and_diff import FakeRedis, make_deck
 
 OWNED = {"user_417707", "user_2"}

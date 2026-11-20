@@ -1,7 +1,7 @@
 """Tests for the Auto Tag engine (§8 fixtures and invariants)."""
 
 import unittest
-from autotag.engine import run_auto_tag, compute_health, AutoTagConfig, ALL_TAGS
+from src.server.domain.tags.engine import run_auto_tag, compute_health, AutoTagConfig, ALL_TAGS
 
 
 # ---------------------------------------------------------------------------

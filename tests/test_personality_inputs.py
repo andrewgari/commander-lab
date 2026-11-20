@@ -13,10 +13,10 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import personality as ps  # noqa: E402
-from analytics.interactions import combos as combos_mod  # noqa: E402
-from analytics import edhrec_inclusion  # noqa: E402
-from analytics.providers.edhrec import commander_slug  # noqa: E402
+from src.server.domain.analytics import personality as ps  # noqa: E402
+from src.server.domain.analytics.interactions import combos as combos_mod  # noqa: E402
+from src.server.domain.analytics import edhrec_inclusion  # noqa: E402
+from src.server.domain.analytics.providers.edhrec import commander_slug  # noqa: E402
 
 
 class FakeRedis:
@@ -134,7 +134,7 @@ class LoadInputs(unittest.TestCase):
 
     def test_source_failure_is_isolated(self):
         r = redis_with()
-        with mock.patch("deck_review.review_deck", side_effect=RuntimeError("boom")):
+        with mock.patch("src.server.domain.decks.deck_review.review_deck", side_effect=RuntimeError("boom")):
             out = ps.score_deck(r, DECK)
         self.assertIn("power estimate unavailable", out.notes)
         self.assertEqual(next(e for e in out.spike.evidence if e.signal == "S2").value, 1)

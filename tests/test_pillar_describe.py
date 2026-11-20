@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import identity, pillar_describe
-from analytics.interactions import llm as llm_mod
+from src.server.domain.analytics import identity, pillar_describe
+from src.server.domain.analytics.interactions import llm as llm_mod
 from tests.test_identity import JsonProvider
 from tests.test_interactions import FakeRedis
 from tests.test_pillar_fit import load_hh
@@ -79,16 +79,16 @@ class TestRoute(unittest.TestCase):
 
     def setUp(self):
         from fastapi.testclient import TestClient
-        from app import app
-        import app as app_mod
+        from src.server.app.main import app
+        import src.server.app.main as app_mod
         self.app_mod = app_mod
         self.client = TestClient(app)
         self.deck, _ = load_hh()
         self.fake = FakeRedis()
 
     def post(self, body, ch):
-        with patch("app.registry") as reg, patch.object(self.app_mod, "r", self.fake), \
-                patch("analytics.interactions.llm.default_chain", return_value=ch):
+        with patch("src.server.app.main.registry") as reg, patch.object(self.app_mod, "r", self.fake), \
+                patch("src.server.domain.analytics.interactions.llm.default_chain", return_value=ch):
             reg.find_deck.return_value = self.deck
             return self.client.post(self.URL, json=body)
 
@@ -108,7 +108,7 @@ class TestRoute(unittest.TestCase):
         self.assertEqual((res.status_code, res.json()["error_kind"]), (503, "no_llm"))
 
     def test_unknown_deck_404(self):
-        with patch("app.registry") as reg:
+        with patch("src.server.app.main.registry") as reg:
             reg.find_deck.return_value = None
             reg.list_decks.return_value = []
             self.assertEqual(self.client.post(self.URL, json={"name": "A"}).status_code, 404)

@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import redis  # noqa: E402
 
-import instances as instance_store  # noqa: E402
-import registry  # noqa: E402
+import src.server.domain.inventory.instances as instance_store  # noqa: E402
+import src.server.domain.decks.registry as registry  # noqa: E402
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

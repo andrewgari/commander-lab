@@ -13,9 +13,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import linked_accounts
-import registry
-from providers import PROVIDERS
+import src.server.infra.providers.linked_accounts as linked_accounts
+import src.server.domain.decks.registry as registry
+from src.server.infra.providers import PROVIDERS
 
 
 class FakeRedis:

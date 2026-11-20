@@ -1,0 +1,1899 @@
+{
+ "schema_version": "review_document.v1",
+ "meta": {
+  "deck_id": "archidekt:417219",
+  "deck_name": "Rumors of my death were....greatly exaggerated",
+  "commanders": [
+   {
+    "name": "Saffi Eriksdotter",
+    "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+   }
+  ],
+  "generated_at": "2026-10-29T01:35:09.221807+00:00",
+  "pipeline_version": "review-ab-1",
+  "prompt_versions": {
+   "A": "v1",
+   "B": "v1",
+   "C": "v1",
+   "D": "v1",
+   "E": "v1",
+   "critic": "v1"
+  },
+  "models": {
+   "A": "spoton:claude-sonnet-5-5",
+   "B": "spoton:claude-sonnet-5-5",
+   "C": "spoton:claude-sonnet-5-5",
+   "D": "spoton:claude-sonnet-5-5",
+   "E": "spoton:claude-sonnet-5-5",
+   "critic": "spoton:mistral-large-3"
+  },
+  "fact_pack_hash": "4a00ca4ef0241bd7b27a18529b4f07895d2e509a8d4787cdbde6dfe4100e6f97"
+ },
+ "verdict": {
+  "headline": "Redundant outlet-plus-recursion loops, held back by color sources and outlet access",
+  "summary": "A Selesnya creature-recursion and sacrifice deck with 30 complete combos. Karmic Guide, Reveillark, Sun Titan, Fiend Hunter and Felidar Guardian pair with Ashnod's Altar, Altar of Dementia or Blasting Station, and 8 tutors look for the pieces. Three things hold it back. White sources are 21 against 30 recommended, and green is 20 against 36. Every loop needs one of three artifact outlets that none of the creature tutors can fetch. Protection is only 4 cards, and nothing answers graveyard hate. The bracket floor is 3 from Aura Shards and Worldly Tutor, but no target is stated, so the real power may be above that floor. The first suggested changes are Oswald Fiddlebender for Altar of the Brood, Recommission for Ramunap Excavator, and Savannah for Reliquary Tower.",
+  "grade": "B",
+  "confidence": 0.56
+ },
+ "deck_identity": {
+  "what_it_does": "No owner intent recorded; this is read from the list. A Selesnya (G/W) creature-recursion and sacrifice deck led by Saffi Eriksdotter. Karmic Guide, Reveillark, Sun Titan, Fiend Hunter and Felidar Guardian recur and re-trigger creatures. Sac outlets (Ashnod's Altar, Altar of Dementia, Blasting Station) and tutors (Birthing Pod, Chord of Calling, Green Sun's Zenith, Fauna Shaman) turn those loops into a win or card advantage. Ramp, protection and artifact/enchantment removal support the engine.",
+  "win_paths": [
+   "Infinite sacrifice/recursion loops: Saffi Eriksdotter or Karmic Guide/Reveillark/Sun Titan plus Ashnod's Altar, ending with Blasting Station damage or Altar of Dementia mill of opponents.",
+   "Tutor into the combo pieces with creature tutors and sacrifice-tutor chains.",
+   "Protean Hulk's death trigger puts a package of creatures onto the battlefield.",
+   "Grind with recursion value and sacrifice-draw, then close with fliers or incremental damage."
+  ],
+  "success_criteria": [
+   "Assemble a loop of an outlet plus a recursion creature (for example Saffi Eriksdotter or Karmic Guide with Ashnod's Altar) in the mid game, supported by 8 tutors.",
+   "Use early mana (13 ramp pieces plus 36 lands) to deploy a 4-6 MV recursion creature by turns 4-5.",
+   "Have protection (Heroic Intervention, Silence, Grand Abolisher, Dawn Charm, Rebuff the Wicked) available when a combo is assembled.",
+   "Without the combo, still grind through Skullclamp, Greater Good, Mentor of the Meek and recursion creatures.",
+   "Keep artifact/enchantment removal live without crowding out the engine pieces."
+  ],
+  "intentional_quirks": [
+   "Heavy tutor and Pod-chain package for a creature-only plan.",
+   "Artifact/enchantment removal in the creature deck, including Acidic Slime, Reclamation Sage, Qasali Pridemage, Krosan Grip, Sylvan Reclamation and Aura Shards.",
+   "Two board wipes (Wrath of God, Austere Command) in a creature deck, likely backed by recursion and protection."
+  ]
+ },
+ "scorecard": [
+  {
+   "axis": "plan_synergy",
+   "score": 8,
+   "one_line": "Many independent outlet-plus-recursion loops (e.g. combos.complete.67-2034-4681.card_names) and tutors to find them; the commander and a few side cards are the weaker links.",
+   "finding_ids": [
+    "s-plan_synergy-1",
+    "s-plan_synergy-2",
+    "s-plan_synergy-3",
+    "p-plan_synergy-1",
+    "p-plan_synergy-2",
+    "p-plan_synergy-3"
+   ]
+  },
+  {
+   "axis": "mana_consistency",
+   "score": 7,
+   "one_line": "36 lands plus 13 ramp pieces (roles.ramp.count) and 8 tutors give a smooth 2.83 average MV curve, held back by W sources at 21 against 30 recommended.",
+   "finding_ids": [
+    "s-mana_consistency-1",
+    "s-mana_consistency-2",
+    "s-mana_consistency-3",
+    "p-mana_consistency-1",
+    "p-mana_consistency-2",
+    "p-mana_consistency-3"
+   ]
+  },
+  {
+   "axis": "interaction_resilience",
+   "score": 7,
+   "one_line": "Targeted removal sits in the target range (roles.targeted_removal.count = 12) and the recursion shell rebuys after a wipe, but only 4 protection pieces and no graveyard-hate answer leave the combo exposed.",
+   "finding_ids": [
+    "s-interaction_resilience-1",
+    "s-interaction_resilience-2",
+    "p-interaction_resilience-1",
+    "p-interaction_resilience-2",
+    "p-interaction_resilience-3"
+   ]
+  },
+  {
+   "axis": "win_paths_closing",
+   "score": 7,
+   "one_line": "combos.counts.complete = 30 gives many redundant loop finishes, but every loop needs one of three artifact outlets and the non-combo closing is thin.",
+   "finding_ids": [
+    "s-win_paths_closing-1",
+    "s-win_paths_closing-2",
+    "s-win_paths_closing-3",
+    "p-win_paths_closing-1",
+    "p-win_paths_closing-2",
+    "p-win_paths_closing-3"
+   ]
+  },
+  {
+   "axis": "power_bracket",
+   "score": 6,
+   "one_line": "Floor is bracket 3 from Aura Shards and Worldly Tutor (bracket.game_changers), but the target is unstated (q-1) and many complete 3-card infinite loops built on Karmic Guide mean the real power may exceed that floor.",
+   "finding_ids": [
+    "s-power_bracket-1",
+    "s-power_bracket-2",
+    "p-power_bracket-1",
+    "p-power_bracket-2"
+   ]
+  },
+  {
+   "axis": "budget_inventory",
+   "score": 7,
+   "one_line": "No cap is set and inventory is unavailable, but the $414.49 total is concentrated in a few cards, and the clear low-value spend is Esper Sentinel at $54.35.",
+   "finding_ids": [
+    "s-budget_inventory-1",
+    "s-budget_inventory-2",
+    "s-budget_inventory-3",
+    "p-budget_inventory-1",
+    "p-budget_inventory-2",
+    "p-budget_inventory-3"
+   ]
+  },
+  {
+   "axis": "concept_execution",
+   "score": 7,
+   "one_line": "Karmic Guide plus Ashnod's Altar is a real loop and the tutor package (roles.tutors.count = 8) finds it, but Saffi Eriksdotter is a 2-mana sacrifice-in-response trick, and 13 cards sit outside any theme (synergy.orphans).",
+   "finding_ids": [
+    "s-concept_execution-1",
+    "s-concept_execution-2",
+    "s-concept_execution-3",
+    "p-concept_execution-1",
+    "p-concept_execution-2",
+    "p-concept_execution-3"
+   ]
+  }
+ ],
+ "strengths": [
+  {
+   "id": "s-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Artifact/enchantment answers are plentiful and double as engine bodies: Reclamation Sage, Acidic Slime and Qasali Pridemage are creatures that can be recurred or sacrificed, while Krosan Grip (split second), Sylvan Reclamation and Aura Shards give instant-speed or repeatable answers to hostile artifacts and enchantments.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Reclamation Sage",
+      "oracle_id": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904"
+     },
+     {
+      "name": "Acidic Slime",
+      "oracle_id": "21f45043-5419-4019-8b6c-e5294bd5f549"
+     },
+     {
+      "name": "Qasali Pridemage",
+      "oracle_id": "10821e37-8a83-4d8e-a12f-249a10933a22"
+     },
+     {
+      "name": "Krosan Grip",
+      "oracle_id": "3e39224c-72ce-4ecc-aa17-12c071ea1f3e"
+     },
+     {
+      "name": "Sylvan Reclamation",
+      "oracle_id": "aeec8e85-6571-4da6-8a48-f5d3985ca10b"
+     },
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count",
+     "roles.targeted_removal.target_min",
+     "roles.targeted_removal.target_max"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "The infinite lines are not tied to one outlet. Karmic Guide with Reveillark closes with Ashnod's Altar, Altar of Dementia or Blasting Station. Sun Titan with Fiend Hunter closes with the same three outlets. Karmic Guide with Felidar Guardian also pairs with each of them. A removed or stranded outlet or recursion creature therefore doesn't end the plan, and the 8 tutors can fetch the missing piece.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.67-4681-5256.card_names",
+     "combos.complete.67-413-4681.card_names",
+     "combos.complete.1734-2034-3175.card_names",
+     "combos.complete.1734-3175-5256.card_names",
+     "combos.complete.413-1734-3175.card_names",
+     "combos.complete.2034-2781-4681.card_names",
+     "combos.complete.2781-4681-5256.card_names",
+     "combos.complete.413-2781-4681.card_names",
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Eight tutors (Birthing Pod, Chord of Calling, Green Sun's Zenith, Eldritch Evolution, Fauna Shaman, Eladamri's Call, Worldly Tutor, Recruiter of the Guard) find Karmic Guide or the outlets, so the deck assembles the loop without needing the exact cards in hand. Eternal Witness, Sevinne's Reclamation and Extraction Specialist add recursion beyond the main engine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.recursion.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "Resilience to sweepers and spot removal is built in: Sun Titan, Karmic Guide, Reveillark, Sevinne's Reclamation and Gift of Immortality rebuy the board, and Saffi Eriksdotter can save a creature in response, so the deck's own Wrath of God and Austere Command are low-cost for it.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     },
+     {
+      "name": "Gift of Immortality",
+      "oracle_id": "2c11c72f-5b04-47d8-bdf8-8d9d197ebc1b"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.wipes.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Redundant engine access: Birthing Pod, Chord of Calling, Eldritch Evolution, Fauna Shaman, Eladamri's Call and Recruiter of the Guard (8 tutors total) find loop pieces such as Karmic Guide and Reveillark, and Ashnod's Altar doubles as ramp and outlet. The deck can assemble its main loop without drawing one specific card.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "The deck has many redundant loops built from the same two kinds of piece. Recursion or flicker creatures (Karmic Guide, Reveillark, Sun Titan, Fiend Hunter, Felidar Guardian) pair with outlets (Ashnod's Altar, Altar of Dementia, Blasting Station), and each outlet picks a different finish: mana, mill or damage. Most listed loops do not need Saffi Eriksdotter, so losing the commander or one piece does not stop the plan.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.67-413-4681.card_names",
+     "combos.complete.1734-3175-5256.card_names",
+     "combos.complete.67-2034-2781.card_names"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "The deck has a very redundant loop-based finish. Karmic Guide, Reveillark, Sun Titan, Saffi Eriksdotter, Felidar Guardian and Fiend Hunter each pair with Altar of Dementia or Blasting Station, so any one of several 3-card sets ends the game with infinite mill or infinite damage. No single creature is required, because the Saffi, Sun Titan and Renegade Rallier sets work without Karmic Guide.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     }
+    ],
+    "fact_keys": [
+     "combos.counts.complete",
+     "combos.complete.67-413-4681.produces",
+     "combos.complete.2281-3175-5256.produces",
+     "combos.complete.413-2281-3175.produces"
+    ]
+   },
+   "severity": "high",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "The creatures that carry the recursion loops are cheap individually: Karmic Guide ($0.35), Reveillark ($0.64), Sun Titan ($0.32), Fiend Hunter ($0.52), Eternal Witness ($2.25) and Felidar Guardian ($3.65) each cost under $4. The largest line items against the $414.49 total sit elsewhere. Esper Sentinel ($54.35), Green Sun's Zenith ($30.82), Worldly Tutor ($29.87) and Heroic Intervention ($17.38) are tutoring, protection and card draw, not the recursion that makes the loops work.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.total_usd",
+     "derived.price.most_expensive.Esper Sentinel.usd",
+     "derived.price.most_expensive.Green Sun's Zenith.usd",
+     "derived.price.most_expensive.Worldly Tutor.usd",
+     "derived.price.most_expensive.Heroic Intervention.usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.8
+  },
+  {
+   "id": "s-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "The curve is low (average 2.83) with 12 one-drops and 14 two-drops, so the commander Saffi Eriksdotter, Fauna Shaman, Skullclamp and cheap tutors like Worldly Tutor and Green Sun's Zenith come down early. Only 8 cards sit at 5+ MV, so the top end is light.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     }
+    ],
+    "fact_keys": [
+     "curve.average_mv",
+     "curve.buckets.1.count",
+     "curve.buckets.2.count",
+     "curve.buckets.5.count",
+     "curve.buckets.7.count"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "The tutor package feeds the loop pieces directly. Birthing Pod, Chord of Calling, Green Sun's Zenith, Eldritch Evolution, Fauna Shaman and Worldly Tutor can fetch Karmic Guide or Reveillark, and the sacrifice-based tutors (Birthing Pod, Eldritch Evolution) double as outlets, so the deck is consistent more than hopeful.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "The deck has 8 tutors (roles.tutors.count). Chord of Calling puts any creature onto the battlefield, Eldritch Evolution does the same for a creature up to 2 MV above the sacrificed one, and Birthing Pod climbs one MV per activation. Eladamri's Call, Worldly Tutor and Fauna Shaman fetch a creature to hand or to the top of the library. Together they let the deck look for Karmic Guide or Reveillark, the pieces of the Ashnod's Altar loops, instead of waiting to draw them.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eldritch Evolution",
+      "oracle_id": "0f77c0c9-4dc4-489a-b547-e93287c4d1a5"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.count",
+     "roles.tutors.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.75
+  },
+  {
+   "id": "s-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "The deck runs 36 lands (mana.lands) against a 38 target, and offsets the two missing lands with 13 ramp pieces (roles.ramp.count) against a 9-11 target range. Sol Ring, Llanowar Elves, Birds of Paradise and Kodama's Reach help get 5-6 MV recursion creatures like Karmic Guide and Sun Titan down around turns 4-5. The trade-off is that the extra ramp (2 above the target max) takes slots from draw, which sits at 8 against an 11-13 target (roles.draw.count), and mana dorks are fragile to the deck's own Wrath of God and Austere Command.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Kodama's Reach",
+      "oracle_id": "1593ea18-2f2f-4ab4-83fb-6ccc0bec8a90"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     }
+    ],
+    "fact_keys": [
+     "mana.lands",
+     "mana.norms.lands.target",
+     "roles.ramp.count",
+     "roles.ramp.target_max",
+     "roles.draw.count",
+     "roles.draw.target_min"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.7
+  },
+  {
+   "id": "s-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "The concept works in all game phases. Early mana from Sol Ring, Llanowar Elves and Birds of Paradise (roles.ramp.count = 13, above the target of 10) reaches the 5-6 MV engines (Karmic Guide, Reveillark, Sun Titan), while Skullclamp and Greater Good keep grinding when the loop is not assembled. Protection such as Heroic Intervention, Silence and Grand Abolisher backs the turn it goes off.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.ramp_vs_norm.target"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "s-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "The deck has a grind fallback that does not need the infinite loops. Skullclamp, Greater Good and Mentor of the Meek turn dying or sacrificed small creatures, and small creatures re-entering, into cards. Eternal Witness, Sun Titan and Sevinne's Reclamation then return cheap creatures from the graveyard as fresh fodder, so one answered combo piece does not leave the hand dead.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     },
+     {
+      "name": "Mentor of the Meek",
+      "oracle_id": "b9f4f96b-6e54-4fe6-8df7-623e0fc72409"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.cards",
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.65
+  },
+  {
+   "id": "s-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "Seven recursion pieces (Karmic Guide, Reveillark, Sun Titan, Eternal Witness, Extraction Specialist, Renegade Rallier, Sevinne's Reclamation) let the deck rebuild its engine after a wipe or a removed combo piece. Since Wrath of God and Austere Command are in the deck, this is the main backup for the win path.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Sevinne's Reclamation",
+      "oracle_id": "1b9f9f5b-8712-4f00-90cb-1b7b9970eccc"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "s-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "The expensive cards are mostly central to the brief's success criteria. Ashnod's Altar ($16.19), Altar of Dementia ($17.37) and Blasting Station ($12.37) are the loop outlets and finishers. Heroic Intervention ($17.38) and Grand Abolisher ($17.18) are the protection the brief asks for. These are the right places to spend.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Grand Abolisher",
+      "oracle_id": "c749f23c-40c0-4159-b84c-a70cbb062c14"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Heroic Intervention.usd",
+     "derived.price.most_expensive.Altar of Dementia.usd",
+     "derived.price.most_expensive.Grand Abolisher.usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The bracket floor is set by only two Game Changers, Aura Shards and Worldly Tutor, so the deck sits at bracket 3 by rule and nothing else forces it higher. Both are cheap to remove if the owner wants a lower floor, and neither is central to the recursion engine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.game_changers",
+     "bracket.reasons.game_changers.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "The deck has real speed and consistency tools for its loops: 13 ramp pieces (above the 9-11 target range), 8 tutors including Birthing Pod, Chord of Calling and Green Sun's Zenith, and Sol Ring, with an average MV of 2.83. This finds Karmic Guide or Reveillark plus Ashnod's Altar reliably, which is real power beyond the floor.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Sol Ring",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487"
+     },
+     {
+      "name": "Birthing Pod",
+      "oracle_id": "f8b9dd54-0837-47f4-ad14-7a0322d46d5f"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     }
+    ],
+    "fact_keys": [
+     "roles.ramp.count",
+     "roles.tutors.count",
+     "curve.average_mv"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "s-budget_inventory-3",
+   "axis": "budget_inventory",
+   "claim": "Utility and removal are cheap. Reclamation Sage ($0.34), Qasali Pridemage ($0.31), Acidic Slime ($0.25), Krosan Grip ($1.68) and Sylvan Reclamation ($0.38) cover artifact and enchantment removal for pocket change, and several double as sacrifice fodder. No budget is wasted on the removal suite.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Reclamation Sage",
+      "oracle_id": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904"
+     },
+     {
+      "name": "Qasali Pridemage",
+      "oracle_id": "10821e37-8a83-4d8e-a12f-249a10933a22"
+     },
+     {
+      "name": "Acidic Slime",
+      "oracle_id": "21f45043-5419-4019-8b6c-e5294bd5f549"
+     },
+     {
+      "name": "Krosan Grip",
+      "oracle_id": "3e39224c-72ce-4ecc-aa17-12c071ea1f3e"
+     },
+     {
+      "name": "Sylvan Reclamation",
+      "oracle_id": "aeec8e85-6571-4da6-8a48-f5d3985ca10b"
+     }
+    ],
+    "fact_keys": []
+   },
+   "severity": "low",
+   "confidence": 0.8
+  }
+ ],
+ "problems": [
+  {
+   "id": "p-interaction_resilience-1",
+   "axis": "interaction_resilience",
+   "claim": "Answers to creature threats are thin: Swords to Plowshares and Beast Within are the only clean answers to a problem creature or permanent, and Archon of Justice costs 5. The rest of the removal count is artifact/enchantment hate, so a fast opposing board or a commander-based threat can outpace the slower recursion engine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Swords to Plowshares",
+      "oracle_id": "b1544f21-7e98-461b-aed5-e748b0168c52"
+     },
+     {
+      "name": "Beast Within",
+      "oracle_id": "7735eeba-693b-47e2-bd51-414379cf1016"
+     },
+     {
+      "name": "Archon of Justice",
+      "oracle_id": "d551931d-4ebe-4acc-9e87-6c628897071a"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     }
+    ],
+    "fact_keys": [
+     "roles.targeted_removal.count",
+     "roles.targeted_removal.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-mana_consistency-1",
+   "axis": "mana_consistency",
+   "claim": "Both colors are short on land sources: W has 21 sources against 30 recommended and G has 20 against 36 (pips 39), even with 12 multicolor lands. Heavy-G cards such as Green Sun's Zenith, Fauna Shaman (G activation) and Evolutionary Leap, plus W costs like Karmic Guide's echo ({3}{W}{W}) and Wrath of God, can stall. Birds of Paradise, Arcane Signet, Selesnya Signet and Talisman of Unity cover part of the gap, but Avacyn's Pilgrim only makes W and Llanowar Elves only G.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Green Sun's Zenith",
+      "oracle_id": "0d96b60b-a060-48ee-bb83-93f1c4a10669"
+     },
+     {
+      "name": "Fauna Shaman",
+      "oracle_id": "35b8fa77-4e85-418b-b335-cd1af127075c"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Birds of Paradise",
+      "oracle_id": "d3a0b660-358c-41bd-9cd2-41fbf3491b1a"
+     },
+     {
+      "name": "Llanowar Elves",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3"
+     },
+     {
+      "name": "Avacyn's Pilgrim",
+      "oracle_id": "069f6530-e65c-4d52-85f3-e0a2acd148c5"
+     }
+    ],
+    "fact_keys": [
+     "mana.pips_vs_sources.G.sources",
+     "mana.pips_vs_sources.G.recommended_sources",
+     "mana.pips_vs_sources.W.sources",
+     "mana.pips_vs_sources.W.recommended_sources",
+     "mana.pips_vs_sources.G.pips"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.6
+  },
+  {
+   "id": "p-mana_consistency-2",
+   "axis": "mana_consistency",
+   "claim": "Colorless or conditional lands (Reliquary Tower, High Market, Temple of the False God, Krosan Verge, Sungrass Prairie, Wooded Bastion) eat into color sources while fixing_quality shows 5 unconditionally tapped lands. These slots help little in a two-color deck that is already under the recommended source counts, and Selesnya Sanctuary and the tapped lands slow early plays.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Reliquary Tower",
+      "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+     },
+     {
+      "name": "High Market",
+      "oracle_id": "86fb3749-37d6-48a6-8524-71e996850307"
+     },
+     {
+      "name": "Temple of the False God",
+      "oracle_id": "cfdd5dc6-593e-495a-8cfe-3a56b3c4c7df"
+     },
+     {
+      "name": "Krosan Verge",
+      "oracle_id": "d9a10971-f32b-4978-952d-fed0a5bc9e36"
+     },
+     {
+      "name": "Selesnya Sanctuary",
+      "oracle_id": "00ef1c55-dea1-4564-bd57-66de86cba4df"
+     }
+    ],
+    "fact_keys": [
+     "mana.unconditional_tapped_lands",
+     "mana.fixing_quality.multicolor_lands",
+     "mana.nonbasic_lands"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.55
+  },
+  {
+   "id": "p-budget_inventory-1",
+   "axis": "budget_inventory",
+   "claim": "Esper Sentinel is the most expensive card at $54.35 (derived.price.most_expensive.Esper Sentinel.usd), and it does little for this plan. It draws when opponents cast noncreature spells and never touches the recursion, sacrifice or tutor loops. It is a 1-drop body but not a combo piece, so a large share of the budget goes to a marginal slot. If it is a pet card, that is the owner's call.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Esper Sentinel",
+      "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Esper Sentinel.usd",
+     "derived.price.total_usd"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-concept_execution-2",
+   "axis": "concept_execution",
+   "claim": "Most loops depend on a few single points of failure: Karmic Guide appears in a majority of the listed combos, and Ashnod's Altar or Altar of Dementia is the outlet in nearly all. Karmic Guide costs 5 and has echo, so if it is removed or exiled before the outlet is online, the redundancy shrinks to Sun Titan, Reveillark, Fiend Hunter or Felidar Guardian lines. Only four protection cards exist (roles.protection.count) and these stack with three tutors that reach only one piece.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count",
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.2034-2281-4681.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-interaction_resilience-2",
+   "axis": "interaction_resilience",
+   "claim": "The deck has no way to deal with graveyard hate beyond Beast Within and the artifact/enchantment removal, which handles only permanents. A resolved graveyard-exile effect or a Rest in Peace-style permanent would stop Karmic Guide, Reveillark, Sun Titan and Eternal Witness, which all depend on the graveyard. The artifact/enchantment removal covers permanent-based hate but not a creature or one-shot exile spell.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Eternal Witness",
+      "oracle_id": "30b24e8e-3b0e-4d8e-90f3-f66eb7c1858c"
+     },
+     {
+      "name": "Beast Within",
+      "oracle_id": "7735eeba-693b-47e2-bd51-414379cf1016"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.count",
+     "roles.targeted_removal.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-plan_synergy-2",
+   "axis": "plan_synergy",
+   "claim": "The combo count is lopsided. Karmic Guide appears in most of the infinite loops, and its echo and 5 MV make it the common single point of failure. The alternatives (Sun Titan with Fiend Hunter, Felidar Guardian with Reveillark) are also 4-6 MV, so answering or exiling one or two creatures leaves slow fallbacks.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Felidar Guardian",
+      "oracle_id": "33869ba6-13e5-4e48-8963-92f7965648fb"
+     },
+     {
+      "name": "Fiend Hunter",
+      "oracle_id": "cb9d557a-fc06-428c-8be6-7d28add33028"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.1734-2034-3175.card_names",
+     "combos.complete.67-2034-2781.card_names"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-1",
+   "axis": "win_paths_closing",
+   "claim": "Every complete combo listed (combos.counts.complete) pairs creatures with one of three artifacts: Ashnod's Altar, Altar of Dementia or Blasting Station. All eight tutors (roles.tutors.cards), such as Chord of Calling and Eladamri's Call, fetch creatures only, so none can find an outlet. The deck can tutor the recursion creatures, but the outlet has to be drawn naturally from three cards in 100. If the infinite finish is intended (q-1), this is the main gap in how reliably it closes.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Chord of Calling",
+      "oracle_id": "6789a170-f2c5-4fc0-8a45-2b2361e67410"
+     },
+     {
+      "name": "Eladamri's Call",
+      "oracle_id": "4acb6612-54e8-428d-acb6-c7259a5ad6a8"
+     }
+    ],
+    "fact_keys": [
+     "roles.tutors.cards",
+     "combos.counts.complete"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-win_paths_closing-2",
+   "axis": "win_paths_closing",
+   "claim": "The Ashnod's Altar loops (for example Karmic Guide, Reveillark and Ashnod's Altar) produce only infinite colorless mana, death and ETB triggers, not damage or mill. The deck has no mana sink to turn that mana into a win, so these sets need Blasting Station or Altar of Dementia on board as well. Protean Hulk (MV 7) is a clunky backup since it also adds no direct damage.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Protean Hulk",
+      "oracle_id": "10180e2f-90c5-4d41-ba44-16b14948f923"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.produces",
+     "combos.complete.2034-2281-4681.produces"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.5
+  },
+  {
+   "id": "p-power_bracket-1",
+   "axis": "power_bracket",
+   "claim": "The deck contains a very large number of complete 2-3 card infinite combos, for example Karmic Guide + Reveillark + Ashnod's Altar and Karmic Guide + Reveillark + Blasting Station, many tagged E, plus Saffi Eriksdotter versions tagged S. The bracket tool only floors it at 3, but the real win-rate and table feel depend on whether the owner intends these as the finish. The target bracket and combo intent are unanswered (q-1), so this cannot be called too strong or fine.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.67-413-4681.card_names",
+     "combos.complete.2281-4681-5256.bracket_tag",
+     "bracket.minimum_bracket"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-win_paths_closing-3",
+   "axis": "win_paths_closing",
+   "claim": "If the loop is disrupted, the non-combo close is slow. The deck's only evasive threats are Karmic Guide, Reveillark and Archon of Justice, and the only incremental drains are Blasting Station pings and Altar of the Brood's one mill per permanent entering. There is no overrun or mass-pump effect, so a stalled board gives opponents time to stabilize.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Archon of Justice",
+      "oracle_id": "d551931d-4ebe-4acc-9e87-6c628897071a"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Altar of the Brood",
+      "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "roles.recursion.cards"
+    ]
+   },
+   "severity": "med",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-budget_inventory-2",
+   "axis": "budget_inventory",
+   "claim": "Aura Shards ($26.91) is a Game Changer and a premium price for artifact and enchantment removal. The deck already has Reclamation Sage, Qasali Pridemage, Acidic Slime, Krosan Grip and Sylvan Reclamation, all under $2 each. The removal suite is deliberate, but Aura Shards adds a repeatable effect, not new coverage, while raising both cost and bracket floor. Worldly Tutor ($29.87) is the same pattern, since Eladamri's Call, Chord of Calling and Eldritch Evolution already cover creature tutoring. Whether that trade is worth it depends on the unanswered budget and bracket questions.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Reclamation Sage",
+      "oracle_id": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904"
+     },
+     {
+      "name": "Qasali Pridemage",
+      "oracle_id": "10821e37-8a83-4d8e-a12f-249a10933a22"
+     }
+    ],
+    "fact_keys": [
+     "derived.price.most_expensive.Aura Shards.usd",
+     "derived.price.most_expensive.Worldly Tutor.usd",
+     "bracket.game_changers"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-interaction_resilience-3",
+   "axis": "interaction_resilience",
+   "claim": "Only 4 dedicated protection pieces (Dauntless Escort, Dawn Charm, Heroic Intervention, Rebuff the Wicked) cover a deck whose win relies on assembling multi-card loops. Dawn Charm and Rebuff the Wicked only answer spells, not activated abilities or board wipes, so an opposing sweeper or activated-ability removal against Ashnod's Altar or Blasting Station is only partly covered by Silence and Grand Abolisher.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Dauntless Escort",
+      "oracle_id": "c0516c2c-d7c9-4763-9180-980f60205a28"
+     },
+     {
+      "name": "Dawn Charm",
+      "oracle_id": "a8f5cfa7-4956-4182-8e44-acf3493239f0"
+     },
+     {
+      "name": "Heroic Intervention",
+      "oracle_id": "24882fa2-3fe9-4c1b-aa3d-0e6488b9db27"
+     },
+     {
+      "name": "Rebuff the Wicked",
+      "oracle_id": "f5822e53-ddec-4c77-bcf4-091e35c1e731"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Blasting Station",
+      "oracle_id": "3a38d2d1-c4ff-4088-b1df-5feb9602ee2e"
+     }
+    ],
+    "fact_keys": [
+     "roles.protection.count",
+     "roles.protection.cards"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-mana_consistency-3",
+   "axis": "mana_consistency",
+   "claim": "Card draw is 8 against a 11-13 target (roles.draw.count). The deck relies on Skullclamp, Greater Good and Mentor of the Meek, all of which need creatures on board, and Greater Good discards three cards. After a Wrath of God or Austere Command, or if the engine pieces are disrupted, there is little refueling. The brief flags that the deck should grind without the combo, so this matters somewhat.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Skullclamp",
+      "oracle_id": "65986c1b-8e51-4604-b685-d82fa7d1263a"
+     },
+     {
+      "name": "Greater Good",
+      "oracle_id": "dc0593c2-ccb4-4648-a592-c5bcd121dc72"
+     },
+     {
+      "name": "Mentor of the Meek",
+      "oracle_id": "b9f4f96b-6e54-4fe6-8df7-623e0fc72409"
+     },
+     {
+      "name": "Wrath of God",
+      "oracle_id": "34515b16-c9a4-4f98-8c77-416a7a523407"
+     },
+     {
+      "name": "Austere Command",
+      "oracle_id": "09cc8709-fe10-472a-b05c-e89f3523018d"
+     }
+    ],
+    "fact_keys": [
+     "roles.draw.count",
+     "roles.draw.target_min"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-plan_synergy-1",
+   "axis": "plan_synergy",
+   "claim": "Saffi Eriksdotter is mostly a passenger. Her sacrifice ability is reactive: it only returns a creature that dies in the same turn, so she matters in the Saffi-tagged loops (Saffi Eriksdotter with Sun Titan and Ashnod's Altar, or with Karmic Guide and Ashnod's Altar). The facts also list loops that do not include her, such as Karmic Guide, Reveillark and Ashnod's Altar, so she is one option among many rather than a required engine piece. Whether this matters hinges on whether the Saffi theme is mandatory.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.2034-2281-3175.card_names",
+     "combos.complete.2034-2281-4681.card_names",
+     "combos.complete.67-2034-4681.card_names"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.45
+  },
+  {
+   "id": "p-budget_inventory-3",
+   "axis": "budget_inventory",
+   "claim": "Altar of the Brood ($9.57) is a slow mill engine in a deck whose finish is the Blasting Station or Altar of Dementia loop. Its payoff only matters if mill is a real win path. Spend on it depends on that open question.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Altar of the Brood",
+      "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     }
+    ],
+    "fact_keys": []
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-concept_execution-1",
+   "axis": "concept_execution",
+   "claim": "The combo data does not show Saffi Eriksdotter as the deck's engine. The Karmic Guide, Reveillark and Ashnod's Altar loop is listed without her, and her loop with Karmic Guide and Ashnod's Altar still needs the same drawn recursion creature. Being in the command zone does not remove the need to find Karmic Guide or a similar piece, so the concept leans on Karmic Guide and Reveillark more than on the commander. How much this matters hinges on whether her saving-and-returning theme is mandatory (q-2).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     }
+    ],
+    "fact_keys": [
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.2034-2281-4681.card_names"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-concept_execution-3",
+   "axis": "concept_execution",
+   "claim": "Altar of the Brood, Cosmic Rebirth and Ramunap Excavator sit in synergy.orphans, so they take slots without advancing the creature-recursion loop, though each has a small cost-benefit case. Altar of the Brood mills one card per permanent entering, which can add incidental pressure with the ETB-heavy engine, but it is far slower than Altar of Dementia, which mills by sacrificed power and already finishes the loops. Cosmic Rebirth is an instant that returns one permanent with mana value 3 or less (or fetches it to hand and gains 3 life), which gives some flexible rebuy and a little life, but it is a one-shot next to repeatable engines like Sun Titan. Ramunap Excavator replays lands from the graveyard, which only pays off with Sakura-Tribe Elder or fetch lands, and does nothing for creature recursion or sacrifice. Swapping them costs a bit of incidental mill, one-off flexibility and land recursion in exchange for more consistent loop density. Whether Altar of the Brood is a real slot depends on whether mill is meant as a win path (q-3).",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Altar of the Brood",
+      "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Cosmic Rebirth",
+      "oracle_id": "add60aad-2532-4f59-bfb9-f0168c2adda6"
+     },
+     {
+      "name": "Ramunap Excavator",
+      "oracle_id": "4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5"
+     },
+     {
+      "name": "Sun Titan",
+      "oracle_id": "b2e950fb-cb7e-40a0-a311-5bbdd0477b29"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-plan_synergy-3",
+   "axis": "plan_synergy",
+   "claim": "A few slots do not pull toward the loops. Altar of the Brood is a slow mill engine that duplicates what Altar of Dementia already finishes. Ramunap Excavator only helps the land-sacrifice subtheme, and Cosmic Rebirth is a modest rebuy. The tool's orphan list over-flags most other cards (Gift of Immortality, Pattern of Rebirth, Panharmonicon and Protean Hulk all connect), so these are the real weak links.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Altar of the Brood",
+      "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+     },
+     {
+      "name": "Ramunap Excavator",
+      "oracle_id": "4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5"
+     },
+     {
+      "name": "Cosmic Rebirth",
+      "oracle_id": "add60aad-2532-4f59-bfb9-f0168c2adda6"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     }
+    ],
+    "fact_keys": [
+     "synergy.orphans"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  },
+  {
+   "id": "p-power_bracket-2",
+   "axis": "power_bracket",
+   "claim": "No bracket target is stated (q-1), so the deck is not judged too strong or too weak; this reports the floor. bracket.minimum_bracket is 3, and the only floor-setting reason in the facts is Game Changers (bracket.reasons.game_changers.floor = 3). Aura Shards and Worldly Tutor are the two cards named. Separately, complete infinite combos such as Karmic Guide + Reveillark + Ashnod's Altar and Saffi Eriksdotter + Altar of Dementia + Karmic Guide sit in the list, and the tutor package (roles.tutors.count) can fetch their pieces. That matters if the owner means a lower table. If the owner targets bracket 2, cutting Worldly Tutor costs one tutor from the package the brief calls deliberate. Cutting Aura Shards costs an enchantment-removal engine that destroys an artifact or enchantment whenever a creature enters, which the recursion loops would otherwise repeat for free. Neither cut removes the combos, so a bracket-2 target would also force a choice between the Karmic Guide, Reveillark and altar pieces and the central plan. At bracket 3 or higher with the combos intended, the floor fits and there is no problem.",
+   "evidence": {
+    "cards": [
+     {
+      "name": "Aura Shards",
+      "oracle_id": "8d03d050-391c-4311-8c42-4ee632d40fdc"
+     },
+     {
+      "name": "Worldly Tutor",
+      "oracle_id": "e8863518-0bfa-49c3-8c6e-6c9116a81051"
+     },
+     {
+      "name": "Karmic Guide",
+      "oracle_id": "8c31fec9-e4b3-4761-990e-7be38eb05604"
+     },
+     {
+      "name": "Reveillark",
+      "oracle_id": "1be13ede-98f8-497e-800c-03e5802932b3"
+     },
+     {
+      "name": "Ashnod's Altar",
+      "oracle_id": "4d18bcba-a346-445e-a182-6cc30b7e066d"
+     },
+     {
+      "name": "Altar of Dementia",
+      "oracle_id": "d64e9152-ef24-4394-aeb0-9c3befc56549"
+     },
+     {
+      "name": "Saffi Eriksdotter",
+      "oracle_id": "84ba3e2c-ea96-470b-92c6-b937dc87549b"
+     }
+    ],
+    "fact_keys": [
+     "bracket.minimum_bracket",
+     "bracket.reasons.game_changers.floor",
+     "bracket.game_changers",
+     "roles.tutors.count",
+     "combos.complete.67-2034-4681.card_names",
+     "combos.complete.2281-4681-5256.card_names"
+    ]
+   },
+   "severity": "low",
+   "confidence": 0.4
+  }
+ ],
+ "top_changes": {
+  "swap_ids": [
+   "sw-1",
+   "sw-2",
+   "sw-3"
+  ],
+  "why_these_first": "Swaps 1 and 2 attack the biggest gap, p-win_paths_closing-1: every complete loop needs Ashnod's Altar, Altar of Dementia or Blasting Station, and none of the eight creature tutors can fetch one. Oswald Fiddlebender (sacrificing Altar of Dementia to find Ashnod's Altar or Blasting Station) is the first outlet tutor, and Recommission rebuys an outlet after artifact removal. Both have real costs. Cutting Altar of the Brood weakens the incidental mill plan, though Altar of Dementia already finishes the loops. Fiddlebender adds a tutor, so the bracket floor could rise, and it needs an artifact to sacrifice plus {W} open. Cutting Ramunap Excavator gives up land recursion for Evolving Wilds, Terramorphic Expanse and Krosan Verge, a subtheme the list barely has. Recommission is a sorcery and only works once the outlet is already in the graveyard. Swap 3 (Reliquary Tower for Savannah) is the cheapest mana fix for p-mana_consistency-2. It adds an untapped G/W source to a list short on both colors (W 21 of 30, G 20 of 36) without touching the engine. The cost is the no-maximum-hand-size effect, which only slightly helps Greater Good's discard-three. The other swaps are smaller or conditional: Esper Sentinel's cut hinges on the budget question, and the Skyclave Apparition, Pathway and Spirited Companion swaps patch lower-severity findings."
+ },
+ "swaps": [
+  {
+   "id": "sw-1",
+   "cut": {
+    "name": "Altar of the Brood",
+    "oracle_id": "c3aafcdd-c890-4971-b8a9-5bfcad794c0b"
+   },
+   "add": {
+    "name": "Oswald Fiddlebender",
+    "oracle_id": "dbc9ea19-cf68-41d3-88a8-b5ab8df75c5a"
+   },
+   "resolves_finding_id": "p-win_paths_closing-1",
+   "tradeoff": "Cutting Altar of the Brood removes a slow one-mill-per-permanent engine that duplicates Altar of Dementia's finish, so the mill plan gets weaker. Oswald Fiddlebender is the first card that can fetch an outlet: sacrificing Altar of Dementia finds Ashnod's Altar or Blasting Station, and it also works as a Pod-chain body. It adds a tutor, so the bracket floor may rise, and it needs an artifact to sacrifice and {W} open.",
+   "bracket_effect": "raises",
+   "budget_effect": "net -$7.36 (adds $2.21, cuts $9.57); ownership unknown",
+   "alternative": {
+    "name": "Enlightened Tutor",
+    "oracle_id": "c5229c17-b7be-4b05-b683-f2277edc4849"
+   },
+   "owned": false,
+   "price": 2.21
+  },
+  {
+   "id": "sw-2",
+   "cut": {
+    "name": "Ramunap Excavator",
+    "oracle_id": "4f819ba4-52ef-4fdd-8e4c-5ae3b2f44db5"
+   },
+   "add": {
+    "name": "Recommission",
+    "oracle_id": "e43e8c00-f1e7-49d2-bb27-f1c16d85cc22"
+   },
+   "resolves_finding_id": "p-win_paths_closing-1",
+   "tradeoff": "Ramunap Excavator only matters for the land-sacrifice subtheme, which this list barely has (Evolving Wilds, Terramorphic Expanse, Krosan Verge), so the cut costs little. Recommission returns Ashnod's Altar or Blasting Station (MV 3) or Altar of Dementia (MV 2) after artifact removal, or a creature of MV 3 or less, which fixes the single-outlet bottleneck. It is a sorcery and only works once the outlet is already in the graveyard.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$4.80 (adds $0.27, cuts $5.07); ownership unknown",
+   "alternative": {
+    "name": "Buried Ruin",
+    "oracle_id": "3644f316-f9a3-46c9-9b1e-747f86cf4ead"
+   },
+   "owned": false,
+   "price": 0.27
+  },
+  {
+   "id": "sw-3",
+   "cut": {
+    "name": "Reliquary Tower",
+    "oracle_id": "c23e5b80-08d2-4e24-9908-fe2aa4f30f6f"
+   },
+   "add": {
+    "name": "Savannah",
+    "oracle_id": "703243f0-8cb3-420f-958f-5fd4bde30293"
+   },
+   "resolves_finding_id": "p-mana_consistency-2",
+   "tradeoff": "Reliquary Tower is a colorless land that gives no maximum hand size, which only helps Greater Good's draw-then-discard slightly, and the deck loses that. Savannah is an untapped G/W dual with no drawback, so it adds a source to both short color counts (W 21 of 30, G 20 of 36) at no tempo cost.",
+   "bracket_effect": "none",
+   "budget_effect": "price of the add is unavailable; ownership unknown",
+   "alternative": {
+    "name": "Branchloft Pathway // Boulderloft Pathway",
+    "oracle_id": "7c304547-a4b1-46c9-baed-16d2bfbe16eb"
+   },
+   "owned": false,
+   "price": null
+  },
+  {
+   "id": "sw-4",
+   "cut": {
+    "name": "High Market",
+    "oracle_id": "86fb3749-37d6-48a6-8524-71e996850307"
+   },
+   "add": {
+    "name": "Branchloft Pathway // Boulderloft Pathway",
+    "oracle_id": "7c304547-a4b1-46c9-baed-16d2bfbe16eb"
+   },
+   "resolves_finding_id": "p-mana_consistency-2",
+   "tradeoff": "High Market's sacrifice-for-1-life outlet is a real but marginal extra outlet, and the deck has plenty of artifact outlets. It is also a colorless land in a deck short on both G and W. Branchloft Pathway taps for G or W untapped, which helps Fauna Shaman's G activation and Karmic Guide's {3}{W}{W} echo.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$3.27 (adds $3.77, cuts $0.50); ownership unknown",
+   "alternative": {
+    "name": "Hushwood Verge",
+    "oracle_id": "cce328b9-6100-417e-9ddf-808bbe3e3bc5"
+   },
+   "owned": false,
+   "price": 3.77
+  },
+  {
+   "id": "sw-5",
+   "cut": {
+    "name": "Cosmic Rebirth",
+    "oracle_id": "add60aad-2532-4f59-bfb9-f0168c2adda6"
+   },
+   "add": {
+    "name": "Skyclave Apparition",
+    "oracle_id": "d90af00a-d322-4265-9954-7b1e80702e18"
+   },
+   "resolves_finding_id": "p-interaction_resilience-1",
+   "tradeoff": "Cosmic Rebirth is an off-plan, modest instant rebuy (MV 3 or less, or to hand with 3 life), and the deck still has Eternal Witness, Sevinne's Reclamation and Sun Titan for that job. Skyclave Apparition adds clean exile-based removal for creatures and planeswalkers (MV 4 or less) on a body that Karmic Guide and Felidar Guardian can re-trigger. Its leave-the-battlefield clause gives the opponent a token if it dies, and it cannot hit MV 5+ threats.",
+   "bracket_effect": "none",
+   "budget_effect": "net +$0.01 (adds $0.34, cuts $0.33); ownership unknown",
+   "alternative": {
+    "name": "March of Otherworldly Light",
+    "oracle_id": "ed06e421-480c-40c8-8c3e-1e466e5327b2"
+   },
+   "owned": false,
+   "price": 0.34
+  },
+  {
+   "id": "sw-6",
+   "cut": {
+    "name": "Esper Sentinel",
+    "oracle_id": "5def9f38-0a0b-4e8d-9f9d-29dcb46520b4"
+   },
+   "add": {
+    "name": "Starved Rusalka",
+    "oracle_id": "0a57ac2e-276b-41ea-89f4-287f530114c6"
+   },
+   "resolves_finding_id": "p-budget_inventory-1",
+   "tradeoff": "Esper Sentinel's tax on opponents' first noncreature spell each turn is real value in a vacuum but never touches the loops, and it is the priciest card at $54.35. Starved Rusalka (about $0.13) is a 1-drop that is also a creature sacrifice outlet. It gives a second loop outlet that dodges artifact removal and works as Pod, Skullclamp and Mentor of the Meek fodder. It only gains life, so it cannot finish a game on its own.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$54.22 (adds $0.13, cuts $54.35); ownership unknown",
+   "alternative": {
+    "name": "Spore Frog",
+    "oracle_id": "97db6c39-e690-49b6-93a6-e51b8dfad10b"
+   },
+   "owned": false,
+   "price": 0.13
+  },
+  {
+   "id": "sw-7",
+   "cut": {
+    "name": "Panharmonicon",
+    "oracle_id": "76678885-3674-443d-b9a2-2a460cf6aac0"
+   },
+   "add": {
+    "name": "Spirited Companion",
+    "oracle_id": "9c5f0d91-9d86-4e66-94fd-4af93ad01838"
+   },
+   "resolves_finding_id": "p-mana_consistency-3",
+   "tradeoff": "Panharmonicon doubles ETB triggers of Eternal Witness, Fiend Hunter, Karmic Guide and Acidic Slime, but it is a 4-MV do-nothing artifact when the board is empty and it gives no draw. Spirited Companion is a cheap 2-power body that draws on entry and triggers Mentor of the Meek, so it refuels the deck after a Wrath of God without needing a creature already in play. It is a weaker top-end engine than the artifact.",
+   "bracket_effect": "none",
+   "budget_effect": "net -$6.26 (adds $0.31, cuts $6.57); ownership unknown",
+   "alternative": {
+    "name": "Wall of Blossoms",
+    "oracle_id": "ef4d5fb3-70a3-433d-a9d3-18b2beb8d79f"
+   },
+   "owned": false,
+   "price": 0.31
+  }
+ ],
+ "cuts_to_consider": [],
+ "bracket": {
+  "estimated": 3,
+  "target": null,
+  "reasons": [
+   "game_changers (floor 3): Aura Shards, Worldly Tutor"
+  ]
+ },
+ "mana": {
+  "summary": "The deck runs 36 lands against a 38 target and covers the gap with 13 ramp pieces against a 9-11 target range. The curve is low: average MV 2.83, with 12 one-drops, 14 two-drops and only 8 cards at 5+ MV. The weakness is color. W sources are 21 against 30 recommended, and G sources are 20 against 36 recommended (39 G pips), even with 12 multicolor lands.",
+  "issues": [
+   "Both colors are short: W 21 of 30 recommended sources, G 20 of 36. Green Sun's Zenith, Fauna Shaman's G activation, Karmic Guide's {3}{W}{W} echo and Wrath of God can stall. Birds of Paradise, Arcane Signet, Selesnya Signet and Talisman of Unity cover part of the gap, but Avacyn's Pilgrim only makes W and Llanowar Elves only G.",
+   "Colorless or conditional lands (Reliquary Tower, High Market, Temple of the False God, Krosan Verge, Sungrass Prairie, Wooded Bastion) eat into color sources. 5 lands enter unconditionally tapped, and Selesnya Sanctuary slows early plays. The suggested fix is Savannah for Reliquary Tower: an untapped G/W source for both short colors, at the cost of Reliquary Tower's no-maximum-hand-size effect.",
+   "Ramp is 2 above its target max, and it takes slots from draw. Draw is 8 against an 11-13 target. Skullclamp, Greater Good and Mentor of the Meek all need creatures on board, and Greater Good discards three cards. After Wrath of God or Austere Command, or if the engine is disrupted, there is little refueling.",
+   "The mana dorks are fragile to the deck's own Wrath of God and Austere Command."
+  ]
+ },
+ "questions_for_owner": [
+  {
+   "id": "q-1",
+   "question": "What bracket or table power level is this deck meant to play at, and is the infinite combo finish intended or incidental?",
+   "why_asked": "The list has many 2-3 card infinite loops (Karmic Guide, Reveillark, Ashnod's Altar, Blasting Station, Altar of Dementia). If they are intended, reviewers should judge the deck on consistency, speed and protection; if not, they may be cut or treated as risks to the bracket."
+  },
+  {
+   "id": "q-2",
+   "question": "Is the Rumors-of-my-death theme (Saffi Eriksdotter saving and returning creatures) mandatory, or is the deck a general recursion shell that happens to run Saffi Eriksdotter?",
+   "why_asked": "If Saffi Eriksdotter must be central, reviewers should weigh cards that protect or pair with her. If it is flavor, they can judge the deck mainly on the other recursion engines."
+  },
+  {
+   "id": "q-3",
+   "question": "Do you want the opponent-facing mill cards (Altar of Dementia, Altar of the Brood) as an actual win path, or as a combo-adjacent outlet only?",
+   "why_asked": "Altar of Dementia can serve as the loop finisher, and Altar of the Brood is a slow mill engine. If mill is a real win path, supporting cards are warranted; otherwise Altar of the Brood may be a questionable slot."
+  },
+  {
+   "id": "q-4",
+   "question": "Is there a budget limit or a ceiling on reserved or expensive cards such as Esper Sentinel, Worldly Tutor and Green Sun's Zenith?",
+   "why_asked": "The list totals $414.49 with several expensive cards. A cap would change which upgrades or swaps are realistic."
+  }
+ ],
+ "charts": {
+  "curve": {
+   "buckets": [
+    {
+     "mv": 0,
+     "count": 0,
+     "label": "0"
+    },
+    {
+     "mv": 1,
+     "count": 12,
+     "label": "1"
+    },
+    {
+     "mv": 2,
+     "count": 14,
+     "label": "2"
+    },
+    {
+     "mv": 3,
+     "count": 22,
+     "label": "3"
+    },
+    {
+     "mv": 4,
+     "count": 7,
+     "label": "4"
+    },
+    {
+     "mv": 5,
+     "count": 5,
+     "label": "5"
+    },
+    {
+     "mv": 6,
+     "count": 2,
+     "label": "6"
+    },
+    {
+     "mv": 7,
+     "count": 1,
+     "label": "7+"
+    }
+   ],
+   "average_mv": 2.83
+  },
+  "pips_vs_sources": [
+   {
+    "color": "W",
+    "pips": 34,
+    "sources": 21,
+    "recommended_sources": 30
+   },
+   {
+    "color": "G",
+    "pips": 39,
+    "sources": 20,
+    "recommended_sources": 36
+   }
+  ],
+  "roles": [
+   {
+    "role": "ramp",
+    "count": 13,
+    "target_min": 9,
+    "target_max": 11
+   },
+   {
+    "role": "draw",
+    "count": 8,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "targeted_removal",
+    "count": 12,
+    "target_min": 11,
+    "target_max": 13
+   },
+   {
+    "role": "wipes",
+    "count": 2,
+    "target_min": 5,
+    "target_max": 7
+   }
+  ],
+  "synergy_clusters": []
+ },
+ "omitted": [
+  {
+   "kind": "finding",
+   "item": "s-interaction_resilience-3: Protection comes in two layers. The four cards in roles.protection.cards are Heroic Intervention (hexproof and indestructible for all permanents, which covers targeted removal and…",
+   "reason": "critic:unsupported_claim: The dossier explicitly lists `roles.protection.cards` as containing only 4 cards, none of which are Silence or Grand Abolisher, making the claim about their exclusion unsupported. (quoted: \"the card table shows Silence (opponents can't cast spells this turn) and Grand Abolisher (opponents can'"
+  }
+ ]
+}

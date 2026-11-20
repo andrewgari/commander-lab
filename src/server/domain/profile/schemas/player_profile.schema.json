@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commander-lab.local/schemas/player_profile.schema.json",
+  "title": "PlayerProfile",
+  "description": "Durable player taste profile. Every populated value carries provenance (stated | learned_from_feedback) keyed by leaf path. Deck-level intent beats this profile on conflict.",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "builder_identity": {
+      "type": "object",
+      "properties": {
+        "text": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "color_affinities": {
+      "type": "object",
+      "description": "Color or color-pair label (W, Bant, Naya...) to weight 0..1.",
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "archetype_affinities": {
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "favored_mechanics": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "pet_cards": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "dislikes": {
+      "type": "object",
+      "properties": {
+        "cards": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "strategies": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "play_patterns": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "power_tendencies": {
+      "type": "object",
+      "properties": {
+        "tier": {"type": ["string", "null"], "enum": ["casual", "focused", "optimized", "competitive", null]},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "budget_norms": {
+      "type": "object",
+      "properties": {
+        "hard_cap": {"type": ["number", "null"], "minimum": 0},
+        "soft_cap": {"type": ["number", "null"], "minimum": 0},
+        "currency": {"type": "string", "enum": ["USD", "EUR", "GBP", "CAD", "AUD"]}
+      },
+      "additionalProperties": false
+    },
+    "review_preferences": {
+      "type": "object",
+      "properties": {
+        "depth": {"type": ["string", "null"], "enum": ["brief", "standard", "deep", null]},
+        "tone": {"type": ["string", "null"], "enum": ["direct", "neutral", "encouraging", null]},
+        "skip": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "welcome_generic_staples": {"type": ["boolean", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "done_when": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "provenance": {
+      "type": "object",
+      "description": "Leaf path -> provenance. Scalar leaf: 'budget_norms.hard_cap'. List item: 'pet_cards/Elspeth'. Weight: 'color_affinities.Bant'.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["source", "at"],
+        "properties": {
+          "source": {"enum": ["stated", "learned_from_feedback"]},
+          "at": {"type": "string", "format": "date-time"},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}

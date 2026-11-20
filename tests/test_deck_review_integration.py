@@ -14,19 +14,20 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 # Ensure repo root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-from analytics import generate_deck_review as analytics_review
-import analytics
-from app import app
-import cli
-import deck_review
-from deck_review import DeckReview, review_deck
-from user_intent import parse_user_intent
+from src.server.domain.analytics import generate_deck_review as analytics_review
+import src.server.domain.analytics as analytics
+from src.server.app.main import app
+import src.server.workers.cli as cli
+import src.server.domain.decks.deck_review as deck_review
+from src.server.domain.decks.deck_review import DeckReview, review_deck
+from src.server.domain.intake.user_intent import parse_user_intent
 
 SAMPLE_ATRAXA_DECKLIST = """Commander
 1 Atraxa, Praetors' Voice
@@ -270,6 +271,75 @@ class TestDeckReviewIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         data = response.json()
         self.assertFalse(data.get("success"))
+
+    # -------------------------------------------------------------------------
+    # Fact pack wiring (PR2): real card facts + pricing into /api/review
+    # -------------------------------------------------------------------------
+
+    UNKNOWN_DECKLIST = """Commander
+1 Mystery Commander
+
+Deck
+1 Mystery Card
+1 Plains
+"""
+
+    @staticmethod
+    def _fake_fact_pack():
+        return {
+            "cards": [
+                {"name": "Mystery Commander", "cmc": 4.0, "type_line": "Legendary Creature — Test",
+                 "colors": ["G"], "color_identity": ["G"], "salt": 0.5, "price": "1.00",
+                 "tags": {"status": "unavailable", "reason": "tags fetcher not provided"}},
+                {"name": "Mystery Card", "cmc": 6.0, "type_line": "Enchantment",
+                 "colors": ["G"], "color_identity": ["G"], "salt": 2.25, "price": "3.50",
+                 "tags": {"status": "unavailable", "reason": "tags fetcher not provided"}},
+                {"name": "Plains", "cmc": 0.0, "type_line": "Basic Land — Plains",
+                 "colors": [], "color_identity": ["W"], "salt": 0.0, "price": "0.10",
+                 "tags": {"status": "unavailable", "reason": "tags fetcher not provided"}},
+            ]
+        }
+
+    def test_api_review_unknown_card_gets_real_facts(self):
+        """A card absent from the engine's staple tables now returns real cmc/type/salt
+        from the fact pack instead of blanks (heuristic cmc 3.0 fallback)."""
+        with mock.patch(
+            "src.server.app.main._build_review_fact_pack",
+            return_value=self._fake_fact_pack(),
+        ) as build:
+            response = self.client.post("/api/review", json={"decklist": self.UNKNOWN_DECKLIST})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(build.call_count, 1)
+
+        # The fact pack is surfaced with real provider facts for the unknown cards.
+        pack = data["fact_pack"]
+        self.assertEqual(pack["status"], "ok")
+        mystery = next(c for c in pack["cards"] if c["name"] == "Mystery Card")
+        self.assertEqual(mystery["cmc"], 6.0)
+        self.assertEqual(mystery["type_line"], "Enchantment")
+        self.assertEqual(mystery["salt"], 2.25)
+
+        # The engine consumed those facts: avg cmc over the two non-lands is
+        # (4.0 + 6.0) / 2 = 5.0 — the unknown-card blank fallback would give 3.0.
+        avg_cmc = data["review"]["curve_summary"]["average_cmc"]
+        self.assertAlmostEqual(avg_cmc, 5.0, places=2)
+
+    def test_api_review_fact_pack_unavailable_still_renders(self):
+        """Degraded path: fact pack build failure never 500s — the review renders
+        and the response carries an explicit unavailable marker with a reason."""
+        with mock.patch(
+            "src.server.app.main._build_review_fact_pack",
+            side_effect=RuntimeError("scryfall boom"),
+        ):
+            response = self.client.post("/api/review", json={"decklist": self.UNKNOWN_DECKLIST})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertIn("review", data)
+        self.assertEqual(data["fact_pack"]["status"], "unavailable")
+        self.assertIn("scryfall boom", data["fact_pack"]["reason"])
 
 
 if __name__ == "__main__":

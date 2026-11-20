@@ -12,7 +12,7 @@ import json
 import unittest
 import redis
 
-import tags as tag_store
+import src.server.domain.tags.deck_tags as tag_store
 
 REDIS_URL = "redis://localhost:6379/0"
 DECK_ID = "archidekt:42"

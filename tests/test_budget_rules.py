@@ -16,13 +16,13 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from analytics import journal, tuner
-from analytics.engine import default_analysis_engine
-from analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
-from analytics.recommendations import CURATED_CARD_CATALOG, RecommendationGenerator
+from src.server.domain.analytics import journal, tuner
+from src.server.domain.analytics.engine import default_analysis_engine
+from src.server.domain.analytics.models import CommanderIdentifier, DeckCardEntry, DecklistInput
+from src.server.domain.analytics.recommendations import CURATED_CARD_CATALOG, RecommendationGenerator
 from tests.test_interactions import FakeRedis
 from tests.test_tuner import CAPS, NO_CAPS, build, cand, swap
-from user_intent import BudgetConstraints, UserDeckIntent
+from src.server.domain.intake.user_intent import BudgetConstraints, UserDeckIntent
 
 C3010 = {**CAPS, "hard_cap": 30.0, "soft_cap": 10.0}
 
@@ -53,7 +53,7 @@ class TestCaps(unittest.TestCase):
 class TestJournalBudgetRow(unittest.TestCase):
     def test_500_dollar_owned_card_in_deck_raises_nothing(self):
         deck = {"cards": [{"name": "Black Lotus", "quantity": 1}]}
-        from user_intent import resolve_intent_defaults
+        from src.server.domain.intake.user_intent import resolve_intent_defaults
         rec = resolve_intent_defaults({"budget_constraints": {"total_budget": 100, "hard_cap": 30, "soft_cap": 10}})
         ctx = {"price": 500.0, "prices": {"Black Lotus": 500.0}}
         caps = journal.effective_caps(FakeRedis(), rec)
@@ -81,7 +81,7 @@ class TestTunePricing(unittest.TestCase):
         self.assertIsNone(both["buy"])
         self.assertEqual(both["hidden_hard"], 1)
         # The page renders the count only: the template must not read the hidden card names or prices.
-        html = Path(__file__).resolve().parent.parent.joinpath("templates/deck_tune.html").read_text()
+        html = Path(__file__).resolve().parent.parent.joinpath("src/web/templates/deck_tune.html").read_text()
         fn = html.split("function hiddenNote(s)", 1)[1].split("function swapRow", 1)[0]
         self.assertIn("hidden_hard", fn)
         self.assertNotIn("hidden_hard_cards", fn)
@@ -188,7 +188,7 @@ class TestLegacyDeckReview(unittest.TestCase):
         self.assertAlmostEqual(pen, 0.05 + 0.10 * 2 / 3)
 
     def test_external_recommendations_are_price_checked_too(self):
-        from analytics.models import CardRecommendation, CardRecommendations
+        from src.server.domain.analytics.models import CardRecommendation, CardRecommendations
         ext = CardRecommendations(items=[CardRecommendation(card_name="Zzz Pricey Staple", score=0.9, reason="x")])
         pricing = self._pricing({"Zzz Pricey Staple": 50.0})
         got = [a.card_name for a in self.gen.generate(self.deck, self.analysis, self.intent,
@@ -207,7 +207,7 @@ class TestLegacyDeckReview(unittest.TestCase):
 
 class TestPriceBlindSurfaces(unittest.TestCase):
     def test_engine_budget_aligned_never_reads_deck_prices(self):
-        src = Path(__file__).resolve().parent.parent.joinpath("analytics/engine.py").read_text()
+        src = Path(__file__).resolve().parent.parent.joinpath("src/server/domain/analytics/engine.py").read_text()
         self.assertNotRegex(src, r"budget_aligned\s*=\s*[^T\n]*price")
 
 

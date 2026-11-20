@@ -10,9 +10,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi.testclient import TestClient
 
-import app as app_module
-from analytics import genres as G
-from analytics.oracle_client import OracleUnavailable
+import src.server.app.main as app_module
+from src.server.domain.analytics import genres as G
+from src.server.domain.analytics.oracle_client import OracleUnavailable
 
 
 class FakeRedis:
@@ -34,6 +34,16 @@ class FakeRedis:
 
 
 ROLE = {"tag": "produces:sacrifice", "min_count": 2, "weight": 1.5}
+STORED_ROLE = {"tag": "legacy:produces:sacrifice", "min_count": 2, "weight": 1.5}  # legacy alias resolves at write
+
+
+def _fake_source(mapping):
+    def src(q):
+        for key, names in mapping.items():
+            if key in q:
+                return {"names": list(names), "total": len(names), "error": None, "oversized": False}
+        return {"names": [], "total": 0, "error": None, "oversized": False}
+    return src
 
 
 class TestStore(unittest.TestCase):
@@ -53,9 +63,9 @@ class TestStore(unittest.TestCase):
         v0 = G.get_version(self.r)
         g, v1 = G.create_genre(self.r, {"name": "Sac Package", "description": "d", "required_roles": [ROLE]})
         self.assertEqual((g["id"], v1), ("sac-package", v0 + 1))
-        self.assertEqual(G.get_genre(self.r, "sac-package")["required_roles"], [ROLE])
+        self.assertEqual(G.get_genre(self.r, "sac-package")["required_roles"], [STORED_ROLE])
         g2, v2 = G.update_genre(self.r, "sac-package", {"description": "new"})
-        self.assertEqual((g2["description"], g2["required_roles"], v2), ("new", [ROLE], v1 + 1))
+        self.assertEqual((g2["description"], g2["required_roles"], v2), ("new", [STORED_ROLE], v1 + 1))
         self.assertFalse(g2["draft"])
         v3 = G.delete_genre(self.r, "sac-package")
         self.assertEqual(v3, v2 + 1)
@@ -80,7 +90,7 @@ class TestStore(unittest.TestCase):
                       [{"tag": "produces:tokens"}, {"tag": "Produces: Tokens"}], "x"):
             with self.assertRaises(G.GenreError):
                 G.clean_roles(roles)
-        self.assertEqual(G.normalize_tag("Consumes: Life gain"), "consumes:life_gain")
+        self.assertEqual(G.normalize_tag("Consumes: Life gain"), "legacy:consumes:life_gain")
 
     def test_deleting_everything_does_not_reseed(self):
         G.create_genre(self.r, {"name": "Temp", "required_roles": [ROLE]})
@@ -107,7 +117,7 @@ class TestApi(unittest.TestCase):
         res = self.c.get("/api/genres").json()
         v = res["version"]
         self.assertEqual(len(res["genres"]), 0)
-        self.assertIn("produces:sacrifice", [x["tag"] for x in res["vocabulary"]])
+        self.assertIn("legacy:produces:sacrifice", [x["tag"] for x in res["vocabulary"]])
         res = self.c.post("/api/genres", json={"name": "Mine", "required_roles": [ROLE]})
         self.assertEqual((res.status_code, res.json()["version"]), (201, v + 1))
         self.assertEqual(self.c.get("/api/genres/mine").json()["genre"]["name"], "Mine")
@@ -127,12 +137,15 @@ class TestApi(unittest.TestCase):
     def test_deck_genres_endpoint(self):
         G.create_genre(self.r, {"id": "landfall", "name": "Landfall",
                                  "required_roles": [{"tag": "consumes:lands", "min_count": 1, "weight": 1}]})
-        deck = {"name": "D", "registry_id": "archidekt:1", "cards": []}
+        deck = {"name": "D", "registry_id": "archidekt:1", "cards": [{"name": "A", "quantity": 1}]}
         graph = {"counts": {"untagged": 1}, "nodes": [{"name": "A", "produces": ["lands"], "consumes": ["lands"]}]}
+        from src.server.domain.analytics import role_tags
         with patch.object(app_module, "_deck_or_404", return_value=(deck, None)), \
-                patch.object(app_module.interactions_service, "get_deck_graph", return_value=graph):
+                patch.object(app_module.interactions_service, "get_deck_graph", return_value=graph), \
+                patch.object(role_tags, "scryfall_search", _fake_source({"landfall": ["A"]})):
             body = self.c.get("/api/decks/archidekt:1/genres").json()
         self.assertEqual(body["matches"][0]["genre"]["id"], "landfall")
+        self.assertEqual(body["matches"][0]["roles_hit"][0]["have"], 1)
         self.assertEqual(body["untagged"], 1)
 
 
@@ -178,7 +191,7 @@ class TestAutofill(unittest.TestCase):
         res = self._post(client)
         d = res.json()["draft"]
         self.assertEqual((res.status_code, d["source"], d["flagged"]), (200, "autofill", []))
-        self.assertEqual(d["required_roles"][0], {"tag": "produces:sacrifice", "min_count": 3, "weight": 2.0})
+        self.assertEqual(d["required_roles"][0], {"tag": "legacy:produces:sacrifice", "min_count": 3, "weight": 2.0})
         self.assertIn("produces:sacrifice", client.prompts[0])  # vocabulary is in the prompt
         self.assertEqual(G.get_version(self.r), v)  # nothing saved
         self.assertEqual(len(G.list_genres(self.r)), 0)
@@ -190,7 +203,7 @@ class TestAutofill(unittest.TestCase):
             {"tag": "produces:tokens", "min_count": 999, "weight": 1},
             "garbage"])
         d = self._post(FakeClient(_reply(reply))).json()["draft"]
-        self.assertEqual([x["tag"] for x in d["required_roles"]], ["produces:sacrifice", "consumes:death"])
+        self.assertEqual([x["tag"] for x in d["required_roles"]], ["legacy:produces:sacrifice", "legacy:consumes:death"])
         self.assertEqual(len(d["flagged"]), 4)
         self.assertEqual(d["flagged"][0], {"tag": "produces:planeswalkers", "reason": "unknown tag"})
 
@@ -215,12 +228,21 @@ class TestAutofill(unittest.TestCase):
 
 def _deck(extra=()):
     return {"cards": [
-        {"name": "Viscera Seer", "produces": ["sacrifice"], "consumes": []},
-        {"name": "Blood Artist", "produces": [], "consumes": ["death"]},
-        {"name": "Zulaport Cutthroat", "produces": [], "consumes": ["death"]},
-        {"name": "Bitterblossom", "produces": ["tokens"], "consumes": []},
-        {"name": "Plains", "produces": [], "consumes": [], "quantity": 20},
+        {"name": "Viscera Seer"},
+        {"name": "Blood Artist"},
+        {"name": "Zulaport Cutthroat"},
+        {"name": "Bitterblossom"},
+        {"name": "Plains", "quantity": 20},
         *extra]}
+
+
+# Which legacy otag queries match which fixture cards (stands in for Scryfall).
+SOURCE = _fake_source({
+    "sacrifice-outlet": ["Viscera Seer"],
+    "death-trigger": ["Blood Artist", "Zulaport Cutthroat"],
+    "repeatable-token-generator": ["Bitterblossom"],
+    "landfall": [],
+})
 
 
 class TestGenreMatch(unittest.TestCase):
@@ -233,28 +255,37 @@ class TestGenreMatch(unittest.TestCase):
         {"id": "empty", "name": "Empty", "required_roles": []},
     ]
 
+    def setUp(self):
+        self.r = FakeRedis()
+
     def test_coverage_hit_missing_and_rank(self):
-        out = G.genre_match(_deck(), self.GENRES)
+        out = G.genre_match(_deck(), self.GENRES, self.r, SOURCE)
         self.assertEqual([m["genre"]["id"] for m in out], ["aristocrats", "empty", "landfall"])
         a = out[0]
         # 2*(1/2) + 1*1 + 1*(1/4) = 2.25 / 4
         self.assertEqual(a["coverage"], 0.5625)
-        self.assertEqual([x["tag"] for x in a["roles_hit"]], ["consumes:death"])
-        self.assertEqual([x["tag"] for x in a["roles_missing"]], ["produces:sacrifice", "produces:tokens"])
+        self.assertEqual([x["tag"] for x in a["roles_hit"]], ["legacy:consumes:death"])
+        self.assertEqual([x["tag"] for x in a["roles_missing"]], ["legacy:produces:sacrifice", "legacy:produces:tokens"])
         self.assertEqual(out[1]["coverage"], 0.0)
+        # The breakdown names matched cards and marks empty roles (never a silent 0).
+        death = a["roles_hit"][0]
+        self.assertEqual([c["name"] for c in death["cards"]], ["Blood Artist", "Zulaport Cutthroat"])
+        self.assertEqual(a["roles_missing"][1]["state"], "short")
+        self.assertEqual(out[2]["roles_missing"][0]["state"], "empty")
 
     def test_quantity_counts_copies(self):
-        d = {"cards": [{"name": "Rat", "produces": ["tokens"], "quantity": 4}]}
-        m = G.genre_match(d, [self.GENRES[0]])[0]
-        self.assertEqual(m["roles_hit"][0], {"tag": "produces:tokens", "have": 4, "min_count": 4, "weight": 1.0})
+        d = {"cards": [{"name": "Bitterblossom", "quantity": 4}]}
+        m = G.genre_match(d, [self.GENRES[0]], self.r, SOURCE)[0]
+        self.assertEqual(m["roles_hit"][0]["have"], 4)
+        self.assertEqual(m["roles_hit"][0]["tag"], "legacy:produces:tokens")
 
     def test_deterministic_and_order_independent(self):
         deck, genres = _deck(), copy.deepcopy(self.GENRES)
-        a = G.genre_match(deck, genres)
-        b = G.genre_match(copy.deepcopy(deck), copy.deepcopy(genres))
+        a = G.genre_match(deck, genres, self.r, SOURCE)
+        b = G.genre_match(copy.deepcopy(deck), copy.deepcopy(genres), self.r, SOURCE)
         self.assertEqual(json.dumps(a), json.dumps(b))
         shuffled = {"cards": list(reversed(deck["cards"]))}
-        self.assertEqual(json.dumps(a), json.dumps(G.genre_match(shuffled, list(reversed(genres)))))
+        self.assertEqual(json.dumps(a), json.dumps(G.genre_match(shuffled, list(reversed(genres)), self.r, SOURCE)))
         self.assertEqual(deck, _deck())  # inputs untouched
 
     def test_fixture_aristocrats_ranks_first_for_aristocrat_deck(self):
@@ -268,20 +299,16 @@ class TestGenreMatch(unittest.TestCase):
             {"id": "landfall", "name": "Landfall", "required_roles": [
                 {"tag": "consumes:lands", "min_count": 3, "weight": 1}]},
         ]
-        cards = [{"name": f"S{i}", "produces": ["sacrifice"], "consumes": ["death"]} for i in range(5)]
-        cards += [{"name": f"T{i}", "produces": ["tokens", "life_loss"], "consumes": ["death"]} for i in range(5)]
-        out = G.genre_match({"cards": cards}, fixture_genres)
+        cards = [{"name": f"S{i}"} for i in range(5)] + [{"name": f"T{i}"} for i in range(5)]
+        src = _fake_source({
+            "sacrifice-outlet": [f"S{i}" for i in range(5)],
+            "death-trigger": [f"S{i}" for i in range(5)] + [f"T{i}" for i in range(5)],
+            "repeatable-token-generator": [f"T{i}" for i in range(5)],
+            "drain-life": [f"T{i}" for i in range(5)],
+        })
+        out = G.genre_match({"cards": cards}, fixture_genres, self.r, src)
         self.assertEqual(out[0]["genre"]["id"], "aristocrats")
         self.assertEqual(out[0]["coverage"], 1.0)
-
-    def test_deck_from_graph(self):
-        g = {"nodes": [{"name": "A", "produces": ["tokens"], "consumes": []}]}
-        self.assertEqual(G.deck_from_graph(g)["cards"][0]["produces"], ["tokens"])
-        self.assertEqual(G.genre_match({}, self.GENRES)[0]["coverage"], 0.0)
-
-    def test_deck_from_graph_uses_real_quantities(self):
-        g = {"nodes": [{"name": "A", "produces": ["tokens"], "consumes": []}]}
-        self.assertEqual(G.deck_from_graph(g, {"A": 7})["cards"][0]["quantity"], 7)
 
     def test_overflow_min_count_is_a_genre_error(self):
         for bad in (1e309, float("inf")):

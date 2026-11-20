@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app as app_module  # noqa: E402
-import lab_tags as lab_tag_store  # noqa: E402
+import src.server.app.main as app_module  # noqa: E402
+import src.server.domain.tags.lab_tags as lab_tag_store  # noqa: E402
 from tests.test_deck_manage_integration import FakeRedis  # noqa: E402
 
 
