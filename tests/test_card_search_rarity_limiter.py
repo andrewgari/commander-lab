@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import time
 
 from src.server.infra.services import card_search_service as svc
 from tests.test_cards_search import (  # noqa: F401  (fixtures + helpers)
@@ -53,47 +54,39 @@ def test_space_keeps_gap_under_concurrency(monkeypatch):
     assert now[0] - 1000.0 >= 7 * svc.SPACING_SECONDS - 1e-9
 
 
-def test_space_slots_are_spaced(monkeypatch):
-    slots = []
-    monkeypatch.setattr(svc, "_clock", lambda: 5.0)       # frozen: every caller wants "now"
-    monkeypatch.setattr(svc, "_sleep", lambda d: slots.append(d))
+def test_space_gaps_hold_with_late_wakeups(monkeypatch):
+    """A late wake-up must not let two callers dispatch together: every sleep
+    overshoots to at least LATE, so planned slots would all wake at once."""
+    spacing, late = 0.05, 0.25
+    real_sleep = time.sleep
+    monkeypatch.setattr(svc, "SPACING_SECONDS", spacing)
+    monkeypatch.setattr(svc, "_clock", time.monotonic)
+    monkeypatch.setattr(svc, "_sleep", lambda d: real_sleep(max(d, late)))
     monkeypatch.setattr(svc, "_last_call", 0.0)
-    ts = [threading.Thread(target=svc._space) for _ in range(8)]
+    stamps, stamp_lock = [], threading.Lock()
+    barrier = threading.Barrier(4)
+
+    def worker():
+        barrier.wait()
+        svc._space()
+        with stamp_lock:
+            stamps.append(time.monotonic())
+
+    ts = [threading.Thread(target=worker) for _ in range(4)]
     [t.start() for t in ts]
     [t.join() for t in ts]
-    waits = sorted(slots)
-    assert len(waits) == 7                                  # first caller needs no wait
-    gaps = [b - a for a, b in zip(waits, waits[1:])]
-    assert all(g >= svc.SPACING_SECONDS - 1e-9 for g in gaps)
+    stamps.sort()
+    assert len(stamps) == 4
+    assert all(b - a >= spacing * 0.9 for a, b in zip(stamps, stamps[1:]))
 
 
-def test_space_reserves_slot_atomically_with_forced_overlap(monkeypatch):
-    """Deterministic. `_last_call + SPACING_SECONDS` sits between the slot read
-    and the slot write, so a SPACING_SECONDS stand-in whose __radd__ is a
-    rendezvous forces two callers into that window together. With the lock the
-    second caller can never get there (rendezvous times out, serialising them);
-    without it both read the same _last_call and reserve the same slot."""
-    real = svc.SPACING_SECONDS
-    waits = []
-    rendezvous = threading.Barrier(2, timeout=0.3)
-
-    class Spacing:
-        def __radd__(self, last):
-            try:
-                rendezvous.wait()
-            except threading.BrokenBarrierError:
-                pass
-            return last + real
-
-    monkeypatch.setattr(svc, "SPACING_SECONDS", Spacing())
-    monkeypatch.setattr(svc, "_clock", lambda: 5.0)
-    monkeypatch.setattr(svc, "_sleep", lambda d: waits.append(d))
-    monkeypatch.setattr(svc, "_last_call", 0.0)
-    ts = [threading.Thread(target=svc._space) for _ in range(2)]
-    [t.start() for t in ts]
-    [t.join() for t in ts]
-    # first caller: slot == now (no wait); second: one full SPACING later.
-    assert waits == [pytest.approx(real)]
+def test_space_records_actual_dispatch_time(monkeypatch):
+    now = [10.0]
+    monkeypatch.setattr(svc, "_clock", lambda: now[0])
+    monkeypatch.setattr(svc, "_sleep", lambda d: now.__setitem__(0, now[0] + d + 1.0))  # oversleep
+    monkeypatch.setattr(svc, "_last_call", 10.0)
+    svc._space()
+    assert svc._last_call == now[0] == pytest.approx(10.0 + svc.SPACING_SECONDS + 1.0)
 
 
 def _seed(factory):
@@ -116,3 +109,23 @@ def test_rare_chip_excludes_no_printing_card_when_rarity_differs_or_unknown(clie
     assert names == ["Printed Common"]                      # cached rare is not common
     redis.delete("cards:rarity:o-np")
     assert get(client, owned="owned", rarity="rare").json()["results"] == []   # unknown
+
+
+def test_rare_chip_cache_miss_is_queued_for_backfill(client, factory, redis, monkeypatch):
+    _seed(factory)
+    queued = []
+    monkeypatch.setattr(svc, "_schedule_rarity_backfill", lambda r, ids: queued.append(list(ids)))
+    assert get(client, owned="owned", rarity="rare").json()["results"] == []
+    assert queued == [["o-np"]]
+
+
+def test_rejected_no_printing_rows_do_not_displace_later_matches(client, factory, redis, monkeypatch):
+    from src.server.infra.db import card_search_repo as repo
+    monkeypatch.setattr(repo, "MAX_LOCAL_ROWS", 3)
+    cards = [_card(f"o-c{i}", f"A Common {i}") for i in range(5)] + [_card("o-z", "Zed Rare")]
+    seed(factory, cards, instances=[(c["oracle_id"], "in_collection") for c in cards])
+    for i in range(5):
+        redis.set(f"cards:rarity:o-c{i}", "common")
+    redis.set("cards:rarity:o-z", "rare")
+    res = get(client, owned="owned", rarity="rare").json()["results"]
+    assert [h["name"] for h in res] == ["Zed Rare"]

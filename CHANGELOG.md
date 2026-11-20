@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Brew: every brewed deck is now checked (100 cards, real card names, legality) and reviewed by oracle before it is shown, and the result carries oracle's verdict. A deck oracle fails, or cannot review because it is offline, is reported as a failed brew instead of a finished deck.
 - Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
-- Card search: the Rare/Mythic chips now include owned cards whose rarity is only known from the cache, and Scryfall requests stay spaced 100 ms apart while rarities load in the background.
+- Card search: the Rare/Mythic chips now include owned cards whose rarity is only known from the cache, and cards whose rarity isn't cached yet are looked up in the background so they show up on a repeat search. Scryfall requests stay spaced 100 ms apart, and a Rare/Mythic search can no longer come back empty because earlier non-matching cards used up the result limit.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
 - Deck validation: cards missing a color identity now derive it from hybrid and other mana symbols in their cost and rules text.
