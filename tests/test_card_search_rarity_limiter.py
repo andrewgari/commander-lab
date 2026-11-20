@@ -16,6 +16,12 @@ class _MgetRedis(FakeRedis):
         return [self.get(k) for k in keys]
 
 
+@pytest.fixture(autouse=True)
+def _no_real_backfill(monkeypatch):
+    """Cache misses queue a background Scryfall backfill; never let a test hit the network."""
+    monkeypatch.setattr(svc, "backfill_rarities", lambda r, ids: svc._rarity_inflight.difference_update(ids))
+
+
 @pytest.fixture()
 def redis():
     return _MgetRedis()
