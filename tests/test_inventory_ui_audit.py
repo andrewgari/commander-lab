@@ -117,13 +117,19 @@ def test_inventory_search_race_condition_drops_stale_response(browser):
     page.goto("http://test.local/inventory")
     page.wait_for_function("document.querySelectorAll('#inventoryList tr.clickable-row').length === 1")
 
+    def _wait_for_query(expected_q: str, timeout_ms: int = 3000) -> None:
+        elapsed = 0
+        while not any(q == expected_q for q, _ in inventory_requests) and elapsed < timeout_ms:
+            page.wait_for_timeout(20)
+            elapsed += 20
+
     # Fire slow older query "sol", then newer query "ring".
     page.fill("#searchInput", "sol")
     page.dispatch_event("#searchInput", "keyup")
-    page.wait_for_timeout(30)
+    _wait_for_query("sol")
     page.fill("#searchInput", "ring")
     page.dispatch_event("#searchInput", "keyup")
-    page.wait_for_timeout(30)
+    _wait_for_query("ring")
 
     # Resolve newer "ring" first, then stale "sol" (if not already aborted).
     by_q = {q: req for q, req in inventory_requests}
