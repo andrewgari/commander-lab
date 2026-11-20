@@ -84,6 +84,7 @@ class TestCommanderAutocomplete(unittest.TestCase):
         # Enter with no arrow-highlight commits the top suggestion, so a full
         # typed name + Enter enables Generate (residual brew picker bug).
         self.assertIn('commitOnEnter: "first"', BREW_JS)
+        self.assertIn('commitPendingOnEnter: true', BREW_JS)
 
     def test_debounced_live_search(self):
         # Suggestions must appear while typing, not on exact-match submit.

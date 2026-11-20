@@ -16,6 +16,7 @@
        extraSource: async (q) => [...names], // optional local pool, merged first
        minChars: 2, debounceMs: 200, limit: 8,  // brew passes 100
        commitOnEnter: "first",
+       commitPendingOnEnter: false,          // opt in to Enter during debounce/loading
        onSelect: (card, input) => {},        // default: input.value = card.name
        listEl: existingUl,                   // optional; one is created otherwise
        loadingText / emptyText / errorText / degradedText,
@@ -48,6 +49,7 @@
         var debounceMs = opts.debounceMs == null ? 200 : opts.debounceMs;
         var limit = opts.limit || 8;
         var commitOnEnter = opts.commitOnEnter || "first";
+        var commitPendingOnEnter = opts.commitPendingOnEnter === true;
         var onSelect = opts.onSelect || null;
         var loadingText = opts.loadingText || "Searching…";
         var emptyText = opts.emptyText || "No matches";
@@ -74,12 +76,16 @@
         inputEl.setAttribute("aria-expanded", "false");
         if (!inputEl.getAttribute("autocomplete")) inputEl.setAttribute("autocomplete", "off");
 
-        var debounce = null, activeIdx = -1, currentResults = [], searchSequence = 0, destroyed = false;
+        var debounce = null, activeIdx = -1, currentResults = [], currentNote = null, searchSequence = 0, destroyed = false;
+        var searchPending = false, pendingEnter = false;
         var optId = listEl.id + "-opt-";
 
         function closeList() {
             clearTimeout(debounce);
+            debounce = null;
             searchSequence++;
+            searchPending = false;
+            pendingEnter = false;
             listEl.hidden = true;
             inputEl.setAttribute("aria-expanded", "false");
             inputEl.removeAttribute("aria-activedescendant");
@@ -88,6 +94,7 @@
 
         function renderMessage(message, modifier) {
             currentResults = [];
+            currentNote = null;
             activeIdx = -1;
             listEl.innerHTML = "";
             var item = document.createElement("li");
@@ -102,6 +109,8 @@
 
         function renderResults(list, note) {
             currentResults = list;
+            currentNote = note;
+            var resultSequence = searchSequence;
             listEl.innerHTML = "";
             if (note) {
                 var noteEl = document.createElement("li");
@@ -128,7 +137,10 @@
                     (c.type_line ? '<br><span class="hud-autocomplete-type">' + esc(c.type_line) + "</span>" : "") +
                     "</span>" +
                     (c.badge ? '<span class="hud-chip hud-chip--ok hud-autocomplete-badge">' + esc(c.badge) + "</span>" : "");
-                li.addEventListener("mousedown", function (ev) { ev.preventDefault(); commit(c); });
+                li.addEventListener("mousedown", function (ev) {
+                    ev.preventDefault();
+                    if (!listEl.hidden && resultSequence === searchSequence && currentResults[i] === c) commit(c);
+                });
                 listEl.appendChild(li);
             });
             listEl.hidden = false;
@@ -188,17 +200,30 @@
         }
 
         function runSearch() {
+            clearTimeout(debounce);
+            debounce = null;
             var q = inputEl.value.trim();
             var sequence = ++searchSequence;
             if (q.length < minChars) { closeList(); return; }
+            searchPending = true;
             if (endpoint) renderMessage(loadingText, "loading");
             fetchAll(q).then(function (out) {
                 if (sequence === searchSequence && inputEl.value.trim() === q) {
+                    searchPending = false;
+                    var shouldCommit = pendingEnter;
+                    pendingEnter = false;
+                    // Offline/error notes must be visible before a user confirms a result.
+                    if (shouldCommit && out.items.length && !out.note) {
+                        commit(out.items[0]);
+                        return;
+                    }
                     activeIdx = -1;
                     renderResults(out.items, out.note);
                 }
             }).catch(function () {
                 if (sequence === searchSequence && inputEl.value.trim() === q) {
+                    searchPending = false;
+                    pendingEnter = false;
                     renderMessage(errorText, "error");
                 }
             });
@@ -215,7 +240,11 @@
         function onInput() {
             clearTimeout(debounce);
             searchSequence++;
+            pendingEnter = false;
             if (inputEl.value.trim().length >= minChars) {
+                searchPending = true;
+                // Old rows must not remain selectable while the new query is pending.
+                renderMessage(loadingText, "loading");
                 debounce = setTimeout(runSearch, debounceMs);
             } else {
                 closeList();
@@ -227,6 +256,7 @@
             if (inputEl.value.trim().length >= minChars) runSearch();
         }
         function onKeydown(ev) {
+            if (ev.isComposing) return;
             if (ev.key === "Escape") {
                 // Esc also cancels a pending debounce / in-flight search, so a
                 // keystroke-then-Esc does not re-open the list afterwards.
@@ -235,12 +265,19 @@
                 if (wasOpen) ev.preventDefault();
                 return;
             }
+            if (ev.key === "Enter" && searchPending && commitPendingOnEnter && commitOnEnter === "first") {
+                ev.preventDefault();
+                pendingEnter = true;
+                // Skip a pending debounce, but reuse a search already in flight.
+                if (debounce !== null) runSearch();
+                return;
+            }
             if (listEl.hidden || !currentResults.length) return;
             if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
                 ev.preventDefault();
                 var max = currentResults.length - 1;
                 activeIdx = ev.key === "ArrowDown" ? Math.min(max, activeIdx + 1) : Math.max(0, activeIdx - 1);
-                renderResults(currentResults, null);
+                renderResults(currentResults, currentNote);
             } else if (ev.key === "Enter") {
                 ev.preventDefault();
                 var pick = activeIdx >= 0

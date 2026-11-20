@@ -319,7 +319,7 @@
     }
     // Enter with no suggestion highlighted and no list open still adds the typed name.
     function acEnterFallback(e) {
-        if (e.key !== "Enter" || e.defaultPrevented) return;
+        if (e.key !== "Enter" || e.defaultPrevented || e.isComposing) return;
         var input = e.target;
         if (input.value.trim()) addCard(input.value, input.getAttribute("data-add-col"));
         input.value = "";

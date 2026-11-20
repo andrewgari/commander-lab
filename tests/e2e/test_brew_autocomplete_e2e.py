@@ -65,6 +65,42 @@ def test_keyboard_selects_and_enables_generate(page, base_url):
     expect(page.locator("#brewGenerateHint")).to_have_text("")
 
 
+def test_immediate_enter_selects_kaalia_and_enables_generate(page, base_url):
+    page.route("**/api/cards/autocomplete?**", lambda route: route.fulfill(json={
+        "results": [{"name": "Kaalia of the Vast", "color_identity": ["W", "B", "R"]}],
+        "source": "scryfall", "degraded": False,
+    }))
+    page.goto(f"{base_url}/brew", wait_until="domcontentloaded")
+    page.wait_for_function("window.CardAutocomplete !== undefined")
+    inp = page.locator("#brewCmdSearch")
+    expect(inp).to_have_attribute("aria-controls", "brewCmdResults")
+    inp.fill("Kaalia of the Vast")
+    inp.press("Enter")
+    expect(page.locator("#brewCmdNames")).to_have_text("Kaalia of the Vast")
+    expect(page.locator("#brewGenerate")).to_be_enabled()
+    expect(page.locator("#brewGenerateMobile")).to_be_enabled()
+
+
+def test_pending_enter_shows_degraded_notice_before_confirmation(page, base_url):
+    page.route("**/api/cards/autocomplete?**", lambda route: route.fulfill(json={
+        "results": [{"name": "Kaalia of the Vast", "color_identity": ["W", "B", "R"]}],
+        "source": "local", "degraded": True,
+    }))
+    page.goto(f"{base_url}/brew", wait_until="domcontentloaded")
+    inp = page.locator("#brewCmdSearch")
+    expect(inp).to_have_attribute("aria-controls", "brewCmdResults")
+    inp.fill("Kaalia of the Vast")
+    inp.press("Enter")
+    notice = page.locator("#brewCmdResults .hud-autocomplete-state--degraded")
+    expect(notice).to_be_visible()
+    expect(page.locator("#brewGenerate")).to_be_disabled()
+    inp.press("ArrowDown")
+    expect(notice).to_be_visible()
+    inp.press("Enter")
+    expect(page.locator("#brewCmdNames")).to_have_text("Kaalia of the Vast")
+    expect(page.locator("#brewGenerate")).to_be_enabled()
+
+
 def test_brew_js_is_loaded_with_content_hash(page, base_url):
     urls = []
     page.on("request", lambda r: urls.append(r.url) if r.url.split("?")[0].endswith("/static/js/brew.js") else None)

@@ -158,6 +158,80 @@ def test_card_name_input_uses_shared_autocomplete(page, base_url, name, path, se
         assert expect_top in page.locator("#brewCmdNames").inner_text()
 
 
+@pytest.mark.parametrize("search_phase", ["debounce", "loading"])
+def test_tune_free_text_enter_bubbles_during_pending_search_and_ignores_ime(page, search_phase):
+    # Mount the real legacy scripts and Tune event delegation without a running
+    # server. The controlled fetch keeps the in-flight case deterministic.
+    page.set_content("""
+      <input id="view-recs" name="tuneView" value="recs" type="radio">
+      <input id="view-overlay" name="tuneView" value="overlay" type="radio">
+      <div id="tuneRecsView"></div><div id="tuneOverlayView"></div>
+      <div id="tuneOvColumns"></div><div id="tuneOvState"></div>
+      <div id="tuneOvDrift"></div><div id="tuneOvError"></div><div id="tuneOvCount"></div>
+      <button id="tuneOvRebase"></button><button id="tuneOvSaveDraft"></button>
+      <button id="tuneOvAddCol"></button><input id="tuneOvNewTag">
+    """)
+    page.evaluate("""() => {
+        window.HUD = {esc: s => String(s), cardName: s => String(s)};
+        history.replaceState = () => {};
+        const state = {cards: [], columns: [{id: 'uncategorized', label: 'Uncategorized'}],
+                       card_tags: {}, tag_flags: {}, draft: null};
+        window.searchCalls = 0;
+        window.fetch = (url, options = {}) => {
+            if (url.startsWith('/api/cards/autocomplete')) {
+                window.searchCalls++;
+                window.searchResponse = new Promise(resolve => { window.finishSearch = resolve; });
+                return window.searchResponse;
+            }
+            if (options.method === 'POST') state.cards = JSON.parse(options.body).cards;
+            return Promise.resolve(new Response(JSON.stringify(state), {status: 200}));
+        };
+    }""")
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/card_autocomplete.js"))
+    page.add_script_tag(path=os.path.join(ROOT, "src/web/static/js/tune_overlay.js"))
+    page.evaluate("""() => {
+        delete window.TuneOverlay.adds;
+        window.TuneOverlay.init({deckId: 'test'});
+        document.getElementById('view-overlay').dispatchEvent(new Event('change'));
+    }""")
+    inp = page.locator(".tnov-add-input").first
+    expect(inp).to_have_attribute("role", "combobox")
+    if search_phase == "debounce":
+        # Dispatch both keys in the same task, before the debounce can fire.
+        events = inp.evaluate("""el => {
+            el.value = 'Custom Free Text';
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            const ime = el.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true, isComposing: true
+            }));
+            const afterIme = el.value;
+            const enter = el.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+            }));
+            return {ime, afterIme, enter};
+        }""")
+        assert events == {"ime": True, "afterIme": "Custom Free Text", "enter": False}
+    else:
+        inp.fill("Custom Free Text")
+        inp.evaluate("""el => el.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Enter', bubbles: true, cancelable: true, isComposing: true
+        }))""")
+        expect(inp).to_have_value("Custom Free Text")
+        assert page.locator('[data-card="Custom Free Text"]').count() == 0
+        page.wait_for_function("window.searchCalls === 1")
+        inp.press("Enter")
+    expect(page.locator('[data-card="Custom Free Text"]')).to_have_count(1)
+    if search_phase == "loading":
+        page.evaluate("""async () => {
+            window.finishSearch(new Response(JSON.stringify({results: [{name: 'Wrong Card'}], degraded: false})));
+            await window.searchResponse;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }""")
+    else:
+        assert page.evaluate("window.searchCalls") == 0
+    assert page.locator('[data-card="Wrong Card"]').count() == 0
+
+
 # ---------------------------------------------------------------------------
 # Brew commander picker UX contract (t_d30383bb): one case per behavior.
 # ---------------------------------------------------------------------------
