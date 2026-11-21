@@ -51,6 +51,7 @@ services:
       - "8020:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-}
       - DATA_ACCESS_MODE=${DATA_ACCESS_MODE:-readwrite}
       - ARCHIDEKT_USERNAME=${ARCHIDEKT_USERNAME}
       - ARCHIDEKT_SESSION=${ARCHIDEKT_SESSION}
@@ -70,10 +71,12 @@ services:
       - INTERACTIONS_NIGHTLY_HOUR_UTC=${INTERACTIONS_NIGHTLY_HOUR_UTC:-8}
       # oracle (Hermes profile on the Framework) for Theory docs, see docs/THEORY_SPEC.md.
       # ORACLE_KEY: set it on the Portainer stack or as the file secrets/ORACLE_KEY (never in git).
-      - ORACLE_URL=${ORACLE_URL:-http://192.168.50.2:8645}
+      - ORACLE_URL=${ORACLE_URL:-}
       - FORGE_SIM_URL=${FORGE_SIM_URL:-http://mtg-forge:8765}
       - ORACLE_KEY=${ORACLE_KEY:-}
       - ORACLE_TIMEOUT_S=${ORACLE_TIMEOUT_S:-600}
+      # OpenRouter oracle loop (Deep Review, Sim review, ...). Set on the Portainer stack or as the file secrets/OPENROUTER_API_KEY (never in git).
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       # Deck reviewer card 11. Card images are cached under /data/card-images. PDF export needs the pdf + web containers
       # (docker-compose.yml, profile `pdf`); prod has no web container yet, so PDF export answers 503 pdf_unavailable here.
       - CARD_IMAGE_CACHE_DIR=/data/card-images
@@ -86,7 +89,10 @@ services:
       # Read-only: live credentials, gitignored, refreshed out-of-band without a rebuild.
       - ./.auth:/app/.auth:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
     command: uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000
     networks:
       - internal

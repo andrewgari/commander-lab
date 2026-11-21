@@ -162,10 +162,10 @@ class TestRunPersistence(Base):
         from unittest.mock import patch
         from tests.test_sim_store_and_diff import make_review
         with patch.object(svc, "_static_review", return_value=make_review()):
-            svc.run_job(self.r, job, self.deck, FakeSim(), lambda: oracle, poll_interval=0, sleep=lambda s: None)
-        prompt = oracle.calls[0][0][-1]["content"]
+            svc.run_job(self.r, job, self.deck, FakeSim(), lambda task: oracle, poll_interval=0, sleep=lambda s: None)
+        prompt = oracle.client.calls[0]["messages"][1]["content"]
         self.assertIn("emphasise: Commander", prompt)
-        self.assertNotIn("emphasise", svc.request_prompt("x", {"focus_snapshot": []}, {}, {}))
+        self.assertNotIn("emphasise", svc.request_facts("x", {"focus_snapshot": []}, {}, {}))
 
     def test_saved_choice_wins_over_suggestions_and_empty_is_a_choice(self):
         self.do_run({"focus": ["tempo"]})

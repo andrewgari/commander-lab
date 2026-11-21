@@ -309,6 +309,7 @@
         document.querySelectorAll("#tuneOvColumns .tnov-add-input").forEach(function (input) {
             if (acHandles.some(function (h) { return h.input === input; })) return;
             acHandles.push(CardAutocomplete.attach(input, {
+                allowPendingFormEnter: true, // the delegated handler adds free text on Enter
                 onSelect: function (card) {
                     input.value = "";
                     addCard(card.name, input.getAttribute("data-add-col"));
@@ -319,7 +320,7 @@
     }
     // Enter with no suggestion highlighted and no list open still adds the typed name.
     function acEnterFallback(e) {
-        if (e.key !== "Enter" || e.defaultPrevented) return;
+        if (e.key !== "Enter" || e.defaultPrevented || e.isComposing) return;
         var input = e.target;
         if (input.value.trim()) addCard(input.value, input.getAttribute("data-add-col"));
         input.value = "";

@@ -418,6 +418,29 @@ class DerivedIndexStatusRow(Base):
     owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
+class DeckIntentRow(Base):
+    """Owner-stated per-deck intent (UserDeckIntent payload, sparse).
+
+    STA-11 work package B: Postgres is the only source of truth (rule 1), so
+    deck-local intent lives here — one row per deck, only stated fields, no
+    default backfill; an absent row means "unstated" (never a defaulted
+    profile). Rules live in domain/decks/deck_intent.py.
+    """
+    __tablename__ = "deck_intents"
+    deck_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("decks.id"), primary_key=True
+    )
+    payload: Mapped[Any] = mapped_column(JsonType, nullable=False, default=dict)
+    provenance: Mapped[str] = mapped_column(String(16), nullable=False, default="stated")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    owner_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
 class ProfileOverrideRow(Base):
     """User steering over the computed profile (ARCHITECTURE.md §4.2). Every
     write also appends a profile_snapshots row — enforced by the service

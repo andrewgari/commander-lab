@@ -139,26 +139,16 @@ class TestSyncDeckRoute(unittest.TestCase):
         mock_sync.sync_deck.assert_called_once()
 
     @patch("src.server.app.main.deck_sync")
-    def test_partial_failure_still_returns_200_with_warnings(self, mock_sync):
-        report = MagicMock()
-        report.to_dict.return_value = {
-            "registry_id": "archidekt:42",
-            "sources": [
-                {"provider": "archidekt", "status": "ok", "card_count": 99, "error": None},
-                {"provider": "moxfield", "status": "error", "card_count": 0, "error": "timed out"},
-            ],
-            "conflicts": [],
-            "merged_card_count": 99,
-            "warnings": ["moxfield: timed out"],
-        }
-        mock_sync.sync_deck.return_value = report
+    def test_partial_failure_returns_error(self, mock_sync):
+        mock_sync.sync_deck.side_effect = DeckSyncError(
+            "linked source update incomplete for deck archidekt:42: moxfield: timed out"
+        )
 
         response = self.client.post("/api/decks/archidekt:42/sync")
 
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(data["success"])
-        self.assertEqual(len(data["report"]["warnings"]), 1)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+        self.assertIn("moxfield: timed out", response.json()["error"])
 
     @patch("src.server.app.main.deck_sync")
     def test_all_sources_failed_returns_400(self, mock_sync):

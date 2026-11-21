@@ -6,28 +6,52 @@ a request without a reachable DB fails as 503 db_unavailable with a reason
 """
 from __future__ import annotations
 
+import logging
 from typing import Iterator
 
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
+from src.server.infra.cache.datastore import WritesDisabledError
 from src.server.infra.db.session import get_session_factory
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_db_reason(exc: Exception, *, phase: str) -> str:
+    msg = str(exc)
+    if "DATABASE_URL" in msg:
+        return "Database is not configured."
+    if isinstance(exc, OperationalError):
+        return "Database connection is unavailable."
+    if isinstance(exc, IntegrityError):
+        return "Database constraint check failed."
+    if phase == "init":
+        return "Database session initialization failed."
+    return "Database operation failed."
 
 
 def db_session() -> Iterator[Session]:
     try:
         factory = get_session_factory()
         session = factory()
+    except WritesDisabledError:
+        raise
     except Exception as e:  # DATABASE_URL unset/malformed, driver missing, ...
+        logger.exception("Failed to initialize database session")
         raise HTTPException(
             status_code=503,
-            detail={"error": "db_unavailable", "reason": str(e)},
+            detail={"error": "db_unavailable", "reason": _safe_db_reason(e, phase="init")},
         )
     try:
         yield session
         session.commit()
     except HTTPException:
+        session.rollback()
+        raise
+    except WritesDisabledError:
         session.rollback()
         raise
     except RequestValidationError:
@@ -38,9 +62,10 @@ def db_session() -> Iterator[Session]:
         raise
     except Exception as e:  # connection lost mid-request, constraint errors, ...
         session.rollback()
+        logger.exception("Database session failed during request")
         raise HTTPException(
             status_code=503,
-            detail={"error": "db_unavailable", "reason": str(e)},
+            detail={"error": "db_unavailable", "reason": _safe_db_reason(e, phase="request")},
         )
     finally:
         session.close()

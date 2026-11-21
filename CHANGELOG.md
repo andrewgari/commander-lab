@@ -7,11 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Deep Review: the bracket and power level the review checks now include Commander Spellbook combos and your deck's power estimate, matching the deck page.
+- Simulation review: the written review and the run diagnosis summary now check the deck's curve, bracket and power level before they are written, and the saved review shows which model and checks were used.
+- Card review: the Keep/Remove debate now runs on the oracle tool loop, and the judge checks the deck's curve, bracket and power level before it rules.
+- Deep Review: the written verdict now checks the deck's curve, bracket and power level before it's written, and shows which checks it used.
+
+### Security
+- Tags, Decks, and Deck pages: stored tag, card, and deck values are now rendered as plain text or escaped attributes instead of raw HTML markup.
+
 ### Fixed
 - Sync: a card whose Commander legality was missing from one deck's data no longer loses a legality it already had, which made brews with commanders like Kaalia of the Vast fail with "not Commander-legal (legality: None)". Cards still missing legality are logged; `scripts/backfill_commander_legality.py` fills them from Scryfall.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
+- Card search: editing a search no longer allows an earlier result to be selected; in Brew, pressing Enter while suggestions load selects the current result when available.
+- Brew page: commander search and Generate brew now load reliably over HTTPS instead of being blocked as mixed content, shared autocomplete scripts cache-bust on deploy, and fuzzy commander fallback no longer suggests non-commander cards.
+- Linked deck sync: multi-provider updates now fail closed when any selected provider fails instead of overwriting the local decklist with partial data.
+- Account sync: Archidekt sync now follows all result pages instead of stopping at the first 100 decks, and sets HTTP request timeouts.
+- Brew editor: generated brew cards without an oracle ID can now be removed from the draft list.
+- Inventory page: search and deck filters discard stale responses, support keyboard expansion and filter-pill removal, and display unrecognized card statuses as unavailable with a reason.
+- Draft commits: concurrent draft commits, staging edits, and abandonments lock shared records consistently and enforce read-only mode across both Redis and PostgreSQL.
+- Deep Review: a playtest run during a review no longer replaces your saved Simulate report.
+- Brew: every brewed deck is now checked (100 cards, real card names, legality) and reviewed by oracle before it is shown, and the result carries oracle's verdict. A deck oracle fails, or cannot review because it is offline, is reported as a failed brew instead of a finished deck.
+- Brew: the production builder now enforces power tiers as hard limits (low: no Game Changers, combo pieces or fast mana beyond Sol Ring, at most 2 tutors; mid: at most 3 Game Changers), so estimated power rises low to mid to high. Removes the strict xfails from the production power-trend matrix.
+- Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
+- Card search: the Rare/Mythic chips now include owned cards whose rarity is only known from the cache, and cards whose rarity isn't cached yet are looked up in the background so they show up on a repeat search. Scryfall requests stay spaced 100 ms apart, and a Rare/Mythic search can no longer come back empty because earlier non-matching cards used up the result limit.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
+- Deck validation: cards missing a color identity now derive it from hybrid and other mana symbols in their cost and rules text.
+- Brew: decks built from a small card pool are now filled to 100 cards with basic lands in the commander's colors instead of coming up short.
+- Brew: the availability report no longer shows cards from a draft that fails the final legality check; it returns an error instead.
 - Card search, Owned mode: type, rarity, mana value and color filters work on owned cards once stub card rows are filled by `scripts/hydrate_stub_cards.py`.
 
 ### Added
@@ -25,9 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Card search API: new `GET /api/v2/cards/search` filters by name, color identity (within/exact/includes), card type, mana value, rarity, oracle text, owned / not owned / any, and "Can be commander" (with partner pairing). Results show how many copies you own and whether each card can be a commander; if Scryfall is unavailable it falls back to your local card library and says so. The card autocomplete results now also include each card's `oracle_id`. No page uses it yet.
 - Brew draft editing (internal API): a brewed deck can now have cards added and removed (`POST /api/v2/brew/{session_id}/cards`, `DELETE /api/v2/brew/{session_id}/cards/{oracle_id}`). Each edit re-checks where the card comes from (donor deck, owned, or buy) and updates the buy cost; a second copy of a non-basic card is refused, and the commander cannot be removed. Accepting an unedited brew is unchanged. No user-visible change yet.
 - Deck review page: each deck now has a Deck review page. Generate a review (it runs in the background and shows what it is doing; you can leave and come back), read the latest one, browse earlier reviews, export it as a PDF that matches the print view, and mark every suggested swap Accept, Maybe or Reject with an optional reason; your answers feed your taste profile. Card pictures are saved on the server after the first view, so the PDF needs no internet. The PDF export uses an optional extra container (`docker compose --profile pdf up -d`, about 1.4 GB); without it the button explains that PDF export is not running. The existing Markdown, JSON and CLI exports are unchanged.
+- Deck-local intent and inventory-safe flow (development): each deck now has its own owner-stated intent (vision, goals, non-negotiables, budget, pet cards) that saves and reloads verbatim and is never backfilled with defaults or inferred from other decks or your profile — a deck with nothing stated stays visibly unstated. A per-deck copy-demand view compares the list's proposed copies against known inventory (owned / in the mail / to buy) with the printing and finish of every demanded copy explicitly unknown, and the deck list exports as paste-ready text (Plain, Archidekt, Moxfield, Forge, TCGplayer) from the deck's export endpoint.
+- Archidekt reconciliation preview (development): a new read-only preview shows, for one Archidekt deck, the raw source facts (rows vs card quantities, categories and inclusion flags, printing/finish, source timestamps) and the proposed differences against the matching local deck — matched only by stable provider identity. Ambiguous category overlaps (e.g. a deck whose Sideboard/Maybeboard categories mix) stay flagged as ambiguous instead of being auto-normalized to a 100-card list, auxiliary units (Attractions/Stickers) are never dropped or silently merged into the main count, and a preview never writes: local decks, edits, status, intent and inventory always win. Available at POST /api/v2/imports/archidekt/preview.
 - Deck reviewer groundwork (internal): the review pipeline now has its recommendation and verification passes — swaps are chosen only from the vetted candidate pool (with price, owned flag, bracket and budget effect, and one alternative each), then every finding and swap is checked by code (legality, color identity, singleton, budget, bracket, cards you already rejected for this deck) and by a second AI model that looks for unsupported claims, generic advice, contradictions with the brief and hand-waved trade-offs. Failing items are rewritten at most twice and otherwise dropped into an omitted list instead of being shown. No user-visible change yet.
 - Deck reviewer groundwork (internal): the review pipeline now has its first two passes — a brief of what the deck is trying to do (with questions for the owner where intent is unclear) and a seven-axis analysis with 1–10 scores — plus per-pass model configuration, structured-output enforcement with bounded repair, prompt caching and a stored trace of every run. Findings that cite cards outside the deck or facts that do not exist are dropped and logged. No user-visible change yet.
 - Deck reviewer eval harness: deterministic review gates with good/bad fixtures (`make eval-gates`), an LLM judge, calibration tooling, golden decks, and `scripts/eval_compare.py`.
+- Deck reviewer groundwork (internal): the full review pipeline (brief, seven-axis analysis, swap recommendations, code + second-model verification, written review document) now runs against live AI models and passed a live evaluation on a real deck with zero review-gate violations. No user-visible change yet.
 - Deck reviewer eval: `make eval-live` (or `python -m tests.review_evals.run_eval --live --tier <provider:model>`) runs every golden deck through the full review pipeline with real model calls and writes, per deck, the review JSON, trace, gate results, cost, latency and judge scores (including rubric recall). It exits non-zero with a clear message when a model id or API key is missing; the offline `make eval` is unchanged. Internal tooling; no user-visible change.
 
 ### Changed
@@ -46,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Commander checks now match Scryfall: legendary Vehicles and Spacecraft with printed power/toughness (e.g. Esika's Chariot) are accepted, while meld results, back-face-only legendary cards and Backgrounds picked as a sole commander are rejected. Grist, the Hunger Tide is accepted.
 - Brew commander search: when Scryfall is rate-limiting or erroring, the picker now falls back to your local card data instead of showing "No commanders match", and no longer remembers that false empty result.
 - Draft page: a failed action now shows a dismissible error message next to the button you used (Stage move, unstage) instead of a plain red line at the top of the page or an error page, and those buttons show progress and ignore a second click while saving.
+- Card search boxes: the suggestion list now closes when you Tab out of the field (previously it stayed open).
 - Confirm dialogs (Commit/Abandon): on small screens the scrolling message area can now be reached and scrolled with the keyboard.
 - Brew result page: the card list no longer gets replaced by "Availability report unavailable" after a successful brew, and the Make physical dialog now lists what would move. A failed brew now shows only the failure (with Retry) instead of also showing the "Brewing…" progress panel, and a brew in progress no longer shows an empty "Brew failed" panel.
 - Brew page: donor decks and the Summary now show their status chips and colour pips on first load.

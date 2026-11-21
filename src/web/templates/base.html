@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=EB+Garamond:wght@600;700&display=swap">
     {# Shared HUD tokens + chrome. Tokens documented in docs/DESIGN_TOKENS.md. #}
-    <link rel="stylesheet" href="/static/css/hud.css?v={{ version }}">
-    <link rel="stylesheet" href="/static/css/card_hover_preview.css?v={{ version }}">
-    <link rel="stylesheet" href="/static/css/ref_combobox.css?v={{ version }}">
+    <link rel="stylesheet" href="/static/css/hud.css?v={{ static_hash('css/hud.css') if static_hash is defined else version }}">
+    <link rel="stylesheet" href="/static/css/card_hover_preview.css?v={{ static_hash('css/card_hover_preview.css') if static_hash is defined else version }}">
+    <link rel="stylesheet" href="/static/css/ref_combobox.css?v={{ static_hash('css/ref_combobox.css') if static_hash is defined else version }}">
     {# Page-level styles. Templates pass a full <style> element here. #}
     {% block extra_css %}{% endblock %}
 </head>
@@ -124,15 +124,15 @@
     {# Deck printing map (card_refs.py) for HUD.cardName()/rankList; only deck pages have one. #}
     <script>window.HUD_CARD_REFS = {{ ((head.card_refs if head is defined and head else none) or {}) | tojson }};</script>
     {# HUD kit client helpers: sortable tables, HUD.* builders, modals. #}
-    <script src="/static/js/hud.js?v={{ version }}" defer></script>
+    <script src="/static/js/hud.js?v={{ static_hash('js/hud.js') if static_hash is defined else version }}" defer></script>
     {# Shared card-name autocomplete (CardAutocomplete.attach); pages attach it to their card-name inputs. #}
-    <script src="/static/js/card_autocomplete.js?v={{ version }}" defer></script>
-    <script src="/static/js/ref_combobox.js?v={{ version }}" defer></script>
+    <script src="/static/js/card_autocomplete.js?v={{ static_hash('js/card_autocomplete.js') if static_hash is defined else version }}" defer></script>
+    <script src="/static/js/ref_combobox.js?v={{ static_hash('js/ref_combobox.js') if static_hash is defined else version }}" defer></script>
     {# Card hover preview: one delegated controller for every [data-card-ref] / [data-card-preview]. #}
-    <script src="/static/js/scryfall_image.js?v={{ version }}" defer></script>
-    <script src="/static/js/card_hover_preview.js?v={{ version }}" defer></script>
+    <script src="/static/js/scryfall_image.js?v={{ static_hash('js/scryfall_image.js') if static_hash is defined else version }}" defer></script>
+    <script src="/static/js/card_hover_preview.js?v={{ static_hash('js/card_hover_preview.js') if static_hash is defined else version }}" defer></script>
     {# "Buy on TCGplayer" cart button for client-rendered buy lists (window.TcgCart); Jinja twin: hud.tcg_cart. #}
-    <script src="/static/js/tcgplayer_cart.js?v={{ version }}" defer></script>
+    <script src="/static/js/tcgplayer_cart.js?v={{ static_hash('js/tcgplayer_cart.js') if static_hash is defined else version }}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

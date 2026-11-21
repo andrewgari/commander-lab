@@ -16,6 +16,8 @@
        extraSource: async (q) => [...names], // optional local pool, merged first
        minChars: 2, debounceMs: 200, limit: 8,  // brew passes 100
        commitOnEnter: "first",
+       commitPendingOnEnter: false,          // opt in to Enter during debounce/loading
+       allowPendingFormEnter: false,          // opt out of blocking implicit form submit
        onSelect: (card, input) => {},        // default: input.value = card.name
        listEl: existingUl,                   // optional; one is created otherwise
        loadingText / emptyText / errorText / degradedText,
@@ -48,6 +50,8 @@
         var debounceMs = opts.debounceMs == null ? 200 : opts.debounceMs;
         var limit = opts.limit || 8;
         var commitOnEnter = opts.commitOnEnter || "first";
+        var commitPendingOnEnter = opts.commitPendingOnEnter === true;
+        var allowPendingFormEnter = opts.allowPendingFormEnter === true;
         var onSelect = opts.onSelect || null;
         var loadingText = opts.loadingText || "Searching…";
         var emptyText = opts.emptyText || "No matches";
@@ -74,12 +78,16 @@
         inputEl.setAttribute("aria-expanded", "false");
         if (!inputEl.getAttribute("autocomplete")) inputEl.setAttribute("autocomplete", "off");
 
-        var debounce = null, activeIdx = -1, currentResults = [], searchSequence = 0, destroyed = false;
+        var debounce = null, activeIdx = -1, currentResults = [], currentNote = null, searchSequence = 0, destroyed = false;
+        var searchPending = false, pendingEnter = false, heldEnterConsumed = false;
         var optId = listEl.id + "-opt-";
 
         function closeList() {
             clearTimeout(debounce);
+            debounce = null;
             searchSequence++;
+            searchPending = false;
+            pendingEnter = false;
             listEl.hidden = true;
             inputEl.setAttribute("aria-expanded", "false");
             inputEl.removeAttribute("aria-activedescendant");
@@ -88,6 +96,7 @@
 
         function renderMessage(message, modifier) {
             currentResults = [];
+            currentNote = null;
             activeIdx = -1;
             listEl.innerHTML = "";
             var item = document.createElement("li");
@@ -102,6 +111,8 @@
 
         function renderResults(list, note) {
             currentResults = list;
+            currentNote = note;
+            var resultSequence = searchSequence;
             listEl.innerHTML = "";
             if (note) {
                 var noteEl = document.createElement("li");
@@ -128,7 +139,10 @@
                     (c.type_line ? '<br><span class="hud-autocomplete-type">' + esc(c.type_line) + "</span>" : "") +
                     "</span>" +
                     (c.badge ? '<span class="hud-chip hud-chip--ok hud-autocomplete-badge">' + esc(c.badge) + "</span>" : "");
-                li.addEventListener("mousedown", function (ev) { ev.preventDefault(); commit(c); });
+                li.addEventListener("mousedown", function (ev) {
+                    ev.preventDefault();
+                    if (!listEl.hidden && resultSequence === searchSequence && currentResults[i] === c) commit(c);
+                });
                 listEl.appendChild(li);
             });
             listEl.hidden = false;
@@ -188,17 +202,30 @@
         }
 
         function runSearch() {
+            clearTimeout(debounce);
+            debounce = null;
             var q = inputEl.value.trim();
             var sequence = ++searchSequence;
             if (q.length < minChars) { closeList(); return; }
+            searchPending = true;
             if (endpoint) renderMessage(loadingText, "loading");
             fetchAll(q).then(function (out) {
                 if (sequence === searchSequence && inputEl.value.trim() === q) {
+                    searchPending = false;
+                    var shouldCommit = pendingEnter;
+                    pendingEnter = false;
+                    // Offline/error notes must be visible before a user confirms a result.
+                    if (shouldCommit && out.items.length && !out.note) {
+                        commit(out.items[0]);
+                        return;
+                    }
                     activeIdx = -1;
                     renderResults(out.items, out.note);
                 }
             }).catch(function () {
                 if (sequence === searchSequence && inputEl.value.trim() === q) {
+                    searchPending = false;
+                    pendingEnter = false;
                     renderMessage(errorText, "error");
                 }
             });
@@ -215,7 +242,11 @@
         function onInput() {
             clearTimeout(debounce);
             searchSequence++;
+            pendingEnter = false;
             if (inputEl.value.trim().length >= minChars) {
+                searchPending = true;
+                // Old rows must not remain selectable while the new query is pending.
+                renderMessage(loadingText, "loading");
                 debounce = setTimeout(runSearch, debounceMs);
             } else {
                 closeList();
@@ -227,6 +258,22 @@
             if (inputEl.value.trim().length >= minChars) runSearch();
         }
         function onKeydown(ev) {
+            if (ev.isComposing) return;
+            if (ev.key === "Enter") {
+                // The search may finish (and even close the list) while Enter is
+                // held. Its repeats must never become a form submit or a pick.
+                if (ev.repeat && heldEnterConsumed) {
+                    ev.preventDefault();
+                    return;
+                }
+                // A non-repeat is a fresh press, even if keyup was missed.
+                if (!ev.repeat) heldEnterConsumed = false;
+            }
+            // A held Enter must not count as a fresh confirmation of an outage notice.
+            if (ev.key === "Enter" && ev.repeat && !listEl.hidden && currentNote) {
+                ev.preventDefault();
+                return;
+            }
             if (ev.key === "Escape") {
                 // Esc also cancels a pending debounce / in-flight search, so a
                 // keystroke-then-Esc does not re-open the list afterwards.
@@ -235,19 +282,45 @@
                 if (wasOpen) ev.preventDefault();
                 return;
             }
+            if (ev.key === "Enter" && searchPending) {
+                if (commitPendingOnEnter && commitOnEnter === "first") {
+                    ev.preventDefault();
+                    heldEnterConsumed = true;
+                    pendingEnter = true;
+                    // Skip a pending debounce, but reuse a search already in flight.
+                    if (debounce !== null) runSearch();
+                } else if (inputEl.form && !allowPendingFormEnter) {
+                    // Do not let a pending search implicitly submit the surrounding form.
+                    ev.preventDefault();
+                    heldEnterConsumed = true;
+                }
+                return;
+            }
             if (listEl.hidden || !currentResults.length) return;
             if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
                 ev.preventDefault();
                 var max = currentResults.length - 1;
                 activeIdx = ev.key === "ArrowDown" ? Math.min(max, activeIdx + 1) : Math.max(0, activeIdx - 1);
-                renderResults(currentResults, null);
+                renderResults(currentResults, currentNote);
             } else if (ev.key === "Enter") {
                 ev.preventDefault();
+                heldEnterConsumed = true;
                 var pick = activeIdx >= 0
                     ? currentResults[activeIdx]
                     : (commitOnEnter === "first" ? currentResults[0] : null);
                 if (pick) commit(pick);
             }
+        }
+        function onKeyup(ev) {
+            if (ev.key === "Enter") heldEnterConsumed = false;
+        }
+        function onBlur(ev) {
+            heldEnterConsumed = false;
+            // Keyboard focus left the field (Tab etc). Option mousedown calls
+            // preventDefault so clicks never blur the input; still ignore focus
+            // moving into the list itself.
+            if (ev.relatedTarget && listEl.contains(ev.relatedTarget)) return;
+            closeList();
         }
         function onDocDown(ev) {
             if (!inputEl.contains(ev.target) && !listEl.contains(ev.target)) closeList();
@@ -256,6 +329,8 @@
         inputEl.addEventListener("input", onInput);
         inputEl.addEventListener("focus", onFocus);
         inputEl.addEventListener("keydown", onKeydown);
+        inputEl.addEventListener("keyup", onKeyup);
+        inputEl.addEventListener("blur", onBlur);
         document.addEventListener("mousedown", onDocDown);
         document.addEventListener("touchstart", onDocDown, { passive: true });
 
@@ -270,6 +345,8 @@
                 inputEl.removeEventListener("input", onInput);
                 inputEl.removeEventListener("focus", onFocus);
                 inputEl.removeEventListener("keydown", onKeydown);
+                inputEl.removeEventListener("keyup", onKeyup);
+                inputEl.removeEventListener("blur", onBlur);
                 document.removeEventListener("mousedown", onDocDown);
                 document.removeEventListener("touchstart", onDocDown);
                 if (ownsList && listEl.parentNode) listEl.parentNode.removeChild(listEl);

@@ -55,7 +55,7 @@ def live_pillars(identity: Optional[dict]) -> List[dict]:
 
 
 def _text_key(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 def card_vectors(r, embedder: Embedder, texts: Dict[str, str]) -> Dict[str, List[float]]:

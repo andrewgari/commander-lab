@@ -279,6 +279,29 @@
     let allTags = [];
     let allCards = {};
     let currentEditCard = null;
+
+    // Tag values come from stored data; never interpret them as markup or CSS.
+    function labTagBadge(tag, className) {
+        const badge = document.createElement('span');
+        badge.className = className;
+        badge.appendChild(document.createTextNode(tag.tag));
+        const source = document.createElement('span');
+        source.className = 'card-tag-source';
+        if (tag.source === 'learned' || tag.source === 'manual') source.classList.add(tag.source);
+        source.textContent = tag.source || '';
+        badge.appendChild(source);
+        return badge;
+    }
+
+    function archidektTagBadge(tag, className) {
+        const badge = document.createElement('span');
+        badge.className = className;
+        badge.appendChild(document.createTextNode(`${tag.tag} `));
+        const counts = document.createElement('span');
+        counts.textContent = `${tag.count}/${tag.total_decks}`;
+        badge.appendChild(counts);
+        return badge;
+    }
     
     async function loadTags() {
         const res = await fetch('/api/tags');
@@ -353,7 +376,7 @@
         const data = await res.json();
         
         // Group by card name
-        const cardMap = {};
+        const cardMap = Object.create(null);
         data.inventory.forEach(copy => {
             if (!cardMap[copy.name]) {
                 cardMap[copy.name] = {
@@ -405,27 +428,64 @@
             const tr = document.createElement('tr');
             tr.className = 'clickable-row';
             
-            let coreTagBadge = card.is_core ? `<span class="badge" style="margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;" title="Core Strategy Card">Core</span>` : '';
-            
-            // Show Lab tags (our source of truth), each labeled learned vs manual
-            const labTagsHtml = tagData.lab_tags.map(t => 
-                `<span class="card-tag" style="background: #1e40af; border-color: #3b82f6;">${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span></span>`
-            ).join('');
-            
-            // Show Archidekt tags for reference (grayed out)
-            const archidektTagsHtml = tagData.archidekt_tags.slice(0, 3).map(t => 
-                `<span class="card-tag" style="opacity: 0.5;">${t.tag} <span style="font-size: 0.7rem;">(${t.count}/${t.total_decks})</span></span>`
-            ).join('');
-            
-            const allTagsHtml = labTagsHtml + (archidektTagsHtml ? '<br>' + archidektTagsHtml : '');
-            
-            tr.innerHTML = `
-                <td class="mtg-font"><span class="hud-cp-name" tabindex="0" data-card-preview${window.HUD ? HUD.cardRefAttrString(HUD.cardRef(Object.assign({}, (card.copies || []).find(c => c.uid) || (card.copies || [])[0] || {}, { name: card.name }))) : ''}>${card.name}</span> ${coreTagBadge}</td>
-                <td><div class="card-tags">${allTagsHtml || '<span style="color: #6b7280;">No tags</span>'}</div></td>
-                <td>${card.decks.size} decks</td>
-                <td><button class="btn btn-sm" onclick="openEditor('${card.name.replace(/'/g, "\\'")}')">Edit</button></td>
-            `;
-            
+            const nameCell = document.createElement('td');
+            nameCell.className = 'mtg-font';
+            const name = document.createElement('span');
+            name.className = 'hud-cp-name';
+            name.tabIndex = 0;
+            name.setAttribute('data-card-preview', '');
+            name.textContent = card.name;
+            if (window.HUD) {
+                const copy = card.copies.find(c => c.uid) || card.copies[0] || {};
+                const ref = HUD.cardRef(Object.assign({}, copy, {name: card.name}));
+                for (const [key, value] of Object.entries(HUD.cardRefAttrs(ref))) name.setAttribute(key, value);
+            }
+            nameCell.appendChild(name);
+            if (card.is_core) {
+                const core = document.createElement('span');
+                core.className = 'badge';
+                core.style.cssText = 'margin-left: 4px; background: #92400e; border-color: #f59e0b; color: #fcd34d;';
+                core.title = 'Core Strategy Card';
+                core.textContent = 'Core';
+                nameCell.appendChild(core);
+            }
+
+            const tagsCell = document.createElement('td');
+            const tags = document.createElement('div');
+            tags.className = 'card-tags';
+            tagData.lab_tags.forEach(t => {
+                const badge = labTagBadge(t, 'card-tag');
+                badge.style.background = '#1e40af';
+                badge.style.borderColor = '#3b82f6';
+                tags.appendChild(badge);
+            });
+            if (tagData.archidekt_tags.length) {
+                tags.appendChild(document.createElement('br'));
+                tagData.archidekt_tags.slice(0, 3).forEach(t => {
+                    const badge = archidektTagBadge(t, 'card-tag');
+                    badge.style.opacity = '0.5';
+                    badge.lastChild.style.fontSize = '0.7rem';
+                    badge.lastChild.textContent = `(${t.count}/${t.total_decks})`;
+                    tags.appendChild(badge);
+                });
+            }
+            if (!tagData.lab_tags.length && !tagData.archidekt_tags.length) {
+                const empty = document.createElement('span');
+                empty.style.color = '#6b7280';
+                empty.textContent = 'No tags';
+                tags.appendChild(empty);
+            }
+            tagsCell.appendChild(tags);
+
+            const decksCell = document.createElement('td');
+            decksCell.textContent = `${card.decks.size} decks`;
+            const actionsCell = document.createElement('td');
+            const edit = document.createElement('button');
+            edit.className = 'btn btn-sm';
+            edit.textContent = 'Edit';
+            edit.addEventListener('click', () => openEditor(card.name));
+            actionsCell.appendChild(edit);
+            tr.append(nameCell, tagsCell, decksCell, actionsCell);
             tbody.appendChild(tr);
         }
     }
@@ -449,11 +509,9 @@
         
         // Show Lab tags (editable), each tagged learned vs manual
         data.lab_tags.forEach(t => {
-            const badge = document.createElement('span');
-            badge.className = 'tag-badge';
+            const badge = labTagBadge(t, 'tag-badge');
             badge.style.background = '#1e40af';
             badge.style.borderColor = '#3b82f6';
-            badge.innerHTML = `${t.tag}<span class="card-tag-source ${t.source}">${t.source}</span>`;
             badge.onclick = () => removeTag(t.tag);
             badge.style.cursor = 'pointer';
             badge.title = `Click to remove (${t.source})`;
@@ -476,10 +534,9 @@
             container.appendChild(label);
             
             data.archidekt_tags.slice(0, 5).forEach(t => {
-                const badge = document.createElement('span');
-                badge.className = 'tag-badge';
+                const badge = archidektTagBadge(t, 'tag-badge');
                 badge.style.opacity = '0.6';
-                badge.innerHTML = `${t.tag} <span style="margin-left: 0.5rem; color: #6b7280;">${t.count}/${t.total_decks}</span>`;
+                badge.lastChild.style.cssText = 'margin-left: 0.5rem; color: #6b7280;';
                 container.appendChild(badge);
             });
         }

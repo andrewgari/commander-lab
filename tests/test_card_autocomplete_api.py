@@ -159,6 +159,43 @@ class TestCardAutocompleteAPI(unittest.TestCase):
         res = self.client.get("/api/cards/autocomplete?q=a&commanders_only=true")
         self.assertEqual(res.json()["results"], [])
 
+    def test_commanders_only_fuzzy_fallback_rejects_non_commanders(self):
+        sol_ring = {
+            "id": "sol-ring-id", "oracle_id": "sol-ring-oid", "name": "Sol Ring",
+            "type_line": "Artifact", "oracle_text": "{T}: Add {C}{C}.",
+            "legalities": {"commander": "legal"}, "colors": [], "color_identity": [],
+            "keywords": [], "mana_cost": "{1}", "image_uris": {},
+        }
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/named"):
+                return Mock(status_code=200, headers={}, json=lambda: sol_ring)
+            return Mock(status_code=404, headers={}, json=lambda: {})
+
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            res = self.client.get("/api/cards/autocomplete?q=sol+ring&commanders_only=true")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["results"], [])
+
+    def test_commanders_only_fuzzy_fallback_accepts_can_be_your_commander_planeswalker(self):
+        elminster = {
+            "id": "elminster-id", "oracle_id": "elminster-oid", "name": "Elminster",
+            "type_line": "Legendary Planeswalker — Elminster",
+            "oracle_text": "Elminster can be your commander.",
+            "legalities": {"commander": "legal"}, "colors": ["W", "U"], "color_identity": ["W", "U"],
+            "keywords": [], "mana_cost": "{3}{W}{U}", "image_uris": {},
+        }
+
+        def fake_get(url, **kwargs):
+            if url.endswith("/cards/named"):
+                return Mock(status_code=200, headers={}, json=lambda: elminster)
+            return Mock(status_code=404, headers={}, json=lambda: {})
+
+        with patch.object(self.app_module.httpx, "get", side_effect=fake_get):
+            res = self.client.get("/api/cards/autocomplete?q=elmister&commanders_only=true")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual([r["name"] for r in res.json()["results"]], ["Elminster"])
+
     # -- cache policy ------------------------------------------------------
     def _scryfall_names(self, names):
         return Mock(status_code=200, json=lambda: {"data": names})
