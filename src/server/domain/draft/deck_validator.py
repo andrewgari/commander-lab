@@ -847,6 +847,7 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
     # 4. Banlist / legality. Unknown legality fails closed: a card whose record
     # carries no synced legality is flagged UNKNOWN_LEGALITY, never silently
     # legal (the COMMANDER_BANNED snapshot still applies as the fallback).
+    commander_keys = {normalize_name(c) for c in deck.commanders}
     banned_found, not_legal, unknown_legality = [], [], []
     for key, (display, _q) in counts.items():
         info = catalog.get(display)
@@ -858,7 +859,7 @@ def _check_deck(deck: DraftDeck, idx: int, catalog: CardCatalog,
         elif legality is None:
             if key in banned_keys:
                 banned_found.append(display)
-            elif info is not None:
+            elif info is not None and key not in commander_keys:  # a commander only needs to be viable
                 unknown_legality.append(display)
     if banned_found:
         errs.append(ValidationError(

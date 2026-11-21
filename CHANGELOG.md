@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tags, Decks, and Deck pages: stored tag, card, and deck values are now rendered as plain text or escaped attributes instead of raw HTML markup.
 
 ### Fixed
+- Brew: starting a brew with a legendary creature (e.g. Kaalia of the Vast) no longer fails with "cannot repair brew deck: ... is not Commander-legal (legality: None)"; a commander with no synced legality data is now accepted as long as it is eligible to be a commander.
+- Brew: starting a brew with a legal commander (e.g. Kaalia of the Vast) no longer fails with "cannot repair brew deck: ... is not Commander-legal (legality: None)" when the card record predates legality syncing.
 - Sync: a card whose Commander legality was missing from one deck's data no longer loses a legality it already had, which made brews with commanders like Kaalia of the Vast fail with "not Commander-legal (legality: None)". Cards still missing legality are logged; `scripts/backfill_commander_legality.py` fills them from Scryfall.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: editing a search no longer allows an earlier result to be selected; in Brew, pressing Enter while suggestions load selects the current result when available.
