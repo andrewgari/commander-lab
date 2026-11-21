@@ -1,0 +1,195 @@
+# Portainer Git stack on compute. See docs/COMPUTE_GITOPS_RECOVERY.md.
+services:
+  db:
+    image: commander-lab-db:pg17-vector0.8.2
+    pull_policy: never
+    container_name: commander-lab-db
+    restart: unless-stopped
+    shm_size: "256m"
+    stop_grace_period: 60s
+    # Never let the upstream entrypoint initialize a missing/empty PGDATA.
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -s /var/lib/postgresql/data/PG_VERSION ] || [ "$$(cat /var/lib/postgresql/data/PG_VERSION)" != 17 ]; then
+          echo 'Refusing to start: existing PostgreSQL 17 PGDATA is required' >&2
+          exit 1
+        fi
+        exec docker-entrypoint.sh postgres
+    environment:
+      POSTGRES_DB: commander_lab
+      POSTGRES_USER: commander_lab
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: /mnt/tower/appdata-compute/commander-lab/db-secrets/postgres_password
+        target: /run/secrets/postgres_password
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "commander-db-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  redis:
+    image: redis:alpine
+    container_name: commander-lab-redis
+    restart: unless-stopped
+    # Default Redis loads dump.rdb; do not silently start with an empty store.
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -s /data/dump.rdb ]; then
+          echo 'Refusing to start: existing Redis dump.rdb is required' >&2
+          exit 1
+        fi
+        exec docker-entrypoint.sh redis-server
+    volumes:
+      - type: bind
+        source: /mnt/tower/appdata-compute/commander-lab/redis
+        target: /data
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  app:
+    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:b9a19d4ff35736dc013d60372acba06205d17abda28948d343cbdfc2c73b848b}
+    container_name: commander-lab-app
+    restart: unless-stopped
+    ports:
+      - "8020:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the Portainer stack environment}
+      DATA_ACCESS_MODE: ${DATA_ACCESS_MODE:-readonly}
+      ARCHIDEKT_USERNAME: ${ARCHIDEKT_USERNAME:-}
+      ARCHIDEKT_SESSION: ${ARCHIDEKT_SESSION:-}
+      ARCHIDEKT_CSRF: ${ARCHIDEKT_CSRF:-}
+      ARCHIDEKT_TOKEN: ${ARCHIDEKT_TOKEN:-}
+      MOXFIELD_TOKEN: ${MOXFIELD_TOKEN:-}
+      MOXFIELD_USER_ID: ${MOXFIELD_USER_ID:-}
+      ARCHIDEKT_PHYSICAL_FOLDER_ID: ${ARCHIDEKT_PHYSICAL_FOLDER_ID:-588380}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      NOUS_API_KEY: ${NOUS_API_KEY:-}
+      INTERACTIONS_NIGHTLY_HOUR_UTC: ${INTERACTIONS_NIGHTLY_HOUR_UTC:-8}
+      INTERACTIONS_DISABLED: ${INTERACTIONS_DISABLED:-1}
+      ORACLE_URL: ${ORACLE_URL:-}
+      ORACLE_KEY: ${ORACLE_KEY:-}
+      ORACLE_TIMEOUT_S: ${ORACLE_TIMEOUT_S:-600}
+      FORGE_SIM_URL: ${FORGE_SIM_URL:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      CARD_IMAGE_CACHE_DIR: /data/card-images
+      PDF_SERVICE_URL: ${PDF_SERVICE_URL:-}
+    volumes:
+      - type: bind
+        source: /mnt/tower/appdata-compute/commander-lab/secrets
+        target: /run/commander-lab-secrets
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/tower/appdata-compute/commander-lab/data
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/tower/appdata-compute/commander-lab/auth
+        target: /app/.auth
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Fail closed before serving if this is the wrong, unmigrated, or inaccessible DB.
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        python - <<'PY'
+        import os
+        import sys
+        try:
+            from sqlalchemy import create_engine, text
+            from src.server.infra.db.config import normalize_url, PG_CONNECT_ARGS
+            engine = create_engine(normalize_url(os.environ['DATABASE_URL']),
+                                   connect_args={**PG_CONNECT_ARGS, 'connect_timeout': 5})
+            with engine.connect() as conn:
+                revisions = conn.execute(text('SELECT version_num FROM public.alembic_version')).scalars().all()
+                table = conn.execute(text("SELECT to_regclass('public.deck_intents') IS NOT NULL")).scalar_one()
+                database = conn.execute(text('SELECT current_database()')).scalar_one()
+            engine.dispose()
+            if revisions != ['a013_deck_intents'] or not table or database != 'commander_lab':
+                raise ValueError('unexpected schema')
+        except Exception:
+            print('Refusing to start: database connection or schema check failed', file=sys.stderr)
+            sys.exit(1)
+        PY
+        exec uvicorn src.server.app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  bracket-worker:
+    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:b9a19d4ff35736dc013d60372acba06205d17abda28948d343cbdfc2c73b848b}
+    container_name: commander-lab-bracket-worker
+    profiles: ["workers"]
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATA_ACCESS_MODE: ${DATA_ACCESS_MODE:-readonly}
+      BRACKET_EVAL_INTERVAL_S: ${BRACKET_EVAL_INTERVAL_S:-300}
+      BRACKET_EVAL_COMMANDERSALT: ${BRACKET_EVAL_COMMANDERSALT:-1}
+      INTERACTIONS_DISABLED: "1"
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ "$$DATA_ACCESS_MODE" != readwrite ]; then
+          echo 'Refusing to start bracket worker until readwrite mode is enabled' >&2
+          exit 1
+        fi
+        exec python -m src.server.domain.analytics.bracket_worker
+
+  web:
+    image: commander-lab-web:e8e69cd
+    profiles: ["web"]
+    pull_policy: never
+    container_name: commander-lab-web
+    restart: unless-stopped
+    ports:
+      - "8011:3000"
+    environment:
+      COMMANDER_API_URL: http://app:8000
+      PROTOCOL_HEADER: x-forwarded-proto
+      HOST_HEADER: x-forwarded-host
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+    external: true
+    name: commander-lab_pgdata
