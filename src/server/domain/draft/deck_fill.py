@@ -127,7 +127,9 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     cmd_info = catalog.get(commander)
     if cmd_info is None:
         raise ValueError(f"unknown commander {commander!r}; cannot determine colour identity")
-    if cmd_info.commander_legality != "legal":
+    # Missing legality (None) is not disqualifying: viability is decided by
+    # can_be_commander below; only an explicit ban / not_legal rejects.
+    if cmd_info.commander_legality in ("banned", "not_legal"):
         raise ValueError(f"commander {commander!r} is not Commander-legal "
                          f"(legality: {cmd_info.commander_legality})")
     if not cmd_info.can_be_commander:

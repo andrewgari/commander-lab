@@ -195,13 +195,11 @@ def test_commander_in_cards_or_sources_is_not_duplicated():
     assert out.count("Atraxa") == 1 and len(out) == 100
 
 
-def test_banned_or_unknown_legality_commander_rejected():
+def test_banned_commander_rejected():
     cat = build_catalog()
     cat.add(card("Banned Legend", "R", ("Creature",), ("Legendary",), legality="banned"))
-    cat.add(card("Unknown Legend", "R", ("Creature",), ("Legendary",), legality=None))
-    for bad in ("Banned Legend", "Unknown Legend"):
-        with pytest.raises(ValueError, match="legal"):
-            fill_deck(bad, [], None, cat, staples=STAPLES)
+    with pytest.raises(ValueError, match="legal"):
+        fill_deck("Banned Legend", [], None, cat, staples=STAPLES)
 
 
 def test_variant_type_commander_rejected_by_commander_slot_gate():
@@ -218,3 +216,12 @@ def test_eligible_scheme_commander_rejected_by_commander_slot_gate():
     cat.add(card("Scheme Commander", "W", ("Scheme",), ("Legendary",), text="can be your commander"))
     with pytest.raises(ValueError, match="commander slot"):
         fill_deck("Scheme Commander", [], None, cat, staples=STAPLES)
+
+
+def test_commander_with_unknown_legality_is_viable():
+    """A legendary creature whose record has no synced legality can still be brewed."""
+    import src.server.domain.draft.deck_validator as dv
+    from src.server.domain.draft.deck_fill import fill_deck
+    cat = dv.CardCatalog([dv.CardInfo(name="Kaalia of the Vast", color_identity=dv.parse_color_identity("RWB"),
+                                      types=("Creature",), supertypes=("Legendary",), commander_legality=None)])
+    assert fill_deck("Kaalia of the Vast", [], [], cat)[0] == "Kaalia of the Vast"
