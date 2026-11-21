@@ -73,3 +73,17 @@ def test_kaalia_with_legality_passes_deck_fill_check():
         fill_deck("Kaalia of the Vast", [], None, cat)
     except ValueError as e:
         assert "not Commander-legal" not in str(e)
+
+
+def _fill_with_legality(legality):
+    r = FakeRedis()
+    cards.upsert_card(r, _rec(legality))
+    info = CardInfo.from_record(cards.get_card(r, KAALIA))
+    return fill_deck("Kaalia of the Vast", [], None, CardCatalog([info]))
+
+
+def test_deck_fill_rejects_non_legal_commander():
+    import pytest
+    for bad in ("banned", "not_legal", "restricted"):
+        with pytest.raises(ValueError, match="not Commander-legal"):
+            _fill_with_legality(bad)
