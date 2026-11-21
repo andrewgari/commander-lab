@@ -28,8 +28,11 @@ must exclude UUID-shaped suffixes to avoid deleting these ORM records — see
 the guard in sync.py.
 """
 import json
+import logging
 import re
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
@@ -86,9 +89,32 @@ def upsert_card(r, record: dict) -> dict:
     if not name:
         raise ValueError("upsert_card requires record['name']")
 
+    # A payload that carries no legality (a printing/face without `legalities`)
+    # must not erase a legality a previous sync already learned.
+    if record.get("commander_legality") is None:
+        prior = get_card(r, oracle_id) or {}
+        if prior.get("commander_legality"):
+            record = {**record, "commander_legality": prior["commander_legality"]}
+        else:
+            log.warning("card %r (%s): commander legality missing; stored as None "
+                        "(run scripts/backfill_commander_legality.py)", name, oracle_id)
+
     pipe = r.pipeline()
     pipe.set(_card_key(oracle_id), json.dumps(record))
     pipe.set(_idx_name_key(name), oracle_id)
     pipe.execute()
 
     return record
+
+
+def commander_legality_of(payload: Optional[dict]) -> Optional[str]:
+    """Commander legality ("legal"/"banned"/"not_legal"/"restricted") from a
+    Scryfall/Archidekt-shaped card payload, or None when it carries none.
+    Tolerates key case and empty values."""
+    leg = (payload or {}).get("legalities")
+    if not isinstance(leg, dict):
+        return None
+    for key, val in leg.items():
+        if str(key).casefold() == "commander" and isinstance(val, str) and val.strip():
+            return val.strip().casefold()
+    return None
