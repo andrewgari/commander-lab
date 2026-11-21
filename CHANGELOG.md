@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Sync: a card whose Commander legality was missing from one deck's data no longer loses a legality it already had, which made brews with commanders like Kaalia of the Vast fail with "not Commander-legal (legality: None)". Cards still missing legality are logged; `scripts/backfill_commander_legality.py` fills them from Scryfall.
 - Brew: a commander whose color identity is given as a hybrid symbol (for example R/G) is no longer read as colorless.
 - Card search: the Can be commander picker no longer offers Backgrounds as a solo commander; partner searches still do.
 - Brew: the buy list shows card names instead of raw card ids.
