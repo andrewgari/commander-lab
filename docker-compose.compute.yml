@@ -65,7 +65,7 @@ services:
       retries: 6
 
   app:
-    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:b9a19d4ff35736dc013d60372acba06205d17abda28948d343cbdfc2c73b848b}
+    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:c9a797701d437e1dcd0760d26b6fcb6505b3cfc47bd7379b320e96ad62374b84}
     container_name: commander-lab-app
     restart: unless-stopped
     ports:
@@ -148,7 +148,7 @@ services:
       start_period: 30s
 
   bracket-worker:
-    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:b9a19d4ff35736dc013d60372acba06205d17abda28948d343cbdfc2c73b848b}
+    image: ghcr.io/andrewgari/commander-lab@${APP_IMAGE_DIGEST:-sha256:c9a797701d437e1dcd0760d26b6fcb6505b3cfc47bd7379b320e96ad62374b84}
     container_name: commander-lab-bracket-worker
     profiles: ["workers"]
     restart: unless-stopped
