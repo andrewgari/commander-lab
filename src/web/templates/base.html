@@ -97,7 +97,7 @@
                 <svg class="profile-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ nav_profile.icon|safe }}</svg>
                 <span class="profile-chip-label">{{ nav_profile.label }}</span>
             </a>
-            <a href="/changelog"><span id="app-version" class="version-badge" title="Commander Lab v{{ request.state.app_version }}">v{{ request.state.app_version }}</span></a>
+            <a href="/changelog"><span id="app-version" class="version-badge" title="Commander Lab v{{ request.state.app_version }}{% if request.state.app_build %} (build {{ request.state.app_build }}){% endif %}">v{{ request.state.app_version }}{% if request.state.app_build %} · {{ request.state.app_build }}{% endif %}</span></a>
         </div>
     </nav>
 

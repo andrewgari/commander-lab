@@ -19,6 +19,11 @@ RUN python /tmp/fetch_embedding_model.py && rm /tmp/fetch_embedding_model.py
 
 COPY . .
 
+# Commit this image was built from; shown next to the version so the UI reports
+# the running build, not just the latest published release.
+ARG APP_BUILD_SHA=
+ENV APP_BUILD_SHA=${APP_BUILD_SHA}
+
 EXPOSE 8000
 
 CMD ["uvicorn", "src.server.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -46,6 +46,14 @@ class TestAppVersion(unittest.TestCase):
         data = response.json()
         self.assertEqual(data.get("version"), version.__version__)
 
+    def test_build_sha_reported_in_api_and_badge(self):
+        """The running build's commit is exposed (short), so the UI shows what is deployed."""
+        with mock.patch.dict(os.environ, {"APP_BUILD_SHA": "ce030e42046cb5a89361ca3f93b7d5a56f204a7f"}):
+            self.assertEqual(self.client.get("/api/version").json().get("build"), "ce030e4")
+            self.assertIn("v" + version.__version__ + " · ce030e4", self.client.get("/").text)
+        with mock.patch.dict(os.environ, {"APP_BUILD_SHA": ""}):
+            self.assertEqual(self.client.get("/api/version").json().get("build"), "")
+
     def test_version_rendered_in_sidebar_persistent_ui(self):
         """Visible version number must be present in the persistent layout on web pages."""
         for path in ["/", "/decks", "/inventory", "/instances", "/tags"]:
