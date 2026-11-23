@@ -12,42 +12,29 @@ from __future__ import annotations
 import json
 from typing import Mapping, Optional
 
-from src.server.domain.review.doc import WRITER_SECTIONS
-from src.server.domain.llm.port import LLMNotConfigured
-from src.server.infra.llm.client import OracleClient
-
-SYSTEM_PROMPT = (
-    "You are the Commander Lab review writer. You explain a Commander deck "
-    "review to its owner. HARD RULES: (1) never compute or estimate a number — "
-    "every number you write must appear verbatim in the facts JSON; (2) never "
-    "name a card that is not in the facts JSON; (3) list every card you "
-    "reference in that section's `cards` array, spelled exactly as in the "
-    "facts; (4) judgment and prose only. Reply with exactly one fenced ```json "
-    "block: {\"sections\": {<section>: {\"text\": <prose, <=6 sentences>, "
-    "\"cards\": [<names>]}}} and nothing after it. Sections: "
-    + ", ".join(WRITER_SECTIONS) + "."
-)
-
+from src.server.domain.knowledge import build_messages
+from src.server.domain.llm.port import ChatClient, LLMNotConfigured
+from src.server.infra.llm.factory import build_chat_client
 
 class ReviewWriter:
     """Callable writer for pipeline.run: payload -> raw oracle reply text."""
 
-    def __init__(self, client: OracleClient):
+    def __init__(self, client: ChatClient):
         self.client = client
 
     @classmethod
     def from_env(cls) -> "ReviewWriter":
-        """Build from ORACLE_URL/ORACLE_KEY; raises OracleNotConfigured."""
-        return cls(OracleClient.from_env())
+        """Build from the OpenRouter env (task "review_writer"); raises LLMNotConfigured."""
+        return cls(build_chat_client("review_writer"))
 
     def __call__(self, payload: Mapping) -> str:
         facts = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-        prompt = (
-            "Explain this Commander deck review. Facts (verified, complete):\n"
-            f"```json\n{facts}\n```\n"
-            "Write the sections now, following the rules."
+        messages, _ = build_messages(
+            "review_writer",
+            facts_json="Facts (verified, complete):\n```json\n" + facts + "\n```",
+            user_text="Write the sections now, following the rules.",
         )
-        return self.client.ask(prompt, system=SYSTEM_PROMPT)
+        return self.client.chat(messages)
 
 
 def default_writer() -> Optional[ReviewWriter]:
