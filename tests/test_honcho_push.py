@@ -44,14 +44,13 @@ def test_missing_key_fails_before_network(tmp_path, monkeypatch):
     monkeypatch.delenv("HONCHO_API_KEY", raising=False)
     monkeypatch.setattr(honcho_push.urllib.request, "urlopen", lambda *a, **k: pytest.fail("network called"))
     with pytest.raises(honcho_push.HonchoConfigError, match="set HONCHO_API_KEY"):
-        honcho_push.push_profile({"peer_card": ["x"]}, config_path=config, env_path=env)
+        honcho_push.push_profile({"peer_card": ["x"]}, config_path=config)
 
 
-def test_push_uses_dotenv_key_and_targets_oracle(tmp_path, monkeypatch):
+def test_push_uses_env_key_and_targets_oracle(tmp_path, monkeypatch):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"enabled": True, "workspace": "oracle", "base_url": "http://localhost:8100"}))
-    env = tmp_path / ".env"
-    env.write_text("HONCHO_API_KEY=stub-secret\n")
+    monkeypatch.setenv("HONCHO_API_KEY", "stub-secret")
     seen = []
 
     class Response:
@@ -67,7 +66,7 @@ def test_push_uses_dotenv_key_and_targets_oracle(tmp_path, monkeypatch):
         return Response()
 
     monkeypatch.setattr(honcho_push.urllib.request, "urlopen", capture)
-    result = honcho_push.push_profile({"peer_card": ["Plays patiently"]}, config_path=config, env_path=env)
+    result = honcho_push.push_profile({"peer_card": ["Plays patiently"]}, config_path=config)
     assert result == {"workspace": "oracle", "observed": "oracle", "peer_card_lines": 1}
     assert seen[0].full_url == "http://localhost:8100/v3/workspaces/oracle/peers/oracle/card"
     assert seen[0].get_header("Authorization") == "Bearer stub-secret"
@@ -82,7 +81,6 @@ def test_cli_missing_key_exits_cleanly_with_actionable_message(tmp_path, monkeyp
     profile = _write_profile(tmp_path)
     monkeypatch.delenv("HONCHO_API_KEY", raising=False)
     monkeypatch.setattr(honcho_push, "CONFIG_FILE", config)
-    monkeypatch.setattr(honcho_push, "ENV_FILE", env)
     monkeypatch.setattr(honcho_push.urllib.request, "urlopen", lambda *a, **k: pytest.fail("network called"))
     before = sorted(p.name for p in tmp_path.iterdir())
 
@@ -92,7 +90,7 @@ def test_cli_missing_key_exits_cleanly_with_actionable_message(tmp_path, monkeyp
     assert code == 1
     assert "Traceback" not in out + err
     assert "HONCHO_API_KEY" in err
-    assert str(env) in err
+    assert "process environment" in err
     assert sorted(p.name for p in tmp_path.iterdir()) == before  # zero disk side effects
 
 
@@ -101,7 +99,6 @@ def test_cli_disabled_flag_exits_cleanly_with_actionable_message(tmp_path, monke
     config.write_text(json.dumps({"enabled": False}))
     profile = _write_profile(tmp_path)
     monkeypatch.setattr(honcho_push, "CONFIG_FILE", config)
-    monkeypatch.setattr(honcho_push, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(honcho_push.urllib.request, "urlopen", lambda *a, **k: pytest.fail("network called"))
     before = sorted(p.name for p in tmp_path.iterdir())
 
