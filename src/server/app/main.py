@@ -126,6 +126,7 @@ async def github_sync_middleware(request: Request, call_next):
             version = __version__
             
     request.state.app_version = version
+    request.state.app_build = (os.getenv("APP_BUILD_SHA") or "")[:7]
     return await call_next(request)
 
 import src.server.infra.cache.route_cache as route_cache
@@ -513,7 +514,8 @@ async def deck_manage_view(request: Request, deck_name: str):
 @app.get("/api/version")
 async def get_version(request: Request):
     """Return the application version information."""
-    return {"version": getattr(request.state, "app_version", "unknown")}
+    return {"version": getattr(request.state, "app_version", "unknown"),
+            "build": getattr(request.state, "app_build", "")}
 
 
 
