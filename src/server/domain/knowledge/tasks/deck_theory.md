@@ -23,14 +23,20 @@ Exception to "never compute a number": for this task you write `buy_total.total_
 9. **Deterministic.** Follow the steps in order and sort as specified.
 
 ### Steps
-1. **Read the deck.** Note the colour identity, the Journal thesis/pillars, and the pets.
-2. **Theme thesis.** Write a one-sentence thesis that fuses the theme with the deck's spirit, and 3-5 pillars (name + one line). If the theme fights the commander and mode is `open`, decide on a swap now (rule 4). If mode is `keep`, bend the theme to the commander.
-3. **Shape.** Aim for the template in "## Mana math": its land, ramp, card advantage, targeted disruption, mass disruption and plan-card counts. Deviate only with a reason.
+1. **Read the deck.** Note the colour identity, the Journal thesis/pillars, and the pets. Classify lands from `type_line`, not from the name (some cards with place names are creatures). If the decklist arrives truncated, say so in the prose, build only from entries you can read, and never invent the missing ones. Write down each card's role in one line as you go.
+2. **Theme thesis.** Write a one-sentence thesis that fuses the theme with the deck's spirit, and 3-5 pillars (name + one line). If the theme fights the commander and mode is `open`, decide on a swap now (rule 4). If mode is `keep`, bend the theme to the commander. A theme naming fewer colours than the deck runs (e.g. "bant" on a five-colour commander) does not force a swap: first check what the narrower commander would push out of identity. If that is Journal pillar cards, keep the commander, put the narrower legend in the 99 as a payoff, and name the trade-off in one line of the prose.
+3. **Shape.** Aim for the template in "## Mana math": its land, ramp, card advantage, targeted disruption, mass disruption and plan-card counts. Deviate only with a reason (a cheat commander such as Kaalia can go below the land template because the payload is not hard-cast; say so). Ask which role the deck is built for (beatdown or control) and whether its counts fit it; aim for at least 7 cards that win or push the main plan, since a lone finisher may never show up.
 4. **Fill from the pool, in order** (rule 2): keep every deck card that serves the new thesis or a template slot; then free agents; then buys under the cap. Prefer a pillar card over a stronger off-plan card. Keep the pets (rule 5).
+   - For a tribal theme, check each buy's `type_line` in FACTS before it counts toward the tribe (a menacing card that feels on-theme is often another type). A theme card that also fills a template slot goes in that slot's group, so the pillar group is not padded. If the tribe is off the commander's type line, bridge with changelings or type-granting cards rather than swapping to a weak on-tribe legend that loses colours and pets.
+   - Read each buy's rules text for off-colour symbols in activated or triggered costs: they count toward colour identity.
+   - Prefer theme cards that also meet the commander's trigger condition, so each serves both theme and engine.
+   - Keep the Journal's pillar names verbatim and add the theme pillar(s) alongside them; if you split a pillar out, say in the prose it can merge back.
+   - In an already saturated theme, cut first the cards that touch neither theme nor Journal pillars (generic mono-colour ramp, rocks, unsupported sub-themes), then wipes that kill your own plan, keeping a theme-sided wipe.
+   - If the most impactful buy is over the soft cap, give it a `why` and state in the prose what the buy total drops to without it. `hard_cap` and `soft_cap` are per-card limits, not a total budget: report the total as a plain number and never call it "over the cap".
 5. **Cuts.** Every deck card you didn't keep, with a one-line `reason`.
 6. **Buy total.** Sum the buys' USD prices from FACTS (the app re-checks it).
 7. **Table health.** Apply "## Salt and table health" to the new list; flag salty/feel-bad cards (rule 7).
-8. **Emit** the JSON.
+8. **Count, then emit.** Sum qty per group and the total before writing the JSON; it must be exactly 100 (off-by-one usually comes from basics with qty > 1 or a card filed twice). Check that kept nonlands plus cuts equal the original nonland count, and that buys equal cuts (lands and nonlands each balanced). Append a `notes` section with `bracket`, `game_changers[]` and a short `notes` line so the table-health summary lives in the doc.
 
 ### Sections (v1), in this order
 | type | data |

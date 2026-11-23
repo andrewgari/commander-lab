@@ -1,7 +1,7 @@
 """
 TH-2 Theory: thematic overhaul docs written by oracle (docs/THEORY_SPEC.md, docs/THEORY.md).
 
-Flow: build_request() -> oracle (skill `deck-theory`) -> parse_reply() -> TheoryDoc
+Flow: build_request() -> oracle (knowledge pack task `theory`) -> parse_reply() -> TheoryDoc
 (pydantic) -> verify() -> store(). Theory never touches the decklist or the Journal.
 
 Doc (schema_version "1"):
@@ -70,12 +70,8 @@ MAX_INFLIGHT = 2
 _INFLIGHT: Dict[str, str] = {}  # deck_id -> job_id
 _INFLIGHT_LOCK = threading.Lock()
 
-SKILL_NAME = "deck-theory"
-SYSTEM_PROMPT = (
-    "Commander Lab request. Load and follow your `deck-theory` skill exactly "
-    "(skill_view name='deck-theory'). Reply with prose of at most 15 lines, then exactly one "
-    "fenced ```json block matching theory.schema.json. Nothing after it."
-)
+TASK = "theory"
+OFFLINE_MESSAGE = "oracle offline, try again later"
 
 
 class TheoryError(ValueError):
@@ -221,7 +217,7 @@ def _filter_identity(r, names: List[str], colors: str) -> List[str]:
 
 
 def build_request(r, deck: Mapping, theme: str, commander_mode: str, owned: Optional[Mapping] = None) -> dict:
-    """The input payload the deck-theory skill expects."""
+    """The input payload the theory task expects."""
     from . import identity
 
     theme = (theme or "").strip()
@@ -270,6 +266,15 @@ def build_request(r, deck: Mapping, theme: str, commander_mode: str, owned: Opti
 def request_prompt(req: Mapping) -> str:
     return ("deck-theory request (JSON). Build the overhaul doc for this input.\n\n```json\n"
             + json.dumps(req, ensure_ascii=False, indent=1) + "\n```")
+
+
+def build_chat_messages(req: Mapping) -> list:
+    from src.server.domain.knowledge import build_messages
+
+    messages, _pack_id = build_messages(
+        TASK, facts_json=request_prompt(req),
+        user_text="Build the overhaul doc per the task above, ending with exactly ONE fenced ```json block matching the schema.")
+    return messages
 
 
 # ---------------------------------------------------------------------------
@@ -818,8 +823,7 @@ def generate(r, deck: Mapping, theme: str, commander_mode: str, client, *, looku
 
     owned = _owned(r)
     req = build_request(r, deck, theme, commander_mode, owned=owned)
-    reply = client.chat([{"role": "system", "content": SYSTEM_PROMPT},
-                         {"role": "user", "content": request_prompt(req)}])
+    reply = client.chat(build_chat_messages(req))
     raw = parse_reply(reply)
     now = now or _now_iso()
     # The app owns identity fields; oracle's values are ignored.
@@ -854,7 +858,6 @@ def load_job(r, job_id: str) -> Optional[dict]:
 
 
 def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any], **kw) -> dict:
-    from .oracle_client import OFFLINE_MESSAGE
     from src.server.domain.llm.port import LLMError, LLMUnavailable
 
     job.update(status="running", started_at=_now_iso())

@@ -2,7 +2,7 @@
 PS-6: Oracle makes the final deck personality call, with rulebook, CommanderSalt,
 combos, engines, and journal as evidence.
 
-Flow: build_request() -> oracle (skill `personality-read`) -> parse_reply() ->
+Flow: build_request() -> oracle (knowledge pack task `personality_read`) -> parse_reply() ->
 PersonalityReadDoc (pydantic) -> store_read().
 
 Copies the Theory async job pattern (queue / status / poll).
@@ -36,12 +36,8 @@ MAX_INFLIGHT = 2
 _INFLIGHT: Dict[str, str] = {}  # deck_id -> job_id
 _INFLIGHT_LOCK = threading.Lock()
 
-SKILL_NAME = "personality-read"
-SYSTEM_PROMPT = (
-    "Commander Lab request. Load and follow your `personality-read` skill exactly "
-    "(skill_view name='personality-read'). Reply with prose of at most 15 lines, then exactly one "
-    "fenced ```json block matching personality-read.schema.json. Nothing after it."
-)
+TASK = "personality_read"
+OFFLINE_MESSAGE = "oracle offline, try again later"
 
 
 class PersonalityReadError(ValueError):
@@ -381,13 +377,21 @@ def build_payload(r, deck: Mapping) -> dict:
 
 
 def request_prompt(payload: Mapping[str, Any]) -> str:
-    """Format payload into the user prompt for Oracle."""
+    """The FACTS block: the deck evidence from Commander Lab as fenced JSON."""
     return (
         f"Deck Personality Read request for '{payload.get('deck_name')}' ({payload.get('deck_id')}).\n\n"
-        "Here is the deck evidence from Commander Lab (rulebook scores, CommanderSalt, combos, engines, journal, and Game Changers):\n\n"
-        f"```json\n{json.dumps(payload, indent=2)}\n```\n\n"
-        "Please provide your expert personality read per the `personality-read` skill, ending with exactly ONE fenced ```json block matching personality-read.schema.json."
+        "Deck evidence from Commander Lab (rulebook scores, Commander Salt, combos, engines, journal, and Game Changers):\n\n"
+        f"```json\n{json.dumps(payload, indent=2)}\n```"
     )
+
+
+def build_chat_messages(payload: Mapping[str, Any]) -> list:
+    from src.server.domain.knowledge import build_messages
+
+    messages, _pack_id = build_messages(
+        TASK, game_changers=payload.get("game_changers"), facts_json=request_prompt(payload),
+        user_text="Give the personality read per the task above, ending with exactly ONE fenced ```json block matching the schema.")
+    return messages
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +495,6 @@ def new_job(r, deck: Mapping) -> dict:
 
 
 def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> dict:
-    from .oracle_client import OFFLINE_MESSAGE
     from src.server.domain.llm.port import LLMError, LLMUnavailable
 
     rid = job["deck_id"]
@@ -500,11 +503,7 @@ def run_job(r, job: dict, deck: Mapping, client_factory: Callable[[], Any]) -> d
         _save_job(r, job)
         payload = build_payload(r, deck)
         client = client_factory()
-        prompt = request_prompt(payload)
-        reply = client.chat([
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ])
+        reply = client.chat(build_chat_messages(payload))
         raw_data = parse_reply(reply)
         raw_data["deck_id"] = rid
         doc = validate_doc(raw_data)

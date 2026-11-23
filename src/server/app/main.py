@@ -4377,14 +4377,14 @@ async def api_deck_personality_read(deck_id: str, request: Request):
     except personality_read.PersonalityReadError as exc:
         return _bad_request(exc)
 
-    offline = await asyncio.to_thread(_oracle_preflight)
+    offline = await asyncio.to_thread(_oracle_preflight, "personality_read")
     if offline is not None:
         personality_read.release(job["deck_id"], job["job_id"])
         await asyncio.to_thread(r.delete, personality_read.job_key(job["job_id"]))
         return offline
 
     try:
-        personality_read.start_job(r, job, deck, _oracle_client)
+        personality_read.start_job(r, job, deck, lambda: _oracle_client("personality_read"))
     except Exception:
         personality_read.release(job["deck_id"], job["job_id"])
         raise
@@ -4987,10 +4987,11 @@ async def api_deck_tune_apply(deck_id: str, request: Request):
 THEORY_PREFLIGHT_TIMEOUT_S = 8.0
 
 
-def _oracle_client():
-    from src.server.domain.analytics.oracle_client import OracleClient
+def _oracle_client(task: str = "theory"):
+    """OpenRouter chat client for a task (infra.llm.factory.build_chat_client). Raises LLMNotConfigured."""
+    from src.server.infra.llm.factory import build_chat_client
 
-    return OracleClient.from_env()
+    return build_chat_client(task)
 
 
 def _oracle(task: str):
@@ -5057,27 +5058,19 @@ def _review_tool_ctx(r_, deck, metrics):
 
 
 def _oracle_offline(detail: str = ""):
-    from src.server.domain.analytics.oracle_client import OFFLINE_MESSAGE
-
-    body = {"success": False, "error": OFFLINE_MESSAGE, "error_kind": "oracle_offline"}
+    body = {"success": False, "error": "oracle offline, try again later", "error_kind": "oracle_offline"}
     if detail:
         body["detail"] = detail
     return JSONResponse(status_code=503, content=body)
 
 
-def _oracle_preflight() -> Optional[JSONResponse]:
-    """Fail fast (503) when oracle is not configured or not answering /v1/models."""
-    from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
+def _oracle_preflight(task: str = "theory") -> Optional[JSONResponse]:
+    """Fail fast (503) when OpenRouter is not configured for the task. No network call."""
+    from src.server.domain.llm.port import LLMUnavailable
 
     try:
-        client = _oracle_client()
-        client.timeout = THEORY_PREFLIGHT_TIMEOUT_S
-        client.models()
-    except LLMUnavailable as exc:
-        return _oracle_offline(exc.detail)
-    except LLMAuthError:
-        return _oracle_offline("oracle rejected the API key")
-    except LLMError as exc:
+        _oracle_client(task)
+    except LLMUnavailable as exc:  # includes LLMNotConfigured
         return _oracle_offline(str(exc)[:200])
     return None
 
@@ -5115,12 +5108,12 @@ async def api_genres_autofill(request: Request):
     theme = " ".join(theme.split())
     if not theme or len(theme) > genres_mod.MAX_NAME:
         return _bad_request(genres_mod.GenreError(f"Give a theme name (1-{genres_mod.MAX_NAME} characters)."))
-    offline = await asyncio.to_thread(_oracle_preflight)
+    offline = await asyncio.to_thread(_oracle_preflight, "genre_autofill")
     if offline is not None:
         return offline
 
     def _ask() -> str:
-        client = _oracle_client()
+        client = _oracle_client("genre_autofill")
         client.timeout = GENRE_AUTOFILL_TIMEOUT_S
         return client.ask(genres_mod.autofill_prompt(theme), system=genres_mod.AUTOFILL_SYSTEM)
 
@@ -5560,7 +5553,7 @@ async def _oracle_call(fn):
     from src.server.domain.llm.port import LLMAuthError, LLMError, LLMUnavailable
 
     def _run():
-        client = _oracle_client()
+        client = _oracle_client("deck_writeup")
         client.timeout = GENRE_AUTOFILL_TIMEOUT_S
         return fn(lambda system, user: client.ask(user, system=system))
 
@@ -5600,7 +5593,7 @@ async def _deck_writeup(deck_id: str, request: Request, kind: str):
         missing = deck_writeup.missing_required(deck_writeup.clean_form(form)) if _form_ok(form) else []
         if missing:
             return _bad_request(ValueError(f"Fill in: {', '.join(missing)}."), 422)
-    offline = await asyncio.to_thread(_oracle_preflight)
+    offline = await asyncio.to_thread(_oracle_preflight, "deck_writeup")
     if offline is not None:
         return offline
     ctx = await asyncio.to_thread(_writeup_context, deck, meta, bracket_hint)
@@ -6364,13 +6357,13 @@ async def api_theory_generate(deck_id: str, request: Request):
                             content={"success": False, "error": str(exc), "error_kind": "busy"})
     except theory_mod.TheoryError as exc:
         return _bad_request(exc)
-    offline = await asyncio.to_thread(_oracle_preflight)
+    offline = await asyncio.to_thread(_oracle_preflight, "theory")
     if offline is not None:
         theory_mod.release(job["deck_id"], job["job_id"])
         r.delete(theory_mod.job_key(job["job_id"]))
         return offline
     try:
-        theory_mod.start_job(r, job, deck, _oracle_client)
+        theory_mod.start_job(r, job, deck, lambda: _oracle_client("theory"))
     except Exception:
         theory_mod.release(job["deck_id"], job["job_id"])
         raise

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Personality Read, Theory, genre autofill and deck write-ups now run on OpenRouter instead of the Hermes oracle service; when no OpenRouter key is configured they report "oracle offline" immediately instead of pinging a server.
 - Interactions analytics: LLM labelling now runs only through OpenRouter (`OPENROUTER_API_KEY`, model override `LLM_MODEL_INTERACTIONS`); the Nous/Hermes-4 and Gemini fallbacks were removed. Forge recorder Honcho sync reads `HONCHO_API_KEY` from the process environment only.
 - The version badge and `/api/version` now also show the commit of the running build, so you can tell which build is deployed rather than just the latest release.
 - Deep Review: the bracket and power level the review checks now include Commander Spellbook combos and your deck's power estimate, matching the deck page.

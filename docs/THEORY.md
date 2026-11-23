@@ -3,20 +3,17 @@
 Spec: `docs/THEORY_SPEC.md`. Code: `analytics/theory.py`, routes in `app.py` (section "Theory").
 Tests: `tests/test_theory.py` (oracle always mocked). The UI is TH-3.
 
-## Oracle skill
+## Prompt
 
-`deck-theory` lives in oracle's profile on the Framework:
-`~/.hermes/profiles/oracle/skills/mtg/deck-theory/` (`SKILL.md` + `references/theory.schema.json`).
-A copy is kept in this repo at `docs/oracle/deck-theory/` so the contract test can check that the
-skill's example still validates against `TheoryDoc`. **Edit both together**: change the profile
-copy, then `cp -r ~/.hermes/profiles/oracle/skills/mtg/deck-theory docs/oracle/`.
-Oracle's SOUL and toolsets are untouched; the skill only needs `skills` + `web` (both already on
-`api_server`).
+The prompt is the knowledge-pack task `theory` (`src/server/domain/knowledge/tasks/deck_theory.md`
+plus the shared rules, Brackets, Mana math and Salt sections and `schemas/theory.schema.json`),
+sent to OpenRouter through `infra/llm/factory.build_chat_client("theory")`. No Hermes skill is
+involved. Edit the task `.md` to change the rubric.
 
-The app sends a system message ("load and follow `deck-theory`") and one user message with the
-request JSON: commander(s), colour identity, the 100, Journal (thesis, pillars, pet_cards),
-`free_agent_owned` (owned cards with a copy in no deck; colour-filtered in keep mode), caps,
-theme and `commander_mode`. Oracle replies with prose + one fenced json block.
+The user message carries the request JSON: commander(s), colour identity, the 100, Journal
+(thesis, pillars, pet_cards), `free_agent_owned` (owned cards with a copy in no deck;
+colour-filtered in keep mode), caps, theme and `commander_mode`. The model replies with prose +
+one fenced json block.
 
 ## Doc
 
