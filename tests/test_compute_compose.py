@@ -78,7 +78,7 @@ def test_images_ports_and_health_order(config):
     services = config["services"]
     assert all("build" not in service for service in services.values())
     for name in ("app", "bracket-worker"):
-        assert services[name]["image"] == "ghcr.io/andrewgari/commander-lab@sha256:b9a19d4ff35736dc013d60372acba06205d17abda28948d343cbdfc2c73b848b"
+        assert services[name]["image"] == "ghcr.io/andrewgari/commander-lab@sha256:c9a797701d437e1dcd0760d26b6fcb6505b3cfc47bd7379b320e96ad62374b84"
     assert services["app"]["environment"]["INTERACTIONS_DISABLED"] == "1"
     assert services["app"]["environment"]["DATA_ACCESS_MODE"] == "readonly"
     assert services["bracket-worker"]["profiles"] == ["workers"]
