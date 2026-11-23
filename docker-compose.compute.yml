@@ -26,7 +26,7 @@ services:
         source: pgdata
         target: /var/lib/postgresql/data
       - type: bind
-        source: /mnt/tower/appdata-compute/commander-lab/db-secrets/postgres_password
+        source: ${COMMANDER_LAB_DATA_ROOT:-/mnt/tower/appdata-compute/commander-lab}/db-secrets/postgres_password
         target: /run/secrets/postgres_password
         read_only: true
         bind:
@@ -54,7 +54,7 @@ services:
         exec docker-entrypoint.sh redis-server
     volumes:
       - type: bind
-        source: /mnt/tower/appdata-compute/commander-lab/redis
+        source: ${COMMANDER_LAB_DATA_ROOT:-/mnt/tower/appdata-compute/commander-lab}/redis
         target: /data
         bind:
           create_host_path: false
@@ -95,18 +95,18 @@ services:
       PDF_SERVICE_URL: ${PDF_SERVICE_URL:-}
     volumes:
       - type: bind
-        source: /mnt/tower/appdata-compute/commander-lab/secrets
+        source: ${COMMANDER_LAB_DATA_ROOT:-/mnt/tower/appdata-compute/commander-lab}/secrets
         target: /run/commander-lab-secrets
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/tower/appdata-compute/commander-lab/data
+        source: ${COMMANDER_LAB_DATA_ROOT:-/mnt/tower/appdata-compute/commander-lab}/data
         target: /data
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/tower/appdata-compute/commander-lab/auth
+        source: ${COMMANDER_LAB_DATA_ROOT:-/mnt/tower/appdata-compute/commander-lab}/auth
         target: /app/.auth
         read_only: true
         bind:
