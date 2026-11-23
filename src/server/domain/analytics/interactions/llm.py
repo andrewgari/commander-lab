@@ -250,6 +250,15 @@ class GeminiProvider(LLMTagProvider):
         return _parse_json(text), usage
 
 
+_client_factory = None
+
+
+def set_client_factory(factory) -> None:
+    """App layer injects build_chat_client(role, env) (domain must not import infra)."""
+    global _client_factory
+    _client_factory = factory
+
+
 class OpenRouterProvider(LLMTagProvider):
     """OpenRouter via the shared infra/llm layer (build_chat_client("interactions"))."""
 
@@ -268,8 +277,9 @@ class OpenRouterProvider(LLMTagProvider):
                 self._client = None
 
     def _build(self):
-        from src.server.infra.llm.factory import build_chat_client
-        return build_chat_client("interactions", self._env)
+        if _client_factory is None:
+            raise LLMNotConfigured("openrouter: no chat client factory injected")
+        return _client_factory("interactions", self._env)
 
     @property
     def name(self) -> str:

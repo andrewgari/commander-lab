@@ -338,6 +338,11 @@ class TestLLMPass(unittest.TestCase):
 
 
 class TestProviders(unittest.TestCase):
+    def setUp(self):
+        from src.server.infra.llm.factory import build_chat_client
+        llm_mod.set_client_factory(build_chat_client)
+        self.addCleanup(llm_mod.set_client_factory, None)
+
     def test_keys_can_come_from_a_secrets_dir(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
