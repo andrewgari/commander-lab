@@ -78,7 +78,8 @@ def test_images_ports_and_health_order(config):
     services = config["services"]
     assert all("build" not in service for service in services.values())
     for name in ("app", "bracket-worker"):
-        assert services[name]["image"] == "ghcr.io/andrewgari/commander-lab@sha256:c9a797701d437e1dcd0760d26b6fcb6505b3cfc47bd7379b320e96ad62374b84"
+        assert services[name]["image"] == "ghcr.io/andrewgari/commander-lab:latest"
+        assert services[name]["pull_policy"] == "always"
     assert services["app"]["environment"]["INTERACTIONS_DISABLED"] == "1"
     assert services["app"]["environment"]["DATA_ACCESS_MODE"] == "readonly"
     assert services["bracket-worker"]["profiles"] == ["workers"]
@@ -127,12 +128,9 @@ def test_optional_endpoints_and_secret_interpolation(config):
     assert app_env["DATABASE_URL"] == TEST_URL
     assert app_env["ORACLE_URL"] == app_env["FORGE_SIM_URL"] == ""
     assert app_env["ORACLE_KEY"] == app_env["OPENROUTER_API_KEY"] == ""
-    digest = "sha256:" + "a" * 64
-    result = render(APP_IMAGE_DIGEST=digest, ORACLE_URL="https://oracle.example", FORGE_SIM_URL="https://forge.example")
+    result = render(ORACLE_URL="https://oracle.example", FORGE_SIM_URL="https://forge.example")
     assert result.returncode == 0, result.stderr
     services = json.loads(result.stdout)["services"]
-    assert services["app"]["image"].endswith("@" + digest)
-    assert services["bracket-worker"]["image"].endswith("@" + digest)
     assert services["app"]["environment"]["FORGE_SIM_URL"] == "https://forge.example"
     assert services["app"]["environment"]["ORACLE_URL"] == "https://oracle.example"
     result = render(DATA_ACCESS_MODE="readwrite")

@@ -30,10 +30,10 @@ compute stack 141 was lost. This file alone does not deploy or restore it.
 - The local images `commander-lab-db:pg17-vector0.8.2` and
   `commander-lab-web:e8e69cd` must already exist on compute. They are not pulled
   or built. App and worker use the public prebuilt
-  `ghcr.io/andrewgari/commander-lab` at a digest pinned to the tested app
-  revision. Select a compatible `APP_IMAGE_DIGEST` in the stack environment for
-  future updates, after reviewing migrations and compatibility with the local
-  web image.
+  `ghcr.io/andrewgari/commander-lab:latest` with `pull_policy: always`, so a
+  stack redeploy picks up the newest `main` build (CI publishes `latest` and
+  `sha-<short>` on every push to `main`). Review migrations and compatibility
+  with the local web image before redeploying.
   No service has a build definition; the Portainer Agent build path is broken.
 
 ## Portainer settings and secrets
