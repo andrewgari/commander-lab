@@ -12,6 +12,7 @@ Fixture doc: tests/fixtures/theory_doc_holy_hellfire.json (the real TH-2 prod do
 """
 import copy
 import json
+import os
 import re
 import unittest
 from pathlib import Path
@@ -25,7 +26,7 @@ from jinja2 import Environment, FileSystemLoader
 
 import src.server.app.main as app_mod
 from src.server.domain.analytics import theory, theory_view
-from src.server.domain.analytics.oracle_client import OracleClient
+from src.server.infra.llm.openrouter_chat import OpenRouterChat
 from tests.test_deck_stats_ui import DECK, HUD_CSS, INVENTORY, _classes, _DeckPage, _page_style
 from tests.test_theory import FakeRedis
 
@@ -489,11 +490,8 @@ class TestPageEdges(unittest.TestCase):
         self.assertEqual(self.client.delete(f"/api/decks/{RID}/theory/a49befd418ad").status_code, 200)
         self.assertIn("No theories yet", self.client.get("/deck/Holy%20Hellfire/ideas").text)
 
-    def test_generate_oracle_offline_is_the_friendly_503(self):
-        def refused(request):
-            raise httpx.ConnectError("refused")
-        down = OracleClient("http://oracle.test", "k", transport=httpx.MockTransport(refused))
-        with patch.object(app_mod, "_oracle_client", lambda: down):
+    def test_generate_not_configured_is_the_friendly_503(self):
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "", "INTERACTIONS_SECRETS_DIR": "/nonexistent"}):
             res = self.client.post(f"/api/decks/{RID}/theory", json={"theme": "dragons", "commander_mode": "keep"})
         self.assertEqual(res.status_code, 503)
         self.assertEqual(res.json()["error"], "oracle offline, try again later")

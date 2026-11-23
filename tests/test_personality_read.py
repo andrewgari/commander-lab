@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from src.server.domain.analytics import personality_read
-from src.server.domain.analytics.oracle_client import OracleUnavailable
+from src.server.domain.llm.port import LLMUnavailable
 from src.server.app.main import app
 
 
@@ -52,13 +52,13 @@ class FakeOracleClient:
 
     def models(self):
         if self.fail:
-            raise OracleUnavailable(self.fail_detail)
+            raise LLMUnavailable(self.fail_detail)
         return ["oracle"]
 
     def chat(self, messages, **kw):
         self.calls.append(messages)
         if self.fail:
-            raise OracleUnavailable(self.fail_detail)
+            raise LLMUnavailable(self.fail_detail)
         return self.reply_content
 
 
@@ -171,6 +171,14 @@ class TestPayloadBuilder(unittest.TestCase):
         prompt = personality_read.request_prompt(payload)
         self.assertIn("Deck Personality Read request for 'Test'", prompt)
         self.assertIn("```json", prompt)
+
+    def test_chat_messages_use_the_knowledge_pack_not_a_skill(self):
+        msgs = personality_read.build_chat_messages({"deck_name": "Test", "deck_id": "test:1", "game_changers": []})
+        system = "".join(p["text"] for p in msgs[0]["content"])
+        self.assertIn("Task: Deck Personality Read", system)
+        self.assertIn("Spike is NOT the absence of flavor", system)
+        self.assertNotIn("skill_view", system + msgs[1]["content"])
+        self.assertIn("Deck Personality Read request for 'Test'", msgs[1]["content"])
 
 
 class TestSchemaValidation(unittest.TestCase):

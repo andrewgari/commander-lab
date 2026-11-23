@@ -31,7 +31,7 @@ No new DB. Docs can be deleted from the UI. No editing in v1.
 
 ## Generation
 App → oracle API server (Framework, OpenAI-compatible /v1/chat/completions, oracle key), with a
-new oracle skill `deck-theory` (fixed rubric + JSON schema). The app validates the schema and
+knowledge-pack task `theory` (fixed rubric + JSON schema). The app validates the schema and
 checks the facts afterward: card legality/color identity, kept/owned/buy tags against the real
 instance registry, and prices recomputed from Scryfall. Oracle's claims are never trusted for
 ownership or price. Async job with a status poll (30s–minutes). If oracle is unreachable → show

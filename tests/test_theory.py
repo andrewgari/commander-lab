@@ -17,7 +17,8 @@ import httpx
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.server.domain.analytics import theory  # noqa: E402
-from src.server.domain.analytics.oracle_client import OracleClient, OracleUnavailable  # noqa: E402
+from src.server.domain.llm.port import LLMUnavailable  # noqa: E402
+from src.server.infra.llm.openrouter_chat import OpenRouterChat  # noqa: E402
 from tests.test_interactions import FakeRedis as _BaseFakeRedis  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -440,6 +441,15 @@ def _fake_prices(names):
     return {n: PRICES.get(n) for n in names}
 
 
+class PromptTests(unittest.TestCase):
+    def test_theory_prompt_is_self_contained(self):
+        msgs = theory.build_chat_messages({"deck_id": "x", "theme": "angels"})
+        system = "".join(p["text"] for p in msgs[0]["content"])
+        for needle in ("Task: Deck Theory", "Card pool order", "type_line", "Count, then emit"):
+            self.assertIn(needle, system)
+        self.assertNotIn("skill_view", system + msgs[1]["content"])
+
+
 class GenerateTests(unittest.TestCase):
     def setUp(self):
         self.r = FakeRedis()
@@ -449,7 +459,7 @@ class GenerateTests(unittest.TestCase):
                                     drop=SPELLS[:2]), cuts=SPELLS[:2],
                         sections_extra=[{"type": "flavor_text", "title": "Vibes", "data": "**angels**"}])
         lying.update(deck_id="WRONG", theme="ignored", created_at="1999-01-01")
-        self.client = OracleClient("http://oracle.test", "k", transport=_oracle_transport(lying, self.seen))
+        self.client = OpenRouterChat("k", "test-model", base_url="http://oracle.test/api/v1", retries=0, transport=_oracle_transport(lying, self.seen))
         patcher = patch.object(theory, "_owned", lambda r: OWNED)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -465,8 +475,8 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual(theory.load(self.r, DECK_ID, "gen1")["doc_id"], "gen1")
         # the request carried the skill input contract
         body = json.loads(self.seen[-1].content)
-        self.assertIn("deck-theory", body["messages"][0]["content"])
-        req = json.loads(re.search(r"```json\n(.*)```", body["messages"][1]["content"], re.S).group(1))
+        self.assertIn("Task: Deck Theory", body["messages"][0]["content"][0]["text"])  # knowledge pack, no skill
+        req = json.loads(re.search(r"```json\n(.*?)```", body["messages"][1]["content"], re.S).group(1))
         self.assertEqual(req["commander_mode"], "keep")
         self.assertEqual(req["journal"]["pet_cards"], PETS)
         self.assertEqual(req["caps"]["hard_cap"], 40.0)
@@ -487,7 +497,7 @@ class GenerateTests(unittest.TestCase):
         job = theory.new_job(self.r, DECK, "angels", "keep")
 
         def boom():
-            raise OracleUnavailable("cannot reach x")
+            raise LLMUnavailable("cannot reach x")
         out = theory.run_job(self.r, job, DECK, boom)
         self.assertEqual(out["status"], "failed")
         self.assertEqual(out["error"], "oracle offline, try again later")
@@ -501,7 +511,7 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual(theory.load_job(self.r, job["job_id"])["status"], "done")
         self.assertEqual(self.r.ttl[theory.job_key(job["job_id"])], theory.JOB_TTL_S)
 
-        bad = OracleClient("http://oracle.test", "k", transport=httpx.MockTransport(
+        bad = OpenRouterChat("k", "test-model", base_url="http://oracle.test/api/v1", retries=0, transport=httpx.MockTransport(
             lambda req: httpx.Response(200, json={"choices": [{"message": {"content": "sorry, no"}}]})))
         job2 = theory.new_job(self.r, DECK, "angels", "keep")
         out2 = theory.run_job(self.r, job2, DECK, lambda: bad, lookup=lookup, fetch_prices=_fake_prices)
@@ -562,7 +572,7 @@ class ApiTests(unittest.TestCase):
         self.client = TestClient(app_mod.app)
         doc = raw_doc(base_groups([card("Sleeved Demon", "owned")], drop=[SPELLS[0]]), cuts=[SPELLS[0]])
         self.seen = []
-        self.oracle = OracleClient("http://oracle.test", "k", transport=_oracle_transport(doc, self.seen))
+        self.oracle = OpenRouterChat("k", "test-model", base_url="http://oracle.test/api/v1", retries=0, transport=_oracle_transport(doc, self.seen))
 
     def _sync_start(self):
         def start(r, job, deck, factory, **kw):
@@ -570,7 +580,7 @@ class ApiTests(unittest.TestCase):
         return patch.object(theory, "start_job", start)
 
     def test_full_lifecycle(self):
-        with patch.object(self.app_mod, "_oracle_client", lambda: self.oracle), self._sync_start():
+        with patch.object(self.app_mod, "_oracle_client", lambda task="theory": self.oracle), self._sync_start():
             resp = self.client.post(f"/api/decks/{DECK_ID}/theory", json={"theme": "angels", "commander_mode": "keep"})
         self.assertEqual(resp.status_code, 202, resp.text)
         job_id = resp.json()["job_id"]
@@ -589,30 +599,30 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.delete(f"/api/decks/{DECK_ID}/theory/{doc_id}").status_code, 404)
         self.assertEqual(self.client.get(f"/api/decks/{DECK_ID}/theory").json()["docs"], [])
 
-    def test_oracle_unreachable_is_a_clean_503(self):
+    def test_oracle_unreachable_fails_the_job_cleanly(self):
+        # No ping preflight any more: an unreachable provider surfaces as a failed job.
         def refused(request):
             raise httpx.ConnectError("refused")
-        down = OracleClient("http://oracle.test", "k", transport=httpx.MockTransport(refused))
-        with patch.object(self.app_mod, "_oracle_client", lambda: down), self._sync_start():
+        down = OpenRouterChat("k", "test-model", base_url="http://oracle.test/api/v1", retries=0,
+                              transport=httpx.MockTransport(refused))
+        with patch.object(self.app_mod, "_oracle_client", lambda task="theory": down), self._sync_start():
             resp = self.client.post(f"/api/decks/{DECK_ID}/theory", json={"theme": "angels"})
-        self.assertEqual(resp.status_code, 503)
-        body = resp.json()
-        self.assertEqual(body["error"], "oracle offline, try again later")
-        self.assertEqual(body["error_kind"], "oracle_offline")
-        self.assertNotIn("Traceback", resp.text)
-        self.assertFalse([k for k in self.r.store if k.startswith("theory_job:")])  # no orphan job
+        self.assertEqual(resp.status_code, 202, resp.text)
+        job = self.client.get(f"/api/decks/{DECK_ID}/theory/jobs/{resp.json()['job_id']}").json()["job"]
+        self.assertEqual(job["status"], "failed")
+        self.assertNotIn("Traceback", json.dumps(job))
         self.assertNotIn(DECK_ID, theory._INFLIGHT)  # slot released
 
     def test_second_request_for_the_same_deck_is_409(self):
         job = theory.new_job(self.r, DECK, "angels", "keep")
         self.addCleanup(theory.release, job["deck_id"], job["job_id"])
-        with patch.object(self.app_mod, "_oracle_client", lambda: self.oracle):
+        with patch.object(self.app_mod, "_oracle_client", lambda task="theory": self.oracle):
             resp = self.client.post(f"/api/decks/{DECK_ID}/theory", json={"theme": "dragons"})
         self.assertEqual(resp.status_code, 409)
         self.assertEqual(resp.json()["error_kind"], "busy")
 
     def test_oracle_not_configured_is_503(self):
-        with patch.dict(os.environ, {"ORACLE_URL": "", "ORACLE_KEY": "", "INTERACTIONS_SECRETS_DIR": "/nonexistent"}):
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "", "INTERACTIONS_SECRETS_DIR": "/nonexistent"}):
             resp = self.client.post(f"/api/decks/{DECK_ID}/theory", json={"theme": "angels"})
         self.assertEqual(resp.status_code, 503)
         self.assertEqual(resp.json()["error_kind"], "oracle_offline")
@@ -629,7 +639,7 @@ class ApiTests(unittest.TestCase):
 
 
 class SkillContractTests(unittest.TestCase):
-    """The repo mirror of oracle's deck-theory skill: its example validates against TheoryDoc."""
+    """The repo mirror of the deck-theory schema/example: its example validates against TheoryDoc."""
 
     SKILL = ROOT / "docs" / "oracle" / "deck-theory" / "SKILL.md"
     SCHEMA = ROOT / "docs" / "oracle" / "deck-theory" / "references" / "theory.schema.json"
