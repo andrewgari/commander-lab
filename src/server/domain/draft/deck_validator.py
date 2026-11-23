@@ -278,6 +278,10 @@ class CardInfo:
         oracle = rec.get("oracle_text") or rec.get("text") or ""
         identity = (parse_color_identity(color) if color is not None
                     else color_identity_from_text(rec.get("mana_cost"), oracle))
+        # Basic lands are always legal in Commander. Synced basic records often
+        # carry no legalities, which must not read as "unknown legality".
+        if legality is None and rec.get("name") in BASIC_LAND_NAMES:
+            legality = "legal"
         return cls(
             name=rec["name"],
             color_identity=identity,

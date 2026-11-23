@@ -327,6 +327,20 @@ class TestBanlist(Base):
         self.assertEqual(res.errors[0].cards, ["Black Lotus"])
         self.assertEqual(res.errors[1].cards, ["Unlisted Rock"])
 
+    def test_synced_basics_without_legality_are_legal(self):
+        # Regression: synced basic records carry no legality; they must not
+        # be flagged UNKNOWN_LEGALITY (basics are always Commander-legal).
+        rec = {"name": "Plains", "type": "Land", "super_types": ["Basic"], "types": ["Land"]}
+        self.assertEqual(dv.CardInfo.from_record(rec).commander_legality, "legal")
+        c = CardCatalog(CARDS + [card(n, "") for n in FILLER_POOL] + [
+            dv.CardInfo.from_record({**rec, "name": n}) for n in ("Plains", "Swamp", "Mountain")])
+        d = mk_deck(["Mono Red Guy"], extra=[("Mountain", 5), ("Plains", 0), ("Swamp", 0)])
+        self.assertNotIn("UNKNOWN_LEGALITY", codes(validate_deck(d, c)))
+
+    def test_non_basic_without_legality_still_unknown(self):
+        rec = {"name": "Unlisted Rock", "type": "Artifact", "types": ["Artifact"]}
+        self.assertIsNone(dv.CardInfo.from_record(rec).commander_legality)
+
     def test_unknown_legality_fails_closed(self):
         # Regression: a planar card whose record has no synced legality
         # (commander_legality=None) must NOT pass mainboard validation. It is

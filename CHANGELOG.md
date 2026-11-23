@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Brew review: basic lands (Plains, Swamp, Mountain, etc.) are no longer flagged as "Commander legality unknown"; basics are always legal, while other cards with no synced legality are still flagged.
+
 ### Changed
 - Personality Read, Theory, genre autofill and deck write-ups now run on OpenRouter instead of the Hermes oracle service; when no OpenRouter key is configured they report "oracle offline" immediately instead of pinging a server.
 - Interactions analytics: LLM labelling now runs only through OpenRouter (`OPENROUTER_API_KEY`, model override `LLM_MODEL_INTERACTIONS`); the Nous/Hermes-4 and Gemini fallbacks were removed. Forge recorder Honcho sync reads `HONCHO_API_KEY` from the process environment only.
