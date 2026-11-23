@@ -98,7 +98,7 @@ def test_dry_run_captures_exact_oracle_payload(
     monkeypatch.setenv("HONCHO_API_KEY", "stub-dry-run-key")
 
     result = honcho_push.push_profile(
-        _play_style_profile(), config_path=enabled_config, env_path=env
+        _play_style_profile(), config_path=enabled_config
     )
 
     # Exactly two requests, nothing else reached the (mocked) network.
@@ -154,7 +154,6 @@ def test_dry_run_rejects_non_oracle_peer(tmp_path, monkeypatch, enabled_config, 
             _play_style_profile(),
             observed_peer="not-oracle",
             config_path=enabled_config,
-            env_path=tmp_path / ".env",
         )
 
 
@@ -170,12 +169,12 @@ def test_missing_key_fails_cleanly_with_no_http_call(
 
     with pytest.raises(honcho_push.HonchoConfigError, match="set HONCHO_API_KEY") as excinfo:
         honcho_push.push_profile(
-            _play_style_profile(), config_path=enabled_config, env_path=env
+            _play_style_profile(), config_path=enabled_config
         )
 
     exc = excinfo.value
     assert not exc.disabled  # missing key is an actionable error, not an opt-out
-    assert str(env) in str(exc)  # message tells the user exactly where to set it
+    assert "process environment" in str(exc)
 
 
 # --- Check 3: enabled=false fails cleanly, no HTTP attempted ------------------
@@ -192,7 +191,6 @@ def test_disabled_flag_fails_cleanly_with_no_http_call(
         honcho_push.push_profile(
             _play_style_profile(),
             config_path=config,
-            env_path=tmp_path / ".env",
         )
 
     exc = excinfo.value
@@ -211,5 +209,4 @@ def test_unserializable_profile_sends_nothing(
         honcho_push.push_profile(
             {"peer_card": ["ok"], "conclusions": [object()]},
             config_path=enabled_config,
-            env_path=tmp_path / ".env",
         )

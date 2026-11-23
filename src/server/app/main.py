@@ -31,6 +31,9 @@ import src.server.domain.decks.commander_roles as commander_roles
 import src.server.domain.inventory.inventory_view as inventory_view
 import src.server.domain.decks.card_refs as card_refs_mod
 import src.server.infra.providers.tcgplayer as tcgplayer
+from src.server.infra.llm.factory import build_chat_client as _build_chat_client
+import src.server.domain.analytics.interactions.llm as _interactions_llm
+_interactions_llm.set_client_factory(_build_chat_client)
 import src.server.domain.tags.deck_tags as tag_store
 import src.server.domain.tags.lab_tags as lab_tag_store
 import src.server.domain.tags as autotag

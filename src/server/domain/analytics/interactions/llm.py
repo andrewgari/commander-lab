@@ -2,8 +2,9 @@
 LLM pass for produce/consume tagging.
 
 Provider interface + fallback chain:
-    gemini   (primary, GOOGLE_API_KEY / GEMINI_API_KEY)
-    nous     (fallback, NOUS_API_KEY; OpenAI-compatible Nous inference API)
+    openrouter (the only default provider: build_chat_client("interactions"),
+                OPENROUTER_API_KEY, model override LLM_MODEL_INTERACTIONS)
+    gemini   (class kept for tests/explicit use; not in default_chain)
     anthropic (empty slot: present in the chain, never configured, raises)
 
 The LLM only LABELS cards with keys from the fixed vocabulary (vocab.py).
@@ -18,6 +19,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Mapping, Optional, Tuple
 
+from src.server.domain.llm.port import LLMNotConfigured
 from .vocab import RESOURCES, normalize_resources
 
 
@@ -35,15 +37,13 @@ class Usage:
 # Gemini: ai.google.dev/gemini-api/docs/pricing, paid tier, checked 2026-10-12
 # (3.8 Flash is at its introductory rate until 2026-12-31: $1.50/$7.50 after).
 # Gemini 2.5 models are no longer served to new API keys (404).
-# Nous: Nous Portal list price for Hermes-4-70B.
+# OpenRouter: cost comes from the API usage report, not this table.
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 PRICING: Dict[str, Tuple[float, float]] = {
     "gemini-3.8-flash": (0.75, 3.75),
     "gemini-3.5-flash-lite": (0.30, 2.50),
     "gemini-3.1-flash-lite": (0.25, 1.50),
     "gemini-2.5-flash": (0.30, 2.50),
-    "Hermes-4-70B": (0.13, 0.40),
-    "Hermes-4-405B": (1.00, 3.00),
 }
 
 
@@ -250,63 +250,62 @@ class GeminiProvider(LLMTagProvider):
         return _parse_json(text), usage
 
 
-class NousProvider(LLMTagProvider):
-    """Nous Portal inference API (OpenAI-compatible chat completions)."""
+_client_factory = None
 
-    def __init__(self, api_key: Optional[str], model: str = "Hermes-4-70B",
-                 base_url: str = "https://inference-api.nousresearch.com/v1",
-                 http_post: Optional[Callable] = None, timeout: float = 120.0):
-        self.api_key = api_key
-        self.model = model
-        self.base_url = base_url.rstrip("/")
-        self._post = http_post or _default_post
-        self.timeout = timeout
+
+def set_client_factory(factory) -> None:
+    """App layer injects build_chat_client(role, env) (domain must not import infra)."""
+    global _client_factory
+    _client_factory = factory
+
+
+class OpenRouterProvider(LLMTagProvider):
+    """OpenRouter via the shared infra/llm layer (build_chat_client("interactions"))."""
+
+    def __init__(self, env: Optional[Mapping[str, str]] = None, client=None):
+        self._env = env
+        self._client = client
+        self.model = ""
+        self.last_cost_usd: Optional[float] = None
+        if client is not None:
+            self.model = client.model
+        else:
+            try:
+                self._client = self._build()
+                self.model = self._client.model
+            except LLMNotConfigured:
+                self._client = None
+
+    def _build(self):
+        if _client_factory is None:
+            raise LLMNotConfigured("openrouter: no chat client factory injected")
+        return _client_factory("interactions", self._env)
 
     @property
     def name(self) -> str:
-        return "nous"
+        return "openrouter"
 
     def is_configured(self) -> bool:
-        return bool(self.api_key)
+        return self._client is not None
+
+    def _call(self, system: str, prompt: str, temperature: float):
+        if self._client is None:
+            raise LLMProviderError("openrouter: not configured (OPENROUTER_API_KEY)")
+        try:
+            text = self._client.ask(prompt, system=system, temperature=temperature)
+        except Exception as exc:  # noqa: BLE001
+            raise LLMProviderError(f"openrouter request failed: {str(exc)[:300]}") from exc
+        u = getattr(self._client, "last_usage", None)
+        self.last_cost_usd = getattr(u, "cost_usd", None)
+        return text, Usage(int(getattr(u, "tokens_in", 0) or 0), int(getattr(u, "tokens_out", 0) or 0))
 
     def tag_batch(self, cards):
-        if not self.api_key:
-            raise LLMProviderError("nous: no API key")
-        payload = {
-            "model": self.model,
-            "temperature": 0,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": _card_prompt(cards)},
-            ],
-        }
-        try:
-            resp = self._post(f"{self.base_url}/chat/completions", json=payload,
-                              headers={"Authorization": f"Bearer {self.api_key}"}, timeout=self.timeout)
-            resp.raise_for_status()
-            body = resp.json()
-            text = body["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001
-            raise LLMProviderError(f"nous request failed: {_scrub(str(exc), self.api_key)}") from exc
-        u = body.get("usage") or {}
-        usage = Usage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0))
+        text, usage = self._call(SYSTEM_PROMPT, _card_prompt(cards), 0)
         return _parse_cards_json(text, cards), usage
 
     def generate_json(self, system, prompt, schema=None):
-        if not self.api_key:
-            raise LLMProviderError("nous: no API key")
-        payload = {"model": self.model, "temperature": 0.2,
-                   "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}]}
-        try:
-            resp = self._post(f"{self.base_url}/chat/completions", json=payload,
-                              headers={"Authorization": f"Bearer {self.api_key}"}, timeout=self.timeout)
-            resp.raise_for_status()
-            body = resp.json()
-            text = body["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001
-            raise LLMProviderError(f"nous request failed: {_scrub(str(exc), self.api_key)}") from exc
-        u = body.get("usage") or {}
-        return _parse_json(text), Usage(int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0))
+        text, usage = self._call(system, prompt, 0.2)
+        return _parse_json(text), usage
 
 
 class AnthropicProvider(LLMTagProvider):
@@ -332,6 +331,13 @@ def _scrub(msg: str, secret: Optional[str]) -> str:
     return msg.replace(secret, "***") if secret else msg
 
 
+def _cost(p, usage: Usage) -> float:
+    reported = getattr(p, "last_cost_usd", None)
+    if reported is not None:
+        return round(float(reported), 8)
+    return estimate_cost(p.model, usage.input_tokens, usage.output_tokens)
+
+
 class LLMChain:
     """Ordered providers; tag_batch tries each configured one until one works.
     `on_call` receives one dict per attempt (provider, model, ok, tokens, cost, error)."""
@@ -355,7 +361,7 @@ class LLMChain:
             if on_call:
                 on_call({"provider": p.name, "model": p.model, "ok": True, "cards": len(cards),
                          "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
-                         "cost_usd": estimate_cost(p.model, usage.input_tokens, usage.output_tokens)})
+                         "cost_usd": _cost(p, usage)})
             return results, p.name
         return None, None
 
@@ -375,13 +381,13 @@ class LLMChain:
             if on_call:
                 on_call({"provider": p.name, "model": p.model, "ok": True, "purpose": purpose,
                          "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
-                         "cost_usd": estimate_cost(p.model, usage.input_tokens, usage.output_tokens)})
+                         "cost_usd": _cost(p, usage)})
             return data, p.name, p.model
         return None, None, None
 
 
 SECRETS_DIR_DEFAULT = "/run/commander-lab-secrets"
-SECRET_NAMES = ("GOOGLE_API_KEY", "GEMINI_API_KEY", "NOUS_API_KEY", "ANTHROPIC_API_KEY")
+SECRET_NAMES = ("OPENROUTER_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")
 
 
 def resolve_env(env: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
@@ -406,11 +412,4 @@ def resolve_env(env: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
 
 def default_chain(env: Optional[Mapping[str, str]] = None) -> LLMChain:
     env = resolve_env(env)
-    return LLMChain([
-        GeminiProvider(env.get("GOOGLE_API_KEY") or env.get("GEMINI_API_KEY"),
-                       model=env.get("INTERACTIONS_GEMINI_MODEL") or DEFAULT_GEMINI_MODEL),
-        NousProvider(env.get("NOUS_API_KEY"),
-                     model=env.get("INTERACTIONS_NOUS_MODEL") or "Hermes-4-70B",
-                     base_url=env.get("NOUS_BASE_URL") or "https://inference-api.nousresearch.com/v1"),
-        AnthropicProvider(),
-    ])
+    return LLMChain([OpenRouterProvider(env), AnthropicProvider()])

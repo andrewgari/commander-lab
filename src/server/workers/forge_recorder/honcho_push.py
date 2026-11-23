@@ -22,7 +22,6 @@ DEFAULT_BASE = "http://tower:8100"
 DEFAULT_WORKSPACE = "oracle"
 TARGET_PEER = "oracle"
 OBSERVER_PEER = "forge-recorder"
-ENV_FILE = Path.home() / ".hermes" / ".env"
 CONFIG_FILE = Path.home() / ".honcho" / "config.json"
 
 
@@ -36,21 +35,6 @@ class HonchoConfigError(RuntimeError):
     def __init__(self, message: str, *, disabled: bool = False) -> None:
         super().__init__(message)
         self.disabled = disabled
-
-
-def _dotenv_value(path: Path, name: str) -> Optional[str]:
-    try:
-        lines = path.read_text().splitlines()
-    except FileNotFoundError:
-        return None
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        if key.strip() == name:
-            return value.strip().strip("\"'") or None
-    return None
 
 
 def _configuration(path: Path = CONFIG_FILE) -> dict:
@@ -102,18 +86,17 @@ def push_profile(profile: Dict, base_url: Optional[str] = None,
                  workspace: Optional[str] = None,
                  observed_peer: Optional[str] = None,
                  api_key: Optional[str] = None,
-                 config_path: Path = CONFIG_FILE,
-                 env_path: Path = ENV_FILE) -> Dict:
+                 config_path: Path = CONFIG_FILE) -> Dict:
     """Validate opt-in and credentials before sending any requests.
 
     Raises HonchoConfigError before any payload construction, HTTP setup, or
     file/network side effect when sync is disabled or the key is missing.
     """
     config = _configuration(config_path)
-    key = api_key or os.environ.get("HONCHO_API_KEY") or _dotenv_value(env_path, "HONCHO_API_KEY")
+    key = api_key or os.environ.get("HONCHO_API_KEY")
     if not key:
         raise HonchoConfigError(
-            f"Honcho sync unavailable: set HONCHO_API_KEY in your environment or in {env_path}"
+            f"Honcho sync unavailable: set HONCHO_API_KEY in the process environment"
         )
     config = dict(config)
     if base_url:
@@ -174,7 +157,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         # Pass the module-level paths explicitly: push_profile's defaults are
         # bound at import time and would ignore test monkeypatching.
-        result = push_profile(profile, config_path=CONFIG_FILE, env_path=ENV_FILE)
+        result = push_profile(profile, config_path=CONFIG_FILE)
     except HonchoConfigError as exc:
         stream = sys.stdout if exc.disabled else sys.stderr
         print(f"honcho push skipped: {exc}", file=stream)
