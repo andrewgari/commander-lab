@@ -300,3 +300,14 @@ def test_worker_access_mode_guard_offline(config, tmp_path, mode, starts):
         ]
     else:
         assert "Refusing to start bracket worker" in result.stderr
+
+
+def test_data_root_override_changes_only_bind_sources():
+    default = render()
+    assert default.returncode == 0, default.stderr
+    alt = "/mnt/config/appdata/commander-lab"
+    over = render(COMMANDER_LAB_DATA_ROOT=alt)
+    assert over.returncode == 0, over.stderr
+    assert json.loads(over.stdout) == json.loads(default.stdout.replace(BASE, alt))
+    assert default.stdout.count(BASE) == 5
+    assert BASE not in over.stdout and over.stdout.count(alt) == 5

@@ -22,6 +22,9 @@ compute stack 141 was lost. This file alone does not deploy or restore it.
   **compute**. The original stack snapshot confirms these mount paths. Bind
   mounts do not create missing host paths. The DB
   password file, app secrets and auth mounts are read-only.
+- Optional Portainer stack env var `COMMANDER_LAB_DATA_ROOT` overrides the host
+  data root (default `/mnt/tower/appdata-compute/commander-lab`), e.g.
+  `/mnt/config/appdata/commander-lab` on tower. Leave unset on compute.
 - Redis uses the image's default RDB configuration and refuses to start without
   a nonempty `/data/dump.rdb`. Confirm this snapshot is current and contains
   the intended production data; this guard cannot validate its contents. If
