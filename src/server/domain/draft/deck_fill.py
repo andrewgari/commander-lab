@@ -114,6 +114,10 @@ def _basic_split(identity: frozenset, n: int) -> List[str]:
     return out
 
 
+class CatalogUnsyncedError(ValueError):
+    """Card records lack legality data, so no non-basic card can be verified."""
+
+
 def fill_deck(commander: str, cards: Optional[Iterable[str]],
               sources: Optional[Sequence[Source]], catalog: CardCatalog, *,
               staples: Iterable[str] = STAPLES,
@@ -141,11 +145,15 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     deck: List[str] = []
     counts: dict = {}
 
+    unknown_legality: set = set()
+
     def legal(name: str) -> bool:
         info = catalog.get(name)
         if info is None or normalize_name(info.name) == cmd_key:
             return False
         if info.commander_legality != "legal":  # banned / not_legal / unknown (fail closed)
+            if info.commander_legality is None:
+                unknown_legality.add(normalize_name(info.name))
             return False
         if info.color_identity - identity:
             return False
@@ -171,6 +179,14 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
             try_add(n)
     for n in staples:
         try_add(n)
+    # Every candidate rejected for lacking legality data and almost nothing legal
+    # survived: the card catalog is unsynced. Padding with basics would silently
+    # ship a degenerate all-basics deck, so fail loudly instead.
+    if unknown_legality and len(deck) < (DECK_SIZE - 1) // 2:
+        raise CatalogUnsyncedError(
+            f"card catalog has no commander-legality data ({len(unknown_legality)} candidate cards "
+            f"unverifiable, only {len(deck)} usable): re-run the card sync (`make sync` / "
+            "`python -m src.server.workers.sync`) so card records carry legality, then retry the brew")
     # Basics are intrinsically legal and unlimited: use the built-in names
     # directly so a sparse/odd catalog record can never block the last step.
     deck += _basic_split(identity, DECK_SIZE - 1 - len(deck))

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Brew: when the card catalog has no synced legality data, the brew now fails with a clear "re-run the card sync" error instead of silently producing a deck of only basic lands.
 - Brew review: basic lands (Plains, Swamp, Mountain, etc.) are no longer flagged as "Commander legality unknown"; basics are always legal, while other cards with no synced legality are still flagged.
 
 ### Changed
