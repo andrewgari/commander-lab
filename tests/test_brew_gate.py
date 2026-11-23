@@ -430,3 +430,13 @@ def test_stale_stamp_does_not_bypass_revalidation():
     out["cards"][5]["rationale"] = "see 123e4567-e89b-12d3-a456-426614174000"
     with pytest.raises(BrewGateError):
         release_draft(out, None, catalog=CAT, sources=[], repair=False)
+
+
+def test_commander_without_synced_legality_is_brewable():
+    """Regression: a commander record with no synced legality (None) must not abort
+    the brew with 'cannot repair brew deck ... (legality: None)'; the catalog value
+    is backfilled from the banlist snapshot (not banned => legal)."""
+    cat = build_catalog()
+    cat.add(card("Kaalia of the Vast", "WBR", ("Creature",), ("Legendary",), legality=None))
+    out = release_draft(draft(GOOD[:40], commanders=("Kaalia of the Vast",)), None, catalog=cat, sources=[])
+    assert out["gate"]["ok"] and total(out) == 100
