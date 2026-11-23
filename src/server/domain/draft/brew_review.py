@@ -17,7 +17,6 @@ The reviewer is pluggable (set_reviewer) so tests need no network.
 """
 from __future__ import annotations
 
-import importlib
 import json
 import re
 from typing import Any, Callable, List, Optional
@@ -82,9 +81,19 @@ def deterministic_check(draft: dict, r: Any = None) -> List[str]:
 _HARD_CODES = {"BANNED", "NOT_LEGAL", "COLOR_IDENTITY", "SINGLETON", "UNKNOWN_LEGALITY"}
 
 
+_client_factory: Optional[Callable[[str], Any]] = None
+
+
+def set_client_factory(factory: Optional[Callable[[str], Any]]) -> None:
+    """Inject the chat-client factory (task -> client); wired by the app layer at startup."""
+    global _client_factory
+    _client_factory = factory
+
+
 def _default_client():
-    # Resolved by name: domain code must not import infra (import-linter ratchet).
-    return importlib.import_module("src.server.infra.llm.factory").build_chat_client("brew_review")
+    if _client_factory is None:
+        raise LLMError("no chat client factory configured")
+    return _client_factory("brew_review")
 
 
 def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:

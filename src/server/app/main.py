@@ -78,6 +78,12 @@ import urllib.parse
 
 app = FastAPI()
 
+# Inject the real LLM client factory into domain code (domain must not import infra).
+from src.server.infra.llm.factory import build_chat_client as _build_chat_client  # noqa: E402
+from src.server.domain.draft import brew_review as _brew_review, reconstruct_agent as _reconstruct_agent  # noqa: E402
+_brew_review.set_client_factory(_build_chat_client)
+_reconstruct_agent.set_client_factory(_build_chat_client)
+
 # Card dossier (spec §2): persist interaction-rebuild edges into Postgres so
 # the dossier synergy panel reads PG instead of the Redis graph cache.
 # Best-effort — a database failure never fails the rebuild.

@@ -123,8 +123,12 @@ class FactoryReviewerTests(unittest.TestCase):
         self.assertEqual(self._run(exc=LLMNotConfigured("x"))[0]["status"], "unavailable")
 
     def test_default_client_from_factory(self):
-        from unittest.mock import patch
-        with patch("src.server.infra.llm.factory.build_chat_client") as f:
-            f.return_value.chat.return_value = '{"verdict":"pass","reasons":[]}'
+        from unittest.mock import MagicMock
+        f = MagicMock()
+        f.return_value.chat.return_value = '{"verdict":"pass","reasons":[]}'
+        brew_review.set_client_factory(f)
+        try:
             brew_review._oracle_reviewer({"cards": []}, {})
+        finally:
+            brew_review.set_client_factory(None)
         f.assert_called_once_with("brew_review")

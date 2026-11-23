@@ -14,7 +14,7 @@ Prompt:
     repair = the same, plus the previous drafts and the validator's errors, with instructions
              to fix only those errors.
 
-Provider: the in-repo OpenRouter chat client (infra.llm.factory.build_chat_client("reconstruct")). Any object with
+Provider: the in-repo OpenRouter chat client (injected via set_client_factory). Any object with
 `chat(messages, **extra) -> str` works, which is how the tests mock it.
 
 Structured output: the request sends an OpenAI `response_format` json_schema built from the
@@ -409,11 +409,19 @@ def parse_reply(text: Any, num_decks: int) -> List[DraftDeck]:
 # Entry point
 # ---------------------------------------------------------------------------------------------
 
-def default_client():
-    import importlib
+_chat_client_factory: Optional[Callable[[str], Any]] = None
 
-    # By name: domain code must not import infra (import-linter ratchet).
-    return importlib.import_module("src.server.infra.llm.factory").build_chat_client("reconstruct")
+
+def set_client_factory(factory: Optional[Callable[[str], Any]]) -> None:
+    """Inject the chat-client factory (task -> client); wired by the app layer at startup."""
+    global _chat_client_factory
+    _chat_client_factory = factory
+
+
+def default_client():
+    if _chat_client_factory is None:
+        raise RuntimeError("no chat client factory configured")
+    return _chat_client_factory("reconstruct")
 
 
 def call_agent(preferences: Sequence[Mapping], tier1: Any, tier2: Any, tier3: Any, num_decks: int,
