@@ -28,6 +28,7 @@ TASKS: dict[str, TaskSpec] = {
     "review_writer": TaskSpec(SONNET, 300, 8000),
     "brew_review": TaskSpec(SONNET, 240, 2000),
     "review_pipeline": TaskSpec(SONNET, 300, 8000),
+    "interactions": TaskSpec(HAIKU, 120, 4000),
 }
 
 

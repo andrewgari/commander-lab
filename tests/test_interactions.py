@@ -341,23 +341,23 @@ class TestProviders(unittest.TestCase):
     def test_keys_can_come_from_a_secrets_dir(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "GOOGLE_API_KEY"), "w") as fh:
+            with open(os.path.join(d, "OPENROUTER_API_KEY"), "w") as fh:
                 fh.write('"from-file"\n')
             env = llm_mod.resolve_env({"INTERACTIONS_SECRETS_DIR": d})
-            self.assertEqual(env["GOOGLE_API_KEY"], "from-file")
+            self.assertEqual(env["OPENROUTER_API_KEY"], "from-file")
             self.assertNotIn("NOUS_API_KEY", env)
-            env = llm_mod.resolve_env({"INTERACTIONS_SECRETS_DIR": d, "GOOGLE_API_KEY": "from-env"})
-            self.assertEqual(env["GOOGLE_API_KEY"], "from-env")
+            env = llm_mod.resolve_env({"INTERACTIONS_SECRETS_DIR": d, "OPENROUTER_API_KEY": "from-env"})
+            self.assertEqual(env["OPENROUTER_API_KEY"], "from-env")
             chain = llm_mod.default_chain(env={"INTERACTIONS_SECRETS_DIR": d})
-            self.assertEqual([p.name for p in chain.available()], ["gemini"])
+            self.assertEqual([p.name for p in chain.available()], ["openrouter"])
 
-    def test_default_chain_is_gemini_then_nous_then_anthropic_slot(self):
-        chain = llm_mod.default_chain(env={"GOOGLE_API_KEY": "k", "NOUS_API_KEY": "n",
-                                           "INTERACTIONS_SECRETS_DIR": "/nonexistent"})
-        self.assertEqual([p.name for p in chain.providers], ["gemini", "nous", "anthropic"])
+    def test_default_chain_is_openrouter_then_anthropic_slot(self):
+        chain = llm_mod.default_chain(env={"OPENROUTER_API_KEY": "k", "GOOGLE_API_KEY": "g",
+                                           "NOUS_API_KEY": "n", "INTERACTIONS_SECRETS_DIR": "/nonexistent"})
+        self.assertEqual([p.name for p in chain.providers], ["openrouter", "anthropic"])
         self.assertTrue(chain.providers[0].is_configured())
-        self.assertTrue(chain.providers[1].is_configured())
-        self.assertFalse(chain.providers[2].is_configured())  # empty slot
+        self.assertFalse(chain.providers[1].is_configured())  # empty slot
+        self.assertEqual(chain.providers[0].model, "anthropic/claude-haiku-5.5")
 
     def test_unconfigured_providers_are_skipped(self):
         chain = llm_mod.default_chain(env={"INTERACTIONS_SECRETS_DIR": "/nonexistent"})
@@ -396,25 +396,24 @@ class TestProviders(unittest.TestCase):
         self.assertIn("generateContent", seen["url"])
         self.assertIn("tokens", json.dumps(seen["payload"]))  # vocabulary is in the prompt
 
-    def test_nous_parses_openai_style_response(self):
+    def test_openrouter_provider_parses_reply_and_reports_cost(self):
         content = json.dumps({"cards": [{"name": "Weird Card", "produces": [], "consumes": ["tokens"]}]})
 
-        def fake_post(url, json=None, headers=None, timeout=None):
-            class Resp:
-                status_code = 200
+        class Usage_:
+            tokens_in, tokens_out, cost_usd = 10, 3, 0.0004
 
-                def json(self_inner):
-                    return {"choices": [{"message": {"content": "```json\n" + content + "\n```"}}],
-                            "usage": {"prompt_tokens": 10, "completion_tokens": 3}}
+        class Client:
+            model = "anthropic/claude-haiku-5.5"
+            last_usage = Usage_()
 
-                def raise_for_status(self_inner):
-                    return None
-            return Resp()
+            def ask(self, prompt, system=None, temperature=0):
+                return "```json\n" + content + "\n```"
 
-        p = llm_mod.NousProvider(api_key="n", http_post=fake_post)
+        p = llm_mod.OpenRouterProvider(client=Client())
         out, usage = p.tag_batch([card("Weird Card")])
         self.assertEqual(out["Weird Card"]["consumes"], ["tokens"])
         self.assertEqual(usage.output_tokens, 3)
+        self.assertEqual(p.last_cost_usd, 0.0004)
 
 
 # ---------------------------------------------------------------------------

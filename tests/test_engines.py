@@ -202,12 +202,13 @@ class TestLLMNaming(unittest.TestCase):
         reply = {"engines": [{"signature": "chain:enchantments>counters", "archetype": "Aura counters",
                               "blurb": "Auras grow the team."}]}
         gem = GenProvider("gemini", fail=True)
-        nous = GenProvider("nous", reply=reply, model="Hermes-4-70B")
+        nous = GenProvider("openrouter", reply=reply, model="anthropic/claude-haiku-5.5")
+        nous.last_cost_usd = 0.0012  # OpenRouter reports cost; no price table
         calls = []
         names = eng.llm_name_signatures(llm_mod.LLMChain([gem, nous]), [self.ENG], on_call=calls.append)
         self.assertEqual(names["chain:enchantments>counters"]["archetype"], "Aura counters")
-        self.assertEqual(names["chain:enchantments>counters"]["provider"], "nous")
-        self.assertEqual([c["provider"] for c in calls], ["gemini", "nous"])
+        self.assertEqual(names["chain:enchantments>counters"]["provider"], "openrouter")
+        self.assertEqual([c["provider"] for c in calls], ["gemini", "openrouter"])
         self.assertFalse(calls[0]["ok"])
         self.assertTrue(calls[1]["ok"])
         self.assertEqual(calls[1]["purpose"], "engine_names")
@@ -242,19 +243,19 @@ class TestLLMNaming(unittest.TestCase):
         self.assertEqual(data, {"engines": []})
         self.assertEqual(usage.input_tokens, 10)
 
-    def test_nous_generate_json(self):
-        def fake_post(url, json=None, headers=None, timeout=None):
-            class Resp:
-                def json(self_inner):
-                    return {"choices": [{"message": {"content": "```json\n{\"engines\": []}\n```"}}],
-                            "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
+    def test_openrouter_generate_json(self):
+        class FakeClient:
+            model = "m"
+            last_usage = type("U", (), {"tokens_in": 3, "tokens_out": 1, "cost_usd": 0.001})()
 
-                def raise_for_status(self_inner):
-                    return None
-            return Resp()
+            def ask(self, prompt, *, system=None, **extra):
+                return "```json\n{\"engines\": []}\n```"
 
-        data, usage = llm_mod.NousProvider(api_key="n", http_post=fake_post).generate_json("s", "p")
+        p = llm_mod.OpenRouterProvider(client=FakeClient())
+        data, usage = p.generate_json("s", "p")
         self.assertEqual(data, {"engines": []})
+        self.assertEqual(usage.input_tokens, 3)
+        self.assertEqual(p.last_cost_usd, 0.001)
 
 
 # ---------------------------------------------------------------------------
