@@ -275,11 +275,15 @@ class ClientTests(unittest.TestCase):
         ra.call_agent(PREFS[:1], TIER1, TIER2, TIER3, 1, client_factory=factory)
         factory.assert_called_once_with()
 
-    def test_default_client_is_existing_oracle_client(self):
+    def test_default_client_is_factory_reconstruct(self):
         c = mock_client(reply(deck()))
-        with patch("src.server.domain.analytics.oracle_client.OracleClient.from_env", return_value=c) as fe:
+        fe = MagicMock(return_value=c)
+        ra.set_client_factory(fe)
+        try:
             ra.call_agent(PREFS[:1], TIER1, TIER2, TIER3, 1)
-        fe.assert_called_once()
+        finally:
+            ra.set_client_factory(None)
+        fe.assert_called_once_with("reconstruct")
         c.chat.assert_called_once()
 
     def test_tools_disabled_in_payload(self):

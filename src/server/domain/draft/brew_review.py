@@ -5,9 +5,9 @@ Every finished brew draft is reviewed before it is returned. Two layers:
 1. Deterministic gate (always runs, no network): exactly 100 cards, no
    UUID-shaped names, and the draft passes deck_validator (legality, colour
    identity, singleton).
-2. Oracle review: the finished deck list only, sent to the `oracle` Hermes
-   profile via analytics.oracle_client against brew-domain-v1 (MTG rules and
-   power/bracket fit). Oracle replies with JSON {"verdict": "pass"|"fail",
+2. LLM review: the finished deck list only, sent through the in-repo LLM
+   factory (infra.llm.factory, task "brew_review") with the prompt held in
+   knowledge/tasks/brew_review.md (MTG rules and power/bracket fit). Oracle replies with JSON {"verdict": "pass"|"fail",
    "reasons": [...]}.
 
 The result is stored on the draft as ``oracle_verdict``:
@@ -26,14 +26,6 @@ from src.server.domain.llm.port import LLMError
 
 PASS, FAIL, UNAVAILABLE = "pass", "fail", "unavailable"
 DECK_SIZE = 100
-
-SYSTEM = (
-    "You review a finished Magic: The Gathering Commander deck list against "
-    "brew-domain-v1. Check MTG rules (legality, colour identity, singleton, "
-    "100 cards) and power/bracket fit for the requested target power. Review "
-    "the deck list only. Reply with JSON only: "
-    '{"verdict": "pass" | "fail", "reasons": ["..."]}.'
-)
 
 Reviewer = Callable[[dict, dict], dict]  # (draft, session) -> verdict dict
 
@@ -89,11 +81,26 @@ def deterministic_check(draft: dict, r: Any = None) -> List[str]:
 _HARD_CODES = {"BANNED", "NOT_LEGAL", "COLOR_IDENTITY", "SINGLETON", "UNKNOWN_LEGALITY"}
 
 
-def _oracle_reviewer(draft: dict, session: dict) -> dict:
-    from src.server.domain.analytics.oracle_client import OracleClient
+_client_factory: Optional[Callable[[str], Any]] = None
+
+
+def set_client_factory(factory: Optional[Callable[[str], Any]]) -> None:
+    """Inject the chat-client factory (task -> client); wired by the app layer at startup."""
+    global _client_factory
+    _client_factory = factory
+
+
+def _default_client():
+    if _client_factory is None:
+        raise LLMError("no chat client factory configured")
+    return _client_factory("brew_review")
+
+
+def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
+    from src.server.domain.knowledge import build_messages
 
     try:
-        client = OracleClient.from_env()
+        client = client or _default_client()
         lines = [f"{c.get('quantity', 1)} {c.get('name')}" for c in draft.get("cards") or []]
         user = (
             f"Commander(s): {', '.join(draft.get('commanders') or [])}\n"
@@ -101,13 +108,16 @@ def _oracle_reviewer(draft: dict, session: dict) -> dict:
             f"Estimated power: {draft.get('estimated_power')}\n"
             "Deck list:\n" + "\n".join(lines)
         )
-        text = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}])
-    except LLMError as exc:
+        messages, _ = build_messages("brew_review", user_text=user)
+        text = client.chat(messages)
+    except LLMError as exc:  # includes LLMNotConfigured / LLMUnavailable
         return {"status": UNAVAILABLE, "reasons": [str(exc)], "source": "oracle"}
-    m = re.search(r"\{.*\}", text, re.S)
+    m = re.search(r"\{.*\}", text or "", re.S)
     try:
         data = json.loads(m.group(0)) if m else {}
     except ValueError:
+        data = {}
+    if not isinstance(data, dict):
         data = {}
     verdict = str(data.get("verdict", "")).lower()
     reasons = [str(x) for x in data.get("reasons") or []]
