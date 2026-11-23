@@ -225,3 +225,12 @@ def test_commander_with_unknown_legality_is_viable():
     cat = dv.CardCatalog([dv.CardInfo(name="Kaalia of the Vast", color_identity=dv.parse_color_identity("RWB"),
                                       types=("Creature",), supertypes=("Legendary",), commander_legality=None)])
     assert fill_deck("Kaalia of the Vast", [], [], cat)[0] == "Kaalia of the Vast"
+
+
+def test_unsynced_catalog_fails_loudly_instead_of_all_basics():
+    from src.server.domain.draft.deck_fill import CatalogUnsyncedError
+    cards = [card("Kaalia", "WBR", ("Creature",), ("Legendary",), legality=None)]
+    cards += [card(f"Pool {i}", "R", ("Creature",), legality=None) for i in range(40)]
+    cat = CardCatalog(cards)
+    with pytest.raises(CatalogUnsyncedError, match="re-run the card sync"):
+        fill_deck("Kaalia", [f"Pool {i}" for i in range(40)], [], cat, staples=[])
