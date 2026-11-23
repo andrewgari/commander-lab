@@ -14,8 +14,7 @@ Prompt:
     repair = the same, plus the previous drafts and the validator's errors, with instructions
              to fix only those errors.
 
-Provider: the app's existing oracle client (analytics.oracle_client.OracleClient, an
-OpenAI-compatible chat endpoint). No new provider. Any object with
+Provider: the in-repo OpenRouter chat client (infra.llm.factory.build_chat_client("reconstruct")). Any object with
 `chat(messages, **extra) -> str` works, which is how the tests mock it.
 
 Structured output: the request sends an OpenAI `response_format` json_schema built from the
@@ -28,7 +27,7 @@ Errors:
         MalformedJSONError             no parseable JSON object in the reply
         SchemaMismatchError            JSON parsed but does not match the schema / deck count
     AgentInputError                    bad arguments from the caller (not retryable)
-    analytics.oracle_client.OracleError propagates unchanged (offline/auth), like Theory/Review do.
+    domain.llm.port.LLMError (not configured / offline / auth) propagates unchanged, like Theory/Review do.
 """
 from __future__ import annotations
 
@@ -411,9 +410,10 @@ def parse_reply(text: Any, num_decks: int) -> List[DraftDeck]:
 # ---------------------------------------------------------------------------------------------
 
 def default_client():
-    from src.server.domain.analytics.oracle_client import OracleClient
+    import importlib
 
-    return OracleClient.from_env()
+    # By name: domain code must not import infra (import-linter ratchet).
+    return importlib.import_module("src.server.infra.llm.factory").build_chat_client("reconstruct")
 
 
 def call_agent(preferences: Sequence[Mapping], tier1: Any, tier2: Any, tier3: Any, num_decks: int,
@@ -433,7 +433,7 @@ def call_agent(preferences: Sequence[Mapping], tier1: Any, tier2: Any, tier3: An
     structured        send OpenAI `response_format` json_schema (the prompt asks for JSON regardless).
 
     Raises AgentOutputError subclasses on unusable output (retryable), AgentInputError on bad
-    arguments, and lets analytics.oracle_client.OracleError through.
+    arguments, and lets domain.llm.port.LLMError through.
     """
     if not isinstance(num_decks, int) or isinstance(num_decks, bool) or not 1 <= num_decks <= MAX_DECKS:
         raise AgentInputError(f"num_decks must be 1 or 2, got {num_decks!r}")

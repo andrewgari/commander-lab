@@ -95,3 +95,36 @@ class TestRejectedVerdictPersisted(TestBrewCore):
         sess = [brew.get_session(self.r, k.split("brew:session:")[-1]) for k in self.r.keys("*") if "session" in str(k)]
         sess = [x for x in sess if x]
         self.assertTrue(any((x.get("review_rejected") or {}).get("reasons") == ["too strong"] for x in sess))
+
+
+class FactoryReviewerTests(unittest.TestCase):
+    def _run(self, reply=None, exc=None):
+        from unittest.mock import MagicMock
+        c = MagicMock()
+        if exc:
+            c.chat.side_effect = exc
+        else:
+            c.chat.return_value = reply
+        draft = {"cards": [{"name": "Sol Ring", "quantity": 1}], "commanders": ["X"], "target_power": 7}
+        return brew_review._oracle_reviewer(draft, {}, client=c), c
+
+    def test_pass_and_fail_parsed(self):
+        v, c = self._run('{"verdict": "pass", "reasons": []}')
+        self.assertEqual(v["status"], "pass")
+        self.assertIn("Brackets", c.chat.call_args.args[0][0]["content"][0]["text"])
+        v, _ = self._run('{"verdict": "fail", "reasons": ["too strong"]}')
+        self.assertEqual((v["status"], v["reasons"]), ("fail", ["too strong"]))
+
+    def test_garbage_is_fail(self):
+        self.assertEqual(self._run("nope")[0]["status"], "fail")
+
+    def test_not_configured_is_unavailable(self):
+        from src.server.domain.llm.port import LLMNotConfigured
+        self.assertEqual(self._run(exc=LLMNotConfigured("x"))[0]["status"], "unavailable")
+
+    def test_default_client_from_factory(self):
+        from unittest.mock import patch
+        with patch("src.server.infra.llm.factory.build_chat_client") as f:
+            f.return_value.chat.return_value = '{"verdict":"pass","reasons":[]}'
+            brew_review._oracle_reviewer({"cards": []}, {})
+        f.assert_called_once_with("brew_review")

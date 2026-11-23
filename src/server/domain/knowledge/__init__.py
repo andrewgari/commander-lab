@@ -32,7 +32,8 @@ TASKS: dict[str, tuple[str | None, tuple[str, ...]]] = {
     "genre_autofill": (None, ("core",)),
     "deck_writeup": (None, ("core",)),
     "sim_diagnosis": (None, ("core",)),
-    "review_writer": (None, ("core",)),
+    "review_writer": ("review_writer", ("core",)),
+    "brew_review": ("brew_review", ("core", _BRACKETS)),
 }
 SCHEMAS = {"deck_review": "review", "sim_review": "sim_review", "theory": "theory",
            "personality_read": "personality-read"}
