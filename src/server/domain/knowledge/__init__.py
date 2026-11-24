@@ -36,6 +36,7 @@ TASKS: dict[str, tuple[str | None, tuple[str, ...]]] = {
     "review_writer": ("review_writer", ("core",)),
     "brew_review": ("brew_review", ("core", _BRACKETS, _POWER)),
     "brew_rules": ("brew_rules", ("core",)),
+    "brew_panel": ("brew_panel", ("core", _BRACKETS, _MANA)),
 }
 SCHEMAS = {"deck_review": "review", "sim_review": "sim_review", "theory": "theory",
            "personality_read": "personality-read"}

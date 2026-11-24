@@ -88,6 +88,8 @@ _brew_review.set_client_factory(_build_chat_client)
 from src.server.domain.draft import brew_builder as _brew_builder  # noqa: E402
 from src.server.domain.draft import brew_rules_draft as _brew_rules_draft  # noqa: E402
 _brew_rules_draft.set_client_factory(_build_chat_client)
+from src.server.domain.draft import brew_panel as _brew_panel  # noqa: E402
+_brew_panel.set_client_factory(_build_chat_client)
 _reconstruct_agent.set_client_factory(_build_chat_client)
 
 # Card dossier (spec §2): persist interaction-rebuild edges into Postgres so
@@ -1064,7 +1066,8 @@ async def start_brew_session(request: Request):
            "game_plan" (aggro|midrange|control), "combo" (bool), "archetype" (free text),
            "dials": {aggressiveness|commander_focus|interactiveness|political: high|low|neither},
            "idea"/"deck_idea", "themes": [...], "notes",
-           "composition": <composition preset id> | "profile" | "app"}
+           "composition": <composition preset id> | "profile" | "app",
+           "budget": <USD, optional total new-card spend; defaults to the profile's budget norms>}
     Composition template: form pick > profile default > app default; stored on the session.
     """
     try:
@@ -1090,6 +1093,9 @@ async def start_brew_session(request: Request):
         from src.server.infra.services import player_profile_service as _pps
         profile_composition = await asyncio.to_thread(_pps.default_composition_preset)
 
+    from src.server.infra.services import player_profile_service as _pps
+    profile_snapshot = await asyncio.to_thread(_pps.brew_profile_snapshot)
+
     try:
         session = brew.start_brew(
             r,
@@ -1108,6 +1114,8 @@ async def start_brew_session(request: Request):
             combo=data.get("combo", False),
             archetype=data.get("archetype") or "",
             dials=data.get("dials"),
+            budget=data.get("budget"),
+            profile_snapshot=profile_snapshot,
         )
     except ValueError as e:
         msg = str(e)

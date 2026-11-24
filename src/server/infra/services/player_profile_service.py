@@ -83,6 +83,29 @@ def default_composition_preset(name: str = DEFAULT_NAME) -> Optional[str]:
         return None
 
 
+def brew_profile_snapshot(name: str = DEFAULT_NAME) -> dict:
+    """What Brew's panel and budget logic need from the profile, taken once at session start so a build is
+    reproducible. {} when there is no database or profile: Brew then builds without playstyle input."""
+    try:
+        from src.server.infra.db.session import session_scope
+        with session_scope() as session:
+            p = load_profile(session, name)
+            d = p.to_dict() if hasattr(p, "to_dict") else {}
+    except Exception:  # noqa: BLE001
+        return {}
+    bi, pt, dl = d.get("builder_identity") or {}, d.get("power_tendencies") or {}, d.get("dislikes") or {}
+    bn, rp = d.get("budget_norms") or {}, d.get("review_preferences") or {}
+    snap = {
+        "builder_identity": " ".join(x for x in [bi.get("text") or "", ", ".join(bi.get("tags") or [])] if x),
+        "power_tier": pt.get("tier"), "power_notes": pt.get("notes") or "",
+        "dislikes_cards": list(dl.get("cards") or []), "dislikes_strategies": list(dl.get("strategies") or []),
+        "dislikes_play_patterns": list(dl.get("play_patterns") or []),
+        "welcome_generic_staples": rp.get("welcome_generic_staples"),
+        "budget": bn.get("soft_cap") or bn.get("hard_cap"),
+    }
+    return {k: v for k, v in snap.items() if v not in (None, "", [])}
+
+
 def seed_profile(session: Session, name: str = DEFAULT_NAME,
                  seed_path: Optional[Path] = None) -> pp.PlayerProfile:
     """Create version 1 from the seed file. No-op if the profile exists
