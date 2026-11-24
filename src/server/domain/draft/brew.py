@@ -360,6 +360,9 @@ def execute_build(r: Any, session_id: str) -> dict:
     from src.server.domain.draft import brew_review
     from src.server.domain.draft.brew_builder import get_builder
 
+    from src.server.domain.draft.brew_builder import prefetch_edhrec
+
+    prefetch_edhrec(r, list(session.get("commanders") or []))
     builder = get_builder()
     try:
         drafts = builder.build(session, r)
@@ -701,7 +704,10 @@ def _pool_config(r: Any, session: dict) -> reconstruct_pools.PoolConfig:
     """Tier 3 filtered by the commander's color identity."""
     catalog = reconstruct_pools.RedisCardCatalog(r)
     identity = reconstruct_pools.identity_of_cards(session.get("commanders") or [], catalog)
-    return reconstruct_pools.PoolConfig(color_identity=identity)
+    from src.server.domain.draft.brew_builder import candidate_ranker
+
+    return reconstruct_pools.PoolConfig(color_identity=identity,
+                                        ranker=candidate_ranker(r, list(session.get("commanders") or [])))
 
 
 def _build_pools(r: Any, session: dict, price_lookup=None) -> reconstruct_pools.CandidatePools:

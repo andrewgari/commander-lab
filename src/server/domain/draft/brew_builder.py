@@ -90,6 +90,44 @@ def _cached_edhrec(r: Any, commanders: List[str]) -> dict:
         return {}
 
 
+_edhrec_fetch_enabled = False
+
+
+def enable_edhrec_fetch(enabled: bool = True) -> None:
+    """Let a build fetch a missing EDHREC commander page (wired on by the app; tests stay offline)."""
+    global _edhrec_fetch_enabled
+    _edhrec_fetch_enabled = bool(enabled)
+
+
+def prefetch_edhrec(r: Any, commanders: List[str]) -> None:
+    """Best-effort warm of the EDHREC cache for this commander so candidate ranking has signal.
+    Never raises: a failed fetch leaves the scorer on its no-EDHREC path."""
+    if not _edhrec_fetch_enabled or r is None or not commanders:
+        return
+    try:
+        from src.server.domain.analytics.card_eval import edhrec_data
+
+        edhrec_data.get_page(r, list(commanders))
+    except Exception as exc:  # noqa: BLE001 - EDHREC is a ranking hint, never fatal
+        import logging
+
+        logging.getLogger(__name__).warning("brew: EDHREC prefetch failed for %s: %s", commanders, exc)
+
+
+def candidate_ranker(r: Any, commanders: List[str]):
+    """Tier 3 ranker (lowest key first): EDHREC inclusion for this commander, then cards the lab
+    has tagged, then name. Replaces the alphabetical default that capped the pool at the A/B cards."""
+    edhrec = _cached_edhrec(r, commanders)
+    tagged = {k.casefold() for k in _load_lab_tags(r)}
+
+    def key(card: Any):
+        nk = card.name.casefold()
+        inc = (edhrec.get(nk) or edhrec.get(norm_name(card.name)) or {}).get("inclusion") or 0.0
+        return (-inc, 0 if nk in tagged else 1, card.name.casefold())
+
+    return key
+
+
 def _load_lab_tags(r: Any) -> dict:
     try:
         raw = r.get("lab_tags") if r is not None else None
@@ -211,6 +249,17 @@ def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoring
 
 _BASIC_FOR_COLOR = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
 _BASIC_NAMES = frozenset(norm_name(n) for n in (*_BASIC_FOR_COLOR.values(), "Wastes"))
+
+
+def _land_target(session: dict) -> int:
+    """Lands the session's composition template wants (its `lands` slot, low bound); 36 if unset."""
+    try:
+        for slot in session_template(session).get("slots") or []:
+            if slot.get("key") == "lands":
+                return int(slot.get("low") or slot.get("target") or 36)
+    except Exception:
+        pass
+    return 36
 
 
 def _commander_identity(r: Any, commanders: List[str]) -> List[str]:
@@ -355,7 +404,8 @@ class _Scorer:
         if mv is not None and not brew_power.is_land(c) and self.mv_n:
             self.mv_sum, self.mv_n = self.mv_sum - mv, self.mv_n - 1
 
-    def pick(self, names: List[str], cap: int) -> List[str]:
+    def pick(self, names: List[str], cap: int, step: int = 1) -> List[str]:
+        """Greedy scored pick. `step` = admitted cards per re-score (1 = exact; larger trades exactness for speed)."""
         if cap <= 0:
             return []
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
@@ -372,6 +422,7 @@ class _Scorer:
             if not batch:
                 break
             progressed = False
+            taken = 0
             for c in batch:
                 recs = [x for x in recs if x["name"] != c["name"]]
                 if self.gate is not None and not self.gate.admit(c):
@@ -384,7 +435,9 @@ class _Scorer:
                     self.mv_sum, self.mv_n = self.mv_sum + mv, self.mv_n + 1
                 for k in set(brew_scoring._matching(c, self.skeleton)):
                     self.counts[k] = self.counts.get(k, 0) + 1
-                break  # re-score after every admitted card so state stays exact
+                taken += 1
+                if taken >= step:
+                    break  # re-score every `step` admitted cards (1 = after each, exact)
             if not progressed and not recs:
                 break
         return [c["name"] for c in chosen]
@@ -435,6 +488,16 @@ class StubBrewBuilder(BaseBrewBuilder):
         if rules:
             donor_cards, gone = brew_rules.filter_names(rules, donor_cards, r, commanders)
             rule_removed += gone
+
+        # Donor cards outside the commander's colour identity never enter the deck (their identity
+        # is known from the pool's catalog lookup; unknown identity is left to the review gate).
+        if pools is not None and donor_cards:
+            allowed = reconstruct_pools.parse_identity(pools.config.color_identity)
+            if allowed is not None:
+                ci = {norm_name(c.name): c.color_identity for c in pools.tier1}
+                off = [n for n in donor_cards if ci.get(norm_name(n)) is not None and not ci[norm_name(n)] <= allowed]
+                if off:
+                    donor_cards = [n for n in donor_cards if n not in off]
 
         cards: list[dict] = []
         used = set()
@@ -534,21 +597,10 @@ class StubBrewBuilder(BaseBrewBuilder):
             return bool(f and "land" in (f["type_line"] or "").lower())
 
         rule_filter = (lambda names: brew_rules.filter_names(rules, names, r, commanders)[0]) if rules else (lambda names: names)
-        lands_added = [0]
-        _plain_add = add
-
-        def add(name, tier, tier_label, cost, rationale):  # noqa: F811 - counts lands for the basic reserve
-            ok = _plain_add(name, tier, tier_label, cost, rationale)
-            if ok and is_land(cards[-1]["name"]):
-                lands_added[0] += 1
-            return ok
-
         def drop_card(name):
             k = norm_name(name)
             for i, c in enumerate(cards):
                 if norm_name(c["name"]) == k and norm_name(c["name"]) not in {norm_name(x) for x in commanders}:
-                    if is_land(c["name"]):
-                        lands_added[0] -= 1
                     del cards[i]
                     used.discard(k)
                     rejected.add(k)
@@ -628,31 +680,43 @@ class StubBrewBuilder(BaseBrewBuilder):
         for name in scorer.pick(fresh(edhrec_first), tier3_cap):
             add(name, 3, "new", float(prices[name]), "Buy to complete the brew")
 
-        # Caps above only set the tier mix. Root cause of truncated decks was
-        # stopping there (25+10+3 ~ 39 cards); keep topping up from every pool
-        # (donor, owned, then new) until the deck is full or candidates run out.
-        def top_up():
-            # Room for spells = 100 minus the basics the skeleton reserved (lands_target - nonbasic lands so far).
-            def room():
-                return DECK_SIZE - max(sk["lands_target"] - lands_added[0], 0)
-            extra = [(n, 1, "previous_deck", 0.0, "Available from a named donor deck") for n in donor_cards]
-            if pools is not None:
-                extra += [(pc.name, 2, "owned", 0.0, "Available from free inventory") for pc in pools.tier2]
-                t3 = sorted(pools.tier3, key=lambda pc: (edhrec_order.index(pc.name) if pc.name in edhrec_order else 10 ** 6))
-                extra += [
-                    (pc.name, 3, "new", float(pc.unit_price if pc.unit_price is not None else 0.0),
-                     "Buy to complete the brew")
-                    for pc in t3
-                ]
-            for args in extra:
-                if len(cards) >= min(DECK_SIZE, room()):
-                    break
-                if norm_name(args[0]) in rejected or (is_land(args[0]) and lands_added[0] >= sk["lands_target"]):
-                    continue
-                add(*args)
+        # Caps above only set the tier mix. Keep topping up from every pool (donor,
+        # owned, then new) until the deck is full or candidates run out, but
+        # (a) rank the remaining candidates with the scorer instead of taking pool
+        # order (alphabetical when EDHREC data is absent) and (b) reserve the land
+        # slots the template asks for (the skeleton's plan) so spells cannot crowd out the mana base.
+        land_reserve = sk["lands_target"]
 
-        # Caps above only set the tier mix. Root cause of truncated decks was stopping there
-        # (25+10+3 ~ 39 cards); keep topping up from every pool until the deck is full or candidates run out.
+        def lands_in_deck() -> int:
+            return sum(int(c.get("quantity") or 1) for c in cards if is_land(c["name"]) or norm_name(c["name"]) in _BASIC_NAMES)
+
+        def room_for_spells() -> int:
+            return DECK_SIZE - len(cards) - max(land_reserve - lands_in_deck(), 0)
+
+        def top_up():
+            if len(cards) >= DECK_SIZE:
+                return
+            tiers: list = [(donor_cards, 1, "previous_deck", {}, "Available from a named donor deck")]
+            if pools is not None:
+                tiers.append(([pc.name for pc in pools.tier2], 2, "owned", {}, "Available from free inventory"))
+                tiers.append(([pc.name for pc in pools.tier3], 3, "new", dict(prices), "Buy to complete the brew"))
+            for names, tier, label, cost_of, why in tiers:
+                while room_for_spells() > 0:
+                    cands = fresh(names)
+                    if not cands:
+                        break
+                    picked = scorer.pick(cands, room_for_spells(), step=8)
+                    added = [n for n in picked if add(n, tier, label, float(cost_of.get(n, 0.0) or 0.0), why)]
+                    if not added:
+                        break
+            # Still short of spells (small pools): spend any remaining slots in pool order,
+            # still leaving room for the land reserve.
+            for names, tier, label, cost_of, why in tiers:
+                for n in fresh(names):
+                    if room_for_spells() <= 0:
+                        break
+                    add(n, tier, label, float(cost_of.get(n, 0.0) or 0.0), why)
+
         top_up()
 
         stage3 = [c["name"] for c in cards[stage3_from:] if norm_name(c["name"]) not in _BASIC_NAMES]

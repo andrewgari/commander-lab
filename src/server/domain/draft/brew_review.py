@@ -97,6 +97,23 @@ def _default_client():
     return _client_factory("brew_review")
 
 
+def _game_changers_line(draft: dict) -> str:
+    """Game Changers in this deck, from the checked-in official snapshot, so the reviewer never has to
+    claim the list is unavailable. Degrades to an explicit 'unknown, do not fail on it' note."""
+    try:
+        from src.server.domain.draft import brew_power
+
+        gcs = brew_power.game_changer_names()
+        if not gcs:
+            raise ValueError("empty snapshot")
+        found = sorted({str(c.get("name")) for c in draft.get("cards") or []
+                        if brew_power._key(c.get("name")) in gcs})
+        return "Game Changers in this deck (official list): " + (", ".join(found) if found else "none")
+    except Exception:
+        return ("Game Changers in this deck: could not be determined. Do not fail the deck for this; "
+                "judge bracket fit from the card list only.")
+
+
 def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
     from src.server.domain.knowledge import build_messages
 
@@ -107,6 +124,7 @@ def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
             f"Commander(s): {', '.join(draft.get('commanders') or [])}\n"
             f"Target power (1-10): {draft.get('target_power')}\n"
             f"Estimated power: {draft.get('estimated_power')}\n"
+            f"{_game_changers_line(draft)}\n"
             "Deck list:\n" + "\n".join(lines)
         )
         messages, _ = build_messages("brew_review", user_text=user)

@@ -85,6 +85,7 @@ app = FastAPI()
 from src.server.infra.llm.factory import build_chat_client as _build_chat_client  # noqa: E402
 from src.server.domain.draft import brew_review as _brew_review, reconstruct_agent as _reconstruct_agent  # noqa: E402
 _brew_review.set_client_factory(_build_chat_client)
+from src.server.domain.draft import brew_builder as _brew_builder  # noqa: E402
 from src.server.domain.draft import brew_rules_draft as _brew_rules_draft  # noqa: E402
 _brew_rules_draft.set_client_factory(_build_chat_client)
 from src.server.domain.draft import brew_panel as _brew_panel  # noqa: E402
@@ -4529,6 +4530,7 @@ async def api_profile_personality(scope: str = "physical"):
 
 @app.on_event("startup")
 async def _start_interactions_nightly():
+    _brew_builder.enable_edhrec_fetch(True)  # live app only: tests importing main stay offline
     interactions_service.start_nightly_thread(r)
 
 
