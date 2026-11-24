@@ -309,7 +309,7 @@ class _Scorer:
         self.pool_hits: dict = {}  # category -> candidate names seen matching it
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
-        self.gate: Any = None  # TierGate; set by the builder so picks are admission-aware
+        self.gate: Any = None  # BracketGate; set by the builder so picks are admission-aware
         self.source_names: frozenset = frozenset()
         self.source_oracle_ids: frozenset = frozenset()
 
@@ -414,7 +414,7 @@ class StubBrewBuilder(BaseBrewBuilder):
         cards: list[dict] = []
         used = set()
         scorer = _Scorer(r, session, BrewScoringConfig.from_env())
-        gate = brew_power.TierGate(scorer.target_power, scorer.config.power)
+        gate = brew_power.BracketGate(session.get("target_bracket"))
         scorer.gate = gate
 
         for cmd in commanders:
@@ -577,6 +577,10 @@ class StubBrewBuilder(BaseBrewBuilder):
             "power_level": session.get("power_level", ""),
             "deck_idea": session.get("deck_idea", ""),
             "target_power": session.get("target_power"),
+            "target_bracket": session.get("target_bracket", brew_power.DEFAULT_BRACKET),
+            "game_plan": session.get("game_plan"),
+            "archetype": session.get("archetype"),
+            "dials": session.get("dials") or {},
             "build_mode": build_mode,
             "cards": cards,
             "total_new_cost": total_new_cost,
@@ -596,6 +600,40 @@ class StubBrewBuilder(BaseBrewBuilder):
         return [draft]
 
 
+_DIAL_TEXT = {
+    "aggressiveness": ("lean aggressive: fast pressure, cheap threats", "lean patient: fewer all-in attackers"),
+    "commander_focus": ("build around the commander: more ways to find and protect it",
+                        "the commander is one piece; do not over-index on it"),
+    "interactiveness": ("more interaction: removal, counters, protection", "less interaction; spend slots on the plan"),
+    "political": ("politics welcome: deals, goad, group effects", "avoid political and group-dependent cards"),
+}
+
+
+def guidance_note(session: dict) -> str:
+    """Prompt guidance from the bracket (hard), power (soft), game plan, archetype and dials (soft)."""
+    parts = []
+    bracket = session.get("target_bracket")
+    if bracket is not None:
+        parts.append(f"HARD LIMIT: build to Commander Bracket {bracket} (1-5); never exceed its Game Changer, "
+                     "mass land denial, extra turn and two-card combo limits.")
+    tp = session.get("target_power")
+    if tp is not None:
+        parts.append(f"SOFT GUIDE: target power {tp:g} on the 1-10 scale in the Power scale table; "
+                     "it never overrides the bracket.")
+    plan = session.get("game_plan")
+    if plan:
+        parts.append(f"Game plan: {plan}" + (" with a combo finish." if session.get("combo") else "."))
+    arch = session.get("archetype")
+    if arch and arch != "let the brewer decide":
+        parts.append(f"Archetype (guide, not a law): {arch}.")
+    elif arch:
+        parts.append("Archetype: infer it from the commander and the deck idea.")
+    for name, v in (session.get("dials") or {}).items():
+        if v in ("high", "low") and name in _DIAL_TEXT:
+            parts.append(f"{name.replace('_', ' ').capitalize()} {v}: {_DIAL_TEXT[name][0 if v == 'high' else 1]}.")
+    return " ".join(parts)
+
+
 def brew_rules_of(session: dict) -> List[dict]:
     return [x for x in (session.get("approved_rules") or []) if session.get("rules_approved")]
 
@@ -606,7 +644,12 @@ class BrewBuilder(BaseBrewBuilder):
     is identical) and brew-mode guidance folded into the preference notes."""
 
     def __init__(self, **kwargs: Any):
+        from src.server.domain.draft.reconstruct_agent import load_guide
         from src.server.domain.draft.reconstruct_builder import ReconstructBuilder
+        from src.server.domain.knowledge.render import read_static
+
+        if kwargs.get("guide") is None:  # power table rides along like the other knowledge sections
+            kwargs["guide"] = load_guide() + "\n\n" + read_static("power_scale")
 
         self._inner = ReconstructBuilder(**kwargs)
 
@@ -624,11 +667,8 @@ class BrewBuilder(BaseBrewBuilder):
         if prefs:
             prefs[0]["notes"] = " ".join(x for x in [prefs[0].get("notes", ""), note] if x).strip()
         inner_session["preferences"] = prefs
-        tp = session.get("target_power")
-        if prefs and tp is not None:
-            prefs[0]["notes"] = (prefs[0].get("notes", "") + f" Target power level {tp:g} on a 1-10 scale: "
-                                 "use fast mana, tutors, combo pieces and Game Changers only if that is high "
-                                 "(7+), avoid them if low (4 or less), and keep a modest average mana value.").strip()
+        if prefs:
+            prefs[0]["notes"] = " ".join(x for x in [prefs[0].get("notes", ""), guidance_note(session)] if x).strip()
         drafts = self._inner.build(inner_session, r)[:1]
         cfg = BrewScoringConfig.from_env()
         for d in drafts:

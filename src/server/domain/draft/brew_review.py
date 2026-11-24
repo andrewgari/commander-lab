@@ -122,7 +122,8 @@ def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
         lines = [f"{c.get('quantity', 1)} {c.get('name')}" for c in draft.get("cards") or []]
         user = (
             f"Commander(s): {', '.join(draft.get('commanders') or [])}\n"
-            f"Target power (1-10): {draft.get('target_power')}\n"
+            f"Target bracket (1-5, hard limit): {draft.get('target_bracket', 3)}\n"
+            f"Target power (1-10, soft guide): {draft.get('target_power')}\n"
             f"Estimated power: {draft.get('estimated_power')}\n"
             f"{_game_changers_line(draft)}\n"
             "Deck list:\n" + "\n".join(lines)

@@ -20,6 +20,7 @@ _BRACKETS = "brackets"
 _MANA = "mana"
 _SALT = "salt_and_table"
 _CSALT = "commandersalt_structure"
+_POWER = "power_scale"
 
 # task -> (task file or None, sections in order). Tasks with no file carry their prompt in user_text.
 TASKS: dict[str, tuple[str | None, tuple[str, ...]]] = {
@@ -28,12 +29,12 @@ TASKS: dict[str, tuple[str | None, tuple[str, ...]]] = {
     "theory": ("deck_theory", ("core", _BRACKETS, _MANA, _SALT)),
     "personality_read": ("personality_read", ("core", _BRACKETS, _SALT, _CSALT)),
     "card_review": (None, ("core", _BRACKETS, _MANA, _SALT)),
-    "reconstruct": (None, ("core", _BRACKETS, _MANA)),
+    "reconstruct": (None, ("core", _BRACKETS, _POWER, _MANA)),
     "genre_autofill": (None, ("core",)),
     "deck_writeup": (None, ("core",)),
     "sim_diagnosis": (None, ("core",)),
     "review_writer": ("review_writer", ("core",)),
-    "brew_review": ("brew_review", ("core", _BRACKETS)),
+    "brew_review": ("brew_review", ("core", _BRACKETS, _POWER)),
     "brew_rules": ("brew_rules", ("core",)),
 }
 SCHEMAS = {"deck_review": "review", "sim_review": "sim_review", "theory": "theory",

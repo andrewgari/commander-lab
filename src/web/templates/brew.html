@@ -72,6 +72,9 @@
 
     /* §04 details: 2-up for the short fields, full width for prose. */
     .brew-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-6); }
+    .brew-dials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-6); }
+    .brew-dial { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .brew-check { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
     .brew-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
     .brew-field--wide { grid-column: 1 / -1; }
     .brew-field > label { color: var(--text-1); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
@@ -202,9 +205,33 @@
                     <input type="text" id="brewName" placeholder="Commander brew">
                 </div>
                 <div class="brew-field">
-                    <label id="brewPowerLabel">Power level</label>
-                    {{ hud.seg("power", [("1","1"),("2","2"),("3","3"),("4","4"),("5","5")], selected="3", mod="scale", label_id="brewPowerLabel", describedby="brewPowerDesc") }}
-                    <span class="hud-field-hint" id="brewPowerDesc">Mid — tuned casual, some staples.</span>
+                    <label id="brewBracketLabel">Bracket <span class="hud-field-hint">hard rule</span></label>
+                    {{ hud.seg("bracket", [("1","1"),("2","2"),("3","3"),("4","4"),("5","5")], selected="3", mod="scale", label_id="brewBracketLabel", describedby="brewBracketDesc") }}
+                    <span class="hud-field-hint" id="brewBracketDesc">Upgraded: up to 3 Game Changers.</span>
+                </div>
+                <div class="brew-field">
+                    <label id="brewPowerLabel">Power <span class="hud-field-hint">soft guide</span></label>
+                    {{ hud.seg("power", [("1","1"),("2","2"),("3","3"),("4","4"),("5","5"),("6","6"),("7","7"),("8","8"),("9","9"),("10","10")], selected="6", mod="scale", label_id="brewPowerLabel", describedby="brewPowerDesc") }}
+                    <span class="hud-field-hint" id="brewPowerDesc">Tuned and consistent; wins around T8-9.</span>
+                </div>
+                <div class="brew-field">
+                    <label id="brewPlanLabel">Game plan</label>
+                    {{ hud.seg("game_plan", [("aggro","Aggro"),("midrange","Midrange"),("control","Control")], selected="midrange", label_id="brewPlanLabel") }}
+                    <label class="brew-check"><input type="checkbox" id="brewCombo" name="combo"> Combo finish</label>
+                </div>
+                <div class="brew-field">
+                    <label for="brewArchetype">Archetype</label>
+                    <input type="text" id="brewArchetype" value="let the brewer decide" aria-describedby="brewArchetypeHint">
+                    <span class="hud-field-hint" id="brewArchetypeHint">The brewer infers it from the commander and idea; a typed value is a guide, not a law.</span>
+                </div>
+                <div class="brew-field brew-field--wide">
+                    <label id="brewDialsLabel">Dials <span class="hud-field-hint">optional</span></label>
+                    <div class="brew-dials" role="group" aria-labelledby="brewDialsLabel">
+                        {% for key, label in [("aggressiveness","Aggressiveness"),("commander_focus","Commander focus"),("interactiveness","Interactiveness"),("political","Political")] %}
+                        <div class="brew-dial"><span id="brewDial-{{ key }}">{{ label }}</span>
+                            {{ hud.seg("dial_" ~ key, [("high","High"),("neither","Neither"),("low","Low")], selected="neither", label_id="brewDial-" ~ key) }}</div>
+                        {% endfor %}
+                    </div>
                 </div>
                 <div class="brew-field brew-field--wide">
                     <label for="brewComposition">Composition</label>
