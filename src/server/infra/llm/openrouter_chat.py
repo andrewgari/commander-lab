@@ -14,13 +14,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import httpx
 
 from src.server.domain.analytics.review_pipeline.llm import LLMTransportError
-from src.server.domain.llm.port import (ChatTurn, LLMAuthError, LLMResponseError, LLMUnavailable, ToolCall,
+from src.server.domain.llm.port import (ChatTurn, LLMAuthError, LLMResponseError, LLMTruncatedError, LLMUnavailable, ToolCall,
                                         Usage)
 from src.server.infra.llm.provider import OPENROUTER_BASE_URL, ProviderUnavailable, _post
 
 REFERER = "https://github.com/andrewgari/commander-lab"
 TITLE = "Commander Lab"
-ALLOWED_EXTRAS = ("temperature", "response_format", "tools", "tool_choice")
+ALLOWED_EXTRAS = ("temperature", "response_format", "tools", "tool_choice", "max_tokens")
 PING_TIMEOUT_S = 8.0
 
 
@@ -58,7 +58,7 @@ class OpenRouterChat:
             prov["require_parameters"] = True
         body: Dict[str, Any] = {"model": self.model, "messages": messages, "stream": False,
                                 "usage": {"include": True}, "provider": prov, **extra}
-        if self.max_tokens:
+        if self.max_tokens and "max_tokens" not in extra:  # a per-call max_tokens wins over the task default
             body["max_tokens"] = self.max_tokens
         return body
 
@@ -96,7 +96,7 @@ class OpenRouterChat:
             raise LLMResponseError("OpenRouter reply had no message content", usage=usage) from None
         content = self._norm_content(content, usage)
         if choice.get("finish_reason") == "length":
-            raise LLMResponseError("reply truncated at max_tokens", usage=usage)
+            raise LLMTruncatedError("reply truncated at max_tokens", usage=usage)
         if not content.strip():
             raise LLMResponseError("empty reply", usage=usage)
         return content
@@ -141,7 +141,7 @@ class OpenRouterChat:
         content = self._norm_content(message.get("content"), usage)
         finish = choice.get("finish_reason") or ""
         if finish == "length":
-            raise LLMResponseError("reply truncated at max_tokens", usage=usage)
+            raise LLMTruncatedError("reply truncated at max_tokens", usage=usage)
         raw_calls = message.get("tool_calls")
         if raw_calls is not None and not isinstance(raw_calls, list):
             raise LLMResponseError("malformed tool_calls in reply", usage=usage)

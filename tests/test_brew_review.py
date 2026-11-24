@@ -132,3 +132,44 @@ class FactoryReviewerTests(unittest.TestCase):
         finally:
             brew_review.set_client_factory(None)
         f.assert_called_once_with("brew_review")
+
+
+class _TruncThenOk:
+    """Chat client whose first reply is cut off at max_tokens."""
+    max_tokens = 6000
+
+    def __init__(self, always=False):
+        self.calls = []
+        self.always = always
+
+    def chat(self, messages, **extra):
+        from src.server.domain.llm.port import LLMTruncatedError
+        self.calls.append(extra)
+        if self.always or len(self.calls) == 1:
+            raise LLMTruncatedError("reply truncated at max_tokens")
+        return '{"verdict": "pass", "reasons": []}'
+
+
+class TestTruncationRetry(unittest.TestCase):
+    def test_truncated_reply_retries_with_bigger_budget(self):
+        c = _TruncThenOk()
+        v = brew_review._oracle_reviewer({"cards": _cards(100), "commanders": ["X"]}, {}, client=c)
+        self.assertEqual(v["status"], "pass")
+        self.assertEqual(c.calls, [{}, {"max_tokens": 12000}])
+
+    def test_persistent_truncation_is_unavailable_not_crash(self):
+        c = _TruncThenOk(always=True)
+        v = brew_review._oracle_reviewer({"cards": _cards(100)}, {}, client=c)
+        self.assertEqual(v["status"], "unavailable")
+        self.assertEqual(len(c.calls), 2)
+
+
+class TestMaxTokensConfig(unittest.TestCase):
+    def test_default_and_env_override(self):
+        from src.server.infra.llm.factory import build_chat_client
+        base = {"OPENROUTER_API_KEY": "k"}
+        self.assertEqual(build_chat_client("brew_review", base).max_tokens, 6000)
+        self.assertEqual(build_chat_client("brew_review", {**base, "LLM_MAX_TOKENS": "9000"}).max_tokens, 9000)
+        self.assertEqual(build_chat_client("brew_review", {**base, "LLM_MAX_TOKENS": "9000",
+                                                           "LLM_MAX_TOKENS_BREW_REVIEW": "7000"}).max_tokens, 7000)
+        self.assertEqual(build_chat_client("brew_review", {**base, "LLM_MAX_TOKENS": "junk"}).max_tokens, 6000)

@@ -15,7 +15,7 @@ The user message holds the commander(s), the target power (1-10), the estimated 
 ### Rules
 - Fail only for a concrete, nameable problem; cite the card or count in the reason.
 - Never invent a card that is not in the list.
-- Each reason is one short sentence.
+- Each reason is one short sentence; give at most 5 reasons. Keep the whole reply under 200 words.
 
 ### Output
 Reply with JSON only, no prose before or after:

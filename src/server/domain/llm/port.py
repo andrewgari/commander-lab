@@ -40,6 +40,10 @@ class LLMResponseError(LLMError):
         super().__init__(message)
 
 
+class LLMTruncatedError(LLMResponseError):
+    """The reply hit max_tokens (finish_reason=length); callers may retry with a larger budget."""
+
+
 class ChatClient(Protocol):
     def chat(self, messages: List[Dict[str, str]], **extra) -> str:
         """Return the assistant reply text."""
