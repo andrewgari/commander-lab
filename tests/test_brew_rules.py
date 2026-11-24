@@ -200,3 +200,64 @@ def test_rule_shortfall_cannot_be_padded_with_extra_basics(r):
             fill_deck("Cmdr", [], [("src", cards)], cat)
     assert DRAGON_RULE["label"] in str(exc.value) and "basic" in str(exc.value)
     assert br.MIN_NON_BASIC == 99 - br.NORMAL_LAND_COUNT
+
+
+# -- shortfall guards (brew.py _enforce_rules, brew_builder.py StubBrewBuilder) -----------
+
+def _starved_session(r, n_dragons, n_bears):
+    for i in range(n_dragons):
+        r.set(f"card_meta:Dragon {i}", json.dumps({"name": f"Dragon {i}", "type": "Creature — Dragon"}))
+    for i in range(n_bears):
+        r.set(f"card_meta:Bear {i}", json.dumps({"name": f"Bear {i}", "type": "Creature — Bear"}))
+    r.set("card_meta:Cmdr", json.dumps({"name": "Cmdr", "type": "Legendary Creature — Human"}))
+    return {
+        "session_id": "s-starved", "status": brew.STATUS_BUILDING, "build_mode": "owned_first",
+        "commanders": ["Cmdr"], "preferences": [{"commanders": ["Cmdr"], "notes": ""}],
+        "donor_decks": [], "approved_rules": [DRAGON_RULE], "rules_approved": True,
+    }
+
+
+def _basic_cards(cards):
+    return [c["name"] for c in cards if (c.get("name") or "").casefold() in br._BASICS]
+
+
+def test_execute_build_rule_shortfall_fails_loudly_without_basics(r, monkeypatch):
+    import src.server.domain.draft.brew_builder as bb
+
+    session = _starved_session(r, 20, 50)
+    brew._save_session(r, session)
+    cards = ([{"name": "Cmdr", "quantity": 1}]
+             + [{"name": f"Dragon {i}", "quantity": 1} for i in range(20)]
+             + [{"name": f"Bear {i}", "quantity": 1} for i in range(50)])
+    assert 50 < br.MIN_NON_BASIC  # 51 non-basics survive: below the minimum
+
+    class Fixed(bb.BaseBrewBuilder):
+        def build(self, s, rr):
+            return [{"cards": [dict(c) for c in cards], "commanders": ["Cmdr"]}]
+
+    gated = []
+    monkeypatch.setattr(brew, "release_draft", lambda *a, **k: gated.append(1) or a[2])
+    monkeypatch.setattr(bb, "_builder_instance", Fixed())
+
+    with pytest.raises(br.RulesStarvedError) as exc:
+        brew.execute_build(r, "s-starved")
+    assert DRAGON_RULE["label"] in str(exc.value)
+    assert gated == []  # failed at the guard, before the gate could refill with basics
+    saved = brew.get_session(r, "s-starved")
+    assert saved["status"] == brew.STATUS_FAILED and DRAGON_RULE["label"] in saved["error"]
+    assert not saved.get("drafts")
+
+
+def test_brew_builder_rule_shortfall_fails_loudly_without_basics(r, monkeypatch):
+    import src.server.domain.draft.brew_builder as bb
+    from src.server.domain.draft.reconstruct_pools import CandidatePools
+
+    session = _starved_session(r, 20, 50)
+    session["donor_decks"] = [{"deck_id": "d1", "commanders": [], "cards": (
+        [{"name": f"Dragon {i}"} for i in range(20)] + [{"name": f"Bear {i}"} for i in range(50)])}]
+    monkeypatch.setattr(brew, "_build_pools", lambda *a, **k: CandidatePools())
+
+    with pytest.raises(br.RulesStarvedError) as exc:
+        bb.StubBrewBuilder().build(session, r)
+    msg = str(exc.value)
+    assert DRAGON_RULE["label"] in msg and "removed 20" in msg
