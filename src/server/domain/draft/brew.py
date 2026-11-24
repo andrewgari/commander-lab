@@ -369,6 +369,8 @@ def execute_build(r: Any, session_id: str) -> dict:
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
         # THE gate: nothing illegal / incomplete is stored or returned (brew_gate).
+        from src.server.domain.draft.brew_builder import sanity_trim
+        sanity_trim(r, session, drafts[0])  # lands/ramp inside the template: trim, don't fail (gate refills)
         rules = _session_rules(session)
         if rules:  # deterministic hard-rule enforcement on the builder's output, before the gate
             _enforce_rules(r, session, drafts[0], rules)
