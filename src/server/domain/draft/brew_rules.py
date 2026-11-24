@@ -166,6 +166,15 @@ def _color_set(v: Any) -> set:
     return out
 
 
+def _as_list(v: Any) -> list:
+    """A list field that may arrive as a bare string (one entry) or None."""
+    if not v:
+        return []
+    if isinstance(v, str):
+        return [v]
+    return list(v)
+
+
 def facts_from_record(name: str, rec: Optional[dict]) -> dict:
     """Normalise a card record into the facts rules are checked against:
     ``{"names": [...], "faces": [{"types": set, "subtypes": set, "text": str}], "colors": set}``."""
@@ -176,13 +185,17 @@ def facts_from_record(name: str, rec: Optional[dict]) -> dict:
     if isinstance(type_line, (list, tuple)):
         type_line = " ".join(str(x) for x in type_line)
     if not type_line and rec.get("types"):
-        type_line = " ".join(str(x) for x in rec["types"])
+        type_line = " ".join(str(x) for x in _as_list(rec["types"]))
     # Canonical records (inventory.cards) carry the type line split into ``super_types`` / ``types`` /
     # ``sub_types`` and ``type`` is only the first card type, so rebuild "Legendary Creature — Angel".
     if rec.get("sub_types") and "—" not in str(type_line):
-        left = " ".join(str(x) for x in [*(rec.get("super_types") or []), *(rec.get("types") or [rec.get("type")])] if x)
-        type_line = f"{left} — {' '.join(str(x) for x in rec['sub_types'])}"
-    face_lines = [str(f.get("type_line") or "") for f in faces_raw] or [t for t in str(type_line).split("//")]
+        left = " ".join(str(x) for x in [*_as_list(rec.get("super_types")),
+                                         *(_as_list(rec.get("types")) or [rec.get("type")])] if x)
+        type_line = f"{left} — {' '.join(str(x) for x in _as_list(rec['sub_types']))}"
+    face_lines = [str(f.get("type_line") or "") for f in faces_raw]
+    if not any(face_lines):
+        # faces carry no per-face type line: fall back to the record-level types/sub_types
+        face_lines = [t for t in str(type_line).split("//")]
     texts = [str(f.get("oracle_text") or "") for f in faces_raw]
     if not any(texts):
         texts = str(rec.get("oracle_text") or "").split("\n//\n") if rec.get("oracle_text") else [""]
