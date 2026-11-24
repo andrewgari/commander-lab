@@ -174,9 +174,15 @@ class TestBrewEndToEnd(unittest.TestCase):
         res = self._start(composition="p-nope")
         self.assertEqual(res.status_code, 404)
 
+    def _approve_then_build(self, sid):
+        """Hard rules must be approved before a build (BREW-2); an empty approval = no hard rules."""
+        ok = self.client.post(f"/api/brew/{sid}/approve-rules", json={"rules": []})
+        self.assertEqual(ok.status_code, 200, ok.text)
+        return self.client.post(f"/api/brew/{sid}/build?sync=true")
+
     def _build(self, **over):
         sid = self._start(**over).json()["session_id"]
-        res = self.client.post(f"/api/brew/{sid}/build?sync=true")
+        res = self._approve_then_build(sid)
         self.assertEqual(res.status_code, 200, res.text)
         draft = self.client.get(f"/api/brew/{sid}/drafts").json()["drafts"][0]
         return sid, draft

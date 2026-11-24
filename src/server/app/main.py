@@ -85,6 +85,8 @@ app = FastAPI()
 from src.server.infra.llm.factory import build_chat_client as _build_chat_client  # noqa: E402
 from src.server.domain.draft import brew_review as _brew_review, reconstruct_agent as _reconstruct_agent  # noqa: E402
 _brew_review.set_client_factory(_build_chat_client)
+from src.server.domain.draft import brew_rules_draft as _brew_rules_draft  # noqa: E402
+_brew_rules_draft.set_client_factory(_build_chat_client)
 _reconstruct_agent.set_client_factory(_build_chat_client)
 
 # Card dossier (spec §2): persist interaction-rebuild edges into Postgres so
@@ -1160,6 +1162,40 @@ async def get_brew_session(session_id: str):
     if not session:
         return JSONResponse(status_code=404, content={"success": False, "error": f"session not found: {session_id}"})
     return {"success": True, "session": brew.release_session(r, session)}
+
+
+@app.post("/api/brew/{session_id}/draft-rules")
+async def draft_brew_rules(session_id: str):
+    """Draft HARD RULES from the session's notes (LLM task "brew_rules"; empty draft + note when no
+    LLM is configured). Nothing is enforced until the user approves them via approve-rules."""
+    try:
+        drafted = await asyncio.to_thread(brew.draft_session_rules, r, session_id)
+    except ValueError as e:
+        msg = str(e)
+        return JSONResponse(status_code=404 if "not found" in msg.lower() else 400,
+                            content={"success": False, "error": msg})
+    return {"success": True, **drafted}
+
+
+@app.post("/api/brew/{session_id}/approve-rules")
+async def approve_brew_rules(session_id: str, request: Request):
+    """Approve the (user-edited) hard rules; required before the build. Body: {"rules": [...]}.
+    An empty list is allowed and means no hard rules. 400 on an invalid rule or when a commander
+    itself breaks a rule."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, list):
+        return JSONResponse(status_code=400, content={"success": False, "error": "rules must be a list"})
+    try:
+        session = await asyncio.to_thread(brew.approve_rules, r, session_id, rules)
+    except ValueError as e:
+        msg = str(e)
+        return JSONResponse(status_code=404 if "not found" in msg.lower() else 400,
+                            content={"success": False, "error": msg})
+    return {"success": True, "rules": session["approved_rules"], "session": brew.release_session(r, session)}
 
 
 @app.post("/api/brew/{session_id}/build")

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Brew hard rules: Brew drafts rules from your notes (e.g. "no Dragons, Angels or Demons"), you review, edit and approve them on the Brew form, and only then does the build start. Cards that break an approved rule are removed from every card pool and the final deck, the removed cards are recorded on the draft, and a brew the rules leave too few cards for fails with a message naming the rules instead of padding with basic lands.
 - Brew now builds to a composition template you choose: pick a preset on the Brew form (or "Profile default" / "App default"), set your default preset on the Profile page, and the Command Zone template applies when neither is set. Any categories and counts work; each draft shows target vs actual per category, with a reason for every miss, and never blocks the build.
 
 ### Fixed

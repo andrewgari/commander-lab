@@ -229,6 +229,18 @@
                 </div>
             </div>
         </section>
+
+        <section id="brew-rules" hidden>
+            {{ hud.section_head("Hard rules", code="05") }}
+            <div>
+                <p class="brew-note" id="brewRulesNote">Drafted from your notes. Nothing is enforced until you approve. Matching cards are removed from every pool and the final deck.</p>
+                <div id="brewRulesList"></div>
+                <div class="brew-field">
+                    <button type="button" class="hud-btn" id="brewRuleAdd">Add rule</button>
+                    <button type="button" class="hud-btn hud-btn--primary" id="brewRulesApprove">Approve rules &amp; build</button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <aside class="brew-rail">

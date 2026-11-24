@@ -210,6 +210,7 @@ class TestBrewCore(unittest.TestCase):
     def _built_session(self, **kw):
         session = self._start(**kw)
         sid = session["session_id"]
+        brew.approve_rules(self.r, sid, [])
         return brew.trigger_build(self.r, sid, sync=True)
 
     def test_build_produces_one_draft_both_modes(self):

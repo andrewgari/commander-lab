@@ -69,6 +69,7 @@ class BrewCardsAPITestBase(unittest.TestCase):
     def _built(self) -> str:
         s = brew.start_brew(self.r, "Atraxa, Praetors' Voice", ["archidekt:42"],
                             "owned_first", name="Atraxa brew")
+        brew.approve_rules(self.r, s["session_id"], [])
         brew.trigger_build(self.r, s["session_id"], sync=True)
         return s["session_id"]
 

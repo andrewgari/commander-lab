@@ -102,7 +102,7 @@ class TestBrewAPI(unittest.TestCase):
         self.assertNotIn("Mana Crypt", tier1)  # unnamed deck excluded
 
         # 3. Build (sync)
-        res = self.client.post(f"/api/brew/{sid}/build?sync=true")
+        res = self._approve_then_build(sid)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["status"], "drafts_ready")
 
@@ -137,12 +137,38 @@ class TestBrewAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["session"]["status"], "abandoned")
 
+    def _approve_then_build(self, sid):
+        """Hard rules must be approved before a build (BREW-2); an empty approval = no hard rules."""
+        ok = self.client.post(f"/api/brew/{sid}/approve-rules", json={"rules": []})
+        self.assertEqual(ok.status_code, 200, ok.text)
+        return self.client.post(f"/api/brew/{sid}/build?sync=true")
+
+    def test_rules_endpoints_and_build_gate(self):
+        sid = self._start().json()["session_id"]
+        # Build is refused until the hard rules are approved.
+        res = self.client.post(f"/api/brew/{sid}/build?sync=true")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("approved", res.json()["error"])
+        # Drafting works with no LLM configured: empty draft + note.
+        res = self.client.post(f"/api/brew/{sid}/draft-rules")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["rules"], [])
+        # Invalid rule -> 400; unknown session -> 404; non-list -> 400.
+        bad = self.client.post(f"/api/brew/{sid}/approve-rules", json={"rules": [{"kind": "wish"}]})
+        self.assertEqual(bad.status_code, 400)
+        self.assertEqual(self.client.post("/api/brew/nope/approve-rules", json={"rules": []}).status_code, 404)
+        self.assertEqual(self.client.post(f"/api/brew/{sid}/approve-rules", json={}).status_code, 400)
+        rule = {"kind": "exclude", "field": "creature_type", "values": ["Dragon"], "label": "No Dragons"}
+        ok = self.client.post(f"/api/brew/{sid}/approve-rules", json={"rules": [rule]})
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.json()["rules"][0]["label"], "No Dragons")
+
     def test_build_modes_accepted(self):
         for mode in ("owned_first", "best_build"):
             res = self._start(build_mode=mode)
             self.assertEqual(res.status_code, 201, res.text)
             sid = res.json()["session_id"]
-            res = self.client.post(f"/api/brew/{sid}/build?sync=true")
+            res = self._approve_then_build(sid)
             self.assertEqual(res.status_code, 200)
             self.assertEqual(res.json()["status"], "drafts_ready")
 
