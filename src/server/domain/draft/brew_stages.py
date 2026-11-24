@@ -159,6 +159,11 @@ def run_skeleton(r: Any, session: dict, colors: Sequence[str], template: dict, d
     deps = deps or get_deps()
     target = land_target(template)
     plan = split_evenly(target, colors)
+    if session.get("secret_commander"):  # popular lists for the real commander are ignored
+        pool = {"commanders": list(session.get("commanders") or []), "theme": None, "themes_skipped": [],
+                "decks_sampled": 0, "theme_decks_sampled": 0, "stale": False, "degraded": None, "cards": {},
+                "ignored": "secret commander"}
+        return {"lands_target": target, "basic_plan": plan, "edhrec": pool, "degraded": None}
     pool = edhrec_pool.fetch_pool(r, session.get("commanders") or [], session.get("themes") or [],
                                   client=deps.edhrec_client)
     edhrec_pool.store_pool(r, session.get("session_id") or "", pool)
