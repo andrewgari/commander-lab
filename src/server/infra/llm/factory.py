@@ -32,7 +32,13 @@ def build_chat_client(task: str, env: Optional[Mapping[str, str]] = None, **clie
         except ValueError:
             pass
     base = (env.get("OPENROUTER_BASE_URL") or "").strip() or OPENROUTER_BASE_URL
-    return OpenRouterChat(key, model, base_url=base, timeout=timeout, max_tokens=spec.max_tokens, **client_kwargs)
+    max_tokens = spec.max_tokens
+    for name in (f"LLM_MAX_TOKENS_{task.upper()}", "LLM_MAX_TOKENS"):
+        raw = (env.get(name) or "").strip()
+        if raw.isdigit() and int(raw) > 0:
+            max_tokens = int(raw)
+            break
+    return OpenRouterChat(key, model, base_url=base, timeout=timeout, max_tokens=max_tokens, **client_kwargs)
 
 
 def build_oracle(task: str, env: Optional[Mapping[str, str]] = None, **client_kwargs) -> Oracle:

@@ -26,7 +26,7 @@ TASKS: dict[str, TaskSpec] = {
     "theory": TaskSpec(OPUS, 600, 16000),
     "reconstruct": TaskSpec(OPUS, 600, 16000),
     "review_writer": TaskSpec(SONNET, 300, 8000),
-    "brew_review": TaskSpec(SONNET, 240, 2000),
+    "brew_review": TaskSpec(SONNET, 240, 6000),
     "brew_rules": TaskSpec(SONNET, 120, 1500),
     "review_pipeline": TaskSpec(SONNET, 300, 8000),
     "interactions": TaskSpec(HAIKU, 120, 4000),

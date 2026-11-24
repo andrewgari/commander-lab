@@ -22,10 +22,11 @@ import re
 from typing import Any, Callable, List, Optional
 
 from src.server.domain.draft.card_resolution import looks_like_id
-from src.server.domain.llm.port import LLMError
+from src.server.domain.llm.port import LLMError, LLMTruncatedError
 
 PASS, FAIL, UNAVAILABLE = "pass", "fail", "unavailable"
 DECK_SIZE = 100
+RETRY_MAX_TOKENS = 16000
 
 Reviewer = Callable[[dict, dict], dict]  # (draft, session) -> verdict dict
 
@@ -109,7 +110,12 @@ def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
             "Deck list:\n" + "\n".join(lines)
         )
         messages, _ = build_messages("brew_review", user_text=user)
-        text = client.chat(messages)
+        try:
+            text = client.chat(messages)
+        except LLMTruncatedError:
+            # Reasoning tokens or a wordy reply can eat the budget: retry once with a larger one.
+            base = getattr(client, "max_tokens", None) or 6000
+            text = client.chat(messages, max_tokens=min(base * 2, RETRY_MAX_TOKENS))
     except LLMError as exc:  # includes LLMNotConfigured / LLMUnavailable
         return {"status": UNAVAILABLE, "reasons": [str(exc)], "source": "oracle"}
     m = re.search(r"\{.*\}", text or "", re.S)
