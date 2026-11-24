@@ -104,7 +104,7 @@ def test_truncated_reply_retries_with_larger_budget_then_degrades():
 
 def test_budget_caps_calls_and_critic_picks():
     big = bp.PanelBudget(max_calls=2)
-    client, out = run({"power_consistency": cut("A"), "synergy_flavor": cut("A")}, budget=big)
+    client, out = run({l: cut("A") for l in bp.LENSES}, budget=big)  # which 2 lenses get the budget is a thread race
     assert len(client.calls) == 2  # two lenses used the budget; the others are 'unavailable'
     assert out.record["calls"] == 2 and sum(v["status"] == "unavailable" for v in out.record["lenses"].values()) == 2
     assert out.cuts == {"A"}  # the two usable reviewers agree
