@@ -368,7 +368,7 @@ def execute_build(r: Any, session_id: str) -> dict:
         raise
 
 
-MIN_BUILD_CARDS = (100 - 1) // 2  # fewer usable non-basic cards than this = rules left too little to build
+MIN_BUILD_CARDS = brew_rules.MIN_NON_BASIC  # fewer non-basic cards = rules left a shortfall only extra basics could cover
 
 
 def _non_basic_count(draft: dict) -> int:

@@ -169,3 +169,34 @@ def test_deck_fill_honours_rule_scope(r):
 def test_starved_message_names_rules():
     msg = br.starved_message([{"card": "a", "rule": "No X"}, {"card": "b", "rule": "No X"}], 3, 49)
     assert "No X" in msg and "removed 2" in msg
+
+
+def test_color_rule_reads_color_key_as_well_as_colors():
+    rule = br.validate_rule({"kind": "exclude", "field": "color", "values": ["red"], "label": "No red"})
+    only_color = br.facts_from_record("A", {"type": "Creature — Goblin", "color": "R"})
+    assert br.violates(rule, only_color)
+    assert br.violates(rule, br.facts_from_record("B", {"colors": ["R", "G"]}))
+    assert br.violates(rule, br.facts_from_record("C", {"color": "WR"}))
+    assert not br.violates(rule, br.facts_from_record("D", {"color": "G"}))
+    assert not br.violates(rule, br.facts_from_record("E", {"colors": ["U"], "color": "U"}))
+
+
+def test_rule_shortfall_cannot_be_padded_with_extra_basics(r):
+    # 55 usable non-basics (above the old 49 threshold) + 80 rule-removed Dragons: the
+    # remaining 44 slots would be basics, more than a normal land count, so it must fail.
+    for i in range(80):
+        r.set(f"card_meta:Dragon {i}", json.dumps({"type": "Creature — Dragon"}))
+    for i in range(55):
+        r.set(f"card_meta:Bear {i}", json.dumps({"type": "Creature — Bear"}))
+    cards = [f"Dragon {i}" for i in range(80)] + [f"Bear {i}" for i in range(55)]
+    ci = lambda n, **k: dv.CardInfo(name=n, color_identity=dv.parse_color_identity(""), types=("Creature",),
+                                    commander_legality="legal", **k)
+    cat = dv.CardCatalog([dv.CardInfo(name="Cmdr", color_identity=dv.parse_color_identity(""), types=("Creature",),
+                                      supertypes=("Legendary",), commander_legality="legal")]
+                         + [ci(f"Dragon {i}", subtypes=("Dragon",)) for i in range(80)]
+                         + [ci(f"Bear {i}") for i in range(55)])
+    with br.rules_scope([DRAGON_RULE], r):
+        with pytest.raises(br.RulesStarvedError) as exc:
+            fill_deck("Cmdr", [], [("src", cards)], cat)
+    assert DRAGON_RULE["label"] in str(exc.value) and "basic" in str(exc.value)
+    assert br.MIN_NON_BASIC == 99 - br.NORMAL_LAND_COUNT

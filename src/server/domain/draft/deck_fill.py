@@ -133,8 +133,8 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     if cmd_info is None:
         raise ValueError(f"unknown commander {commander!r}; cannot determine colour identity")
     # Missing legality (None) is not disqualifying; explicit non-legal values are.
+    from src.server.domain.draft import brew_rules
     if rule_filter is None:  # Brew hard rules (brew_rules.rules_scope) apply to every candidate
-        from src.server.domain.draft import brew_rules
         rule_filter = brew_rules.active_filter()
     if cmd_info.commander_legality not in (None, "legal"):
         raise ValueError(f"commander {commander!r} is not Commander-legal "
@@ -198,10 +198,9 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
             f"unverifiable, only {len(deck)} usable): re-run the card sync (`make sync` / "
             "`python -m src.server.workers.sync`) so card records carry legality, then retry the brew")
     # Hard rules left too little to build from: fail loudly, never pad with basics.
-    if rule_removed and len(deck) < (DECK_SIZE - 1) // 2:
-        from src.server.domain.draft import brew_rules
+    if rule_removed and len(deck) < brew_rules.MIN_NON_BASIC:
         raise brew_rules.RulesStarvedError(
-            brew_rules.starved_message(rule_removed, len(deck), (DECK_SIZE - 1) // 2))
+            brew_rules.starved_message(rule_removed, len(deck), brew_rules.MIN_NON_BASIC))
     # Basics are intrinsically legal and unlimited: use the built-in names
     # directly so a sparse/odd catalog record can never block the last step.
     deck += _basic_split(identity, DECK_SIZE - 1 - len(deck))

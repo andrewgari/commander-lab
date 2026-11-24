@@ -143,3 +143,28 @@ def test_build_fails_loudly_naming_rule_when_starved(env):
     assert "No noncreature cards" in str(exc.value) and "basic" in str(exc.value)
     session = brew.get_session(r, sid)
     assert session["status"] == "failed" and "No noncreature cards" in str(session.get("error"))
+
+
+def test_execute_build_enforces_rules_on_builder_output(env, monkeypatch):
+    r, sid = env
+
+    class Builder(brew_builder.BaseBrewBuilder):
+        def build(self, session, rr):
+            return [{"id": "d", "commanders": ["Kaalia of the Vast"], "cards": [
+                {"name": "Shivan Dragon", "quantity": 1}, {"name": "Grizzly Bears", "quantity": 1}]}]
+
+    seen = {}
+
+    def fake_release(rr, session, draft, **kw):
+        seen["names"] = [c["name"] for c in draft["cards"]]
+        seen["removed"] = draft.get("rule_removed")
+        raise RuntimeError("stop-after-enforcement")
+
+    brew_builder.set_builder(Builder())
+    monkeypatch.setattr(brew, "release_draft", fake_release)
+    monkeypatch.setattr(brew, "MIN_BUILD_CARDS", 1)
+    brew.approve_rules(r, sid, [RULE])
+    with pytest.raises(RuntimeError, match="stop-after-enforcement"):
+        brew.execute_build(r, sid)
+    assert seen["names"] == ["Grizzly Bears"]
+    assert seen["removed"] == [{"card": "Shivan Dragon", "rule": RULE["label"]}]

@@ -37,6 +37,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 KINDS = ("exclude",)
 FIELDS = ("creature_type", "card_type", "name", "oracle_text", "color")
 MAX_RULES = 50
+# A rule-caused shortfall may never be covered by basics beyond a normal deck's land count:
+# 99 non-commander cards - NORMAL_LAND_COUNT lands = the non-basic cards a rules-affected build needs.
+NORMAL_LAND_COUNT = 37
+MIN_NON_BASIC = 99 - NORMAL_LAND_COUNT
 MAX_VALUES = 50
 MAX_TEXT = 120
 
@@ -147,6 +151,21 @@ def _split_face(type_line: str) -> Tuple[List[str], List[str]]:
     return left.split(), right.split()
 
 
+def _color_set(v: Any) -> set:
+    """Colours from a list (["W","U"]), a string ("WU" / "W,U" / "white") or None."""
+    if not v:
+        return set()
+    items = [v] if isinstance(v, str) else list(v)
+    out = set()
+    for it in items:
+        it = str(it).strip()
+        if it.casefold() in _COLOR_WORDS:
+            out.add(_COLOR_WORDS[it.casefold()])
+        else:
+            out |= {ch for ch in it.upper() if ch in "WUBRGC"}
+    return out
+
+
 def facts_from_record(name: str, rec: Optional[dict]) -> dict:
     """Normalise a card record into the facts rules are checked against:
     ``{"names": [...], "faces": [{"types": set, "subtypes": set, "text": str}], "colors": set}``."""
@@ -176,11 +195,12 @@ def facts_from_record(name: str, rec: Optional[dict]) -> dict:
         faces = [{"types": set(), "subtypes": set(), "text": str(rec.get("oracle_text") or "").casefold()}]
     # a single combined oracle_text on a multi-face card applies to every face's text check
     whole_text = str(rec.get("oracle_text") or "").casefold()
-    colors = {str(c).upper() for c in (rec.get("colors") or [])}
+    colors = _color_set(rec.get("colors")) | _color_set(rec.get("color"))
     for f in faces_raw:
-        colors |= {str(c).upper() for c in (f.get("colors") or [])}
+        colors |= _color_set(f.get("colors")) | _color_set(f.get("color"))
+    known = any(k in rec for k in ("colors", "color")) or any("colors" in f or "color" in f for f in faces_raw)
     return {"names": {n.casefold() for n in names if n}, "faces": faces, "colors": colors,
-            "text": whole_text, "known_colors": "colors" in rec or any("colors" in f for f in faces_raw)}
+            "text": whole_text, "known_colors": known}
 
 
 def card_facts(r: Any, name: str) -> dict:
