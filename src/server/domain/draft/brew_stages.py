@@ -34,6 +34,10 @@ STAGE_LABELS = {STAGE_SKELETON: "Skeleton", STAGE_CORE: "Core construction",
                 STAGE_DECK: "Deck construction", STAGE_REVIEW: "Final review"}
 STAGE_ORDER = (STAGE_SKELETON, STAGE_CORE, STAGE_DECK, STAGE_REVIEW)
 
+# Card provenance (the `provenance` key on every draft card). Scaffold = what is already known to work and
+# therefore PROVISIONAL: stage 3 may cut it for plan-driven picks. EDHREC only ever produces scaffold.
+SCAFFOLD_EDHREC, SCAFFOLD_TEMPLATE = "scaffold_edhrec", "scaffold_template"
+PROV_PLAN, PROV_DONOR, PROV_OWNED, PROV_FILL, PROV_COMMANDER, PROV_BASIC = "plan", "donor", "owned", "fill", "commander", "basic"
 CORE_SPELLS = 25          # spells after stage 2 ("~25 or so")
 CATEGORY_SHARE = 12       # spells stage 2 spends on template-category needs before the >=40% staples
 DEFAULT_LANDS = 38        # Command Zone template; used only when the template has no lands slot
@@ -279,11 +283,10 @@ def category_sources(skeleton: Dict[str, Any]) -> Dict[str, Tuple[str, Tuple[str
     return out
 
 
-def scryfall_candidates(r: Any, otag: str, colors: Sequence[str], deps: Deps, budget: List[int]) -> List[str]:
-    """Names tagged `otag` in Scryfall's Tagger, Commander-legal, inside the colour identity, EDHREC-ordered.
-    Cached 24h per (tag, identity); at most SCRYFALL_MAX_CALLS live lookups per build (`budget` is a one-item list)."""
-    ident = "".join(colors).lower() or "c"
-    key = f"brew:scryfall_tag:{otag}:{ident}"
+def scryfall_query_names(r: Any, cache_id: str, query: str, deps: Deps, budget: List[int]) -> List[str]:
+    """Card names for a Scryfall `query`, EDHREC-ordered (retrieval only), cached 24h under `cache_id`.
+    Live lookups are limited by `budget` (a one-item list, decremented per call). Never raises."""
+    key = f"brew:scryfall_q:{cache_id}"
     try:
         raw = r.get(key) if r is not None else None
         if raw:
@@ -294,9 +297,9 @@ def scryfall_candidates(r: Any, otag: str, colors: Sequence[str], deps: Deps, bu
         return []
     budget[0] -= 1
     try:
-        names = list(deps.scryfall_search(f"otag:{otag} f:commander id<={ident}"))[:SCRYFALL_TAG_LIMIT]
+        names = list(deps.scryfall_search(query))[:SCRYFALL_TAG_LIMIT]
     except Exception as exc:  # noqa: BLE001 - Scryfall is context, never fatal
-        log.warning("brew scryfall tag %s unavailable: %s", otag, exc)
+        log.warning("brew scryfall query %r unavailable: %s", query, exc)
         return []
     try:
         if r is not None and names:
@@ -307,6 +310,12 @@ def scryfall_candidates(r: Any, otag: str, colors: Sequence[str], deps: Deps, bu
     except Exception:  # noqa: BLE001
         pass
     return names
+
+
+def scryfall_candidates(r: Any, otag: str, colors: Sequence[str], deps: Deps, budget: List[int]) -> List[str]:
+    """Names tagged `otag` in Scryfall's Tagger, Commander-legal, inside the colour identity."""
+    ident = "".join(colors).lower() or "c"
+    return scryfall_query_names(r, f"otag:{otag}:{ident}", f"otag:{otag} f:commander id<={ident}", deps, budget)
 
 
 @dataclass
@@ -334,7 +343,7 @@ def run_core(*, r: Any, session: dict, colors: Sequence[str], skeleton_out: dict
     for land in plan_lands(extra=edhrec_lands, colors=colors, identity=identity, lands_target=skeleton_out["lands_target"], session=session,
                            card_fact=card_fact, price_of=price_of, is_owned=is_owned):
         tier, label = (2, "owned") if land["owned"] else (3, "new")
-        if add(land["name"], tier, label, float(land["price"] or 0.0), f"Landbase: {land['why']}"):
+        if add(land["name"], tier, label, float(land["price"] or 0.0), f"Landbase: {land['why']}", source=SCAFFOLD_TEMPLATE):
             res.lands.append(land)
 
     # 2b. spells
@@ -342,10 +351,11 @@ def run_core(*, r: Any, session: dict, colors: Sequence[str], skeleton_out: dict
         return len(res.spells)
 
     def take(names: List[str], cap: int, source: str, rationale: str) -> None:
+        prov = SCAFFOLD_EDHREC if source.startswith("edhrec") else SCAFFOLD_TEMPLATE
         cand = fresh(rule_filter([n for n in dict.fromkeys(names) if n and not is_land(n)]))
         got = 0
         for n in scorer.pick(cand, max(cap, 0)):
-            if add(n, 3, "new", price_of(n) or 0.0, rationale):
+            if add(n, 3, "new", price_of(n) or 0.0, rationale, source=prov):
                 res.spells.append(n)
                 got += 1
         res.by_source[source] = res.by_source.get(source, 0) + got

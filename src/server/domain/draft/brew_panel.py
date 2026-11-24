@@ -134,6 +134,8 @@ def _prompt(role: str, ctx: dict, proposals: Sequence[str], candidates: Sequence
              f"Themes: {', '.join(ctx.get('themes') or []) or '-'}",
              f"PLAYSTYLE: {ctx.get('playstyle') or 'unknown'}",
              f"Stage: {ctx.get('stage')}",
+             "Deck plan (what the deck is trying to do): " + ("; ".join(ctx.get("plan") or []) or "none found"),
+             "SCAFFOLD (provisional picks chosen by EDHREC popularity, not by the plan): " + ("; ".join(ctx.get("scaffold") or []) or "none"),
              "Template categories (target): " + ", ".join(ctx.get("template") or []),
              "Already in the deck: " + "; ".join(ctx.get("deck") or [])]
     if challenged is not None:

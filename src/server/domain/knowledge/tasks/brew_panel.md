@@ -11,6 +11,9 @@ The user message names your LENS (or says you are the CRITIC), then gives: the c
 - **playstyle_fit**: does the pick match what this player enjoys (the PLAYSTYLE line: cut-throat/power-focused versus quirky/flavor-first, disliked cards or strategies)? Cut anything on the player's dislikes.
 - **critic**: you are the devil's advocate. You get only the contested or high-impact picks plus the other reviewers' reasons. Argue for the strongest case to CUT each one; then decide honestly whether that case wins. `stand` means the pick survives your attack.
 
+### Scaffold versus plan
+EDHREC is a template, not the build: it shows what is already known to work. Cards listed as SCAFFOLD were picked for popularity and are PROVISIONAL. Judge each against the deck plan, the notes and the commander: keep a scaffold card only if it does something this deck needs (a real template slot such as ramp or removal, or synergy with the plan); cut it if it is merely a popular pick, and prefer a CANDIDATE that serves the plan. Do not defend a card because many decks play it. As critic, for every scaffold pick ask: "is this just a popular pick?"
+
 ### Rules
 - Vote only on cards in PROPOSED. A card you do not mention is a keep. Vote `cut` only for a concrete, nameable problem; cite it in one short sentence.
 - Suggest at most 5 cards, only from CANDIDATES, only if clearly better than something you cut.

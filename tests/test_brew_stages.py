@@ -38,7 +38,7 @@ class FakeEdhrec:
 
 
 BASE = page({"Sol Ring": (900, "manaartifacts"), "Arcane Signet": (800, "manaartifacts"),
-             "Rhystic Study": (450, "topcards"), "Cultivate": (300, "topcards"), "Low Card": (50, "topcards"),
+             "Rhystic Study": (450, "topcards"), "Cultivate": (420, "topcards"), "Low Card": (50, "topcards"),
              "Command Tower": (950, "lands")})
 THEME = page({"Sol Ring": (400, "manaartifacts"), "Rhystic Study": (100, "topcards"), "Cultivate": (350, "topcards"),
               "Arcane Signet": (390, "manaartifacts")}, decks=800)
@@ -71,7 +71,7 @@ def test_fetch_pool_merges_commander_and_archetype_pages():
 def test_core_cards_without_archetype_use_commander_inclusion_only():
     r = FakeRedis()
     p = pool.fetch_pool(r, ["Atraxa"], [], client=FakeEdhrec(BASE))
-    assert {c["name"] for c in pool.core_cards(p)} == {"Sol Ring", "Arcane Signet", "Rhystic Study", "Command Tower"}
+    assert {c["name"] for c in pool.core_cards(p)} == {"Sol Ring", "Arcane Signet", "Rhystic Study", "Command Tower", "Cultivate"}
 
 
 def test_partners_use_one_combined_request():
@@ -234,11 +234,12 @@ def test_execute_build_discards_temp_pool_and_survives_edhrec_outage(staged):
     s = brew.start_brew(r, "Kaalia", [], "best_build", power_level="5.5")
     brew.approve_rules(r, s["session_id"], [])
     from src.server.domain.draft import brew_review
+    previous = brew_review.get_reviewer()
     brew_review.set_reviewer(lambda d, sess: {"status": "pass", "reasons": []})
     try:
         brew.trigger_build(r, s["session_id"], sync=True)
     finally:
-        brew_review.set_reviewer(None)
+        brew_review.set_reviewer(previous)
     done = brew.get_session(r, s["session_id"])
     assert done["status"] == brew.STATUS_DRAFTS_READY
     assert done["build_stages"]["skeleton"]["status"] == "degraded"
@@ -266,3 +267,102 @@ def test_panel_cuts_are_applied_and_recorded_on_the_session(staged):
     rec = session["stage_reviews"]["core"]
     assert rec["status"] == "ok" and "Arcane Signet" in rec["cuts"]
     assert set(rec["lenses"]) == set(brew_panel.STAGE_LENSES["core"])
+
+
+# -- stage 3: plan-driven, EDHREC is only scaffold ---------------------------------------------------
+
+def test_plan_items_from_themes_commander_text_and_types():
+    from src.server.domain.draft import brew_plan as bpl
+    items = bpl.build_plan(["Treasure"], "make lots of tokens", "Whenever a creature you control dies, sacrifice a Treasure.",
+                           "Legendary Creature — Goblin Shaman")
+    labels = [i.label for i in items]
+    assert labels[:2] == ["Treasure", "Treasure (tagged)"] and "tokens" in labels and "sacrifice" in labels
+    assert items[0].query == 'o:"treasure"' and items[1].query == "otag:treasure"
+    assert bpl.full_query(items[0], "rw") == 'o:"treasure" f:commander id<=rw -t:land'
+    assert bpl.full_query(items[0], "").endswith("id<=c -t:land")
+    assert len(bpl.build_plan(["a", "b", "c", "d"], "", "", "")) == bpl.MAX_ITEMS
+    assert bpl.creature_types("Legendary Creature — Elf Druid") == ["Elf", "Druid"] and bpl.creature_types("Sorcery") == []
+
+
+def _plan_catalog(r):
+    _catalog(r)
+    for i in range(20):
+        r.set(f"card_meta:Plan {i:02d}", json.dumps({"color": "R", "type": "Creature", "cmc": 3, "commander_legality": "legal",
+                                                     "oracle_text": "When this enters, create a Treasure token."}))
+
+
+def _scry(q):
+    return [f"Plan {i:02d}" for i in range(20)] if "treasure" in q else []
+
+
+def _build_themed(r, themes=("Treasure",)):
+    s = brew.start_brew(r, "Kaalia", [], "best_build", power_level="5.5", themes=list(themes))
+    session = brew.get_session(r, s["session_id"])
+    return session, brew_builder.get_builder().build(session, r)[0]
+
+
+def test_stage3_is_plan_driven_and_marks_provenance(staged):
+    r = staged
+    _plan_catalog(r)
+    base = page({"Sol Ring": (900, "manaartifacts"), "Command Tower": (950, "lands")}
+                | {f"Filler {i:02d}": (420, "topcards") for i in range(10)})
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(base), scryfall_search=_scry))
+    session, draft = _build_themed(r)
+    by = {c["name"]: c["provenance"] for c in draft["cards"]}
+    assert sum(c["quantity"] for c in draft["cards"]) == 100
+    assert by["Kaalia"] == "commander" and by["Sol Ring"].startswith("scaffold_")
+    assert sum(1 for v in by.values() if v == "plan") >= 15 and by["Plan 00"] == "plan"
+    assert any(v == "basic" for v in by.values())
+    summary = session["build_stages"]["deck"]["summary"]
+    assert summary["plan"][0] == "Treasure" and summary["plan_picks"] >= 15
+    cut = summary["scaffold_replaced"]
+    assert len(cut) == 5 and all(n.startswith("Filler") for n in cut)       # half of the 10 popular-only picks
+    assert all(n not in by for n in cut)
+    assert "Sol Ring" not in cut                                              # functional (ramp) scaffold stays
+
+
+def test_pipeline_works_with_edhrec_down_scryfall_only(staged):
+    r = staged
+    _plan_catalog(r)
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(BASE, down=True), scryfall_search=_scry))
+    session, draft = _build_themed(r)
+    by = {c["name"]: c["provenance"] for c in draft["cards"]}
+    assert sum(c["quantity"] for c in draft["cards"]) == 100
+    assert sum(1 for v in by.values() if v == "plan") >= 15
+    assert session["build_stages"]["skeleton"]["status"] == "degraded"
+    assert not any(v == "scaffold_edhrec" for v in by.values())
+
+
+def test_pipeline_works_with_edhrec_and_scryfall_both_down(staged):
+    r = staged
+    _plan_catalog(r)
+    boom = lambda q: (_ for _ in ()).throw(RuntimeError("down"))
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(BASE, down=True), scryfall_search=boom))
+    session, draft = _build_themed(r)
+    assert sum(c["quantity"] for c in draft["cards"]) == 100                  # pools + ranker fallback + basics still fill the deck
+    assert session["build_stages"]["deck"]["status"] == "degraded"
+    assert not any(c["provenance"] in ("plan", "scaffold_edhrec") for c in draft["cards"])
+
+
+def test_panel_can_cut_scaffold_but_not_owned_and_sees_the_plan(staged):
+    r = staged
+    _plan_catalog(r)
+    seen = {}
+
+    class Panel:
+        def chat(self, messages, max_tokens=None):
+            text = messages[1]["content"]
+            if "Stage: deck" not in text:   # stage 2 (core) has no opinion
+                return json.dumps({"votes": [], "suggest": []})
+            seen["text"] = text
+            if "ROLE: critic" in text:
+                return json.dumps({"attacks": []})
+            return json.dumps({"votes": [{"card": "Filler 09", "vote": "cut", "reason": "just popular"}], "suggest": []})
+
+    base = page({f"Filler {i:02d}": (420, "topcards") for i in range(10)})
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(base), scryfall_search=lambda q: []))   # no plan: nothing auto-cut
+    brew_panel.set_client_factory(lambda task: Panel())
+    session, draft = _build_themed(r)
+    assert "Filler 09" not in [c["name"] for c in draft["cards"]]
+    assert "Filler 09" in session["stage_reviews"]["deck"]["cuts"]
+    assert "SCAFFOLD" in seen["text"] and "Treasure" in seen["text"]
