@@ -157,6 +157,8 @@ def default_sources(r: Any, session: Optional[dict], draft: dict) -> List[Tuple[
         return names
 
     def edhrec() -> List[str]:
+        if (session or {}).get("secret_commander"):
+            return []  # secret commander: the real commander's popular list is not a signal
         from src.server.domain.analytics.card_eval.edhrec_data import CACHE_PREFIX
         from src.server.domain.analytics.providers.edhrec import commander_slug
 

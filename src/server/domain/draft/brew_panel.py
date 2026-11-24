@@ -133,6 +133,8 @@ def _prompt(role: str, ctx: dict, proposals: Sequence[str], candidates: Sequence
              f"Deck idea: {ctx.get('deck_idea') or '-'}", f"Notes: {ctx.get('notes') or '-'}",
              f"Themes: {', '.join(ctx.get('themes') or []) or '-'}",
              f"PLAYSTYLE: {ctx.get('playstyle') or 'unknown'}",
+             *([f"SECRET COMMANDER (pinned, never cut; build around it; EDHREC-style typical lists for the real commander are not a reason to keep a card): {ctx['secret_commander']}"]
+               if ctx.get("secret_commander") else []),
              f"Stage: {ctx.get('stage')}",
              "Deck plan (what the deck is trying to do): " + ("; ".join(ctx.get("plan") or []) or "none found"),
              "SCAFFOLD (provisional picks chosen by EDHREC popularity, not by the plan): " + ("; ".join(ctx.get("scaffold") or []) or "none"),

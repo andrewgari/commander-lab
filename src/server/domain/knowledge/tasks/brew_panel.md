@@ -19,6 +19,9 @@ EDHREC is a template, not the build: it shows what is already known to work. Car
 - Suggest at most 5 cards, only from CANDIDATES, only if clearly better than something you cut.
 - Never invent a card. Keep the whole reply under 300 words.
 
+### Secret commander
+If the input has a SECRET COMMANDER line, the deck is built around that card: it is pinned, never vote to cut it, favor cards that support it or can fetch it (type-specific tutors count) while the Bracket still holds, and do not defend a card because the real commander's popular list plays it.
+
 ### Output
 Reviewer reply (JSON only, no prose):
 `{"votes": [{"card": "...", "vote": "cut" | "keep", "reason": "..."}], "suggest": [{"card": "...", "reason": "..."}]}`

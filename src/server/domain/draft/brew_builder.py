@@ -17,6 +17,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import re
 from typing import Any, List, Optional
 
 import src.server.domain.draft.brew_power as brew_power
@@ -35,6 +36,8 @@ from src.server.domain.draft.reconstruct_pools import norm_name
 
 DECK_SIZE = 100  # commander(s) + the rest; the stub tops up to this
 PLAN_SLOTS = 30            # plan-driven picks in stage 3 (before the generic top-up)
+SECRET_TUTOR_SLOTS = 3     # tutors that can fetch the secret commander, pinned ahead of the generic plan picks
+SECRET_POOL_SCAN = 1500    # pool cards scanned for tutor text (the live Scryfall search covers the rest)
 PLAN_SCRYFALL_CALLS = 8    # live Scryfall searches per build for the plan (results cached 24h)
 EDHREC_PRIOR_SCALE = 0.25  # stage 3 weighs EDHREC inclusion/synergy at this fraction: a weak prior, not the ranking
 
@@ -80,6 +83,80 @@ def _resolve_session(session: dict, r: Any):
     return out, report
 
 
+def _secret_of(session: dict) -> str:
+    return str((session or {}).get("secret_commander") or "").strip()
+
+
+def _card_rec(r: Any, name: str) -> Optional[dict]:
+    """The card database record for `name` (canonical record, then legacy card_meta), or None."""
+    if r is None or not name:
+        return None
+    try:
+        from src.server.domain.inventory import cards as card_store
+        rec = card_store.get_card_by_name(r, name)
+        if not rec:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+        return rec or None
+    except Exception:
+        return None
+
+
+def validate_secret_commander(r: Any, name: str, commanders: List[str], bracket: Any) -> str:
+    """The canonical card name of a valid secret commander. ValueError (plain message -> HTTP 400) when
+    the card is unknown, not Commander-legal, outside the real commander's colour identity, or breaks
+    the chosen Bracket (the Bracket gate wins over everything)."""
+    rec = _card_rec(r, name)
+    if not rec:
+        raise ValueError(f"secret commander {name!r} is not a card we know; check the spelling")
+    canon = str(rec.get("name") or name)
+    if any(norm_name(canon) == norm_name(c) for c in commanders):
+        raise ValueError(f"secret commander {canon!r} is already your commander; pick a different card")
+    if reconstruct_pools.RedisCardCatalog._legal(rec) is False:
+        raise ValueError(f"secret commander {canon!r} is not legal in Commander")
+    ident = reconstruct_pools.parse_identity(rec.get("color_identity", rec.get("color")))
+    allowed = reconstruct_pools.identity_of_cards(commanders, reconstruct_pools.RedisCardCatalog(r))
+    if allowed is None:
+        raise ValueError("cannot check the secret commander's colours: the real commander is not in the card database")
+    if ident is not None and not ident <= allowed:
+        raise ValueError(f"secret commander {canon!r} is outside your commander's colour identity")
+    b = brew_power.BracketGate(bracket)
+    if not b.admit(_card_record(r, canon)):
+        raise ValueError(f"secret commander {canon!r} breaks Bracket {b.bracket} "
+                         "(Game Changers, tutors, combos or other limits for that Bracket); raise the Bracket or pick another card")
+    return canon
+
+
+_SUPERTYPES = {"legendary", "basic", "snow", "world", "ongoing", "host", "elite"}
+
+
+def secret_type_words(type_line: str) -> List[str]:
+    """Card types and subtypes of the secret commander (Equipment, Vehicle, Creature, ...), most specific first."""
+    tl = type_line or ""
+    left, _, right = tl.partition("—")
+    words = [w for w in right.split() if w] + [w for w in left.split() if w]
+    return [w for w in dict.fromkeys(words) if w.lower() not in _SUPERTYPES]
+
+
+def fetches_secret(oracle_text: str, words: List[str]) -> int:
+    """0 = not a tutor for the secret commander, 1 = generic tutor (any card), 2 = type-specific tutor."""
+    best = 0
+    for seg in re.findall(r"search your library for ([^.;\n]*)", (oracle_text or "").lower()):
+        if re.match(r"(?:a|an|any|up to \w+) (?:other )?cards?\b", seg):
+            best = max(best, 1)
+        elif any(re.search(rf"\b{re.escape(w.lower())}s?\b", seg) for w in words):
+            best = max(best, 2)
+    return best
+
+
+def secret_tutor_queries(words: List[str], ident: str) -> List[tuple]:
+    """Scryfall searches for ways to find the secret commander: type-specific first, then any-card tutors."""
+    suffix = f" f:commander id<={ident or 'c'} -t:land"
+    out = [(f"secret_tutor:{w.lower()}", f'o:"search your library for" o:"{w.lower()} card"{suffix}') for w in words[:3]]
+    out.append(("secret_tutor:any", f'o:"search your library for a card"{suffix}'))
+    return out
+
+
 def _cached_edhrec(r: Any, commanders: List[str]) -> dict:
     """EDHREC {name_key: {inclusion, synergy}} from the cache only (never fetches); {} if absent."""
     if r is None or not commanders:
@@ -120,10 +197,10 @@ def prefetch_edhrec(r: Any, commanders: List[str]) -> None:
         logging.getLogger(__name__).warning("brew: EDHREC prefetch failed for %s: %s", commanders, exc)
 
 
-def candidate_ranker(r: Any, commanders: List[str]):
+def candidate_ranker(r: Any, commanders: List[str], use_edhrec: bool = True):
     """Tier 3 ranker (lowest key first): EDHREC inclusion for this commander, then cards the lab
     has tagged, then name. Replaces the alphabetical default that capped the pool at the A/B cards."""
-    edhrec = _cached_edhrec(r, commanders)
+    edhrec = _cached_edhrec(r, commanders) if use_edhrec else {}
     tagged = {k.casefold() for k in _load_lab_tags(r)}
 
     def key(card: Any):
@@ -390,7 +467,9 @@ class _Scorer:
         self.skeleton = skeleton_from_template(session_template(session))
         self.pool_hits: dict = {}  # category -> candidate names seen matching it
         self.lab_tags = _load_lab_tags(r)
-        self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
+        self.secret = _secret_of(session)
+        # A secret commander ignores popular lists for the real commander (no popularity ranking signal).
+        self.edhrec = {} if self.secret else _cached_edhrec(r, list(session.get("commanders") or []))
         self.gate: Any = None  # BracketGate; set by the builder so picks are admission-aware
         self.source_names: frozenset = frozenset()
         self.source_oracle_ids: frozenset = frozenset()
@@ -615,13 +694,17 @@ class StubBrewBuilder(BaseBrewBuilder):
             f = fact(n)
             return bool(f) and f["legal"] is not False and (f["identity"] is None or f["identity"] <= identity)
 
+        secret = _secret_of(session)
+        secret_key = norm_name(secret) if secret else None
+
         def rule_filter(names):
             names = [n for n in names if eligible(n)]
             return brew_rules.filter_names(rules, names, r, commanders)[0] if rules else names
         def drop_card(name):
             k = norm_name(name)
             for i, c in enumerate(cards):
-                if norm_name(c["name"]) == k and norm_name(c["name"]) not in {norm_name(x) for x in commanders}:
+                if norm_name(c["name"]) == k and norm_name(c["name"]) not in {norm_name(x) for x in commanders} \
+                        and k != secret_key:
                     del cards[i]
                     used.discard(k)
                     rejected.add(k)
@@ -634,7 +717,7 @@ class StubBrewBuilder(BaseBrewBuilder):
         def panel_stage(stage, proposals, candidates, protected=()):
             hi = {n for n in proposals if (price_of(n) or 0.0) >= brew_panel.HIGH_IMPACT_PRICE
                   or n.lower() in brew_power.FAST_MANA_NAMES or n.lower() in brew_power.COMBO_PIECE_NAMES}
-            ctx = {"commanders": commanders, "target_power": scorer.target_power, "deck_idea": session.get("deck_idea"),
+            ctx = {"commanders": commanders, "secret_commander": secret, "target_power": scorer.target_power, "deck_idea": session.get("deck_idea"),
                    "notes": session.get("notes"), "themes": session.get("themes"), "playstyle": _playstyle(session),
                    "template": [f"{k}: {v.target}" for k, v in scorer.skeleton.items()],
                    "deck": [c["name"] for c in cards][:100],
@@ -648,6 +731,21 @@ class StubBrewBuilder(BaseBrewBuilder):
             added = [n for n in out.adds if n not in out.cuts and add(n, 3, "new", price_of(n) or 0.0, "Panel suggestion", source=stages.PROV_PLAN)] if out.adds else []
             out.record["added"] = added
             return out
+
+        secret_words: List[str] = []
+        if secret:  # guaranteed a slot in the 99, pinned like a hard include (the Bracket gate was checked at start)
+            srec = _card_record(r, secret, scorer.lab_tags)
+            secret = resolve_card(secret, r).name if resolve_card(secret, r) else secret
+            secret_key = norm_name(secret)
+            secret_words = secret_type_words(srec.get("type_line") or "")
+            if secret_key not in used:
+                cards.append({"name": secret, "quantity": 1, "tier": 2 if is_owned(secret) else 3,
+                              "tier_label": "owned" if is_owned(secret) else "new",
+                              "cost": 0.0 if is_owned(secret) else float(price_of(secret) or 0.0),
+                              "rationale": "Secret commander: the deck is built around this card"})
+                used.add(secret_key)
+                prov[secret] = stages.PROV_PLAN
+                gate.count(srec)
 
         # ---- Stage 1: skeleton (deterministic, no LLM) ----
         lands_target = stages.land_target(session_template(session))
@@ -671,7 +769,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             edhrec_rest = [v["name"] for v in sorted((sk["edhrec"].get("cards") or {}).values(),
                                                      key=lambda v: -(v.get("inclusion") or 0.0))]
             pr = panel_stage("core", core_names, edhrec_rest,
-                             protected=[c["name"] for c in edhrec_pool.core_cards(sk["edhrec"])])
+                             protected=[c["name"] for c in edhrec_pool.core_cards(sk["edhrec"])] + ([secret] if secret else []))
         tracker.finish(stages.STAGE_CORE, {"lands": [l["name"] for l in core.lands], "spells": len(core.spells),
                                            "by_source": core.by_source,
                                            "panel": (progress_session.get("stage_reviews") or {}).get("core", {}).get("status")},
@@ -681,9 +779,13 @@ class StubBrewBuilder(BaseBrewBuilder):
         tracker.start(stages.STAGE_DECK, "building the plan from your notes and the commander's text")
         stage3_from = len(cards)
         cmd_rec = _card_record(r, commanders[0], scorer.lab_tags)
+        sec_rec = _card_record(r, secret, scorer.lab_tags) if secret else {}
+        # Archetype inference starts from the secret commander; the real commander's own text still counts.
         plan_items = brew_plan.build_plan(list(session.get("themes") or []),
                                           f"{session.get('notes') or ''}\n{session.get('deck_idea') or ''}",
-                                          cmd_rec.get("oracle_text") or "", cmd_rec.get("type_line") or "")
+                                          f"{sec_rec.get('oracle_text') or ''}\n{cmd_rec.get('oracle_text') or ''}",
+                                          (sec_rec.get("type_line") if brew_plan.creature_types(sec_rec.get("type_line") or "")
+                                           else cmd_rec.get("type_line")) or "")
         plan_labels.extend(i.label for i in plan_items)
         ident_str = "".join(colors).lower()
         sf_budget = [PLAN_SCRYFALL_CALLS]
@@ -701,6 +803,30 @@ class StubBrewBuilder(BaseBrewBuilder):
             edhrec_synergy=scorer.config.edhrec_synergy * EDHREC_PRIOR_SCALE,
             commander_synergy=scorer.config.commander_synergy * 2)
         scorer.themes = tuple(dict.fromkeys([*scorer.themes, *brew_plan.theme_terms(plan_items)]))
+
+        secret_tutors: List[str] = []
+        if secret:  # extra ways to find the secret commander, type-specific tutors first, inside the Bracket gate
+            ranked: dict = {}
+            for cid, q in secret_tutor_queries(secret_words, ident_str):
+                for n in stages.scryfall_query_names(r, "plan:" + hashlib.sha1(q.encode()).hexdigest()[:16], q,
+                                                     stages.get_deps(), sf_budget):
+                    ranked.setdefault(n, 2 if cid != "secret_tutor:any" else 1)
+            pool_names = ([pc.name for pc in pools.tier2] + [pc.name for pc in pools.tier3])[:SECRET_POOL_SCAN] \
+                if pools is not None else []
+            for n in pool_names:
+                lvl = fetches_secret(_card_record(r, n, scorer.lab_tags).get("oracle_text") or "", secret_words)
+                if lvl:
+                    ranked[n] = max(ranked.get(n, 0), lvl)
+            tut = rule_filter([n for n in sorted(ranked, key=lambda n: (-ranked[n], n.casefold())) if norm_name(n) != secret_key])
+            _augment_tier3(r, pools, tut, identity if r is not None else None, price_lookup)
+            for n in tut:  # ranked order is kept: type-specific tutors first
+                if len(secret_tutors) >= SECRET_TUTOR_SLOTS:
+                    break
+                if n in fresh([n]) and add(n, 2 if is_owned(n) else 3, "owned" if is_owned(n) else "new",
+                                           0.0 if is_owned(n) else (price_of(n) or 0.0),
+                                           f"Tutor: can fetch your secret commander ({secret})", source=stages.PROV_PLAN):
+                    scorer.records[n] = _card_record(r, n, scorer.lab_tags)
+                    secret_tutors.append(n)
 
         for name in scorer.pick(fresh(donor_cards), tier1_cap):
             add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")
@@ -790,7 +916,7 @@ class StubBrewBuilder(BaseBrewBuilder):
         if proposals:
             tracker.note(f"reviewing {len(proposals)} picks ({len(scaffold_left)} provisional scaffold)")
             panel_stage("deck", proposals, plan_names,  # scaffold is NOT protected: the panel may cut popular-only picks
-                        protected=[c["name"] for c in cards if c.get("tier") in (1, 2)])
+                        protected=[c["name"] for c in cards if c.get("tier") in (1, 2)] + ([secret] if secret else []))
             top_up()  # refill whatever the panel cut
         counts: dict = {}
         for c in cards:
@@ -850,6 +976,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             "target_bracket": session.get("target_bracket", brew_power.DEFAULT_BRACKET),
             "game_plan": session.get("game_plan"),
             "archetype": session.get("archetype"),
+            "secret_commander": secret,
+            "secret_tutors": secret_tutors,
             "dials": session.get("dials") or {},
             "build_mode": build_mode,
             "cards": cards,
@@ -893,15 +1021,43 @@ def guidance_note(session: dict) -> str:
     plan = session.get("game_plan")
     if plan:
         parts.append(f"Game plan: {plan}" + (" with a combo finish." if session.get("combo") else "."))
+    sec = _secret_of(session)
+    if sec:
+        parts.append(
+            f"SECRET COMMANDER: {sec}. Build the deck around it; it MUST be in the 99 and is never cut. Include extra ways to "
+            "find it (tutors that can fetch it, including type-specific ones), still inside the Bracket limit; the Bracket always wins. "
+            "Ignore popular guides and EDHREC-style typical lists for the real commander; still value synergy with the real "
+            "commander's own text.")
     arch = session.get("archetype")
     if arch and arch != "let the brewer decide":
         parts.append(f"Archetype (guide, not a law): {arch}.")
     elif arch:
-        parts.append("Archetype: infer it from the commander and the deck idea.")
+        parts.append("Archetype: infer it from the " + ("secret commander first, then the real commander and the deck idea."
+                                                       if sec else "commander and the deck idea."))
     for name, v in (session.get("dials") or {}).items():
         if v in ("high", "low") and name in _DIAL_TEXT:
             parts.append(f"{name.replace('_', ' ').capitalize()} {v}: {_DIAL_TEXT[name][0 if v == 'high' else 1]}.")
     return " ".join(parts)
+
+
+def pin_secret(r: Any, session: dict, draft: dict) -> None:
+    """LLM-built drafts: guarantee the secret commander is in the 99 (swap out the last plain spell if absent)."""
+    sec = _secret_of(session)
+    if not sec:
+        return
+    draft["secret_commander"] = sec
+    cards = draft.get("cards") or []
+    if any(norm_name(c.get("name")) == norm_name(sec) for c in cards):
+        return
+    cmdrs = {norm_name(x) for x in draft.get("commanders") or session.get("commanders") or []}
+    for i in range(len(cards) - 1, -1, -1):
+        n = cards[i].get("name") or ""
+        if norm_name(n) not in cmdrs and norm_name(n) not in _BASIC_NAMES and int(cards[i].get("quantity") or 1) == 1:
+            cards[i] = {"name": sec, "quantity": 1, "tier": 3, "tier_label": "new", "cost": 0.0,
+                        "rationale": "Secret commander: the deck is built around this card"}
+            return
+    cards.append({"name": sec, "quantity": 1, "tier": 3, "tier_label": "new", "cost": 0.0,
+                  "rationale": "Secret commander: the deck is built around this card"})
 
 
 def brew_rules_of(session: dict) -> List[dict]:
@@ -942,6 +1098,7 @@ class BrewBuilder(BaseBrewBuilder):
         drafts = self._inner.build(inner_session, r)[:1]
         cfg = BrewScoringConfig.from_env()
         for d in drafts:
+            pin_secret(r, session, d)
             apply_power_estimate(r, session, d, cfg)
             attach_composition(r, session, d)
         return drafts

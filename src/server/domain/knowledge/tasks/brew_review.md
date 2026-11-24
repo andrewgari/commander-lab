@@ -12,6 +12,9 @@ The user message holds the commander(s), the target power (1-10), the estimated 
 5. **Names**: every line is a real card name, not an id or placeholder.
 6. **Power and bracket fit**: judge the list against the target power using the Brackets rules above. A deck with Game Changers, mass land denial, extra-turn chains or two-card infinite combos above what the target allows fails. A deck clearly far weaker than the target (no plan, no ramp or card draw, wrong land count) fails. Close calls pass.
 
+### Secret commander
+If the input has a `Secret commander` line, that card must be in the deck (fail if it is missing), and it never fails the deck for being unpopular with the real commander. The Bracket rules still apply to it.
+
 ### Rules
 - Fail only for a concrete, nameable problem; cite the card or count in the reason.
 - Never invent a card that is not in the list.

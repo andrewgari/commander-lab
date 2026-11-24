@@ -118,6 +118,7 @@ def start_brew(
     dials: Any = None,
     budget: Any = None,
     profile_snapshot: Optional[dict] = None,
+    secret_commander: Any = "",
 ) -> dict:
     """Start a Brew session: validate inputs, snapshot donors, build pool summary.
 
@@ -153,6 +154,13 @@ def start_brew(
         raise ValueError(f"game_plan must be one of {list(GAME_PLANS)} (got {game_plan!r})")
     archetype = str(archetype or "").strip()
     clean_dials = normalize_dials(dials)
+
+    secret = str(secret_commander or "").strip() if isinstance(secret_commander, (str, type(None))) else None
+    if secret is None:
+        raise ValueError("secret_commander must be a card name")
+    if secret:
+        from src.server.domain.draft.brew_builder import validate_secret_commander
+        secret = validate_secret_commander(r, secret, commanders, target_bracket)  # ValueError -> 400
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -237,6 +245,7 @@ def start_brew(
         "game_plan": game_plan,
         "combo": bool(combo is True or str(combo).strip().lower() in ("1", "true", "yes", "on")),
         "archetype": archetype or DEFAULT_ARCHETYPE,
+        "secret_commander": secret,  # "" = off
         "dials": clean_dials,
         "composition_template": template,
         "budget": budget,
@@ -276,6 +285,7 @@ def _with_bp_defaults(s: Any) -> Any:
         s.setdefault("target_bracket", 3)
         s.setdefault("game_plan", DEFAULT_GAME_PLAN)
         s.setdefault("combo", False)
+        s.setdefault("secret_commander", "")
         s.setdefault("archetype", DEFAULT_ARCHETYPE)
         s["dials"] = {**{d: "neither" for d in DIAL_NAMES}, **(s.get("dials") or {})}
     return s
@@ -416,7 +426,8 @@ def execute_build(r: Any, session_id: str) -> dict:
 
     from src.server.domain.draft.brew_builder import prefetch_edhrec
 
-    prefetch_edhrec(r, list(session.get("commanders") or []))
+    if not session.get("secret_commander"):  # secret commander: popular lists for the real commander are ignored
+        prefetch_edhrec(r, list(session.get("commanders") or []))
     builder = get_builder()
     try:
         drafts = builder.build(session, r)
@@ -492,7 +503,9 @@ def _non_basic_count(draft: dict) -> int:
 def _enforce_rules(r: Any, session: dict, draft: dict, rules: List[dict]) -> None:
     """Remove rule-violating cards from the draft (commanders protected), record them on
     ``draft['rule_removed']`` and fail loudly if too few cards are left to build from."""
-    protected = session.get("commanders") or draft.get("commanders") or []
+    protected = list(session.get("commanders") or draft.get("commanders") or [])
+    if session.get("secret_commander"):
+        protected.append(session["secret_commander"])  # pinned like a hard include
     brew_rules.enforce_draft(rules, draft, r, protected)
     removed = draft.get("rule_removed") or []
     if removed and _non_basic_count(draft) < MIN_BUILD_CARDS:
@@ -760,8 +773,9 @@ def _pool_config(r: Any, session: dict) -> reconstruct_pools.PoolConfig:
     identity = reconstruct_pools.identity_of_cards(session.get("commanders") or [], catalog)
     from src.server.domain.draft.brew_builder import candidate_ranker
 
-    return reconstruct_pools.PoolConfig(color_identity=identity,
-                                        ranker=candidate_ranker(r, list(session.get("commanders") or [])))
+    return reconstruct_pools.PoolConfig(
+        color_identity=identity,
+        ranker=candidate_ranker(r, list(session.get("commanders") or []), use_edhrec=not session.get("secret_commander")))
 
 
 def _build_pools(r: Any, session: dict, price_lookup=None) -> reconstruct_pools.CandidatePools:
