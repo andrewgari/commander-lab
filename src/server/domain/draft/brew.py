@@ -29,6 +29,7 @@ import src.server.domain.inventory.cards as card_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.draft.brew_gate as brew_gate
+import src.server.domain.draft.brew_rules as brew_rules
 from src.server.domain.draft.brew_gate import BrewGateError
 
 BREW_SESSION_PREFIX = "brew:session:"
@@ -178,6 +179,10 @@ def start_brew(
         "themes": pref["themes"],
         "notes": pref["notes"],
         "preferences": [pref],
+        # Hard rules (brew_rules): drafted from the notes, enforced only once the user approves them.
+        "draft_rules": None,
+        "approved_rules": [],
+        "rules_approved": False,
         "drafts": [],
         "created_at": now,
         "updated_at": now,
@@ -245,6 +250,56 @@ def submit_preferences(r: Any, session_id: str, preference: Any) -> dict:
     return session
 
 
+def _session_rules(session: Optional[dict]) -> List[dict]:
+    """The approved hard rules of a session ([] = none / not approved)."""
+    if not session or not session.get("rules_approved"):
+        return []
+    return list(session.get("approved_rules") or [])
+
+
+def draft_session_rules(r: Any, session_id: str) -> dict:
+    """Draft hard rules from the session's notes (LLM task "brew_rules", pluggable).
+
+    Stores ``session['draft_rules']`` = {"rules", "dropped", "note"} for the UI to edit; nothing is
+    enforced until approve_rules. Drafting again clears a prior approval (the user must re-approve)."""
+    from src.server.domain.draft import brew_rules_draft
+
+    session = get_session(r, session_id)
+    if not session:
+        raise ValueError(f"session not found: {session_id}")
+    if session["status"] in {STATUS_ACCEPTED, STATUS_ABANDONED}:
+        raise ValueError(f"cannot draft rules on a session in status '{session['status']}'")
+    drafted = brew_rules_draft.draft_rules(session)
+    session["draft_rules"] = drafted
+    session["rules_approved"] = False
+    session["updated_at"] = _now()
+    _save_session(r, session)
+    return drafted
+
+
+def approve_rules(r: Any, session_id: str, rules: Any) -> dict:
+    """Validate and store the user's approved hard rules ([] = no hard rules); unlocks the build.
+
+    Raises brew_rules.RuleError (ValueError) for an invalid rule, or ValueError when a commander
+    itself violates a rule (commanders are never removed, so such a rule cannot be approved)."""
+    session = get_session(r, session_id)
+    if not session:
+        raise ValueError(f"session not found: {session_id}")
+    if session["status"] in {STATUS_ACCEPTED, STATUS_ABANDONED}:
+        raise ValueError(f"cannot approve rules on a session in status '{session['status']}'")
+    clean = brew_rules.validate_rules_strict(rules)
+    bad = brew_rules.commander_violations(clean, session.get("commanders") or [], r)
+    if bad:
+        raise ValueError("; ".join(
+            f"the commander {b['card']} breaks the rule “{b['rule']}”: commanders are never removed, "
+            "so edit or delete that rule" for b in bad))
+    session["approved_rules"] = clean
+    session["rules_approved"] = True
+    session["updated_at"] = _now()
+    _save_session(r, session)
+    return session
+
+
 def trigger_build(r: Any, session_id: str, sync: bool = False) -> dict:
     """Trigger the build of the brew draft. The session already carries its
     single preference, so no separate preferences step is required."""
@@ -255,6 +310,10 @@ def trigger_build(r: Any, session_id: str, sync: bool = False) -> dict:
         raise ValueError(f"cannot trigger build on a session in status '{session['status']}'")
     if not session.get("preferences"):
         raise ValueError("preferences must be submitted before triggering build")
+    if not session.get("rules_approved"):
+        raise ValueError(
+            "hard rules must be approved before the build (approve the drafted rules, or approve an empty "
+            "list for no hard rules)")
 
     session["status"] = STATUS_BUILDING
     session["progress"] = "Reading donor pools…"
@@ -281,6 +340,9 @@ def execute_build(r: Any, session_id: str) -> dict:
         if not isinstance(drafts, list) or not drafts:
             raise ValueError("brew builder returned no drafts")
         # THE gate: nothing illegal / incomplete is stored or returned (brew_gate).
+        rules = _session_rules(session)
+        if rules:  # deterministic hard-rule enforcement on the builder's output, before the gate
+            _enforce_rules(r, session, drafts[0], rules)
         released = release_draft(r, session, drafts[0])  # exactly one draft
         # Oracle review: a deck oracle did not pass (or could not review) is not a finished result.
         verdict = brew_review.review_draft(released, session, r)
@@ -306,11 +368,43 @@ def execute_build(r: Any, session_id: str) -> dict:
         raise
 
 
+MIN_BUILD_CARDS = brew_rules.MIN_NON_BASIC  # fewer non-basic cards = rules left a shortfall only extra basics could cover
+
+
+def _non_basic_count(draft: dict) -> int:
+    return sum(int(c.get("quantity", 1) or 1) for c in draft.get("cards") or []
+               if (c.get("name") or "").casefold() not in brew_rules._BASICS)
+
+
+def _enforce_rules(r: Any, session: dict, draft: dict, rules: List[dict]) -> None:
+    """Remove rule-violating cards from the draft (commanders protected), record them on
+    ``draft['rule_removed']`` and fail loudly if too few cards are left to build from."""
+    protected = session.get("commanders") or draft.get("commanders") or []
+    brew_rules.enforce_draft(rules, draft, r, protected)
+    removed = draft.get("rule_removed") or []
+    if removed and _non_basic_count(draft) < MIN_BUILD_CARDS:
+        raise brew_rules.RulesStarvedError(
+            brew_rules.starved_message(removed, _non_basic_count(draft), MIN_BUILD_CARDS))
+
+
 def release_draft(r: Any, session: Optional[dict], draft: dict, **kw: Any) -> dict:
-    """The single output gate for a Brew draft (see brew_gate.release_draft)."""
+    """The single output gate for a Brew draft (see brew_gate.release_draft).
+
+    Approved hard rules apply to the gate's refill (brew_rules.rules_scope -> deck_fill) and are
+    re-checked on the released deck: a rule-violating card never leaves the gate."""
     if session is not None and "recompute" not in kw:
         kw["recompute"] = lambda d: _recompute_draft(r, session, d)
-    return brew_gate.release_draft(draft, r, session=session, **kw)
+    rules = _session_rules(session)
+    if not rules:
+        return brew_gate.release_draft(draft, r, session=session, **kw)
+    protected = (session or {}).get("commanders") or draft.get("commanders") or []
+    with brew_rules.rules_scope(rules, r, protected):
+        out = brew_gate.release_draft(draft, r, session=session, **kw)
+    bad = brew_rules.draft_violations(rules, out, r, protected)
+    if bad:
+        raise BrewGateError("Brew deck breaks approved hard rules: "
+                            + "; ".join(f"{b['card']} ({b['rule']})" for b in bad[:10]))
+    return out
 
 
 def _release_and_persist(r: Any, session: dict) -> list[dict]:
@@ -557,9 +651,13 @@ def _pool_config(r: Any, session: dict) -> reconstruct_pools.PoolConfig:
 def _build_pools(r: Any, session: dict, price_lookup=None) -> reconstruct_pools.CandidatePools:
     if price_lookup is None:
         price_lookup = reconstruct_pools.redis_price_lookup(r)
-    return reconstruct_pools.build_candidate_pools(
+    pools = reconstruct_pools.build_candidate_pools(
         session, r, price_lookup=price_lookup, config=_pool_config(r, session)
     )
+    rules = _session_rules(session)
+    if rules:  # hard rules: violating cards leave every pool (donor, collection, new)
+        brew_rules.filter_pools(rules, pools, r, session.get("commanders") or [])
+    return pools
 
 
 def _pool_summary(pools: Any) -> dict:

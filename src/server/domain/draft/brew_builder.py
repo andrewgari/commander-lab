@@ -18,6 +18,7 @@ import json
 from typing import Any, List, Optional
 
 import src.server.domain.draft.brew_power as brew_power
+import src.server.domain.draft.brew_rules as brew_rules
 import src.server.domain.draft.brew_scoring as brew_scoring
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, skeleton_from_template
 import src.server.domain.inventory.instances as instance_store
@@ -340,6 +341,13 @@ class StubBrewBuilder(BaseBrewBuilder):
                 if cmd and cmd not in donor_cards:
                     donor_cards.append(cmd)
 
+        # Approved hard rules: violating donor cards are removed like every other pool's.
+        rules = brew._session_rules(session)
+        rule_removed: List[dict] = list(getattr(pools, "rule_removed", None) or [])
+        if rules:
+            donor_cards, gone = brew_rules.filter_names(rules, donor_cards, r, commanders)
+            rule_removed += gone
+
         cards: list[dict] = []
         used = set()
         scorer = _Scorer(r, session, BrewScoringConfig.from_env())
@@ -443,6 +451,12 @@ class StubBrewBuilder(BaseBrewBuilder):
 
         self.last_report = report
 
+        if rules and rule_removed and sum(1 for c in cards if norm_name(c["name"]) not in _BASIC_NAMES) \
+                < brew.MIN_BUILD_CARDS:
+            # Hard rules emptied the pools: say so, never pad the deck with basic lands.
+            kept = sum(1 for c in cards if norm_name(c["name"]) not in _BASIC_NAMES)
+            raise brew_rules.RulesStarvedError(brew_rules.starved_message(rule_removed, kept, brew.MIN_BUILD_CARDS))
+
         # Re-tier and cost against the pools so provenance/cost stay truthful.
         if pools is not None:
             costed = reconstruct_pools.compute_deck_cost(cards, pools)
@@ -480,6 +494,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             "is_complete": is_complete,
             "unpriced_cards": unpriced,
             "dropped_ids": list(report.dropped),
+            "rule_removed": [{"card": x["card"], "rule": x["rule"]} for x in
+                             {(x["card"], x["rule"]): x for x in rule_removed}.values()],
             "missing_slots": max(DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards), 0),  # hook for the fill step
             "explanation": (
                 f"Brew draft ({build_mode}) for {', '.join(commanders)}"
@@ -489,6 +505,10 @@ class StubBrewBuilder(BaseBrewBuilder):
         apply_power_estimate(r, session, draft, scorer.config, scorer.records)
         attach_composition(r, session, draft, scorer.lab_tags, scorer.pool_hits, scorer.records)
         return [draft]
+
+
+def brew_rules_of(session: dict) -> List[dict]:
+    return [x for x in (session.get("approved_rules") or []) if session.get("rules_approved")]
 
 
 class BrewBuilder(BaseBrewBuilder):
@@ -509,6 +529,9 @@ class BrewBuilder(BaseBrewBuilder):
         }.get(mode, "")
         inner_session = dict(session)
         prefs = [dict(p) for p in (session.get("preferences") or [])]
+        rule_note = "; ".join(r_["label"] for r_ in brew_rules_of(session))
+        if rule_note:
+            note = (note + " " if note else "") + f"HARD RULES (never include a violating card): {rule_note}."
         if prefs:
             prefs[0]["notes"] = " ".join(x for x in [prefs[0].get("notes", ""), note] if x).strip()
         inner_session["preferences"] = prefs

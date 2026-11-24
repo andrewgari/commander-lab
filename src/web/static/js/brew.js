@@ -356,11 +356,12 @@
             [$("brewGenerate"), $("brewGenerateMobile")].forEach(function (b) { if (b) b.disabled = true; });
             postJSON("/api/brew/start", payload)
                 .then(function (body) {
-                    return postJSON("/api/brew/" + encodeURIComponent(body.session_id) + "/build", {})
-                        .then(function () { return body; });
+                    pendingSession = body.session_id;
+                    return postJSON("/api/brew/" + encodeURIComponent(body.session_id) + "/draft-rules", {});
                 })
-                .then(function (body) {
-                    window.location.href = "/brew/" + encodeURIComponent(body.session_id);
+                .then(function (drafted) {
+                    showRules(drafted);
+                    [$("brewGenerate"), $("brewGenerateMobile")].forEach(function (b) { if (b) b.disabled = false; });
                 })
                 .catch(function (err) {
                     errBox.textContent = err.message || "Could not start the brew.";
@@ -368,6 +369,72 @@
                     [$("brewGenerate"), $("brewGenerateMobile")].forEach(function (b) { if (b) b.disabled = false; });
                 });
         }
+
+        /* ---- hard rules: review / edit / approve before the build ---- */
+        var pendingSession = null;
+        var RULE_FIELDS = [["creature_type", "Creature type"], ["card_type", "Card type"], ["name", "Card name"],
+                           ["oracle_text", "Rules text"], ["color", "Color"]];
+        function ruleRow(rule) {
+            var row = document.createElement("div");
+            row.className = "brew-rule-row";
+            var sel = document.createElement("select");
+            sel.setAttribute("aria-label", "Rule field");
+            RULE_FIELDS.forEach(function (f) {
+                var o = document.createElement("option");
+                o.value = f[0]; o.textContent = "Exclude: " + f[1];
+                if (f[0] === rule.field) o.selected = true;
+                sel.appendChild(o);
+            });
+            var vals = document.createElement("input");
+            vals.type = "text"; vals.placeholder = "Values, comma separated";
+            vals.setAttribute("aria-label", "Rule values");
+            vals.value = (rule.values || []).join(", ");
+            var label = document.createElement("input");
+            label.type = "text"; label.placeholder = "Label";
+            label.setAttribute("aria-label", "Rule label");
+            label.value = rule.label || "";
+            var rm = document.createElement("button");
+            rm.type = "button"; rm.className = "hud-btn"; rm.textContent = "Remove";
+            rm.addEventListener("click", function () { row.remove(); });
+            [sel, vals, label, rm].forEach(function (el) { row.appendChild(el); });
+            return row;
+        }
+        function showRules(drafted) {
+            var list = $("brewRulesList");
+            list.innerHTML = "";
+            (drafted.rules || []).forEach(function (r) { list.appendChild(ruleRow(r)); });
+            var note = drafted.note || "";
+            if ((drafted.rules || []).length === 0 && !note) note = "No hard rules drafted. Add any, or approve with none.";
+            $("brewRulesNote").textContent = "Drafted from your notes. Nothing is enforced until you approve. " + note;
+            $("brew-rules").hidden = false;
+            $("brew-rules").scrollIntoView({ block: "nearest" });
+        }
+        function collectRules() {
+            return Array.prototype.map.call($("brewRulesList").children, function (row) {
+                var f = row.querySelectorAll("select, input");
+                return {
+                    kind: "exclude",
+                    field: f[0].value,
+                    values: f[1].value.split(",").map(function (v) { return v.trim(); }).filter(Boolean),
+                    label: f[2].value.trim(),
+                };
+            });
+        }
+        $("brewRuleAdd").addEventListener("click", function () {
+            $("brewRulesList").appendChild(ruleRow({ field: "creature_type", values: [], label: "" }));
+        });
+        $("brewRulesApprove").addEventListener("click", function () {
+            var errBox = $("brewError");
+            errBox.hidden = true;
+            var sid = encodeURIComponent(pendingSession);
+            postJSON("/api/brew/" + sid + "/approve-rules", { rules: collectRules() })
+                .then(function () { return postJSON("/api/brew/" + sid + "/build", {}); })
+                .then(function () { window.location.href = "/brew/" + sid; })
+                .catch(function (err) {
+                    errBox.textContent = err.message || "Could not approve the rules.";
+                    errBox.hidden = false;
+                });
+        });
         $("brewGenerate").addEventListener("click", generate);
         $("brewGenerateMobile").addEventListener("click", generate);
 

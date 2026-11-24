@@ -121,7 +121,8 @@ class CatalogUnsyncedError(ValueError):
 def fill_deck(commander: str, cards: Optional[Iterable[str]],
               sources: Optional[Sequence[Source]], catalog: CardCatalog, *,
               staples: Iterable[str] = STAPLES,
-              source_timeout: float = DEFAULT_SOURCE_TIMEOUT) -> List[str]:
+              source_timeout: float = DEFAULT_SOURCE_TIMEOUT,
+              rule_filter: Optional[Callable[[str], Optional[dict]]] = None) -> List[str]:
     """Return exactly DECK_SIZE card names: [commander, *99 legal cards].
 
     `cards` are the existing mainboard names (commander optional, illegal ones
@@ -132,6 +133,9 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     if cmd_info is None:
         raise ValueError(f"unknown commander {commander!r}; cannot determine colour identity")
     # Missing legality (None) is not disqualifying; explicit non-legal values are.
+    from src.server.domain.draft import brew_rules
+    if rule_filter is None:  # Brew hard rules (brew_rules.rules_scope) apply to every candidate
+        rule_filter = brew_rules.active_filter()
     if cmd_info.commander_legality not in (None, "legal"):
         raise ValueError(f"commander {commander!r} is not Commander-legal "
                          f"(legality: {cmd_info.commander_legality})")
@@ -146,11 +150,17 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
     counts: dict = {}
 
     unknown_legality: set = set()
+    rule_removed: List[dict] = []
 
     def legal(name: str) -> bool:
         info = catalog.get(name)
         if info is None or normalize_name(info.name) == cmd_key:
             return False
+        if rule_filter is not None:
+            broken = rule_filter(info.name)
+            if broken is not None:
+                rule_removed.append({"card": info.name, "rule": broken["label"]})
+                return False
         if info.commander_legality != "legal":  # banned / not_legal / unknown (fail closed)
             if info.commander_legality is None:
                 unknown_legality.add(normalize_name(info.name))
@@ -187,6 +197,10 @@ def fill_deck(commander: str, cards: Optional[Iterable[str]],
             f"card catalog has no commander-legality data ({len(unknown_legality)} candidate cards "
             f"unverifiable, only {len(deck)} usable): re-run the card sync (`make sync` / "
             "`python -m src.server.workers.sync`) so card records carry legality, then retry the brew")
+    # Hard rules left too little to build from: fail loudly, never pad with basics.
+    if rule_removed and len(deck) < brew_rules.MIN_NON_BASIC:
+        raise brew_rules.RulesStarvedError(
+            brew_rules.starved_message(rule_removed, len(deck), brew_rules.MIN_NON_BASIC))
     # Basics are intrinsically legal and unlimited: use the built-in names
     # directly so a sparse/odd catalog record can never block the last step.
     deck += _basic_split(identity, DECK_SIZE - 1 - len(deck))

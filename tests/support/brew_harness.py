@@ -299,6 +299,7 @@ def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bo
 
         s = brew.start_brew(r, cmds, [d["registry_id"] for d in donors], build_mode,
                             power_level=power)
+        brew.approve_rules(r, s["session_id"], [])
         brew.trigger_build(r, s["session_id"], sync=True)
         session = brew.get_session(r, s["session_id"])
         deck = brew.get_drafts(r, s["session_id"])[0]

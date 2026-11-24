@@ -321,7 +321,7 @@ def test_every_brew_route_returning_a_session_or_drafts_uses_the_gate():
         body = ast.get_source_segment(src_, fn)
         emits = "session" in body or "drafts" in body
         gated = any(k in body for k in ("release_session", "get_drafts", "brew.list_sessions"))
-        if emits and not any(k in fn.name for k in ("start_brew", "pools", "availability", "commander_search")):
+        if emits and not any(k in fn.name for k in ("start_brew", "pools", "availability", "commander_search", "brew_rules")):
             checked += 1
             assert gated, f"{fn.name} returns Brew session/draft data without the gate"
     assert checked >= 5
