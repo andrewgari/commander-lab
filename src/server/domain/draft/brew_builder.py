@@ -376,6 +376,52 @@ def _playstyle(session: dict) -> str:
     return "; ".join(parts)
 
 
+def _estimate(cards: list, rec_of: Any, config: Any) -> float:
+    est = [{**rec_of(c["name"]), "quantity": int(c.get("quantity") or 1)} for c in cards]
+    return brew_power.estimate_power_level(est, config)["power"]
+
+
+POWER_NUDGE_GAP = 0.75
+POWER_NUDGE_SWAPS = 6
+
+
+def _power_nudge(r, session, cards, scorer, add, drop_card, fresh, rule_filter, prov, rec_of, is_land, gate, ident, budget) -> dict:
+    """When the deck's estimated power is clearly under the target, swap a few non-functional generic cards for
+    stronger, efficient ones (tutors, Game Changers, fast mana). Power is only a soft guide: every swap still goes through
+    add() and the hard Bracket gate, so the bracket's limits are never exceeded."""
+    out = {"before": None, "after": None, "out": [], "in": []}
+    target = scorer.target_power
+    if target is None or getattr(gate, "restrict_mana", False):  # Bracket 1-2: no fast mana / tutor swaps
+        return out
+    out["before"] = _estimate(cards, rec_of, scorer.config)
+    if out["before"] >= target - POWER_NUDGE_GAP:
+        out["after"] = out["before"]
+        return out
+    deps = stages.get_deps()
+    names = list(brew_power.FAST_MANA_NAMES)
+    names = [n.title() for n in names]
+    for q in ("is:gamechanger", "otag:tutor"):
+        full = f"{q} f:commander id<={ident or 'c'} -t:land"
+        names += stages.scryfall_query_names(r, "power:" + hashlib.sha1(full.encode()).hexdigest()[:16], full, deps, budget)
+    cands = fresh(rule_filter(list(dict.fromkeys(names))))
+    victims = [c["name"] for c in cards
+               if prov.get(c["name"]) in (stages.PROV_FILL, stages.SCAFFOLD_EDHREC) and not is_land(c["name"])
+               and not brew_scoring._matching(rec_of(c["name"]), scorer.skeleton)]
+    for _ in range(min(POWER_NUDGE_SWAPS, len(victims))):
+        picked = scorer.pick(cands, 1)
+        if not picked:
+            break
+        n = picked[0]
+        cands = [c for c in cands if c != n]
+        if add(n, 3, "new", 0.0, "Power: swapped in to close the gap to the target power", source="power_swap"):
+            gone = victims.pop(0)
+            drop_card(gone)
+            out["in"].append(n)
+            out["out"].append(gone)
+    out["after"] = _estimate(cards, rec_of, scorer.config)
+    return out
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -540,6 +586,8 @@ class StubBrewBuilder(BaseBrewBuilder):
             name = resolved.name
             if norm_name(name) in used:
                 return False
+            if tier != 1 and over_cap(name):  # template ranges are caps for everything but the user's own donor cards
+                return False
             if not gate.admit(_card_record(r, name, scorer.lab_tags)):
                 return False
             cards.append({
@@ -607,6 +655,37 @@ class StubBrewBuilder(BaseBrewBuilder):
         def is_land(n):
             f = fact(n)
             return bool(f and "land" in (f["type_line"] or "").lower())
+
+        def lands_in_deck() -> int:
+            return sum(int(c.get("quantity") or 1) for c in cards if is_land(c["name"]) or norm_name(c["name"]) in _BASIC_NAMES)
+
+        rec_memo: dict = {}
+
+        def rec_of(n):
+            if n not in rec_memo:
+                rec_memo[n] = scorer.records.get(n) or _card_record(r, n, scorer.lab_tags)
+            return rec_memo[n]
+
+        land_slot = scorer.skeleton.get("lands")
+        land_high = land_slot.high if land_slot else stages.land_target(session_template(session)) + 1
+
+        def over_cap(n):
+            """Would adding `n` push the deck past the template: lands past the lands slot's top, or any
+            steered category (ramp, draw, removal, ...) past its top? Basics are exempt (they are the filler)."""
+            if norm_name(n) in _BASIC_NAMES:
+                return False
+            if is_land(n):
+                return lands_in_deck() >= land_high
+            keys = [k for k in brew_scoring._matching(rec_of(n), scorer.skeleton)
+                    if not scorer.skeleton[k].derived and scorer.skeleton[k].steer]
+            if not keys:
+                return False
+            have: dict = {}
+            for c in cards:
+                if not is_land(c["name"]):
+                    for k in set(brew_scoring._matching(rec_of(c["name"]), scorer.skeleton)):
+                        have[k] = have.get(k, 0) + 1
+            return any(have.get(k, 0) >= scorer.skeleton[k].high for k in keys)
 
         def eligible(n):
             """Known to the card database, not banned, inside the commander's colour identity."""
@@ -751,9 +830,6 @@ class StubBrewBuilder(BaseBrewBuilder):
         # slots the template asks for (the skeleton's plan) so spells cannot crowd out the mana base.
         land_reserve = sk["lands_target"]
 
-        def lands_in_deck() -> int:
-            return sum(int(c.get("quantity") or 1) for c in cards if is_land(c["name"]) or norm_name(c["name"]) in _BASIC_NAMES)
-
         def room_for_spells() -> int:
             return DECK_SIZE - len(cards) - max(land_reserve - lands_in_deck(), 0)
 
@@ -792,13 +868,17 @@ class StubBrewBuilder(BaseBrewBuilder):
             panel_stage("deck", proposals, plan_names,  # scaffold is NOT protected: the panel may cut popular-only picks
                         protected=[c["name"] for c in cards if c.get("tier") in (1, 2)])
             top_up()  # refill whatever the panel cut
+        nudge = _power_nudge(r, session, cards, scorer, add, drop_card, fresh, rule_filter, prov, rec_of, is_land, gate,
+                             ident_str, sf_budget)
+        if nudge["out"]:
+            top_up()
         counts: dict = {}
         for c in cards:
             k = prov.get(c["name"]) or ("commander" if c["name"] in commanders else stages.PROV_FILL)
             counts[k] = counts.get(k, 0) + 1
         tracker.finish(stages.STAGE_DECK, {"added": len(cards) - stage3_from, "plan": plan_labels,
                                            "plan_candidates": len(plan_names), "plan_picks": len(plan_added),
-                                           "scaffold_replaced": scaffold_cut, "provenance": counts,
+                                           "scaffold_replaced": scaffold_cut, "provenance": counts, "power_nudge": nudge,
                                            "panel": (progress_session.get("stage_reviews") or {}).get("deck", {}).get("status")},
                        degraded=None if plan_names else "no plan candidates (Scryfall unavailable or nothing matched)",
                        message=f"{len(cards)} cards chosen ({len(plan_added)} plan-driven, {len(scaffold_cut)} scaffold replaced)")
@@ -868,6 +948,69 @@ class StubBrewBuilder(BaseBrewBuilder):
         apply_power_estimate(r, session, draft, scorer.config, scorer.records)
         attach_composition(r, session, draft, scorer.lab_tags, scorer.pool_hits, scorer.records)
         return [draft]
+
+
+def count_template_rows(r: Any, session: dict, draft: dict) -> dict:
+    """{"lands": n, "ramp": n, "spells": n, "targets": {...}} for a draft, by quantity (commander excluded
+    from spells). Used by the pre-review sanity check and handed to the reviewer."""
+    skel = skeleton_from_template(session_template(session))
+    lab_tags = _load_lab_tags(r)
+    lands = ramp = spells = 0
+    ramp_key = next((k for k, v in skel.items() if "ramp" in f"{k} {v.label}".lower() and not v.derived), None)
+    cmdrs = {norm_name(c) for c in draft.get("commanders") or []}
+    for c in draft.get("cards") or []:
+        q = int(c.get("quantity") or 1)
+        if norm_name(c["name"]) in cmdrs:
+            continue
+        rec = _card_record(r, c["name"], lab_tags)
+        if norm_name(c["name"]) in _BASIC_NAMES or brew_power.is_land(rec):
+            lands += q
+            continue
+        spells += q
+        if ramp_key and ramp_key in brew_scoring._matching(rec, skel):
+            ramp += q
+    return {"lands": lands, "ramp": ramp, "spells": spells,
+            "targets": {"lands": skel["lands"].target if "lands" in skel else None,
+                        "ramp": skel[ramp_key].target if ramp_key else None},
+            "high": {"lands": skel["lands"].high if "lands" in skel else None,
+                     "ramp": skel[ramp_key].high if ramp_key else None}}
+
+
+def sanity_trim(r: Any, session: dict, draft: dict) -> dict:
+    """Deterministic check before the oracle review: lands and ramp must sit inside the template's ranges.
+    Surplus basics (then surplus non-owned ramp, last added first) are trimmed rather than failing the brew; the
+    release gate then refills the freed slots with legal spells. Records `sanity_trim` on the draft."""
+    if draft.get("user_edited"):
+        return {}
+    before = count_template_rows(r, session, draft)
+    removed: list = []
+    hi_l, hi_r = before["high"]["lands"], before["high"]["ramp"]
+    if hi_l is not None and before["lands"] > hi_l:
+        excess = before["lands"] - hi_l
+        for c in sorted((c for c in draft["cards"] if norm_name(c["name"]) in _BASIC_NAMES),
+                        key=lambda c: -int(c.get("quantity") or 1)):
+            while excess and int(c.get("quantity") or 1) > 0:
+                c["quantity"] = int(c.get("quantity") or 1) - 1
+                removed.append(c["name"])
+                excess -= 1
+        draft["cards"] = [c for c in draft["cards"] if int(c.get("quantity") or 1) > 0]
+    if hi_r is not None and before["ramp"] > hi_r:
+        skel = skeleton_from_template(session_template(session))
+        key = next(k for k, v in skel.items() if "ramp" in f"{k} {v.label}".lower() and not v.derived)
+        lab = _load_lab_tags(r)
+        ramps = [c for c in reversed(draft["cards"]) if c.get("tier") != 1 and c.get("provenance") != "commander"
+                 and norm_name(c["name"]) not in _BASIC_NAMES
+                 and key in brew_scoring._matching(_card_record(r, c["name"], lab), skel)
+                 and not brew_power.is_land(_card_record(r, c["name"], lab))]
+        for c in ramps[: before["ramp"] - hi_r]:
+            draft["cards"].remove(c)
+            removed.append(c["name"])
+    after = count_template_rows(r, session, draft)
+    info = {"before": {k: before[k] for k in ("lands", "ramp", "spells")},
+            "after": {k: after[k] for k in ("lands", "ramp", "spells")}, "removed": removed}
+    if removed:
+        draft["sanity_trim"] = info
+    return info
 
 
 _DIAL_TEXT = {

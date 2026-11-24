@@ -288,7 +288,7 @@ def _plan_catalog(r):
     _catalog(r)
     for i in range(20):
         r.set(f"card_meta:Plan {i:02d}", json.dumps({"color": "R", "type": "Creature", "cmc": 3, "commander_legality": "legal",
-                                                     "oracle_text": "When this enters, create a Treasure token."}))
+                                                     "oracle_text": "Haste. Whenever this attacks, you may sacrifice a Treasure to deal 1 damage."}))
 
 
 def _scry(q):
@@ -366,3 +366,96 @@ def test_panel_can_cut_scaffold_but_not_owned_and_sees_the_plan(staged):
     assert "Filler 09" not in [c["name"] for c in draft["cards"]]
     assert "Filler 09" in session["stage_reviews"]["deck"]["cuts"]
     assert "SCAFFOLD" in seen["text"] and "Treasure" in seen["text"]
+
+
+# -- regression: lands and ramp stay inside the template (live brew had far too many) ---------------
+
+def _rocky_catalog(r):
+    _catalog(r)
+    for i in range(30):
+        r.set(f"card_meta:Rock {i:02d}", json.dumps({"color": "", "type": "Artifact", "cmc": 2, "commander_legality": "legal",
+                                                     "oracle_text": "{T}: Add one mana of any color."}))
+    for i in range(30):
+        r.set(f"card_meta:Utility Land {i:02d}", json.dumps({"color": "", "type": "Land", "commander_legality": "legal"}))
+    for i in range(40):
+        r.set(f"card_meta:Spell {i:02d}", json.dumps({"color": "R", "type": "Creature", "cmc": 3, "commander_legality": "legal",
+                                                      "oracle_text": "Haste. Whenever this attacks, you may sacrifice a Treasure."}))
+
+
+def _counts(r, session, draft):
+    from src.server.domain.draft.brew_builder import count_template_rows
+    return count_template_rows(r, session, draft)
+
+
+def test_lands_and_ramp_stay_within_template(staged):
+    r = staged
+    _rocky_catalog(r)
+    pool_cards = ({f"Rock {i:02d}": (800, "manaartifacts") for i in range(30)}
+                  | {f"Utility Land {i:02d}": (700, "lands") for i in range(30)}
+                  | {"Plains": (900, "lands"), "Swamp": (900, "lands"), "Mountain": (900, "lands")}
+                  | {f"Spell {i:02d}": (450, "topcards") for i in range(20)})
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(page(pool_cards)), scryfall_search=lambda q: []))
+    session, draft = _build_themed(r)
+    c = _counts(r, session, draft)
+    assert sum(x["quantity"] for x in draft["cards"]) == 100
+    assert c["lands"] <= c["high"]["lands"], c
+    assert c["ramp"] <= c["high"]["ramp"], c
+    assert c["spells"] >= 99 - c["high"]["lands"] - 0, c
+    names = {x["name"]: x for x in draft["cards"]}
+    assert all(names[b].get("quantity", 1) >= 1 for b in ("Plains",) if b in names)
+
+
+def test_sanity_trim_cuts_surplus_basics_and_ramp_instead_of_failing(staged):
+    from src.server.domain.draft.brew_builder import sanity_trim
+    r = staged
+    _rocky_catalog(r)
+    s = brew.start_brew(r, "Kaalia", [], "best_build", power_level="5.5")
+    session = brew.get_session(r, s["session_id"])
+    cards = [{"name": "Kaalia", "quantity": 1, "tier": 3, "provenance": "commander"},
+             {"name": "Plains", "quantity": 30, "tier": 3}, {"name": "Mountain", "quantity": 20, "tier": 3}]
+    cards += [{"name": f"Rock {i:02d}", "quantity": 1, "tier": 3} for i in range(20)]
+    cards += [{"name": f"Spell {i:02d}", "quantity": 1, "tier": 3} for i in range(20)]
+    draft = {"commanders": ["Kaalia"], "cards": cards}
+    before = _counts(r, session, draft)
+    info = sanity_trim(r, session, draft)
+    after = _counts(r, session, draft)
+    assert before["lands"] == 50 and after["lands"] == before["high"]["lands"]
+    assert before["ramp"] == 20 and after["ramp"] == before["high"]["ramp"]
+    assert after["spells"] == before["spells"] - (before["ramp"] - before["high"]["ramp"])
+    assert info["removed"] and draft["sanity_trim"]["after"]["lands"] == after["lands"]
+    assert sanity_trim(r, session, {"commanders": ["Kaalia"], "cards": cards, "user_edited": True}) == {}
+
+
+def test_reviewer_is_given_template_counts_and_calibration(staged):
+    from src.server.domain.draft import brew_review
+    r = staged
+    _rocky_catalog(r)
+    s = brew.start_brew(r, "Kaalia", [], "best_build", power_level="5.5")
+    session = brew.get_session(r, s["session_id"])
+    draft = {"commanders": ["Kaalia"], "cards": [{"name": "Kaalia", "quantity": 1}, {"name": "Plains", "quantity": 36},
+                                                   {"name": "Rock 00", "quantity": 1}]}
+    line = brew_review._template_line(draft, session, r)
+    assert "lands 38" in line and "ramp 10" in line and "36 lands" in line and "1 ramp" in line
+    from src.server.domain.knowledge import build_messages
+    msgs, _ = build_messages("brew_review", user_text="x")
+    assert "Template for this brew" in msgs[0]["content"][0]["text"]
+
+
+def test_power_nudge_swaps_generic_cards_for_stronger_ones_when_far_below_target(staged):
+    from src.server.domain.draft import brew_builder
+    r = staged
+    _rocky_catalog(r)
+    for i in range(150):  # plenty of ordinary spells, so the tutors (sorted last) are not reached by the generic top-up
+        r.set(f"card_meta:Spell Extra {i:03d}", json.dumps({"color": "R", "type": "Creature", "cmc": 3, "commander_legality": "legal"}))
+    for n in ("Zzz Tutor A", "Zzz Tutor B"):
+        r.set(f"card_meta:{n}", json.dumps({"color": "B", "type": "Instant", "cmc": 1, "commander_legality": "legal",
+                                            "oracle_text": "Search your library for a card, put it into your hand."}))
+    base = page({f"Spell {i:02d}": (450, "topcards") for i in range(30)})
+    st.set_deps(st.Deps(edhrec_client=FakeEdhrec(base), scryfall_search=lambda q: ["Zzz Tutor A", "Zzz Tutor B"] if "tutor" in q else []))
+    s = brew.start_brew(r, "Kaalia", [], "best_build", power_level="7.5")
+    session = brew.get_session(r, s["session_id"])
+    brew_builder.get_builder().build(session, r)
+    nudge = session["build_stages"]["deck"]["summary"]["power_nudge"]
+    assert nudge["before"] is not None and nudge["before"] < 7.5 - 0.75
+    assert set(nudge["in"]) <= {"Zzz Tutor A", "Zzz Tutor B"} and nudge["in"]
+    assert nudge["after"] > nudge["before"] and len(nudge["in"]) == len(nudge["out"])
