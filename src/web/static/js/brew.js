@@ -369,6 +369,7 @@
                 game_plan: checked("game_plan", "midrange"),
                 combo: $("brewCombo").checked,
                 archetype: $("brewArchetype").value.trim() || "let the brewer decide",
+                secret_commander: ($("brewSecret").value || "").trim(),
                 dials: dialsPayload(),
                 idea: $("brewIdea").value.trim(),
                 themes: state.themes.slice(),
@@ -492,6 +493,7 @@
             setRadio("game_plan", resume.game_plan || "midrange");
             $("brewCombo").checked = !!resume.combo;
             $("brewArchetype").value = resume.archetype || "let the brewer decide";
+            $("brewSecret").value = resume.secret_commander || "";
             DIALS.forEach(function (d) { setRadio("dial_" + d, (resume.dials || {})[d] || "neither"); });
             // Commander names: rehydrate as name-only entries; art loads lazily
             // from the search endpoint on the next pick.

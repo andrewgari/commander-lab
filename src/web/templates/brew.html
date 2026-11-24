@@ -224,6 +224,11 @@
                     <input type="text" id="brewArchetype" value="let the brewer decide" aria-describedby="brewArchetypeHint">
                     <span class="hud-field-hint" id="brewArchetypeHint">The brewer infers it from the commander and idea; a typed value is a guide, not a law.</span>
                 </div>
+                <div class="brew-field">
+                    <label for="brewSecret">Secret commander <span class="hud-field-hint">optional</span></label>
+                    <input type="text" id="brewSecret" autocomplete="off" placeholder="e.g. The Masamune" aria-describedby="brewSecretHint">
+                    <span class="hud-field-hint" id="brewSecretHint">A card you name. The deck is built around it, with extra ways to find it. It must be commander-legal, inside your commander's colours, and fit the Bracket. Leave blank to skip.</span>
+                </div>
                 <div class="brew-field brew-field--wide">
                     <label id="brewDialsLabel">Dials <span class="hud-field-hint">optional</span></label>
                     <div class="brew-dials" role="group" aria-labelledby="brewDialsLabel">

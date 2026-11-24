@@ -62,6 +62,9 @@ def deterministic_check(draft: dict, r: Any = None) -> List[str]:
     bad = [n for n in names if not isinstance(n, str) or not n.strip() or looks_like_id(n)]
     if bad:
         reasons.append(f"{len(bad)} card(s) have an id instead of a name: {bad[:3]}")
+    sec = str(draft.get("secret_commander") or "").strip()
+    if sec and sec.casefold() not in {str(n or "").casefold() for n in names}:
+        reasons.append(f"secret commander {sec!r} is missing from the deck")
     if r is not None and not bad:
         try:
             from src.server.domain.draft.deck_validator import (
@@ -137,7 +140,8 @@ def _oracle_reviewer(draft: dict, session: dict, client: Any = None, r: Any = No
         lines = [f"{c.get('quantity', 1)} {c.get('name')}" for c in draft.get("cards") or []]
         user = (
             f"Commander(s): {', '.join(draft.get('commanders') or [])}\n"
-            f"Target bracket (1-5, hard limit): {draft.get('target_bracket', 3)}\n"
+            + (f"Secret commander (must be in the deck): {draft['secret_commander']}\n" if draft.get("secret_commander") else "")
+            + f"Target bracket (1-5, hard limit): {draft.get('target_bracket', 3)}\n"
             f"Target power (1-10, soft guide): {draft.get('target_power')}\n"
             f"Estimated power: {draft.get('estimated_power')}\n"
             f"{_game_changers_line(draft)}\n"
