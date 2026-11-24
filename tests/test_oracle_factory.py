@@ -34,7 +34,7 @@ class LoopsTable(unittest.TestCase):
         self.assertEqual({k: _t(v) for k, v in LOOPS.items()}, ROWS)
 
     def test_brew_review_task(self):
-        self.assertEqual(TASKS["brew_review"], TaskSpec(SONNET, 240, 2000))
+        self.assertEqual(TASKS["brew_review"], TaskSpec(SONNET, 240, 6000))
 
 
 class BuildOracle(unittest.TestCase):
