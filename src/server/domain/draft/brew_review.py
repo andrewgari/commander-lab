@@ -100,6 +100,21 @@ def _default_client():
     return _client_factory("brew_review")
 
 
+_review_r: Any = None  # redis handle of the review in progress (reviewers are called as (draft, session))
+
+
+def _template_line(draft: dict, session: dict, r: Any = None) -> str:
+    """Counts the reviewer must judge against: the deck's own composition template, not a generic ideal."""
+    try:
+        from src.server.domain.draft import brew_builder
+        c = brew_builder.count_template_rows(r if r is not None else _review_r, session or {}, draft)
+        t = c["targets"]
+        return (f"Template for this brew: lands {t['lands']}, ramp {t['ramp']}. This deck has {c['lands']} lands, "
+                f"{c['ramp']} ramp, {c['spells']} other spells.")
+    except Exception:
+        return "Template counts: unavailable."
+
+
 def _game_changers_line(draft: dict) -> str:
     """Game Changers in this deck, from the checked-in official snapshot, so the reviewer never has to
     claim the list is unavailable. Degrades to an explicit 'unknown, do not fail on it' note."""
@@ -117,7 +132,7 @@ def _game_changers_line(draft: dict) -> str:
                 "judge bracket fit from the card list only.")
 
 
-def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
+def _oracle_reviewer(draft: dict, session: dict, client: Any = None, r: Any = None) -> dict:
     from src.server.domain.knowledge import build_messages
 
     try:
@@ -130,6 +145,7 @@ def _oracle_reviewer(draft: dict, session: dict, client: Any = None) -> dict:
             f"Target power (1-10, soft guide): {draft.get('target_power')}\n"
             f"Estimated power: {draft.get('estimated_power')}\n"
             f"{_game_changers_line(draft)}\n"
+            f"{_template_line(draft, session, r)}\n"
             "Deck list:\n" + "\n".join(lines)
         )
         messages, _ = build_messages("brew_review", user_text=user)
@@ -175,6 +191,8 @@ def review_draft(draft: dict, session: dict, r: Any = None) -> dict:
         verdict = {"status": FAIL, "reasons": reasons, "source": "deterministic"}
     else:
         try:
+            global _review_r
+            _review_r = r
             verdict = get_reviewer()(draft, session)
         except Exception as exc:
             verdict = {"status": UNAVAILABLE, "reasons": [f"{type(exc).__name__}: {exc}"], "source": "reviewer"}

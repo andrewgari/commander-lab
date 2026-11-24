@@ -344,7 +344,8 @@ def run_core(*, r: Any, session: dict, colors: Sequence[str], skeleton_out: dict
     pool = skeleton_out["edhrec"]
 
     # 2a. landbase: staples, EDHREC's 40%+ lands for this commander/archetype, then the budgeted families
-    edhrec_lands = [c["name"] for c in edhrec_pool.core_cards(pool) if is_land(c["name"])]
+    edhrec_lands = [c["name"] for c in edhrec_pool.core_cards(pool)
+                    if is_land(c["name"]) and norm_name(c["name"]) not in {norm_name(b) for b in BASIC_LAND_NAMES}]
     for land in plan_lands(extra=edhrec_lands, colors=colors, identity=identity, lands_target=skeleton_out["lands_target"], session=session,
                            card_fact=card_fact, price_of=price_of, is_owned=is_owned):
         tier, label = (2, "owned") if land["owned"] else (3, "new")

@@ -15,6 +15,10 @@ The user message holds the commander(s), the target power (1-10), the estimated 
 ### Secret commander
 If the input has a `Secret commander` line, that card must be in the deck (fail if it is missing), and it never fails the deck for being unpopular with the real commander. The Bracket rules still apply to it.
 
+### Calibration
+- The `Template for this brew` line gives the land and ramp counts this player asked for. Lands and ramp at or near those counts are NOT a fail, even if you would play fewer; fail on counts only when they are well outside the template (more than 3 off) and say which count.
+- The Bracket is the HARD limit: fail only for a concrete breach of the bracket's Game Changer, mass land denial, extra turn or two-card combo limits. Target power is only a SOFT guide: an estimate below (or above) the target is never a fail by itself; pass and, in a note, name the weakest cards to swap for stronger, more efficient ones.
+
 ### Rules
 - Fail only for a concrete, nameable problem; cite the card or count in the reason.
 - Never invent a card that is not in the list.
