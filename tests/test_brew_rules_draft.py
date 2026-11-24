@@ -40,11 +40,14 @@ def env(request):
     return r, s["session_id"]
 
 
-def test_default_drafter_without_llm_returns_empty_draft_with_note():
+def test_default_drafter_without_llm_falls_back_to_notes_parser():
     drafter.set_client_factory(None)
     drafter.set_drafter(None)
     out = drafter.draft_rules({"notes": "no Dragons", "commanders": ["X"]})
-    assert out["rules"] == [] and "unavailable" in out["note"]
+    assert "unavailable" in out["note"]
+    assert [r["values"] for r in out["rules"]] == [["Dragon"]]
+    out = drafter.draft_rules({"notes": "make it spicy", "commanders": ["X"]})
+    assert out["rules"] == []
 
 
 def test_llm_drafter_parses_json_and_validates():
@@ -168,3 +171,39 @@ def test_execute_build_enforces_rules_on_builder_output(env, monkeypatch):
         brew.execute_build(r, sid)
     assert seen["names"] == ["Grizzly Bears"]
     assert seen["removed"] == [{"card": "Shivan Dragon", "rule": RULE["label"]}]
+
+
+def _types(out):
+    return {v for r in out["rules"] for v in r["values"]}
+
+
+def test_notes_parser_combined_rule_when_llm_returns_nothing():
+    drafter.set_drafter(lambda s: {"rules": [], "note": ""})
+    out = drafter.draft_rules({"notes": "Kaalia deck. No angels, demons, or dragons.", "commanders": ["Kaalia"]})
+    assert _types(out) == {"Angel", "Demon", "Dragon"}
+
+
+def test_notes_parser_separate_rules():
+    drafter.set_drafter(lambda s: [])
+    out = drafter.draft_rules({"notes": "no angels\nNo demons.\nnever dragons", "commanders": ["Kaalia"]})
+    assert _types(out) == {"Angel", "Demon", "Dragon"}
+
+
+def test_notes_parser_no_duplicate_when_llm_covers():
+    rule = {"kind": "exclude", "field": "creature_type", "values": ["Angel", "Demon", "Dragon"]}
+    drafter.set_drafter(lambda s: [rule])
+    out = drafter.draft_rules({"notes": "no Angels, Demons or Dragons", "commanders": ["K"]})
+    assert len(out["rules"]) == 1
+
+
+def test_notes_parser_ignores_preferences():
+    assert drafter.parse_notes_rules("I love angels and dragons, lots of fliers") == []
+
+
+def test_parsed_rules_remove_violators():
+    from src.server.domain.draft import brew_rules as br
+    rules = drafter.parse_notes_rules("no angels, demons, or dragons")
+    f = br.facts_from_record("Shivan Dragon", {"type_line": "Creature — Dragon"})
+    assert br.first_violation(rules, "Shivan Dragon", f)
+    f2 = br.facts_from_record("Grizzly Bears", {"type_line": "Creature — Bear"})
+    assert not br.first_violation(rules, "Grizzly Bears", f2)
