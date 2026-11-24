@@ -1062,7 +1062,10 @@ async def start_brew_session(request: Request):
 
     Body: {"commander": "..." | "commanders": [...], "partner": "..." (optional),
            "donor_deck_ids": [...], "build_mode": "owned_first"|"best_build",
-           "name", "power_level", "idea"/"deck_idea", "themes": [...], "notes",
+           "name", "power_level" (1-10, default 6, soft), "bracket" (1-5, default 3, hard gate),
+           "game_plan" (aggro|midrange|control), "combo" (bool), "archetype" (free text),
+           "dials": {aggressiveness|commander_focus|interactiveness|political: high|low|neither},
+           "idea"/"deck_idea", "themes": [...], "notes",
            "composition": <composition preset id> | "profile" | "app",
            "budget": <USD, optional total new-card spend; defaults to the profile's budget norms>}
     Composition template: form pick > profile default > app default; stored on the session.
@@ -1106,6 +1109,11 @@ async def start_brew_session(request: Request):
             notes=data.get("notes") or "",
             composition=composition,
             profile_composition=profile_composition,
+            bracket=data.get("bracket"),
+            game_plan=data.get("game_plan") or "",
+            combo=data.get("combo", False),
+            archetype=data.get("archetype") or "",
+            dials=data.get("dials"),
             budget=data.get("budget"),
             profile_snapshot=profile_snapshot,
         )

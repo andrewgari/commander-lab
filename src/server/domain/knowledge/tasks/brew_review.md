@@ -14,7 +14,7 @@ The user message holds the commander(s), the target power (1-10), the estimated 
 
 ### Calibration
 - The `Template for this brew` line gives the land and ramp counts this player asked for. Lands and ramp at or near those counts are NOT a fail, even if you would play fewer; fail on counts only when they are well outside the template (more than 3 off) and say which count.
-- A power estimate below the target is a fail only when it is 1.5 or more under; otherwise pass and name the weakest cards to swap for stronger, more efficient ones.
+- The Bracket is the HARD limit: fail only for a concrete breach of the bracket's Game Changer, mass land denial, extra turn or two-card combo limits. Target power is only a SOFT guide: an estimate below (or above) the target is never a fail by itself; pass and, in a note, name the weakest cards to swap for stronger, more efficient ones.
 
 ### Rules
 - Fail only for a concrete, nameable problem; cite the card or count in the reason.

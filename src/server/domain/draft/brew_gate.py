@@ -248,16 +248,12 @@ def _repair(draft: dict, catalog: dv.CardCatalog, sources: List[Tuple[str, List[
 
 def _tier_filter_sources(loaded: List[Tuple[str, List[str]]], draft: dict, session: Optional[dict],
                          r: Any) -> List[Tuple[str, List[str]]]:
-    """Keep repair backfill inside the requested power tier (retained cards and commanders count)."""
-    target = (session or {}).get("target_power", draft.get("target_power"))
-    if target is None:
-        return loaded
+    """Keep repair backfill inside the requested bracket (retained cards and commanders count)."""
     import src.server.domain.draft.brew_power as brew_power
     from src.server.domain.draft.brew_builder import _card_record
-    from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
 
-    gate = brew_power.TierGate(target, BrewScoringConfig.from_env().power)
-    if gate.tier == "high":
+    gate = brew_power.BracketGate((session or {}).get("target_bracket", draft.get("target_bracket")))
+    if gate.unrestricted:
         return loaded
     for n in [*(draft.get("commanders") or []), *(c.get("name") for c in draft.get("cards") or [])]:
         if isinstance(n, str):
