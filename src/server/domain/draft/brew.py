@@ -20,6 +20,7 @@ reconstruct_pools stay inactive.
 """
 import copy
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -30,7 +31,12 @@ import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
 import src.server.domain.draft.brew_gate as brew_gate
 import src.server.domain.draft.brew_rules as brew_rules
+import src.server.domain.draft.brew_edhrec_pool as edhrec_pool
+import src.server.domain.draft.brew_panel as brew_panel
+import src.server.domain.draft.brew_stages as stages
 from src.server.domain.draft.brew_gate import BrewGateError
+
+log = logging.getLogger(__name__)
 
 BREW_SESSION_PREFIX = "brew:session:"
 BREW_SESSIONS_INDEX = "brew:sessions"
@@ -80,6 +86,8 @@ def start_brew(
     notes: str = "",
     composition: Any = "",
     profile_composition: Any = None,
+    budget: Any = None,
+    profile_snapshot: Optional[dict] = None,
 ) -> dict:
     """Start a Brew session: validate inputs, snapshot donors, build pool summary.
 
@@ -159,6 +167,19 @@ def start_brew(
     template = composition_service.resolve_brew_template(  # ValueError for an unknown form pick
         r, composition if isinstance(composition, str) else "", profile_composition)
 
+    snap = dict(profile_snapshot or {})
+    if budget in (None, ""):
+        budget = snap.get("budget")  # profile soft cap (else hard cap) when the form gives none
+    if budget not in (None, ""):
+        try:
+            budget = float(budget)
+        except (TypeError, ValueError):
+            raise ValueError("budget must be a number (USD)")
+        if budget <= 0:
+            raise ValueError("budget must be greater than 0")
+    else:
+        budget = None
+
     now = _now()
     session_id = f"brew_{uuid.uuid4().hex[:12]}"
     session = {
@@ -175,6 +196,8 @@ def start_brew(
         "power_level": str(power_level or ""),
         "target_power": target_power,
         "composition_template": template,
+        "budget": budget,
+        "profile_snapshot": snap,
         "deck_idea": (deck_idea or "").strip() if isinstance(deck_idea, str) else str(deck_idea),
         "themes": pref["themes"],
         "notes": pref["notes"],
@@ -317,6 +340,9 @@ def trigger_build(r: Any, session_id: str, sync: bool = False) -> dict:
 
     session["status"] = STATUS_BUILDING
     session["progress"] = "Reading donor pools…"
+    session["stage"] = ""
+    session["build_stages"] = {}
+    session["stage_reviews"] = {}
     session["updated_at"] = _now()
     _save_session(r, session)
 
@@ -354,6 +380,7 @@ def execute_build(r: Any, session_id: str) -> dict:
             session["review_rejected"] = verdict  # kept structured; the failed deck is not stored
             why = "; ".join(verdict.get("reasons") or []) or verdict["status"]
             raise ValueError(f"brew review {verdict['status']}: {why}")
+        _final_panel(r, session, released)
         session["drafts"] = [released]
         session["status"] = STATUS_DRAFTS_READY
         session.pop("error", None)
@@ -369,6 +396,35 @@ def execute_build(r: Any, session_id: str) -> dict:
         session["updated_at"] = _now()
         _save_session(r, session)
         raise
+    finally:
+        edhrec_pool.discard_pool(r, session_id)  # the temp EDHREC data never outlives the build
+
+
+def _final_panel(r: Any, session: dict, draft: dict) -> None:
+    """Stage 4: the multi-lens panel reviews the finished deck. ADVISORY: the oracle verdict above stays
+    the only pass/fail gate; the panel's findings are recorded on the session and the draft for the UI."""
+    try:
+        from src.server.domain.draft import brew_builder
+        names = [c["name"] for c in draft.get("cards") or []
+                 if (c.get("name") or "").casefold() not in brew_rules._BASICS]
+        tracker = stages.StageTracker(r, session)
+        tracker.start(stages.STAGE_REVIEW, f"{len(brew_panel.STAGE_LENSES['review'])} reviewers checking the finished deck")
+        ctx = {"commanders": draft.get("commanders"), "target_power": draft.get("target_power"),
+               "deck_idea": session.get("deck_idea"), "notes": session.get("notes"), "themes": session.get("themes"),
+               "playstyle": brew_builder._playstyle(session),
+               "template": [f"{s.get('label') or s.get('key')}: {s.get('target')}" for s in
+                            brew_builder.session_template(session).get("slots") or []],
+               "deck": names[:100]}
+        out = brew_panel.review_stage("review", ctx, names, ())
+        brew_panel.persist(session, "review", out.record)
+        issues = [{"card": d["card"], "reason": d["reason"]} for d in out.record.get("decisions") or []
+                  if d.get("action") == "cut"]
+        draft["panel_review"] = {"status": out.record.get("status"), "concerns": issues}
+        tracker.finish(stages.STAGE_REVIEW, {"status": out.record.get("status"), "concerns": len(issues)},
+                       degraded="panel unavailable" if out.record.get("status") == "unavailable" else None,
+                       message=f"{len(issues)} concern(s) raised" if issues else "no concerns")
+    except Exception as exc:  # noqa: BLE001 - advisory only
+        log.warning("brew final panel skipped: %s", exc)
 
 
 MIN_BUILD_CARDS = brew_rules.MIN_NON_BASIC  # fewer non-basic cards = rules left a shortfall only extra basics could cover

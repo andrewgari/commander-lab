@@ -64,13 +64,18 @@ def parse_page(raw: dict) -> dict:
     return {"decks_sampled": sampled, "cards": cards}
 
 
-def get_page(r, commanders: Sequence[str], client: Optional[EDHRecClient] = None) -> dict:
+def get_page(r, commanders: Sequence[str], client: Optional[EDHRecClient] = None,
+             theme: Optional[str] = None) -> dict:
     """Parsed page {slug, fetched_at, decks_sampled, cards, stale}. Raises CommanderPageMissing
-    (no page) or EDHRecError (fetch failed and nothing cached)."""
+    (no page) or EDHRecError (fetch failed and nothing cached). `theme` = the commander's EDHREC
+    archetype page (cached under its own `{slug}/{theme}` key)."""
     names = [c for c in commanders if c]
     slug = commander_slug(names)
     if not slug:
         raise EDHRecError("deck has no commander")
+    if theme:
+        from src.server.domain.analytics.providers.edhrec import slugify_card_name
+        slug = f"{slug}/{slugify_card_name(theme)}"
     key = CACHE_PREFIX + slug
     cached = None
     try:
@@ -92,7 +97,8 @@ def get_page(r, commanders: Sequence[str], client: Optional[EDHRecClient] = None
     else:
         cached = None
     try:
-        page = parse_page((client or EDHRecClient()).get_commander_page(names))
+        page = parse_page((client or EDHRecClient()).get_commander_page(names, theme) if theme
+                          else (client or EDHRecClient()).get_commander_page(names))
     except EDHRecNotFoundError:
         r.set(key, json.dumps({"fetched_at": _now().isoformat(timespec="seconds"), "missing": True}))
         raise CommanderPageMissing(f"EDHREC has no page for {slug}")

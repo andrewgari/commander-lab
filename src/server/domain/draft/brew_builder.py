@@ -14,12 +14,18 @@ reconstruct_builder.ReconstructBuilder) via brew_builder.set_builder().
 """
 from __future__ import annotations
 
+import dataclasses
+import hashlib
 import json
 from typing import Any, List, Optional
 
 import src.server.domain.draft.brew_power as brew_power
 import src.server.domain.draft.brew_rules as brew_rules
 import src.server.domain.draft.brew_scoring as brew_scoring
+import src.server.domain.draft.brew_edhrec_pool as edhrec_pool
+import src.server.domain.draft.brew_panel as brew_panel
+import src.server.domain.draft.brew_stages as stages
+import src.server.domain.draft.brew_plan as brew_plan
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, skeleton_from_template
 import src.server.domain.inventory.instances as instance_store
 import src.server.domain.draft.reconstruct as reconstruct
@@ -28,6 +34,9 @@ from src.server.domain.draft.card_resolution import ResolutionReport, resolve_ca
 from src.server.domain.draft.reconstruct_pools import norm_name
 
 DECK_SIZE = 100  # commander(s) + the rest; the stub tops up to this
+PLAN_SLOTS = 30            # plan-driven picks in stage 3 (before the generic top-up)
+PLAN_SCRYFALL_CALLS = 8    # live Scryfall searches per build for the plan (results cached 24h)
+EDHREC_PRIOR_SCALE = 0.25  # stage 3 weighs EDHREC inclusion/synergy at this fraction: a weak prior, not the ranking
 
 
 def _resolve_session(session: dict, r: Any):
@@ -294,6 +303,79 @@ def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
                           "rationale": "Basic land to complete the 100-card deck"})
 
 
+def _card_fact(r: Any, name: str) -> Optional[dict]:
+    """{type_line, identity, legal} from the card database, or None when it does not know the card."""
+    if r is None:
+        return None
+    rec = None
+    try:
+        from src.server.domain.inventory import cards as card_store
+        rec = card_store.get_card_by_name(r, name)
+        if not rec:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+    except Exception:
+        rec = None
+    if not rec:
+        return None
+    tl = rec.get("type_line") or rec.get("type") or ""
+    if isinstance(tl, (list, tuple)):
+        tl = " ".join(str(x) for x in tl)
+    legal = reconstruct_pools.RedisCardCatalog._legal(rec)
+    return {"type_line": tl, "legal": legal,
+            "identity": reconstruct_pools.parse_identity(rec.get("color_identity", rec.get("color")))}
+
+
+def _augment_tier3(r: Any, pools: Any, names: List[str], identity: Optional[frozenset], price_lookup: Any) -> int:
+    """Put `names` (in the order given) into Tier 3 when the capped catalog pool left them out, so they are
+    priced, costed and available to every later stage. Unknown, banned and off-identity cards are skipped.
+    Returns how many were added."""
+    if pools is None or not names:
+        return 0
+    have = {norm_name(c.name) for c in pools.all_cards()}
+    new = []
+    for n in names:
+        k = norm_name(n)
+        if k in have or k in _BASIC_NAMES:
+            continue
+        fact = _card_fact(r, n)
+        if not fact or fact["legal"] is False:
+            continue
+        if identity is not None and fact["identity"] is not None and not fact["identity"] <= identity:
+            continue
+        new.append((n, fact["identity"]))
+        have.add(k)
+    if not new:
+        return 0
+    try:
+        prices = price_lookup([n for n, _ in new]) or {}
+    except Exception:
+        prices = {}
+    for n, ident in new:
+        pools.tier3.append(reconstruct_pools.PoolCard(
+            name=n, tier=reconstruct_pools.Tier.NEW, available_qty=None,
+            unit_price=reconstruct_pools._clean_price(prices.get(n)), color_identity=ident))
+    return len(new)
+
+
+def _playstyle(session: dict) -> str:
+    """One line for the panel: what this player enjoys, from the profile snapshot taken at session start."""
+    snap = session.get("profile_snapshot") or {}
+    parts = []
+    if snap.get("builder_identity"):
+        parts.append(str(snap["builder_identity"])[:200])
+    if snap.get("power_tier"):
+        parts.append(f"power tendency: {snap['power_tier']}")
+    if snap.get("power_notes"):
+        parts.append(str(snap["power_notes"])[:160])
+    if snap.get("welcome_generic_staples") is not None:
+        parts.append("welcomes generic staples" if snap["welcome_generic_staples"] else "prefers quirky/unique cards over generic staples")
+    dis = [*(snap.get("dislikes_strategies") or []), *(snap.get("dislikes_play_patterns") or [])]
+    if dis:
+        parts.append("dislikes: " + ", ".join(map(str, dis[:8])))
+    return "; ".join(parts)
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -317,6 +399,17 @@ class _Scorer:
         """Register the user's source cards (donor decks + owned inventory) for the source bonus."""
         self.source_names, self.source_oracle_ids = brew_scoring.build_source_index(
             [_card_record(self.r, n) for n in names if n])
+
+    def unpick(self, name: str) -> None:
+        """Undo a pick's effect on scoring state (a reviewer panel cut it)."""
+        c = self.records.pop(name, None)
+        if c is None:
+            return
+        for k in set(brew_scoring._matching(c, self.skeleton)):
+            self.counts[k] = max(self.counts.get(k, 0) - 1, 0)
+        mv = brew_power.mana_value(c)
+        if mv is not None and not brew_power.is_land(c) and self.mv_n:
+            self.mv_sum, self.mv_n = self.mv_sum - mv, self.mv_n - 1
 
     def pick(self, names: List[str], cap: int, step: int = 1) -> List[str]:
         """Greedy scored pick. `step` = admitted cards per re-score (1 = exact; larger trades exactness for speed)."""
@@ -375,10 +468,12 @@ class StubBrewBuilder(BaseBrewBuilder):
     def build(self, session: dict, r: Any) -> list[dict]:
         import src.server.domain.draft.brew as brew  # local import: brew imports this module lazily too
 
+        progress_session = session  # stage progress / panel records are written onto the caller's session
         session, report = _resolve_session(session, r)
         commanders = list(session.get("commanders") or [])
         if not commanders:
             raise ValueError("a commander is required to brew a deck")
+        tracker = stages.StageTracker(r, progress_session)
         pref = (session.get("preferences") or [{}])[0]
         build_mode = session.get("build_mode", "owned_first")
 
@@ -433,7 +528,10 @@ class StubBrewBuilder(BaseBrewBuilder):
         for v in (pools.dropped if pools is not None else []):
             report.drop(v)
 
-        def add(name, tier, tier_label, cost, rationale):
+        prov: dict = {}          # card name -> provenance (see brew_stages: scaffold_* / plan / donor / owned / fill)
+        plan_set: set = set()    # normalised names found by the deck plan (stage 3)
+
+        def add(name, tier, tier_label, cost, rationale, source=None):
             # Single resolution point: an unresolvable id is dropped, never emitted.
             resolved = resolve_card(name, r)
             if resolved is None:
@@ -449,6 +547,8 @@ class StubBrewBuilder(BaseBrewBuilder):
                 "tier_label": tier_label, "cost": cost, "rationale": rationale,
             })
             used.add(norm_name(name))
+            prov[name] = source or (stages.PROV_DONOR if tier == 1 else stages.PROV_OWNED if tier == 2
+                                    else stages.PROV_PLAN if norm_name(name) in plan_set else stages.PROV_FILL)
             return True
 
         if build_mode == "best_build":
@@ -457,8 +557,11 @@ class StubBrewBuilder(BaseBrewBuilder):
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
 
+        snap = session.get("profile_snapshot") or {}
+        rejected = {norm_name(n) for n in (snap.get("dislikes_cards") or [])}  # panel cuts + profile dislikes
+
         def fresh(names):
-            return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
+            return [n for n in dict.fromkeys(names) if norm_name(n) not in used and norm_name(n) not in rejected]
 
         tier2_all: List[str] = []
         if pools is not None:
@@ -471,6 +574,133 @@ class StubBrewBuilder(BaseBrewBuilder):
             except Exception:
                 tier2_all = []
         scorer.set_sources(donor_cards + tier2_all)
+
+        colors = _commander_identity(r, commanders)
+        identity = frozenset(colors)
+        price_lookup = reconstruct_pools.redis_price_lookup(r) if r is not None else (lambda names: {})
+        price_memo: dict = {}
+
+        def price_of(n):
+            if n in price_memo:
+                return price_memo[n]
+            pc = pools.get(n) if pools is not None else None
+            p = pc.unit_price if pc is not None else None
+            if p is None and pc is None:
+                try:
+                    p = reconstruct_pools._clean_price((price_lookup([n]) or {}).get(n))
+                except Exception:
+                    p = None
+            price_memo[n] = p
+            return p
+
+        def is_owned(n):
+            t = pools.tier_of(n) if pools is not None else None
+            return t is not None and int(t) in (1, 2)
+
+        fact_memo: dict = {}
+
+        def fact(n):
+            if n not in fact_memo:
+                fact_memo[n] = _card_fact(r, n)
+            return fact_memo[n]
+
+        def is_land(n):
+            f = fact(n)
+            return bool(f and "land" in (f["type_line"] or "").lower())
+
+        def eligible(n):
+            """Known to the card database, not banned, inside the commander's colour identity."""
+            if r is None:
+                return True
+            f = fact(n)
+            return bool(f) and f["legal"] is not False and (f["identity"] is None or f["identity"] <= identity)
+
+        def rule_filter(names):
+            names = [n for n in names if eligible(n)]
+            return brew_rules.filter_names(rules, names, r, commanders)[0] if rules else names
+        def drop_card(name):
+            k = norm_name(name)
+            for i, c in enumerate(cards):
+                if norm_name(c["name"]) == k and norm_name(c["name"]) not in {norm_name(x) for x in commanders}:
+                    del cards[i]
+                    used.discard(k)
+                    rejected.add(k)
+                    scorer.unpick(c["name"])
+                    return True
+            return False
+
+        plan_labels: list = []
+
+        def panel_stage(stage, proposals, candidates, protected=()):
+            hi = {n for n in proposals if (price_of(n) or 0.0) >= brew_panel.HIGH_IMPACT_PRICE
+                  or n.lower() in brew_power.FAST_MANA_NAMES or n.lower() in brew_power.COMBO_PIECE_NAMES}
+            ctx = {"commanders": commanders, "target_power": scorer.target_power, "deck_idea": session.get("deck_idea"),
+                   "notes": session.get("notes"), "themes": session.get("themes"), "playstyle": _playstyle(session),
+                   "template": [f"{k}: {v.target}" for k, v in scorer.skeleton.items()],
+                   "deck": [c["name"] for c in cards][:100],
+                   "plan": plan_labels,
+                   "scaffold": [n for n in proposals if prov.get(n) == stages.SCAFFOLD_EDHREC]}
+            out = brew_panel.review_stage(stage, ctx, proposals, fresh(list(candidates))[:60], high_impact=hi,
+                                          protected=protected)
+            brew_panel.persist(progress_session, stage, out.record)
+            for n in out.cuts:
+                drop_card(n)
+            added = [n for n in out.adds if n not in out.cuts and add(n, 3, "new", price_of(n) or 0.0, "Panel suggestion", source=stages.PROV_PLAN)] if out.adds else []
+            out.record["added"] = added
+            return out
+
+        # ---- Stage 1: skeleton (deterministic, no LLM) ----
+        lands_target = stages.land_target(session_template(session))
+        tracker.start(stages.STAGE_SKELETON, f"planning {lands_target} lands and downloading EDHREC data")
+        sk = stages.run_skeleton(r, session, colors, session_template(session))
+        _augment_tier3(r, pools, [v["name"] for v in sorted((sk["edhrec"].get("cards") or {}).values(), key=lambda v: (
+            -(v.get("inclusion") or v.get("theme_inclusion") or 0.0), v["name"].casefold()))],
+                       identity if r is not None else None, price_lookup)
+        tracker.finish(stages.STAGE_SKELETON, stages.skeleton_summary(sk), degraded=sk.get("degraded"),
+                       message=(f"{sk['lands_target']} lands planned, {len(sk['edhrec'].get('cards') or {})} EDHREC cards"
+                                if not sk.get("degraded") else f"{sk['lands_target']} lands planned; {sk['degraded']}"))
+
+        # ---- Stage 2: core construction ----
+        tracker.start(stages.STAGE_CORE, "landbase and core spells")
+        core = stages.run_core(r=r, session=session, colors=colors, skeleton_out=sk, scorer=scorer, add=add, fresh=fresh,
+                               is_land=is_land, card_fact=fact, price_of=price_of, is_owned=is_owned,
+                               rule_filter=rule_filter, identity=identity if r is not None else None)
+        core_names = [l["name"] for l in core.lands] + list(core.spells)
+        if core_names:
+            tracker.note(f"reviewing {len(core_names)} core picks")
+            edhrec_rest = [v["name"] for v in sorted((sk["edhrec"].get("cards") or {}).values(),
+                                                     key=lambda v: -(v.get("inclusion") or 0.0))]
+            pr = panel_stage("core", core_names, edhrec_rest,
+                             protected=[c["name"] for c in edhrec_pool.core_cards(sk["edhrec"])])
+        tracker.finish(stages.STAGE_CORE, {"lands": [l["name"] for l in core.lands], "spells": len(core.spells),
+                                           "by_source": core.by_source,
+                                           "panel": (progress_session.get("stage_reviews") or {}).get("core", {}).get("status")},
+                       degraded=core.degraded, message=f"{len(core.lands)} nonbasic lands, {len(core.spells)} core spells")
+
+        # ---- Stage 3: deck construction. EDHREC was scaffolding; now the deck's own plan drives. ----
+        tracker.start(stages.STAGE_DECK, "building the plan from your notes and the commander's text")
+        stage3_from = len(cards)
+        cmd_rec = _card_record(r, commanders[0], scorer.lab_tags)
+        plan_items = brew_plan.build_plan(list(session.get("themes") or []),
+                                          f"{session.get('notes') or ''}\n{session.get('deck_idea') or ''}",
+                                          cmd_rec.get("oracle_text") or "", cmd_rec.get("type_line") or "")
+        plan_labels.extend(i.label for i in plan_items)
+        ident_str = "".join(colors).lower()
+        sf_budget = [PLAN_SCRYFALL_CALLS]
+        plan_names: List[str] = []
+        for item in plan_items:
+            q = brew_plan.full_query(item, ident_str)
+            plan_names += stages.scryfall_query_names(
+                r, "plan:" + hashlib.sha1(q.encode()).hexdigest()[:16], q, stages.get_deps(), sf_budget)
+        plan_names = rule_filter(list(dict.fromkeys(plan_names)))
+        plan_set.update(norm_name(n) for n in plan_names)
+        _augment_tier3(r, pools, plan_names, identity if r is not None else None, price_lookup)
+        # EDHREC is a weak prior from here on; the plan's own terms weigh more in the commander-synergy score.
+        scorer.config = dataclasses.replace(
+            scorer.config, edhrec_inclusion=scorer.config.edhrec_inclusion * EDHREC_PRIOR_SCALE,
+            edhrec_synergy=scorer.config.edhrec_synergy * EDHREC_PRIOR_SCALE,
+            commander_synergy=scorer.config.commander_synergy * 2)
+        scorer.themes = tuple(dict.fromkeys([*scorer.themes, *brew_plan.theme_terms(plan_items)]))
 
         for name in scorer.pick(fresh(donor_cards), tier1_cap):
             add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")
@@ -488,40 +718,53 @@ class StubBrewBuilder(BaseBrewBuilder):
         for name in scorer.pick(fresh(tier2_names), tier2_cap):
             add(name, 2, "owned", 0.0, "Available from free inventory")
 
+        # Provisional scaffold: EDHREC-sourced cards that serve no template category and are not on the plan are
+        # "just popular picks"; make room for plan-driven cards by cutting up to half of them (lowest inclusion first).
+        scaffold_cut: List[str] = []
+        if plan_names:
+            def functional(n):
+                return bool(brew_scoring._matching(scorer.records.get(n) or _card_record(r, n, scorer.lab_tags), scorer.skeleton))
+            popular_only = [c["name"] for c in cards
+                            if prov.get(c["name"]) == stages.SCAFFOLD_EDHREC and norm_name(c["name"]) not in plan_set
+                            and not is_owned(c["name"]) and not functional(c["name"])]
+            inc = {v["name"]: (v.get("inclusion") or 0.0) for v in (sk["edhrec"].get("cards") or {}).values()}
+            popular_only.sort(key=lambda n: (inc.get(n, 0.0), n))
+            for n in popular_only[: min(len(popular_only) // 2, len(fresh(plan_names)))]:
+                if drop_card(n):
+                    scaffold_cut.append(n)
+
+        plan_added = [n for n in scorer.pick(fresh(plan_names), PLAN_SLOTS + len(scaffold_cut))
+                      if add(n, 2 if is_owned(n) else 3, "owned" if is_owned(n) else "new", 0.0 if is_owned(n) else (price_of(n) or 0.0),
+                             "Plan: found by the deck plan (" + ", ".join(plan_labels[:3]) + ")", source=stages.PROV_PLAN)]
+
         if pools is not None:
             prices = {pc.name: (pc.unit_price if pc.unit_price is not None else 0.0) for pc in pools.tier3}
         else:
             prices = {"Arcane Signet": 1.25, "Command Tower": 0.50, "Sol Ring": 1.50}
-        for name in scorer.pick(fresh(list(prices)), tier3_cap):
+        for name in scorer.pick(fresh(list(prices)), tier3_cap):  # pool order = #527's ranker: a fallback, not the plan
             add(name, 3, "new", float(prices[name]), "Buy to complete the brew")
 
         # Caps above only set the tier mix. Keep topping up from every pool (donor,
         # owned, then new) until the deck is full or candidates run out, but
         # (a) rank the remaining candidates with the scorer instead of taking pool
         # order (alphabetical when EDHREC data is absent) and (b) reserve the land
-        # slots the template asks for so spells cannot crowd out the mana base.
-        land_reserve = _land_target(session)
-
-        land_memo: dict = {}
-
-        def is_land_card(name: str) -> bool:
-            if name not in land_memo:
-                rec = scorer.records.get(name) or _card_record(r, name, scorer.lab_tags)
-                land_memo[name] = brew_power.is_land(rec) or norm_name(name) in _BASIC_NAMES
-            return land_memo[name]
+        # slots the template asks for (the skeleton's plan) so spells cannot crowd out the mana base.
+        land_reserve = sk["lands_target"]
 
         def lands_in_deck() -> int:
-            return sum(int(c.get("quantity") or 1) for c in cards if is_land_card(c["name"]))
+            return sum(int(c.get("quantity") or 1) for c in cards if is_land(c["name"]) or norm_name(c["name"]) in _BASIC_NAMES)
 
         def room_for_spells() -> int:
             return DECK_SIZE - len(cards) - max(land_reserve - lands_in_deck(), 0)
 
-        if len(cards) < DECK_SIZE:
-            stages: list = [(donor_cards, 1, "previous_deck", {}, "Available from a named donor deck")]
+        def top_up():
+            if len(cards) >= DECK_SIZE:
+                return
+            tiers: list = [(donor_cards, 1, "previous_deck", {}, "Available from a named donor deck")]
             if pools is not None:
-                stages.append(([pc.name for pc in pools.tier2], 2, "owned", {}, "Available from free inventory"))
-                stages.append(([pc.name for pc in pools.tier3], 3, "new", dict(prices), "Buy to complete the brew"))
-            for names, tier, label, cost_of, why in stages:
+                tiers.append(([pc.name for pc in pools.tier2], 2, "owned", {}, "Available from free inventory"))
+                tiers.append(([pc.name for pc in pools.tier3], 3, "new", dict(prices), "Buy to complete the brew"))
+            for names, tier, label, cost_of, why in tiers:
                 while room_for_spells() > 0:
                     cands = fresh(names)
                     if not cands:
@@ -532,11 +775,33 @@ class StubBrewBuilder(BaseBrewBuilder):
                         break
             # Still short of spells (small pools): spend any remaining slots in pool order,
             # still leaving room for the land reserve.
-            for names, tier, label, cost_of, why in stages:
-                for n in names:
+            for names, tier, label, cost_of, why in tiers:
+                for n in fresh(names):
                     if room_for_spells() <= 0:
                         break
                     add(n, tier, label, float(cost_of.get(n, 0.0) or 0.0), why)
+
+        top_up()
+
+        stage3 = [c["name"] for c in cards[stage3_from:] if norm_name(c["name"]) not in _BASIC_NAMES]
+        scaffold_left = [c["name"] for c in cards[:stage3_from] if prov.get(c["name"]) == stages.SCAFFOLD_EDHREC
+                         and not is_owned(c["name"])]
+        proposals = list(dict.fromkeys(scaffold_left + stage3))
+        if proposals:
+            tracker.note(f"reviewing {len(proposals)} picks ({len(scaffold_left)} provisional scaffold)")
+            panel_stage("deck", proposals, plan_names,  # scaffold is NOT protected: the panel may cut popular-only picks
+                        protected=[c["name"] for c in cards if c.get("tier") in (1, 2)])
+            top_up()  # refill whatever the panel cut
+        counts: dict = {}
+        for c in cards:
+            k = prov.get(c["name"]) or ("commander" if c["name"] in commanders else stages.PROV_FILL)
+            counts[k] = counts.get(k, 0) + 1
+        tracker.finish(stages.STAGE_DECK, {"added": len(cards) - stage3_from, "plan": plan_labels,
+                                           "plan_candidates": len(plan_names), "plan_picks": len(plan_added),
+                                           "scaffold_replaced": scaffold_cut, "provenance": counts,
+                                           "panel": (progress_session.get("stage_reviews") or {}).get("deck", {}).get("status")},
+                       degraded=None if plan_names else "no plan candidates (Scryfall unavailable or nothing matched)",
+                       message=f"{len(cards)} cards chosen ({len(plan_added)} plan-driven, {len(scaffold_cut)} scaffold replaced)")
 
         self.last_report = report
 
@@ -563,6 +828,11 @@ class StubBrewBuilder(BaseBrewBuilder):
         short = DECK_SIZE - sum(int(c.get("quantity") or 1) for c in cards)
         if short > 0:
             _fill_basics(cards, short, _commander_identity(r, commanders))
+        cmdr_keys = {norm_name(x) for x in commanders}
+        for c in cards:  # provenance survives costing (compute_deck_cost rebuilds the card dicts)
+            c["provenance"] = ("commander" if norm_name(c["name"]) in cmdr_keys
+                               else stages.PROV_BASIC if norm_name(c["name"]) in _BASIC_NAMES and c["name"] not in prov
+                               else prov.get(c["name"]) or stages.PROV_FILL)
 
         name = pref.get("name") or f"{commanders[0]} brew"
         themes = list(session.get("themes") or pref.get("themes") or [])
