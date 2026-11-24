@@ -210,14 +210,16 @@ class EDHRecClient:
             f"EDHRec request failed for {path} after {self._max_retries} attempts"
         ) from last_error
 
-    def get_commander_page(self, commander_names: Sequence[str]) -> Dict[str, Any]:
+    def get_commander_page(self, commander_names: Sequence[str], theme: Optional[str] = None) -> Dict[str, Any]:
         """Fetch the raw commander page JSON for one or more commander names
         (partners are combined into a single slug, matching EDHRec's URL
-        scheme)."""
+        scheme). `theme` selects the commander's archetype page
+        (`commanders/{slug}/{theme}.json`, e.g. "counters")."""
         slug = commander_slug(commander_names)
         if not slug:
             raise ValueError("commander_names must contain at least one non-empty name")
-        return self._get_json(f"commanders/{slug}.json")
+        theme_slug = slugify_card_name(theme) if theme else ""
+        return self._get_json(f"commanders/{slug}/{theme_slug}.json" if theme_slug else f"commanders/{slug}.json")
 
 
 # =============================================================================

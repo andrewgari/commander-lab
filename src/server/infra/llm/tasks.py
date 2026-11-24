@@ -28,6 +28,7 @@ TASKS: dict[str, TaskSpec] = {
     "review_writer": TaskSpec(SONNET, 300, 8000),
     "brew_review": TaskSpec(SONNET, 240, 6000),
     "brew_rules": TaskSpec(SONNET, 120, 1500),
+    "brew_panel": TaskSpec(SONNET, 180, 3000),
     "review_pipeline": TaskSpec(SONNET, 300, 8000),
     "interactions": TaskSpec(HAIKU, 120, 4000),
 }
@@ -54,4 +55,5 @@ LOOPS: dict[str, LoopSpec] = {
     "reconstruct": LoopSpec(14, 30, 1.50, 2.50, 900_000, 1200),
     "brew_review": LoopSpec(6, 8, 0.20, 0.35, 150_000, 240),
     "brew_rules": LoopSpec(2, 2, 0.05, 0.10, 40_000, 120),
+    "brew_panel": LoopSpec(2, 2, 0.10, 0.20, 60_000, 180),
 }

@@ -20,6 +20,9 @@ from typing import Any, List, Optional
 import src.server.domain.draft.brew_power as brew_power
 import src.server.domain.draft.brew_rules as brew_rules
 import src.server.domain.draft.brew_scoring as brew_scoring
+import src.server.domain.draft.brew_edhrec_pool as edhrec_pool
+import src.server.domain.draft.brew_panel as brew_panel
+import src.server.domain.draft.brew_stages as stages
 from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, skeleton_from_template
 import src.server.domain.inventory.instances as instance_store
 import src.server.domain.draft.reconstruct as reconstruct
@@ -245,6 +248,78 @@ def _fill_basics(cards: list, need: int, colors: List[str]) -> None:
                           "rationale": "Basic land to complete the 100-card deck"})
 
 
+def _card_fact(r: Any, name: str) -> Optional[dict]:
+    """{type_line, identity, legal} from the card database, or None when it does not know the card."""
+    if r is None:
+        return None
+    rec = None
+    try:
+        from src.server.domain.inventory import cards as card_store
+        rec = card_store.get_card_by_name(r, name)
+        if not rec:
+            raw = r.get(f"card_meta:{name}")
+            rec = json.loads(raw) if raw else None
+    except Exception:
+        rec = None
+    if not rec:
+        return None
+    tl = rec.get("type_line") or rec.get("type") or ""
+    if isinstance(tl, (list, tuple)):
+        tl = " ".join(str(x) for x in tl)
+    legal = reconstruct_pools.RedisCardCatalog._legal(rec)
+    return {"type_line": tl, "legal": legal,
+            "identity": reconstruct_pools.parse_identity(rec.get("color_identity", rec.get("color")))}
+
+
+def _augment_tier3(r: Any, pools: Any, pool: dict, identity: Optional[frozenset], price_lookup: Any) -> int:
+    """Put the EDHREC pool's cards (best first) into Tier 3 when the capped, alphabetical catalog pool
+    left them out, so they are priced, costed and available to every later stage. Returns how many."""
+    if pools is None or not pool.get("cards"):
+        return 0
+    have = {norm_name(c.name) for c in pools.all_cards()}
+    new = []
+    for v in sorted(pool["cards"].values(), key=lambda v: (-(v.get("inclusion") or v.get("theme_inclusion") or 0.0), v["name"].casefold())):
+        k = norm_name(v["name"])
+        if k in have or k in _BASIC_NAMES:
+            continue
+        fact = _card_fact(r, v["name"])
+        if not fact or fact["legal"] is False:
+            continue
+        if identity is not None and fact["identity"] is not None and not fact["identity"] <= identity:
+            continue
+        new.append((v["name"], fact["identity"]))
+        have.add(k)
+    if not new:
+        return 0
+    try:
+        prices = price_lookup([n for n, _ in new]) or {}
+    except Exception:
+        prices = {}
+    for n, ident in new:
+        pools.tier3.append(reconstruct_pools.PoolCard(
+            name=n, tier=reconstruct_pools.Tier.NEW, available_qty=None,
+            unit_price=reconstruct_pools._clean_price(prices.get(n)), color_identity=ident))
+    return len(new)
+
+
+def _playstyle(session: dict) -> str:
+    """One line for the panel: what this player enjoys, from the profile snapshot taken at session start."""
+    snap = session.get("profile_snapshot") or {}
+    parts = []
+    if snap.get("builder_identity"):
+        parts.append(str(snap["builder_identity"])[:200])
+    if snap.get("power_tier"):
+        parts.append(f"power tendency: {snap['power_tier']}")
+    if snap.get("power_notes"):
+        parts.append(str(snap["power_notes"])[:160])
+    if snap.get("welcome_generic_staples") is not None:
+        parts.append("welcomes generic staples" if snap["welcome_generic_staples"] else "prefers quirky/unique cards over generic staples")
+    dis = [*(snap.get("dislikes_strategies") or []), *(snap.get("dislikes_play_patterns") or [])]
+    if dis:
+        parts.append("dislikes: " + ", ".join(map(str, dis[:8])))
+    return "; ".join(parts)
+
+
 class _Scorer:
     """Shared scoring state for one build: category counts persist across tiers."""
 
@@ -268,6 +343,17 @@ class _Scorer:
         """Register the user's source cards (donor decks + owned inventory) for the source bonus."""
         self.source_names, self.source_oracle_ids = brew_scoring.build_source_index(
             [_card_record(self.r, n) for n in names if n])
+
+    def unpick(self, name: str) -> None:
+        """Undo a pick's effect on scoring state (a reviewer panel cut it)."""
+        c = self.records.pop(name, None)
+        if c is None:
+            return
+        for k in set(brew_scoring._matching(c, self.skeleton)):
+            self.counts[k] = max(self.counts.get(k, 0) - 1, 0)
+        mv = brew_power.mana_value(c)
+        if mv is not None and not brew_power.is_land(c) and self.mv_n:
+            self.mv_sum, self.mv_n = self.mv_sum - mv, self.mv_n - 1
 
     def pick(self, names: List[str], cap: int) -> List[str]:
         if cap <= 0:
@@ -322,10 +408,12 @@ class StubBrewBuilder(BaseBrewBuilder):
     def build(self, session: dict, r: Any) -> list[dict]:
         import src.server.domain.draft.brew as brew  # local import: brew imports this module lazily too
 
+        progress_session = session  # stage progress / panel records are written onto the caller's session
         session, report = _resolve_session(session, r)
         commanders = list(session.get("commanders") or [])
         if not commanders:
             raise ValueError("a commander is required to brew a deck")
+        tracker = stages.StageTracker(r, progress_session)
         pref = (session.get("preferences") or [{}])[0]
         build_mode = session.get("build_mode", "owned_first")
 
@@ -394,8 +482,11 @@ class StubBrewBuilder(BaseBrewBuilder):
             tier1_cap, tier2_cap, tier3_cap = 25, 10, 3
 
 
+        snap = session.get("profile_snapshot") or {}
+        rejected = {norm_name(n) for n in (snap.get("dislikes_cards") or [])}  # panel cuts + profile dislikes
+
         def fresh(names):
-            return [n for n in dict.fromkeys(names) if norm_name(n) not in used]
+            return [n for n in dict.fromkeys(names) if norm_name(n) not in used and norm_name(n) not in rejected]
 
         tier2_all: List[str] = []
         if pools is not None:
@@ -408,6 +499,110 @@ class StubBrewBuilder(BaseBrewBuilder):
             except Exception:
                 tier2_all = []
         scorer.set_sources(donor_cards + tier2_all)
+
+        colors = _commander_identity(r, commanders)
+        identity = frozenset(colors)
+        price_lookup = reconstruct_pools.redis_price_lookup(r) if r is not None else (lambda names: {})
+        price_memo: dict = {}
+
+        def price_of(n):
+            if n in price_memo:
+                return price_memo[n]
+            pc = pools.get(n) if pools is not None else None
+            p = pc.unit_price if pc is not None else None
+            if p is None and pc is None:
+                try:
+                    p = reconstruct_pools._clean_price((price_lookup([n]) or {}).get(n))
+                except Exception:
+                    p = None
+            price_memo[n] = p
+            return p
+
+        def is_owned(n):
+            t = pools.tier_of(n) if pools is not None else None
+            return t is not None and int(t) in (1, 2)
+
+        fact_memo: dict = {}
+
+        def fact(n):
+            if n not in fact_memo:
+                fact_memo[n] = _card_fact(r, n)
+            return fact_memo[n]
+
+        def is_land(n):
+            f = fact(n)
+            return bool(f and "land" in (f["type_line"] or "").lower())
+
+        rule_filter = (lambda names: brew_rules.filter_names(rules, names, r, commanders)[0]) if rules else (lambda names: names)
+        lands_added = [0]
+        _plain_add = add
+
+        def add(name, tier, tier_label, cost, rationale):  # noqa: F811 - counts lands for the basic reserve
+            ok = _plain_add(name, tier, tier_label, cost, rationale)
+            if ok and is_land(cards[-1]["name"]):
+                lands_added[0] += 1
+            return ok
+
+        def drop_card(name):
+            k = norm_name(name)
+            for i, c in enumerate(cards):
+                if norm_name(c["name"]) == k and norm_name(c["name"]) not in {norm_name(x) for x in commanders}:
+                    if is_land(c["name"]):
+                        lands_added[0] -= 1
+                    del cards[i]
+                    used.discard(k)
+                    rejected.add(k)
+                    scorer.unpick(c["name"])
+                    return True
+            return False
+
+        def panel_stage(stage, proposals, candidates, protected=()):
+            hi = {n for n in proposals if (price_of(n) or 0.0) >= brew_panel.HIGH_IMPACT_PRICE
+                  or n.lower() in brew_power.FAST_MANA_NAMES or n.lower() in brew_power.COMBO_PIECE_NAMES}
+            ctx = {"commanders": commanders, "target_power": scorer.target_power, "deck_idea": session.get("deck_idea"),
+                   "notes": session.get("notes"), "themes": session.get("themes"), "playstyle": _playstyle(session),
+                   "template": [f"{k}: {v.target}" for k, v in scorer.skeleton.items()],
+                   "deck": [c["name"] for c in cards][:100]}
+            out = brew_panel.review_stage(stage, ctx, proposals, fresh(list(candidates))[:60], high_impact=hi,
+                                          protected=protected)
+            brew_panel.persist(progress_session, stage, out.record)
+            for n in out.cuts:
+                drop_card(n)
+            added = [n for n in out.adds if n not in out.cuts and add(n, 3, "new", price_of(n) or 0.0, "Panel suggestion")] if out.adds else []
+            out.record["added"] = added
+            return out
+
+        # ---- Stage 1: skeleton (deterministic, no LLM) ----
+        lands_target = stages.land_target(session_template(session))
+        tracker.start(stages.STAGE_SKELETON, f"planning {lands_target} lands and downloading EDHREC data")
+        sk = stages.run_skeleton(r, session, colors, session_template(session))
+        _augment_tier3(r, pools, sk["edhrec"], identity if r is not None else None, price_lookup)
+        tracker.finish(stages.STAGE_SKELETON, stages.skeleton_summary(sk), degraded=sk.get("degraded"),
+                       message=(f"{sk['lands_target']} lands planned, {len(sk['edhrec'].get('cards') or {})} EDHREC cards"
+                                if not sk.get("degraded") else f"{sk['lands_target']} lands planned; {sk['degraded']}"))
+
+        # ---- Stage 2: core construction ----
+        tracker.start(stages.STAGE_CORE, "landbase and core spells")
+        core = stages.run_core(r=r, session=session, colors=colors, skeleton_out=sk, scorer=scorer, add=add, fresh=fresh,
+                               is_land=is_land, card_fact=fact, price_of=price_of, is_owned=is_owned,
+                               rule_filter=rule_filter, identity=identity if r is not None else None)
+        core_names = [l["name"] for l in core.lands] + list(core.spells)
+        if core_names:
+            tracker.note(f"reviewing {len(core_names)} core picks")
+            edhrec_rest = [v["name"] for v in sorted((sk["edhrec"].get("cards") or {}).values(),
+                                                     key=lambda v: -(v.get("inclusion") or 0.0))]
+            pr = panel_stage("core", core_names, edhrec_rest,
+                             protected=[c["name"] for c in edhrec_pool.core_cards(sk["edhrec"])])
+        tracker.finish(stages.STAGE_CORE, {"lands": [l["name"] for l in core.lands], "spells": len(core.spells),
+                                           "by_source": core.by_source,
+                                           "panel": (progress_session.get("stage_reviews") or {}).get("core", {}).get("status")},
+                       degraded=core.degraded, message=f"{len(core.lands)} nonbasic lands, {len(core.spells)} core spells")
+
+        # ---- Stage 3: deck construction (donors, owned, then the ranked new pool) ----
+        tracker.start(stages.STAGE_DECK, "choosing cards for the notes and playstyle")
+        stage3_from = len(cards)
+        edhrec_order = [v["name"] for v in sorted((sk["edhrec"].get("cards") or {}).values(),
+                                                  key=lambda v: (-(v.get("synergy") or 0.0) - (v.get("inclusion") or 0.0), v["name"].casefold()))]
 
         for name in scorer.pick(fresh(donor_cards), tier1_cap):
             add(name, 1, "previous_deck", 0.0, "Available from a named donor deck")
@@ -429,25 +624,46 @@ class StubBrewBuilder(BaseBrewBuilder):
             prices = {pc.name: (pc.unit_price if pc.unit_price is not None else 0.0) for pc in pools.tier3}
         else:
             prices = {"Arcane Signet": 1.25, "Command Tower": 0.50, "Sol Ring": 1.50}
-        for name in scorer.pick(fresh(list(prices)), tier3_cap):
+        edhrec_first = [n for n in edhrec_order if n in prices] + [n for n in prices if n not in set(edhrec_order)]
+        for name in scorer.pick(fresh(edhrec_first), tier3_cap):
             add(name, 3, "new", float(prices[name]), "Buy to complete the brew")
 
         # Caps above only set the tier mix. Root cause of truncated decks was
         # stopping there (25+10+3 ~ 39 cards); keep topping up from every pool
         # (donor, owned, then new) until the deck is full or candidates run out.
-        if len(cards) < DECK_SIZE:
+        def top_up():
+            # Room for spells = 100 minus the basics the skeleton reserved (lands_target - nonbasic lands so far).
+            def room():
+                return DECK_SIZE - max(sk["lands_target"] - lands_added[0], 0)
             extra = [(n, 1, "previous_deck", 0.0, "Available from a named donor deck") for n in donor_cards]
             if pools is not None:
                 extra += [(pc.name, 2, "owned", 0.0, "Available from free inventory") for pc in pools.tier2]
+                t3 = sorted(pools.tier3, key=lambda pc: (edhrec_order.index(pc.name) if pc.name in edhrec_order else 10 ** 6))
                 extra += [
                     (pc.name, 3, "new", float(pc.unit_price if pc.unit_price is not None else 0.0),
                      "Buy to complete the brew")
-                    for pc in pools.tier3
+                    for pc in t3
                 ]
             for args in extra:
-                if len(cards) >= DECK_SIZE:
+                if len(cards) >= min(DECK_SIZE, room()):
                     break
+                if norm_name(args[0]) in rejected or (is_land(args[0]) and lands_added[0] >= sk["lands_target"]):
+                    continue
                 add(*args)
+
+        # Caps above only set the tier mix. Root cause of truncated decks was stopping there
+        # (25+10+3 ~ 39 cards); keep topping up from every pool until the deck is full or candidates run out.
+        top_up()
+
+        stage3 = [c["name"] for c in cards[stage3_from:] if norm_name(c["name"]) not in _BASIC_NAMES]
+        if stage3:
+            tracker.note(f"reviewing {len(stage3)} picks")
+            panel_stage("deck", stage3, edhrec_order,
+                        protected=[c["name"] for c in cards if c.get("tier") in (1, 2)])
+            top_up()  # refill whatever the panel cut
+        tracker.finish(stages.STAGE_DECK, {"added": len(cards) - stage3_from,
+                                           "panel": (progress_session.get("stage_reviews") or {}).get("deck", {}).get("status")},
+                       message=f"{len(cards)} cards chosen")
 
         self.last_report = report
 
