@@ -596,7 +596,16 @@ class StubBrewBuilder(BaseBrewBuilder):
             f = fact(n)
             return bool(f and "land" in (f["type_line"] or "").lower())
 
-        rule_filter = (lambda names: brew_rules.filter_names(rules, names, r, commanders)[0]) if rules else (lambda names: names)
+        def eligible(n):
+            """Known to the card database, not banned, inside the commander's colour identity."""
+            if r is None:
+                return True
+            f = fact(n)
+            return bool(f) and f["legal"] is not False and (f["identity"] is None or f["identity"] <= identity)
+
+        def rule_filter(names):
+            names = [n for n in names if eligible(n)]
+            return brew_rules.filter_names(rules, names, r, commanders)[0] if rules else names
         def drop_card(name):
             k = norm_name(name)
             for i, c in enumerate(cards):

@@ -57,7 +57,7 @@ class StageTracker:
 
     def __init__(self, r: Any, session: dict):
         self.r, self.session = r, session
-        self.records: Dict[str, dict] = {}
+        self.records: Dict[str, dict] = {k: dict(v) for k, v in (session.get("build_stages") or {}).items()}
         self.stage = ""
 
     def _persist(self, message: str) -> None:
