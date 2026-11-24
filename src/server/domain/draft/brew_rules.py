@@ -177,6 +177,11 @@ def facts_from_record(name: str, rec: Optional[dict]) -> dict:
         type_line = " ".join(str(x) for x in type_line)
     if not type_line and rec.get("types"):
         type_line = " ".join(str(x) for x in rec["types"])
+    # Canonical records (inventory.cards) carry the type line split into ``super_types`` / ``types`` /
+    # ``sub_types`` and ``type`` is only the first card type, so rebuild "Legendary Creature — Angel".
+    if rec.get("sub_types") and "—" not in str(type_line):
+        left = " ".join(str(x) for x in [*(rec.get("super_types") or []), *(rec.get("types") or [rec.get("type")])] if x)
+        type_line = f"{left} — {' '.join(str(x) for x in rec['sub_types'])}"
     face_lines = [str(f.get("type_line") or "") for f in faces_raw] or [t for t in str(type_line).split("//")]
     texts = [str(f.get("oracle_text") or "") for f in faces_raw]
     if not any(texts):
