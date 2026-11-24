@@ -73,6 +73,31 @@ def _save_session(r: Any, session: dict) -> None:
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
+GAME_PLANS = ("aggro", "midrange", "control")
+DEFAULT_GAME_PLAN = "midrange"
+DEFAULT_ARCHETYPE = "let the brewer decide"
+DIAL_NAMES = ("aggressiveness", "commander_focus", "interactiveness", "political")
+DIAL_VALUES = ("high", "low", "neither")
+
+
+def normalize_dials(dials: Any) -> dict:
+    """{dial: high|low|neither} for every dial; missing -> neither. ValueError on an unknown dial or value."""
+    if dials is None or dials == "":
+        dials = {}
+    if not isinstance(dials, dict):
+        raise ValueError("dials must be an object")
+    unknown = sorted(set(dials) - set(DIAL_NAMES))
+    if unknown:
+        raise ValueError(f"unknown dial(s) {unknown}; expected {list(DIAL_NAMES)}")
+    out = {}
+    for name in DIAL_NAMES:
+        v = str(dials.get(name) or "neither").strip().lower()
+        if v not in DIAL_VALUES:
+            raise ValueError(f"dial {name} must be one of {list(DIAL_VALUES)} (got {dials.get(name)!r})")
+        out[name] = v
+    return out
+
+
 def start_brew(
     r: Any,
     commander: Any,
@@ -86,6 +111,11 @@ def start_brew(
     notes: str = "",
     composition: Any = "",
     profile_composition: Any = None,
+    bracket: Any = None,
+    game_plan: Any = "",
+    combo: Any = False,
+    archetype: Any = "",
+    dials: Any = None,
     budget: Any = None,
     profile_snapshot: Optional[dict] = None,
 ) -> dict:
@@ -115,6 +145,14 @@ def start_brew(
     from src.server.domain.draft.brew_power import parse_power_level
     from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
     target_power = parse_power_level(power_level, BrewScoringConfig.from_env().power)  # ValueError if out of range; default if absent
+
+    from src.server.domain.draft.brew_power import parse_bracket
+    target_bracket = parse_bracket(bracket)  # ValueError if out of range; default 3 if absent
+    game_plan = str(game_plan or "").strip().lower() or DEFAULT_GAME_PLAN
+    if game_plan not in GAME_PLANS:
+        raise ValueError(f"game_plan must be one of {list(GAME_PLANS)} (got {game_plan!r})")
+    archetype = str(archetype or "").strip()
+    clean_dials = normalize_dials(dials)
 
     if build_mode not in BUILD_MODES:
         raise ValueError(
@@ -195,6 +233,11 @@ def start_brew(
         "build_mode": build_mode,
         "power_level": str(power_level or ""),
         "target_power": target_power,
+        "target_bracket": target_bracket,
+        "game_plan": game_plan,
+        "combo": bool(combo is True or str(combo).strip().lower() in ("1", "true", "yes", "on")),
+        "archetype": archetype or DEFAULT_ARCHETYPE,
+        "dials": clean_dials,
         "composition_template": template,
         "budget": budget,
         "profile_snapshot": snap,
@@ -222,9 +265,20 @@ def get_session(r: Any, session_id: str) -> Optional[dict]:
     if not raw:
         return None
     try:
-        return json.loads(raw)
+        return _with_bp_defaults(json.loads(raw))
     except Exception:
         return None
+
+
+def _with_bp_defaults(s: Any) -> Any:
+    """Sessions saved with only `power_level` load with the Bracket/plan/dial defaults filled in."""
+    if isinstance(s, dict):
+        s.setdefault("target_bracket", 3)
+        s.setdefault("game_plan", DEFAULT_GAME_PLAN)
+        s.setdefault("combo", False)
+        s.setdefault("archetype", DEFAULT_ARCHETYPE)
+        s["dials"] = {**{d: "neither" for d in DIAL_NAMES}, **(s.get("dials") or {})}
+    return s
 
 
 def list_sessions(r: Any, limit: int = 50) -> list[dict]:

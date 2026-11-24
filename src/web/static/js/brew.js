@@ -252,22 +252,39 @@
         });
         $("brewName").addEventListener("input", function () { this.dataset.touched = "1"; });
 
-        /* UI 1-5 -> backend 1-10 power scale (Casual..cEDH-adjacent) */
-        var UI_TO_POWER = { "1": 2, "2": 3.5, "3": 5.5, "4": 8, "5": 10 };
-        function powerToUi(v) {
-            var n = parseFloat(v), best = "3", d = 99;
-            if (isNaN(n)) return best;
-            Object.keys(UI_TO_POWER).forEach(function (k) { var x = Math.abs(UI_TO_POWER[k] - n); if (x < d) { d = x; best = k; } });
-            return best;
-        }
-        /* ---- power description ---- */
+        /* Power 1-10 (soft guide) and Bracket 1-5 (hard rule); defaults 6 and 3 */
+        var DEFAULT_POWER = 6, DEFAULT_BRACKET = 3;
+        var DIALS = ["aggressiveness", "commander_focus", "interactiveness", "political"];
         var powerDescs = {
-            "1": "Casual — janky, fun-first pile.",
-            "2": "Low — precon-ish, light staples.",
-            "3": "Mid — tuned casual, some staples.",
-            "4": "High — optimized, fast mana, efficient engines.",
-            "5": "cEDH-adjacent — the strongest cards you own.",
+            "1": "Barely a deck; theme first.", "2": "First brew; plan ends at casting the commander.",
+            "3": "Clear theme, rough structure.", "4": "Precon baseline; the deck functions.",
+            "5": "Focused casual, cohesive synergy.", "6": "Tuned and consistent; wins around T8-9.",
+            "7": "Casual ceiling; strong tutors, real interaction.", "8": "Optimized high power; wins T5-7.",
+            "9": "cEDH begins; tutors plus combo redundancy.", "10": "Top cEDH meta.",
         };
+        var bracketDescs = {
+            "1": "Exhibition: no Game Changers, no combos.", "2": "Core: no Game Changers, no early combos.",
+            "3": "Upgraded: up to 3 Game Changers.", "4": "Optimized: no Game Changer limit.", "5": "cEDH: no limits.",
+        };
+        function checked(name, dflt) {
+            var el = document.querySelector('input[name="' + name + '"]:checked');
+            return el ? el.value : dflt;
+        }
+        function setRadio(name, value) {
+            var el = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+            if (el) { el.checked = true; return true; }
+            return false;
+        }
+        function dialsPayload() {
+            var out = {};
+            DIALS.forEach(function (d) { out[d] = checked("dial_" + d, "neither"); });
+            return out;
+        }
+        document.querySelectorAll('input[name="bracket"]').forEach(function (radio) {
+            radio.addEventListener("change", function () {
+                if (radio.checked) $("brewBracketDesc").textContent = bracketDescs[radio.value] || "";
+            });
+        });
         document.querySelectorAll('input[name="power"]').forEach(function (radio) {
             radio.addEventListener("change", function () {
                 if (radio.checked) $("brewPowerDesc").textContent = powerDescs[radio.value] || "";
@@ -347,7 +364,12 @@
                 donor_deck_ids: state.donors.slice(),
                 build_mode: buildMode(),
                 name: $("brewName").value.trim(),
-                power_level: UI_TO_POWER[(document.querySelector('input[name="power"]:checked') || {}).value || "3"],
+                power_level: parseInt(checked("power", String(DEFAULT_POWER)), 10),
+                bracket: parseInt(checked("bracket", String(DEFAULT_BRACKET)), 10),
+                game_plan: checked("game_plan", "midrange"),
+                combo: $("brewCombo").checked,
+                archetype: $("brewArchetype").value.trim() || "let the brewer decide",
+                dials: dialsPayload(),
                 idea: $("brewIdea").value.trim(),
                 themes: state.themes.slice(),
                 notes: $("brewNotes").value.trim(),
@@ -462,9 +484,15 @@
             var mode = resume.build_mode || "owned_first";
             var modeEl = document.querySelector('input[name="build_mode"][value="' + mode + '"]');
             if (modeEl) modeEl.checked = true;
-            var p = powerToUi(resume.power_level || 5.5);
-            var pEl = document.querySelector('input[name="power"][value="' + p + '"]');
-            if (pEl) { pEl.checked = true; $("brewPowerDesc").textContent = powerDescs[p] || ""; }
+            /* old sessions only have power_level (1-5 UI scale saved as 1-10 floats): clamp to 1-10 */
+            var p = String(Math.min(10, Math.max(1, Math.round(parseFloat(resume.power_level) || DEFAULT_POWER))));
+            if (setRadio("power", p)) $("brewPowerDesc").textContent = powerDescs[p] || "";
+            var bk = String(resume.target_bracket || DEFAULT_BRACKET);
+            if (setRadio("bracket", bk)) $("brewBracketDesc").textContent = bracketDescs[bk] || "";
+            setRadio("game_plan", resume.game_plan || "midrange");
+            $("brewCombo").checked = !!resume.combo;
+            $("brewArchetype").value = resume.archetype || "let the brewer decide";
+            DIALS.forEach(function (d) { setRadio("dial_" + d, (resume.dials || {})[d] || "neither"); });
             // Commander names: rehydrate as name-only entries; art loads lazily
             // from the search endpoint on the next pick.
             state.commanders = (resume.commanders || []).map(function (n) { return { name: n, color_identity: [] }; });

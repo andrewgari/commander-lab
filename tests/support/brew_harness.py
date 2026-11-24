@@ -267,6 +267,10 @@ def _donor_decks(commanders: Sequence[str], catalog: CardCatalog) -> List[dict]:
     }]
 
 
+# Power no longer gates construction; the harness pins each old power band to the bracket it used to imply.
+_BRACKET_BY_POWER = {"low": 2, "mid": 3, "high": 4}
+
+
 def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bool = True,
              edhrec: EdhrecState = EdhrecState.AVAILABLE, degraded_kind: str = "slow",
              build_mode: str = "owned_first", builder: Any = None,
@@ -298,7 +302,7 @@ def run_brew(commanders: Sequence[str] | str, power: str = "mid", *, sources: bo
         stack.callback(brew_builder.set_builder, orig)
 
         s = brew.start_brew(r, cmds, [d["registry_id"] for d in donors], build_mode,
-                            power_level=power)
+                            power_level=power, bracket=_BRACKET_BY_POWER[power])
         brew.approve_rules(r, s["session_id"], [])
         brew.trigger_build(r, s["session_id"], sync=True)
         session = brew.get_session(r, s["session_id"])

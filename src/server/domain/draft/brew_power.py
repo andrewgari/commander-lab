@@ -1,4 +1,6 @@
-"""Brew power-level targeting: request parsing, card signals, scoring term, estimate.
+"""Brew power-level targeting (soft guide) and the Bracket gate (hard rule).
+
+Power: request parsing, card signals, scoring term, estimate. Bracket: BracketGate.
 
 Signals per card: fast_mana, tutor, combo, game_changer, mana value. All weights,
 pivots and thresholds live in brew_scoring_config.PowerConfig (PLACEHOLDER values
@@ -200,47 +202,92 @@ def estimate_power_level(deck: Any, config: Optional[BrewScoringConfig] = None,
 
 
 # --------------------------------------------------------------------------
-# Hard tier gate
+# Hard bracket gate
 # --------------------------------------------------------------------------
 
-class TierGate:
-    """Hard power-tier limits (brew-power-tiers-v1). The soft power term only biases ranking;
-    with a small pool the top-up step would still pull in every card, so low/mid decks leaked
-    Game Changers and flat estimates. Low: 0 GC, no combo pieces, no fast mana except Sol Ring,
-    <=2 tutors. Mid: <=3 GC. High: unrestricted. Stateful: admitted cards use up the budget
-    (idempotent per name); `count` charges a card that cannot be rejected (a commander)."""
+DEFAULT_BRACKET = 3
+EXTRA_TURN_CAP = {1: 0, 2: 2, 3: 2}  # "a few, never chained" for B2-3 (bracket_check notes at 3+); none at B1
+LOW_BRACKET_MAX_TUTORS = 2           # tutor / fast-mana limits, kept from the old low tier, now bracket-keyed
+LOW_BRACKET_MAX = 2
 
-    def __init__(self, target: Any, cfg: PowerConfig):
-        self.cfg = cfg
-        self.tier = ("high" if target is None or target > cfg.tier_mid_max
-                     else "low" if target <= cfg.tier_low_max else "mid")
-        self.gcs = self.tutors = 0
+
+def parse_bracket(value: Any) -> int:
+    """Requested bracket -> int 1-5. Absent -> 3. ValueError when out of range or unparseable."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return DEFAULT_BRACKET
+    if isinstance(value, bool):
+        raise ValueError("bracket must be a whole number 1-5")
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"bracket must be a whole number 1-5 (got {value!r})") from None
+    if num != num or num != int(num) or not 1 <= num <= 5:
+        raise ValueError(f"bracket must be a whole number 1-5 (got {value!r})")
+    return int(num)
+
+
+class BracketGate:
+    """Hard construction gate keyed on the bracket target (1-5, default 3). Power never feeds it.
+
+    Limits come from analytics.brackets (Game Changer cap, mass land denial, extra turns, two-card
+    combos) with the same card lists check_deck_brackets uses; no duplicate tables. Brackets 1-2
+    also keep the old low-tier tutor / fast-mana limits. Early two-card combos need live Spellbook
+    data, so the offline gate uses the combo-piece signal: refused at Brackets 1-2 (not allowed or
+    only late), left to the post-hoc check at 3+. Stateful: admitted cards use up the budget
+    (idempotent per name); `count` charges a card that cannot be rejected (a commander).
+    """
+
+    def __init__(self, bracket: Any = None):
+        from src.server.domain.analytics import bracket_check, brackets as br
+
+        self.bracket = parse_bracket(bracket)
+        b = br.get_bracket(self.bracket)
+        self.max_gcs = b.max_game_changers
+        self.no_mass_land_denial = b.mass_land_denial == br.NOT_ALLOWED
+        self.max_extra_turns = EXTRA_TURN_CAP.get(self.bracket) if b.extra_turns != br.ALLOWED else None
+        self.no_combos = self.bracket <= LOW_BRACKET_MAX
+        self.restrict_mana = self.bracket <= LOW_BRACKET_MAX
+        lists = bracket_check.card_lists()
+        self._mld = frozenset(lists["mass_land_denial"])
+        self._extra = frozenset(lists["extra_turns"])
+        self._nk = bracket_check.name_key
+        self.gcs = self.tutors = self.extra_turns = 0
         self.seen: set = set()
 
-    def _charge(self, sig: Mapping[str, bool]) -> None:
+    @property
+    def unrestricted(self) -> bool:
+        return self.bracket >= 4
+
+    def _charge(self, sig: Mapping[str, bool], nk: str) -> None:
         self.gcs += bool(sig["game_changer"])
         self.tutors += bool(sig["tutor"])
+        self.extra_turns += nk in self._extra
 
     def count(self, card: Mapping[str, Any]) -> None:
         k = _key(card.get("name"))
         if k not in self.seen:
             self.seen.add(k)
-            self._charge(card_signals(card))
+            self._charge(card_signals(card), self._nk(str(card.get("name") or "")))
 
     def admit(self, card: Mapping[str, Any]) -> bool:
         k = _key(card.get("name"))
-        if k in self.seen or self.tier == "high":
+        if k in self.seen or self.unrestricted:
             return True
+        nk = self._nk(str(card.get("name") or ""))
         sig = card_signals(card)
-        if self.tier == "low":
-            if sig["game_changer"] or sig["combo"]:
-                return False
+        if sig["game_changer"] and self.max_gcs is not None and self.gcs >= self.max_gcs:
+            return False
+        if self.no_mass_land_denial and nk in self._mld:
+            return False
+        if self.max_extra_turns is not None and nk in self._extra and self.extra_turns >= self.max_extra_turns:
+            return False
+        if self.no_combos and sig["combo"]:
+            return False
+        if self.restrict_mana:
             if sig["fast_mana"] and k != "sol ring":
                 return False
-            if sig["tutor"] and self.tutors >= self.cfg.low_max_tutors:
+            if sig["tutor"] and self.tutors >= LOW_BRACKET_MAX_TUTORS:
                 return False
-        elif sig["game_changer"] and self.gcs >= self.cfg.mid_max_game_changers:
-            return False
         self.seen.add(k)
-        self._charge(sig)
+        self._charge(sig, nk)
         return True
