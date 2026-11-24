@@ -133,6 +133,9 @@ class PlayerProfile:
     budget_norms: BudgetNorms = field(default_factory=BudgetNorms)
     review_preferences: ReviewPreferences = field(default_factory=ReviewPreferences)
     done_when: List[str] = field(default_factory=list)
+    # Composition preset id Brew builds to when the form picks none (None = app default).
+    # A plain preference: no provenance entry.
+    default_composition_preset: Optional[str] = None
     provenance: Dict[str, Provenance] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     # Loaded alongside the profile for the verifier; not part of the schema.
@@ -209,7 +212,7 @@ def resolve_profile_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[s
     pt = p.get("power_tendencies") or {}
     bn = p.get("budget_norms") or {}
     rp = p.get("review_preferences") or {}
-    known = set(_VALUE_FIELDS) | {"name", "provenance", "metadata"}
+    known = set(_VALUE_FIELDS) | {"name", "provenance", "metadata", "default_composition_preset"}
     metadata = dict(p.get("metadata") or {})
     for k, v in p.items():
         if k not in known:
@@ -239,6 +242,8 @@ def resolve_profile_defaults(payload: Optional[Dict[str, Any]] = None) -> Dict[s
             "welcome_generic_staples": rp.get("welcome_generic_staples"),
         },
         "done_when": list(p.get("done_when") or []),
+        "default_composition_preset": (str(p["default_composition_preset"]).strip() or None)
+        if p.get("default_composition_preset") else None,
         "provenance": dict(p.get("provenance") or {}),
         "metadata": metadata,
     }
@@ -312,6 +317,7 @@ def parse_profile(payload: Optional[Dict[str, Any]] = None) -> PlayerProfile:
         ),
         review_preferences=ReviewPreferences(**r["review_preferences"]),
         done_when=r["done_when"],
+        default_composition_preset=r["default_composition_preset"],
         provenance={k: Provenance(v["source"], v["at"], list(v.get("evidence") or []))
                     for k, v in r["provenance"].items()},
         metadata=r["metadata"],

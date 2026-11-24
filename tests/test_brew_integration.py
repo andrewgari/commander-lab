@@ -15,7 +15,7 @@ import unittest
 
 from src.server.domain.draft import brew_power
 from src.server.domain.draft import brew_scoring as bs
-from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, SkeletonRange
 from tests.support import deck_assertions as da
 from tests.support.brew_matrix import matrix_catalog
 from src.server.domain.draft.brew_builder import StubBrewBuilder
@@ -24,7 +24,8 @@ from tests.support.brew_harness import run_brew
 COMMANDERS = ("Krenko, Mob Boss", "Meren of Clan Nel Toth", "Kozilek, the Great Distortion")  # all in matrix_catalog()
 POWERS = ("low", "mid", "high")
 CFG = BrewScoringConfig()
-SKEL = CFG.skeleton()
+# Test-owned shape (the app no longer hardcodes one): categories come from the resolved composition template.
+SKEL = {"ramp": SkeletonRange(8, 12), "draw": SkeletonRange(8, 12), "removal": SkeletonRange(5, 9), "wipe": SkeletonRange(1, 4)}
 LIMIT = 40
 
 

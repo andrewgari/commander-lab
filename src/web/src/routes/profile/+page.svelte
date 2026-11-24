@@ -78,6 +78,8 @@
 	const editorKey = $derived(JSON.stringify([data.player?.profile, data.player?.provenance]));
 	const proposalValue = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
 
+	const defaultComposition = $derived(String(data.player?.profile?.default_composition_preset ?? ''));
+
 	const snapshot = $derived(data.latest.snapshot);
 	const metrics = $derived(snapshot?.metrics);
 	const curve = $derived(asCurve(metrics));
@@ -222,6 +224,28 @@
 	</section>
 {/if}
 
+<section class="brew-composition" aria-labelledby="brew-comp-h">
+	<h2 id="brew-comp-h">Brew composition</h2>
+	<p class="hint">
+		The template Brew builds to when its form picks none. Order: Brew form pick, then this default,
+		then the app default (Command Zone: 38 lands / 10 ramp / 12 card advantage / 12 targeted / 6 mass / 22 plan).
+	</p>
+	{#if data.player}
+		<form method="POST" action="?/setDefaultComposition" class="comp-row" use:enhance={() => async ({ update }) => { await update(); await invalidateAll(); }}>
+			<label for="default-composition">Default composition</label>
+			<select id="default-composition" name="preset" value={defaultComposition}>
+				<option value="">App default</option>
+				{#each data.compositionPresets as p (p.id)}
+					<option value={p.id}>{p.name}</option>
+				{/each}
+			</select>
+			<button type="submit">Save</button>
+		</form>
+	{:else}
+		<p class="hint">Create your taste profile below first; the default is stored on it.</p>
+	{/if}
+</section>
+
 <section class="player-profile">
 	<h2>Taste profile</h2>
 	<p class="hint">
@@ -292,6 +316,12 @@
 </section>
 
 <style>
+	.comp-row {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		flex-wrap: wrap;
+	}
 	h1 {
 		font-size: 1.5rem;
 		margin-bottom: 0.5rem;

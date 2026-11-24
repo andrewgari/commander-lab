@@ -77,6 +77,8 @@ def start_brew(
     deck_idea: str = "",
     themes: Any = None,
     notes: str = "",
+    composition: Any = "",
+    profile_composition: Any = None,
 ) -> dict:
     """Start a Brew session: validate inputs, snapshot donors, build pool summary.
 
@@ -84,6 +86,9 @@ def start_brew(
     - donor_deck_ids: explicitly named decks ONLY. No implicit expansion —
       unnamed decks never contribute cards to the pools.
     - build_mode: "owned_first" | "best_build".
+    - composition: the form's template pick (a composition preset id, "profile" or "app");
+      profile_composition: the profile's default preset id. Resolved form > profile > app
+      default and stored on the session as `composition_template` (with its `source`).
 
     Raises ValueError on a missing commander, an unknown build mode, or a
     donor id that does not resolve to a non-retired, non-decommissioned deck.
@@ -149,6 +154,10 @@ def start_brew(
             "updated_at": target.get("updated_at") or target.get("synced_at") or "",
         })
 
+    from src.server.domain.analytics import composition_service
+    template = composition_service.resolve_brew_template(  # ValueError for an unknown form pick
+        r, composition if isinstance(composition, str) else "", profile_composition)
+
     now = _now()
     session_id = f"brew_{uuid.uuid4().hex[:12]}"
     session = {
@@ -164,6 +173,7 @@ def start_brew(
         "build_mode": build_mode,
         "power_level": str(power_level or ""),
         "target_power": target_power,
+        "composition_template": template,
         "deck_idea": (deck_idea or "").strip() if isinstance(deck_idea, str) else str(deck_idea),
         "themes": pref["themes"],
         "notes": pref["notes"],
@@ -437,6 +447,8 @@ def _recompute_draft(r: Any, session: dict, draft: dict) -> None:
     from src.server.domain.draft.brew_builder import apply_power_estimate
     from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
     apply_power_estimate(r, session, draft, BrewScoringConfig.from_env())
+    from src.server.domain.draft.brew_builder import attach_composition
+    attach_composition(r, session, draft)
 
 
 def add_draft_card(r: Any, session_id: str, oracle_id: str, name: str, qty: int = 1) -> dict:
