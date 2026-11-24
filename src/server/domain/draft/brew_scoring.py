@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from statistics import median
 from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Tuple
 
@@ -107,9 +108,43 @@ def card_categories(card: Mapping[str, Any]) -> List[str]:
     return cats
 
 
+@lru_cache(maxsize=8192)
+def _classifier_rows(name: str, type_line: str, oracle_text: str) -> FrozenSet[str]:
+    from src.server.domain.analytics import composition as comp
+    if not (type_line or oracle_text):
+        return frozenset()
+    return frozenset(comp.classify_card(name, {"type_line": type_line, "oracle_text": oracle_text}))
+
+
+def _norm_cat(text: Any) -> str:
+    return str(text or "").lower().replace("_", " ").replace("-", " ")
+
+
+def category_hits(card: Mapping[str, Any], key: str, rng: SkeletonRange) -> bool:
+    """True if the card counts toward one template category (needles on category/tags,
+    composition classifier rows, or type-line words)."""
+    cats = [_norm_cat(c) for c in card_categories(card)]
+    needles = rng.needles or ((_norm_cat(key),) if not (rng.rows or rng.types) else ())
+    if any(n == c or n in c for n in needles for c in cats):
+        return True
+    if rng.rows and _classifier_rows(str(card.get("name") or ""), str(card.get("type_line") or ""),
+                                     str(card.get("oracle_text") or "")) & set(rng.rows):
+        return True
+    if rng.types:
+        front = str(card.get("type_line") or "").lower().split("//")[0]
+        words = set(front.replace("\u2014", " ").replace("-", " ").split())
+        if words & set(rng.types):
+            return True
+    return False
+
+
 def _matching(card: Mapping[str, Any], skeleton: Mapping[str, SkeletonRange]) -> List[str]:
-    cats = card_categories(card)
-    return [k for k in skeleton if any(k == c or k in c for c in cats)]
+    """Categories that steer selection (counted, floored, capped): not derived, not report-only."""
+    return [k for k, rng in skeleton.items() if rng.steer and not rng.derived and category_hits(card, k, rng)]
+
+
+def _reported(card: Mapping[str, Any], skeleton: Mapping[str, SkeletonRange]) -> List[str]:
+    return [k for k, rng in skeleton.items() if not rng.derived and category_hits(card, k, rng)]
 
 
 def count_categories(cards: Iterable[Mapping[str, Any]], skeleton: Optional[Mapping[str, SkeletonRange]] = None) -> Dict[str, int]:
@@ -120,6 +155,28 @@ def count_categories(cards: Iterable[Mapping[str, Any]], skeleton: Optional[Mapp
         for k in set(keys):
             counts[k] = counts.get(k, 0) + 1
     return counts
+
+
+def composition_report(cards: Iterable[Mapping[str, Any]], skeleton: Mapping[str, SkeletonRange]) -> List[Dict[str, Any]]:
+    """Target vs actual per template category over `cards` ({..., quantity}). Categories overlap:
+    a card counts in every category it matches. A derived category (Plan) counts cards matching none.
+    Rows carry no reasons; the caller adds them for every row whose actual != target."""
+    actual: Dict[str, int] = {k: 0 for k in skeleton}
+    for c in cards:
+        q = int(c.get("quantity") or 1)
+        keys = _reported(c, skeleton)
+        for k in keys:
+            actual[k] += q
+        if not keys:
+            for k, rng in skeleton.items():
+                if rng.derived:
+                    actual[k] += q
+    out = []
+    for k, rng in skeleton.items():
+        target = rng.target if rng.target is not None else rng.low
+        out.append({"category": k, "label": rng.label or k, "target": target, "low": rng.low, "high": rng.high,
+                    "actual": actual[k], "delta": actual[k] - target})
+    return out
 
 
 def _need(count: int, rng: SkeletonRange, cfg: BrewScoringConfig) -> float:
@@ -220,9 +277,10 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
                  extra_terms: Optional[Mapping[str, Term]] = None) -> List[Mapping[str, Any]]:
     """Greedy pick of up to `limit` unique cards, rescoring as category counts change.
 
-    Hard guarantees on top of the soft score: a category at its range top is
-    skipped while any alternative remains, and when remaining slots equal the
-    outstanding range-floor deficit only deficit-category cards are taken.
+    Guarantees on top of the soft score: a category at its range top is
+    skipped while any alternative remains, and when the outstanding range-floor
+    deficit can still be met but would need every remaining slot, only
+    deficit-category cards are taken (unreachable floors are left to the score).
     Ties break on name for determinism. `context.deck_counts` is not mutated.
     """
     cfg = config or BrewScoringConfig()
@@ -237,13 +295,14 @@ def select_cards(candidates: Sequence[Mapping[str, Any]], context: ScoreContext,
     while remaining and len(picked) < limit:
         ctx = replace(context, deck_counts=counts, mv_sum=mv_sum, mv_n=mv_n)
         slots = limit - len(picked)
-        deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if counts.get(k, 0) < r.low}
+        deficit = {k: r.low - counts.get(k, 0) for k, r in sk.items() if r.steer and not r.derived and counts.get(k, 0) < r.low}
 
         def capped(c):
             return any(counts.get(k, 0) >= sk[k].high for k in _matching(c, sk))
 
         pool_now = [c for c in remaining if not capped(c)] or remaining
-        if deficit and slots <= sum(deficit.values()):
+        if deficit and slots <= sum(deficit.values()) and _cover_size(deficit, pool_now, sk, slots) <= slots:
+            # Floors are soft: only steer when they can all still be met in the slots left.
             pool_now = _floor_feasible(pool_now, deficit, slots, sk) or pool_now
         if (ctx.source_names or ctx.source_oracle_ids) and cfg.source_bias > 0:
             base_cfg = replace(cfg, source_bias=0.0)

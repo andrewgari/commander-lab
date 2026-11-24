@@ -1057,7 +1057,9 @@ async def start_brew_session(request: Request):
 
     Body: {"commander": "..." | "commanders": [...], "partner": "..." (optional),
            "donor_deck_ids": [...], "build_mode": "owned_first"|"best_build",
-           "name", "power_level", "idea"/"deck_idea", "themes": [...], "notes"}
+           "name", "power_level", "idea"/"deck_idea", "themes": [...], "notes",
+           "composition": <composition preset id> | "profile" | "app"}
+    Composition template: form pick > profile default > app default; stored on the session.
     """
     try:
         data = await request.json()
@@ -1075,6 +1077,13 @@ async def start_brew_session(request: Request):
         if partner not in commanders:
             commanders.append(partner)
 
+    composition = data.get("composition") or ""
+    composition = composition.strip() if isinstance(composition, str) else ""
+    profile_composition = None
+    if composition in ("", "profile", "profile_default"):  # only these fall back to the profile default
+        from src.server.infra.services import player_profile_service as _pps
+        profile_composition = await asyncio.to_thread(_pps.default_composition_preset)
+
     try:
         session = brew.start_brew(
             r,
@@ -1086,6 +1095,8 @@ async def start_brew_session(request: Request):
             deck_idea=data.get("deck_idea", data.get("idea", "")),
             themes=data.get("themes") or [],
             notes=data.get("notes") or "",
+            composition=composition,
+            profile_composition=profile_composition,
         )
     except ValueError as e:
         msg = str(e)

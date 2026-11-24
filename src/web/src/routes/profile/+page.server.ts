@@ -27,6 +27,14 @@ export const load: PageServerLoad = async () => {
 	} catch (e) {
 		playerError = e instanceof Error ? e.message : 'unavailable';
 	}
+	// Composition presets for the Brew default picker; optional, so a failure just empties the list.
+	let compositionPresets: { id: string; name: string }[] = [];
+	try {
+		const res = await apiGet<{ presets?: { id: string; name?: string }[] }>('/api/composition/presets');
+		compositionPresets = (Array.isArray(res?.presets) ? res.presets : []).map((p) => ({ id: p.id, name: p.name ?? p.id }));
+	} catch {
+		compositionPresets = [];
+	}
 	try {
 		const [latest, history, overrides] = await Promise.all([
 			apiGet<ProfileLatestResponse>('/api/v2/profile/latest'),
@@ -53,7 +61,7 @@ export const load: PageServerLoad = async () => {
 					pending_proposals: player.pending_proposals ?? []
 				}
 			: null;
-		return { latest: normLatest, history: normHistory, overrides: normOverrides, player: normPlayer, playerError, error: null as string | null };
+		return { latest: normLatest, history: normHistory, overrides: normOverrides, player: normPlayer, playerError, compositionPresets, error: null as string | null };
 	} catch (e) {
 		return {
 			latest: { available: false, reason: 'unavailable', snapshot: null },
@@ -61,6 +69,7 @@ export const load: PageServerLoad = async () => {
 			overrides: { overrides: {}, known_keys: {} },
 			player,
 			playerError,
+			compositionPresets,
 			error: e instanceof Error ? e.message : 'unavailable'
 		};
 	}
@@ -138,6 +147,18 @@ export const actions: Actions = {
 			}
 			const status = e instanceof ApiError && e.status >= 500 ? e.status : 502;
 			return fail(status, { playerError: e instanceof Error ? e.message : 'save failed' });
+		}
+	},
+	setDefaultComposition: async ({ request }) => {
+		const preset = String((await request.formData()).get('preset') ?? '').trim();
+		try {
+			// PUT replaces the whole stated profile, so start from the saved values and change one field.
+			const current = await apiGet<PlayerProfileResponse>(`/api/v2/profile/player/${PLAYER}`);
+			const values = { ...(current.profile ?? {}), default_composition_preset: preset === '' ? null : preset };
+			await apiPut(`/api/v2/profile/player/${PLAYER}`, { values });
+			return { playerOk: preset === '' ? 'Brew default composition cleared (app default).' : 'Brew default composition saved.' };
+		} catch (e) {
+			return fail(422, { playerError: e instanceof Error ? e.message : 'could not save the default composition' });
 		}
 	},
 	generateProposals: async () => {

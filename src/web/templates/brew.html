@@ -207,6 +207,14 @@
                     <span class="hud-field-hint" id="brewPowerDesc">Mid — tuned casual, some staples.</span>
                 </div>
                 <div class="brew-field brew-field--wide">
+                    <label for="brewComposition">Composition</label>
+                    <select id="brewComposition" aria-describedby="brewCompositionHint">
+                        <option value="profile" selected>Profile default</option>
+                        <option value="app">App default (Command Zone template)</option>
+                    </select>
+                    <span class="hud-field-hint" id="brewCompositionHint">Category counts the brew aims for. Soft: misses are reported with a reason, never blocked. <a href="/composition/presets">Edit presets</a></span>
+                </div>
+                <div class="brew-field brew-field--wide">
                     <label for="brewIdea">Deck idea</label>
                     <input type="text" id="brewIdea" placeholder="What should this deck do? e.g. proliferate superfriends">
                 </div>

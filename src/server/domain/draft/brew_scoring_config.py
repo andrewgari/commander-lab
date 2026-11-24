@@ -3,8 +3,9 @@
 Override at runtime with BREW_SCORING_WEIGHTS, a JSON object whose keys are any
 scalar BrewScoringConfig field (e.g. '{"category_need": 3.0}').
 
-PLACEHOLDERS: the oracle spec task has not published final weights or a
-skeleton in the repo yet. Values marked PLACEHOLDER are provisional defaults
+PLACEHOLDERS: the oracle spec task has not published final weights yet.
+The composition skeleton is NOT configured here: it comes from the resolved
+composition template (form > profile > app default; composition_service). Values marked PLACEHOLDER are provisional defaults
 and should be replaced when the spec lands; nothing else in the code needs to
 change. `power_level` and `source_bias` are intentionally inert (empty/0.0):
 later tasks fill them in through the additive-term hooks in brew_scoring.
@@ -14,24 +15,41 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field, fields
-from typing import Dict, Mapping, Optional
+from typing import Dict, Mapping, Optional, Tuple
 
 
 @dataclass(frozen=True)
 class SkeletonRange:
-    """Target card count for one category: [low, high] inclusive."""
+    """Target card count for one template category: [low, high] inclusive.
+
+    `target` is the template's own number (reported against, never enforced).
+    `needles` are matched against a card's category/tags (default: the key itself),
+    `rows` are composition classifier rows that also count, and `types` are type-line
+    words. Categories are not mutually exclusive: a card counts in every one it matches.
+    `derived` marks a "what's left" category (e.g. Plan): it counts cards in no other category.
+    `steer` False keeps a category in the report but out of card selection.
+    """
 
     low: int
     high: int
+    target: Optional[int] = None
+    needles: Tuple[str, ...] = ()
+    rows: Tuple[str, ...] = ()
+    types: Tuple[str, ...] = ()
+    derived: bool = False
+    label: str = ""
+    steer: bool = True  # False: counted and reported only (e.g. lands, which basics fill), never biases picks
 
 
-# PLACEHOLDER skeleton (typical 99-card Commander shape); replace with the oracle spec.
-DEFAULT_SKELETON: Mapping[str, SkeletonRange] = {
-    "ramp": SkeletonRange(8, 12),
-    "draw": SkeletonRange(8, 12),
-    "removal": SkeletonRange(5, 9),
-    "wipe": SkeletonRange(1, 4),
-}
+def skeleton_from_template(template: Mapping) -> Dict[str, SkeletonRange]:
+    """Resolved composition template (composition_service.resolve_brew_template) -> {key: SkeletonRange}."""
+    out: Dict[str, SkeletonRange] = {}
+    for s in template.get("slots") or []:
+        out[str(s["key"])] = SkeletonRange(
+            int(s["low"]), int(s["high"]), s.get("target"),
+            tuple(s.get("needles") or ()), tuple(s.get("rows") or ()), tuple(s.get("types") or ()),
+            bool(s.get("derived")), str(s.get("label") or ""), bool(s.get("steer", True)))
+    return out
 
 
 # Curated fast-mana names (lowercase front face). Heuristic + tags add to this.
@@ -174,6 +192,3 @@ class BrewScoringConfig:
         if clean.get("synergy_saturation", 1) < 1:
             del clean["synergy_saturation"]
         return cls(**clean)
-
-    def skeleton(self) -> Dict[str, SkeletonRange]:
-        return dict(DEFAULT_SKELETON)

@@ -72,6 +72,17 @@ def load_profile(session: Session, name: str) -> pp.PlayerProfile:
     return profile
 
 
+def default_composition_preset(name: str = DEFAULT_NAME) -> Optional[str]:
+    """The profile's default composition preset id for Brew, or None. Never raises: no database,
+    no profile or no default all mean "use the app default"."""
+    try:
+        from src.server.infra.db.session import session_scope
+        with session_scope() as session:
+            return load_profile(session, name).default_composition_preset
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def seed_profile(session: Session, name: str = DEFAULT_NAME,
                  seed_path: Optional[Path] = None) -> pp.PlayerProfile:
     """Create version 1 from the seed file. No-op if the profile exists

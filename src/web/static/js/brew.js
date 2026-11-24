@@ -324,6 +324,20 @@
             r.addEventListener("change", syncRail);
         });
 
+        /* ---- composition picker: the user's presets after "Profile default" / "App default" ---- */
+        var compSel = $("brewComposition");
+        var resumeComp = (resume && resume.composition_template) || {};
+        fetchJSON("/api/composition/presets").then(function (body) {
+            (body.presets || []).forEach(function (p) {
+                var o = document.createElement("option");
+                o.value = p.id;
+                o.textContent = p.name || p.id;
+                compSel.appendChild(o);
+            });
+            if (resumeComp.source === "form" && resumeComp.preset_id) compSel.value = resumeComp.preset_id;
+            else if (resumeComp.source === "app") compSel.value = "app";
+        }).catch(function () { /* presets are optional: Profile / App default still work */ });
+
         /* ---- generate ---- */
         function generate() {
             var errBox = $("brewError");
@@ -337,6 +351,7 @@
                 idea: $("brewIdea").value.trim(),
                 themes: state.themes.slice(),
                 notes: $("brewNotes").value.trim(),
+                composition: $("brewComposition").value || "profile",
             };
             [$("brewGenerate"), $("brewGenerateMobile")].forEach(function (b) { if (b) b.disabled = true; });
             postJSON("/api/brew/start", payload)

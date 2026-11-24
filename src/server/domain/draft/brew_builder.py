@@ -15,11 +15,11 @@ reconstruct_builder.ReconstructBuilder) via brew_builder.set_builder().
 from __future__ import annotations
 
 import json
-from typing import Any, List
+from typing import Any, List, Optional
 
 import src.server.domain.draft.brew_power as brew_power
 import src.server.domain.draft.brew_scoring as brew_scoring
-from src.server.domain.draft.brew_scoring_config import BrewScoringConfig
+from src.server.domain.draft.brew_scoring_config import BrewScoringConfig, skeleton_from_template
 import src.server.domain.inventory.instances as instance_store
 import src.server.domain.draft.reconstruct as reconstruct
 import src.server.domain.draft.reconstruct_pools as reconstruct_pools
@@ -125,6 +125,64 @@ def _card_record(r: Any, name: str, lab_tags: Any = None) -> dict:
     return out
 
 
+def session_template(session: dict) -> dict:
+    """The composition template this brew builds to: the one stored on the session at start
+    (form > profile > app default), else the app default (sessions that predate templates)."""
+    tpl = session.get("composition_template")
+    if isinstance(tpl, dict) and tpl.get("slots"):
+        return tpl
+    from src.server.domain.analytics import composition_service
+    return composition_service.app_default_template()
+
+
+def _reason(row: dict, available: Optional[int]) -> str:
+    """Short why a category missed its target (composition is soft: this explains, never blocks)."""
+    k, target, actual = row["category"], row["target"], row["actual"]
+    if row.get("derived"):
+        return "Plan is whatever the other categories leave"
+    if actual < target:
+        if available is not None and available < target:
+            return f"Only {available} matching card(s) in the available pools"
+        return "Higher-scored picks, or power/legality limits, left fewer matches than the target"
+    return "Top-scored picks also matched this category (categories overlap)"
+
+
+_BASIC_TYPE = "Basic Land"
+
+
+def attach_composition(r: Any, session: dict, draft: dict, lab_tags: Any = None,
+                       pool_hits: Optional[dict] = None, records: Optional[dict] = None) -> None:
+    """Record the template used and target vs actual per category on `draft`.
+
+    Soft: every row whose actual differs from its target carries a `reason`; nothing is rejected.
+    `pool_hits` = {category: candidate names seen}; without it the counts from a previous report are kept.
+    """
+    tpl = session_template(session)
+    skeleton = skeleton_from_template(tpl)
+    previous = {row["category"]: row.get("available") for row in (draft.get("composition") or {}).get("rows", [])}
+    lab_tags = lab_tags if lab_tags is not None else _load_lab_tags(r)
+    cards = []
+    for c in draft.get("cards") or []:
+        name = c.get("name")
+        rec = dict((records or {}).get(name) or _card_record(r, name, lab_tags))
+        if not rec.get("type_line") and norm_name(name) in _BASIC_NAMES:
+            rec["type_line"] = _BASIC_TYPE
+        cards.append({**rec, "quantity": c.get("quantity", 1)})
+    rows = brew_scoring.composition_report(cards, skeleton)
+    for row in rows:
+        k = row["category"]
+        row["derived"] = skeleton[k].derived
+        avail = len(pool_hits[k]) if pool_hits is not None and k in pool_hits else previous.get(k)
+        if avail is not None:
+            row["available"] = avail
+        row["met"] = row["actual"] == row["target"]
+        if not row["met"]:
+            row["reason"] = _reason(row, avail)
+    draft["composition_template"] = {"source": tpl.get("source"), "preset_id": tpl.get("preset_id"),
+                                     "name": tpl.get("name")}
+    draft["composition"] = {"template": draft["composition_template"], "rows": rows}
+
+
 def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoringConfig,
                          records: Any = None) -> None:
     """Set target_power / estimated_power / metadata.estimated_power on a draft from its
@@ -148,6 +206,7 @@ def apply_power_estimate(r: Any, session: dict, draft: dict, config: BrewScoring
 
 
 _BASIC_FOR_COLOR = {"W": "Plains", "U": "Island", "B": "Swamp", "R": "Mountain", "G": "Forest"}
+_BASIC_NAMES = frozenset(norm_name(n) for n in (*_BASIC_FOR_COLOR.values(), "Wastes"))
 
 
 def _commander_identity(r: Any, commanders: List[str]) -> List[str]:
@@ -196,7 +255,8 @@ class _Scorer:
         self.records: dict = {}
         self.commander = (session.get("commanders") or [""])[0]
         self.themes = tuple(session.get("themes") or [])
-        self.skeleton = config.skeleton()
+        self.skeleton = skeleton_from_template(session_template(session))
+        self.pool_hits: dict = {}  # category -> candidate names seen matching it
         self.lab_tags = _load_lab_tags(r)
         self.edhrec = _cached_edhrec(r, list(session.get("commanders") or []))
         self.gate: Any = None  # TierGate; set by the builder so picks are admission-aware
@@ -212,6 +272,9 @@ class _Scorer:
         if cap <= 0:
             return []
         recs = [_card_record(self.r, n, self.lab_tags) for n in names]
+        for rec in recs:
+            for k in brew_scoring._matching(rec, self.skeleton):
+                self.pool_hits.setdefault(k, set()).add(rec["name"])
         chosen: list = []
         # Admission-aware greedy: only admitted cards consume slots or update scoring state.
         while len(chosen) < cap and recs:
@@ -424,6 +487,7 @@ class StubBrewBuilder(BaseBrewBuilder):
             ),
         }
         apply_power_estimate(r, session, draft, scorer.config, scorer.records)
+        attach_composition(r, session, draft, scorer.lab_tags, scorer.pool_hits, scorer.records)
         return [draft]
 
 
@@ -457,6 +521,7 @@ class BrewBuilder(BaseBrewBuilder):
         cfg = BrewScoringConfig.from_env()
         for d in drafts:
             apply_power_estimate(r, session, d, cfg)
+            attach_composition(r, session, d)
         return drafts
 
 
